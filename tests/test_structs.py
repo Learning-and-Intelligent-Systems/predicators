@@ -8,4 +8,4 @@ def test_test_struct():
     """Test TestStruct.
     """
     struct = structs.TestStruct()
-    assert struct.y == 5
+    assert struct.x == 5
