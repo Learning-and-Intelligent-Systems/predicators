@@ -7,4 +7,4 @@ class TestStruct:
     """
     # TODO: delete
     def __init__(self):
-        self.y = 5
+        self.x = 5
