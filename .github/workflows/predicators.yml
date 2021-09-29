@@ -21,6 +21,9 @@ jobs:
     - name: Pytest
       run: |
         pytest tests/
+    - name: Static type checking
+      run: |
+        mypy .
     - name: Lint
       run: |
         pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
