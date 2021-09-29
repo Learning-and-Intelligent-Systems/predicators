@@ -1,8 +1,8 @@
 # predicators
 
 Requirements for pushing code:
-* This repository uses Python versions 3.7+.
-* In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1`, `pytest-pylint>=0.18.0`, `mypy>=0.910`.
+* This repository uses Python versions 3.8+.
+* In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1` and `pytest-pylint>=0.18.0`. Also, install `mypy` from source: `pip install -U git+git://github.com/python/mypy.git`.
 * You can't push directly to master. Make a PR and merge that in.
 * To merge a PR, you have to pass 3 checks, all defined in `.github/workflows/predicators.yml`.
 * The unit testing check verifies that tests pass and that code is adequately covered. To run locally: `pytest -s tests/ --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered`, which will print out the lines that are uncovered in every file. The "100" here means that all lines in every file must be covered. If that turns out to be too stringent, we can decrease it later.
