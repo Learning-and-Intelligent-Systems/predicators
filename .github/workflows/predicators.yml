@@ -19,6 +19,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pytest-cov
     - name: Pytest
       run: |
         pytest tests/ --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
