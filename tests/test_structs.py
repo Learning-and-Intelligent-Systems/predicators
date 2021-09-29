@@ -3,7 +3,8 @@
 
 from copy import copy, deepcopy
 import pytest
-from predicators.src.structs import Type, Object, Variable, State, Predicate
+from predicators.src.structs import Type, Object, Variable, State, Predicate, \
+    Atom, LiftedAtom, GroundAtom
 
 
 def test_object_type():
@@ -22,7 +23,8 @@ def test_object():
     """
     my_name = "obj"
     my_type = Type("type", ["feat1", "feat2"])
-    obj = Object(my_name, my_type)
+    obj = my_type(my_name)
+    assert isinstance(obj, Object)
     assert obj.name == my_name
     assert obj.type == my_type
     assert str(obj) == repr(obj) == "obj:type"
@@ -35,7 +37,8 @@ def test_variable():
     """
     my_name = "?var"
     my_type = Type("type", ["feat1", "feat2"])
-    var = Variable(my_name, my_type)
+    var = my_type(my_name)
+    assert isinstance(var, Variable)
     assert var.name == my_name
     assert var.type == my_type
     assert str(var) == repr(var) == "?var:type"
@@ -48,12 +51,12 @@ def test_state():
     """
     type1 = Type("type1", ["feat1", "feat2"])
     type2 = Type("type2", ["feat3", "feat4", "feat5"])
-    obj3 = Object("obj3", type1)
-    obj7 = Object("obj7", type1)
-    obj1 = Object("obj1", type2)
-    obj1_dup = Object("obj1", type2)
-    obj4 = Object("obj4", type2)
-    obj9 = Object("obj9", type2)
+    obj3 = type1("obj3")
+    obj7 = type1("obj7")
+    obj1 = type2("obj1")
+    obj1_dup = type2("obj1")
+    obj4 = type2("obj4")
+    obj9 = type2("obj9")
     assert obj7 > obj1
     assert obj1 < obj4
     assert obj1 < obj3
@@ -80,19 +83,20 @@ def test_state():
     assert list(vec) == [1, 2, 5, 6, 7]
 
 
-def test_predicate():
-    """Tests for Predicate class.
+def test_predicate_and_atom():
+    """Tests for Predicate, LiftedAtom, GroundAtom classes.
     """
-    cup_type = Type("cup", ["feat1"])
-    plate_type = Type("plate", ["feat1"])
+    # Predicates
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
     def _classifier(state, objects):
         cup, plate = objects
         return state[cup][0] + state[plate][0] < 2
     pred = Predicate("On", [cup_type, plate_type], _classifier)
-    cup1 = Object("cup1", cup_type)
-    cup2 = Object("cup2", cup_type)
-    cup_var = Variable("?cup", cup_type)
-    plate = Object("plate", plate_type)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var = cup_type("?cup")
+    plate = plate_type("plate")
     state = State({cup1: [0.5], cup2: [1.5], plate: [1.0]})
     with pytest.raises(AssertionError):
         pred.holds(state, [cup1])  # too few arguments
@@ -111,3 +115,28 @@ def test_predicate():
     pred2 = Predicate("On2", [cup_type, plate_type], _classifier)
     assert pred != pred2
     assert pred < pred2
+    plate_var = plate_type("?plate")
+    # Lifted atoms
+    lifted_atom = pred([cup_var, plate_var])
+    lifted_atom2 = pred([cup_var, plate_var])
+    assert lifted_atom.predicate == pred
+    assert lifted_atom.variables == [cup_var, plate_var]
+    assert {lifted_atom, lifted_atom2} == {lifted_atom}
+    assert lifted_atom == lifted_atom2
+    assert isinstance(lifted_atom, LiftedAtom)
+    assert (str(lifted_atom) == repr(lifted_atom) ==
+            "On(?cup:cup_type, ?plate:plate_type)")
+    # Ground atoms
+    ground_atom = pred([cup1, plate])
+    assert ground_atom.predicate == pred
+    assert ground_atom.objects == [cup1, plate]
+    assert {ground_atom} == {ground_atom}
+    assert copy(ground_atom) is ground_atom
+    assert deepcopy(lifted_atom) is lifted_atom
+    assert (str(ground_atom) == repr(ground_atom) ==
+            "On(cup1:cup_type, plate:plate_type)")
+    assert isinstance(ground_atom, GroundAtom)
+    with pytest.raises(ValueError):
+        pred([cup_var, plate])  # mix of variables and objects
+    with pytest.raises(NotImplementedError):
+        Atom(pred, [cup1, plate])  # abstract class
