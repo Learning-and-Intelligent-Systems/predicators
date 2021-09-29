@@ -2,10 +2,11 @@
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Mapping, Iterable, List, Sequence, Callable
+from typing import Mapping, Iterable, List, Sequence, Callable, Collection
 import numpy as np
+from gym.spaces import Box  # type: ignore
 from numpy.typing import ArrayLike
 
 
@@ -125,7 +126,7 @@ class Predicate:
     # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]], bool]
 
-    def __call__(self, entities: Sequence[TypedEntity]) -> Atom:
+    def __call__(self, entities: Sequence[TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
         if all(isinstance(ent, Variable) for ent in entities):
@@ -166,9 +167,9 @@ class Predicate:
 
 
 @dataclass(frozen=True, repr=False, eq=False)
-class Atom:
+class _Atom:
     """Struct defining an atom (a predicate applied to either variables
-    or objects). Should not be used externally.
+    or objects). Should not be instantiated externally.
     """
     predicate: Predicate
     entities: Sequence[TypedEntity]
@@ -195,7 +196,7 @@ class Atom:
 
 
 @dataclass(frozen=True, repr=False, eq=False)
-class LiftedAtom(Atom):
+class LiftedAtom(_Atom):
     """Struct defining a lifted atom (a predicate applied to variables).
     """
     @cached_property
@@ -211,7 +212,7 @@ class LiftedAtom(Atom):
 
 
 @dataclass(frozen=True, repr=False, eq=False)
-class GroundAtom(Atom):
+class GroundAtom(_Atom):
     """Struct defining a ground atom (a predicate applied to objects).
     """
     @cached_property
@@ -224,3 +225,65 @@ class GroundAtom(Atom):
     def _str(self):
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.objects)) + ")")
+
+
+@dataclass(frozen=True, eq=False)
+class Task:
+    """Struct defining a task, which is a pair of initial state and goal.
+    """
+    init: State
+    goal: Collection[GroundAtom]
+
+    def __post_init__(self):
+        # Verify types.
+        assert isinstance(self.init, State)
+        for atom in self.goal:
+            assert isinstance(atom, GroundAtom)
+
+
+@dataclass(frozen=True, eq=False)
+class ParameterizedOption:
+    """Struct defining a parameterized option, which has a parameter space
+    and can be ground into an Option, given parameter values. An option
+    is composed of a policy, an initiation classifier, and a termination
+    condition. We will stick with deterministic termination conditions.
+    For a parameterized option, all of these are conditioned on parameters.
+    """
+    name: str
+    params_space: Box = field(repr=False)
+    # A policy maps a state and parameters to an action.
+    _policy: Callable[[State, ArrayLike], ArrayLike] = field(repr=False)
+    # An initiation classifier maps a state and parameters to a bool,
+    # which is True iff the option can start now.
+    _initiable: Callable[[State, ArrayLike], bool] = field(repr=False)
+    # A termination condition maps a state and parameters to a bool,
+    # which is True iff the option should terminate now.
+    _terminal: Callable[[State, ArrayLike], bool] = field(repr=False)
+
+    def ground(self, params: ArrayLike) -> _Option:
+        """Ground into an Option, given parameter values.
+        On the Option that is returned, one can call, e.g., policy(state).
+        """
+        params = np.array(params, dtype=self.params_space.dtype)
+        assert self.params_space.contains(params)
+        name = self.name + "(" + ", ".join(map(str, params)) + ")"
+        return _Option(name, policy=lambda s: self._policy(s, params),
+                       initiable=lambda s: self._initiable(s, params),
+                       terminal=lambda s: self._terminal(s, params))
+
+
+@dataclass(frozen=True, eq=False)
+class _Option:
+    """Struct defining an option, which is like a parameterized option except
+    that its components are not conditioned on parameters. Should not be
+    instantiated externally.
+    """
+    name: str
+    # A policy maps a state to an action.
+    policy: Callable[[State], ArrayLike] = field(repr=False)
+    # An initiation classifier maps a state to a bool, which is True
+    # iff the option can start now.
+    initiable: Callable[[State], bool] = field(repr=False)
+    # A termination condition maps a state to a bool, which is True
+    # iff the option should terminate now.
+    terminal: Callable[[State], bool] = field(repr=False)
