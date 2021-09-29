@@ -222,11 +222,11 @@ class LiftedAtom(_Atom):
         return list(self.entities)
 
     @cached_property
-    def _str(self):
+    def _str(self) -> str:
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
 
-    def ground(self, sub):
+    def ground(self, sub) -> GroundAtom:
         """Create a GroundAtom with a given substitution.
         """
         assert set(self.variables).issubset(set(sub.keys()))
