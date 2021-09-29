@@ -2,8 +2,10 @@
 """
 
 import pytest
+import numpy as np
+from gym.spaces import Box  # type: ignore
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
-    Atom, LiftedAtom, GroundAtom
+    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option
 
 
 def test_object_type():
@@ -77,6 +79,7 @@ def test_state():
     vec = state.vec([obj3, obj1])
     assert vec.shape == (5,)
     assert list(vec) == [1, 2, 5, 6, 7]
+    return state
 
 
 def test_predicate_and_atom():
@@ -130,6 +133,66 @@ def test_predicate_and_atom():
     assert isinstance(ground_atom, GroundAtom)
     with pytest.raises(ValueError):
         pred([cup_var, plate])  # mix of variables and objects
-    atom = Atom(pred, [cup1, plate])
+    atom = _Atom(pred, [cup1, plate])
     with pytest.raises(NotImplementedError):
         str(atom)  # abstract class
+
+
+def test_task():
+    """Tests for Task class.
+    """
+    state = test_state()
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    cup = cup_type("cup")
+    cup_var = cup_type("?cup")
+    plate = plate_type("plate")
+    plate_var = plate_type("?plate")
+    lifted_goal = {pred([cup_var, plate_var])}
+    with pytest.raises(AssertionError):
+        Task(state, lifted_goal)  # tasks require ground goals
+    goal = {pred([cup, plate])}
+    task = Task(state, goal)
+    assert task.init == state
+    assert task.goal == goal
+
+
+def test_option():
+    """Tests for ParameterizedOption, Option classes.
+    """
+    state = test_state()
+    params_space = Box(-10, 10, (2,))
+    def _policy(s, p):
+        del s  # unused
+        return p*2
+    def _initiable(s, p):
+        obj = list(s)[0]
+        return p[0] < s[obj][0]
+    def _terminal(s, p):
+        obj = list(s)[0]
+        return p[1] > s[obj][2]
+    parameterized_option = ParameterizedOption(
+        "Pick", params_space, _policy, _initiable, _terminal)
+    assert (repr(parameterized_option) == str(parameterized_option) ==
+            "ParameterizedOption(name='Pick')")
+    params = [-15, 5]
+    with pytest.raises(AssertionError):
+        parameterized_option.ground(params)  # params not in params_space
+    assert not hasattr(parameterized_option, "policy")
+    assert not hasattr(parameterized_option, "initiable")
+    assert not hasattr(parameterized_option, "terminal")
+    params = [-5, 5]
+    option = parameterized_option.ground(params)
+    assert isinstance(option, _Option)
+    assert repr(option) == str(option) == "_Option(name='Pick(-5.0, 5.0)')"
+    assert np.all(option.policy(state) == np.array(params)*2)
+    assert option.initiable(state)
+    assert not option.terminal(state)
+    params = [5, -5]
+    option = parameterized_option.ground(params)
+    assert isinstance(option, _Option)
+    assert repr(option) == str(option) == "_Option(name='Pick(5.0, -5.0)')"
+    assert np.all(option.policy(state) == np.array(params)*2)
+    assert not option.initiable(state)
+    assert not option.terminal(state)
