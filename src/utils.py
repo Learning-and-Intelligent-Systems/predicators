@@ -2,8 +2,8 @@
 """
 
 from typing import Sequence, Callable, Tuple
-from predicators.src.structs import _Option, State
 from numpy.typing import ArrayLike
+from predicators.src.structs import _Option, State
 
 
 def option_to_actions(

@@ -30,7 +30,7 @@ class Type:
             return Variable(name, self)
         return Object(name, self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.name, tuple(self.feature_names)))
 
 
@@ -43,17 +43,17 @@ class TypedEntity:
     type: Type
 
     @cached_property
-    def _str(self):
+    def _str(self) -> str:
         return f"{self.name}:{self.type.name}"
 
     @cached_property
-    def _hash(self):
+    def _hash(self) -> int:
         return hash(str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._str
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self._str
 
 
@@ -65,7 +65,7 @@ class Object(TypedEntity):
     def __post_init__(self):
         assert not self.name.startswith("?")
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         # By default, the dataclass generates a new __hash__ method when
         # frozen=True and eq=True, so we need to override it.
         return self._hash
@@ -79,7 +79,7 @@ class Variable(TypedEntity):
     def __post_init__(self):
         assert self.name.startswith("?")
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         # By default, the dataclass generates a new __hash__ method when
         # frozen=True and eq=True, so we need to override it.
         return self._hash
@@ -113,7 +113,7 @@ class State:
             feats.append(self[obj])
         return np.hstack(feats)
 
-    def copy(self):
+    def copy(self) -> State:
         """Return a copy of this state.
         """
         new_data = {}
@@ -153,10 +153,10 @@ class Predicate:
                          "variables and objects")
 
     @cached_property
-    def _hash(self):
+    def _hash(self) -> int:
         return hash(str(self))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
     @cached_property
@@ -175,10 +175,10 @@ class Predicate:
             assert obj.type == pred_type
         return self._classifier(state, objects)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 
@@ -191,23 +191,23 @@ class _Atom:
     entities: Sequence[TypedEntity]
 
     @property
-    def _str(self):
+    def _str(self) -> str:
         raise NotImplementedError("Override me")
 
     @cached_property
-    def _hash(self):
+    def _hash(self) -> int:
         return hash(str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._str
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return str(self) == str(other)
 
 
@@ -217,7 +217,7 @@ class LiftedAtom(_Atom):
     """
     @cached_property
     def variables(self):
-        """Arguments for this lifted atom.
+        """Arguments for this lifted atom. A list of "Variable"s.
         """
         return list(self.entities)
 
@@ -233,12 +233,12 @@ class GroundAtom(_Atom):
     """
     @cached_property
     def objects(self):
-        """Arguments for this ground atom.
+        """Arguments for this ground atom. A list of "Object"s.
         """
         return list(self.entities)
 
     @cached_property
-    def _str(self):
+    def _str(self) -> str:
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.objects)) + ")")
 

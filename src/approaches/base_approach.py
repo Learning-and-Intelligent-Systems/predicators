@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from gym.spaces import Box  # type: ignore
 from predicators.src.structs import State, Task, Predicate, GroundAtom, \
-    ParameterizedOption, GroundAtom
+    ParameterizedOption
 
 
 class BaseApproach:
