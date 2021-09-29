@@ -27,7 +27,7 @@ class Object:
     def __init__(self, name: str, obj_type: ObjectType):
         self.name = name
         self.type = obj_type
-        self._str = "{}:{}".format(self.name, self.type.name)
+        self._str = f"{self.name}:{self.type.name}"
 
     def __str__(self):
         return self._str
