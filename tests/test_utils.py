@@ -33,8 +33,13 @@ def test_option_to_trajectory():
     option = parameterized_option.ground(params)
     with pytest.raises(AssertionError):
         # option is not initiable from start state
-        utils.option_to_trajectory(state, _simulator, option)
+        utils.option_to_trajectory(state, _simulator, option,
+                                   max_num_steps=5)
     params = [0.5]
     option = parameterized_option.ground(params)
-    states, actions = utils.option_to_trajectory(state, _simulator, option)
+    states, actions = utils.option_to_trajectory(
+        state, _simulator, option, max_num_steps=100)
     assert len(actions) == len(states)-1 == 19
+    states, actions = utils.option_to_trajectory(
+        state, _simulator, option, max_num_steps=10)
+    assert len(actions) == len(states)-1 == 10

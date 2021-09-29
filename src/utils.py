@@ -7,8 +7,10 @@ from predicators.src.structs import _Option, State
 
 
 def option_to_trajectory(
-        init: State, simulator: Callable[[State, ArrayLike], State],
-        option: _Option) -> Tuple[Sequence[State], Sequence[ArrayLike]]:
+        init: State,
+        simulator: Callable[[State, ArrayLike], State],
+        option: _Option,
+        max_num_steps: int) -> Tuple[Sequence[State], Sequence[ArrayLike]]:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -17,7 +19,7 @@ def option_to_trajectory(
     assert option.initiable(init)
     state = init
     states = [state]
-    while True:
+    for _ in range(max_num_steps):
         if option.terminal(state):
             break
         act = option.policy(state)

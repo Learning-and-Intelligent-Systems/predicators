@@ -85,7 +85,7 @@ class Variable(TypedEntity):
         return self._hash
 
 
-@dataclass(frozen=True)
+@dataclass
 class State:
     """Struct defining the low-level state of the world.
     """
