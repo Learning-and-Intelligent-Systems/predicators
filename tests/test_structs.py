@@ -1,8 +1,8 @@
 """Test cases for structs.
 """
 
-import pytest
 from copy import copy, deepcopy
+import pytest
 from predicators.src.structs import ObjectType, Object, State
 
 
