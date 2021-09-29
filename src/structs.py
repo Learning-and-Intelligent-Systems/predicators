@@ -74,7 +74,7 @@ class State:
         """Concatenated vector of features for each of the objects in the
         given list.
         """
-        feats: List[Object] = []
+        feats: List[ArrayLike] = []
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
