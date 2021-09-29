@@ -5,7 +5,8 @@ import pytest
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
-    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option
+    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
+    Operator, _GroundOperator
 
 
 def test_object_type():
@@ -137,6 +138,8 @@ def test_predicate_and_atom():
     assert (str(ground_atom) == repr(ground_atom) ==
             "On(cup1:cup_type, plate:plate_type)")
     assert isinstance(ground_atom, GroundAtom)
+    lifted_atom3 = ground_atom.lift({cup1: cup_var, plate: plate_var})
+    assert lifted_atom3 == lifted_atom
     with pytest.raises(ValueError):
         pred([cup_var, plate])  # mix of variables and objects
     atom = _Atom(pred, [cup1, plate])
@@ -202,3 +205,54 @@ def test_option():
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)
+
+
+def test_operators():
+    """Tests for Operator and _GroundOperator.
+    """
+    # Operator
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions = {not_on([cup_var, plate_var])}
+    add_effects = {on([cup_var, plate_var])}
+    delete_effects = {not_on([cup_var, plate_var])}
+    params_space = Box(-10, 10, (2,))
+    parameterized_option = ParameterizedOption("Pick",
+        params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
+    def sampler(s, objs):
+        del s  # unused
+        del objs  # unused
+        return params_space.sample()
+    operator = Operator("PickOperator", parameters, preconditions, add_effects,
+                        delete_effects, parameterized_option, sampler)
+    assert str(operator) == repr(operator) == """PickOperator:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: {NotOn(?cup:cup_type, ?plate:plate_type)}
+    Add Effects: {On(?cup:cup_type, ?plate:plate_type)}
+    Delete Effects: {NotOn(?cup:cup_type, ?plate:plate_type)}
+    Option: ParameterizedOption(name='Pick')"""
+    assert isinstance(hash(operator), int)
+    operator2 = Operator("PickOperator", parameters, preconditions, add_effects,
+                         delete_effects, parameterized_option, sampler)
+    assert operator == operator2
+    # _GroundOperator
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    ground_op = operator.ground([cup, plate])
+    assert isinstance(ground_op, _GroundOperator)
+    assert str(ground_op) == repr(ground_op) == """PickOperator:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: {NotOn(cup:cup_type, plate:plate_type)}
+    Add Effects: {On(cup:cup_type, plate:plate_type)}
+    Delete Effects: {NotOn(cup:cup_type, plate:plate_type)}
+    Option: ParameterizedOption(name='Pick')"""
+    assert isinstance(hash(ground_op), int)
+    ground_op2 = operator2.ground([cup, plate])
+    assert ground_op == ground_op2
+    state = test_state()
+    _ = ground_op.sampler(state)
