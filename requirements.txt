@@ -1,3 +1,2 @@
 numpy
-pytest-pylint
-mypy
+pytest
