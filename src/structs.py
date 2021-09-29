@@ -168,7 +168,7 @@ class Predicate:
 @dataclass(frozen=True, repr=False, eq=False)
 class Atom:
     """Struct defining an atom (a predicate applied to either variables
-    or objects. Should not be used externally.
+    or objects). Should not be used externally.
     """
     predicate: Predicate
     entities: Sequence[TypedEntity]

@@ -130,6 +130,6 @@ def test_predicate_and_atom():
     assert isinstance(ground_atom, GroundAtom)
     with pytest.raises(ValueError):
         pred([cup_var, plate])  # mix of variables and objects
+    atom = Atom(pred, [cup1, plate])
     with pytest.raises(NotImplementedError):
-        atom = Atom(pred, [cup1, plate])  # abstract class
-        str(atom)
+        str(atom)  # abstract class
