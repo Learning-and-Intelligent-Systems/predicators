@@ -37,7 +37,8 @@ class Type:
 @dataclass(frozen=True, order=True, repr=False)
 class _TypedEntity:
     """Struct defining an entity with some type, either an object (e.g.,
-    block3) or a variable (e.g., ?block).
+    block3) or a variable (e.g., ?block). Should not be instantiated
+    externally.
     """
     name: str
     type: Type
@@ -226,7 +227,7 @@ class LiftedAtom(_Atom):
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
 
-    def ground(self, sub) -> GroundAtom:
+    def ground(self, sub: dict[Variable, Object]) -> GroundAtom:
         """Create a GroundAtom with a given substitution.
         """
         assert set(self.variables).issubset(set(sub.keys()))
@@ -247,6 +248,12 @@ class GroundAtom(_Atom):
     def _str(self) -> str:
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.objects)) + ")")
+
+    def lift(self, sub: dict[Object, Variable]) -> LiftedAtom:
+        """Create a LiftedAtom with a given substitution.
+        """
+        assert set(self.objects).issubset(set(sub.keys()))
+        return LiftedAtom(self.predicate, [sub[o] for o in self.objects])
 
 
 @dataclass(frozen=True, eq=False)
@@ -321,7 +328,7 @@ class Operator:
     add_effects: Collection[LiftedAtom]
     delete_effects: Collection[LiftedAtom]
     option: ParameterizedOption
-    # A sampler maps a state and objects to a option parameters.
+    # A sampler maps a state and objects to option parameters.
     _sampler: Callable[[State, Sequence[Object]], ArrayLike] = field(repr=False)
 
     @cached_property
