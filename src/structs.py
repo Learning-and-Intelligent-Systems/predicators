@@ -4,7 +4,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Mapping, Iterable, List, Sequence, Callable, Collection
+from typing import Mapping, Iterator, List, Sequence, Callable, Collection
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from numpy.typing import ArrayLike
@@ -96,8 +96,8 @@ class State:
         for obj in self:
             assert len(self[obj]) == obj.type.dim
 
-    def __iter__(self) -> Iterable[Object]:
-        """Iterate over objects in sorted order.
+    def __iter__(self) -> Iterator[Object]:
+        """An iterator over the state's objects, in sorted order.
         """
         return iter(sorted(self.data))
 
@@ -112,6 +112,22 @@ class State:
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
+
+    def copy(self):
+        """Return a copy of this state.
+        """
+        new_data = {}
+        for obj in self:
+            new_data[obj] = self._copy_state_value(self.data[obj])
+        return State(new_data)
+
+    def _copy_state_value(self, val):
+        if val is None or isinstance(val, (float, bool, int, str)):
+            return val
+        if isinstance(val, (list, tuple, set)):
+            return type(val)(self._copy_state_value(v) for v in val)
+        assert hasattr(val, "copy")
+        return val.copy()
 
 
 @dataclass(frozen=True, order=True, repr=False)
@@ -201,7 +217,7 @@ class LiftedAtom(_Atom):
     """
     @cached_property
     def variables(self):
-        """Arguments for this lifted atom
+        """Arguments for this lifted atom.
         """
         return list(self.entities)
 
@@ -217,7 +233,7 @@ class GroundAtom(_Atom):
     """
     @cached_property
     def objects(self):
-        """Arguments for this ground atom
+        """Arguments for this ground atom.
         """
         return list(self.entities)
 
