@@ -7,3 +7,4 @@ __pycache__
 *.python-version
 build
 dist
+pylint_recursive.py
