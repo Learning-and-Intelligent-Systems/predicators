@@ -226,6 +226,12 @@ class LiftedAtom(_Atom):
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
 
+    def ground(self, sub):
+        """Create a GroundAtom with a given substitution.
+        """
+        assert set(self.variables).issubset(set(sub.keys()))
+        return GroundAtom(self.predicate, [sub[v] for v in self.variables])
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class GroundAtom(_Atom):
@@ -314,40 +320,47 @@ class Operator:
     preconditions: Collection[LiftedAtom]
     add_effects: Collection[LiftedAtom]
     delete_effects: Collection[LiftedAtom]
-    parameterized_option: ParameterizedOption
+    option: ParameterizedOption
     # A sampler maps a state and objects to a option parameters.
     _sampler: Callable[[State, Sequence[Object]], ArrayLike] = field(repr=False)
 
     @cached_property
-    def _str(self):
+    def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.parameters}
     Preconditions: {self.preconditions}
     Add Effects: {self.add_effects}
     Delete Effects: {self.delete_effects}
-    Parameterized Option: {self.parameterized_option}"""
+    Option: {self.option}"""
 
     @cached_property
-    def _hash(self):
+    def _hash(self) -> int:
         return hash(str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._str
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return str(self) == str(other)
 
     def ground(self, objects: Sequence[Object]) -> _GroundOperator:
-        """Ground into an Option, given parameter values.
-        On the Option that is returned, one can call, e.g., policy(state).
+        """Ground into a _GroundOperator, given objects.
         """
-        import ipdb; ipdb.set_trace()
+        assert len(objects) == len(self.parameters)
+        assert all(o.type == p.type for o, p in zip(objects, self.parameters))
+        sub = dict(zip(self.parameters, objects))
+        preconditions = {atom.ground(sub) for atom in self.preconditions}
+        add_effects = {atom.ground(sub) for atom in self.add_effects}
+        delete_effects = {atom.ground(sub) for atom in self.delete_effects}
+        sampler = lambda s: self._sampler(s, objects)
+        return _GroundOperator(self, objects, preconditions, add_effects,
+                               delete_effects, self.option, sampler)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -358,11 +371,11 @@ class _GroundOperator:
     preconditions: Collection[GroundAtom]
     add_effects: Collection[GroundAtom]
     delete_effects: Collection[GroundAtom]
-    option: _Option
+    option: ParameterizedOption
     sampler: Callable[[State], ArrayLike] = field(repr=False)
 
     @cached_property
-    def _str(self):
+    def _str(self) -> str:
         return f"""{self.operator.name}:
     Parameters: {self.objects}
     Preconditions: {self.preconditions}
@@ -371,17 +384,17 @@ class _GroundOperator:
     Option: {self.option}"""
 
     @cached_property
-    def _hash(self):
+    def _hash(self) -> int:
         return hash(str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._str
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return str(self) == str(other)
