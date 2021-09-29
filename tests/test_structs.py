@@ -1,7 +1,6 @@
 """Test cases for structs.
 """
 
-from copy import copy, deepcopy
 import pytest
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     Atom, LiftedAtom, GroundAtom
@@ -16,6 +15,7 @@ def test_object_type():
     assert my_type.name == name
     assert my_type.dim == len(my_type.feature_names) == len(feats)
     assert my_type.feature_names == feats
+    assert isinstance(hash(my_type), int)
 
 
 def test_object():
@@ -28,6 +28,7 @@ def test_object():
     assert obj.name == my_name
     assert obj.type == my_type
     assert str(obj) == repr(obj) == "obj:type"
+    assert isinstance(hash(obj), int)
     with pytest.raises(AssertionError):
         Object("?obj", my_type)  # name cannot start with ?
 
@@ -42,6 +43,7 @@ def test_variable():
     assert var.name == my_name
     assert var.type == my_type
     assert str(var) == repr(var) == "?var:type"
+    assert isinstance(hash(var), int)
     with pytest.raises(AssertionError):
         Variable("var", my_type)  # name must start with ?
 
@@ -62,12 +64,6 @@ def test_state():
     assert obj1 < obj3
     assert obj1 != obj9
     assert obj1 == obj1_dup
-    assert copy(obj1) is obj1
-    assert copy(obj1) is not obj1_dup
-    assert copy(obj1) == obj1_dup
-    assert deepcopy(obj1) is obj1
-    assert deepcopy(obj1) is not obj1_dup
-    assert deepcopy(obj1) == obj1_dup
     with pytest.raises(AssertionError):
         State({obj3: [1, 2, 3]})  # bad feature vector dimension
     state = State({obj3: [1, 2],
@@ -110,8 +106,6 @@ def test_predicate_and_atom():
     assert not pred.holds(state, [cup2, plate])
     assert str(pred) == repr(pred) == "On"
     assert {pred, pred} == {pred}
-    assert copy(pred) is pred
-    assert deepcopy(pred) is pred
     pred2 = Predicate("On2", [cup_type, plate_type], _classifier)
     assert pred != pred2
     assert pred < pred2
@@ -131,12 +125,11 @@ def test_predicate_and_atom():
     assert ground_atom.predicate == pred
     assert ground_atom.objects == [cup1, plate]
     assert {ground_atom} == {ground_atom}
-    assert copy(ground_atom) is ground_atom
-    assert deepcopy(lifted_atom) is lifted_atom
     assert (str(ground_atom) == repr(ground_atom) ==
             "On(cup1:cup_type, plate:plate_type)")
     assert isinstance(ground_atom, GroundAtom)
     with pytest.raises(ValueError):
         pred([cup_var, plate])  # mix of variables and objects
     with pytest.raises(NotImplementedError):
-        Atom(pred, [cup1, plate])  # abstract class
+        atom = Atom(pred, [cup1, plate])  # abstract class
+        str(atom)
