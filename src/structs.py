@@ -2,14 +2,14 @@
 """
 
 from __future__ import annotations
-import abc
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Mapping, Iterable, List, Sequence, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 
 
-@dataclass
+@dataclass(frozen=True, order=True)
 class Type:
     """Struct defining a type.
     """
@@ -29,58 +29,62 @@ class Type:
             return Variable(name, self)
         return Object(name, self)
 
+    def __hash__(self):
+        return hash((self.name, tuple(self.feature_names)))
 
+
+@dataclass(frozen=True, order=True, repr=False)
 class TypedEntity:
     """Struct defining an entity with some type, either an object (e.g.,
     block3) or a variable (e.g., ?block).
     """
-    def __init__(self, name: str, ent_type: Type):
-        self.name = name
-        self.type = ent_type
-        self._str = f"{self.name}:{self.type.name}"
-        self._hash = hash(str(self))
+    name: str
+    type: Type
+
+    @cached_property
+    def _str(self):
+        return f"{self.name}:{self.type.name}"
+
+    @cached_property
+    def _hash(self):
+        return hash(str(self))
 
     def __str__(self):
         return self._str
 
     def __repr__(self):
-        return str(self)
-
-    def __hash__(self):
-        return self._hash
-
-    def __eq__(self, other):
-        return str(self) == str(other)
-
-    def __lt__(self, other):
-        return str(self) < str(other)
-
-    def __copy__(self):
-        return self
-
-    def __deepcopy__(self, memo):
-        return self
+        return self._str
 
 
+@dataclass(frozen=True, order=True, repr=False)
 class Object(TypedEntity):
     """Struct defining an Object, which is just a TypedEntity whose name
     does not start with "?".
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __post_init__(self):
         assert not self.name.startswith("?")
 
+    def __hash__(self):
+        # By default, the dataclass generates a new __hash__ method when
+        # frozen=True and eq=True, so we need to override it.
+        return self._hash
 
+
+@dataclass(frozen=True, order=True, repr=False)
 class Variable(TypedEntity):
     """Struct defining a Variable, which is just a TypedEntity whose name
     starts with "?".
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __post_init__(self):
         assert self.name.startswith("?")
 
+    def __hash__(self):
+        # By default, the dataclass generates a new __hash__ method when
+        # frozen=True and eq=True, so we need to override it.
+        return self._hash
 
-@dataclass
+
+@dataclass(frozen=True)
 class State:
     """Struct defining the low-level state of the world.
     """
@@ -109,18 +113,17 @@ class State:
         return np.hstack(feats)
 
 
+@dataclass(frozen=True, order=True, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states).
     """
-    def __init__(self, name: str, types: Sequence[Type],
-                 classifier: Callable[[State, Sequence[Object]], bool]):
-        self.name = name
-        self.types = types
-        # The classifier takes in a complete state and a sequence of objects
-        # representing the arguments. These objects should be the only ones
-        # treated "specially" by the classifier.
-        self._classifier = classifier
-        self._hash = hash(str(self))
+    name: str
+    types: Sequence[Type]
+
+    # The classifier takes in a complete state and a sequence of objects
+    # representing the arguments. These objects should be the only ones
+    # treated "specially" by the classifier.
+    _classifier: Callable[[State, Sequence[Object]], bool]
 
     def __call__(self, entities: Sequence[TypedEntity]) -> Atom:
         """Convenience method for generating Atoms.
@@ -132,7 +135,14 @@ class Predicate:
         raise ValueError("Cannot instantiate Atom with mix of "
                          "variables and objects")
 
-    @property
+    @cached_property
+    def _hash(self):
+        return hash(str(self))
+
+    def __hash__(self):
+        return self._hash
+
+    @cached_property
     def arity(self) -> int:
         """The arity of this predicate (number of arguments).
         """
@@ -154,36 +164,22 @@ class Predicate:
     def __repr__(self):
         return str(self)
 
-    def __hash__(self):
-        return self._hash
 
-    def __eq__(self, other):
-        return str(self) == str(other)
-
-    def __lt__(self, other):
-        return str(self) < str(other)
-
-    def __copy__(self):
-        return self
-
-    def __deepcopy__(self, memo):
-        return self
-
-
+@dataclass(frozen=True, repr=False, eq=False)
 class Atom:
     """Struct defining an atom (a predicate applied to either variables
     or objects. Should not be used externally.
     """
-    def __init__(self, predicate: Predicate, entities: Sequence[TypedEntity]):
-        self.predicate = predicate
-        self._str = ""
-        self._hash = 0
-        self._setup(entities)
-        assert self._str and self._hash
+    predicate: Predicate
+    entities: Sequence[TypedEntity]
 
-    @abc.abstractmethod
-    def _setup(self, entities):
-        raise NotImplementedError("Override me!")
+    @property
+    def _str(self):
+        raise NotImplementedError("Override me")
+
+    @cached_property
+    def _hash(self):
+        return hash(str(self))
 
     def __str__(self):
         return self._str
@@ -197,32 +193,34 @@ class Atom:
     def __eq__(self, other):
         return str(self) == str(other)
 
-    def __copy__(self):
-        return self
 
-    def __deepcopy__(self, memo):
-        return self
-
-
+@dataclass(frozen=True, repr=False, eq=False)
 class LiftedAtom(Atom):
     """Struct defining a lifted atom (a predicate applied to variables).
     """
-    def _setup(self, entities: Sequence[Variable]):
-        self.variables = list(entities)
-        for var in self.variables:
-            assert isinstance(var, Variable)
-        self._str = (str(self.predicate) + "(" +
-                     ", ".join(map(str, self.variables)) + ")")
-        self._hash = hash(str(self))
+    @cached_property
+    def variables(self):
+        """Arguments for this lifted atom
+        """
+        return list(self.entities)
+
+    @cached_property
+    def _str(self):
+        return (str(self.predicate) + "(" +
+                ", ".join(map(str, self.variables)) + ")")
 
 
+@dataclass(frozen=True, repr=False, eq=False)
 class GroundAtom(Atom):
     """Struct defining a ground atom (a predicate applied to objects).
     """
-    def _setup(self, entities: Sequence[Object]):
-        self.objects = list(entities)
-        for obj in self.objects:
-            assert isinstance(obj, Object)
-        self._str = (str(self.predicate) + "(" +
-                     ", ".join(map(str, self.objects)) + ")")
-        self._hash = hash(str(self))
+    @cached_property
+    def objects(self):
+        """Arguments for this ground atom
+        """
+        return list(self.entities)
+
+    @cached_property
+    def _str(self):
+        return (str(self.predicate) + "(" +
+                ", ".join(map(str, self.objects)) + ")")
