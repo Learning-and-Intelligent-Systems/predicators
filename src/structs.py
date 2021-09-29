@@ -1,8 +1,10 @@
 """Structs used throughout the codebase.
 """
 
+from __future__ import annotations
+import abc
 from dataclasses import dataclass
-from typing import Collection, Mapping, Iterable, List, Sequence, Callable
+from typing import Mapping, Iterable, List, Sequence, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -12,13 +14,20 @@ class Type:
     """Struct defining a type.
     """
     name: str
-    feature_names: Collection[str]
+    feature_names: Sequence[str]
 
     @property
     def dim(self) -> int:
         """Dimensionality of the feature vector of this object type.
         """
         return len(self.feature_names)
+
+    def __call__(self, name) -> TypedEntity:
+        """Convenience method for generating TypedEntities.
+        """
+        if name.startswith("?"):
+            return Variable(name, self)
+        return Object(name, self)
 
 
 class TypedEntity:
@@ -29,6 +38,7 @@ class TypedEntity:
         self.name = name
         self.type = ent_type
         self._str = f"{self.name}:{self.type.name}"
+        self._hash = hash(str(self))
 
     def __str__(self):
         return self._str
@@ -37,7 +47,7 @@ class TypedEntity:
         return str(self)
 
     def __hash__(self):
-        return hash(str(self))
+        return self._hash
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -89,9 +99,9 @@ class State:
     def __getitem__(self, key: Object) -> ArrayLike:
         return self.data[key]
 
-    def vec(self, objects: Collection[Object]) -> ArrayLike:
+    def vec(self, objects: Sequence[Object]) -> ArrayLike:
         """Concatenated vector of features for each of the objects in the
-        given list.
+        given ordered list.
         """
         feats: List[ArrayLike] = []
         for obj in objects:
@@ -99,16 +109,28 @@ class State:
         return np.hstack(feats)
 
 
-@dataclass
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states).
     """
-    name: str
-    types: Collection[Type]
-    # The classifier takes in a complete state and a sequence of objects
-    # representing the arguments. These objects should be the only ones
-    # treated "specially" by the classifier.
-    _classifier: Callable[[State, Sequence[Object]], bool]
+    def __init__(self, name: str, types: Sequence[Type],
+                 classifier: Callable[[State, Sequence[Object]], bool]):
+        self.name = name
+        self.types = types
+        # The classifier takes in a complete state and a sequence of objects
+        # representing the arguments. These objects should be the only ones
+        # treated "specially" by the classifier.
+        self._classifier = classifier
+        self._hash = hash(str(self))
+
+    def __call__(self, entities: Sequence[TypedEntity]) -> Atom:
+        """Convenience method for generating Atoms.
+        """
+        if all(isinstance(ent, Variable) for ent in entities):
+            return LiftedAtom(self, entities)
+        if all(isinstance(ent, Object) for ent in entities):
+            return GroundAtom(self, entities)
+        raise ValueError("Cannot instantiate Atom with mix of "
+                         "variables and objects")
 
     @property
     def arity(self) -> int:
@@ -133,7 +155,7 @@ class Predicate:
         return str(self)
 
     def __hash__(self):
-        return hash(str(self))
+        return self._hash
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -146,3 +168,61 @@ class Predicate:
 
     def __deepcopy__(self, memo):
         return self
+
+
+class Atom:
+    """Struct defining an atom (a predicate applied to either variables
+    or objects. Should not be used externally.
+    """
+    def __init__(self, predicate: Predicate, entities: Sequence[TypedEntity]):
+        self.predicate = predicate
+        self._str = ""
+        self._hash = 0
+        self._setup(entities)
+        assert self._str and self._hash
+
+    @abc.abstractmethod
+    def _setup(self, entities):
+        raise NotImplementedError("Override me!")
+
+    def __str__(self):
+        return self._str
+
+    def __repr__(self):
+        return str(self)
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __copy__(self):
+        return self
+
+    def __deepcopy__(self, memo):
+        return self
+
+
+class LiftedAtom(Atom):
+    """Struct defining a lifted atom (a predicate applied to variables).
+    """
+    def _setup(self, entities: Sequence[Variable]):
+        self.variables = list(entities)
+        for var in self.variables:
+            assert isinstance(var, Variable)
+        self._str = (str(self.predicate) + "(" +
+                     ", ".join(map(str, self.variables)) + ")")
+        self._hash = hash(str(self))
+
+
+class GroundAtom(Atom):
+    """Struct defining a ground atom (a predicate applied to objects).
+    """
+    def _setup(self, entities: Sequence[Object]):
+        self.objects = list(entities)
+        for obj in self.objects:
+            assert isinstance(obj, Object)
+        self._str = (str(self.predicate) + "(" +
+                     ", ".join(map(str, self.objects)) + ")")
+        self._hash = hash(str(self))
