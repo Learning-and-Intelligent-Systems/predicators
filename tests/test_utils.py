@@ -7,8 +7,8 @@ from predicators.src.structs import State, Type, ParameterizedOption
 from predicators.src import utils
 
 
-def test_option_to_actions():
-    """Tests for option_to_actions().
+def test_option_to_trajectory():
+    """Tests for option_to_trajectory().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
@@ -33,8 +33,8 @@ def test_option_to_actions():
     option = parameterized_option.ground(params)
     with pytest.raises(AssertionError):
         # option is not initiable from start state
-        utils.option_to_actions(state, _simulator, option)
+        utils.option_to_trajectory(state, _simulator, option)
     params = [0.5]
     option = parameterized_option.ground(params)
-    states, actions = utils.option_to_actions(state, _simulator, option)
+    states, actions = utils.option_to_trajectory(state, _simulator, option)
     assert len(actions) == len(states)-1 == 19
