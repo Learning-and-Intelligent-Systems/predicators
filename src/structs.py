@@ -122,7 +122,7 @@ class Predicate:
         self._classifier = classifier
         self._hash = hash(str(self))
 
-    def __call__(self, entities: Sequence[TypedEntity]) -> _Atom:
+    def __call__(self, entities: Sequence[TypedEntity]) -> Atom:
         """Convenience method for generating Atoms.
         """
         if all(isinstance(ent, Variable) for ent in entities):

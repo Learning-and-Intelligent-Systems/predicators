@@ -4,7 +4,7 @@
 from copy import copy, deepcopy
 import pytest
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
-    Atom
+    Atom, LiftedAtom, GroundAtom
 
 
 def test_object_type():
@@ -123,6 +123,7 @@ def test_predicate_and_atom():
     assert lifted_atom.variables == [cup_var, plate_var]
     assert {lifted_atom, lifted_atom2} == {lifted_atom}
     assert lifted_atom == lifted_atom2
+    assert isinstance(lifted_atom, LiftedAtom)
     assert (str(lifted_atom) == repr(lifted_atom) ==
             "On(?cup:cup_type, ?plate:plate_type)")
     # Ground atoms
@@ -134,6 +135,7 @@ def test_predicate_and_atom():
     assert deepcopy(lifted_atom) is lifted_atom
     assert (str(ground_atom) == repr(ground_atom) ==
             "On(cup1:cup_type, plate:plate_type)")
+    assert isinstance(ground_atom, GroundAtom)
     with pytest.raises(ValueError):
         pred([cup_var, plate])  # mix of variables and objects
     with pytest.raises(NotImplementedError):
