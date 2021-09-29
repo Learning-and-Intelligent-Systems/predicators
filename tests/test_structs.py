@@ -5,7 +5,8 @@ import pytest
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
-    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option
+    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
+    Operator, _GroundOperator
 
 
 def test_object_type():
@@ -196,3 +197,39 @@ def test_option():
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)
+
+
+def test_operators():
+    """Tests for Operators and _GroundOperators.
+    """
+    # Operator
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions = {not_on([cup_var, plate_var])}
+    add_effects = {on([cup_var, plate_var])}
+    delete_effects = {not_on([cup_var, plate_var])}
+    params_space = Box(-10, 10, (2,))
+    parameterized_option = ParameterizedOption("Pick",
+        params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
+    def sampler(s, objs):
+        del s  # unused
+        del objs  # unused
+        return params_space.sample()
+    operator = Operator("PickOperator", parameters, preconditions, add_effects,
+                        delete_effects, parameterized_option, sampler)
+    assert str(operator) == """PickOperator:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: {NotOn(?cup:cup_type, ?plate:plate_type)}
+    Add Effects: {On(?cup:cup_type, ?plate:plate_type)}
+    Delete Effects: {NotOn(?cup:cup_type, ?plate:plate_type)}
+    Parameterized Option: ParameterizedOption(name='Pick')"""
+    import ipdb; ipdb.set_trace()
+
+    # _GroundOperator
+
+

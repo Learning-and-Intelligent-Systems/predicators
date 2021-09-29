@@ -23,8 +23,8 @@ class Type:
         """
         return len(self.feature_names)
 
-    def __call__(self, name) -> TypedEntity:
-        """Convenience method for generating TypedEntities.
+    def __call__(self, name) -> _TypedEntity:
+        """Convenience method for generating _TypedEntities.
         """
         if name.startswith("?"):
             return Variable(name, self)
@@ -35,7 +35,7 @@ class Type:
 
 
 @dataclass(frozen=True, order=True, repr=False)
-class TypedEntity:
+class _TypedEntity:
     """Struct defining an entity with some type, either an object (e.g.,
     block3) or a variable (e.g., ?block).
     """
@@ -58,8 +58,8 @@ class TypedEntity:
 
 
 @dataclass(frozen=True, order=True, repr=False)
-class Object(TypedEntity):
-    """Struct defining an Object, which is just a TypedEntity whose name
+class Object(_TypedEntity):
+    """Struct defining an Object, which is just a _TypedEntity whose name
     does not start with "?".
     """
     def __post_init__(self):
@@ -72,8 +72,8 @@ class Object(TypedEntity):
 
 
 @dataclass(frozen=True, order=True, repr=False)
-class Variable(TypedEntity):
-    """Struct defining a Variable, which is just a TypedEntity whose name
+class Variable(_TypedEntity):
+    """Struct defining a Variable, which is just a _TypedEntity whose name
     starts with "?".
     """
     def __post_init__(self):
@@ -126,7 +126,7 @@ class Predicate:
     # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]], bool]
 
-    def __call__(self, entities: Sequence[TypedEntity]) -> _Atom:
+    def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
         if all(isinstance(ent, Variable) for ent in entities):
@@ -172,7 +172,7 @@ class _Atom:
     or objects). Should not be instantiated externally.
     """
     predicate: Predicate
-    entities: Sequence[TypedEntity]
+    entities: Sequence[_TypedEntity]
 
     @property
     def _str(self):
@@ -287,3 +287,85 @@ class _Option:
     # A termination condition maps a state to a bool, which is True
     # iff the option should terminate now.
     terminal: Callable[[State], bool] = field(repr=False)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class Operator:
+    """Struct defining an operator (as in STRIPS). Lifted!
+    """
+    name: str
+    parameters: Sequence[Variable]
+    preconditions: Collection[LiftedAtom]
+    add_effects: Collection[LiftedAtom]
+    delete_effects: Collection[LiftedAtom]
+    parameterized_option: ParameterizedOption
+    # A sampler maps a state and objects to a option parameters.
+    _sampler: Callable[[State, Sequence[Object]], ArrayLike] = field(repr=False)
+
+    @cached_property
+    def _str(self):
+        return f"""{self.name}:
+    Parameters: {self.parameters}
+    Preconditions: {self.preconditions}
+    Add Effects: {self.add_effects}
+    Delete Effects: {self.delete_effects}
+    Parameterized Option: {self.parameterized_option}"""
+
+    @cached_property
+    def _hash(self):
+        return hash(str(self))
+
+    def __str__(self):
+        return self._str
+
+    def __repr__(self):
+        return str(self)
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def ground(self, objects: Sequence[Object]) -> _GroundOperator:
+        """Ground into an Option, given parameter values.
+        On the Option that is returned, one can call, e.g., policy(state).
+        """
+        import ipdb; ipdb.set_trace()
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class _GroundOperator:
+    """A ground operator is an operator + objects."""
+    operator: Operator
+    objects: Sequence[Object]
+    preconditions: Collection[GroundAtom]
+    add_effects: Collection[GroundAtom]
+    delete_effects: Collection[GroundAtom]
+    option: _Option
+    sampler: Callable[[State], ArrayLike] = field(repr=False)
+
+    @cached_property
+    def _str(self):
+        return f"""{self.operator.name}:
+    Parameters: {self.objects}
+    Preconditions: {self.preconditions}
+    Add Effects: {self.add_effects}
+    Delete Effects: {self.delete_effects}
+    Option: {self.option}"""
+
+    @cached_property
+    def _hash(self):
+        return hash(str(self))
+
+    def __str__(self):
+        return self._str
+
+    def __repr__(self):
+        return str(self)
+
+    def __hash__(self):
+        return self._hash
+
+    def __eq__(self, other):
+        return str(self) == str(other)
