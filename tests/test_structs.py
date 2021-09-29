@@ -138,6 +138,8 @@ def test_predicate_and_atom():
     assert (str(ground_atom) == repr(ground_atom) ==
             "On(cup1:cup_type, plate:plate_type)")
     assert isinstance(ground_atom, GroundAtom)
+    lifted_atom3 = ground_atom.lift({cup1: cup_var, plate: plate_var})
+    assert lifted_atom3 == lifted_atom
     with pytest.raises(ValueError):
         pred([cup_var, plate])  # mix of variables and objects
     atom = _Atom(pred, [cup1, plate])
@@ -206,7 +208,7 @@ def test_option():
 
 
 def test_operators():
-    """Tests for Operators and _GroundOperators.
+    """Tests for Operator and _GroundOperator.
     """
     # Operator
     cup_type = Type("cup_type", ["feat1"])
