@@ -2,8 +2,8 @@
 """
 
 import pytest
-from predicators.src.structs import ObjectType, Object, State
 from copy import copy, deepcopy
+from predicators.src.structs import ObjectType, Object, State
 
 
 def test_object_type():
