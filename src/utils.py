@@ -88,8 +88,9 @@ def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
     preds = {}
     types = {}
     for op in operators:
-        for atom in op.preconditions | op.add_effects | op.delete_effects:
-            for var_type in atom.predicate.types:
-                types[var_type.name] = var_type
-            preds[atom.predicate.name] = atom.predicate
+        for expr in [op.preconditions, op.add_effects, op.delete_effects]:
+            for atom in expr:
+                for var_type in atom.predicate.types:
+                    types[var_type.name] = var_type
+                preds[atom.predicate.name] = atom.predicate
     return preds, types
