@@ -11,7 +11,7 @@ from predicators.src.approaches import OracleApproach, ApproachFailure, \
     ApproachTimeout, TAMPApproach
 from predicators.src.approaches.oracle_approach import _get_gt_ops
 from predicators.src.envs import CoverEnv
-from predicators.src.structs import Task, State
+from predicators.src.structs import Task
 from predicators.src import utils
 
 CONFIG = tamp_approach_config.get_config()

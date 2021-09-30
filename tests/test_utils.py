@@ -291,7 +291,8 @@ def test_hadd_heuristic():
             "Place", frozenset({("Holding", "block0:block"),
                                 ("IsBlock", "block0:block"),
                                 ("IsTarget", "target0:target")}),
-            frozenset({("HandEmpty",), ("Covers", "block0:block", "target0:target")})),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block0:block", "target0:target")})),
         utils.RelaxedOperator(
             "Place", frozenset({("IsTarget", "target0:target"),
                                 ("Holding", "block1:block"),
