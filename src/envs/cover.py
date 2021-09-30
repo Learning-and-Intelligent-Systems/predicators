@@ -8,7 +8,7 @@ from gym.spaces import Box  # type: ignore
 from predicators.configs.envs import cover_config
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Type
+    ParameterizedOption, Object
 
 Array = NDArray[np.float32]
 CONFIG = cover_config.get_config()
