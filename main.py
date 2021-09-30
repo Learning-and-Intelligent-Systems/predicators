@@ -4,14 +4,14 @@ Example usage:
     python main.py --env=configs/envs/cover_config.py \
         --approach=configs/approaches/random_actions_config.py
 """
+
 from absl import app
 from absl import flags
-
 from ml_collections.config_flags import config_flags
 
 FLAGS = flags.FLAGS
-config_flags.DEFINE_config_file('env')
-config_flags.DEFINE_config_file('approach')
+config_flags.DEFINE_config_file("env")
+config_flags.DEFINE_config_file("approach")
 
 
 def main(_):
@@ -21,5 +21,5 @@ def main(_):
           f"approach {FLAGS.approach.name}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(main)

@@ -6,7 +6,8 @@ import pytest
 from gym.spaces import Box  # type: ignore
 import numpy as np
 from numpy.typing import NDArray
-from predicators.src.approaches import BaseApproach
+from predicators.src.approaches import BaseApproach, create_approach
+from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Task
 
@@ -62,3 +63,16 @@ def test_base_approach():
         act = policy(state)
         assert action_space.contains(act)
         state = _simulator(state, act)
+
+
+def test_create_approach():
+    """Tests for create_approach.
+    """
+    env = CoverEnv()
+    for name in ["Random Actions", "Oracle"]:
+        approach = create_approach(name, env.simulate,
+            env.predicates, env.options, env.action_space)
+        assert isinstance(approach, BaseApproach)
+    with pytest.raises(NotImplementedError):
+        create_approach("Not a real approach",
+            env.simulate, env.predicates, env.options, env.action_space)
