@@ -10,7 +10,7 @@ from absl import flags
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
 from predicators.src.structs import Operator, Predicate, \
-    ParameterizedOption, Type
+    ParameterizedOption, Variable, Type, LiftedAtom
 
 
 class OracleApproach(TAMPApproach):
@@ -27,7 +27,7 @@ def _get_gt_ops(predicates: Set[Predicate],
                 options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground-truth operators for an env.
     """
-    if flags.env.name == "Cover":
+    if flags.env.name == "Cover":  # pylint: disable=no-member
         ops = _get_cover_gt_ops()
     else:
         raise NotImplementedError("Groundtruth operators not implemented")
@@ -55,7 +55,7 @@ def _remove_excluded_predicates_from_op(operator: Operator,
     # of the sampler input arguments
     return Operator(operator.name, operator.parameters,
                     preconditions, add_effects, delete_effects,
-                    operator.option, operator._sampler)
+                    operator.option, operator._sampler)  # pylint: disable=protected-access
 
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
@@ -105,11 +105,11 @@ def _get_cover_gt_ops() -> Set[Operator]:
     operators = set()
 
     # Pick
-    block = block_type("?block")
+    block = Variable("?block", block_type)
     parameters = [block]
-    preconditions = {IsBlock([block]), HandEmpty([])}
-    add_effects = {Holding([block])}
-    delete_effects = {HandEmpty([])}
+    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
+    add_effects = {LiftedAtom(Holding, [block])}
+    delete_effects = {LiftedAtom(HandEmpty, [])}
     def pick_sampler(state, rng, objs):
         assert len(objs) == 1
         b = objs[0]
@@ -123,11 +123,14 @@ def _get_cover_gt_ops() -> Set[Operator]:
     operators.add(pick_operator)
 
     # Place
-    target = target_type("?target")
+    target = Variable("?target", target_type)
     parameters = [block, target]
-    preconditions = {IsBlock([block]), IsTarget([target]), Holding([block])}
-    add_effects = {HandEmpty([]), Covers([block, target])}
-    delete_effects = {Holding([block])}
+    preconditions = {LiftedAtom(IsBlock, [block]),
+                     LiftedAtom(IsTarget, [target]),
+                     LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(HandEmpty, []),
+                   LiftedAtom(Covers, [block, target])}
+    delete_effects = {LiftedAtom(Holding, [block])}
     def place_sampler(state, rng, objs):
         assert len(objs) == 2
         t = objs[1]

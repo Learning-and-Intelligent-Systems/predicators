@@ -69,7 +69,7 @@ def test_create_approach():
     """Tests for create_approach.
     """
     env = CoverEnv()
-    for name in ["Random Actions", "Oracle", "TAMP"]:
+    for name in ["Random Actions", "Oracle"]:
         approach = create_approach(name, env.simulate,
             env.predicates, env.options, env.action_space)
         assert isinstance(approach, BaseApproach)

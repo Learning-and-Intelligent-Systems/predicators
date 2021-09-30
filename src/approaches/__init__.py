@@ -32,11 +32,9 @@ def create_approach(name: str,
     """Create an approach given its name.
     """
     if name == "Oracle":
-        cls = OracleApproach
-    elif name == "TAMP":
-        cls = TAMPApproach
-    elif name == "Random Actions":
-        cls = RandomActionsApproach
-    else:
-        raise NotImplementedError(f"Unknown env: {name}")
-    return cls(simulator, initial_predicates, initial_options, action_space)
+        return OracleApproach(simulator, initial_predicates,
+                              initial_options, action_space)
+    if name == "Random Actions":
+        return RandomActionsApproach(simulator, initial_predicates,
+                                     initial_options, action_space)
+    raise NotImplementedError(f"Unknown env: {name}")
