@@ -18,7 +18,7 @@ class _DummyApproach(BaseApproach):
     """
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         # Just return some option's policy, ground with random parameters.
-        parameterized_option = next(iter(self._options))
+        parameterized_option = next(iter(self._initial_options))
         params = parameterized_option.params_space.sample()
         option = parameterized_option.ground(params)
         return option.policy
