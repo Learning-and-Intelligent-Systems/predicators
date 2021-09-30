@@ -4,7 +4,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Mapping, Iterator, List, Sequence, Callable, Collection
+from typing import Dict, Iterator, List, Sequence, Callable, Collection
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from numpy.typing import ArrayLike
@@ -90,7 +90,7 @@ class Variable(_TypedEntity):
 class State:
     """Struct defining the low-level state of the world.
     """
-    data: Mapping[Object, ArrayLike]
+    data: Dict[Object, ArrayLike]
 
     def __post_init__(self):
         # Check feature vector dimensions.
@@ -137,7 +137,6 @@ class Predicate:
     """
     name: str
     types: Sequence[Type]
-
     # The classifier takes in a complete state and a sequence of objects
     # representing the arguments. These objects should be the only ones
     # treated "specially" by the classifier.
