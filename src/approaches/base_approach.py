@@ -52,6 +52,7 @@ class BaseApproach:
         """
         self._seed = seed
         self._rng = np.random.RandomState(self._seed)
+        self._action_space.seed(seed)
 
 
 class ApproachTimeout(Exception):
