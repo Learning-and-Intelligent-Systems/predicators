@@ -16,15 +16,15 @@ class BaseApproach:
     """Base approach.
     """
     def __init__(self, simulator: Callable[[State, Array], State],
-                 predicates: Collection[Predicate],
-                 options: Collection[ParameterizedOption],
+                 initial_predicates: Collection[Predicate],
+                 initial_options: Collection[ParameterizedOption],
                  action_space: Box):
         """All approaches are initialized with a simulator, initial predicates,
-        the parameterized options, and the action space.
+        initial parameterized options, and the action space.
         """
         self._simulator = simulator
-        self._predicates = predicates
-        self._options = options
+        self._initial_predicates = initial_predicates
+        self._initial_options = initial_options
         self._action_space = action_space
         self.seed(0)
 
