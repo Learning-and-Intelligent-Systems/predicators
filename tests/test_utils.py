@@ -3,7 +3,7 @@
 
 import pytest
 from gym.spaces import Box  # type: ignore
-from predicators.src.structs import State, Type, ParameterizedOption
+from predicators.src.structs import State, Type, ParameterizedOption, Predicate
 from predicators.src import utils
 
 
@@ -43,3 +43,28 @@ def test_option_to_trajectory():
     states, actions = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=10)
     assert len(actions) == len(states)-1 == 10
+
+
+def test_abstract():
+    """Tests for abstract().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    def _classifier1(state, objects):
+        cup, plate = objects
+        return state[cup][0] + state[plate][0] < 2
+    pred1 = Predicate("On", [cup_type, plate_type], _classifier1)
+    def _classifier2(state, objects):
+        cup, _, plate = objects
+        return state[cup][0] + state[plate][0] < -1
+    pred2 = Predicate("Is", [cup_type, plate_type, plate_type], _classifier2)
+    cup = cup_type("cup")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
+    atoms = utils.abstract(state, {pred1, pred2})
+    assert len(atoms) == 3
+    assert atoms == {pred1([cup, plate1]),
+                     pred1([cup, plate2]),
+                     # predicates with duplicate arguments are filtered out
+                     pred2([cup, plate1, plate2])}

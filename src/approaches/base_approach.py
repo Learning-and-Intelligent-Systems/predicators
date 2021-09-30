@@ -3,19 +3,19 @@ and/or options.
 """
 
 import abc
-import itertools
-from typing import Collection, Callable, Set
+from typing import Collection, Callable
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from gym.spaces import Box  # type: ignore
-from predicators.src.structs import State, Task, Predicate, GroundAtom, \
-    ParameterizedOption
+from predicators.src.structs import State, Task, Predicate, ParameterizedOption
+
+Array = NDArray[np.float32]
 
 
 class BaseApproach:
     """Base approach.
     """
-    def __init__(self, simulator: Callable[[State, ArrayLike], State],
+    def __init__(self, simulator: Callable[[State, Array], State],
                  predicates: Collection[Predicate],
                  options: Collection[ParameterizedOption],
                  action_space: Box):
@@ -29,13 +29,13 @@ class BaseApproach:
         self.seed(0)
 
     @abc.abstractmethod
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], ArrayLike]:
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         """Return a policy for the given task, within the given number of
         seconds. A policy maps states to low-level actions.
         """
         raise NotImplementedError("Override me!")
 
-    def solve(self, task: Task, timeout: int) -> Callable[[State], ArrayLike]:
+    def solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         """Light wrapper around the abstract self._solve(). Checks that
         actions are in the action space.
         """
@@ -52,22 +52,6 @@ class BaseApproach:
         """
         self._seed = seed
         self._rng = np.random.RandomState(self._seed)
-
-    def _abstract(self, state: State) -> Set[GroundAtom]:
-        """Get the atomic representation of this state (i.e., a set
-        of ground atoms).
-        """
-        atoms = set()
-        for pred in self._predicates:
-            domains = []
-            for var_type in pred.types:
-                domains.append([obj for obj in state if obj.type == var_type])
-            for choice in itertools.product(*domains):
-                if len(choice) != len(set(choice)):
-                    continue  # ignore duplicate arguments
-                if pred.holds(state, choice):
-                    atoms.add(GroundAtom(pred, choice))
-        return atoms
 
 
 class ApproachTimeout(Exception):
