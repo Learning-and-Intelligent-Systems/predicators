@@ -139,6 +139,9 @@ class State:
         return val.copy()
 
 
+DefaultState = State({})
+
+
 @dataclass(frozen=True, order=True, repr=False)
 class Predicate:
     """Struct defining a predicate (a lifted classifier over states).
@@ -325,6 +328,10 @@ class _Option:
     terminal: Callable[[State], bool] = field(repr=False)
 
 
+DefaultOption = _Option("", lambda s: np.array([0.0]),
+                        lambda s: False, lambda s: False)
+
+
 @dataclass(frozen=True, repr=False, eq=False)
 class Operator:
     """Struct defining an operator (as in STRIPS). Lifted!
@@ -335,8 +342,9 @@ class Operator:
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
-    # A sampler maps a state and objects to option parameters.
-    _sampler: Callable[[State, Sequence[Object]], Array] = field(repr=False)
+    # A sampler maps a state, RNG, and objects to option parameters.
+    _sampler: Callable[[State, np.random.RandomState, Sequence[Object]],
+                       Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
@@ -372,7 +380,7 @@ class Operator:
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
-        sampler = lambda s: self._sampler(s, objects)
+        sampler = lambda s, rng: self._sampler(s, rng, objects)
         return _GroundOperator(self, objects, preconditions, add_effects,
                                delete_effects, self.option, sampler)
 
@@ -386,7 +394,7 @@ class _GroundOperator:
     add_effects: Set[GroundAtom]
     delete_effects: Set[GroundAtom]
     option: ParameterizedOption
-    sampler: Callable[[State], Array] = field(repr=False)
+    sampler: Callable[[State, np.random.RandomState], Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
