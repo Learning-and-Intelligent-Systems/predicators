@@ -1,16 +1,20 @@
 """General utility methods.
 """
 
-from typing import Sequence, Callable, Tuple
-from numpy.typing import ArrayLike
-from predicators.src.structs import _Option, State
+import itertools
+from typing import Sequence, Callable, Tuple, Collection, Set
+import numpy as np
+from numpy.typing import NDArray
+from predicators.src.structs import _Option, State, Predicate, GroundAtom
+
+Array = NDArray[np.float32]
 
 
 def option_to_trajectory(
         init: State,
-        simulator: Callable[[State, ArrayLike], State],
+        simulator: Callable[[State, Array], State],
         option: _Option,
-        max_num_steps: int) -> Tuple[Sequence[State], Sequence[ArrayLike]]:
+        max_num_steps: int) -> Tuple[Sequence[State], Sequence[Array]]:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -20,11 +24,28 @@ def option_to_trajectory(
     state = init
     states = [state]
     for _ in range(max_num_steps):
-        if option.terminal(state):
-            break
         act = option.policy(state)
         actions.append(act)
         state = simulator(state, act)
         states.append(state)
+        if option.terminal(state):
+            break
     assert len(states) == len(actions)+1
     return states, actions
+
+
+def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
+    """Get the atomic representation of the given state (i.e., a set
+    of ground atoms), using the given set of predicates.
+    """
+    atoms = set()
+    for pred in preds:
+        domains = []
+        for var_type in pred.types:
+            domains.append([obj for obj in state if obj.type == var_type])
+        for choice in itertools.product(*domains):
+            if len(choice) != len(set(choice)):
+                continue  # ignore duplicate arguments
+            if pred.holds(state, choice):
+                atoms.add(GroundAtom(pred, choice))
+    return atoms

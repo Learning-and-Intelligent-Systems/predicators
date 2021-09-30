@@ -1,30 +1,27 @@
 """Test cases for the base approach class.
 """
 
-from typing import Collection, Callable
+from typing import Callable
 import pytest
 from gym.spaces import Box  # type: ignore
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from predicators.src.approaches import BaseApproach
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, Task, GroundAtom
+    Predicate, Task
+
+Array = NDArray[np.float32]
 
 
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing.
     """
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], ArrayLike]:
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         # Just return some option's policy, ground with random parameters.
         parameterized_option = next(iter(self._options))
         params = parameterized_option.params_space.sample()
         option = parameterized_option.ground(params)
         return option.policy
-
-    def abstract(self, state: State) -> Collection[GroundAtom]:
-        """Exposed for testing.
-        """
-        return self._abstract(state)
 
 
 def test_base_approach():
@@ -32,14 +29,9 @@ def test_base_approach():
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
-    def _classifier1(state, objects):
-        cup, plate = objects
-        return state[cup][0] + state[plate][0] < 2
-    pred1 = Predicate("On", [cup_type, plate_type], _classifier1)
-    def _classifier2(state, objects):
-        cup, _, plate = objects
-        return state[cup][0] + state[plate][0] < -1
-    pred2 = Predicate("Is", [cup_type, plate_type, plate_type], _classifier2)
+    pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)
+    pred2 = Predicate("Is", [cup_type, plate_type, plate_type],
+                      _classifier=None)
     cup = cup_type("cup")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
@@ -64,13 +56,7 @@ def test_base_approach():
     with pytest.raises(NotImplementedError):
         approach.solve(task, 500)
     approach = _DummyApproach(_simulator, predicates, options, action_space)
-    # Try dummy approach methods.
-    atoms = approach.abstract(state)
-    assert len(atoms) == 3
-    assert atoms == {pred1([cup, plate1]),
-                     pred1([cup, plate2]),
-                     # predicates with duplicate arguments are filtered out
-                     pred2([cup, plate1, plate2])}
+    # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
         act = policy(state)
