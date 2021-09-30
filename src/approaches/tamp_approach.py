@@ -5,8 +5,9 @@ from __future__ import annotations
 import abc
 import heapq as hq
 import time
-from typing import Collection, Callable, List, Set, Optional
-from dataclasses import dataclass
+from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, \
+    FrozenSet
+from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 from predicators.configs.approaches import tamp_approach_config
@@ -17,6 +18,7 @@ from predicators.src.structs import State, Task, Operator, Predicate, \
 from predicators.src import utils
 
 Array = NDArray[np.float32]
+PyperplanFacts = FrozenSet[Tuple[str, ...]]
 CONFIG = tamp_approach_config.get_config()
 
 
@@ -68,11 +70,8 @@ class TAMPApproach(BaseApproach):
         print("num after filter:", len(ground_operators))#TODO:delete after checking
         if not utils.is_dr_reachable(ground_operators, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
-        # TODO: pyperplan heuristic
-        heuristic = lambda n: 0
         plan = TAMPApproach._run_search(
-            task, simulator, ground_operators, atoms, heuristic, predicates,
-            timeout, seed)
+            task, simulator, ground_operators, atoms, predicates, timeout, seed)
         return plan
 
     @staticmethod
@@ -80,22 +79,32 @@ class TAMPApproach(BaseApproach):
                     simulator: Callable[[State, Array], State],
                     ground_operators: List[_GroundOperator],
                     init_atoms: Collection[GroundAtom],
-                    heuristic: Callable[[Node], float],
                     predicates: Set[Predicate],
                     timeout: int, seed: int) -> List[Array]:
         """A* search over skeletons (sequences of ground operators).
         """
         start_time = time.time()
-        queue: List[Node] = []
+        queue: List[Tuple[float, float, Node]] = []
         root_node = Node(atoms=init_atoms, skeleton=[],
                          atoms_sequence=[init_atoms], parent=None)
         rng_prio = np.random.RandomState(seed)
         rng_sampler = np.random.RandomState(seed)
-        hq.heappush(queue, (heuristic(root_node),  # type: ignore
+        # Set up stuff for pyperplan heuristic.
+        relaxed_operators = frozenset({utils.RelaxedOperator(
+            op.name, utils.atoms_to_tuples(op.preconditions),
+            utils.atoms_to_tuples(op.add_effects)) for op in ground_operators})
+        heuristic_cache: Dict[PyperplanFacts, float] = {}
+        heuristic: Callable[[PyperplanFacts], float] = utils.hAddHeuristic(
+            utils.atoms_to_tuples(init_atoms),
+            utils.atoms_to_tuples(task.goal), relaxed_operators)
+        heuristic_cache[root_node.pyperplan_facts] = heuristic(
+            root_node.pyperplan_facts)
+        hq.heappush(queue, (heuristic_cache[root_node.pyperplan_facts],
                             rng_prio.uniform(),
                             root_node))
+        # Start search.
         while queue and (time.time()-start_time < timeout):
-            node = hq.heappop(queue)[2]  # type: ignore
+            node = hq.heappop(queue)[2]
             # Good debug point #1: print node.skeleton here to see what
             # the high-level search is doing.
             if task.goal.issubset(node.atoms):
@@ -118,9 +127,13 @@ class TAMPApproach(BaseApproach):
                         skeleton=node.skeleton+[operator],
                         atoms_sequence=node.atoms_sequence+[child_atoms],
                         parent=node)
+                    if child_node.pyperplan_facts not in heuristic_cache:
+                        heuristic_cache[child_node.pyperplan_facts] = heuristic(
+                            child_node.pyperplan_facts)
                     # priority is g [plan length] plus h [heuristic]
-                    priority = len(child_node.skeleton)+heuristic(child_node)
-                    hq.heappush(queue, (priority,  # type: ignore
+                    priority = (len(child_node.skeleton)+
+                                heuristic_cache[child_node.pyperplan_facts])
+                    hq.heappush(queue, (priority,
                                         rng_prio.uniform(),
                                         child_node))
         if not queue:
@@ -196,3 +209,9 @@ class Node:
     skeleton: List[_GroundOperator]
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
     parent: Optional[Node]
+    pyperplan_facts: PyperplanFacts = field(
+        init=False, default_factory=frozenset)
+
+    def __post_init__(self):
+        self.pyperplan_facts = utils.atoms_to_tuples(self.atoms)
+        1/0#TODO:VERIFY WE GET HERE

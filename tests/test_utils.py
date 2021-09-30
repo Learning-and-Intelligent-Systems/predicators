@@ -144,6 +144,15 @@ def test_static_operator_filtering():
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2]),
              pred2([cup1, plate1]), pred2([cup1, plate2]),
              pred2([cup2, plate1]), pred2([cup2, plate2])}
+    assert utils.atom_to_tuple(pred1([cup1, plate1])) == (
+        "Pred1", "cup1:cup_type", "plate1:plate_type")
+    with pytest.raises(AttributeError):
+        # Can't call atom_to_tuple on a lifted atom.
+        utils.atom_to_tuple(pred1([cup_var, plate_var]))
+    assert utils.atoms_to_tuples(
+        {pred1([cup1, plate1]), pred2([cup2, plate2])}) == {
+            ("Pred1", "cup1:cup_type", "plate1:plate_type"),
+            ("Pred2", "cup2:cup_type", "plate2:plate_type")}
     # All operators with cup2 in the args should get filtered out,
     # since pred1 doesn't hold on cup2.
     ground_ops = utils.filter_static_operators(ground_ops, atoms)
