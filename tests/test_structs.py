@@ -224,17 +224,18 @@ def test_operators():
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption("Pick",
         params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
-    def sampler(s, objs):
+    def sampler(s, rng, objs):
         del s  # unused
+        del rng  # unused
         del objs  # unused
         return params_space.sample()
     operator = Operator("PickOperator", parameters, preconditions, add_effects,
                         delete_effects, parameterized_option, sampler)
     assert str(operator) == repr(operator) == """PickOperator:
     Parameters: [?cup:cup_type, ?plate:plate_type]
-    Preconditions: {NotOn(?cup:cup_type, ?plate:plate_type)}
-    Add Effects: {On(?cup:cup_type, ?plate:plate_type)}
-    Delete Effects: {NotOn(?cup:cup_type, ?plate:plate_type)}
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Option: ParameterizedOption(name='Pick')"""
     assert isinstance(hash(operator), int)
     operator2 = Operator("PickOperator", parameters, preconditions, add_effects,
@@ -247,12 +248,22 @@ def test_operators():
     assert isinstance(ground_op, _GroundOperator)
     assert str(ground_op) == repr(ground_op) == """PickOperator:
     Parameters: [cup:cup_type, plate:plate_type]
-    Preconditions: {NotOn(cup:cup_type, plate:plate_type)}
-    Add Effects: {On(cup:cup_type, plate:plate_type)}
-    Delete Effects: {NotOn(cup:cup_type, plate:plate_type)}
+    Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
+    Add Effects: [On(cup:cup_type, plate:plate_type)]
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
     Option: ParameterizedOption(name='Pick')"""
     assert isinstance(hash(ground_op), int)
     ground_op2 = operator2.ground([cup, plate])
     assert ground_op == ground_op2
     state = test_state()
-    _ = ground_op.sampler(state)
+    _ = ground_op.sampler(state, np.random.RandomState(123))
+    filtered_op = operator.filter_predicates({on})
+    assert len(filtered_op.parameters) == 2
+    assert len(filtered_op.preconditions) == 0
+    assert len(filtered_op.add_effects) == 1
+    assert len(filtered_op.delete_effects) == 0
+    filtered_op = operator.filter_predicates({not_on})
+    assert len(filtered_op.parameters) == 2
+    assert len(filtered_op.preconditions) == 1
+    assert len(filtered_op.add_effects) == 0
+    assert len(filtered_op.delete_effects) == 1

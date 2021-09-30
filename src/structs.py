@@ -4,7 +4,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Dict, Iterator, List, Sequence, Callable, Set
+from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from numpy.typing import NDArray
@@ -107,6 +107,12 @@ class State:
     def __getitem__(self, key: Object) -> Array:
         return self.data[key]
 
+    def get(self, obj: Object, feature_name: str) -> np.float32:
+        """Look up an object feature by name.
+        """
+        idx = obj.type.feature_names.index(feature_name)
+        return self.data[obj][idx]
+
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the
         given ordered list.
@@ -131,6 +137,9 @@ class State:
             return type(val)(self._copy_state_value(v) for v in val)
         assert hasattr(val, "copy")
         return val.copy()
+
+
+DefaultState = State({})
 
 
 @dataclass(frozen=True, order=True, repr=False)
@@ -290,6 +299,16 @@ class ParameterizedOption:
     # which is True iff the option should terminate now.
     _terminal: Callable[[State, Array], bool] = field(repr=False)
 
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return self._hash
+
     def ground(self, params: Array) -> _Option:
         """Ground into an Option, given parameter values.
         On the Option that is returned, one can call, e.g., policy(state).
@@ -319,6 +338,10 @@ class _Option:
     terminal: Callable[[State], bool] = field(repr=False)
 
 
+DefaultOption = _Option("", lambda s: np.array([0.0]),
+                        lambda s: False, lambda s: False)
+
+
 @dataclass(frozen=True, repr=False, eq=False)
 class Operator:
     """Struct defining an operator (as in STRIPS). Lifted!
@@ -329,16 +352,17 @@ class Operator:
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
-    # A sampler maps a state and objects to option parameters.
-    _sampler: Callable[[State, Sequence[Object]], Array] = field(repr=False)
+    # A sampler maps a state, RNG, and objects to option parameters.
+    _sampler: Callable[[State, np.random.RandomState, Sequence[Object]],
+                       Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.parameters}
-    Preconditions: {self.preconditions}
-    Add Effects: {self.add_effects}
-    Delete Effects: {self.delete_effects}
+    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
+    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
+    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
     Option: {self.option}"""
 
     @cached_property
@@ -366,9 +390,21 @@ class Operator:
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
-        sampler = lambda s: self._sampler(s, objects)
+        sampler = lambda s, rng: self._sampler(s, rng, objects)
         return _GroundOperator(self, objects, preconditions, add_effects,
                                delete_effects, self.option, sampler)
+
+    def filter_predicates(self, kept: Collection[Predicate]) -> Operator:
+        """Keep only the given predicates in the preconditions,
+        add effects, and delete effects. Note that the parameters must
+        stay the same for the sake of the sampler input arguments.
+        """
+        preconditions = {a for a in self.preconditions if a.predicate in kept}
+        add_effects = {a for a in self.add_effects if a.predicate in kept}
+        delete_effects = {a for a in self.delete_effects if a.predicate in kept}
+        return Operator(self.name, self.parameters,
+                        preconditions, add_effects, delete_effects,
+                        self.option, self._sampler)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -380,15 +416,15 @@ class _GroundOperator:
     add_effects: Set[GroundAtom]
     delete_effects: Set[GroundAtom]
     option: ParameterizedOption
-    sampler: Callable[[State], Array] = field(repr=False)
+    sampler: Callable[[State, np.random.RandomState], Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.objects}
-    Preconditions: {self.preconditions}
-    Add Effects: {self.add_effects}
-    Delete Effects: {self.delete_effects}
+    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
+    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
+    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
     Option: {self.option}"""
 
     @cached_property

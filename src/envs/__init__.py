@@ -8,3 +8,11 @@ __all__ = [
     "BaseEnv",
     "CoverEnv",
 ]
+
+
+def create_env(name: str) -> BaseEnv:
+    """Create an environment given its name.
+    """
+    if name == "Cover":
+        return CoverEnv()
+    raise NotImplementedError(f"Unknown env: {name}")
