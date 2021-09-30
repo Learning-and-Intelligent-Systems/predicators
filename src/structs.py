@@ -384,7 +384,7 @@ class _GroundOperator:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.operator.name}:
+        return f"""{self.name}:
     Parameters: {self.objects}
     Preconditions: {self.preconditions}
     Add Effects: {self.add_effects}
@@ -394,6 +394,12 @@ class _GroundOperator:
     @cached_property
     def _hash(self) -> int:
         return hash(str(self))
+
+    @property
+    def name(self) -> str:
+        """Name of this operator.
+        """
+        return self.operator.name
 
     def __str__(self) -> str:
         return self._str
