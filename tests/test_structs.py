@@ -3,7 +3,7 @@
 
 import pytest
 import numpy as np
-from gym.spaces import Box  # type: ignore
+from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
     Operator, _GroundOperator

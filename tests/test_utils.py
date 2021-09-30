@@ -2,7 +2,7 @@
 """
 
 import pytest
-from gym.spaces import Box  # type: ignore
+from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator
 from predicators.src import utils
