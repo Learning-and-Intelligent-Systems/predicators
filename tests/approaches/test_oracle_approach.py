@@ -1,7 +1,9 @@
 """Test cases for the oracle approach class.
 """
 from absl import flags
+import ml_collections
 import numpy as np
+import pytest
 from predicators.configs.envs import cover_config
 from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import _get_gt_ops
@@ -9,8 +11,8 @@ from predicators.src.envs import CoverEnv
 from predicators.src import utils
 
 
-def test_get_gt_ops():
-    """Tests for _get_gt_ops.
+def test_cover_get_gt_ops():
+    """Tests for _get_gt_ops in CoverEnv.
     """
     # All predicates and options
     flags.env = cover_config.get_config()
@@ -51,6 +53,14 @@ def test_get_gt_ops():
         assert atom.predicate.name != "Holding"
     for atom in pick_operator.delete_effects:
         assert atom.predicate.name != "Holding"
+
+def test_get_gt_ops():
+    """Test get gt ops alone.
+    """
+    flags.env = ml_collections.ConfigDict()
+    flags.env.name = "Not a real environment"
+    with pytest.raises(NotImplementedError):
+        _get_gt_ops(set(), set())
 
 
 def test_oracle_approach():

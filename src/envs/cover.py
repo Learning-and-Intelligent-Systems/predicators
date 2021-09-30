@@ -117,7 +117,7 @@ class CoverEnv(BaseEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._block_type, self._target_type}
+        return {self._block_type, self._target_type, self._robot_type}
 
     @property
     def options(self) -> Set[ParameterizedOption]:
