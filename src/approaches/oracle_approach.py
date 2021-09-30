@@ -25,48 +25,31 @@ class OracleApproach(TAMPApproach):
 
 def _get_gt_ops(predicates: Set[Predicate],
                 options: Set[ParameterizedOption]) -> Set[Operator]:
-    """Create ground-truth operators for an env.
+    """Create ground truth operators for an env.
     """
     if flags.env.name == "Cover":
         ops = _get_cover_gt_ops()
     else:
-        raise NotImplementedError("Groundtruth operators not implemented")
+        raise NotImplementedError("Ground truth operators not implemented")
     # Filter out excluded predicates/options
     final_ops = set()
     for op in ops:
         if op.option not in options:
             continue
-        op = _remove_excluded_predicates_from_op(op, predicates)
+        op = op.filter_predicates(predicates)
         final_ops.add(op)
     return final_ops
 
 
-def _remove_excluded_predicates_from_op(operator: Operator,
-    included_predicates: Set[Predicate]) -> Operator:
-    """Remove excluded predicates from everywhere in an operator.
-    """
-    preconditions = {a for a in operator.preconditions \
-                     if a.predicate in included_predicates}
-    add_effects = {a for a in operator.add_effects \
-                   if a.predicate in included_predicates}
-    delete_effects = {a for a in operator.delete_effects \
-                      if a.predicate in included_predicates}
-    # Note that the parameters must stay the same for the sake
-    # of the sampler input arguments
-    return Operator(operator.name, operator.parameters,
-                    preconditions, add_effects, delete_effects,
-                    operator.option, operator._sampler)
-
-
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
-    """Helper for loading predicates and options by name.
+    """Helper for loading types, predicates, and options by name.
     """
     env = create_env(env_name)
     name_to_env_obj = {}
     for o in getattr(env, env_attr):
         name_to_env_obj[o.name] = o
-    assert set(name_to_env_obj.keys()).issuperset(set(names))
+    assert set(name_to_env_obj).issuperset(set(names))
     return [name_to_env_obj[name] for name in names]
 
 
@@ -92,7 +75,7 @@ def _get_options_by_names(env_name: str,
 
 
 def _get_cover_gt_ops() -> Set[Operator]:
-    """Create ground-truth operators for CoverEnv.
+    """Create ground truth operators for CoverEnv.
     """
     block_type, target_type = _get_types_by_names("Cover", ["block", "target"])
 

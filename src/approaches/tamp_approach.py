@@ -64,10 +64,8 @@ class TAMPApproach(BaseApproach):
         for op in current_operators:
             for ground_op in utils.all_ground_operators(op, objects):
                 ground_operators.append(ground_op)
-        print("num before filter:", len(ground_operators))#TODO:delete after checking
         ground_operators = utils.filter_static_operators(
             ground_operators, atoms)
-        print("num after filter:", len(ground_operators))#TODO:delete after checking
         if not utils.is_dr_reachable(ground_operators, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         plan = TAMPApproach._run_search(
@@ -201,7 +199,7 @@ class TAMPApproach(BaseApproach):
         return []
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(repr=False, eq=False)
 class Node:
     """A node for the search over skeletons.
     """
@@ -214,4 +212,3 @@ class Node:
 
     def __post_init__(self):
         self.pyperplan_facts = utils.atoms_to_tuples(self.atoms)
-        1/0#TODO:VERIFY WE GET HERE

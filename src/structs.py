@@ -4,7 +4,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Dict, Iterator, List, Sequence, Callable, Set
+from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from numpy.typing import NDArray
@@ -360,9 +360,9 @@ class Operator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.parameters}
-    Preconditions: {sorted(self.preconditions, key=lambda a:a.predicate)}
-    Add Effects: {sorted(self.add_effects, key=lambda a:a.predicate)}
-    Delete Effects: {sorted(self.delete_effects, key=lambda a:a.predicate)}
+    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
+    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
+    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
     Option: {self.option}"""
 
     @cached_property
@@ -394,6 +394,18 @@ class Operator:
         return _GroundOperator(self, objects, preconditions, add_effects,
                                delete_effects, self.option, sampler)
 
+    def filter_predicates(self, kept: Collection[Predicate]) -> Operator:
+        """Keep only the given predicates in the preconditions,
+        add effects, and delete effects. Note that the parameters must
+        stay the same for the sake of the sampler input arguments.
+        """
+        preconditions = {a for a in self.preconditions if a.predicate in kept}
+        add_effects = {a for a in self.add_effects if a.predicate in kept}
+        delete_effects = {a for a in self.delete_effects if a.predicate in kept}
+        return Operator(self.name, self.parameters,
+                        preconditions, add_effects, delete_effects,
+                        self.option, self._sampler)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundOperator:
@@ -410,9 +422,9 @@ class _GroundOperator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.objects}
-    Preconditions: {sorted(self.preconditions, key=lambda a:a.predicate)}
-    Add Effects: {sorted(self.add_effects, key=lambda a:a.predicate)}
-    Delete Effects: {sorted(self.delete_effects, key=lambda a:a.predicate)}
+    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
+    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
+    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
     Option: {self.option}"""
 
     @cached_property
