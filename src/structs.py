@@ -7,7 +7,9 @@ from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Collection
 import numpy as np
 from gym.spaces import Box  # type: ignore
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
+
+Array = NDArray[np.float32]
 
 
 @dataclass(frozen=True, order=True)
@@ -90,7 +92,7 @@ class Variable(_TypedEntity):
 class State:
     """Struct defining the low-level state of the world.
     """
-    data: Dict[Object, ArrayLike]
+    data: Dict[Object, List[float]]
 
     def __post_init__(self):
         # Check feature vector dimensions.
@@ -102,14 +104,14 @@ class State:
         """
         return iter(sorted(self.data))
 
-    def __getitem__(self, key: Object) -> ArrayLike:
+    def __getitem__(self, key: Object) -> List[float]:
         return self.data[key]
 
-    def vec(self, objects: Sequence[Object]) -> ArrayLike:
+    def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the
         given ordered list.
         """
-        feats: List[ArrayLike] = []
+        feats: List[List[float]] = []
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
@@ -280,15 +282,15 @@ class ParameterizedOption:
     name: str
     params_space: Box = field(repr=False)
     # A policy maps a state and parameters to an action.
-    _policy: Callable[[State, ArrayLike], ArrayLike] = field(repr=False)
+    _policy: Callable[[State, Array], Array] = field(repr=False)
     # An initiation classifier maps a state and parameters to a bool,
     # which is True iff the option can start now.
-    _initiable: Callable[[State, ArrayLike], bool] = field(repr=False)
+    _initiable: Callable[[State, Array], bool] = field(repr=False)
     # A termination condition maps a state and parameters to a bool,
     # which is True iff the option should terminate now.
-    _terminal: Callable[[State, ArrayLike], bool] = field(repr=False)
+    _terminal: Callable[[State, Array], bool] = field(repr=False)
 
-    def ground(self, params: ArrayLike) -> _Option:
+    def ground(self, params: Array) -> _Option:
         """Ground into an Option, given parameter values.
         On the Option that is returned, one can call, e.g., policy(state).
         """
@@ -308,7 +310,7 @@ class _Option:
     """
     name: str
     # A policy maps a state to an action.
-    policy: Callable[[State], ArrayLike] = field(repr=False)
+    policy: Callable[[State], Array] = field(repr=False)
     # An initiation classifier maps a state to a bool, which is True
     # iff the option can start now.
     initiable: Callable[[State], bool] = field(repr=False)
@@ -328,7 +330,7 @@ class Operator:
     delete_effects: Collection[LiftedAtom]
     option: ParameterizedOption
     # A sampler maps a state and objects to option parameters.
-    _sampler: Callable[[State, Sequence[Object]], ArrayLike] = field(repr=False)
+    _sampler: Callable[[State, Sequence[Object]], Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
@@ -378,7 +380,7 @@ class _GroundOperator:
     add_effects: Collection[GroundAtom]
     delete_effects: Collection[GroundAtom]
     option: ParameterizedOption
-    sampler: Callable[[State], ArrayLike] = field(repr=False)
+    sampler: Callable[[State], Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:

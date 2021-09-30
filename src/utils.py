@@ -3,15 +3,18 @@
 
 import itertools
 from typing import Sequence, Callable, Tuple, Collection, Set
-from numpy.typing import ArrayLike
+import numpy as np
+from numpy.typing import NDArray
 from predicators.src.structs import _Option, State, Predicate, GroundAtom
+
+Array = NDArray[np.float32]
 
 
 def option_to_trajectory(
         init: State,
-        simulator: Callable[[State, ArrayLike], State],
+        simulator: Callable[[State, Array], State],
         option: _Option,
-        max_num_steps: int) -> Tuple[Sequence[State], Sequence[ArrayLike]]:
+        max_num_steps: int) -> Tuple[Sequence[State], Sequence[Array]]:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.

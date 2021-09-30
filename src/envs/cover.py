@@ -1,13 +1,16 @@
 """Toy cover domain.
 """
 
-from typing import List, Set, Sequence, TypedDict, Dict
+from typing import List, Set, Sequence, Dict, TypedDict
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from gym.spaces import Box  # type: ignore
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object
+
+Array = NDArray[np.float32]
+
 
 # TODO: move this to a better place
 class _Config(TypedDict):
@@ -65,7 +68,7 @@ class CoverEnv(BaseEnv):
             self._targets.append(self._target_type(f"target{i}"))
         self._robot = self._robot_type("robby")
 
-    def simulate(self, state, action) -> State:
+    def simulate(self, state: State, action: Array) -> State:
         assert self.action_space.contains(action)
         pose = action.item()
         next_state = state.copy()
@@ -150,7 +153,7 @@ class CoverEnv(BaseEnv):
         return tasks
 
     def _create_initial_state(self) -> State:
-        data: Dict[Object, ArrayLike] = {}
+        data: Dict[Object, List[float]] = {}
         assert len(CONFIG["block_widths"]) == len(self._blocks)
         for block, width in zip(self._blocks, CONFIG["block_widths"]):
             while True:
@@ -158,7 +161,7 @@ class CoverEnv(BaseEnv):
                 if not self._any_intersection(pose, width, data):
                     break
             # [is_block, is_target, width, pose, grasp]
-            data[block] = np.array([1.0, 0.0, width, pose, -1.0])
+            data[block] = [1.0, 0.0, width, pose, -1.0]
         assert len(CONFIG["target_widths"]) == len(self._targets)
         for target, width in zip(self._targets, CONFIG["target_widths"]):
             while True:
@@ -167,23 +170,23 @@ class CoverEnv(BaseEnv):
                         pose, width, data, larger_gap=True):
                     break
             # [is_block, is_target, width, pose]
-            data[target] = np.array([0.0, 1.0, width, pose])
+            data[target] = [0.0, 1.0, width, pose]
         # [hand]
-        data[self._robot] = np.array([0.0])
+        data[self._robot] = [0]
         return State(data)
 
     @staticmethod
-    def _IsBlock_holds(state, objects: Sequence[Object]) -> bool:
+    def _IsBlock_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return block in state
 
     @staticmethod
-    def _IsTarget_holds(state, objects: Sequence[Object]) -> bool:
+    def _IsTarget_holds(state: State, objects: Sequence[Object]) -> bool:
         target, = objects
         return target in state
 
     @staticmethod
-    def _Covers_holds(state, objects: Sequence[Object]) -> bool:
+    def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
         block, target = objects
         block_pose = state[block][3]
         block_width = state[block][2]
@@ -193,7 +196,7 @@ class CoverEnv(BaseEnv):
                (block_pose+block_width/2 >= target_pose+target_width/2)
 
     @staticmethod
-    def _HandEmpty_holds(state, objects: Sequence[Object]) -> bool:
+    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         assert not objects
         for obj in state:
             if obj.type.name == "block" and state[obj][4] != -1:
@@ -201,12 +204,14 @@ class CoverEnv(BaseEnv):
         return True
 
     @staticmethod
-    def _Holding_holds(state, objects: Sequence[Object]) -> bool:
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         return state[block][4] != -1
 
-    def _any_intersection(self, pose, width, data, block_only=False,
-                          larger_gap=False) -> bool:
+    def _any_intersection(self, pose: float, width: float,
+                          data: Dict[Object, List[float]],
+                          block_only: bool=False,
+                          larger_gap: bool=False) -> bool:
         mult = 1.5 if larger_gap else 0.5
         for other in data:
             if block_only and other not in self._blocks:
