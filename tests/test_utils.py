@@ -71,8 +71,8 @@ def test_abstract():
                      pred2([cup, plate1, plate2])}
 
 
-def test_all_ground_operators():
-    """Tests for all_ground_operators().
+def test_operator_methods():
+    """Tests for all_ground_operators(), extract_preds_and_types().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -106,3 +106,6 @@ def test_all_ground_operators():
     assert [cup1, plate2, plate2] in all_obj
     assert [cup2, plate1, plate2] in all_obj
     assert [cup2, plate2, plate2] in all_obj
+    preds, types = utils.extract_preds_and_types({operator})
+    assert preds == {"NotOn": not_on, "On": on}
+    assert types == {"plate_type": plate_type, "cup_type": cup_type}
