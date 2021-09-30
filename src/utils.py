@@ -88,9 +88,72 @@ def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
     preds = {}
     types = {}
     for op in operators:
-        for expr in [op.preconditions, op.add_effects, op.delete_effects]:
-            for atom in expr:
-                for var_type in atom.predicate.types:
-                    types[var_type.name] = var_type
-                preds[atom.predicate.name] = atom.predicate
+        for atom in op.preconditions | op.add_effects | op.delete_effects:
+            for var_type in atom.predicate.types:
+                types[var_type.name] = var_type
+            preds[atom.predicate.name] = atom.predicate
     return preds, types
+
+
+def filter_static_operators(ground_operators: Collection[_GroundOperator],
+                            atoms: Collection[GroundAtom]) -> List[
+                                _GroundOperator]:
+    """Filter out ground operators that don't satisfy static facts.
+    """
+    static_preds = set()
+    for pred in {atom.predicate for atom in atoms}:
+        # This predicate is not static if it appears in any operator's effects.
+        if any(any(atom.predicate == pred for atom in op.add_effects) or
+               any(atom.predicate == pred for atom in op.delete_effects)
+               for op in ground_operators):
+            continue
+        static_preds.add(pred)
+    static_facts = {atom for atom in atoms if atom.predicate in static_preds}
+    # Perform filtering.
+    ground_operators = [op for op in ground_operators
+                        if not any(atom.predicate in static_preds
+                                   and atom not in static_facts
+                                   for atom in op.preconditions)]
+    return ground_operators
+
+
+def is_reachable(ground_operators: Collection[_GroundOperator],
+                 atoms: Collection[GroundAtom],
+                 goal: Set[GroundAtom]) -> bool:
+    """Quickly check whether the given goal is reachable from the given atoms
+    under the given operators, using a delete relaxation.
+    """
+    reachables = set(atoms)
+    while True:
+        fixed_point_reached = True
+        for op in ground_operators:
+            if op.preconditions.issubset(reachables):
+                for new_reachable_atom in op.add_effects-reachables:
+                    fixed_point_reached = False
+                    reachables.add(new_reachable_atom)
+        if fixed_point_reached:
+            break
+    return goal.issubset(reachables)
+
+
+def get_applicable_operators(ground_operators: Collection[_GroundOperator],
+                             atoms: Collection[GroundAtom]) -> Iterator[
+                                 _GroundOperator]:
+    """Iterate over operators whose preconditions are satisfied.
+    """
+    for operator in ground_operators:
+        applicable = operator.preconditions.issubset(atoms)
+        if applicable:
+            yield operator
+
+
+def apply_operator(operator: _GroundOperator,
+                   atoms: Set[GroundAtom]) -> Collection[GroundAtom]:
+    """Get a next set of atoms given a current set and a ground operator.
+    """
+    new_atoms = atoms.copy()
+    for atom in operator.add_effects:
+        new_atoms.add(atom)
+    for atom in operator.delete_effects:
+        new_atoms.discard(atom)
+    return new_atoms

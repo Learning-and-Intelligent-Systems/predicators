@@ -109,3 +109,156 @@ def test_operator_methods():
     preds, types = utils.extract_preds_and_types({operator})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
+
+
+def test_static_operator_filtering():
+    """Tests for filter_static_operators().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type], lambda s, o: True)
+    pred3 = Predicate("Pred3", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    # pred1 is static, pred2/pred3 are not
+    preconditions1 = {pred1([cup_var, plate_var])}
+    add_effects1 = {pred2([cup_var, plate_var])}
+    delete_effects1 = {}
+    preconditions2 = {pred1([cup_var, plate_var])}
+    add_effects2 = {}
+    delete_effects2 = {pred3([cup_var, plate_var])}
+    operator1 = Operator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1, option=None, _sampler=None)
+    operator2 = Operator("Place", parameters, preconditions2, add_effects2,
+                         delete_effects2, option=None, _sampler=None)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = (utils.all_ground_operators(operator1, objects) |
+                  utils.all_ground_operators(operator2, objects))
+    assert len(ground_ops) == 8
+    atoms = {pred1([cup1, plate1]), pred1([cup1, plate2]),
+             pred2([cup1, plate1]), pred2([cup1, plate2]),
+             pred2([cup2, plate1]), pred2([cup2, plate2])}
+    # All operators with cup2 in the args should get filtered out,
+    # since pred1 doesn't hold on cup2.
+    ground_ops = utils.filter_static_operators(ground_ops, atoms)
+    all_obj = [(op.name, op.objects) for op in ground_ops]
+    assert ("Pick", [cup1, plate1]) in all_obj
+    assert ("Pick", [cup1, plate2]) in all_obj
+    assert ("Place", [cup1, plate1]) in all_obj
+    assert ("Place", [cup1, plate2]) in all_obj
+
+
+def test_is_reachable():
+    """Tests for is_reachable().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type], lambda s, o: True)
+    pred3 = Predicate("Pred3", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    # pred3 is unreachable
+    preconditions1 = {pred1([cup_var, plate_var])}
+    add_effects1 = {pred2([cup_var, plate_var])}
+    delete_effects1 = {}
+    preconditions2 = {pred1([cup_var, plate_var])}
+    add_effects2 = {}
+    delete_effects2 = {pred3([cup_var, plate_var])}
+    operator1 = Operator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1, option=None, _sampler=None)
+    operator2 = Operator("Place", parameters, preconditions2, add_effects2,
+                         delete_effects2, option=None, _sampler=None)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = (utils.all_ground_operators(operator1, objects) |
+                  utils.all_ground_operators(operator2, objects))
+    assert len(ground_ops) == 8
+    atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
+    ground_ops = utils.filter_static_operators(ground_ops, atoms)
+    assert utils.is_reachable(ground_ops, atoms, {pred1([cup1, plate1])})
+    assert utils.is_reachable(ground_ops, atoms, {pred1([cup1, plate2])})
+    assert utils.is_reachable(ground_ops, atoms, {pred2([cup1, plate1])})
+    assert utils.is_reachable(ground_ops, atoms, {pred2([cup1, plate2])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup1, plate1])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup1, plate2])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred1([cup2, plate1])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred1([cup2, plate2])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred2([cup2, plate1])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred2([cup2, plate2])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup2, plate1])})
+    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup2, plate2])})
+
+
+def test_operator_application():
+    """Tests for get_applicable_operators(), apply_operator().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type], lambda s, o: True)
+    pred3 = Predicate("Pred3", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    # pred3 is unreachable
+    preconditions1 = {pred1([cup_var, plate_var])}
+    add_effects1 = {pred2([cup_var, plate_var])}
+    delete_effects1 = {}
+    preconditions2 = {pred1([cup_var, plate_var])}
+    add_effects2 = {}
+    delete_effects2 = {pred3([cup_var, plate_var])}
+    operator1 = Operator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1, option=None, _sampler=None)
+    operator2 = Operator("Place", parameters, preconditions2, add_effects2,
+                         delete_effects2, option=None, _sampler=None)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = (utils.all_ground_operators(operator1, objects) |
+                  utils.all_ground_operators(operator2, objects))
+    assert len(ground_ops) == 8
+    applicable = list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate1])}))
+    assert len(applicable) == 2
+    all_obj = [(op.name, op.objects) for op in applicable]
+    assert ("Pick", [cup1, plate1]) in all_obj
+    assert ("Place", [cup1, plate1]) in all_obj
+    next_atoms = [utils.apply_operator(op, {pred1([cup1, plate1])})
+                  for op in applicable]
+    assert {pred1([cup1, plate1])} in next_atoms
+    assert {pred1([cup1, plate1]), pred2([cup1, plate1])} in next_atoms
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate2])}))
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup2, plate1])}))
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup2, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup1, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup1, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup2, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup2, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup1, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup1, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup2, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup2, plate2])}))
