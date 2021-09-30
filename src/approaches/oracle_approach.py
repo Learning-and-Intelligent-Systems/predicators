@@ -27,7 +27,7 @@ def _get_gt_ops(predicates: Set[Predicate],
                 options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground-truth operators for an env.
     """
-    if flags.env.name == "Cover":  # pylint: disable=no-member
+    if flags.env.name == "Cover":
         ops = _get_cover_gt_ops()
     else:
         raise NotImplementedError("Groundtruth operators not implemented")
@@ -55,7 +55,7 @@ def _remove_excluded_predicates_from_op(operator: Operator,
     # of the sampler input arguments
     return Operator(operator.name, operator.parameters,
                     preconditions, add_effects, delete_effects,
-                    operator.option, operator._sampler)  # pylint: disable=protected-access
+                    operator.option, operator._sampler)
 
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
