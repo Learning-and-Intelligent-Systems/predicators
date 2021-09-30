@@ -98,7 +98,9 @@ def _get_cover_gt_ops() -> Set[Operator]:
         b = objs[0]
         assert b.type == block_type
         lb = state.get(b, "pose") - state.get(b, "width")/2
+        lb = max(lb, 0.0)
         ub = state.get(b, "pose") + state.get(b, "width")/2
+        ub = min(ub, 1.0)
         return rng.uniform(lb, ub, size=(1,))
     pick_operator = Operator("Pick", parameters, preconditions,
                              add_effects, delete_effects, PickPlace,
@@ -119,7 +121,9 @@ def _get_cover_gt_ops() -> Set[Operator]:
         t = objs[1]
         assert t.type == target_type
         lb = state.get(t, "pose") - state.get(t, "width")/10
+        lb = max(lb, 0.0)
         ub = state.get(t, "pose") + state.get(t, "width")/10
+        ub = min(ub, 1.0)
         return rng.uniform(lb, ub, size=(1,))
     place_operator = Operator("Place", parameters, preconditions,
                               add_effects, delete_effects, PickPlace,
