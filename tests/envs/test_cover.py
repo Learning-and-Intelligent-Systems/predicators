@@ -33,6 +33,7 @@ def test_cover():
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]
     target1 = [b for b in state if b.name == "target1"][0]
+    robot = [b for b in state if b.name == "robby"][0]
     # [pick block0 center, place on target0 center,
     #  pick block1 center, place on target1 center]
     option_sequence = [option.ground([state[block0][3]]),
@@ -42,6 +43,8 @@ def test_cover():
     plan = []
     state = task.init
     expected_lengths = [5, 5, 6, 6, 7]
+    expected_hands = [state[block0][3], state[target0][3],
+                      state[block1][3], state[target1][3]]
     for option in option_sequence:
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
@@ -52,6 +55,8 @@ def test_cover():
         assert len(actions) == 1
         assert len(states) == 2
         state = states[1]
+        assert abs(state[robot][0]-expected_hands.pop(0)) < 1e-4
+    assert not expected_hands
     atoms = utils.abstract(state, env.predicates)
     assert len(atoms) == expected_lengths.pop(0)
     assert not expected_lengths
