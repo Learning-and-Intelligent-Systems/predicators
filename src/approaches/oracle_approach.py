@@ -5,8 +5,8 @@ Predicates that are not in the initial predicates are excluded from
 the ground truth operators. If an operator's option is not included,
 that operator will not be generated at all.
 """
-from absl import flags
 from typing import List, Sequence, Set
+from absl import flags
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
 from predicators.src.structs import Operator, Predicate, \

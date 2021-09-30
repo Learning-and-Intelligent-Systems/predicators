@@ -49,10 +49,10 @@ def test_cover_get_gt_ops():
     pick_operator, place_operator = sorted(operators, key=lambda o: o.name)
     for atom in pick_operator.preconditions:
         assert atom.predicate.name != "Holding"
-    for atom in pick_operator.add_effects:
-        assert atom.predicate.name != "Holding"
+    assert len(pick_operator.add_effects) == 0
     for atom in pick_operator.delete_effects:
         assert atom.predicate.name != "Holding"
+
 
 def test_get_gt_ops():
     """Test get gt ops alone.
