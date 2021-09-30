@@ -8,7 +8,7 @@ from gym.spaces import Box  # type: ignore
 from predicators.configs.envs import cover_config
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object
+    ParameterizedOption, Object, Type
 
 Array = NDArray[np.float32]
 CONFIG = cover_config.get_config()
@@ -114,6 +114,10 @@ class CoverEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         return {self._IsBlock, self._IsTarget, self._Covers,
                 self._HandEmpty, self._Holding}
+
+    @property
+    def types(self) -> Set[Type]:
+        return {self._block_type, self._target_type}
 
     @property
     def options(self) -> Set[ParameterizedOption]:
