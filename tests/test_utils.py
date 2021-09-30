@@ -154,8 +154,8 @@ def test_static_operator_filtering():
     assert ("Place", [cup1, plate2]) in all_obj
 
 
-def test_is_reachable():
-    """Tests for is_reachable().
+def test_is_dr_reachable():
+    """Tests for is_dr_reachable().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -186,18 +186,18 @@ def test_is_reachable():
     assert len(ground_ops) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
     ground_ops = utils.filter_static_operators(ground_ops, atoms)
-    assert utils.is_reachable(ground_ops, atoms, {pred1([cup1, plate1])})
-    assert utils.is_reachable(ground_ops, atoms, {pred1([cup1, plate2])})
-    assert utils.is_reachable(ground_ops, atoms, {pred2([cup1, plate1])})
-    assert utils.is_reachable(ground_ops, atoms, {pred2([cup1, plate2])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup1, plate1])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup1, plate2])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred1([cup2, plate1])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred1([cup2, plate2])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred2([cup2, plate1])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred2([cup2, plate2])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup2, plate1])})
-    assert not utils.is_reachable(ground_ops, atoms, {pred3([cup2, plate2])})
+    assert utils.is_dr_reachable(ground_ops, atoms, {pred1([cup1, plate1])})
+    assert utils.is_dr_reachable(ground_ops, atoms, {pred1([cup1, plate2])})
+    assert utils.is_dr_reachable(ground_ops, atoms, {pred2([cup1, plate1])})
+    assert utils.is_dr_reachable(ground_ops, atoms, {pred2([cup1, plate2])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred3([cup1, plate1])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred3([cup1, plate2])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred1([cup2, plate1])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred1([cup2, plate2])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred2([cup2, plate1])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred2([cup2, plate2])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred3([cup2, plate1])})
+    assert not utils.is_dr_reachable(ground_ops, atoms, {pred3([cup2, plate2])})
 
 
 def test_operator_application():
@@ -211,7 +211,6 @@ def test_operator_application():
     cup_var = cup_type("?cup")
     plate_var = plate_type("?plate")
     parameters = [cup_var, plate_var]
-    # pred3 is unreachable
     preconditions1 = {pred1([cup_var, plate_var])}
     add_effects1 = {pred2([cup_var, plate_var])}
     delete_effects1 = {}
