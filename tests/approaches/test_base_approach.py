@@ -5,16 +5,18 @@ from typing import Callable
 import pytest
 from gym.spaces import Box  # type: ignore
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from predicators.src.approaches import BaseApproach
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Task
+
+Array = NDArray[np.float32]
 
 
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing.
     """
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], ArrayLike]:
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         # Just return some option's policy, ground with random parameters.
         parameterized_option = next(iter(self._options))
         params = parameterized_option.params_space.sample()
