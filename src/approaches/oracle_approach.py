@@ -28,8 +28,34 @@ def _get_gt_ops(predicates: Set[Predicate],
     """Create ground-truth operators for an env.
     """
     if flags.env.name == "Cover":
-        return _get_cover_gt_ops(predicates, options)
-    raise NotImplementedError("Groundtruth operators not implemented")
+        ops = _get_cover_gt_ops()
+    else:
+        raise NotImplementedError("Groundtruth operators not implemented")
+    # Filter out excluded predicates/options
+    final_ops = set()
+    for op in ops:
+        if op.option not in options:
+            continue
+        op = _remove_excluded_predicates_from_op(op, predicates)
+        final_ops.add(op)
+    return final_ops
+
+
+def _remove_excluded_predicates_from_op(operator: Operator,
+    included_predicates: Set[Predicate]) -> Operator:
+    """Remove excluded predicates from everywhere in an operator.
+    """
+    preconditions = {a for a in operator.preconditions \
+                     if a.predicate in included_predicates}
+    add_effects = {a for a in operator.add_effects \
+                   if a.predicate in included_predicates}
+    delete_effects = {a for a in operator.delete_effects \
+                      if a.predicate in included_predicates}
+    # Note that the parameters must stay the same for the sake
+    # of the sampler input arguments
+    return Operator(operator.name, operator.parameters,
+                    preconditions, add_effects, delete_effects,
+                    operator.option, operator._sampler)
 
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
@@ -65,8 +91,7 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_ops(predicates: Set[Predicate],
-                      options: Set[ParameterizedOption]) -> Set[Operator]:
+def _get_cover_gt_ops() -> Set[Operator]:
     """Create ground-truth operators for CoverEnv.
     """
     block_type, target_type = _get_types_by_names("Cover", ["block", "target"])
@@ -85,15 +110,16 @@ def _get_cover_gt_ops(predicates: Set[Predicate],
     preconditions = {IsBlock([block]), HandEmpty([])}
     add_effects = {Holding([block])}
     delete_effects = {HandEmpty([])}
-    def sampler(rng, state, objs):
+    def pick_sampler(state, rng, objs):
         assert len(objs) == 1
         b = objs[0]
         assert b.type == block_type
         lb = state.get(b, "pose") - state.get(b, "width")/2
         ub = state.get(b, "pose") + state.get(b, "width")/2
-        return rng.uniform(lb, ub)
+        return rng.uniform(lb, ub, size=(1,))
     pick_operator = Operator("Pick", parameters, preconditions,
-                             add_effects, delete_effects, PickPlace, sampler)
+                             add_effects, delete_effects, PickPlace,
+                             pick_sampler)
     operators.add(pick_operator)
 
     # Place
@@ -102,15 +128,16 @@ def _get_cover_gt_ops(predicates: Set[Predicate],
     preconditions = {IsBlock([block]), IsTarget([target]), Holding([block])}
     add_effects = {HandEmpty([]), Covers([block, target])}
     delete_effects = {Holding([block])}
-    def sampler(rng, state, objs):
+    def place_sampler(state, rng, objs):
         assert len(objs) == 2
         t = objs[1]
         assert t.type == target_type
         lb = state.get(t, "pose") - state.get(t, "width")/10
         ub = state.get(t, "pose") + state.get(t, "width")/10
-        return rng.uniform(lb, ub)
+        return rng.uniform(lb, ub, size=(1,))
     place_operator = Operator("Place", parameters, preconditions,
-                              add_effects, delete_effects, PickPlace, sampler)
+                              add_effects, delete_effects, PickPlace,
+                              place_sampler)
     operators.add(place_operator)
 
-    return operators    
+    return operators
