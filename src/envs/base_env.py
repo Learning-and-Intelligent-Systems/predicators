@@ -5,7 +5,7 @@ import abc
 from typing import List, Set
 import numpy as np
 from numpy.typing import NDArray
-from gym.spaces import Box  # type: ignore
+from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
     ParameterizedOption, Type
 
