@@ -3,7 +3,8 @@
 
 import pytest
 from gym.spaces import Box  # type: ignore
-from predicators.src.structs import State, Type, ParameterizedOption, Predicate
+from predicators.src.structs import State, Type, ParameterizedOption, \
+    Predicate, Operator
 from predicators.src import utils
 
 
@@ -68,3 +69,40 @@ def test_abstract():
                      pred1([cup, plate2]),
                      # predicates with duplicate arguments are filtered out
                      pred2([cup, plate1, plate2])}
+
+
+def test_all_ground_operators():
+    """Tests for all_ground_operators().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate1_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate1")
+    parameters = [cup_var, plate1_var, plate2_var]
+    preconditions = {not_on([cup_var, plate1_var])}
+    add_effects = {on([cup_var, plate1_var])}
+    delete_effects = {not_on([cup_var, plate1_var])}
+    params_space = Box(-10, 10, (2,))
+    parameterized_option = ParameterizedOption("Pick",
+        params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
+    operator = Operator("PickOperator", parameters, preconditions, add_effects,
+                        delete_effects, parameterized_option, _sampler=None)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = utils.all_ground_operators(operator, objects)
+    assert len(ground_ops) == 8
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate1, plate1] in all_obj
+    assert [cup1, plate2, plate1] in all_obj
+    assert [cup2, plate1, plate1] in all_obj
+    assert [cup2, plate2, plate1] in all_obj
+    assert [cup1, plate1, plate2] in all_obj
+    assert [cup1, plate2, plate2] in all_obj
+    assert [cup2, plate1, plate2] in all_obj
+    assert [cup2, plate2, plate2] in all_obj
