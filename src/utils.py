@@ -46,7 +46,6 @@ def get_object_combinations(
         type_to_objs[obj.type].append(obj)
     choices = [type_to_objs[vt] for vt in types]
     for choice in itertools.product(*choices):
-        # Disallow duplicates.
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue
         yield list(choice)
@@ -55,6 +54,8 @@ def get_object_combinations(
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set
     of ground atoms), using the given set of predicates.
+
+    NOTE: Duplicate arguments in predicates are DISALLOWED.
     """
     atoms = set()
     for pred in preds:
@@ -68,6 +69,8 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
 def all_ground_operators(
         op: Operator, objects: Collection[Object]) -> Set[_GroundOperator]:
     """Get all possible groundings of the given operator with the given objects.
+
+    NOTE: Duplicate arguments in ground operators are ALLOWED.
     """
     types = [p.type for p in op.parameters]
     ground_operators = set()
