@@ -27,7 +27,7 @@ def _get_gt_ops(predicates: Set[Predicate],
                 options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground truth operators for an env.
     """
-    if flags.env.name == "Cover":
+    if flags.env.name == "Cover":  # pylint:disable=no-member
         ops = _get_cover_gt_ops()
     else:
         raise NotImplementedError("Ground truth operators not implemented")
