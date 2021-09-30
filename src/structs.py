@@ -4,7 +4,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Dict, Iterator, List, Sequence, Callable, Collection
+from typing import Dict, Iterator, List, Sequence, Callable, Set
 import numpy as np
 from gym.spaces import Box  # type: ignore
 from numpy.typing import NDArray
@@ -262,7 +262,7 @@ class Task:
     """Struct defining a task, which is a pair of initial state and goal.
     """
     init: State
-    goal: Collection[GroundAtom]
+    goal: Set[GroundAtom]
 
     def __post_init__(self):
         # Verify types.
@@ -325,9 +325,9 @@ class Operator:
     """
     name: str
     parameters: Sequence[Variable]
-    preconditions: Collection[LiftedAtom]
-    add_effects: Collection[LiftedAtom]
-    delete_effects: Collection[LiftedAtom]
+    preconditions: Set[LiftedAtom]
+    add_effects: Set[LiftedAtom]
+    delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
     # A sampler maps a state and objects to option parameters.
     _sampler: Callable[[State, Sequence[Object]], Array] = field(repr=False)
@@ -376,9 +376,9 @@ class _GroundOperator:
     """A ground operator is an operator + objects."""
     operator: Operator
     objects: Sequence[Object]
-    preconditions: Collection[GroundAtom]
-    add_effects: Collection[GroundAtom]
-    delete_effects: Collection[GroundAtom]
+    preconditions: Set[GroundAtom]
+    add_effects: Set[GroundAtom]
+    delete_effects: Set[GroundAtom]
     option: ParameterizedOption
     sampler: Callable[[State], Array] = field(repr=False)
 
