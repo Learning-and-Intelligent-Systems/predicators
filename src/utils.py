@@ -210,7 +210,7 @@ class RelaxedOperator:
         self.counter = len(self.preconditions)  # properly initialize counter
 
 
-class hAddHeuristic:
+class HAddHeuristic:
     """This class is an implementation of the hADD heuristic.
     Lightly modified from pyperplan's heuristics/relaxation.py.
     """

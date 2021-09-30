@@ -315,10 +315,10 @@ def test_hadd_heuristic():
             "Dummy", frozenset({}), frozenset({}))]
     goals = frozenset({("Covers", "block0:block", "target0:target"),
                        ("Covers", "block1:block", "target1:target")})
-    heuristic = utils.hAddHeuristic(initial_state, goals, operators)
+    heuristic = utils.HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 4
     assert heuristic(goals) == 0
     goals = frozenset({("Covers", "block0:block", "target0:target")})
-    heuristic = utils.hAddHeuristic(initial_state, goals, operators)
+    heuristic = utils.HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0

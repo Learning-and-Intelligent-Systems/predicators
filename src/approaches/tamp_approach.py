@@ -96,7 +96,7 @@ class TAMPApproach(BaseApproach):
             op.name, utils.atoms_to_tuples(op.preconditions),
             utils.atoms_to_tuples(op.add_effects)) for op in ground_operators})
         heuristic_cache: Dict[PyperplanFacts, float] = {}
-        heuristic: Callable[[PyperplanFacts], float] = utils.hAddHeuristic(
+        heuristic: Callable[[PyperplanFacts], float] = utils.HAddHeuristic(
             utils.atoms_to_tuples(init_atoms),
             utils.atoms_to_tuples(task.goal), relaxed_operators)
         heuristic_cache[root_node.pyperplan_facts] = heuristic(
