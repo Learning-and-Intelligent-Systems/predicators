@@ -153,7 +153,7 @@ class CoverEnv(BaseEnv):
         return tasks
 
     def _create_initial_state(self) -> State:
-        data: Dict[Object, List[float]] = {}
+        data: Dict[Object, Array] = {}
         assert len(CONFIG["block_widths"]) == len(self._blocks)
         for block, width in zip(self._blocks, CONFIG["block_widths"]):
             while True:
@@ -161,7 +161,7 @@ class CoverEnv(BaseEnv):
                 if not self._any_intersection(pose, width, data):
                     break
             # [is_block, is_target, width, pose, grasp]
-            data[block] = [1.0, 0.0, width, pose, -1.0]
+            data[block] = np.array([1.0, 0.0, width, pose, -1.0])
         assert len(CONFIG["target_widths"]) == len(self._targets)
         for target, width in zip(self._targets, CONFIG["target_widths"]):
             while True:
@@ -170,9 +170,9 @@ class CoverEnv(BaseEnv):
                         pose, width, data, larger_gap=True):
                     break
             # [is_block, is_target, width, pose]
-            data[target] = [0.0, 1.0, width, pose]
+            data[target] = np.array([0.0, 1.0, width, pose])
         # [hand]
-        data[self._robot] = [0]
+        data[self._robot] = np.array([0.0])
         return State(data)
 
     @staticmethod
@@ -209,7 +209,7 @@ class CoverEnv(BaseEnv):
         return state[block][4] != -1
 
     def _any_intersection(self, pose: float, width: float,
-                          data: Dict[Object, List[float]],
+                          data: Dict[Object, Array],
                           block_only: bool=False,
                           larger_gap: bool=False) -> bool:
         mult = 1.5 if larger_gap else 0.5
