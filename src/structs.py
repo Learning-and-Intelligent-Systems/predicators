@@ -107,6 +107,12 @@ class State:
     def __getitem__(self, key: Object) -> Array:
         return self.data[key]
 
+    def get(self, obj: Object, feature_name: str) -> np.float32:
+        """Look up an object feature by name.
+        """
+        idx = obj.type.feature_names.index(feature_name)
+        return self.data[obj][idx]
+
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the
         given ordered list.
@@ -293,6 +299,16 @@ class ParameterizedOption:
     # which is True iff the option should terminate now.
     _terminal: Callable[[State, Array], bool] = field(repr=False)
 
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return self._hash
+
     def ground(self, params: Array) -> _Option:
         """Ground into an Option, given parameter values.
         On the Option that is returned, one can call, e.g., policy(state).
@@ -344,9 +360,9 @@ class Operator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.parameters}
-    Preconditions: {self.preconditions}
-    Add Effects: {self.add_effects}
-    Delete Effects: {self.delete_effects}
+    Preconditions: {sorted(self.preconditions, key=lambda a:a.predicate)}
+    Add Effects: {sorted(self.add_effects, key=lambda a:a.predicate)}
+    Delete Effects: {sorted(self.delete_effects, key=lambda a:a.predicate)}
     Option: {self.option}"""
 
     @cached_property
@@ -394,9 +410,9 @@ class _GroundOperator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.objects}
-    Preconditions: {self.preconditions}
-    Add Effects: {self.add_effects}
-    Delete Effects: {self.delete_effects}
+    Preconditions: {sorted(self.preconditions, key=lambda a:a.predicate)}
+    Add Effects: {sorted(self.add_effects, key=lambda a:a.predicate)}
+    Delete Effects: {sorted(self.delete_effects, key=lambda a:a.predicate)}
     Option: {self.option}"""
 
     @cached_property

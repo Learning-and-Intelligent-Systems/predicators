@@ -22,6 +22,8 @@ def test_cover():
     assert len(env.predicates) == 5
     # Options should be {PickPlace}.
     assert len(env.options) == 1
+    # Types should be {block, target, robot}
+    assert len(env.types) == 3
     # Action space should be 1-dimensional.
     assert env.action_space == Box(0, 1, (1,))
     # Run through a specific plan to test atoms.
