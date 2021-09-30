@@ -257,3 +257,13 @@ def test_operators():
     assert ground_op == ground_op2
     state = test_state()
     _ = ground_op.sampler(state, np.random.RandomState(123))
+    filtered_op = operator.filter_predicates({on})
+    assert len(filtered_op.parameters) == 2
+    assert len(filtered_op.preconditions) == 0
+    assert len(filtered_op.add_effects) == 1
+    assert len(filtered_op.delete_effects) == 0
+    filtered_op = operator.filter_predicates({not_on})
+    assert len(filtered_op.parameters) == 2
+    assert len(filtered_op.preconditions) == 1
+    assert len(filtered_op.add_effects) == 0
+    assert len(filtered_op.delete_effects) == 1

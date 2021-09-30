@@ -208,7 +208,6 @@ class RelaxedOperator:
 
     def __post_init__(self):
         self.counter = len(self.preconditions)  # properly initialize counter
-        1/0#TODO:VERIFY WE GET HERE
 
 
 class hAddHeuristic:
