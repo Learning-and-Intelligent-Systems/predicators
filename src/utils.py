@@ -117,11 +117,11 @@ def filter_static_operators(ground_operators: Collection[_GroundOperator],
     return ground_operators
 
 
-def is_reachable(ground_operators: Collection[_GroundOperator],
-                 atoms: Collection[GroundAtom],
-                 goal: Set[GroundAtom]) -> bool:
+def is_dr_reachable(ground_operators: Collection[_GroundOperator],
+                    atoms: Collection[GroundAtom],
+                    goal: Set[GroundAtom]) -> bool:
     """Quickly check whether the given goal is reachable from the given atoms
-    under the given operators, using a delete relaxation.
+    under the given operators, using a delete relaxation (dr).
     """
     reachables = set(atoms)
     while True:

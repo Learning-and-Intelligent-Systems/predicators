@@ -3,7 +3,7 @@ and/or options.
 """
 
 import abc
-from typing import Collection, Callable
+from typing import Set, Callable
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box  # type: ignore
@@ -16,8 +16,8 @@ class BaseApproach:
     """Base approach.
     """
     def __init__(self, simulator: Callable[[State, Array], State],
-                 initial_predicates: Collection[Predicate],
-                 initial_options: Collection[ParameterizedOption],
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption],
                  action_space: Box):
         """All approaches are initialized with a simulator, initial predicates,
         initial parameterized options, and the action space.
@@ -57,4 +57,9 @@ class BaseApproach:
 
 class ApproachTimeout(Exception):
     """Exception raised when approach.solve() times out.
+    """
+
+
+class ApproachFailure(Exception):
+    """Exception raised when approach.solve() fails to compute a policy.
     """
