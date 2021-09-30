@@ -102,7 +102,7 @@ class TAMPApproach(BaseApproach):
                             root_node))
         # Start search.
         while queue and (time.time()-start_time < timeout):
-            node = hq.heappop(queue)[2]
+            _, _, node = hq.heappop(queue)
             # Good debug point #1: print node.skeleton here to see what
             # the high-level search is doing.
             if task.goal.issubset(node.atoms):

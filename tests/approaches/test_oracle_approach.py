@@ -1,5 +1,6 @@
 """Test cases for the oracle approach class.
 """
+
 from absl import flags
 import ml_collections
 import numpy as np
