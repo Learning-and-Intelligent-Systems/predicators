@@ -3,7 +3,8 @@
 
 import itertools
 from collections import defaultdict
-from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator
+from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
+    Dict
 import numpy as np
 from numpy.typing import NDArray
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
@@ -78,3 +79,17 @@ def all_ground_operators(
                                           allow_duplicates=True):
         ground_operators.add(op.ground(choice))
     return ground_operators
+
+
+def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
+        Dict[str, Predicate], Dict[str, Type]]:
+    """Extract the predicates and types used in the given operators.
+    """
+    preds = {}
+    types = {}
+    for op in operators:
+        for atom in op.preconditions | op.add_effects | op.delete_effects:
+            for var_type in atom.predicate.types:
+                types[var_type.name] = var_type
+            preds[atom.predicate.name] = atom.predicate
+    return preds, types
