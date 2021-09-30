@@ -42,7 +42,7 @@ jobs:
         pip install -U git+git://github.com/python/mypy.git
     - name: Mypy
       run: |
-        mypy .
+        mypy . --config-file mypy.ini
   lint:
     runs-on: ubuntu-latest
     strategy:

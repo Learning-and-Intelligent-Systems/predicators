@@ -1,33 +1,17 @@
 """Toy cover domain.
 """
 
-from typing import List, Set, Sequence, Dict, TypedDict
+from typing import List, Set, Sequence, Dict
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box  # type: ignore
+from predicators.configs.envs import cover_config
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object
 
 Array = NDArray[np.float32]
-
-
-# TODO: move this to a better place
-class _Config(TypedDict):
-    num_blocks: int
-    num_targets: int
-    num_train_tasks: int
-    num_test_tasks: int
-    block_widths: List[float]
-    target_widths: List[float]
-CONFIG: _Config = {
-    "num_blocks": 2,
-    "num_targets": 2,
-    "num_train_tasks": 5,
-    "num_test_tasks": 10,
-    "block_widths": [0.1, 0.07],
-    "target_widths": [0.05, 0.03],
-}
+CONFIG = cover_config.get_config()
 
 
 class CoverEnv(BaseEnv):
