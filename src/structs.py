@@ -92,7 +92,7 @@ class Variable(_TypedEntity):
 class State:
     """Struct defining the low-level state of the world.
     """
-    data: Dict[Object, List[float]]
+    data: Dict[Object, Array]
 
     def __post_init__(self):
         # Check feature vector dimensions.
@@ -104,14 +104,14 @@ class State:
         """
         return iter(sorted(self.data))
 
-    def __getitem__(self, key: Object) -> List[float]:
+    def __getitem__(self, key: Object) -> Array:
         return self.data[key]
 
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the
         given ordered list.
         """
-        feats: List[List[float]] = []
+        feats: List[Array] = []
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
