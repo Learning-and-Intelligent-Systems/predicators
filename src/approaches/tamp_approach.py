@@ -1,4 +1,5 @@
-"""An abstract approach that does TAMP to solve tasks.
+"""An abstract approach that does TAMP to solve tasks. Uses the SeSamE
+planning strategy: SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
@@ -32,9 +33,9 @@ class TAMPApproach(BaseApproach):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         self._num_calls += 1
         seed = self._seed+self._num_calls  # ensure random over successive calls
-        plan = TAMPApproach._plan(task, self._simulator,
-                                  self._get_current_operators(),
-                                  self._initial_predicates, timeout, seed)
+        plan = TAMPApproach.sesame_plan(task, self._simulator,
+                                        self._get_current_operators(),
+                                        self._initial_predicates, timeout, seed)
         def _policy(_):
             if not plan:
                 raise ApproachFailure("Finished executing plan!")
@@ -48,12 +49,14 @@ class TAMPApproach(BaseApproach):
         raise NotImplementedError("Override me!")
 
     @staticmethod
-    def _plan(task: Task,
-              simulator: Callable[[State, Array], State],
-              current_operators: Set[Operator],
-              initial_predicates: Set[Predicate],
-              timeout: int, seed: int) -> List[Array]:
+    def sesame_plan(task: Task,
+                    simulator: Callable[[State, Array], State],
+                    current_operators: Set[Operator],
+                    initial_predicates: Set[Predicate],
+                    timeout: int, seed: int,
+                    check_dr_reachable: bool = True) -> List[Array]:
         """Run TAMP. Return a sequence of low-level actions.
+        Uses the SeSamE strategy: SEarch-and-SAMple planning, then Execution.
         """
         op_preds, _ = utils.extract_preds_and_types(current_operators)
         # Ensure that initial predicates are always included.
@@ -66,7 +69,8 @@ class TAMPApproach(BaseApproach):
                 ground_operators.append(ground_op)
         ground_operators = utils.filter_static_operators(
             ground_operators, atoms)
-        if not utils.is_dr_reachable(ground_operators, atoms, task.goal):
+        if check_dr_reachable and \
+           not utils.is_dr_reachable(ground_operators, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         plan = TAMPApproach._run_search(
             task, simulator, ground_operators, atoms, predicates, timeout, seed)
@@ -183,17 +187,17 @@ class TAMPApproach(BaseApproach):
             if atoms == atoms_sequence[cur_idx]:
                 if cur_idx == len(skeleton):  # success!
                     return [act for acts in plan for act in acts]  # flatten
-                continue  # all good, no need to backtrack
-            # Do backtracking.
-            cur_idx -= 1
-            while num_tries[cur_idx] == CONFIG["max_samples_per_step"]:
-                num_tries[cur_idx] = 0
-                options[cur_idx] = DefaultOption
-                plan[cur_idx] = []
-                traj[cur_idx+1] = DefaultState
+            else:
+                # Do backtracking.
                 cur_idx -= 1
-                if cur_idx < 0:
-                    return None  # backtracking exhausted
+                while num_tries[cur_idx] == CONFIG["max_samples_per_step"]:
+                    num_tries[cur_idx] = 0
+                    options[cur_idx] = DefaultOption
+                    plan[cur_idx] = []
+                    traj[cur_idx+1] = DefaultState
+                    cur_idx -= 1
+                    if cur_idx < 0:
+                        return None  # backtracking exhausted
         # Should only get here if the skeleton was empty
         assert not skeleton
         return []
