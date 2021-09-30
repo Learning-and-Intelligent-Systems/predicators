@@ -4,7 +4,7 @@
 from typing import List, Set, Sequence, Dict
 import numpy as np
 from numpy.typing import NDArray
-from gym.spaces import Box  # type: ignore
+from gym.spaces import Box
 from predicators.configs.envs import cover_config
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \

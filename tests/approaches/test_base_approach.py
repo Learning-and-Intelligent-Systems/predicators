@@ -3,7 +3,7 @@
 
 from typing import Callable
 import pytest
-from gym.spaces import Box  # type: ignore
+from gym.spaces import Box
 import numpy as np
 from numpy.typing import NDArray
 from predicators.src.approaches import BaseApproach, create_approach
