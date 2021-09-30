@@ -2,7 +2,7 @@
 """
 
 import numpy as np
-from gym.spaces import Box  # type: ignore
+from gym.spaces import Box
 from predicators.src.envs import CoverEnv
 from predicators.src import utils
 
