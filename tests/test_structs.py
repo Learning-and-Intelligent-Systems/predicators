@@ -224,8 +224,9 @@ def test_operators():
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption("Pick",
         params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
-    def sampler(s, objs):
+    def sampler(s, rng, objs):
         del s  # unused
+        del rng  # unused
         del objs  # unused
         return params_space.sample()
     operator = Operator("PickOperator", parameters, preconditions, add_effects,
@@ -255,4 +256,4 @@ def test_operators():
     ground_op2 = operator2.ground([cup, plate])
     assert ground_op == ground_op2
     state = test_state()
-    _ = ground_op.sampler(state)
+    _ = ground_op.sampler(state, np.random.RandomState(123))
