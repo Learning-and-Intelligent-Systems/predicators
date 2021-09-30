@@ -3,13 +3,11 @@ and/or options.
 """
 
 import abc
-import itertools
-from typing import Collection, Callable, Set
+from typing import Collection, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 from gym.spaces import Box  # type: ignore
-from predicators.src.structs import State, Task, Predicate, GroundAtom, \
-    ParameterizedOption
+from predicators.src.structs import State, Task, Predicate, ParameterizedOption
 
 
 class BaseApproach:
@@ -52,22 +50,6 @@ class BaseApproach:
         """
         self._seed = seed
         self._rng = np.random.RandomState(self._seed)
-
-    def _abstract(self, state: State) -> Set[GroundAtom]:
-        """Get the atomic representation of this state (i.e., a set
-        of ground atoms).
-        """
-        atoms = set()
-        for pred in self._predicates:
-            domains = []
-            for var_type in pred.types:
-                domains.append([obj for obj in state if obj.type == var_type])
-            for choice in itertools.product(*domains):
-                if len(choice) != len(set(choice)):
-                    continue  # ignore duplicate arguments
-                if pred.holds(state, choice):
-                    atoms.add(GroundAtom(pred, choice))
-        return atoms
 
 
 class ApproachTimeout(Exception):
