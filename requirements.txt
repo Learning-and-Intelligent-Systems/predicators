@@ -1,3 +1,5 @@
+ml_collections
 numpy>=1.21.0
 pytest
 gym
+absl-py
