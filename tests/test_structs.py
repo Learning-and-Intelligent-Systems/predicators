@@ -233,9 +233,9 @@ def test_operators():
                         delete_effects, parameterized_option, sampler)
     assert str(operator) == repr(operator) == """PickOperator:
     Parameters: [?cup:cup_type, ?plate:plate_type]
-    Preconditions: {NotOn(?cup:cup_type, ?plate:plate_type)}
-    Add Effects: {On(?cup:cup_type, ?plate:plate_type)}
-    Delete Effects: {NotOn(?cup:cup_type, ?plate:plate_type)}
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Option: ParameterizedOption(name='Pick')"""
     assert isinstance(hash(operator), int)
     operator2 = Operator("PickOperator", parameters, preconditions, add_effects,
@@ -248,9 +248,9 @@ def test_operators():
     assert isinstance(ground_op, _GroundOperator)
     assert str(ground_op) == repr(ground_op) == """PickOperator:
     Parameters: [cup:cup_type, plate:plate_type]
-    Preconditions: {NotOn(cup:cup_type, plate:plate_type)}
-    Add Effects: {On(cup:cup_type, plate:plate_type)}
-    Delete Effects: {NotOn(cup:cup_type, plate:plate_type)}
+    Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
+    Add Effects: [On(cup:cup_type, plate:plate_type)]
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
     Option: ParameterizedOption(name='Pick')"""
     assert isinstance(hash(ground_op), int)
     ground_op2 = operator2.ground([cup, plate])

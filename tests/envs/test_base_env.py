@@ -2,7 +2,7 @@
 """
 
 import pytest
-from predicators.src.envs import BaseEnv
+from predicators.src.envs import BaseEnv, create_env
 from predicators.src.structs import State, Type
 
 
@@ -28,4 +28,16 @@ def test_base_env():
     with pytest.raises(NotImplementedError):
         env.options()
     with pytest.raises(NotImplementedError):
+        env.types()
+    with pytest.raises(NotImplementedError):
         env.action_space()
+
+
+def test_create_env():
+    """Tests for create_env.
+    """
+    for name in ["Cover"]:
+        env = create_env(name)
+        assert isinstance(env, BaseEnv)
+    with pytest.raises(NotImplementedError):
+        create_env("Not a real env")

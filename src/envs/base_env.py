@@ -6,7 +6,8 @@ from typing import List, Set
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box  # type: ignore
-from predicators.src.structs import State, Task, Predicate, ParameterizedOption
+from predicators.src.structs import State, Task, Predicate, \
+    ParameterizedOption, Type
 
 Array = NDArray[np.float32]
 
@@ -41,6 +42,13 @@ class BaseEnv:
     @abc.abstractmethod
     def predicates(self) -> Set[Predicate]:
         """Get the set of predicates that are given with this environment.
+        """
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
+    def types(self) -> Set[Type]:
+        """Get the set of types that are given with this environment.
         """
         raise NotImplementedError("Override me!")
 
