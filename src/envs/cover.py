@@ -1,17 +1,17 @@
-"""Toy cover domain.
+"""Toy cover domain. This environment IS downward refinability (low-level search
+won't ever fail), but it still requires backtracking.
 """
 
 from typing import List, Set, Sequence, Dict
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box
-from predicators.configs.envs import cover_config
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object
+from predicators.src.settings import CFG
 
 Array = NDArray[np.float32]
-CONFIG = cover_config.get_config()
 
 
 class CoverEnv(BaseEnv):
@@ -46,9 +46,9 @@ class CoverEnv(BaseEnv):
         # Objects
         self._blocks = []
         self._targets = []
-        for i in range(CONFIG["num_blocks"]):
+        for i in range(CFG.cover_num_blocks):
             self._blocks.append(self._block_type(f"block{i}"))
-        for i in range(CONFIG["num_targets"]):
+        for i in range(CFG.cover_num_targets):
             self._targets.append(self._target_type(f"target{i}"))
         self._robot = self._robot_type("robby")
 
@@ -105,10 +105,10 @@ class CoverEnv(BaseEnv):
         return next_state
 
     def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CONFIG["num_train_tasks"])
+        return self._get_tasks(num=CFG.num_train_tasks)
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CONFIG["num_test_tasks"])
+        return self._get_tasks(num=CFG.num_test_tasks)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -142,16 +142,16 @@ class CoverEnv(BaseEnv):
 
     def _create_initial_state(self) -> State:
         data: Dict[Object, Array] = {}
-        assert len(CONFIG["block_widths"]) == len(self._blocks)
-        for block, width in zip(self._blocks, CONFIG["block_widths"]):
+        assert len(CFG.cover_block_widths) == len(self._blocks)
+        for block, width in zip(self._blocks, CFG.cover_block_widths):
             while True:
                 pose = self._rng.uniform(width/2, 1.0-width/2)
                 if not self._any_intersection(pose, width, data):
                     break
             # [is_block, is_target, width, pose, grasp]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0])
-        assert len(CONFIG["target_widths"]) == len(self._targets)
-        for target, width in zip(self._targets, CONFIG["target_widths"]):
+        assert len(CFG.cover_target_widths) == len(self._targets)
+        for target, width in zip(self._targets, CFG.cover_target_widths):
             while True:
                 pose = self._rng.uniform(width/2, 1.0-width/2)
                 if not self._any_intersection(

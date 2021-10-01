@@ -10,7 +10,7 @@ from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.tamp_approach import TAMPApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.structs import State, Predicate, ParameterizedOption
+from predicators.src.structs import State, Predicate, ParameterizedOption, Type
 
 Array = NDArray[np.float32]
 
@@ -28,13 +28,14 @@ def create_approach(name: str,
                     simulator: Callable[[State, Array], State],
                     initial_predicates: Set[Predicate],
                     initial_options: Set[ParameterizedOption],
+                    types: Set[Type],
                     action_space) -> BaseApproach:
     """Create an approach given its name.
     """
-    if name == "Oracle":
+    if name == "oracle":
         return OracleApproach(simulator, initial_predicates,
-                              initial_options, action_space)
-    if name == "Random Actions":
+                              initial_options, types, action_space)
+    if name == "random":
         return RandomActionsApproach(simulator, initial_predicates,
-                                     initial_options, action_space)
+                                     initial_options, types, action_space)
     raise NotImplementedError(f"Unknown env: {name}")
