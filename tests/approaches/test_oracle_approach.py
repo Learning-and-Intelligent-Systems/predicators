@@ -112,7 +112,7 @@ def test_oracle_approach_cover_failures():
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=1)  # backtracking occurs
     CFG.max_skeletons = old_max_skeletons
-    with pytest.raises(ApproachFailure):
+    with pytest.raises(ApproachFailure):sss
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.max_samples_per_step = old_max_samples_per_step
     operators = _get_gt_ops(env.predicates, env.options)
