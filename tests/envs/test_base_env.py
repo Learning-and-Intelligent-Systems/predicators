@@ -36,7 +36,7 @@ def test_base_env():
 def test_create_env():
     """Tests for create_env.
     """
-    for name in ["Cover"]:
+    for name in ["cover"]:
         env = create_env(name)
         assert isinstance(env, BaseEnv)
     with pytest.raises(NotImplementedError):
