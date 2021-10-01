@@ -11,7 +11,7 @@ from predicators.src.approaches import create_approach
 from predicators.src.utils import update_config
 
 
-def main():
+def main() -> None:
     """Main entry point for running approaches in environments.
     """
     # Parse & validate args
