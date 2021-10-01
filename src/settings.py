@@ -4,6 +4,7 @@ Anything that varies between runs should be a command-line arg (args.py).
 
 from collections import defaultdict
 from types import SimpleNamespace
+from typing import Dict, Any
 
 
 class GlobalSettings:
@@ -20,7 +21,7 @@ class GlobalSettings:
     max_num_steps_option_rollout = 100
 
     @staticmethod
-    def get_arg_specific_settings(args):
+    def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
         derived from the experiment-specific args
         """

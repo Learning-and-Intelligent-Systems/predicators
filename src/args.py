@@ -3,9 +3,10 @@ All global, immutable settings should be in settings.py.
 """
 
 import argparse
+from typing import Dict, Any
 
 
-def parse_args():
+def parse_args() -> Dict[str, Any]:
     """Defines command line arguments.
     """
     parser = argparse.ArgumentParser()
@@ -17,7 +18,7 @@ def parse_args():
     return vars(args)
 
 
-def print_args(args):
+def print_args(args: argparse.Namespace):
     """Print all info for this experiment.
     """
     print(f"Seed: {args.seed}")
