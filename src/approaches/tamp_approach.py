@@ -11,16 +11,15 @@ from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, \
 from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
-from predicators.configs.approaches import tamp_approach_config
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.structs import State, Task, Operator, Predicate, \
     GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option
 from predicators.src import utils
+from predicators.src.settings import CFG
 
 Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
-CONFIG = tamp_approach_config.get_config()
 
 
 class TAMPApproach(BaseApproach):
@@ -163,7 +162,7 @@ class TAMPApproach(BaseApproach):
         while cur_idx < len(skeleton):
             if time.time()-start_time > timeout:
                 raise ApproachTimeout("Planning timed out in backtracking!")
-            assert num_tries[cur_idx] < CONFIG["max_samples_per_step"]
+            assert num_tries[cur_idx] < CFG.max_samples_per_step
             # Good debug point #2: if you have a skeleton that you think is
             # reasonable, but sampling isn't working, print num_tries here to
             # see at what step the backtracking search is getting stuck.
@@ -177,7 +176,7 @@ class TAMPApproach(BaseApproach):
             options[cur_idx] = option
             option_traj_states, option_traj_acts = utils.option_to_trajectory(
                 state, simulator, option,
-                max_num_steps=CONFIG.max_num_steps_option_rollout)
+                max_num_steps=CFG.max_num_steps_option_rollout)
             traj[cur_idx+1] = option_traj_states[-1]  # ignore previous states
             plan[cur_idx] = option_traj_acts
             cur_idx += 1
@@ -190,7 +189,7 @@ class TAMPApproach(BaseApproach):
             else:
                 # Do backtracking.
                 cur_idx -= 1
-                while num_tries[cur_idx] == CONFIG["max_samples_per_step"]:
+                while num_tries[cur_idx] == CFG.max_samples_per_step:
                     num_tries[cur_idx] = 0
                     options[cur_idx] = DefaultOption
                     plan[cur_idx] = []

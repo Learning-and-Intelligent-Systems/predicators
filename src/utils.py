@@ -13,6 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator
+from predicators.src.settings import CFG, GlobalSettings
 
 Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
@@ -355,3 +356,12 @@ class HAddHeuristic:
                                 self.tie_breaker += 1
                 # Finally the fact is marked as expanded.
                 fact.expanded = True
+
+
+
+def update_config(args):
+    """Args is a dictionary of new arguments to add to the config CFG.
+    """
+    for d in [GlobalSettings.get_arg_specific_settings(args), args]:
+        for k, v in d.items():
+            CFG.__setattr__(k, v)

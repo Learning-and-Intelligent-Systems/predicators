@@ -10,8 +10,8 @@ def test_random_actions_approach():
     env = CoverEnv()
     tasks = env.get_train_tasks()
     task = tasks[0]
-    approach = RandomActionsApproach(env.simulate, env.predicates,
-                                     env.options, env.action_space)
+    approach = RandomActionsApproach(env.simulate, env.predicates, env.options,
+                                     env.types, env.action_space)
     approach.seed(123)
     policy = approach.solve(task, 500)
     for _ in range(10):

@@ -1,27 +1,22 @@
 """Test cases for the oracle approach class.
 """
 
-from absl import flags
-import ml_collections
 import numpy as np
 import pytest
-from predicators.configs.envs import cover_config
-from predicators.configs.approaches import tamp_approach_config
 from predicators.src.approaches import OracleApproach, ApproachFailure, \
     ApproachTimeout, TAMPApproach
 from predicators.src.approaches.oracle_approach import _get_gt_ops
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Task
 from predicators.src import utils
-
-CONFIG = tamp_approach_config.get_config()
+from predicators.src.settings import CFG
 
 
 def test_cover_get_gt_ops():
     """Tests for _get_gt_ops in CoverEnv.
     """
+    utils.update_config({"env": "cover"})
     # All predicates and options
-    flags.env = cover_config.get_config()
     env = CoverEnv()
     operators = _get_gt_ops(env.predicates, env.options)
     assert len(operators) == 2
@@ -63,8 +58,7 @@ def test_cover_get_gt_ops():
 def test_get_gt_ops():
     """Test get gt ops alone.
     """
-    flags.env = ml_collections.ConfigDict()
-    flags.env.name = "Not a real environment"
+    utils.update_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
         _get_gt_ops(set(), set())
 
@@ -72,11 +66,11 @@ def test_get_gt_ops():
 def test_oracle_approach_cover():
     """Tests for OracleApproach class with CoverEnv.
     """
-    flags.env = cover_config.get_config()
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.action_space)
+                              env.types, env.action_space)
     approach.seed(123)
     for task in env.get_train_tasks():
         policy = approach.solve(task, timeout=500)
@@ -89,11 +83,11 @@ def test_oracle_approach_cover():
 def test_oracle_approach_cover_failures():
     """Tests for failures in the OracleApproach.
     """
-    flags.env = cover_config.get_config()
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.action_space)
+                              env.types, env.action_space)
     approach.seed(123)
     task = env.get_train_tasks()[0]
     trivial_task = Task(task.init, set())
@@ -111,11 +105,11 @@ def test_oracle_approach_cover_failures():
         approach.solve(impossible_task, timeout=0.1)  # times out
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=-100)  # times out
-    old_val = CONFIG["max_samples_per_step"]
-    CONFIG["max_samples_per_step"] = 1
+    old_val = CFG.max_samples_per_step
+    CFG.max_samples_per_step = 1
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=1)  # backtracking occurs
-    CONFIG["max_samples_per_step"] = old_val
+    CFG.max_samples_per_step = old_val
     operators = _get_gt_ops(env.predicates, env.options)
     operators = {op for op in operators if op.name == "Place"}
     with pytest.raises(ApproachFailure):

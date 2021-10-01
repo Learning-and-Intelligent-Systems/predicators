@@ -1,27 +1,32 @@
 """Main entry point for running approaches in environments.
 
 Example usage:
-    python main.py --env=configs/envs/cover_config.py \
-        --approach=configs/approaches/random_actions_config.py
+    python src/main.py --env cover --approach oracle --seed 0
 """
 
-from absl import app
-from absl import flags
-from ml_collections.config_flags import config_flags
-
-# TODO: unify flags/FLAGS/CONFIG, then cover this file with a test
-
-FLAGS = flags.FLAGS
-config_flags.DEFINE_config_file("env")
-config_flags.DEFINE_config_file("approach")
+from predicators.src.args import parse_args
+from predicators.src.settings import CFG
+from predicators.src.envs import create_env
+from predicators.src.approaches import create_approach
+from predicators.src.utils import update_config
 
 
-def main(_):
+def main():
     """Main entry point for running approaches in environments.
     """
-    print(f"Starting run with env {FLAGS.env.name}, "
-          f"approach {FLAGS.approach.name}")
+    # Parse & validate args
+    args = parse_args()
+    update_config(args)
+    # Create & seed classes
+    env = create_env(CFG.env)
+    approach = create_approach(CFG.approach, env.simulate, env.predicates,
+                               env.options, env.types, env.action_space)
+    env.seed(CFG.seed)
+    approach.seed(CFG.seed)
+    # Run approach
+    for task in env.get_test_tasks():
+        approach.solve(task, timeout=500)
 
 
 if __name__ == "__main__":  # pragma: no cover
-    app.run(main)
+    main()
