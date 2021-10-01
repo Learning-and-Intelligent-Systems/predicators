@@ -104,7 +104,10 @@ class TAMPApproach(BaseApproach):
                             rng_prio.uniform(),
                             root_node))
         # Start search.
+        num_skeletons = 0
         while queue and (time.time()-start_time < timeout):
+            if num_skeletons == CFG.max_skeletons:
+                raise ApproachFailure("Planning reached max_skeletons!")
             _, _, node = hq.heappop(queue)
             # Good debug point #1: print node.skeleton here to see what
             # the high-level search is doing.
@@ -117,6 +120,7 @@ class TAMPApproach(BaseApproach):
                 if plan is not None:
                     print(f"Success! Found plan of length {len(plan)}: {plan}")
                     return plan
+                num_skeletons += 1
             else:
                 # Generate successors.
                 for operator in utils.get_applicable_operators(

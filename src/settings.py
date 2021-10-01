@@ -19,6 +19,7 @@ class GlobalSettings:
     # SeSamE parameters
     max_samples_per_step = 10
     max_num_steps_option_rollout = 100
+    max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
