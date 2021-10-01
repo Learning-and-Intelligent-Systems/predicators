@@ -5,12 +5,13 @@ Predicates that are not in the initial predicates are excluded from
 the ground truth operators. If an operator's option is not included,
 that operator will not be generated at all.
 """
+
 from typing import List, Sequence, Set
-from absl import flags
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
 from predicators.src.structs import Operator, Predicate, \
     ParameterizedOption, Variable, Type, LiftedAtom
+from predicators.src.settings import CFG
 
 
 class OracleApproach(TAMPApproach):
@@ -27,7 +28,7 @@ def _get_gt_ops(predicates: Set[Predicate],
                 options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground truth operators for an env.
     """
-    if flags.env.name == "Cover":  # pylint:disable=no-member
+    if CFG.env == "cover":
         ops = _get_cover_gt_ops()
     else:
         raise NotImplementedError("Ground truth operators not implemented")
@@ -77,13 +78,13 @@ def _get_options_by_names(env_name: str,
 def _get_cover_gt_ops() -> Set[Operator]:
     """Create ground truth operators for CoverEnv.
     """
-    block_type, target_type = _get_types_by_names("Cover", ["block", "target"])
+    block_type, target_type = _get_types_by_names("cover", ["block", "target"])
 
     IsBlock, IsTarget, Covers, HandEmpty, Holding = \
-        _get_predicates_by_names("Cover", ["IsBlock", "IsTarget", "Covers",
+        _get_predicates_by_names("cover", ["IsBlock", "IsTarget", "Covers",
                                            "HandEmpty", "Holding"])
 
-    PickPlace, = _get_options_by_names("Cover", ["PickPlace"])
+    PickPlace, = _get_options_by_names("cover", ["PickPlace"])
 
     operators = set()
 

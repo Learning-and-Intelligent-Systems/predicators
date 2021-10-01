@@ -7,7 +7,8 @@ from typing import Set, Callable
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box
-from predicators.src.structs import State, Task, Predicate, ParameterizedOption
+from predicators.src.structs import State, Task, Predicate, Type, \
+    ParameterizedOption
 
 Array = NDArray[np.float32]
 
@@ -18,13 +19,15 @@ class BaseApproach:
     def __init__(self, simulator: Callable[[State, Array], State],
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
+                 types: Set[Type],
                  action_space: Box):
-        """All approaches are initialized with a simulator, initial predicates,
-        initial parameterized options, and the action space.
+        """All approaches are initialized with only the necessary
+        information about the environment.
         """
         self._simulator = simulator
         self._initial_predicates = initial_predicates
         self._initial_options = initial_options
+        self._types = types
         self._action_space = action_space
         self.seed(0)
 

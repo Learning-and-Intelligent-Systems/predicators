@@ -47,16 +47,19 @@ def test_base_approach():
     def _policy(_, p):
         return np.clip(p, a_min=None, a_max=0.45)  # ensure in action_space
     predicates = {pred1, pred2}
+    types = {cup_type, plate_type}
     options = {ParameterizedOption(
         "Move", params_space, _policy, _initiable=None, _terminal=None)}
-    approach = BaseApproach(_simulator, predicates, options, action_space)
+    approach = BaseApproach(_simulator, predicates, options, types,
+                            action_space)
     approach.seed(123)
     goal = {pred1([cup, plate1])}
     task = Task(state, goal)
     # Check that methods are abstract.
     with pytest.raises(NotImplementedError):
         approach.solve(task, 500)
-    approach = _DummyApproach(_simulator, predicates, options, action_space)
+    approach = _DummyApproach(_simulator, predicates, options, types,
+                              action_space)
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
@@ -69,10 +72,12 @@ def test_create_approach():
     """Tests for create_approach.
     """
     env = CoverEnv()
-    for name in ["Random Actions", "Oracle"]:
-        approach = create_approach(name, env.simulate,
-            env.predicates, env.options, env.action_space)
+    for name in ["random", "oracle"]:
+        approach = create_approach(
+            name, env.simulate, env.predicates, env.options, env.types,
+            env.action_space)
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
-        create_approach("Not a real approach",
-            env.simulate, env.predicates, env.options, env.action_space)
+        create_approach(
+            "Not a real approach", env.simulate, env.predicates,
+            env.options, env.types, env.action_space)
