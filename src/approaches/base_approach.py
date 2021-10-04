@@ -3,7 +3,7 @@ and/or options.
 """
 
 import abc
-from typing import Set, Callable
+from typing import Set, Callable, List
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box
@@ -20,7 +20,8 @@ class BaseApproach:
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box):
+                 action_space: Box,
+                 train_tasks: List[Task]):
         """All approaches are initialized with only the necessary
         information about the environment.
         """
@@ -29,6 +30,7 @@ class BaseApproach:
         self._initial_options = initial_options
         self._types = types
         self._action_space = action_space
+        self._train_tasks = train_tasks
         self.seed(0)
 
     @abc.abstractmethod

@@ -51,7 +51,7 @@ def test_base_approach():
     options = {ParameterizedOption(
         "Move", params_space, _policy, _initiable=None, _terminal=None)}
     approach = BaseApproach(_simulator, predicates, options, types,
-                            action_space)
+                            action_space, train_tasks=set())
     approach.seed(123)
     goal = {pred1([cup, plate1])}
     task = Task(state, goal)
@@ -59,7 +59,7 @@ def test_base_approach():
     with pytest.raises(NotImplementedError):
         approach.solve(task, 500)
     approach = _DummyApproach(_simulator, predicates, options, types,
-                              action_space)
+                              action_space, train_tasks=set())
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
@@ -75,9 +75,9 @@ def test_create_approach():
     for name in ["random", "oracle"]:
         approach = create_approach(
             name, env.simulate, env.predicates, env.options, env.types,
-            env.action_space)
+            env.action_space, env.get_train_tasks())
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
         create_approach(
             "Not a real approach", env.simulate, env.predicates,
-            env.options, env.types, env.action_space)
+            env.options, env.types, env.action_space, env.get_train_tasks())

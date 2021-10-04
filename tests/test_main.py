@@ -20,3 +20,6 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach", "random",
                 "--seed", "123"]
     main()
+    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
+                "--seed", "123"]
+    main()
