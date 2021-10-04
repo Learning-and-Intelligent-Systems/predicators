@@ -9,17 +9,16 @@ from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet
 import heapq as hq
-import numpy as np
-from numpy.typing import NDArray
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, Operator, _GroundOperator
+    Object, Type, Operator, _GroundOperator, Action, Task
 from predicators.src.settings import CFG, GlobalSettings
 
-Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
 
-def policy_solves_task(policy, task, simulator, predicates):
+def policy_solves_task(policy: Callable[[State], Action], task: Task,
+                       simulator: Callable[[State, Action], State],
+                       predicates: Collection[Predicate]) -> bool:
     """Return whether the given policy solves the given task.
     """
     state = task.init
@@ -37,9 +36,9 @@ def policy_solves_task(policy, task, simulator, predicates):
 
 def option_to_trajectory(
         init: State,
-        simulator: Callable[[State, Array], State],
+        simulator: Callable[[State, Action], State],
         option: _Option,
-        max_num_steps: int) -> Tuple[List[State], List[Array]]:
+        max_num_steps: int) -> Tuple[List[State], List[Action]]:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -48,8 +47,9 @@ def option_to_trajectory(
     assert option.initiable(init)
     state = init
     states = [state]
-    for _ in range(max_num_steps):
+    for i in range(max_num_steps):
         act = option.policy(state)
+        act.set_option((option, i))
         actions.append(act)
         state = simulator(state, act)
         states.append(state)

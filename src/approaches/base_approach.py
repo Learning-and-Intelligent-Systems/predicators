@@ -5,18 +5,15 @@ and/or options.
 import abc
 from typing import Set, Callable, List
 import numpy as np
-from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
-    ParameterizedOption
-
-Array = NDArray[np.float32]
+    ParameterizedOption, Action
 
 
 class BaseApproach:
     """Base approach.
     """
-    def __init__(self, simulator: Callable[[State, Array], State],
+    def __init__(self, simulator: Callable[[State, Action], State],
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
@@ -34,13 +31,13 @@ class BaseApproach:
         self.seed(0)
 
     @abc.abstractmethod
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Return a policy for the given task, within the given number of
         seconds. A policy maps states to low-level actions.
         """
         raise NotImplementedError("Override me!")
 
-    def solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
+    def solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Light wrapper around the abstract self._solve(). Checks that
         actions are in the action space.
         """
@@ -48,7 +45,7 @@ class BaseApproach:
         def _policy(state):
             assert isinstance(state, State)
             act = pi(state)
-            assert self._action_space.contains(act)
+            assert self._action_space.contains(act.arr)
             return act
         return _policy
 
