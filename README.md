@@ -1,7 +1,11 @@
 # predicators
 
-Requirements for pushing code:
+Instructions for running code:
 * This repository uses Python versions 3.8+.
+* Run `pip install -r requirements.txt` to install dependencies.
+* Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
+
+Instructions for contributing:
 * In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1` and `pytest-pylint>=0.18.0`. Also, install `mypy` from source: `pip install -U git+git://github.com/python/mypy.git`.
 * You can't push directly to master. Make a PR and merge that in.
 * To merge a PR, you have to pass 3 checks, all defined in `.github/workflows/predicators.yml`.
