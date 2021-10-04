@@ -27,15 +27,19 @@ class GlobalSettings:
         derived from the experiment-specific args
         """
         return dict(
+            # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
                 "cover": 5,
             })[args["env"]],
 
+            # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
             })[args["env"]],
 
-            max_num_steps=defaultdict(int, {
+            # Maximum number of steps to run a policy when checking whether
+            # it solves a task.
+            max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
             })[args["env"]],
         )

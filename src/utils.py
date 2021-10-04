@@ -26,7 +26,7 @@ def policy_solves_task(policy, task, simulator, predicates):
     atoms = abstract(state, predicates)
     if task.goal.issubset(atoms):  # goal is already satisfied
         return True
-    for _ in range(CFG.max_num_steps):
+    for _ in range(CFG.max_num_steps_check_policy):
         act = policy(state)
         state = simulator(state, act)
         atoms = abstract(state, predicates)
