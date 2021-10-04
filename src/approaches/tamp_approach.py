@@ -118,7 +118,8 @@ class TAMPApproach(BaseApproach):
                     task, simulator, node.skeleton, node.atoms_sequence,
                     rng_sampler, predicates, start_time, timeout)
                 if plan is not None:
-                    print(f"Success! Found plan of length {len(plan)}: {plan}")
+                    print("Planning succeeded! Found plan of length "
+                          f"{len(plan)}")
                     return plan
                 num_skeletons += 1
             else:

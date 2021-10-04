@@ -34,6 +34,10 @@ class GlobalSettings:
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
             })[args["env"]],
+
+            max_num_steps=defaultdict(int, {
+                "cover": 10,
+            })[args["env"]],
         )
 
 _attr_to_value = {}
