@@ -4,12 +4,9 @@
 import abc
 from typing import List, Set
 import numpy as np
-from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type
-
-Array = NDArray[np.float32]
+    ParameterizedOption, Type, Action
 
 
 class BaseEnv:
@@ -19,10 +16,10 @@ class BaseEnv:
         self.seed(0)
 
     @abc.abstractmethod
-    def simulate(self, state: State, action: Array) -> State:
+    def simulate(self, state: State, action: Action) -> State:
         """Get the next state, given a state and an action. Note that this
-        action is a low-level action (i.e., a member of self.action_space),
-        NOT an option.
+        action is a low-level action (i.e., its array representation is
+        a member of self.action_space), NOT an option.
         """
         raise NotImplementedError("Override me!")
 

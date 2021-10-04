@@ -2,8 +2,6 @@
 """
 
 from typing import Set, Callable, List
-import numpy as np
-from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.approaches.base_approach import BaseApproach, \
     ApproachTimeout, ApproachFailure
@@ -12,9 +10,8 @@ from predicators.src.approaches.random_actions_approach import \
 from predicators.src.approaches.tamp_approach import TAMPApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task
+    Type, Task, Action
 
-Array = NDArray[np.float32]
 
 __all__ = [
     "BaseApproach",
@@ -27,7 +24,7 @@ __all__ = [
 
 
 def create_approach(name: str,
-                    simulator: Callable[[State, Array], State],
+                    simulator: Callable[[State, Action], State],
                     initial_predicates: Set[Predicate],
                     initial_options: Set[ParameterizedOption],
                     types: Set[Type],
