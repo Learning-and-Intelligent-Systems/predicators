@@ -5,19 +5,16 @@ from typing import Callable
 import pytest
 from gym.spaces import Box
 import numpy as np
-from numpy.typing import NDArray
 from predicators.src.approaches import BaseApproach, create_approach
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, Task
-
-Array = NDArray[np.float32]
+    Predicate, Task, Action
 
 
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing.
     """
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         # Just return some option's policy, ground with random parameters.
         parameterized_option = next(iter(self._initial_options))
         params = parameterized_option.params_space.sample()
@@ -39,13 +36,13 @@ def test_base_approach():
     state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
     def _simulator(s, a):
         ns = s.copy()
-        assert a.shape == (1,)
-        ns[cup][0] += a.item()
+        assert a.arr.shape == (1,)
+        ns[cup][0] += a.arr.item()
         return ns
     action_space = Box(0, 0.5, (1,))
     params_space = Box(0, 1, (1,))
     def _policy(_, p):
-        return np.clip(p, a_min=None, a_max=0.45)  # ensure in action_space
+        return Action(np.clip(p, a_min=None, a_max=0.45))
     predicates = {pred1, pred2}
     types = {cup_type, plate_type}
     options = {ParameterizedOption(
@@ -64,7 +61,7 @@ def test_base_approach():
     policy = approach.solve(task, 500)
     for _ in range(10):
         act = policy(state)
-        assert action_space.contains(act)
+        assert action_space.contains(act.arr)
         state = _simulator(state, act)
 
 

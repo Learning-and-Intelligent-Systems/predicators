@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object
+    ParameterizedOption, Object, Action
 from predicators.src.settings import CFG
 
 Array = NDArray[np.float32]
@@ -40,7 +40,7 @@ class CoverEnv(BaseEnv):
         params_space = Box(0, 1, (1,))
         self._PickPlace = ParameterizedOption(
             "PickPlace", params_space,
-            _policy=lambda s, p: p,  # action is simply the parameter
+            _policy=lambda s, p: Action(p),  # action is simply the parameter
             _initiable=lambda s, p: True,  # can be run from anywhere
             _terminal=lambda s, p: True)  # always 1 timestep
         # Objects
@@ -52,9 +52,9 @@ class CoverEnv(BaseEnv):
             self._targets.append(self._target_type(f"target{i}"))
         self._robot = self._robot_type("robby")
 
-    def simulate(self, state: State, action: Array) -> State:
-        assert self.action_space.contains(action)
-        pose = action.item()
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        pose = action.arr.item()
         next_state = state.copy()
         # Compute hand_regions (allowed pick/place regions).
         hand_regions = []
