@@ -10,15 +10,13 @@ from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, \
     FrozenSet
 from dataclasses import dataclass, field
 import numpy as np
-from numpy.typing import NDArray
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.structs import State, Task, Operator, Predicate, \
-    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option
+    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 
-Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
 
@@ -29,7 +27,7 @@ class TAMPApproach(BaseApproach):
         super().__init__(*args, **kwargs)
         self._num_calls = 0
 
-    def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
         seed = self._seed+self._num_calls  # ensure random over successive calls
         plan = TAMPApproach.sesame_plan(task, self._simulator,
@@ -49,11 +47,11 @@ class TAMPApproach(BaseApproach):
 
     @staticmethod
     def sesame_plan(task: Task,
-                    simulator: Callable[[State, Array], State],
+                    simulator: Callable[[State, Action], State],
                     current_operators: Set[Operator],
                     initial_predicates: Set[Predicate],
                     timeout: int, seed: int,
-                    check_dr_reachable: bool = True) -> List[Array]:
+                    check_dr_reachable: bool = True) -> List[Action]:
         """Run TAMP. Return a sequence of low-level actions.
         Uses the SeSamE strategy: SEarch-and-SAMple planning, then Execution.
         """
@@ -77,11 +75,11 @@ class TAMPApproach(BaseApproach):
 
     @staticmethod
     def _run_search(task: Task,
-                    simulator: Callable[[State, Array], State],
+                    simulator: Callable[[State, Action], State],
                     ground_operators: List[_GroundOperator],
                     init_atoms: Collection[GroundAtom],
                     predicates: Set[Predicate],
-                    timeout: int, seed: int) -> List[Array]:
+                    timeout: int, seed: int) -> List[Action]:
         """A* search over skeletons (sequences of ground operators).
         """
         start_time = time.time()
@@ -150,19 +148,19 @@ class TAMPApproach(BaseApproach):
     @staticmethod
     def _run_low_level_search(
             task: Task,
-            simulator: Callable[[State, Array], State],
+            simulator: Callable[[State, Action], State],
             skeleton: List[_GroundOperator],
             atoms_sequence: List[Collection[GroundAtom]],
             rng_sampler: np.random.RandomState,
             predicates: Set[Predicate],
             start_time: float,
-            timeout: int) -> Optional[List[Array]]:
+            timeout: int) -> Optional[List[Action]]:
         """Backtracking search over continuous values.
         """
         cur_idx = 0
         num_tries = [0 for _ in skeleton]
         options: List[_Option] = [DefaultOption for _ in skeleton]
-        plan: List[List[Array]] = [[] for _ in skeleton]  # unflattened
+        plan: List[List[Action]] = [[] for _ in skeleton]  # unflattened
         traj: List[State] = [task.init]+[DefaultState for _ in skeleton]
         while cur_idx < len(skeleton):
             if time.time()-start_time > timeout:

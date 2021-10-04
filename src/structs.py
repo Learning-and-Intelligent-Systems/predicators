@@ -4,8 +4,13 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
+<<<<<<< HEAD
 from typing import Dict, Iterator, List, Sequence, Callable, Set, \
     Collection, Union, Tuple
+=======
+from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
+    Tuple
+>>>>>>> 6992af2370d8cd238b86fc8c4e25cbe59193e3f3
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -292,7 +297,7 @@ class ParameterizedOption:
     name: str
     params_space: Box = field(repr=False)
     # A policy maps a state and parameters to an action.
-    _policy: Callable[[State, Array], Array] = field(repr=False)
+    _policy: Callable[[State, Array], Action] = field(repr=False)
     # An initiation classifier maps a state and parameters to a bool,
     # which is True iff the option can start now.
     _initiable: Callable[[State, Array], bool] = field(repr=False)
@@ -330,7 +335,7 @@ class _Option:
     """
     name: str
     # A policy maps a state to an action.
-    policy: Callable[[State], Array] = field(repr=False)
+    policy: Callable[[State], Action] = field(repr=False)
     # An initiation classifier maps a state to a bool, which is True
     # iff the option can start now.
     initiable: Callable[[State], bool] = field(repr=False)
@@ -339,7 +344,7 @@ class _Option:
     terminal: Callable[[State], bool] = field(repr=False)
 
 
-DefaultOption = _Option("", lambda s: np.array([0.0]),
+DefaultOption = _Option("", lambda s: Action(np.array([0.0])),
                         lambda s: False, lambda s: False)
 
 
@@ -451,8 +456,38 @@ class _GroundOperator:
         return str(self) == str(other)
 
 
-ActionTransition = Tuple[State, Array, State]
-OptionTransition = Tuple[State, _Option, State]
-ActionDataset = List[ActionTransition]
-OptionDataset = List[OptionTransition]
+@dataclass(eq=False)
+class Action:
+    """An action in an environment. This is a light wrapper around a numpy
+    float array that can optionally store the option which produced it.
+    The _option field is a tuple of the option itself and a timestep index.
+    """
+    _arr: Array
+    _option: Tuple[_Option, int] = field(repr=False, default=(DefaultOption, 0))
+
+    @property
+    def arr(self) -> Array:
+        """The array representation of this action.
+        """
+        return self._arr
+
+    def has_option(self) -> bool:
+        """Whether this action has a non-default option attached.
+        """
+        return self._option[0] is not DefaultOption
+
+    def get_option(self) -> Tuple[_Option, int]:
+        """Get the option that produced this action.
+        """
+        assert self.has_option()
+        return self._option
+
+    def set_option(self, option: Tuple[_Option, int]):
+        """Set the option that produced this action.
+        """
+        self._option = option
+
+
+ActionDataset = List[Tuple[State, Action, State]]
+OptionDataset = List[Tuple[State, _Option, State]]
 Dataset = Union[ActionDataset, OptionDataset]
