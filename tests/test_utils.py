@@ -358,3 +358,5 @@ def test_action():
         assert opt is option
         assert ind == next_ind
         next_ind += 1
+    act = Action([0.5])
+    assert not act.has_option()
