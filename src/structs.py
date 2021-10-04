@@ -4,13 +4,8 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-<<<<<<< HEAD
 from typing import Dict, Iterator, List, Sequence, Callable, Set, \
     Collection, Union, Tuple
-=======
-from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple
->>>>>>> 6992af2370d8cd238b86fc8c4e25cbe59193e3f3
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
