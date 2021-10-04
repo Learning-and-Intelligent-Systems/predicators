@@ -17,6 +17,11 @@ from predicators.src.settings import CFG
 class OracleApproach(TAMPApproach):
     """A TAMP approach that uses hand-specified operators.
     """
+    @property
+    def is_learning_based(self):
+        """Not learning-based."""
+        return True  # TODO: change to false (just using this for testing)
+
     def _get_current_operators(self) -> Set[Operator]:
         """Get the current set of operators.
         """

@@ -12,6 +12,10 @@ Array = NDArray[np.float32]
 class RandomActionsApproach(BaseApproach):
     """Samples random low-level actions.
     """
+    @property
+    def is_learning_based(self):
+        """Not learning-based."""
+        return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
         """Return a policy for the given task, within the given number of
