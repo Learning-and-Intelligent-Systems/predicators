@@ -19,6 +19,22 @@ Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
 
+def policy_solves_task(policy, task, simulator, predicates):
+    """Return whether the given policy solves the given task.
+    """
+    state = task.init
+    atoms = abstract(state, predicates)
+    if task.goal.issubset(atoms):  # goal is already satisfied
+        return True
+    for _ in range(CFG.max_num_steps):
+        act = policy(state)
+        state = simulator(state, act)
+        atoms = abstract(state, predicates)
+        if task.goal.issubset(atoms):
+            return True
+    return False
+
+
 def option_to_trajectory(
         init: State,
         simulator: Callable[[State, Array], State],
