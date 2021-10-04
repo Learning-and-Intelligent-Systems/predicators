@@ -4,7 +4,8 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection
+from typing import Dict, Iterator, List, Sequence, Callable, Set, \
+    Collection, Union, Tuple
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -448,3 +449,10 @@ class _GroundOperator:
 
     def __eq__(self, other) -> bool:
         return str(self) == str(other)
+
+
+ActionTransition = Tuple[State, Array, State]
+OptionTransition = Tuple[State, _Option, State]
+ActionDataset = List[ActionTransition]
+OptionDataset = List[OptionTransition]
+Dataset = Union[ActionDataset, OptionDataset]
