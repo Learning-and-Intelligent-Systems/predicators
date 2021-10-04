@@ -69,15 +69,24 @@ def test_oracle_approach_cover():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
     approach.seed(123)
     for task in env.get_train_tasks():
         policy = approach.solve(task, timeout=500)
-        _check_policy(task, env.simulate, env.predicates, policy)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(
+            lambda s: env.action_space.sample(),  # random policy should fail
+            task, env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        _check_policy(task, env.simulate, env.predicates, policy)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(
+            lambda s: env.action_space.sample(),  # random policy should fail
+            task, env.simulate, env.predicates)
 
 
 def test_oracle_approach_cover_failures():
@@ -86,14 +95,17 @@ def test_oracle_approach_cover_failures():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
     approach.seed(123)
     task = env.get_train_tasks()[0]
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
+    assert utils.policy_solves_task(
+        policy, trivial_task, env.simulate, env.predicates)
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]
@@ -127,16 +139,3 @@ def test_oracle_approach_cover_failures():
         TAMPApproach.sesame_plan(task, env.simulate, operators,
                                  env.predicates, timeout=500, seed=123,
                                  check_dr_reachable=False)
-
-
-def _check_policy(task, simulator, predicates, policy):
-    state = task.init
-    atoms = utils.abstract(state, predicates)
-    assert not task.goal.issubset(atoms)  # goal shouldn't be already satisfied
-    for _ in range(100):
-        act = policy(state)
-        state = simulator(state, act)
-        atoms = utils.abstract(state, predicates)
-        if task.goal.issubset(atoms):
-            break
-    assert task.goal.issubset(atoms)
