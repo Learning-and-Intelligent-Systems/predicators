@@ -469,7 +469,7 @@ class Action:
     def has_option(self) -> bool:
         """Whether this action has a non-default option attached.
         """
-        return self._option is not DefaultOption
+        return self._option[0] is not DefaultOption
 
     def get_option(self) -> Tuple[_Option, int]:
         """Get the option that produced this action.
