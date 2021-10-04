@@ -21,6 +21,15 @@ class GlobalSettings:
     max_num_steps_option_rollout = 100
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
+    # offline training data config
+    offline_training_data = {
+        "method": "demo+replay",  # demo or demo+replay
+        "actions_or_options": "options",
+        "num_random_replays": 10,
+        "num_steps_per_replay": 1,
+        "planning_timeout": 500,
+    }
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are

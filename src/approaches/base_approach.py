@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
-    ParameterizedOption
+    ParameterizedOption, Dataset
 
 Array = NDArray[np.float32]
 
@@ -32,6 +32,13 @@ class BaseApproach:
         self._action_space = action_space
         self._train_tasks = train_tasks
         self.seed(0)
+
+    @property
+    @abc.abstractmethod
+    def is_learning_based(self):
+        """Does the approach learn from the training tasks?
+        """
+        raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Array]:
@@ -58,6 +65,15 @@ class BaseApproach:
         self._seed = seed
         self._rng = np.random.RandomState(self._seed)
         self._action_space.seed(seed)
+
+    def learn_from_offline_dataset(self, dataset: Dataset):
+        """Learning-based approaches can use an offline dataset.
+
+        Note: this is not an abc.abstractmethod because it does
+        not need to be defined by the subclasses. (mypy complains
+        if you try to instantiate a subclass with an undefined abc).
+        """
+        raise NotImplementedError("Override me!")
 
 
 class ApproachTimeout(Exception):
