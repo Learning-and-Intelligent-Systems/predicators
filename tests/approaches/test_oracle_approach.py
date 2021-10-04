@@ -7,7 +7,7 @@ from predicators.src.approaches import OracleApproach, ApproachFailure, \
     ApproachTimeout, TAMPApproach
 from predicators.src.approaches.oracle_approach import _get_gt_ops
 from predicators.src.envs import CoverEnv
-from predicators.src.structs import Task
+from predicators.src.structs import Task, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 
@@ -34,13 +34,13 @@ def test_cover_get_gt_ops():
     pick_param = pick0_operator.sampler(state, rng)
     pick_option = pick0_operator.option.ground(pick_param)
     pick_action = pick_option.policy(state)
-    assert env.action_space.contains(pick_action)
+    assert env.action_space.contains(pick_action.arr)
     state = env.simulate(state, pick_action)
     place0_operator = place_operator.ground([block0, target0])
     place_param = place0_operator.sampler(state, rng)
     place_option = place0_operator.option.ground(place_param)
     place_action = place_option.policy(state)
-    assert env.action_space.contains(place_action)
+    assert env.action_space.contains(place_action.arr)
     # Excluded option
     assert _get_gt_ops(env.predicates, set()) == set()
     # Excluded predicate
@@ -77,15 +77,17 @@ def test_oracle_approach_cover():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
+        # Test that a random policy fails.
         assert not utils.policy_solves_task(
-            lambda s: env.action_space.sample(),  # random policy should fail
+            lambda s: Action(env.action_space.sample()),
             task, env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
+        # Test that a random policy fails.
         assert not utils.policy_solves_task(
-            lambda s: env.action_space.sample(),  # random policy should fail
+            lambda s: Action(env.action_space.sample()),
             task, env.simulate, env.predicates)
 
 

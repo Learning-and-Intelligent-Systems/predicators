@@ -17,4 +17,4 @@ def test_random_actions_approach():
     policy = approach.solve(task, 500)
     for _ in range(10):
         act = policy(task.init)
-        assert env.action_space.contains(act)
+        assert env.action_space.contains(act.arr)
