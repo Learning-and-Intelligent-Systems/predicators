@@ -1,8 +1,8 @@
 """Test cases for utils.
 """
 
-import pytest
 import os
+import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
