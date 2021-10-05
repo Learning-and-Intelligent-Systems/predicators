@@ -10,6 +10,7 @@ from predicators.src import utils
 def test_cover():
     """Tests for CoverEnv class.
     """
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     for task in env.get_train_tasks():
