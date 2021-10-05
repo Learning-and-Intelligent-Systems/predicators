@@ -142,6 +142,12 @@ def test_find_substitution():
 
     q1 = [pred0([var0]), pred0([var1])]
     assignment, found = utils.find_substitution(kb0, q1)
+    assert not found
+    assert assignment == {}
+
+    q1 = [pred0([var0]), pred0([var1])]
+    assignment, found = utils.find_substitution(kb0, q1,
+                                                allow_redundant=True)
     assert found
     assert assignment == {var0: cup0, var1: cup0}
 
