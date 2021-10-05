@@ -46,6 +46,53 @@ def test_option_to_trajectory():
     assert len(actions) == len(states)-1 == 10
 
 
+def test_action_to_option_trajectory():
+    """Tests for action_to_option_trajectory.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = State({cup: [0.5], plate: [1.0, 1.2]})
+    def _simulator(s, a):
+        ns = s.copy()
+        assert a.arr.shape == (1,)
+        ns[cup][0] += a.arr.item()
+        return ns
+    params_space = Box(0, 1, (1,))
+    def _policy(_, p):
+        return Action(p)
+    def _initiable(_1, p):
+        return p > 0.25
+    def _terminal(s, _):
+        return s[cup][0] > 9.9
+    parameterized_option = ParameterizedOption(
+        "Move", params_space, _policy, _initiable, _terminal)
+    params = [0.5]
+    option = parameterized_option.ground(params)
+    act_traj = utils.option_to_trajectory(
+        state, _simulator, option, max_num_steps=100)
+    opt_traj = utils.action_to_option_trajectory(act_traj)
+    assert len(opt_traj) == 2
+    assert opt_traj[1][0].name == 'Move(0.5)'
+    state_only_traj = (act_traj[0][:1], [])
+    opt_traj = utils.action_to_option_trajectory(state_only_traj)
+    assert len(opt_traj[0]) == 1
+    assert len(opt_traj[1]) == 0
+    params = [0.6]
+    other_option = parameterized_option.ground(params)
+    other_act_traj = utils.option_to_trajectory(
+        act_traj[0][-1], _simulator, other_option, max_num_steps=100)
+    states = act_traj[0] + other_act_traj[0]
+    actions = act_traj[1] + other_act_traj[1]
+    opt_traj = utils.action_to_option_trajectory((states, actions))
+    assert len(opt_traj) == 2
+    assert len(opt_traj[1]) == 2
+    assert opt_traj[1][0].name == 'Move(0.5)'
+    assert opt_traj[1][1].name == 'Move(0.6)'
+    assert len(opt_traj[0]) == 3
+
+
 def test_abstract():
     """Tests for abstract().
     """

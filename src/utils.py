@@ -10,10 +10,34 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet
 import heapq as hq
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, Operator, _GroundOperator, Action, Task
+    Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
+    OptionTrajectory
 from predicators.src.settings import CFG, GlobalSettings
 
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
+
+
+def run_policy_on_task(policy: Callable[[State], Action], task: Task,
+                       simulator: Callable[[State, Action], State],
+                       predicates: Collection[Predicate]
+                       ) -> Tuple[ActionTrajectory, bool]:
+    """Execute a policy on a task until goal or max steps.
+    """
+    state = task.init
+    atoms = abstract(state, predicates)
+    states = [state]
+    actions: List[Action] = []
+    if task.goal.issubset(atoms):  # goal is already satisfied
+        return (states, actions), True
+    for _ in range(CFG.max_num_steps_check_policy):
+        act = policy(state)
+        state = simulator(state, act)
+        atoms = abstract(state, predicates)
+        actions.append(act)
+        states.append(state)
+        if task.goal.issubset(atoms):
+            return (states, actions), True
+    return (states, actions), False
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
@@ -21,24 +45,15 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        predicates: Collection[Predicate]) -> bool:
     """Return whether the given policy solves the given task.
     """
-    state = task.init
-    atoms = abstract(state, predicates)
-    if task.goal.issubset(atoms):  # goal is already satisfied
-        return True
-    for _ in range(CFG.max_num_steps_check_policy):
-        act = policy(state)
-        state = simulator(state, act)
-        atoms = abstract(state, predicates)
-        if task.goal.issubset(atoms):
-            return True
-    return False
+    _, solved = run_policy_on_task(policy, task, simulator, predicates)
+    return solved
 
 
 def option_to_trajectory(
         init: State,
         simulator: Callable[[State, Action], State],
         option: _Option,
-        max_num_steps: int) -> Tuple[List[State], List[Action]]:
+        max_num_steps: int) -> ActionTrajectory:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -57,6 +72,29 @@ def option_to_trajectory(
             break
     assert len(states) == len(actions)+1
     return states, actions
+
+
+def action_to_option_trajectory(act_traj: ActionTrajectory
+                                ) -> OptionTrajectory:
+    """Create an option trajectory from an action trajectory.
+    """
+    states, actions = act_traj
+    assert len(states) > 0
+    new_states = [states[0]]
+    if len(actions) == 0:
+        return new_states, []
+    current_option, t = actions[0].get_option()
+    assert t == 0
+    options = [current_option]
+    for s, a in zip(states[:-1], actions):
+        o, t = a.get_option()
+        if o != current_option:
+            assert t == 0
+            new_states.append(s)
+            options.append(o)
+            current_option = o
+    new_states.append(states[-1])
+    return new_states, options
 
 
 def get_object_combinations(

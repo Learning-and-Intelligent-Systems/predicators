@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, \
-    Collection, Union, Tuple
+    Collection, Tuple
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -483,6 +483,6 @@ class Action:
         self._option = option
 
 
-ActionDataset = List[Tuple[State, Action, State]]
-OptionDataset = List[Tuple[State, _Option, State]]
-Dataset = Union[ActionDataset, OptionDataset]
+ActionTrajectory = Tuple[List[State], List[Action]]
+OptionTrajectory = Tuple[List[State], List[_Option]]
+Dataset = List[ActionTrajectory]
