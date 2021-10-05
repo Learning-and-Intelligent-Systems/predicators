@@ -22,7 +22,7 @@ class OracleApproach(TAMPApproach):
     """A TAMP approach that uses hand-specified operators.
     """
     @property
-    def is_learning_based(self):
+    def is_learning_based(self) -> bool:
         """Not learning-based."""
         return False
 

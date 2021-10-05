@@ -32,7 +32,7 @@ class BaseApproach:
 
     @property
     @abc.abstractmethod
-    def is_learning_based(self):
+    def is_learning_based(self) -> bool:
         """Does the approach learn from the training tasks?
         """
         raise NotImplementedError("Override me!")
