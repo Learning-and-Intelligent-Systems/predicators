@@ -2,6 +2,10 @@
 
 Example usage:
     python src/main.py --env cover --approach oracle --seed 0
+
+Another example usage:
+    python src/main.py --env cover --approach oracle --seed 0 \
+        --make_videos --num_test_tasks 1
 """
 
 from predicators.src.args import parse_args
@@ -37,10 +41,15 @@ def main() -> None:
         except (ApproachTimeout, ApproachFailure) as e:
             print(f"Approach failed to solve task {i} with error: {e}")
             continue
-        if utils.policy_solves_task(policy, task, env.simulate, env.predicates):
+        _, video, solved = utils.run_policy_on_task(policy, task,
+            env.simulate, env.predicates, CFG.make_videos, env.render)
+        if solved:
             print(f"Task {i} solved")
         else:
-            print(f"Policy failed on task {i}")
+            print(f"Task {i} FAILED")
+        if CFG.make_videos:
+            outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
+            utils.save_video(outfile, video)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -21,6 +21,10 @@ class GlobalSettings:
     max_num_steps_option_rollout = 100
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
+    # evaluation params
+    video_dir = "videos"
+    video_fps = 2
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are

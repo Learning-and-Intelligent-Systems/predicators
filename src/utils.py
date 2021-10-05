@@ -5,13 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import functools
 import itertools
+import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any
+    Dict, FrozenSet, Any, Optional
 import heapq as hq
+import imageio
+import matplotlib
+import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
-    OptionTrajectory, LiftedAtom, Variable
+    OptionTrajectory, LiftedAtom, Image, Video, Substitution, _Atom, \
+    _TypedEntity
 from predicators.src.settings import CFG, GlobalSettings
 
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
@@ -64,8 +69,10 @@ def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
 
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
-                       predicates: Collection[Predicate]
-                       ) -> Tuple[ActionTrajectory, bool]:
+                       predicates: Collection[Predicate],
+                       make_video: bool = False,
+                       render: Optional[Callable[[State], Image]] = None,
+                       ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
     whether the goal was satisfied at the end.
@@ -74,17 +81,24 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     atoms = abstract(state, predicates)
     states = [state]
     actions: List[Action] = []
+    video: Video = []
+    if make_video:
+        assert render is not None
+        video.append(render(state))
     if task.goal.issubset(atoms):  # goal is already satisfied
-        return (states, actions), True
+        return (states, actions), video, True
     for _ in range(CFG.max_num_steps_check_policy):
         act = policy(state)
         state = simulator(state, act)
         atoms = abstract(state, predicates)
         actions.append(act)
         states.append(state)
+        if make_video:
+            assert render is not None
+            video.append(render(state))
         if task.goal.issubset(atoms):
-            return (states, actions), True
-    return (states, actions), False
+            return (states, actions), video, True
+    return (states, actions), video, False
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
@@ -92,7 +106,7 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        predicates: Collection[Predicate]) -> bool:
     """Return whether the given policy solves the given task.
     """
-    _, solved = run_policy_on_task(policy, task, simulator, predicates)
+    _, _, solved = run_policy_on_task(policy, task, simulator, predicates)
     return solved
 
 
@@ -162,6 +176,81 @@ def get_object_combinations(
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue
         yield list(choice)
+
+
+def find_substitution(super_atoms: Collection[_Atom],
+                      sub_atoms: Collection[_Atom],
+                      allow_redundant: bool = False,
+                      ) -> Tuple[bool, Substitution]:
+    """Find a substitution from the typed entities in sub_atoms to the
+    typed entities in super_atoms s.t. sub_atoms is a subset of super_atoms.
+
+    If allow_redundant is True, then multiple entities in sub_atoms can
+    refer to the same single entity in super_atoms.
+
+    If no substitution exists, return (False, {}).
+    """
+    super_entities_by_type: Dict[Type, List[_TypedEntity]] = \
+        defaultdict(list)
+    super_pred_to_tuples = defaultdict(set)
+    for atom in super_atoms:
+        for e in atom.entities:
+            if e not in super_entities_by_type[e.type]:
+                super_entities_by_type[e.type].append(e)
+        super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
+    sub_entities = sorted(e for a in sub_atoms for e in a.entities)
+    return _find_substitution_helper(sub_atoms, super_entities_by_type,
+        sub_entities, super_pred_to_tuples, {}, allow_redundant)
+
+
+def _find_substitution_helper(
+        sub_atoms: Collection[_Atom],
+        super_entities_by_type: Dict[Type, List[_TypedEntity]],
+        remaining_sub_entities: List[_TypedEntity],
+        super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        partial_sub: Substitution,
+        allow_redundant: bool) -> Tuple[bool, Substitution]:
+    """Helper for find_substitution.
+    """
+    # Base case: check if all assigned
+    if not remaining_sub_entities:
+        return True, partial_sub
+    # Find next entity to assign
+    remaining_sub_entities = remaining_sub_entities.copy()
+    next_sub_ent = remaining_sub_entities.pop()
+    # Consider possible assignments
+    for super_ent in super_entities_by_type[next_sub_ent.type]:
+        if not allow_redundant and super_ent in partial_sub.values():
+            continue
+        new_sub = partial_sub.copy()
+        new_sub[next_sub_ent] = super_ent
+        # Check if consistent
+        if not _substitution_consistent(new_sub, super_pred_to_tuples,
+                                        sub_atoms):
+            continue
+        # Backtracking search
+        solved, final_sub = _find_substitution_helper(sub_atoms,
+            super_entities_by_type, remaining_sub_entities,
+            super_pred_to_tuples, new_sub, allow_redundant)
+        if solved:
+            return solved, final_sub
+    # Failure
+    return False, {}
+
+
+def _substitution_consistent(
+        partial_sub: Substitution,
+        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        sub_atoms: Collection[_Atom]) -> bool:
+    """Helper for _find_substitution_helper.
+    """
+    for sub_atom in sub_atoms:
+        if not set(sub_atom.entities).issubset(partial_sub.keys()):
+            continue
+        substituted_ents = tuple(partial_sub[e] for e in sub_atom.entities)
+        if substituted_ents not in super_pred_to_tuples[sub_atom.predicate]:
+            return False
+    return True
 
 
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
@@ -464,6 +553,28 @@ class HAddHeuristic:
                 fact.expanded = True
 
 
+def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
+    """Convert matplotlib figure into Image.
+    """
+    fig.set_dpi(dpi)
+    fig.canvas.draw()
+    data = np.fromstring(fig.canvas.tostring_argb(),  # type: ignore
+                         dtype=np.uint8, sep='')
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+    data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
+    return data
+
+
+def save_video(outfile: str, video: Video) -> None:
+    """Save the video to video_dir/outfile.
+    """
+    outdir = CFG.video_dir
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    outpath = os.path.join(outdir, outfile)
+    imageio.mimwrite(outpath, video, fps=CFG.video_fps)
+    print(f"Wrote out to {outpath}.")
+
 
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG.
@@ -471,3 +582,9 @@ def update_config(args: Dict[str, Any]) -> None:
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
+
+
+def get_config_path_str() -> str:
+    """Create a filename prefix based on the current CFG.
+    """
+    return f"{CFG.env}__{CFG.approach}__{CFG.seed}"

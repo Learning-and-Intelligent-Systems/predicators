@@ -89,6 +89,9 @@ class Variable(_TypedEntity):
         return self._hash
 
 
+Substitution = Dict[_TypedEntity, _TypedEntity]
+
+
 @dataclass
 class State:
     """Struct defining the low-level state of the world.
@@ -506,3 +509,7 @@ class Action:
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
 Dataset = List[ActionTrajectory]
+
+
+Image = NDArray[np.uint8]
+Video = List[Image]

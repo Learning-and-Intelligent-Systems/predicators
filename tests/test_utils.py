@@ -1,7 +1,9 @@
 """Test cases for utils.
 """
 
+import os
 import pytest
+import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator, Action
@@ -116,6 +118,74 @@ def test_abstract():
                      pred1([cup, plate2]),
                      # predicates with duplicate arguments are filtered out
                      pred2([cup, plate1, plate2])}
+
+
+def test_find_substitution():
+    """Tests for find_substitution().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    var0 = cup_type("?var0")
+    var1 = cup_type("?var1")
+    var2 = cup_type("?var2")
+    pred0 = Predicate("Pred0", [cup_type], lambda s, o: True)
+    pred1 = Predicate("Pred1", [cup_type, cup_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type], lambda s, o: True)
+
+    kb0 = [pred0([cup0])]
+    q0 = [pred0([var0])]
+    found, assignment = utils.find_substitution(kb0, q0)
+    assert found
+    assert assignment == {var0: cup0}
+
+    q1 = [pred0([var0]), pred0([var1])]
+    found, assignment = utils.find_substitution(kb0, q1)
+    assert not found
+    assert assignment == {}
+
+    q1 = [pred0([var0]), pred0([var1])]
+    found, assignment = utils.find_substitution(kb0, q1,
+                                                allow_redundant=True)
+    assert found
+    assert assignment == {var0: cup0, var1: cup0}
+
+    kb1 = [pred0([cup0]), pred0([cup1])]
+    found, assignment = utils.find_substitution(kb1, q0)
+    assert found
+    assert assignment == {var0: cup0}
+
+    kb2 = [pred0([cup0]), pred2([cup2])]
+    q2 = [pred0([var0]), pred2([var2])]
+    found, assignment = utils.find_substitution(kb2, q2)
+    assert found
+    assert assignment == {var0: cup0, var2: cup2}
+
+    kb3 = [pred0([cup0])]
+    q3 = [pred0([var0]), pred2([var2])]
+    found, assignment = utils.find_substitution(kb3, q3)
+    assert not found
+    assert assignment == {}
+
+    kb4 = [pred1([cup0, cup1]), pred1([cup1, cup2])]
+    q4 = [pred1([var0, var1])]
+    found, assignment = utils.find_substitution(kb4, q4)
+    assert found
+    assert assignment == {var0: cup0, var1: cup1}
+
+    kb5 = [pred0([cup2]), pred1([cup0, cup1]), pred1([cup1, cup2])]
+    q5 = [pred1([var0, var1]), pred0([var1]), pred0([var0])]
+    found, assignment = utils.find_substitution(kb5, q5)
+    assert not found
+    assert assignment == {}
+
+    kb6 = [pred0([cup0]), pred2([cup1]), pred1([cup0, cup2]),
+           pred1([cup2, cup1])]
+    q6 = [pred0([var0]), pred2([var1]), pred1([var0, var1])]
+    found, assignment = utils.find_substitution(kb6, q6)
+    assert not found
+    assert assignment == {}
 
 
 def test_operator_methods():
@@ -369,3 +439,29 @@ def test_hadd_heuristic():
     heuristic = utils.HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
+
+
+def test_save_video():
+    """Tests for save_video().
+    """
+    dirname = "_fake_tmp_video_dir"
+    filename = "video.mp4"
+    utils.update_config({"video_dir": dirname})
+    rng = np.random.default_rng(123)
+    video = [rng.integers(255, size=(3, 3), dtype=np.uint8)
+             for _ in range(3)]
+    utils.save_video(filename, video)
+    os.remove(os.path.join(dirname, filename))
+    os.rmdir(dirname)
+
+
+def test_get_config_path_str():
+    """Tests for get_config_path_str().
+    """
+    utils.update_config({
+        "env": "dummyenv",
+        "approach": "dummyapproach",
+        "seed": 321,
+    })
+    s = utils.get_config_path_str()
+    assert s == "dummyenv__dummyapproach__321"
