@@ -4,6 +4,7 @@
 import pytest
 import tempfile
 import os
+import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator, Action
@@ -379,6 +380,7 @@ def test_save_video():
     fp = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
     dirname, filename = os.path.split(fp.name)
     utils.update_config({"video_dir": "dirname"})
-    video = [np.randint(255, size=(3, 3), dtype=np.uint8)
+    rng = np.random.default_rng(123)
+    video = [rng.integers(255, size=(3, 3), dtype=np.uint8)
              for _ in range(3)]
-    utils.save_video(video, filename)
+    utils.save_video(filename, video)
