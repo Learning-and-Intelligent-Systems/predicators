@@ -135,14 +135,14 @@ def get_object_combinations(
 def find_substitution(super_atoms: Collection[_Atom],
                       sub_atoms: Collection[_Atom],
                       allow_redundant: bool = False,
-                      ) -> Tuple[Substitution, bool]:
+                      ) -> Tuple[bool, Substitution]:
     """Find a substitution from the typed entities in sub_atoms to the
     typed entities in super_atoms s.t. sub_atoms is a subset of super_atoms.
 
     If allow_redundant is True, then multiple entities in sub_atoms can
     refer to the same single entity in super_atoms.
 
-    If no substitution exists, return ({}, False).
+    If no substitution exists, return (False, {}).
     """
     super_entities_by_type: Dict[Type, List[_TypedEntity]] = \
         defaultdict(list)
@@ -163,12 +163,12 @@ def _find_substitution_helper(
         remaining_sub_entities: List[_TypedEntity],
         super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
         partial_sub: Substitution,
-        allow_redundant: bool) -> Tuple[Substitution, bool]:
+        allow_redundant: bool) -> Tuple[bool, Substitution]:
     """Helper for find_substitution.
     """
     # Base case: check if all assigned
     if not remaining_sub_entities:
-        return partial_sub, True
+        return True, partial_sub
     # Find next entity to assign
     remaining_sub_entities = remaining_sub_entities.copy()
     next_sub_ent = remaining_sub_entities.pop()
@@ -183,13 +183,13 @@ def _find_substitution_helper(
                                         sub_atoms):
             continue
         # Backtracking search
-        final_sub, solved = _find_substitution_helper(sub_atoms,
+        solved, final_sub = _find_substitution_helper(sub_atoms,
             super_entities_by_type, remaining_sub_entities,
             super_pred_to_tuples, new_sub, allow_redundant)
         if solved:
-            return final_sub, solved
+            return solved, final_sub
     # Failure
-    return {}, False
+    return False, {}
 
 
 def _substitution_consistent(
