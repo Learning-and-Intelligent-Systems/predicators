@@ -14,6 +14,10 @@ from predicators.src.structs import State, Type, ParameterizedOption, \
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing.
     """
+    @property
+    def is_learning_based(self):
+        return False
+
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         # Just return some option's policy, ground with random parameters.
         parameterized_option = next(iter(self._initial_options))
@@ -54,9 +58,13 @@ def test_base_approach():
     task = Task(state, goal)
     # Check that methods are abstract.
     with pytest.raises(NotImplementedError):
+        _ = approach.is_learning_based
+    with pytest.raises(NotImplementedError):
         approach.solve(task, 500)
     approach = _DummyApproach(_simulator, predicates, options, types,
                               action_space, train_tasks=set())
+    assert not approach.is_learning_based
+    assert approach.learn_from_offline_dataset([]) is None
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):

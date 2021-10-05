@@ -12,7 +12,9 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task],
     """Create offline datasets.
     """
     if data_config["method"] == "demo":
-        return create_demo_data(env, train_tasks, data_config)
+        return create_demo_data(env, train_tasks,
+                                data_config["planning_timeout"])
     if data_config["method"] == "demo+replay":
-        return create_demo_replay_data(env, train_tasks, data_config)
+        return create_demo_replay_data(env, train_tasks,
+                                       data_config["planning_timeout"])
     raise NotImplementedError("Unrecognized dataset method.")

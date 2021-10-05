@@ -7,7 +7,8 @@ from predicators.src.datasets.demo_only import create_demo_data
 
 
 def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task],
-                            data_config: dict) -> Dataset:
+                            timeout: int) -> Dataset:
     """Create offline datasets by collecting demos and replaying.
     """
-    import ipdb; ipdb.set_trace()
+    demos = create_demo_data(env, train_tasks, timeout)
+    import ipdb; ipdb.set_trace()  # TODO

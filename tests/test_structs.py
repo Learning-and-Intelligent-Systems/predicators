@@ -7,7 +7,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    Operator, _GroundOperator, ActionDataset, OptionDataset, Dataset
+    Operator, _GroundOperator, Dataset
 
 
 def test_object_type():
@@ -206,7 +206,6 @@ def test_option():
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)
-    return option
 
 
 def test_operators():
@@ -276,16 +275,7 @@ def test_datasets():
     """
     state = test_state()
     action = np.zeros(3, dtype=np.float32)
-    action_transition = [state, action, state]
-    action_dataset = [action_transition]
-    action_dataset = cast(Dataset, action_dataset)
-    action_dataset = cast(ActionDataset, action_dataset)
-    assert len(action_dataset) == 1
-    assert action_dataset[0] == action_transition
-    option = test_option()
-    option_transition = [state, option, state]
-    option_dataset = [option_transition]
-    option_dataset = cast(Dataset, option_dataset)
-    option_dataset = cast(OptionDataset, option_dataset)
-    assert len(option_dataset) == 1
-    assert option_dataset[0] == option_transition
+    transition = [state, action, state]
+    dataset = cast(Dataset, [transition])
+    assert len(dataset) == 1
+    assert dataset[0] == transition

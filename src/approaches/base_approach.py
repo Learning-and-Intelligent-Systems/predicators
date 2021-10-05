@@ -63,14 +63,13 @@ class BaseApproach:
         self._rng = np.random.RandomState(self._seed)
         self._action_space.seed(seed)
 
-    def learn_from_offline_dataset(self, dataset: Dataset):
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """Learning-based approaches can use an offline dataset.
 
         Note: this is not an abc.abstractmethod because it does
         not need to be defined by the subclasses. (mypy complains
         if you try to instantiate a subclass with an undefined abc).
         """
-        raise NotImplementedError("Override me!")
 
 
 class ApproachTimeout(Exception):
