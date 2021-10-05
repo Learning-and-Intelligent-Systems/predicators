@@ -26,6 +26,10 @@ class GlobalSettings:
         """A workaround for global settings that are
         derived from the experiment-specific args
         """
+        if "env" not in args:
+            args["env"] = ""
+        if "approach" not in args:
+            args["approach"] = ""
         return dict(
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
