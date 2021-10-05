@@ -124,10 +124,13 @@ def test_predicate_and_atom():
     # Lifted atoms
     lifted_atom = pred([cup_var, plate_var])
     lifted_atom2 = pred([cup_var, plate_var])
+    lifted_atom3 = pred2([cup_var, plate_var])
     assert lifted_atom.predicate == pred
     assert lifted_atom.variables == [cup_var, plate_var]
     assert {lifted_atom, lifted_atom2} == {lifted_atom}
     assert lifted_atom == lifted_atom2
+    assert lifted_atom < lifted_atom3
+    assert sorted([lifted_atom3, lifted_atom]) == [lifted_atom, lifted_atom3]
     assert isinstance(lifted_atom, LiftedAtom)
     assert (str(lifted_atom) == repr(lifted_atom) ==
             "On(?cup:cup_type, ?plate:plate_type)")
