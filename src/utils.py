@@ -198,7 +198,7 @@ def find_substitution(super_atoms: Collection[GroundAtom],
             if obj not in super_objects_by_type[obj.type]:
                 super_objects_by_type[obj.type].append(obj)
         super_pred_to_tuples[atom.predicate].add(tuple(atom.objects))
-    sub_variables = sorted({var for atom in sub_atoms for var in atom.variables})
+    sub_variables = sorted({v for atom in sub_atoms for v in atom.variables})
     return _find_substitution_helper(
         sub_atoms, super_objects_by_type, sub_variables, super_pred_to_tuples,
         {}, allow_redundant)
@@ -218,7 +218,7 @@ def _find_substitution_helper(
         return True, partial_sub
     # Find next variable to assign
     remaining_sub_variables = remaining_sub_variables.copy()
-    next_sub_var = remaining_sub_variables.pop()
+    next_sub_var = remaining_sub_variables.pop(0)
     # Consider possible assignments
     for super_obj in super_objects_by_type[next_sub_var.type]:
         if not allow_redundant and super_obj in partial_sub.values():
