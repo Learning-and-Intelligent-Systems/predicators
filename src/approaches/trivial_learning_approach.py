@@ -10,7 +10,6 @@ class TrivialLearningApproach(BaseApproach):
     """
     @property
     def is_learning_based(self) -> bool:
-        """Pretend learning-based until we implement an actual learner."""
         return True
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:

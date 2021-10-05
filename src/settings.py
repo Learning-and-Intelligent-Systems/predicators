@@ -21,12 +21,6 @@ class GlobalSettings:
     max_num_steps_option_rollout = 100
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
-    # offline training data config
-    offline_training_data = {
-        "method": "demo",  # demo
-        "planning_timeout": 500,
-    }
-
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
@@ -48,6 +42,23 @@ class GlobalSettings:
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
             })[args["env"]],
+
+            # For learning-based approaches, whether to include ground truth
+            # options in the offline dataset.
+            include_options_in_offline_data=defaultdict(bool, {
+                "trivial_learning": True,
+            })[args["approach"]],
+
+            # For learning-based approaches, the data collection strategy.
+            offline_data_method=defaultdict(str, {
+                "trivial_learning": "demo",
+            })[args["approach"]],
+
+            # For learning-based approaches, the data collection timeout
+            # used for planning.
+            offline_data_planning_timeout=defaultdict(int, {
+                "trivial_learning": 500,
+            })[args["approach"]],
         )
 
 _attr_to_value = {}

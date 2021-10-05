@@ -1,16 +1,15 @@
 """Create offline datasets.
 """
-from typing import List
+
 from predicators.src.envs import BaseEnv
-from predicators.src.structs import Dataset, Task
+from predicators.src.structs import Dataset
 from predicators.src.datasets.demo_only import create_demo_data
+from predicators.src.settings import CFG
 
 
-def create_dataset(env: BaseEnv, train_tasks: List[Task],
-                   data_config: dict) -> Dataset:
+def create_dataset(env: BaseEnv) -> Dataset:
     """Create offline datasets.
     """
-    if data_config["method"] == "demo":
-        return create_demo_data(env, train_tasks,
-                                data_config["planning_timeout"])
+    if CFG.offline_data_method == "demo":
+        return create_demo_data(env)
     raise NotImplementedError("Unrecognized dataset method.")

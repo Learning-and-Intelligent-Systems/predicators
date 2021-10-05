@@ -10,7 +10,6 @@ class RandomActionsApproach(BaseApproach):
     """
     @property
     def is_learning_based(self) -> bool:
-        """Not learning-based."""
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
