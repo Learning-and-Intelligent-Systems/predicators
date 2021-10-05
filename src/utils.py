@@ -8,7 +8,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional
+    Dict, FrozenSet, Any, Optional, cast
 import heapq as hq
 import imageio
 import matplotlib
@@ -63,8 +63,11 @@ def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
     if success:
         return True, subs12
 
-    # TODO: expand to handle more complicated cases
-    return False, {}
+    # If all else fails, use search
+    solved, sub = find_substitution(ground_atoms_lst, lifted_atoms_lst)
+    # Tried really hard to avoid this but couldn't figure out how...
+    casted_sub = cast(Dict[Object, Variable], sub)
+    return solved, casted_sub
 
 
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
