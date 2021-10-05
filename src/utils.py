@@ -7,7 +7,7 @@ import functools
 import itertools
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet
+    Dict, FrozenSet, Any
 import heapq as hq
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task
@@ -223,7 +223,7 @@ class RelaxedOperator:
     # Alternative method to check whether all preconditions are True.
     counter: int = field(init=False, default=0)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.counter = len(self.preconditions)  # properly initialize counter
 
 
@@ -233,7 +233,7 @@ class HAddHeuristic:
     """
     def __init__(self, initial_state: PyperplanFacts,
                  goals: PyperplanFacts,
-                 operators: FrozenSet[RelaxedOperator]):
+                 operators: FrozenSet[RelaxedOperator]) -> None:
         self.facts = {}
         self.operators = []
         self.goals = goals
@@ -293,11 +293,11 @@ class HAddHeuristic:
 
         return h_value
 
-    def init_distance(self, state: PyperplanFacts):
+    def init_distance(self, state: PyperplanFacts) -> None:
         """This function resets all member variables that store information
         that needs to be recomputed for each call of the heuristic.
         """
-        def _reset_fact(fact):
+        def _reset_fact(fact: RelaxedFact) -> None:
             fact.expanded = False
             if fact.name in state:
                 fact.distance = 0
@@ -334,7 +334,7 @@ class HAddHeuristic:
         """
         return achieved_goals == self.goals or not queue
 
-    def dijkstra(self, queue: List[Tuple[float, float, RelaxedFact]]):
+    def dijkstra(self, queue: List[Tuple[float, float, RelaxedFact]]) -> None:
         """This function is an implementation of a Dijkstra search.
         For efficiency reasons, it is used instead of an explicit graph
         representation of the problem.
@@ -375,7 +375,7 @@ class HAddHeuristic:
 
 
 
-def update_config(args):
+def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG.
     """
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
