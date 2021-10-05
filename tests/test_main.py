@@ -31,4 +31,3 @@ def test_main():
                 "--video_dir", video_dir]
     main()
     shutil.rmtree(video_dir)
-
