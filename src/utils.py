@@ -11,7 +11,7 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
 import heapq as hq
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
-    OptionTrajectory
+    OptionTrajectory, Substitution, _Atom, _TypedEntity
 from predicators.src.settings import CFG, GlobalSettings
 
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
@@ -117,6 +117,74 @@ def get_object_combinations(
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue
         yield list(choice)
+
+
+def find_substitution(super_atoms: Collection[_Atom],
+                      sub_atoms: Collection[_Atom]
+                      ) -> Tuple[Substitution, bool]:
+    """Find a substitution from the typed entities in sub_atoms to the
+    typed entities in super_atoms s.t. sub_atoms is a subset of super_atoms.
+
+    If no substitution exists, return ({}, False).
+    """
+    super_entities_by_type: Dict[Type, List[_TypedEntity]] = \
+        defaultdict(list)
+    super_pred_to_tuples = defaultdict(set)
+    for atom in super_atoms:
+        for e in atom.entities:
+            if e not in super_entities_by_type[e.type]:
+                super_entities_by_type[e.type].append(e)
+        super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
+    sub_entities = sorted(e for a in sub_atoms for e in a.entities)
+    return _find_substitution_helper(sub_atoms, super_entities_by_type,
+        sub_entities, super_pred_to_tuples, {})
+
+
+def _find_substitution_helper(
+        sub_atoms: Collection[_Atom],
+        super_entities_by_type: Dict[Type, List[_TypedEntity]],
+        remaining_sub_entities: List[_TypedEntity],
+        super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        partial_sub: Substitution) -> Tuple[Substitution, bool]:
+    """Helper for find_substitution.
+    """
+    # Base case: check if all assigned
+    if not remaining_sub_entities:
+        return partial_sub, True
+    # Find next entity to assign
+    remaining_sub_entities = remaining_sub_entities.copy()
+    next_sub_ent = remaining_sub_entities.pop()
+    # Consider possible assignments
+    for super_ent in super_entities_by_type[next_sub_ent.type]:
+        new_sub = partial_sub.copy()
+        new_sub[next_sub_ent] = super_ent
+        # Check if consistent
+        if not _substitution_consistent(new_sub, super_pred_to_tuples,
+                                        sub_atoms):
+            continue
+        # Backtracking search
+        final_sub, solved = _find_substitution_helper(sub_atoms,
+            super_entities_by_type, remaining_sub_entities,
+            super_pred_to_tuples, new_sub)
+        if solved:
+            return final_sub, solved
+    # Failure
+    return {}, False
+
+
+def _substitution_consistent(
+        partial_sub: Substitution,
+        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        sub_atoms: Collection[_Atom]) -> bool:
+    """Helper for _find_substitution_helper.
+    """
+    for sub_atom in sub_atoms:
+        if not set(sub_atom.entities).issubset(partial_sub.keys()):
+            continue
+        substituted_ents = tuple(partial_sub[e] for e in sub_atom.entities)
+        if substituted_ents not in super_pred_to_tuples[sub_atom.predicate]:
+            return False
+    return True
 
 
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
