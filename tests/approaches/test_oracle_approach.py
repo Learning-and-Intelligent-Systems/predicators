@@ -15,7 +15,7 @@ from predicators.src.settings import CFG
 def test_cover_get_gt_ops():
     """Tests for _get_gt_ops in CoverEnv.
     """
-    utils.update_config({"env": "cover", "approach": ""})
+    utils.update_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
     operators = _get_gt_ops(env.predicates, env.options)
@@ -58,7 +58,7 @@ def test_cover_get_gt_ops():
 def test_get_gt_ops():
     """Test get gt ops alone.
     """
-    utils.update_config({"env": "not a real environment", "approach": ""})
+    utils.update_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
         _get_gt_ops(set(), set())
 
@@ -66,7 +66,7 @@ def test_get_gt_ops():
 def test_oracle_approach_cover():
     """Tests for OracleApproach class with CoverEnv.
     """
-    utils.update_config({"env": "cover", "approach": ""})
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     approach = OracleApproach(
@@ -95,7 +95,7 @@ def test_oracle_approach_cover():
 def test_oracle_approach_cover_failures():
     """Tests for failures in the OracleApproach.
     """
-    utils.update_config({"env": "cover", "approach": ""})
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     approach = OracleApproach(
