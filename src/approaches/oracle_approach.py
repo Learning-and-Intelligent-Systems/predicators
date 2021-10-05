@@ -26,12 +26,12 @@ class OracleApproach(TAMPApproach):
         return False
 
     def _get_current_operators(self) -> Set[Operator]:
-        return _get_gt_ops(self._initial_predicates,
+        return get_gt_ops(self._initial_predicates,
                            self._initial_options)
 
 
-def _get_gt_ops(predicates: Set[Predicate],
-                options: Set[ParameterizedOption]) -> Set[Operator]:
+def get_gt_ops(predicates: Set[Predicate],
+               options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground truth operators for an env.
     """
     if CFG.env == "cover":
