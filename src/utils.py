@@ -17,6 +17,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, Image, Video, Substitution, _Atom, _TypedEntity
 from predicators.src.settings import CFG, GlobalSettings
+matplotlib.use("Agg")
 
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
