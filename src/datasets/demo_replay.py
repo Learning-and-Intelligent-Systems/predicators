@@ -11,7 +11,7 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-def create_demo_replay_data(env: BaseEnv, seed: int) -> Dataset:
+def create_demo_replay_data(env: BaseEnv) -> Dataset:
     """Create offline datasets by collecting demos and replaying.
     """
     demo_dataset = create_demo_data(env)
@@ -36,7 +36,7 @@ def create_demo_replay_data(env: BaseEnv, seed: int) -> Dataset:
         ground_operators.append(ground_operators_traj)
     assert len(ground_operators) == len(demo_dataset)
     # Perform replays
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(CFG.seed)
     replay_dataset = []
     for _ in range(CFG.offline_data_num_replays):
         # Sample a trajectory
@@ -56,5 +56,8 @@ def create_demo_replay_data(env: BaseEnv, seed: int) -> Dataset:
         # Execute the option
         replay_traj = utils.option_to_trajectory(state, env.simulate,
             option, max_num_steps=CFG.max_num_steps_option_rollout)
+        if not CFG.include_options_in_offline_data:
+            for act in replay_traj[1]:
+                act.unset_option()
         replay_dataset.append(replay_traj)
     return demo_dataset + replay_dataset
