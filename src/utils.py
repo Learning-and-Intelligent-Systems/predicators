@@ -22,6 +22,8 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        predicates: Collection[Predicate]
                        ) -> Tuple[ActionTrajectory, bool]:
     """Execute a policy on a task until goal or max steps.
+    Return the state sequence and action sequence, and a bool for
+    whether the goal was satisfied at the end.
     """
     state = task.init
     atoms = abstract(state, predicates)
@@ -85,14 +87,19 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
         return new_states, []
     current_option, t = actions[0].get_option()
     assert t == 0
+    expected_t = 0
     options = [current_option]
     for s, a in zip(states[:-1], actions):
         o, t = a.get_option()
         if o != current_option:
             assert t == 0
+            expected_t = 0
             new_states.append(s)
             options.append(o)
             current_option = o
+        else:
+            assert t == expected_t
+            expected_t += 1
     new_states.append(states[-1])
     return new_states, options
 

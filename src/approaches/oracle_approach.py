@@ -23,12 +23,9 @@ class OracleApproach(TAMPApproach):
     """
     @property
     def is_learning_based(self) -> bool:
-        """Not learning-based."""
         return False
 
     def _get_current_operators(self) -> Set[Operator]:
-        """Get the current set of operators.
-        """
         return _get_gt_ops(self._initial_predicates,
                            self._initial_options)
 
