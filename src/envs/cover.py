@@ -3,13 +3,15 @@ won't ever fail), but it still requires backtracking.
 """
 
 from typing import List, Set, Sequence, Dict
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom
+    ParameterizedOption, Object, Action, GroundAtom, Image
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 Array = NDArray[np.float32]
 
@@ -127,6 +129,20 @@ class CoverEnv(BaseEnv):
     def action_space(self) -> Box:
         # For this env, the action space is the same as the option param space.
         return self._PickPlace.params_space
+
+    def render(self, state: State) -> Image:
+        fig, ax = plt.subplots(1, 1)
+        # Draw main line
+        plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
+        # TODO more
+        plt.xlim(-0.2, 1.2)
+        plt.ylim(-0.25, 0.5)
+        plt.yticks([])
+        plt.legend()
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+        plt.close()
+        return img
 
     def _get_tasks(self, num: int) -> List[Task]:
         tasks = []

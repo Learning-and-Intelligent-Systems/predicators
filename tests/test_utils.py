@@ -2,6 +2,8 @@
 """
 
 import pytest
+import tempfile
+import os
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator, Action
@@ -369,3 +371,14 @@ def test_hadd_heuristic():
     heuristic = utils.HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
+
+
+def test_save_video():
+    """Tests for save_video().
+    """
+    fp = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
+    dirname, filename = os.path.split(fp.name)
+    utils.update_config({"video_dir": "dirname"})
+    video = [np.randint(255, size=(3, 3), dtype=np.uint8)
+             for _ in range(3)]
+    utils.save_video(video, filename)

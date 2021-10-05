@@ -4,13 +4,15 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import functools
-import imageio
 import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, cast
 import heapq as hq
+import imageio
+import matplotlib
+import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, Image, Video
@@ -429,6 +431,18 @@ class HAddHeuristic:
                                 self.tie_breaker += 1
                 # Finally the fact is marked as expanded.
                 fact.expanded = True
+
+
+def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
+    """Convert matplotlib figure into Image.
+    """
+    fig.set_dpi(dpi)
+    fig.canvas.draw()
+    data = np.fromstring(fig.canvas.tostring_argb(),  # type: ignore
+                         dtype=np.uint8, sep='')
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+    data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
+    return data
 
 
 def save_video(video: Video, outfile: str) -> None:
