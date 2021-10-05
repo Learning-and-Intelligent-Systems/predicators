@@ -8,7 +8,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, cast
+    Dict, FrozenSet, Any, Optional
 import heapq as hq
 import imageio
 import matplotlib
