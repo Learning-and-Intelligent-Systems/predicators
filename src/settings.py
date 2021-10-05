@@ -23,6 +23,7 @@ class GlobalSettings:
 
     # evaluation params
     video_dir = "videos"
+    video_fps = 2
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
