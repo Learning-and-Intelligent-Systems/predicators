@@ -16,7 +16,7 @@ import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Substitution, _Atom, \
-    _TypedEntity
+    _TypedEntity, Variable
 from predicators.src.settings import CFG, GlobalSettings
 
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
