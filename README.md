@@ -3,6 +3,7 @@
 Instructions for running code:
 * This repository uses Python versions 3.8+.
 * Run `pip install -r requirements.txt` to install dependencies.
+* Make sure the repository is on your PYTHONPATH.
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
 
 Instructions for contributing:
