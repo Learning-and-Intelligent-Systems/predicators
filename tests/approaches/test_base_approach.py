@@ -77,7 +77,7 @@ def test_create_approach():
     """Tests for create_approach.
     """
     env = CoverEnv()
-    for name in ["random", "oracle"]:
+    for name in ["random", "oracle", "trivial_learning", "operator_learning"]:
         approach = create_approach(
             name, env.simulate, env.predicates, env.options, env.types,
             env.action_space, env.get_train_tasks())
