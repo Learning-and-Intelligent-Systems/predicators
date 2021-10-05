@@ -223,6 +223,10 @@ class _Atom:
         assert isinstance(other, _Atom)
         return str(self) == str(other)
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _Atom)
+        return str(self) < str(other)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class LiftedAtom(_Atom):
@@ -238,20 +242,6 @@ class LiftedAtom(_Atom):
     def _str(self) -> str:
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __hash__(self) -> int:
-        return self._hash
-
-    def __eq__(self, other: object) -> bool:
-        assert isinstance(other, LiftedAtom)
-        return str(self) == str(other)
-
-    def __lt__(self, other: object) -> bool:
-        assert isinstance(other, LiftedAtom)
-        return str(self) < str(other)
 
     def ground(self, sub: dict[Variable, Object]) -> GroundAtom:
         """Create a GroundAtom with a given substitution.
@@ -274,20 +264,6 @@ class GroundAtom(_Atom):
     def _str(self) -> str:
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.objects)) + ")")
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __hash__(self) -> int:
-        return self._hash
-
-    def __eq__(self, other: object) -> bool:
-        assert isinstance(other, GroundAtom)
-        return str(self) == str(other)
-
-    def __lt__(self, other: object) -> bool:
-        assert isinstance(other, GroundAtom)
-        return str(self) < str(other)
 
     def lift(self, sub: dict[Object, Variable]) -> LiftedAtom:
         """Create a LiftedAtom with a given substitution.
