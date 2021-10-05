@@ -6,7 +6,7 @@ from typing import List, Set
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action
+    ParameterizedOption, Type, Action, Image
 
 
 class BaseEnv:
@@ -61,6 +61,12 @@ class BaseEnv:
     @abc.abstractmethod
     def action_space(self) -> Box:
         """Get the action space of this environment.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def render(self, state: State) -> Image:
+        """Render a state into an image.
         """
         raise NotImplementedError("Override me!")
 
