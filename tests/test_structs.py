@@ -1,13 +1,12 @@
 """Test cases for structs.
 """
 
-from typing import cast
 import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    Operator, _GroundOperator, Action, Dataset
+    Operator, _GroundOperator, Action
 from predicators.src import utils
 
 
@@ -277,7 +276,7 @@ def test_datasets():
     state = test_state()
     action = np.zeros(3, dtype=np.float32)
     transition = [state, action, state]
-    dataset = cast(Dataset, [transition])
+    dataset = [transition]
     assert len(dataset) == 1
     assert dataset[0] == transition
 
@@ -315,6 +314,8 @@ def test_action():
         opt, ind = act.get_option()
         assert opt is option
         assert ind == next_ind
+        act.unset_option()
+        assert not act.has_option()
         next_ind += 1
     act = Action([0.5])
     assert not act.has_option()
