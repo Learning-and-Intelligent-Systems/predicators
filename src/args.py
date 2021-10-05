@@ -21,6 +21,7 @@ def parse_args() -> Dict[str, Any]:
         return arg_dict
     # Override global settings
     assert len(overrides) >= 2
+    assert len(overrides) % 2 == 0
     for flag, value in zip(overrides[:-1:2], overrides[1::2]):
         assert flag.startswith("--")
         setting_name = flag[2:]
