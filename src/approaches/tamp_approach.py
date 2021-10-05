@@ -13,11 +13,10 @@ import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.structs import State, Task, Operator, Predicate, \
-    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, Action
+    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, Action, \
+    PyperplanFacts
 from predicators.src import utils
 from predicators.src.settings import CFG
-
-PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
 
 class TAMPApproach(BaseApproach):

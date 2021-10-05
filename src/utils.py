@@ -8,22 +8,20 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, cast
+    Dict, FrozenSet, Any, Optional
 import heapq as hq
 import imageio
 import matplotlib
 import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
-    OptionTrajectory, LiftedAtom, Image, Video, Substitution, _Atom, \
-    _TypedEntity, Variable
+    OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
+    ObjToVarSub, VarToObjSub
 from predicators.src.settings import CFG, GlobalSettings
-
-PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
 
 def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
-          ) -> Tuple[bool, Dict[Object, Variable]]:
+          ) -> Tuple[bool, ObjToVarSub]:
     """Return whether the given ground atom set can be unified
     with the given lifted atom set. Also return the mapping.
     """
@@ -36,17 +34,17 @@ def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
     if ground_preds != lifted_preds:
         return False, {}
 
-    # Terminate quickly if there is a mismatch between num objs
-    num_obj_ground = len({o for atom in ground_atoms_lst
-                          for o in atom.objects})
-    num_obj_lifted = len({o for atom in lifted_atoms_lst
-                          for o in atom.variables})
-    if num_obj_ground != num_obj_lifted:
+    # Terminate quickly if there is a mismatch between numbers
+    num_objects = len({o for atom in ground_atoms_lst
+                       for o in atom.objects})
+    num_variables = len({o for atom in lifted_atoms_lst
+                         for o in atom.variables})
+    if num_objects != num_variables:
         return False, {}
 
     # Try to get lucky with a one-to-one mapping
-    subs12: Dict[Object, Variable] = {}
-    subs21: Dict[Variable, Object] = {}
+    subs12: ObjToVarSub = {}
+    subs21 = {}
     success = True
     for atom_ground, atom_lifted in zip(ground_atoms_lst, lifted_atoms_lst):
         if not success:
@@ -65,9 +63,8 @@ def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
 
     # If all else fails, use search
     solved, sub = find_substitution(ground_atoms_lst, lifted_atoms_lst)
-    # Tried really hard to avoid this but couldn't figure out how...
-    casted_sub = cast(Dict[Object, Variable], sub)
-    return solved, casted_sub
+    rev_sub = {v: k for k, v in sub.items()}
+    return solved, rev_sub
 
 
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
@@ -181,59 +178,59 @@ def get_object_combinations(
         yield list(choice)
 
 
-def find_substitution(super_atoms: Collection[_Atom],
-                      sub_atoms: Collection[_Atom],
+def find_substitution(super_atoms: Collection[GroundAtom],
+                      sub_atoms: Collection[LiftedAtom],
                       allow_redundant: bool = False,
-                      ) -> Tuple[bool, Substitution]:
-    """Find a substitution from the typed entities in sub_atoms to the
-    typed entities in super_atoms s.t. sub_atoms is a subset of super_atoms.
+                      ) -> Tuple[bool, VarToObjSub]:
+    """Find a substitution from the objects in super_atoms to the variables
+    in sub_atoms s.t. sub_atoms is a subset of super_atoms.
 
-    If allow_redundant is True, then multiple entities in sub_atoms can
-    refer to the same single entity in super_atoms.
+    If allow_redundant is True, then multiple variables in sub_atoms can
+    refer to the same single object in super_atoms.
 
     If no substitution exists, return (False, {}).
     """
-    super_entities_by_type: Dict[Type, List[_TypedEntity]] = \
-        defaultdict(list)
+    super_objects_by_type: Dict[Type, List[Object]] = defaultdict(list)
     super_pred_to_tuples = defaultdict(set)
     for atom in super_atoms:
-        for e in atom.entities:
-            if e not in super_entities_by_type[e.type]:
-                super_entities_by_type[e.type].append(e)
-        super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
-    sub_entities = sorted(e for a in sub_atoms for e in a.entities)
-    return _find_substitution_helper(sub_atoms, super_entities_by_type,
-        sub_entities, super_pred_to_tuples, {}, allow_redundant)
+        for obj in atom.objects:
+            if obj not in super_objects_by_type[obj.type]:
+                super_objects_by_type[obj.type].append(obj)
+        super_pred_to_tuples[atom.predicate].add(tuple(atom.objects))
+    sub_variables = sorted(var for atom in sub_atoms for var in atom.variables)
+    return _find_substitution_helper(
+        sub_atoms, super_objects_by_type, sub_variables, super_pred_to_tuples,
+        {}, allow_redundant)
 
 
 def _find_substitution_helper(
-        sub_atoms: Collection[_Atom],
-        super_entities_by_type: Dict[Type, List[_TypedEntity]],
-        remaining_sub_entities: List[_TypedEntity],
-        super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
-        partial_sub: Substitution,
-        allow_redundant: bool) -> Tuple[bool, Substitution]:
+        sub_atoms: Collection[LiftedAtom],
+        super_objects_by_type: Dict[Type, List[Object]],
+        remaining_sub_variables: List[Variable],
+        super_pred_to_tuples: Dict[Predicate, Set[Tuple[Object, ...]]],
+        partial_sub: VarToObjSub,
+        allow_redundant: bool) -> Tuple[bool, VarToObjSub]:
     """Helper for find_substitution.
     """
     # Base case: check if all assigned
-    if not remaining_sub_entities:
+    if not remaining_sub_variables:
         return True, partial_sub
-    # Find next entity to assign
-    remaining_sub_entities = remaining_sub_entities.copy()
-    next_sub_ent = remaining_sub_entities.pop()
+    # Find next variable to assign
+    remaining_sub_variables = remaining_sub_variables.copy()
+    next_sub_var = remaining_sub_variables.pop()
     # Consider possible assignments
-    for super_ent in super_entities_by_type[next_sub_ent.type]:
-        if not allow_redundant and super_ent in partial_sub.values():
+    for super_obj in super_objects_by_type[next_sub_var.type]:
+        if not allow_redundant and super_obj in partial_sub.values():
             continue
         new_sub = partial_sub.copy()
-        new_sub[next_sub_ent] = super_ent
+        new_sub[next_sub_var] = super_obj
         # Check if consistent
         if not _substitution_consistent(new_sub, super_pred_to_tuples,
                                         sub_atoms):
             continue
         # Backtracking search
         solved, final_sub = _find_substitution_helper(sub_atoms,
-            super_entities_by_type, remaining_sub_entities,
+            super_objects_by_type, remaining_sub_variables,
             super_pred_to_tuples, new_sub, allow_redundant)
         if solved:
             return solved, final_sub
@@ -242,16 +239,16 @@ def _find_substitution_helper(
 
 
 def _substitution_consistent(
-        partial_sub: Substitution,
-        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
-        sub_atoms: Collection[_Atom]) -> bool:
+        partial_sub: VarToObjSub,
+        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[Object, ...]]],
+        sub_atoms: Collection[LiftedAtom]) -> bool:
     """Helper for _find_substitution_helper.
     """
     for sub_atom in sub_atoms:
-        if not set(sub_atom.entities).issubset(partial_sub.keys()):
+        if not set(sub_atom.variables).issubset(partial_sub.keys()):
             continue
-        substituted_ents = tuple(partial_sub[e] for e in sub_atom.entities)
-        if substituted_ents not in super_pred_to_tuples[sub_atom.predicate]:
+        substituted_vars = tuple(partial_sub[e] for e in sub_atom.variables)
+        if substituted_vars not in super_pred_to_tuples[sub_atom.predicate]:
             return False
     return True
 

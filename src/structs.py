@@ -5,12 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast
+    Tuple, Any, cast, FrozenSet
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
-
-Array = NDArray[np.float32]
 
 
 @dataclass(frozen=True, order=True)
@@ -87,9 +85,6 @@ class Variable(_TypedEntity):
         # By default, the dataclass generates a new __hash__ method when
         # frozen=True and eq=True, so we need to override it.
         return self._hash
-
-
-Substitution = Dict[_TypedEntity, _TypedEntity]
 
 
 @dataclass
@@ -506,10 +501,13 @@ class Action:
         assert not self.has_option()
 
 
+# Convenience higher-order types useful throughout the code
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
 Dataset = List[ActionTrajectory]
-
-
 Image = NDArray[np.uint8]
 Video = List[Image]
+Array = NDArray[np.float32]
+PyperplanFacts = FrozenSet[Tuple[str, ...]]
+ObjToVarSub = Dict[Object, Variable]
+VarToObjSub = Dict[Variable, Object]

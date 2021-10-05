@@ -12,10 +12,8 @@ from numpy.typing import NDArray
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
 from predicators.src.structs import Operator, Predicate, State, \
-    ParameterizedOption, Variable, Type, LiftedAtom, Object
+    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-
-Array = NDArray[np.float32]
 
 
 class OracleApproach(TAMPApproach):
