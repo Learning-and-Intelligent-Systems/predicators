@@ -2,7 +2,7 @@
 won't ever fail), but it still requires backtracking.
 """
 
-from typing import List, Set, Sequence, Dict
+from typing import List, Set, Sequence, Dict, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
@@ -58,16 +58,7 @@ class CoverEnv(BaseEnv):
         assert self.action_space.contains(action.arr)
         pose = action.arr.item()
         next_state = state.copy()
-        # Compute hand_regions (allowed pick/place regions).
-        hand_regions = []
-        for block in self._blocks:
-            hand_regions.append(
-                (state[block][3]-state[block][2]/2,
-                 state[block][3]+state[block][2]/2))
-        for targ in self._targets:
-            hand_regions.append(
-                (state[targ][3]-state[targ][2]/10,
-                 state[targ][3]+state[targ][2]/10))
+        hand_regions = self._get_hand_regions(state)
         # If we're not in any hand region, no-op.
         if not any(hand_lb <= pose <= hand_rb
                    for hand_lb, hand_rb in hand_regions):
@@ -134,7 +125,50 @@ class CoverEnv(BaseEnv):
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
-        # TODO more
+        # Draw hand regions
+        hand_regions = self._get_hand_regions(state)
+        for i, (hand_lb, hand_rb) in enumerate(hand_regions):
+            if i == 0:
+                label = "Allowed hand region"
+            else:
+                label = None
+            plt.plot([hand_lb, hand_rb], [-0.08, -0.08], color="red",
+                     alpha=0.5, lw=8., label=label)        
+        # Draw hand
+        plt.scatter(state[self._robot][0], 0.05, color="r",
+                    s=100, alpha=1., zorder=10, label="Hand")
+        lw = 3
+        height = 0.1
+        cs = ["blue", "purple", "green", "yellow"]
+        block_alpha = 0.75
+        targ_alpha = 0.25
+        # Draw blocks
+        for i, block in enumerate(self._blocks):
+            c = cs[i]
+            if state.get(block, "grasp") != -1:
+                lcolor = "red"
+                pose = state[self._robot][0]-state.get(block, "grasp")
+                suffix = " (grasped)"
+            else:
+                lcolor = "gray"
+                pose =  state.get(block, "pose")
+                suffix = ""
+            rect = plt.Rectangle(
+                (pose-state.get(block, "width")/2., -height/2.),
+                state.get(block, "width"), height, linewidth=lw,
+                edgecolor=lcolor, facecolor=c, alpha=block_alpha,
+                label=f"block{i}"+suffix)
+            ax.add_patch(rect)
+        # Draw targets
+        for i, targ in enumerate(self._targets):
+            c = cs[i]
+            rect = plt.Rectangle(
+                (state.get(targ, "pose")-state.get(targ, "width")/2.,
+                 -height/2.),
+                state.get(targ, "width"), height, linewidth=lw,
+                edgecolor=lcolor,
+                facecolor=c, alpha=targ_alpha, label=f"target{i}")
+            ax.add_patch(rect)
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 0.5)
         plt.yticks([])
@@ -143,6 +177,18 @@ class CoverEnv(BaseEnv):
         img = utils.fig2data(fig)
         plt.close()
         return img
+
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
+        for block in self._blocks:
+            hand_regions.append(
+                (state[block][3]-state[block][2]/2,
+                 state[block][3]+state[block][2]/2))
+        for targ in self._targets:
+            hand_regions.append(
+                (state[targ][3]-state[targ][2]/10,
+                 state[targ][3]+state[targ][2]/10))
+        return hand_regions
 
     def _get_tasks(self, num: int) -> List[Task]:
         tasks = []
