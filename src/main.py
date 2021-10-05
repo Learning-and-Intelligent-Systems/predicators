@@ -40,7 +40,7 @@ def main() -> None:
             print(f"Task {i} FAILED")
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
-            utils.save_video(video, outfile)
+            utils.save_video(outfile, video)
 
 
 if __name__ == "__main__":  # pragma: no cover

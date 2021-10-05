@@ -445,14 +445,14 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
     return data
 
 
-def save_video(video: Video, outfile: str) -> None:
+def save_video(outfile: str, video: Video) -> None:
     """Save the video to video_dir/outfile.
     """
     outdir = CFG.video_dir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     outpath = os.path.join(outdir, outfile)
-    imageio.mimwrite(video, outpath)
+    imageio.mimwrite(outpath, video)
     print(f"Wrote out to {outpath}.")
 
 
