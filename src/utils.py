@@ -38,7 +38,6 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     video: Video = []
     if make_video:
         assert render is not None
-        render = cast(Callable[[State], Image], render)
         video.append(render(state))
     if task.goal.issubset(atoms):  # goal is already satisfied
         return (states, actions), video, True
@@ -49,7 +48,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         actions.append(act)
         states.append(state)
         if make_video:
-            render = cast(Callable[[State], Image], render)
+            assert render is not None
             video.append(render(state))
         if task.goal.issubset(atoms):
             return (states, actions), video, True
