@@ -35,18 +35,20 @@ def main() -> None:
         dataset = create_dataset(env)
         approach.learn_from_offline_dataset(dataset)
     # Run approach
-    for i, task in enumerate(env.get_test_tasks()):
+    test_tasks = env.get_test_tasks()
+    for i, task in enumerate(test_tasks):
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
-            print(f"Approach failed to solve task {i} with error: {e}")
+            print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
+                  f"solve with error: {e}")
             continue
         _, video, solved = utils.run_policy_on_task(policy, task,
             env.simulate, env.predicates, CFG.make_videos, env.render)
         if solved:
-            print(f"Task {i} solved")
+            print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
         else:
-            print(f"Task {i} FAILED")
+            print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
