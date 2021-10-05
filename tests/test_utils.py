@@ -267,6 +267,64 @@ def test_find_substitution():
     assert not found
     assert assignment == {}
 
+    kb7 = [pred1([cup0, cup0])]
+    q7 = [pred1([var0, var0])]
+    found, assignment = utils.find_substitution(kb7, q7)
+    assert found
+    assert assignment == {var0: cup0}
+
+    kb8 = [pred1([cup0, cup0])]
+    q8 = [pred1([var0, var1])]
+    found, assignment = utils.find_substitution(kb8, q8)
+    assert not found
+    assert assignment == {}
+
+    found, assignment = utils.find_substitution(kb8, q8,
+                                                allow_redundant=True)
+    assert found
+    assert assignment == {var0: cup0, var1: cup0}
+
+    kb9 = [pred1([cup0, cup1])]
+    q9 = [pred1([var0, var0])]
+    found, assignment = utils.find_substitution(kb9, q9)
+    assert not found
+    assert assignment == {}
+
+    found, assignment = utils.find_substitution(kb9, q9,
+                                                allow_redundant=True)
+    assert not found
+    assert assignment == {}
+
+    kb10 = [pred1([cup0, cup1]), pred1([cup1, cup0])]
+    q10 = [pred1([var0, var1]), pred1([var0, var2])]
+    found, assignment = utils.find_substitution(kb10, q10)
+    assert not found
+    assert assignment == {}
+
+    kb11 = [pred1([cup0, cup1]), pred1([cup1, cup0])]
+    q11 = [pred1([var0, var1]), pred1([var1, var0])]
+    found, assignment = utils.find_substitution(kb11, q11)
+    assert found
+    assert assignment == {var0: cup0, var1: cup1}
+
+    plate_type = Type("plate_type", ["feat1"])
+    plate0 = plate_type("plate0")
+    var3 = plate_type("?var3")
+    pred4 = Predicate("Pred4", [plate_type], lambda s, o: True)
+    pred5 = Predicate("Pred5", [cup_type, plate_type], lambda s, o: True)
+
+    kb12 = [pred4([plate0])]
+    q12 = [pred0([var0])]
+    found, assignment = utils.find_substitution(kb12, q12)
+    assert not found
+    assert assignment == {}
+
+    kb13 = [pred4([plate0]), pred5([plate0, cup0])]
+    q13 = [pred4([var3]), pred5([var3, var0])]
+    found, assignment = utils.find_substitution(kb13, q13)
+    assert found
+    assert assignment == {var3: plate0, var0: cup0}
+
 
 def test_operator_methods():
     """Tests for all_ground_operators(), extract_preds_and_types().
