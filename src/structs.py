@@ -413,7 +413,8 @@ class Operator:
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundOperator:
-    """A ground operator is an operator + objects."""
+    """A ground operator is an operator + objects.
+    """
     operator: Operator
     objects: Sequence[Object]
     preconditions: Set[GroundAtom]
@@ -462,7 +463,8 @@ class Action:
     The _option field is a tuple of the option itself and a timestep index.
     """
     _arr: Array
-    _option: Tuple[_Option, int] = field(repr=False, default=(DefaultOption, 0))
+    _option: Tuple[_Option, int] = field(
+        repr=False, default=(DefaultOption, -1))
 
     @property
     def arr(self) -> Array:
@@ -485,6 +487,12 @@ class Action:
         """Set the option that produced this action.
         """
         self._option = option
+
+    def unset_option(self) -> None:
+        """Unset the option that produced this action.
+        """
+        self._option = (DefaultOption, -1)
+        assert not self.has_option()
 
 
 ActionTrajectory = Tuple[List[State], List[Action]]
