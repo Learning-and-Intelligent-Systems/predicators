@@ -2,6 +2,10 @@
 
 Example usage:
     python src/main.py --env cover --approach oracle --seed 0
+
+Another example usage:
+    python src/main.py --env cover --approach oracle --seed 0 \
+        --make_videos --num_test_tasks 1
 """
 
 from predicators.src.args import parse_args

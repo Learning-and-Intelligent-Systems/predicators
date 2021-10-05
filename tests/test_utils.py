@@ -2,7 +2,6 @@
 """
 
 import pytest
-import tempfile
 import os
 import numpy as np
 from gym.spaces import Box
@@ -377,10 +376,24 @@ def test_hadd_heuristic():
 def test_save_video():
     """Tests for save_video().
     """
-    fp = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
-    dirname, filename = os.path.split(fp.name)
-    utils.update_config({"video_dir": "dirname"})
+    dirname = "_fake_tmp_video_dir"
+    filename = "video.mp4"
+    utils.update_config({"video_dir": dirname})
     rng = np.random.default_rng(123)
     video = [rng.integers(255, size=(3, 3), dtype=np.uint8)
              for _ in range(3)]
     utils.save_video(filename, video)
+    os.remove(os.path.join(dirname, filename))
+    os.rmdir(dirname)
+
+
+def test_get_config_path_str():
+    """Tests for get_config_path_str().
+    """
+    utils.update_config({
+        "env": "dummyenv",
+        "approach": "dummyapproach",
+        "seed": 321,
+    })
+    s = utils.get_config_path_str()
+    assert s == "dummyenv__dummyapproach__321"

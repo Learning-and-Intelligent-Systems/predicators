@@ -22,7 +22,6 @@ class GlobalSettings:
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
     # evaluation params
-    make_videos = False
     video_dir = "videos"
 
     @staticmethod
