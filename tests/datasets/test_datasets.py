@@ -41,8 +41,6 @@ def test_demo_dataset():
         for action in actions:
             assert action.has_option()
     utils.update_config({
-        "env": "cover",
-        "approach": "trivial_learning",
         "offline_data_method": "not a real method",
     })
     with pytest.raises(NotImplementedError):
