@@ -45,6 +45,7 @@ def test_cover():
                        option.ground([state[target1][3]])]
     plan = []
     state = task.init
+    env.render(state)
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [state[block0][3], state[target0][3],
                       state[block1][3], state[target1][3]]
