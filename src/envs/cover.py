@@ -133,7 +133,7 @@ class CoverEnv(BaseEnv):
             else:
                 label = None
             plt.plot([hand_lb, hand_rb], [-0.08, -0.08], color="red",
-                     alpha=0.5, lw=8., label=label)        
+                     alpha=0.5, lw=8., label=label)
         # Draw hand
         plt.scatter(state[self._robot][0], 0.05, color="r",
                     s=100, alpha=1., zorder=10, label="Hand")
