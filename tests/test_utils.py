@@ -120,6 +120,80 @@ def test_abstract():
                      pred2([cup, plate1, plate2])}
 
 
+def test_unify():
+    """Tests for unify().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    var0 = cup_type("?var0")
+    var1 = cup_type("?var1")
+    var2 = cup_type("?var2")
+    pred0 = Predicate("Pred0", [cup_type], lambda s, o: True)
+    pred1 = Predicate("Pred1", [cup_type, cup_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type], lambda s, o: True)
+
+    kb0 = [pred0([cup0])]
+    q0 = [pred0([var0])]
+    found, assignment = utils.unify(kb0, q0)
+    assert found
+    assert assignment == {cup0: var0}
+
+    q1 = [pred0([var0]), pred0([var1])]
+    found, assignment = utils.unify(kb0, q1)
+    assert not found
+    assert assignment == {}
+
+    kb1 = [pred0([cup0]), pred0([cup1])]
+    found, assignment = utils.unify(kb1, q0)
+    assert not found  # different number of predicates/objects
+    assert assignment == {}
+
+    kb2 = [pred0([cup0]), pred2([cup2])]
+    q2 = [pred0([var0]), pred2([var2])]
+    found, assignment = utils.unify(kb2, q2)
+    assert found
+    assert assignment == {cup0: var0, cup2: var2}
+
+    kb3 = [pred0([cup0])]
+    q3 = [pred0([var0]), pred2([var2])]
+    found, assignment = utils.unify(kb3, q3)
+    assert not found
+    assert assignment == {}
+
+    kb4 = [pred1([cup0, cup1]), pred1([cup1, cup2])]
+    q4 = [pred1([var0, var1])]
+    found, assignment = utils.unify(kb4, q4)
+    assert not found  # different number of predicates
+    assert assignment == {}
+
+    kb5 = [pred0([cup2]), pred1([cup0, cup1]), pred1([cup1, cup2])]
+    q5 = [pred1([var0, var1]), pred0([var1]), pred0([var0])]
+    found, assignment = utils.unify(kb5, q5)
+    assert not found
+    assert assignment == {}
+
+    kb6 = [pred0([cup0]), pred2([cup1]), pred1([cup0, cup2]),
+           pred1([cup2, cup1])]
+    q6 = [pred0([var0]), pred2([var1]), pred1([var0, var1])]
+    found, assignment = utils.unify(kb6, q6)
+    assert not found
+    assert assignment == {}
+
+    kb7 = [pred0([cup0]), pred2([cup1])]
+    q7 = [pred0([var0]), pred2([var0])]
+    found, assignment = utils.unify(kb7, q7)
+    assert not found  # different number of objects
+    assert assignment == {}
+
+    kb8 = [pred0([cup0]), pred2([cup0])]
+    q8 = [pred0([var0]), pred2([var0])]
+    found, assignment = utils.unify(kb8, q8)
+    assert found
+    assert assignment == {cup0: var0}
+
+
 def test_find_substitution():
     """Tests for find_substitution().
     """
