@@ -7,11 +7,15 @@ that operator will not be generated at all.
 """
 
 from typing import List, Sequence, Set
+import numpy as np
+from numpy.typing import NDArray
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
-from predicators.src.structs import Operator, Predicate, \
-    ParameterizedOption, Variable, Type, LiftedAtom
+from predicators.src.structs import Operator, Predicate, State, \
+    ParameterizedOption, Variable, Type, LiftedAtom, Object
 from predicators.src.settings import CFG
+
+Array = NDArray[np.float32]
 
 
 class OracleApproach(TAMPApproach):
@@ -99,15 +103,16 @@ def _get_cover_gt_ops() -> Set[Operator]:
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
     add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
-    def pick_sampler(state, rng, objs):
+    def pick_sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
         assert len(objs) == 1
         b = objs[0]
         assert b.type == block_type
-        lb = state.get(b, "pose") - state.get(b, "width")/2
+        lb = float(state.get(b, "pose") - state.get(b, "width")/2)
         lb = max(lb, 0.0)
-        ub = state.get(b, "pose") + state.get(b, "width")/2
+        ub = float(state.get(b, "pose") + state.get(b, "width")/2)
         ub = min(ub, 1.0)
-        return rng.uniform(lb, ub, size=(1,))
+        return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     pick_operator = Operator("Pick", parameters, preconditions,
                              add_effects, delete_effects, PickPlace,
                              pick_sampler)
@@ -122,15 +127,16 @@ def _get_cover_gt_ops() -> Set[Operator]:
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
     delete_effects = {LiftedAtom(Holding, [block])}
-    def place_sampler(state, rng, objs):
+    def place_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
         assert len(objs) == 2
         t = objs[1]
         assert t.type == target_type
-        lb = state.get(t, "pose") - state.get(t, "width")/10
+        lb = float(state.get(t, "pose") - state.get(t, "width")/10)
         lb = max(lb, 0.0)
-        ub = state.get(t, "pose") + state.get(t, "width")/10
+        ub = float(state.get(t, "pose") + state.get(t, "width")/10)
         ub = min(ub, 1.0)
-        return rng.uniform(lb, ub, size=(1,))
+        return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     place_operator = Operator("Place", parameters, preconditions,
                               add_effects, delete_effects, PickPlace,
                               place_sampler)

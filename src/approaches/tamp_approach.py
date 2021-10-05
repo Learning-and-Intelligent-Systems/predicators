@@ -7,7 +7,7 @@ import abc
 import heapq as hq
 import time
 from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, \
-    FrozenSet
+    FrozenSet, Any
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
@@ -23,7 +23,7 @@ PyperplanFacts = FrozenSet[Tuple[str, ...]]
 class TAMPApproach(BaseApproach):
     """TAMP approach.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._num_calls = 0
 
@@ -33,7 +33,7 @@ class TAMPApproach(BaseApproach):
         plan = TAMPApproach.sesame_plan(task, self._simulator,
                                         self._get_current_operators(),
                                         self._initial_predicates, timeout, seed)
-        def _policy(_):
+        def _policy(_: State) -> Action:
             if not plan:
                 raise ApproachFailure("Finished executing plan!")
             return plan.pop(0)
@@ -86,8 +86,8 @@ class TAMPApproach(BaseApproach):
         queue: List[Tuple[float, float, Node]] = []
         root_node = Node(atoms=init_atoms, skeleton=[],
                          atoms_sequence=[init_atoms], parent=None)
-        rng_prio = np.random.RandomState(seed)
-        rng_sampler = np.random.RandomState(seed)
+        rng_prio = np.random.default_rng(seed)
+        rng_sampler = np.random.default_rng(seed)
         # Set up stuff for pyperplan heuristic.
         relaxed_operators = frozenset({utils.RelaxedOperator(
             op.name, utils.atoms_to_tuples(op.preconditions),
@@ -151,7 +151,7 @@ class TAMPApproach(BaseApproach):
             simulator: Callable[[State, Action], State],
             skeleton: List[_GroundOperator],
             atoms_sequence: List[Collection[GroundAtom]],
-            rng_sampler: np.random.RandomState,
+            rng_sampler: np.random.Generator,
             predicates: Set[Predicate],
             start_time: float,
             timeout: int) -> Optional[List[Action]]:
@@ -216,5 +216,5 @@ class Node:
     pyperplan_facts: PyperplanFacts = field(
         init=False, default_factory=frozenset)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.pyperplan_facts = utils.atoms_to_tuples(self.atoms)

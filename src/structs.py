@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple
+    Tuple, Any, cast
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -26,7 +26,7 @@ class Type:
         """
         return len(self.feature_names)
 
-    def __call__(self, name) -> _TypedEntity:
+    def __call__(self, name: str) -> _TypedEntity:
         """Convenience method for generating _TypedEntities.
         """
         if name.startswith("?"):
@@ -66,7 +66,7 @@ class Object(_TypedEntity):
     """Struct defining an Object, which is just a _TypedEntity whose name
     does not start with "?".
     """
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert not self.name.startswith("?")
 
     def __hash__(self) -> int:
@@ -80,7 +80,7 @@ class Variable(_TypedEntity):
     """Struct defining a Variable, which is just a _TypedEntity whose name
     starts with "?".
     """
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.name.startswith("?")
 
     def __hash__(self) -> int:
@@ -95,7 +95,7 @@ class State:
     """
     data: Dict[Object, Array]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Check feature vector dimensions.
         for obj in self:
             assert len(self[obj]) == obj.type.dim
@@ -131,7 +131,7 @@ class State:
             new_data[obj] = self._copy_state_value(self.data[obj])
         return State(new_data)
 
-    def _copy_state_value(self, val):
+    def _copy_state_value(self, val: Any) -> Any:
         if val is None or isinstance(val, (float, bool, int, str)):
             return val
         if isinstance(val, (list, tuple, set)):
@@ -219,7 +219,8 @@ class _Atom:
     def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, _Atom)
         return str(self) == str(other)
 
 
@@ -228,10 +229,10 @@ class LiftedAtom(_Atom):
     """Struct defining a lifted atom (a predicate applied to variables).
     """
     @cached_property
-    def variables(self):
+    def variables(self) -> List[Variable]:
         """Arguments for this lifted atom. A list of "Variable"s.
         """
-        return list(self.entities)
+        return list(cast(Variable, ent) for ent in self.entities)
 
     @cached_property
     def _str(self) -> str:
@@ -250,10 +251,10 @@ class GroundAtom(_Atom):
     """Struct defining a ground atom (a predicate applied to objects).
     """
     @cached_property
-    def objects(self):
+    def objects(self) -> List[Object]:
         """Arguments for this ground atom. A list of "Object"s.
         """
-        return list(self.entities)
+        return list(cast(Object, ent) for ent in self.entities)
 
     @cached_property
     def _str(self) -> str:
@@ -274,7 +275,7 @@ class Task:
     init: State
     goal: Set[GroundAtom]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Verify types.
         assert isinstance(self.init, State)
         for atom in self.goal:
@@ -304,10 +305,11 @@ class ParameterizedOption:
     def _hash(self) -> int:
         return hash(str(self))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
         return self.name == other.name
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
     def ground(self, params: Array) -> _Option:
@@ -354,7 +356,7 @@ class Operator:
     delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
     # A sampler maps a state, RNG, and objects to option parameters.
-    _sampler: Callable[[State, np.random.RandomState, Sequence[Object]],
+    _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
                        Array] = field(repr=False)
 
     @cached_property
@@ -379,7 +381,8 @@ class Operator:
     def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, Operator)
         return str(self) == str(other)
 
     def ground(self, objects: Sequence[Object]) -> _GroundOperator:
@@ -417,7 +420,7 @@ class _GroundOperator:
     add_effects: Set[GroundAtom]
     delete_effects: Set[GroundAtom]
     option: ParameterizedOption
-    sampler: Callable[[State, np.random.RandomState], Array] = field(repr=False)
+    sampler: Callable[[State, np.random.Generator], Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
@@ -447,7 +450,8 @@ class _GroundOperator:
     def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, _GroundOperator)
         return str(self) == str(other)
 
 
@@ -477,7 +481,7 @@ class Action:
         assert self.has_option()
         return self._option
 
-    def set_option(self, option: Tuple[_Option, int]):
+    def set_option(self, option: Tuple[_Option, int]) -> None:
         """Set the option that produced this action.
         """
         self._option = option
