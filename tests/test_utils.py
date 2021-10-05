@@ -1,7 +1,9 @@
 """Test cases for utils.
 """
 
+import os
 import pytest
+import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator, Action
@@ -369,3 +371,29 @@ def test_hadd_heuristic():
     heuristic = utils.HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
+
+
+def test_save_video():
+    """Tests for save_video().
+    """
+    dirname = "_fake_tmp_video_dir"
+    filename = "video.mp4"
+    utils.update_config({"video_dir": dirname})
+    rng = np.random.default_rng(123)
+    video = [rng.integers(255, size=(3, 3), dtype=np.uint8)
+             for _ in range(3)]
+    utils.save_video(filename, video)
+    os.remove(os.path.join(dirname, filename))
+    os.rmdir(dirname)
+
+
+def test_get_config_path_str():
+    """Tests for get_config_path_str().
+    """
+    utils.update_config({
+        "env": "dummyenv",
+        "approach": "dummyapproach",
+        "seed": 321,
+    })
+    s = utils.get_config_path_str()
+    assert s == "dummyenv__dummyapproach__321"

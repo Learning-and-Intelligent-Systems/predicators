@@ -1,6 +1,8 @@
 """Tests for main.py.
 """
 
+import os
+import shutil
 import sys
 import pytest
 from predicators.src.main import main
@@ -23,6 +25,9 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123"]
     main()
+    video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
     sys.argv = ["dummy", "--env", "cover", "--approach", "trivial_learning",
-                "--seed", "123"]
+                "--seed", "123", "--make_videos", "--num_test_tasks", "1",
+                "--video_dir", video_dir]
     main()
+    shutil.rmtree(video_dir)
