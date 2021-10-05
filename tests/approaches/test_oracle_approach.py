@@ -30,7 +30,7 @@ def test_cover_get_gt_ops():
     assert block0.name == "block0"
     assert target0.name == "target0"
     pick0_operator = pick_operator.ground([block0])
-    rng = np.random.RandomState(123)
+    rng = np.random.default_rng(123)
     pick_param = pick0_operator.sampler(state, rng)
     pick_option = pick0_operator.option.ground(pick_param)
     pick_action = pick_option.policy(state)

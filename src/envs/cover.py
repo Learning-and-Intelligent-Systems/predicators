@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action
+    ParameterizedOption, Object, Action, GroundAtom
 from predicators.src.settings import CFG
 
 Array = NDArray[np.float32]
@@ -17,7 +17,7 @@ Array = NDArray[np.float32]
 class CoverEnv(BaseEnv):
     """Toy cover domain.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         # Types
         self._block_type = Type(
@@ -47,10 +47,10 @@ class CoverEnv(BaseEnv):
         self._blocks = []
         self._targets = []
         for i in range(CFG.cover_num_blocks):
-            self._blocks.append(self._block_type(f"block{i}"))
+            self._blocks.append(Object(f"block{i}", self._block_type))
         for i in range(CFG.cover_num_targets):
-            self._targets.append(self._target_type(f"target{i}"))
-        self._robot = self._robot_type("robby")
+            self._targets.append(Object(f"target{i}", self._target_type))
+        self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -130,10 +130,10 @@ class CoverEnv(BaseEnv):
 
     def _get_tasks(self, num: int) -> List[Task]:
         tasks = []
-        goal1 = {self._Covers([self._blocks[0], self._targets[0]])}
-        goal2 = {self._Covers([self._blocks[1], self._targets[1]])}
-        goal3 = {self._Covers([self._blocks[0], self._targets[0]]),
-                 self._Covers([self._blocks[1], self._targets[1]])}
+        goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
+        goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
+        goal3 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]]),
+                 GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
         goals = [goal1, goal2, goal3]
         for i in range(num):
             tasks.append(Task(self._create_initial_state(),
