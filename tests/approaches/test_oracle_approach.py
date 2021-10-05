@@ -72,6 +72,7 @@ def test_oracle_approach_cover():
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
+    assert not approach.is_learning_based
     approach.seed(123)
     for task in env.get_train_tasks():
         policy = approach.solve(task, timeout=500)
