@@ -133,10 +133,14 @@ def get_object_combinations(
 
 
 def find_substitution(super_atoms: Collection[_Atom],
-                      sub_atoms: Collection[_Atom]
+                      sub_atoms: Collection[_Atom],
+                      allow_redundant: bool = False,
                       ) -> Tuple[Substitution, bool]:
     """Find a substitution from the typed entities in sub_atoms to the
     typed entities in super_atoms s.t. sub_atoms is a subset of super_atoms.
+
+    If allow_redundant is True, then multiple entities in sub_atoms can
+    refer to the same single entity in super_atoms.
 
     If no substitution exists, return ({}, False).
     """
@@ -150,7 +154,7 @@ def find_substitution(super_atoms: Collection[_Atom],
         super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
     sub_entities = sorted(e for a in sub_atoms for e in a.entities)
     return _find_substitution_helper(sub_atoms, super_entities_by_type,
-        sub_entities, super_pred_to_tuples, {})
+        sub_entities, super_pred_to_tuples, {}, allow_redundant)
 
 
 def _find_substitution_helper(
@@ -158,7 +162,8 @@ def _find_substitution_helper(
         super_entities_by_type: Dict[Type, List[_TypedEntity]],
         remaining_sub_entities: List[_TypedEntity],
         super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
-        partial_sub: Substitution) -> Tuple[Substitution, bool]:
+        partial_sub: Substitution,
+        allow_redundant: bool) -> Tuple[Substitution, bool]:
     """Helper for find_substitution.
     """
     # Base case: check if all assigned
@@ -169,6 +174,8 @@ def _find_substitution_helper(
     next_sub_ent = remaining_sub_entities.pop()
     # Consider possible assignments
     for super_ent in super_entities_by_type[next_sub_ent.type]:
+        if not allow_redundant and super_ent in partial_sub.values():
+            continue
         new_sub = partial_sub.copy()
         new_sub[next_sub_ent] = super_ent
         # Check if consistent
@@ -178,7 +185,7 @@ def _find_substitution_helper(
         # Backtracking search
         final_sub, solved = _find_substitution_helper(sub_atoms,
             super_entities_by_type, remaining_sub_entities,
-            super_pred_to_tuples, new_sub)
+            super_pred_to_tuples, new_sub, allow_redundant)
         if solved:
             return final_sub, solved
     # Failure
