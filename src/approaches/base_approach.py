@@ -18,7 +18,7 @@ class BaseApproach:
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
                  action_space: Box,
-                 train_tasks: List[Task]):
+                 train_tasks: List[Task]) -> None:
         """All approaches are initialized with only the necessary
         information about the environment.
         """
@@ -49,18 +49,18 @@ class BaseApproach:
         actions are in the action space.
         """
         pi = self._solve(task, timeout)
-        def _policy(state):
+        def _policy(state: State) -> Action:
             assert isinstance(state, State)
             act = pi(state)
             assert self._action_space.contains(act.arr)
             return act
         return _policy
 
-    def seed(self, seed: int):
+    def seed(self, seed: int) -> None:
         """Reset seed and rng.
         """
         self._seed = seed
-        self._rng = np.random.RandomState(self._seed)
+        self._rng = np.random.default_rng(self._seed)
         self._action_space.seed(seed)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:

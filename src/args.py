@@ -18,7 +18,7 @@ def parse_args() -> Dict[str, Any]:
     return vars(args)
 
 
-def print_args(args: argparse.Namespace):
+def print_args(args: argparse.Namespace) -> None:
     """Print all info for this experiment.
     """
     print(f"Seed: {args.seed}")

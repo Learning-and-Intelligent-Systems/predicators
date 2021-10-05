@@ -12,7 +12,7 @@ from predicators.src.structs import State, Task, Predicate, \
 class BaseEnv:
     """Base environment.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.seed(0)
 
     @abc.abstractmethod
@@ -64,8 +64,8 @@ class BaseEnv:
         """
         raise NotImplementedError("Override me!")
 
-    def seed(self, seed: int):
+    def seed(self, seed: int) -> None:
         """Reset seed and rng.
         """
         self._seed = seed
-        self._rng = np.random.RandomState(self._seed)
+        self._rng = np.random.default_rng(self._seed)
