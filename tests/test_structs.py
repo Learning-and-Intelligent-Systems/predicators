@@ -6,7 +6,8 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    Operator, _GroundOperator
+    Operator, _GroundOperator, Action
+from predicators.src import utils
 
 
 def test_object_type():
@@ -208,7 +209,7 @@ def test_option():
 
 
 def test_operators():
-    """Tests for Operator and _GroundOperator.
+    """Tests for Operator and _GroundOperator classes.
     """
     # Operator
     cup_type = Type("cup_type", ["feat1"])
@@ -256,7 +257,7 @@ def test_operators():
     ground_op2 = operator2.ground([cup, plate])
     assert ground_op == ground_op2
     state = test_state()
-    _ = ground_op.sampler(state, np.random.RandomState(123))
+    _ = ground_op.sampler(state, np.random.default_rng(123))
     filtered_op = operator.filter_predicates({on})
     assert len(filtered_op.parameters) == 2
     assert len(filtered_op.preconditions) == 0
@@ -267,3 +268,41 @@ def test_operators():
     assert len(filtered_op.preconditions) == 1
     assert len(filtered_op.add_effects) == 0
     assert len(filtered_op.delete_effects) == 1
+
+
+def test_action():
+    """Tests for Action class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = State({cup: [0.5], plate: [1.0, 1.2]})
+    def _simulator(s, a):
+        ns = s.copy()
+        assert a.arr.shape == (1,)
+        ns[cup][0] += a.arr.item()
+        return ns
+    params_space = Box(0, 1, (1,))
+    def _policy(_, p):
+        return Action(p)
+    def _initiable(_1, p):
+        return p > 0.25
+    def _terminal(s, _):
+        return s[cup][0] > 9.9
+    parameterized_option = ParameterizedOption(
+        "Move", params_space, _policy, _initiable, _terminal)
+    params = [0.5]
+    option = parameterized_option.ground(params)
+    states, actions = utils.option_to_trajectory(state, _simulator, option,
+                                                 max_num_steps=5)
+    assert len(actions) == len(states)-1 == 5
+    next_ind = 0
+    for act in actions:
+        assert act.has_option()
+        opt, ind = act.get_option()
+        assert opt is option
+        assert ind == next_ind
+        next_ind += 1
+    act = Action([0.5])
+    assert not act.has_option()
