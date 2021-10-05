@@ -193,6 +193,12 @@ def test_unify():
     assert found
     assert assignment == {cup0: var0}
 
+    kb9 = [pred1([cup0, cup1]), pred1([cup1, cup2]), pred2([cup0])]
+    q9 = [pred1([var0, var1]), pred1([var2, var0]), pred2([var0])]
+    found, assignment = utils.unify(kb9, q9)
+    assert not found
+    assert assignment == {}
+
 
 def test_find_substitution():
     """Tests for find_substitution().
