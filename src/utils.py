@@ -18,6 +18,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
     ObjToVarSub, VarToObjSub
 from predicators.src.settings import CFG, GlobalSettings
+matplotlib.use("Agg")
 
 
 def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
