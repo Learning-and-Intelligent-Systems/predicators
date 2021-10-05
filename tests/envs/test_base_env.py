@@ -31,6 +31,8 @@ def test_base_env():
         env.types()
     with pytest.raises(NotImplementedError):
         env.action_space()
+    with pytest.raises(NotImplementedError):
+        env.render(state)
 
 
 def test_create_env():

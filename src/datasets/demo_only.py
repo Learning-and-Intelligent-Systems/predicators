@@ -19,7 +19,7 @@ def create_demo_data(env: BaseEnv) -> Dataset:
     for task in train_tasks:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)
-        trajectory, solved = utils.run_policy_on_task(policy, task,
+        trajectory, _, solved = utils.run_policy_on_task(policy, task,
             env.simulate, env.predicates)
         if not CFG.include_options_in_offline_data:
             for act in trajectory[1]:
