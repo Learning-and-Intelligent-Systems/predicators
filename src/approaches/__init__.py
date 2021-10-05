@@ -8,6 +8,8 @@ from predicators.src.approaches.base_approach import BaseApproach, \
 from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.tamp_approach import TAMPApproach
+from predicators.src.approaches.trivial_learning_approach import \
+    TrivialLearningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
@@ -18,6 +20,7 @@ __all__ = [
     "OracleApproach",
     "RandomActionsApproach",
     "TAMPApproach",
+    "TrivialLearningApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -40,4 +43,8 @@ def create_approach(name: str,
         return RandomActionsApproach(simulator, initial_predicates,
                                      initial_options, types, action_space,
                                      train_tasks)
+    if name == "trivial_learning":
+        return TrivialLearningApproach(simulator, initial_predicates,
+                                       initial_options, types, action_space,
+                                       train_tasks)
     raise NotImplementedError(f"Unknown env: {name}")
