@@ -37,7 +37,7 @@ def main() -> None:
     # Run approach
     for i, task in enumerate(env.get_test_tasks()):
         try:
-            policy = approach.solve(task, timeout=500)
+            policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             print(f"Approach failed to solve task {i} with error: {e}")
             continue

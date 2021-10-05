@@ -31,3 +31,7 @@ def test_main():
                 "--video_dir", video_dir]
     main()
     shutil.rmtree(video_dir)
+    # Try running main with a strong timeout.
+    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
+                "--seed", "123", "--timeout", "0.001"]
+    main()
