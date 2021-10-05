@@ -217,7 +217,7 @@ def _find_substitution_helper(
         return True, partial_sub
     # Find next variable to assign
     remaining_sub_variables = remaining_sub_variables.copy()
-    next_sub_var = remaining_sub_variables.pop()
+    next_sub_var = remaining_sub_variables.pop(0)
     # Consider possible assignments
     for super_obj in super_objects_by_type[next_sub_var.type]:
         if not allow_redundant and super_obj in partial_sub.values():
