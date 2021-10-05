@@ -9,7 +9,7 @@ class RandomActionsApproach(BaseApproach):
     """Samples random low-level actions.
     """
     @property
-    def is_learning_based(self):
+    def is_learning_based(self) -> bool:
         """Pretend learning-based until we implement an actual learner."""
         return True
 
