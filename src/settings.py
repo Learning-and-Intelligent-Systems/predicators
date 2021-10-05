@@ -63,6 +63,12 @@ class GlobalSettings:
             offline_data_planning_timeout=defaultdict(int, {
                 "trivial_learning": 500,
             })[args["approach"]],
+
+            # For learning-based approaches, the number of replays used
+            # when the data generation method is data+replays.
+            offline_data_num_replays=defaultdict(int, {
+                "trivial_learning": 10,
+            })[args["approach"]],
         )
 
 _attr_to_value = {}

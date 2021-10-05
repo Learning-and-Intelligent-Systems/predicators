@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from predicators.src.approaches import OracleApproach, ApproachFailure, \
     ApproachTimeout, TAMPApproach
-from predicators.src.approaches.oracle_approach import _get_gt_ops
+from predicators.src.approaches.oracle_approach import get_gt_ops
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Task, Action
 from predicators.src import utils
@@ -13,12 +13,12 @@ from predicators.src.settings import CFG
 
 
 def test_cover_get_gt_ops():
-    """Tests for _get_gt_ops in CoverEnv.
+    """Tests for get_gt_ops in CoverEnv.
     """
     utils.update_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
-    operators = _get_gt_ops(env.predicates, env.options)
+    operators = get_gt_ops(env.predicates, env.options)
     assert len(operators) == 2
     pick_operator, place_operator = sorted(operators, key=lambda o: o.name)
     assert pick_operator.name == "Pick"
@@ -42,10 +42,10 @@ def test_cover_get_gt_ops():
     place_action = place_option.policy(state)
     assert env.action_space.contains(place_action.arr)
     # Excluded option
-    assert _get_gt_ops(env.predicates, set()) == set()
+    assert get_gt_ops(env.predicates, set()) == set()
     # Excluded predicate
     predicates = {p for p in env.predicates if p.name != "Holding"}
-    operators = _get_gt_ops(predicates, env.options)
+    operators = get_gt_ops(predicates, env.options)
     assert len(operators) == 2
     pick_operator, place_operator = sorted(operators, key=lambda o: o.name)
     for atom in pick_operator.preconditions:
@@ -60,7 +60,7 @@ def test_get_gt_ops():
     """
     utils.update_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
-        _get_gt_ops(set(), set())
+        get_gt_ops(set(), set())
 
 
 def test_oracle_approach_cover():
@@ -130,7 +130,7 @@ def test_oracle_approach_cover_failures():
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.max_samples_per_step = old_max_samples_per_step
-    operators = _get_gt_ops(env.predicates, env.options)
+    operators = get_gt_ops(env.predicates, env.options)
     operators = {op for op in operators if op.name == "Place"}
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, should fail fast.
