@@ -136,54 +136,54 @@ def test_find_substitution():
 
     kb0 = [pred0([cup0])]
     q0 = [pred0([var0])]
-    assignment, found = utils.find_substitution(kb0, q0)
+    found, assignment = utils.find_substitution(kb0, q0)
     assert found
     assert assignment == {var0: cup0}
 
     q1 = [pred0([var0]), pred0([var1])]
-    assignment, found = utils.find_substitution(kb0, q1)
+    found, assignment = utils.find_substitution(kb0, q1)
     assert not found
     assert assignment == {}
 
     q1 = [pred0([var0]), pred0([var1])]
-    assignment, found = utils.find_substitution(kb0, q1,
+    found, assignment = utils.find_substitution(kb0, q1,
                                                 allow_redundant=True)
     assert found
     assert assignment == {var0: cup0, var1: cup0}
 
     kb1 = [pred0([cup0]), pred0([cup1])]
-    assignment, found = utils.find_substitution(kb1, q0)
+    found, assignment = utils.find_substitution(kb1, q0)
     assert found
     assert assignment == {var0: cup0}
 
     kb2 = [pred0([cup0]), pred2([cup2])]
     q2 = [pred0([var0]), pred2([var2])]
-    assignment, found = utils.find_substitution(kb2, q2)
+    found, assignment = utils.find_substitution(kb2, q2)
     assert found
     assert assignment == {var0: cup0, var2: cup2}
 
     kb3 = [pred0([cup0])]
     q3 = [pred0([var0]), pred2([var2])]
-    assignment, found = utils.find_substitution(kb3, q3)
+    found, assignment = utils.find_substitution(kb3, q3)
     assert not found
     assert assignment == {}
 
     kb4 = [pred1([cup0, cup1]), pred1([cup1, cup2])]
     q4 = [pred1([var0, var1])]
-    assignment, found = utils.find_substitution(kb4, q4)
+    found, assignment = utils.find_substitution(kb4, q4)
     assert found
     assert assignment == {var0: cup0, var1: cup1}
 
     kb5 = [pred0([cup2]), pred1([cup0, cup1]), pred1([cup1, cup2])]
     q5 = [pred1([var0, var1]), pred0([var1]), pred0([var0])]
-    assignment, found = utils.find_substitution(kb5, q5)
+    found, assignment = utils.find_substitution(kb5, q5)
     assert not found
     assert assignment == {}
 
     kb6 = [pred0([cup0]), pred2([cup1]), pred1([cup0, cup2]),
            pred1([cup2, cup1])]
     q6 = [pred0([var0]), pred2([var1]), pred1([var0, var1])]
-    assignment, found = utils.find_substitution(kb6, q6)
+    found, assignment = utils.find_substitution(kb6, q6)
     assert not found
     assert assignment == {}
 
