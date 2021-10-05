@@ -89,6 +89,9 @@ class Variable(_TypedEntity):
         return self._hash
 
 
+Substitution = Dict[_TypedEntity, _TypedEntity]
+
+
 @dataclass
 class State:
     """Struct defining the low-level state of the world.
