@@ -23,9 +23,7 @@ class GlobalSettings:
 
     # offline training data config
     offline_training_data = {
-        "method": "demo",  # demo or demo+replay
-        "num_random_replays": 10,
-        "num_steps_per_replay": 1,
+        "method": "demo",  # demo
         "planning_timeout": 500,
     }
 

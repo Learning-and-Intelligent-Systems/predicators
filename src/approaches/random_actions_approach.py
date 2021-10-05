@@ -10,8 +10,8 @@ class RandomActionsApproach(BaseApproach):
     """
     @property
     def is_learning_based(self):
-        """Not learning-based."""
-        return False
+        """Pretend learning-based until we implement an actual learner."""
+        return True
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         """Return a policy for the given task, within the given number of

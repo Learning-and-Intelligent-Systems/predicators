@@ -1,6 +1,7 @@
 """Test cases for dataset generation.
 """
 
+import pytest
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv
 from predicators.src import utils
@@ -16,7 +17,7 @@ def test_demo_dataset():
     })
     env = CoverEnv()
     config = {
-        "method": "demo",  # demo or demo+replay
+        "method": "demo",
         "planning_timeout": 5,
     }
     dataset = create_dataset(env, env.get_train_tasks(), config)
@@ -24,3 +25,9 @@ def test_demo_dataset():
     assert len(dataset[0]) == 2
     assert len(dataset[0][0]) == 3
     assert len(dataset[0][1]) == 2
+    config = {
+        "method": "not a real method",
+        "planning_timeout": 5,
+    }
+    with pytest.raises(NotImplementedError):
+        create_dataset(env, env.get_train_tasks(), config)
