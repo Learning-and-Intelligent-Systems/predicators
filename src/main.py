@@ -7,7 +7,8 @@ Example usage:
 from predicators.src.args import parse_args
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env
-from predicators.src.approaches import create_approach
+from predicators.src.approaches import create_approach, ApproachTimeout, \
+    ApproachFailure
 from predicators.src.datasets import create_dataset
 from predicators.src import utils
 
@@ -31,11 +32,15 @@ def main() -> None:
         approach.learn_from_offline_dataset(dataset)
     # Run approach
     for i, task in enumerate(env.get_test_tasks()):
-        policy = approach.solve(task, timeout=500)
+        try:
+            policy = approach.solve(task, timeout=500)
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"Approach failed to solve task {i} with error: {e}")
+            continue
         if utils.policy_solves_task(policy, task, env.simulate, env.predicates):
             print(f"Task {i} solved")
         else:
-            print(f"Task {i} FAILED")
+            print(f"Policy failed on task {i}")
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -196,6 +196,9 @@ def test_option():
     option = parameterized_option.ground(params)
     assert isinstance(option, _Option)
     assert repr(option) == str(option) == "_Option(name='Pick(-5.0, 5.0)')"
+    assert option.name == "Pick(-5.0, 5.0)"
+    assert option.parent.name == "Pick"
+    assert option.parent is parameterized_option
     assert np.all(option.policy(state) == np.array(params)*2)
     assert option.initiable(state)
     assert not option.terminal(state)
@@ -203,6 +206,9 @@ def test_option():
     option = parameterized_option.ground(params)
     assert isinstance(option, _Option)
     assert repr(option) == str(option) == "_Option(name='Pick(5.0, -5.0)')"
+    assert option.name == "Pick(5.0, -5.0)"
+    assert option.parent.name == "Pick"
+    assert option.parent is parameterized_option
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)

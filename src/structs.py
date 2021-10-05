@@ -239,6 +239,20 @@ class LiftedAtom(_Atom):
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
 
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, LiftedAtom)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, LiftedAtom)
+        return str(self) < str(other)
+
     def ground(self, sub: dict[Variable, Object]) -> GroundAtom:
         """Create a GroundAtom with a given substitution.
         """
@@ -260,6 +274,20 @@ class GroundAtom(_Atom):
     def _str(self) -> str:
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.objects)) + ")")
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, GroundAtom)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, GroundAtom)
+        return str(self) < str(other)
 
     def lift(self, sub: dict[Object, Variable]) -> LiftedAtom:
         """Create a LiftedAtom with a given substitution.
@@ -321,7 +349,8 @@ class ParameterizedOption:
         name = self.name + "(" + ", ".join(map(str, params)) + ")"
         return _Option(name, policy=lambda s: self._policy(s, params),
                        initiable=lambda s: self._initiable(s, params),
-                       terminal=lambda s: self._terminal(s, params))
+                       terminal=lambda s: self._terminal(s, params),
+                       parent=self)
 
 
 @dataclass(frozen=True, eq=False)
@@ -339,10 +368,13 @@ class _Option:
     # A termination condition maps a state to a bool, which is True
     # iff the option should terminate now.
     terminal: Callable[[State], bool] = field(repr=False)
+    # The parameterized option that generated this option.
+    parent: ParameterizedOption = field(repr=False)
 
 
-DefaultOption = _Option("", lambda s: Action(np.array([0.0])),
-                        lambda s: False, lambda s: False)
+DefaultOption: _Option = ParameterizedOption(
+    "", Box(0, 1, (1,)), lambda s, p: Action(np.array([0.0])),
+    lambda s, p: False, lambda s, p: False).ground(np.array([0.0]))
 
 
 @dataclass(frozen=True, repr=False, eq=False)

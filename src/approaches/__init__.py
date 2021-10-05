@@ -11,6 +11,8 @@ from predicators.src.approaches.tamp_approach import TAMPApproach
 from predicators.src.approaches.trivial_learning_approach import \
     TrivialLearningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.approaches.operator_learning_approach import \
+    OperatorLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
 
@@ -21,6 +23,7 @@ __all__ = [
     "RandomActionsApproach",
     "TAMPApproach",
     "TrivialLearningApproach",
+    "OperatorLearningApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -47,4 +50,8 @@ def create_approach(name: str,
         return TrivialLearningApproach(simulator, initial_predicates,
                                        initial_options, types, action_space,
                                        train_tasks)
+    if name == "operator_learning":
+        return OperatorLearningApproach(simulator, initial_predicates,
+                                        initial_options, types, action_space,
+                                        train_tasks)
     raise NotImplementedError(f"Unknown env: {name}")

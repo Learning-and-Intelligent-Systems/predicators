@@ -11,10 +11,55 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
 import heapq as hq
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
-    OptionTrajectory
+    OptionTrajectory, LiftedAtom, Variable
 from predicators.src.settings import CFG, GlobalSettings
 
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
+
+
+def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
+          ) -> Tuple[bool, Dict[Object, Variable]]:
+    """Return whether the given ground atom set can be unified
+    with the given lifted atom set. Also return the mapping.
+    """
+    ground_atoms_lst = sorted(ground_atoms)
+    lifted_atoms_lst = sorted(lifted_atoms)
+
+    # Terminate quickly if there is a mismatch between predicates
+    ground_preds = [atom.predicate for atom in ground_atoms_lst]
+    lifted_preds = [atom.predicate for atom in lifted_atoms_lst]
+    if ground_preds != lifted_preds:
+        return False, {}
+
+    # Terminate quickly if there is a mismatch between num objs
+    num_obj_ground = len({o for atom in ground_atoms_lst
+                          for o in atom.objects})
+    num_obj_lifted = len({o for atom in lifted_atoms_lst
+                          for o in atom.variables})
+    if num_obj_ground != num_obj_lifted:
+        return False, {}
+
+    # Try to get lucky with a one-to-one mapping
+    subs12: Dict[Object, Variable] = {}
+    subs21: Dict[Variable, Object] = {}
+    success = True
+    for atom_ground, atom_lifted in zip(ground_atoms_lst, lifted_atoms_lst):
+        if not success:
+            break
+        for v1, v2 in zip(atom_ground.objects, atom_lifted.variables):
+            if v1 in subs12 and subs12[v1] != v2:
+                success = False
+                break
+            if v2 in subs21:
+                success = False
+                break
+            subs12[v1] = v2
+            subs21[v2] = v1
+    if success:
+        return True, subs12
+
+    # TODO: expand to handle more complicated cases
+    return False, {}
 
 
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
