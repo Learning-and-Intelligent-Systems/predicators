@@ -8,7 +8,6 @@ that operator will not be generated at all.
 
 from typing import List, Sequence, Set
 import numpy as np
-from numpy.typing import NDArray
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
 from predicators.src.structs import Operator, Predicate, State, \

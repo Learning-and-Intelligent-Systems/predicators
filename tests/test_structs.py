@@ -120,6 +120,7 @@ def test_predicate_and_atom():
     with pytest.raises(AssertionError):
         pred.holds(state, [cup_var, plate])  # variable as argument
     assert pred.holds(state, [cup1, plate])
+    assert not other_pred.holds(state, [cup1, plate])
     assert not pred.holds(state, [cup2, plate])
     assert str(pred) == repr(pred) == "On"
     assert {pred, pred} == {pred}
