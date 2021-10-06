@@ -5,7 +5,6 @@ won't ever fail), but it still requires backtracking.
 from typing import List, Set, Sequence, Dict, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy.typing import NDArray
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \

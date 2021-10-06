@@ -7,7 +7,7 @@ import abc
 import heapq as hq
 import time
 from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, \
-    FrozenSet, Any
+    Any
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
