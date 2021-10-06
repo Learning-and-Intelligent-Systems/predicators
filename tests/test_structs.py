@@ -99,7 +99,13 @@ def test_predicate_and_atom():
     def _classifier(state, objects):
         cup, plate = objects
         return state[cup][0] + state[plate][0] < 2
+    def _classifier2(state, objects):
+        cup, plate = objects
+        return state[cup][0] + state[plate][0] < 1
     pred = Predicate("On", [cup_type, plate_type], _classifier)
+    other_pred = Predicate("On", [cup_type, plate_type], _classifier2)
+    assert pred == other_pred
+    assert len({pred, other_pred}) == 1
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     cup_var = cup_type("?cup")
