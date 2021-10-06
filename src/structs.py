@@ -370,9 +370,9 @@ class Operator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.parameters}
-    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
-    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
-    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}
     Option: {self.option}"""
 
     @cached_property
@@ -434,9 +434,9 @@ class _GroundOperator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.objects}
-    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
-    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
-    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}
     Option: {self.option}"""
 
     @cached_property
