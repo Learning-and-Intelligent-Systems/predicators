@@ -65,6 +65,33 @@ def test_operator_learning_specific_operators():
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Option: ParameterizedOption(name='dummy')"""
+    # The following test was used to manually check that unify caches correctly.
+    pred0 = Predicate("Pred0", [cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    pred1 = Predicate("Pred1", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    pred2 = Predicate("Pred2", [cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    preds = {pred0, pred1, pred2}
+    state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
+    action1 = option.policy(state1)
+    action1.set_option((option, 0))
+    next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
+    state2 = State({cup3: [0.4], cup4: [0.7], cup5: [0.1]})
+    action2 = option.policy(state1)
+    action2.set_option((option, 0))
+    next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
+    dataset = [([state1, next_state1], [action1]),
+               ([state2, next_state2], [action2])]
+    ops = OperatorLearningApproach.learn_operators_from_data(dataset, preds)
+    assert len(ops) == 1
+    op = ops.pop()
+    assert str(op) == """dummy0:
+    Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
+    Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
+    Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Option: ParameterizedOption(name='dummy')"""
     # The following two tests check edge cases of unification with respect to
     # the split between add and delete effects. Specifically, it's important
     # to unify both of them together, not separately, which requires changing

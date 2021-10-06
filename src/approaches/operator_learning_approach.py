@@ -1,14 +1,14 @@
 """A TAMP approach that learns operators and samplers.
 """
 
+import functools
 from collections import defaultdict
-from typing import Any, Set, Tuple, List, Sequence
+from typing import Any, Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.approaches import TAMPApproach
-from predicators.src.structs import Dataset, Operator, GroundAtom, _Option, \
-    ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub
+from predicators.src.structs import Dataset, Operator, GroundAtom, \
+    ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub, \
+    Transition
 from predicators.src import utils
-
-Transition = Tuple[Set[GroundAtom], _Option, Set[GroundAtom], Set[GroundAtom]]
 
 
 class OperatorLearningApproach(TAMPApproach):
@@ -82,7 +82,8 @@ class OperatorLearningApproach(TAMPApproach):
             variables, preconditions = \
                 OperatorLearningApproach._learn_preconditions(
                     add_effects[i], delete_effects[i], part_transitions)
-            sampler = lambda s, rng, objs: rng.uniform(size=(1,))
+            sampler = lambda s, rng, objs: rng.uniform(
+                size=option.params_space.shape)
             operators.append(Operator(
                 f"{option.name}{i}", variables, preconditions,
                 add_effects[i], delete_effects[i], option, sampler))
@@ -107,8 +108,10 @@ class OperatorLearningApproach(TAMPApproach):
                 part_add_effects = add_effects[i]
                 part_delete_effects = delete_effects[i]
                 if OperatorLearningApproach._unify(
-                        trans_add_effects, trans_delete_effects,
-                        part_add_effects, part_delete_effects)[0]:
+                        frozenset(trans_add_effects),
+                        frozenset(trans_delete_effects),
+                        frozenset(part_add_effects),
+                        frozenset(part_delete_effects))[0]:
                     # Add to this partition
                     partition_index = i
                     break
@@ -144,8 +147,10 @@ class OperatorLearningApproach(TAMPApproach):
         for i, (atoms, _, trans_add_effects,
                 trans_delete_effects) in enumerate(transitions):
             suc, sub = OperatorLearningApproach._unify(
-                trans_add_effects, trans_delete_effects,
-                add_effects, delete_effects)
+                frozenset(trans_add_effects),
+                frozenset(trans_delete_effects),
+                frozenset(add_effects),
+                frozenset(delete_effects))
             assert suc  # else this transition won't be in this partition
             # Remove atoms from the state which contain objects not mentioned
             # in the effects. This cannot handle actions at a distance.
@@ -166,11 +171,13 @@ class OperatorLearningApproach(TAMPApproach):
         return variables, preconditions
 
     @staticmethod
+    @functools.lru_cache(maxsize=None)
     def _unify(
-            ground_add_effects: Set[GroundAtom],
-            ground_delete_effects: Set[GroundAtom],
-            lifted_add_effects: Set[LiftedAtom],
-            lifted_delete_effects: Set[LiftedAtom]) -> Tuple[bool, ObjToVarSub]:
+            ground_add_effects: FrozenSet[GroundAtom],
+            ground_delete_effects: FrozenSet[GroundAtom],
+            lifted_add_effects: FrozenSet[LiftedAtom],
+            lifted_delete_effects: FrozenSet[LiftedAtom]
+    ) -> Tuple[bool, ObjToVarSub]:
         """Light wrapper around utils.unify() that handles split add and
         delete effects. Changes predicate names so that delete effects are
         treated differently than add effects by utils.unify().
@@ -185,6 +192,7 @@ class OperatorLearningApproach(TAMPApproach):
                                       _classifier=lambda s, o: False)  # dummy
             new_ground_add_effects.add(GroundAtom(
                 new_predicate, ground_atom.objects))
+        f_new_ground_add_effects = frozenset(new_ground_add_effects)
         new_ground_delete_effects = set()
         for ground_atom in ground_delete_effects:
             new_predicate = Predicate("DEL-"+ground_atom.predicate.name,
@@ -192,6 +200,7 @@ class OperatorLearningApproach(TAMPApproach):
                                       _classifier=lambda s, o: False)  # dummy
             new_ground_delete_effects.add(GroundAtom(
                 new_predicate, ground_atom.objects))
+        f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
         new_lifted_add_effects = set()
         for lifted_atom in lifted_add_effects:
             new_predicate = Predicate("ADD-"+lifted_atom.predicate.name,
@@ -199,6 +208,7 @@ class OperatorLearningApproach(TAMPApproach):
                                       _classifier=lambda s, o: False)  # dummy
             new_lifted_add_effects.add(LiftedAtom(
                 new_predicate, lifted_atom.variables))
+        f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
         new_lifted_delete_effects = set()
         for lifted_atom in lifted_delete_effects:
             new_predicate = Predicate("DEL-"+lifted_atom.predicate.name,
@@ -206,5 +216,7 @@ class OperatorLearningApproach(TAMPApproach):
                                       _classifier=lambda s, o: False)  # dummy
             new_lifted_delete_effects.add(LiftedAtom(
                 new_predicate, lifted_atom.variables))
-        return utils.unify(new_ground_add_effects | new_ground_delete_effects,
-                           new_lifted_add_effects | new_lifted_delete_effects)
+        f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
+        return utils.unify(
+            f_new_ground_add_effects | f_new_ground_delete_effects,
+            f_new_lifted_add_effects | f_new_lifted_delete_effects)
