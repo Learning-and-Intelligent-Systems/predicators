@@ -21,8 +21,9 @@ from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
 
-def unify(ground_atoms: Set[GroundAtom], lifted_atoms: Set[LiftedAtom]
-          ) -> Tuple[bool, ObjToVarSub]:
+@functools.lru_cache(maxsize=None)
+def unify(ground_atoms: FrozenSet[GroundAtom],
+          lifted_atoms: FrozenSet[LiftedAtom]) -> Tuple[bool, ObjToVarSub]:
     """Return whether the given ground atom set can be unified
     with the given lifted atom set. Also return the mapping.
     """
