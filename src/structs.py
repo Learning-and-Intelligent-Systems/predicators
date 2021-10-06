@@ -5,12 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast
+    Tuple, Any, cast, FrozenSet
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
-
-Array = NDArray[np.float32]
 
 
 @dataclass(frozen=True, order=True)
@@ -89,9 +87,6 @@ class Variable(_TypedEntity):
         return self._hash
 
 
-Substitution = Dict[_TypedEntity, _TypedEntity]
-
-
 @dataclass
 class State:
     """Struct defining the low-level state of the world.
@@ -155,7 +150,8 @@ class Predicate:
     # The classifier takes in a complete state and a sequence of objects
     # representing the arguments. These objects should be the only ones
     # treated "specially" by the classifier.
-    _classifier: Callable[[State, Sequence[Object]], bool]
+    _classifier: Callable[[State, Sequence[Object]], bool] = field(
+        compare=False)
 
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
@@ -225,6 +221,10 @@ class _Atom:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, _Atom)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _Atom)
+        return str(self) < str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -324,7 +324,8 @@ class ParameterizedOption:
         name = self.name + "(" + ", ".join(map(str, params)) + ")"
         return _Option(name, policy=lambda s: self._policy(s, params),
                        initiable=lambda s: self._initiable(s, params),
-                       terminal=lambda s: self._terminal(s, params))
+                       terminal=lambda s: self._terminal(s, params),
+                       parent=self)
 
 
 @dataclass(frozen=True, eq=False)
@@ -342,10 +343,13 @@ class _Option:
     # A termination condition maps a state to a bool, which is True
     # iff the option should terminate now.
     terminal: Callable[[State], bool] = field(repr=False)
+    # The parameterized option that generated this option.
+    parent: ParameterizedOption = field(repr=False)
 
 
-DefaultOption = _Option("", lambda s: Action(np.array([0.0])),
-                        lambda s: False, lambda s: False)
+DefaultOption: _Option = ParameterizedOption(
+    "", Box(0, 1, (1,)), lambda s, p: Action(np.array([0.0])),
+    lambda s, p: False, lambda s, p: False).ground(np.array([0.0]))
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -366,9 +370,9 @@ class Operator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.parameters}
-    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
-    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
-    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}
     Option: {self.option}"""
 
     @cached_property
@@ -430,9 +434,9 @@ class _GroundOperator:
     def _str(self) -> str:
         return f"""{self.name}:
     Parameters: {self.objects}
-    Preconditions: {sorted(self.preconditions, key=lambda a: a.predicate)}
-    Add Effects: {sorted(self.add_effects, key=lambda a: a.predicate)}
-    Delete Effects: {sorted(self.delete_effects, key=lambda a: a.predicate)}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}
     Option: {self.option}"""
 
     @cached_property
@@ -498,10 +502,14 @@ class Action:
         assert not self.has_option()
 
 
+# Convenience higher-order types useful throughout the code
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
 Dataset = List[ActionTrajectory]
-
-
 Image = NDArray[np.uint8]
 Video = List[Image]
+Array = NDArray[np.float32]
+PyperplanFacts = FrozenSet[Tuple[str, ...]]
+ObjToVarSub = Dict[Object, Variable]
+VarToObjSub = Dict[Variable, Object]
+Transition = Tuple[Set[GroundAtom], _Option, Set[GroundAtom], Set[GroundAtom]]

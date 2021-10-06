@@ -99,7 +99,13 @@ def test_predicate_and_atom():
     def _classifier(state, objects):
         cup, plate = objects
         return state[cup][0] + state[plate][0] < 2
+    def _classifier2(state, objects):
+        cup, plate = objects
+        return state[cup][0] + state[plate][0] < 1
     pred = Predicate("On", [cup_type, plate_type], _classifier)
+    other_pred = Predicate("On", [cup_type, plate_type], _classifier2)
+    assert pred == other_pred
+    assert len({pred, other_pred}) == 1
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     cup_var = cup_type("?cup")
@@ -114,6 +120,7 @@ def test_predicate_and_atom():
     with pytest.raises(AssertionError):
         pred.holds(state, [cup_var, plate])  # variable as argument
     assert pred.holds(state, [cup1, plate])
+    assert not other_pred.holds(state, [cup1, plate])
     assert not pred.holds(state, [cup2, plate])
     assert str(pred) == repr(pred) == "On"
     assert {pred, pred} == {pred}
@@ -124,10 +131,13 @@ def test_predicate_and_atom():
     # Lifted atoms
     lifted_atom = pred([cup_var, plate_var])
     lifted_atom2 = pred([cup_var, plate_var])
+    lifted_atom3 = pred2([cup_var, plate_var])
     assert lifted_atom.predicate == pred
     assert lifted_atom.variables == [cup_var, plate_var]
     assert {lifted_atom, lifted_atom2} == {lifted_atom}
     assert lifted_atom == lifted_atom2
+    assert lifted_atom < lifted_atom3
+    assert sorted([lifted_atom3, lifted_atom]) == [lifted_atom, lifted_atom3]
     assert isinstance(lifted_atom, LiftedAtom)
     assert (str(lifted_atom) == repr(lifted_atom) ==
             "On(?cup:cup_type, ?plate:plate_type)")
@@ -196,6 +206,9 @@ def test_option():
     option = parameterized_option.ground(params)
     assert isinstance(option, _Option)
     assert repr(option) == str(option) == "_Option(name='Pick(-5.0, 5.0)')"
+    assert option.name == "Pick(-5.0, 5.0)"
+    assert option.parent.name == "Pick"
+    assert option.parent is parameterized_option
     assert np.all(option.policy(state) == np.array(params)*2)
     assert option.initiable(state)
     assert not option.terminal(state)
@@ -203,6 +216,9 @@ def test_option():
     option = parameterized_option.ground(params)
     assert isinstance(option, _Option)
     assert repr(option) == str(option) == "_Option(name='Pick(5.0, -5.0)')"
+    assert option.name == "Pick(5.0, -5.0)"
+    assert option.parent.name == "Pick"
+    assert option.parent is parameterized_option
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)

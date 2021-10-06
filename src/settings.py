@@ -55,23 +55,27 @@ class GlobalSettings:
             # options in the offline dataset.
             include_options_in_offline_data=defaultdict(bool, {
                 "trivial_learning": True,
+                "operator_learning": True,
             })[args["approach"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
                 "trivial_learning": "demo",
+                "operator_learning": "demo+replay",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
             # used for planning.
             offline_data_planning_timeout=defaultdict(int, {
                 "trivial_learning": 500,
+                "operator_learning": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
             # when the data generation method is data+replays.
             offline_data_num_replays=defaultdict(int, {
                 "trivial_learning": 10,
+                "operator_learning": 10,
             })[args["approach"]],
         )
 
