@@ -4,10 +4,11 @@
 import numpy as np
 import pytest
 from predicators.src.approaches import OracleApproach, ApproachFailure, \
-    ApproachTimeout, TAMPApproach
+    ApproachTimeout
 from predicators.src.approaches.oracle_approach import get_gt_ops
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Task, Action
+from predicators.src.planning import sesame_plan
 from predicators.src import utils
 from predicators.src.settings import CFG
 
@@ -134,11 +135,11 @@ def test_oracle_approach_cover_failures():
     operators = {op for op in operators if op.name == "Place"}
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, should fail fast.
-        TAMPApproach.sesame_plan(task, env.simulate, operators,
-                                 env.predicates, timeout=500, seed=123)
+        sesame_plan(task, env.simulate, operators,
+                    env.predicates, timeout=500, seed=123)
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
-        TAMPApproach.sesame_plan(task, env.simulate, operators,
-                                 env.predicates, timeout=500, seed=123,
-                                 check_dr_reachable=False)
+        sesame_plan(task, env.simulate, operators,
+                    env.predicates, timeout=500, seed=123,
+                    check_dr_reachable=False)
