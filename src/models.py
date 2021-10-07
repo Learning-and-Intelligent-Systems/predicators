@@ -1,19 +1,16 @@
 """Models useful for classification/regression.
 """
 
-import numpy as np
-import tempfile
 import os
-import itertools
-from collections import OrderedDict
-import numpy as np
+import tempfile
+from typing import List, Tuple
 from scipy.stats import truncnorm
 import torch
 from torch import nn
 from torch import optim
 from torch import Tensor
 import torch.nn.functional as F
-from typing import List, Tuple
+import numpy as np
 from predicators.src.structs import Array
 from predicators.src.settings import CFG
 
@@ -21,9 +18,6 @@ from predicators.src.settings import CFG
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition.
     """
-    def __init__(self) -> None:
-        super().__init__()  # type: ignore
-
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
         Both X and Y are multi-dimensional.
@@ -155,8 +149,8 @@ class NeuralGaussianRegressor(nn.Module):
         np_variance = variance.numpy()
         return np_mean, np_variance
 
-    def _normalize_data(self,
-                        data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    @staticmethod
+    def _normalize_data(data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         shift = torch.min(data, dim=0, keepdim=True).values
         scale = torch.max(data - shift, dim=0, keepdim=True).values
         scale = torch.clip(scale, min=CFG.normalization_scale_clip)
@@ -226,8 +220,8 @@ class MLPClassifier(nn.Module):
         assert classification in [False, True]
         return classification
 
-    def _normalize_data(self, data: Array
-                        ) -> Tuple[Array, Array, Array]:
+    @staticmethod
+    def _normalize_data(data: Array) -> Tuple[Array, Array, Array]:
         shift = np.min(data, axis=0)  # type: ignore
         scale = np.max(data - shift, axis=0)  # type: ignore
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
