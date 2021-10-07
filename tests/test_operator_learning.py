@@ -6,14 +6,15 @@ import numpy as np
 from predicators.src.operator_learning import learn_operators_from_data
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption
+from predicators.src import utils
 
 
 def test_operator_learning_specific_operators():
     """Tests with a specific desired set of operators.
     """
-    option = ParameterizedOption(
-        "dummy", Box(0, 1, (1,)), lambda s, p: Action(np.array([0.0])),
-        lambda s, p: False, lambda s, p: False).ground(np.array([0.0]))
+    utils.update_config({"min_data_for_operator": 0, "seed": 0,
+                         "classifier_max_itr": 1000,
+                         "regressor_max_itr": 1000})
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
     cup1 = cup_type("cup1")
@@ -29,8 +30,11 @@ def test_operator_learning_specific_operators():
                       lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
-    action1 = option.policy(state1)
-    action1.set_option((option, 0))
+    option1 = ParameterizedOption(
+        "dummy", Box(0, 1, (1,)), lambda s, p: Action(p),
+        lambda s, p: False, lambda s, p: False).ground(np.array([0.2]))
+    action1 = option1.policy(state1)
+    action1.set_option((option1, 0))
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [([state1, next_state1], [action1])]
     ops = learn_operators_from_data(dataset, preds)
@@ -42,6 +46,10 @@ def test_operator_learning_specific_operators():
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Option: ParameterizedOption(name='dummy')"""
+    # Test the learned samplers
+    for _ in range(10):
+        assert abs(op.ground([cup0, cup1, cup2]).sampler(
+            state1, np.random.default_rng(123)) - 0.2) < 0.01
     # The following test was used to manually check that unify caches correctly.
     pred0 = Predicate("Pred0", [cup_type],
                       lambda s, o: s[o[0]][0] > 0.5)
@@ -51,12 +59,12 @@ def test_operator_learning_specific_operators():
                       lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
-    action1 = option.policy(state1)
-    action1.set_option((option, 0))
+    action1 = option1.policy(state1)
+    action1.set_option((option1, 0))
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     state2 = State({cup3: [0.4], cup4: [0.7], cup5: [0.1]})
-    action2 = option.policy(state1)
-    action2.set_option((option, 0))
+    action2 = option1.policy(state2)
+    action2.set_option((option1, 0))
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
@@ -78,12 +86,18 @@ def test_operator_learning_specific_operators():
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
-    action1 = option.policy(state1)
-    action1.set_option((option, 0))
+    option1 = ParameterizedOption(
+        "dummy", Box(0, 1, (1,)), lambda s, p: Action(p),
+        lambda s, p: False, lambda s, p: False).ground(np.array([0.3]))
+    action1 = option1.policy(state1)
+    action1.set_option((option1, 0))
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
-    action2 = option.policy(state1)
-    action2.set_option((option, 0))
+    option2 = ParameterizedOption(
+        "dummy", Box(0, 1, (1,)), lambda s, p: Action(p),
+        lambda s, p: False, lambda s, p: False).ground(np.array([0.7]))
+    action2 = option2.policy(state2)
+    action2.set_option((option2, 0))
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
@@ -102,16 +116,25 @@ def test_operator_learning_specific_operators():
     Option: ParameterizedOption(name='dummy')"""}
     for op in ops:
         assert str(op) == expected[op.name]
+        # Test the learned samplers
+        if op.name == "dummy0":
+            for _ in range(10):
+                assert abs(op.ground([cup0, cup1, cup2]).sampler(
+                    state1, np.random.default_rng(123)) - 0.3) < 0.01
+        if op.name == "dummy1":
+            for _ in range(10):
+                assert abs(op.ground([cup2, cup3, cup4, cup5]).sampler(
+                    state2, np.random.default_rng(123)) - 0.7) < 0.01
     pred0 = Predicate("Pred0", [cup_type, cup_type],
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
     state1 = State({cup0: [0.5], cup1: [0.5]})
-    action1 = option.policy(state1)
-    action1.set_option((option, 0))
+    action1 = option2.policy(state1)
+    action1.set_option((option2, 0))
     next_state1 = State({cup0: [0.9], cup1: [0.1],})
     state2 = State({cup4: [0.9], cup5: [0.1]})
-    action2 = option.policy(state1)
-    action2.set_option((option, 0))
+    action2 = option2.policy(state2)
+    action2.set_option((option2, 0))
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
@@ -130,3 +153,7 @@ def test_operator_learning_specific_operators():
     Option: ParameterizedOption(name='dummy')"""}
     for op in ops:
         assert str(op) == expected[op.name]
+    # Test minimum number of examples parameter
+    utils.update_config({"min_data_for_operator": 3})
+    ops = learn_operators_from_data(dataset, preds)
+    assert len(ops) == 0

@@ -25,6 +25,21 @@ class GlobalSettings:
     video_dir = "videos"
     video_fps = 2
 
+    # operator learning parameters
+    min_data_for_operator = 3
+    max_rejection_sampling_tries = 100
+
+    # sampler learning parameters
+    normalization_scale_clip = 1
+    classifier_hid_sizes = [32, 32]
+    classifier_max_itr = 10000
+    classifier_balance_data = True
+    regressor_hid_sizes = [32, 32]
+    regressor_max_itr = 10000
+    regressor_sample_clip = 1
+    n_iter_no_change = 5000
+    learning_rate = 1e-3
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
