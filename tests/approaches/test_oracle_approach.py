@@ -74,23 +74,22 @@ def test_oracle_approach_cover():
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
     assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in env.get_train_tasks():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
-        # Test that a random policy fails.
+        # Test that a repeated random action fails.
         assert not utils.policy_solves_task(
-            lambda s: Action(env.action_space.sample()),
-            task, env.simulate, env.predicates)
+            lambda s: random_action, task, env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
-        # Test that a random policy fails.
+        # Test that a repeated random action fails.
         assert not utils.policy_solves_task(
-            lambda s: Action(env.action_space.sample()),
-            task, env.simulate, env.predicates)
+            lambda s: random_action, task, env.simulate, env.predicates)
 
 
 def test_oracle_approach_cover_failures():
