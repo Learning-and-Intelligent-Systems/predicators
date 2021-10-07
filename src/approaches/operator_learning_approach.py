@@ -8,6 +8,7 @@ from typing import Any, Set
 from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, Operator
 from predicators.src.operator_learning import learn_operators_from_data
+from predicators.src.settings import get_save_path
 
 
 class OperatorLearningApproach(TAMPApproach):
@@ -28,3 +29,11 @@ class OperatorLearningApproach(TAMPApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._operators = learn_operators_from_data(
             dataset, self._initial_predicates)
+
+    def save(self) -> None:
+        save_path = get_save_path()
+        raise NotImplementedError  # TODO: save self._operators
+
+    def load(self) -> None:
+        load_path = get_save_path()
+        raise NotImplementedError  # TODO: load into self._operators
