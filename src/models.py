@@ -11,14 +11,17 @@ from scipy.stats import truncnorm
 import torch
 from torch import nn
 from torch import optim
+from torch import Tensor
 import torch.nn.functional as F
+from typing import List
+from predicators.src.structs import Array
 from predicators.src.settings import CFG
 
 
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition.
     """
-    def fit(self, X, Y):
+    def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
         Both X and Y are multi-dimensional.
         """
@@ -26,7 +29,7 @@ class NeuralGaussianRegressor(nn.Module):
         assert Y.ndim == 2
         return self._fit(X, Y)
 
-    def predict_mean(self, x):
+    def predict_mean(self, x: Array) -> Array:
         """Return a mean prediction on the given datapoint.
         x is single-dimensional.
         """
@@ -34,7 +37,8 @@ class NeuralGaussianRegressor(nn.Module):
         mean, _ = self._predict_mean_var(x)
         return mean
 
-    def predict_sample(self, x, rng):
+    def predict_sample(self, x: Array,
+                       rng: np.random.Generator) -> Array:
         """Return a sampled prediction on the given datapoint.
         x is single-dimensional.
         """
@@ -49,10 +53,10 @@ class NeuralGaussianRegressor(nn.Module):
             y.append(y_i)
         return np.array(y)
 
-    def forward(self, x):
+    def forward(self, inputs: Array) -> Tensor:
         """Pytorch forward method.
         """
-        x = torch.from_numpy(np.array(x, dtype=np.float32))
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
         x = self._linears[-1](x)
@@ -65,17 +69,17 @@ class NeuralGaussianRegressor(nn.Module):
         x = torch.cat([mean, variance], dim=-1)
         return x
 
-    def _fit(self, X, Y):
+    def _fit(self, inputs: Array, outputs: Array) -> None:
         torch.manual_seed(CFG.seed)
         # Infer input and output sizes from data
-        num_data, input_size = X.shape
-        _, output_size = Y.shape
+        num_data, input_size = inputs.shape
+        _, output_size = outputs.shape
         # Initialize net
         hid_sizes = CFG.regressor_hid_sizes
         self._initialize_net(input_size, hid_sizes, output_size)
         # Convert data to torch
-        X = torch.from_numpy(np.array(X, dtype=np.float32))
-        Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        X = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        Y = torch.from_numpy(np.array(outputs, dtype=np.float32))
         # Normalize data
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         Y, self._output_shift, self._output_scale = self._normalize_data(Y)
@@ -116,7 +120,8 @@ class NeuralGaussianRegressor(nn.Module):
         loss = self._loss_fn(pred_mean, Y, pred_var)
         print(f"Loaded best model with loss: {loss:.5f}")
 
-    def _initialize_net(self, in_size, hid_sizes, out_size):
+    def _initialize_net(self, in_size: int, hid_sizes: List[int],
+                        out_size: int) -> None:
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
         for i in range(len(hid_sizes)-1):
@@ -127,10 +132,10 @@ class NeuralGaussianRegressor(nn.Module):
         self._loss_fn = nn.GaussianNLLLoss()
 
     @staticmethod
-    def _split_prediction(x):
+    def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:
         return torch.split(x, x.shape[-1]//2, dim=-1)
 
-    def _predict_mean_var(self, x):
+    def _predict_mean_var(self, x: Array) -> Tensor[Array, Array]:
         x = torch.from_numpy(np.array(x, dtype=np.float32))
         x = x.unsqueeze(dim=0)
         # Normalize input
@@ -143,7 +148,8 @@ class NeuralGaussianRegressor(nn.Module):
         variance = variance.squeeze(dim=0).detach().numpy()
         return mean, variance
 
-    def _normalize_data(self, data):
+    def _normalize_data(self,
+                        data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         shift = torch.min(data, dim=0, keepdim=True).values
         scale = torch.max(data - shift, dim=0, keepdim=True).values
         scale = torch.clip(scale, min=CFG.normalization_scale_clip)
