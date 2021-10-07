@@ -2,7 +2,8 @@
 """
 
 from predicators.src.envs import CoverEnv
-from predicators.src.approaches import OperatorLearningApproach
+from predicators.src.approaches import OperatorLearningApproach, \
+    ApproachTimeout, ApproachFailure
 from predicators.src.datasets import create_dataset
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -23,6 +24,9 @@ def test_operator_learning_approach():
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     for task in env.get_test_tasks():
-        approach.solve(task, timeout=CFG.timeout)
+        try:
+            approach.solve(task, timeout=CFG.timeout)
+        except (ApproachTimeout, ApproachFailure):
+            pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
