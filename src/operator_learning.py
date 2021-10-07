@@ -221,7 +221,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
         for (state, _, option, _, _), obj_to_var in part_transitions:
             assert option.parent == param_option
             var_types = [var.type for var in variables]
-            objects = sorted(state)
+            objects = list(state)
             for grounding in utils.get_object_combinations(
                     objects, var_types, allow_duplicates=False):
                 # If we are currently at the partition that we're learning a
