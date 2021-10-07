@@ -31,7 +31,7 @@ def test_operator_learning_specific_operators():
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     option1 = ParameterizedOption(
-        "dummy", Box(0, 1, (1,)), lambda s, p: Action(p),
+        "dummy", Box(0.1, 1, (1,)), lambda s, p: Action(p),
         lambda s, p: False, lambda s, p: False).ground(np.array([0.2]))
     action1 = option1.policy(state1)
     action1.set_option((option1, 0))
@@ -87,14 +87,14 @@ def test_operator_learning_specific_operators():
     preds = {pred0}
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     option1 = ParameterizedOption(
-        "dummy", Box(0, 1, (1,)), lambda s, p: Action(p),
+        "dummy", Box(0.1, 1, (1,)), lambda s, p: Action(p),
         lambda s, p: False, lambda s, p: False).ground(np.array([0.3]))
     action1 = option1.policy(state1)
     action1.set_option((option1, 0))
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
-        "dummy", Box(0, 1, (1,)), lambda s, p: Action(p),
+        "dummy", Box(0.1, 1, (1,)), lambda s, p: Action(p),
         lambda s, p: False, lambda s, p: False).ground(np.array([0.7]))
     action2 = option2.policy(state2)
     action2.set_option((option2, 0))
@@ -157,3 +157,14 @@ def test_operator_learning_specific_operators():
     utils.update_config({"min_data_for_operator": 3})
     ops = learn_operators_from_data(dataset, preds)
     assert len(ops) == 0
+    # Test sampler giving out-of-bounds outputs
+    utils.update_config({"min_data_for_operator": 0, "seed": 0,
+                         "classifier_max_itr": 1,
+                         "regressor_max_itr": 1})
+    ops = learn_operators_from_data(dataset, preds)
+    assert len(ops) == 2
+    for op in ops:
+        for _ in range(10):
+            assert option1.parent.params_space.contains(
+                op.ground([cup0, cup1]).sampler(
+                    state1, np.random.default_rng(123)))
