@@ -96,14 +96,12 @@ class NeuralGaussianRegressor(nn.Module):
         self.train()  # switch to train mode
         itr = 0
         best_loss = float("inf")
-        best_itr = 0
         model_name = tempfile.NamedTemporaryFile(delete=False).name
         while True:
             pred_mean, pred_var = self._split_prediction(self(X))
             loss = self._loss_fn(pred_mean, Y, pred_var)
             if loss.item() < best_loss:
                 best_loss = loss.item()
-                best_itr = itr
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
