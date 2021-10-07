@@ -173,8 +173,16 @@ class MLPClassifier(nn.Module):
         # Balance the classes
         if CFG.classifier_balance_data and len(y)//2 > sum(y):
             old_len = len(y)
-            pos_idxs = list(np.argwhere(np.array(y) == 1).squeeze())
-            neg_idxs = list(np.argwhere(np.array(y) == 0).squeeze())
+            pos_idxs = np.argwhere(np.array(y) == 1).squeeze()
+            neg_idxs = np.argwhere(np.array(y) == 0).squeeze()
+            if not pos_idxs.shape:
+                pos_idxs = [pos_idxs.item()]
+            else:
+                pos_idxs = list(pos_idxs)
+            if not neg_idxs.shape:
+                neg_idxs = [neg_idxs.item()]
+            else:
+                neg_idxs = list(neg_idxs)
             assert len(pos_idxs) + len(neg_idxs) == len(y) == len(X)
             keep_neg_idxs = list(self._rng.choice(neg_idxs, replace=False,
                                  size=len(pos_idxs)))
