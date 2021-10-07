@@ -212,6 +212,7 @@ def test_option():
     assert np.all(option.policy(state) == np.array(params)*2)
     assert option.initiable(state)
     assert not option.terminal(state)
+    assert option.params[0] == -5 and option.params[1] == 5
     params = [5, -5]
     option = parameterized_option.ground(params)
     assert isinstance(option, _Option)
@@ -222,6 +223,7 @@ def test_option():
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)
+    assert option.params[0] == 5 and option.params[1] == -5
 
 
 def test_operators():

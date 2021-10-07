@@ -325,7 +325,7 @@ class ParameterizedOption:
         return _Option(name, policy=lambda s: self._policy(s, params),
                        initiable=lambda s: self._initiable(s, params),
                        terminal=lambda s: self._terminal(s, params),
-                       parent=self)
+                       parent=self, params=params)
 
 
 @dataclass(frozen=True, eq=False)
@@ -345,6 +345,8 @@ class _Option:
     terminal: Callable[[State], bool] = field(repr=False)
     # The parameterized option that generated this option.
     parent: ParameterizedOption = field(repr=False)
+    # The parameters that were used to ground this option.
+    params: Array = field(repr=False)
 
 
 DefaultOption: _Option = ParameterizedOption(

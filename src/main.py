@@ -8,6 +8,7 @@ Another example usage:
         --make_videos --num_test_tasks 1
 """
 
+import time
 from predicators.src.args import parse_args
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env
@@ -20,6 +21,7 @@ from predicators.src import utils
 def main() -> None:
     """Main entry point for running approaches in environments.
     """
+    start = time.time()
     # Parse & validate args
     args = parse_args()
     utils.update_config(args)
@@ -52,6 +54,7 @@ def main() -> None:
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
+    print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
 
 
 if __name__ == "__main__":  # pragma: no cover
