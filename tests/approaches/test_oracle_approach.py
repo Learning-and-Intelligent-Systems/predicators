@@ -27,7 +27,7 @@ def test_cover_get_gt_ops():
     env.seed(123)
     train_task = env.get_train_tasks()[0]
     state = train_task.init
-    block0, _, _, target0, _ = sorted(state.data.keys())
+    block0, _, _, target0, _ = list(state)
     assert block0.name == "block0"
     assert target0.name == "target0"
     pick0_operator = pick_operator.ground([block0])

@@ -3,11 +3,14 @@
 
 import functools
 from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet
+from typing import Set, Tuple, List, Sequence, FrozenSet, Callable
+import numpy as np
 from predicators.src.structs import Dataset, Operator, GroundAtom, \
     ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    Transition
+    Transition, Object, Array, State
 from predicators.src import utils
+from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
+from predicators.src.settings import CFG
 
 
 def learn_operators_from_data(dataset: Dataset,
@@ -28,7 +31,7 @@ def learn_operators_from_data(dataset: Dataset,
             next_atoms = utils.abstract(states[i+1], predicates)
             add_effects = next_atoms - atoms
             delete_effects = atoms - next_atoms
-            transition = (atoms, option, add_effects, delete_effects)
+            transition = (states[i], atoms, option, add_effects, delete_effects)
             transitions_by_option[option.parent].append(transition)
 
     # Learn operators
@@ -55,16 +58,22 @@ def _learn_operators_for_option(option: ParameterizedOption,
         _partition_transitions_by_lifted_effects(
             transitions)
 
-    # Learn preconditions
     operators = []
     for i, part_transitions in enumerate(partitioned_transitions):
+        if len(part_transitions) < CFG.min_data_for_operator:
+            continue
+        # Learn preconditions
         variables, preconditions = \
             _learn_preconditions(
                 add_effects[i], delete_effects[i], part_transitions)
-        sampler = lambda s, rng, objs: rng.uniform(
-            size=option.params_space.shape)
+        operator_name = f"{option.name}{i}"
+        # Learn sampler
+        print(f"\nLearning sampler for operator {operator_name}")
+        sampler = _learn_sampler(partitioned_transitions, variables,
+                                 preconditions, option, i)
+        # Construct Operator object
         operators.append(Operator(
-            f"{option.name}{i}", variables, preconditions,
+            operator_name, variables, preconditions,
             add_effects[i], delete_effects[i], option, sampler))
 
     return operators
@@ -73,31 +82,27 @@ def _learn_operators_for_option(option: ParameterizedOption,
 def _partition_transitions_by_lifted_effects(
         transitions: List[Transition]) -> Tuple[
             List[Set[LiftedAtom]], List[Set[LiftedAtom]],
-            List[List[Transition]]]:
+            List[List[Tuple[Transition, ObjToVarSub]]]]:
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
-    partitions: List[List[Transition]] = []
-    num_partitions = 0
+    partitions: List[List[Tuple[Transition, ObjToVarSub]]] = []
     for transition in transitions:
-        _, _, trans_add_effects, trans_delete_effects = transition
-        partition_index = None
-        for i in range(num_partitions):
+        _, _, _, trans_add_effects, trans_delete_effects = transition
+        for i in range(len(partitions)):
             # Try to unify this transition with existing effects
             # Note that both add and delete effects must unify
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
-            if _unify(
-                    frozenset(trans_add_effects),
-                    frozenset(trans_delete_effects),
-                    frozenset(part_add_effects),
-                    frozenset(part_delete_effects))[0]:
+            suc, sub = _unify(frozenset(trans_add_effects),
+                              frozenset(trans_delete_effects),
+                              frozenset(part_add_effects),
+                              frozenset(part_delete_effects))
+            if suc:
                 # Add to this partition
-                partition_index = i
+                partitions[i].append((transition, sub))
                 break
         # Otherwise, create a new group
-        if partition_index is None:
-            new_partition = [transition]
-            partitions.append(new_partition)
+        else:
             # Get new lifted effects
             objects = {o for atom in trans_add_effects |
                        trans_delete_effects for o in atom.objects}
@@ -109,22 +114,19 @@ def _partition_transitions_by_lifted_effects(
                                 in trans_add_effects})
             delete_effects.append({atom.lift(sub) for atom
                                    in trans_delete_effects})
-            num_partitions += 1
-        # Add to existing group
-        else:
-            partitions[partition_index].append(transition)
+            new_partition = [(transition, sub)]
+            partitions.append(new_partition)
 
-    assert len(add_effects) == len(delete_effects) == len(partitions) == \
-        num_partitions
+    assert len(add_effects) == len(delete_effects) == len(partitions)
     return add_effects, delete_effects, partitions
 
 
 def  _learn_preconditions(
         add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
-        transitions: List[Transition]) -> Tuple[
+        transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
             Sequence[Variable], Set[LiftedAtom]]:
-    for i, (atoms, _, trans_add_effects,
-            trans_delete_effects) in enumerate(transitions):
+    for i, ((_, atoms, _, trans_add_effects,
+             trans_delete_effects), _) in enumerate(transitions):
         suc, sub = _unify(
             frozenset(trans_add_effects),
             frozenset(trans_delete_effects),
@@ -199,3 +201,91 @@ def _unify(
     return utils.unify(
         f_new_ground_add_effects | f_new_ground_delete_effects,
         f_new_lifted_add_effects | f_new_lifted_delete_effects)
+
+
+def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+                   variables: Sequence[Variable],
+                   preconditions: Set[LiftedAtom],
+                   param_option: ParameterizedOption,
+                   partition_idx: int) -> Callable[[
+                       State, np.random.Generator, Sequence[Object]], Array]:
+    """Learn a sampler given data. Transitions are partitioned, so
+    that they can be used for generating negative data. Integer partition_idx
+    represents the index into transitions corresponding to the partition that
+    this sampler is being learned for.
+    """
+    # Generate positive and negative data for training models.
+    positive_data = []
+    negative_data = []
+    for idx, part_transitions in enumerate(transitions):
+        for (state, _, option, _, _), obj_to_var in part_transitions:
+            assert option.parent == param_option
+            var_types = [var.type for var in variables]
+            objects = list(state)
+            for grounding in utils.get_object_combinations(
+                    objects, var_types, allow_duplicates=False):
+                # If we are currently at the partition that we're learning a
+                # sampler for, and this datapoint matches the actual grounding,
+                # add it to the positive data and continue.
+                if idx == partition_idx:
+                    var_to_obj = {v: k for k, v in obj_to_var.items()}
+                    actual_grounding = [var_to_obj[var] for var in variables]
+                    if grounding == actual_grounding:
+                        assert all(pre.predicate.holds(
+                            state, [var_to_obj[v] for v in pre.variables])
+                                   for pre in preconditions)
+                        positive_data.append((state, var_to_obj, option))
+                        continue
+                sub = dict(zip(variables, grounding))
+                # Add this datapoint to the negative data.
+                negative_data.append((state, sub, option))
+    print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
+          f"negative examples")
+    assert len(positive_data) == len(transitions[partition_idx])
+
+    # Fit classifier to data
+    print("Fitting classifier...")
+    X_classifier: List[List[Array]] = []
+    for state, sub, option in positive_data + negative_data:
+        # input is state features and option parameters
+        X_classifier.append([])
+        for var in variables:
+            X_classifier[-1].extend(state[sub[var]])
+        X_classifier[-1].extend(option.params)
+    X_arr_classifier = np.array(X_classifier)
+    # output is binary signal
+    y_arr_classifier = np.array([1 for _ in positive_data] +
+                                [0 for _ in negative_data])
+    classifier = MLPClassifier(X_arr_classifier.shape[1])
+    classifier.fit(X_arr_classifier, y_arr_classifier)
+
+    # Fit regressor to data
+    print("Fitting regressor...")
+    X_regressor: List[List[Array]] = []
+    Y_regressor = []
+    for state, sub, option in positive_data:  # don't use negative data!
+        # input is state features
+        X_regressor.append([])
+        for var in variables:
+            X_regressor[-1].extend(state[sub[var]])
+        # output is option parameters
+        Y_regressor.append(option.params)
+    X_arr_regressor = np.array(X_regressor)
+    Y_arr_regressor = np.array(Y_regressor)
+    regressor = NeuralGaussianRegressor()
+    regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+    # Define & return sampler function
+    def _sampler(state: State, rng: np.random.Generator,
+                 objects: Sequence[Object]) -> Array:
+        x_lst : List[Array] = []
+        sub = dict(zip(variables, objects))
+        for var in variables:
+            x_lst.extend(state[sub[var]])
+        x = np.array(x_lst)
+        for _ in range(CFG.max_rejection_sampling_tries):
+            params = regressor.predict_sample(x, rng)
+            if classifier.classify(np.r_[x, params]):
+                break
+        return params
+    return _sampler
