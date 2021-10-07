@@ -14,6 +14,8 @@ import numpy as np
 from predicators.src.structs import Array
 from predicators.src.settings import CFG
 
+torch.use_deterministic_algorithms(mode=True)
+
 
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition.
@@ -171,6 +173,7 @@ class MLPClassifier(nn.Module):
     def __init__(self, in_size: int) -> None:
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
+        torch.manual_seed(CFG.seed)
         hid_sizes = CFG.classifier_hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
@@ -184,6 +187,7 @@ class MLPClassifier(nn.Module):
         """Train classifier on the given data.
         X is multi-dimensional, y is single-dimensional.
         """
+        torch.manual_seed(CFG.seed)
         assert X.ndim == 2
         assert y.ndim == 1
         X, self._input_shift, self._input_scale = self._normalize_data(X)
@@ -237,7 +241,6 @@ class MLPClassifier(nn.Module):
         return self(x).item() > 0.5
 
     def _fit(self, inputs: Array, outputs: Array) -> None:
-        torch.manual_seed(CFG.seed)
         # Convert data to torch
         X = torch.from_numpy(np.array(inputs, dtype=np.float32))
         y = torch.from_numpy(np.array(outputs, dtype=np.float32))
