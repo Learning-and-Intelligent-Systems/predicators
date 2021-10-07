@@ -14,7 +14,7 @@ import numpy as np
 from predicators.src.structs import Array
 from predicators.src.settings import CFG
 
-torch.use_deterministic_algorithms(mode=True)
+torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
 class NeuralGaussianRegressor(nn.Module):
@@ -136,7 +136,8 @@ class NeuralGaussianRegressor(nn.Module):
             self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
         # The 2 here is for mean and variance
         self._linears.append(nn.Linear(hid_sizes[-1], 2*out_size))
-        self._optimizer = optim.Adam(self.parameters(), lr=CFG.learning_rate)
+        self._optimizer = optim.Adam(self.parameters(),  # pylint: disable=attribute-defined-outside-init
+                                     lr=CFG.learning_rate)
 
     @staticmethod
     def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:

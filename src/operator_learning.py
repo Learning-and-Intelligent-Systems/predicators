@@ -237,11 +237,6 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
                         positive_data.append((state, var_to_obj, option))
                         continue
                 sub = dict(zip(variables, grounding))
-                if all(pre.predicate.holds(
-                        state, [sub[v] for v in pre.variables])
-                       for pre in preconditions):
-                    # The preconditions hold for this grounding, ignore it.
-                    continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option))
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
