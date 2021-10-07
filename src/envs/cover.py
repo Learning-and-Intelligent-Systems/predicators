@@ -239,8 +239,8 @@ class CoverEnv(BaseEnv):
         block_width = state[block][2]
         target_pose = state[target][3]
         target_width = state[target][2]
-        return (block_pose-block_width/2 <= target_pose-target_width/2) and \
-               (block_pose+block_width/2 >= target_pose+target_width/2)
+        return (target_pose-target_width/2 <= block_pose-block_width/2) and \
+               (target_pose+target_width/2 >= block_pose+block_width/2)
 
     @staticmethod
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
