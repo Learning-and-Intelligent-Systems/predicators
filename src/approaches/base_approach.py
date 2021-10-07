@@ -71,6 +71,16 @@ class BaseApproach:
         if you try to instantiate a subclass with an undefined abc).
         """
 
+    def save(self) -> None:
+        """Save anything that got learned to CFG.get_save_path().
+        Only called if self.is_learning_based.
+        """
+
+    def load(self) -> None:
+        """Load anything from CFG.get_save_path().
+        Only called if self.is_learning_based.
+        """
+
 
 class ApproachTimeout(Exception):
     """Exception raised when approach.solve() times out.
