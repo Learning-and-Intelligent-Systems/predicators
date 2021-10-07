@@ -52,4 +52,3 @@ def test_mlp_classifier():
                          "classifier_max_itr": 1000,
                          "learning_rate": 1e-2})
     model.fit(X, y)
-
