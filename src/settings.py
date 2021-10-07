@@ -21,7 +21,7 @@ class GlobalSettings:
     max_num_steps_option_rollout = 100
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
-    # evaluation params
+    # evaluation parameters
     video_dir = "videos"
     video_fps = 2
 
@@ -37,7 +37,7 @@ class GlobalSettings:
         return dict(
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
-                "cover": 5,
+                "cover": 10,
             })[args["env"]],
 
             # Number of test tasks in each environment.

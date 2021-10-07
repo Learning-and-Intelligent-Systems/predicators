@@ -1,5 +1,6 @@
 """Algorithms for operator learning, both structure and samplers.
 """
+
 import functools
 from collections import defaultdict
 from typing import Set, Tuple, List, Sequence, FrozenSet
@@ -38,7 +39,7 @@ def learn_operators_from_data(dataset: Dataset,
             param_option, option_transitions)
         operators.extend(option_ops)
 
-    print("Learned operators:")
+    print("\n\nLearned operators:")
     for operator in operators:
         print(operator)
     print()
