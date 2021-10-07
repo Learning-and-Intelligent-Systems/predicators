@@ -289,7 +289,6 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
         for _ in range(CFG.max_rejection_sampling_tries):
-            # TODO: we should check whether using rng in this way maintains reproducibility
             params = regressor.predict_sample(x, rng)
             if classifier.classify(np.r_[x, params]):
                 break
