@@ -115,10 +115,6 @@ class NeuralGaussianRegressor(nn.Module):
             if itr == CFG.regressor_max_itr:
                 print()
                 break
-            if itr-best_itr > CFG.n_iter_no_change:
-                print("\nLoss did not improve after {CFG.n_iter_no_change} "
-                      f"itrs, terminating at itr {itr}.")
-                break
             itr += 1
         # Load best model
         self.load_state_dict(torch.load(model_name))  # type: ignore
@@ -272,7 +268,7 @@ class MLPClassifier(nn.Module):
                 print()
                 break
             if itr-best_itr > CFG.n_iter_no_change:
-                print("\nLoss did not improve after {CFG.n_iter_no_change} "
+                print(f"\nLoss did not improve after {CFG.n_iter_no_change} "
                       f"itrs, terminating at itr {itr}.")
                 break
             itr += 1
