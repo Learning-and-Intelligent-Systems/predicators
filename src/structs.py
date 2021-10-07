@@ -514,5 +514,5 @@ Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
-Transition = Tuple[State, Set[GroundAtom], _Option, Set[GroundAtom],
+Transition = Tuple[Set[GroundAtom], _Option, Set[GroundAtom],
                    Set[GroundAtom]]
