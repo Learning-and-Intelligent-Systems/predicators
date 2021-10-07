@@ -18,6 +18,16 @@ from predicators.src.settings import CFG
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition.
     """
+    def __init__(self) -> None:  # pylint: disable=useless-super-delegation
+        super().__init__()  # type: ignore
+        self._input_shift = torch.zeros(1)
+        self._input_scale = torch.zeros(1)
+        self._output_shift = torch.zeros(1)
+        self._output_scale = torch.zeros(1)
+        self._linears = nn.ModuleList()
+        self._optimizer = optim.Adam(self.parameters(), lr=CFG.learning_rate)
+        self._loss_fn = nn.GaussianNLLLoss()
+
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
         Both X and Y are multi-dimensional.
@@ -125,8 +135,6 @@ class NeuralGaussianRegressor(nn.Module):
             self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
         # The 2 here is for mean and variance
         self._linears.append(nn.Linear(hid_sizes[-1], 2*out_size))
-        self._optimizer = optim.Adam(self.parameters(), lr=CFG.learning_rate)
-        self._loss_fn = nn.GaussianNLLLoss()
 
     @staticmethod
     def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:
@@ -169,6 +177,8 @@ class MLPClassifier(nn.Module):
         for i in range(len(hid_sizes)-1):
             self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
         self._linears.append(nn.Linear(hid_sizes[-1], 1))
+        self._input_shift = np.zeros(1)
+        self._input_scale = np.zeros(1)
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
@@ -180,16 +190,12 @@ class MLPClassifier(nn.Module):
         # Balance the classes
         if CFG.classifier_balance_data and len(y)//2 > sum(y):
             old_len = len(y)
-            pos_idxs = np.argwhere(np.array(y) == 1).squeeze()
-            neg_idxs = np.argwhere(np.array(y) == 0).squeeze()
-            if not pos_idxs.shape:
-                pos_idxs = [pos_idxs.item()]
-            else:
-                pos_idxs = list(pos_idxs)
-            if not neg_idxs.shape:
-                neg_idxs = [neg_idxs.item()]
-            else:
-                neg_idxs = list(neg_idxs)
+            pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
+            neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
+            pos_idxs = ([pos_idxs_np.item()] if not pos_idxs_np.shape
+                        else list(pos_idxs_np))
+            neg_idxs = ([neg_idxs_np.item()] if not neg_idxs_np.shape
+                        else list(neg_idxs_np))
             assert len(pos_idxs) + len(neg_idxs) == len(y) == len(X)
             keep_neg_idxs = list(self._rng.choice(neg_idxs, replace=False,
                                  size=len(pos_idxs)))
