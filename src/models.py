@@ -13,7 +13,7 @@ from torch import nn
 from torch import optim
 from torch import Tensor
 import torch.nn.functional as F
-from typing import List
+from typing import List, Tuple
 from predicators.src.structs import Array
 from predicators.src.settings import CFG
 
@@ -113,7 +113,7 @@ class NeuralGaussianRegressor(nn.Module):
                 break
             itr += 1
         # Load best model
-        self.load_state_dict(torch.load(model_name))
+        self.load_state_dict(torch.load(model_name))  # type: ignore
         os.remove(model_name)
         self.eval()  # switch to eval mode
         pred_mean, pred_var = self._split_prediction(self(X))
@@ -133,9 +133,9 @@ class NeuralGaussianRegressor(nn.Module):
 
     @staticmethod
     def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:
-        return torch.split(x, x.shape[-1]//2, dim=-1)
+        return torch.split(x, x.shape[-1]//2, dim=-1)  # type: ignore
 
-    def _predict_mean_var(self, x: Array) -> Tensor[Array, Array]:
+    def _predict_mean_var(self, x: Array) -> Tuple[Tensor, Tensor]:
         x = torch.from_numpy(np.array(x, dtype=np.float32))
         x = x.unsqueeze(dim=0)
         # Normalize input
