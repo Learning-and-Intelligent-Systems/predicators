@@ -21,6 +21,9 @@ from predicators.src.settings import CFG
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition.
     """
+    def __init__(self) -> None:
+        super().__init__()  # type: ignore
+
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
         Both X and Y are multi-dimensional.
