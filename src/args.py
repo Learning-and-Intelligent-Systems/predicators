@@ -22,7 +22,7 @@ def parse_args() -> Dict[str, Any]:
     arg_dict = vars(args)
     if len(overrides) == 0:
         return arg_dict
-    # Upate initial settings to make sure we're overriding
+    # Update initial settings to make sure we're overriding
     # existing flags only
     utils.update_config(arg_dict)
     # Override global settings
