@@ -11,14 +11,20 @@ from scipy.stats import truncnorm
 import torch
 from torch import nn
 from torch import optim
+from torch import Tensor
 import torch.nn.functional as F
+from typing import List, Tuple
+from predicators.src.structs import Array
 from predicators.src.settings import CFG
 
 
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition.
     """
-    def fit(self, X, Y):
+    def __init__(self) -> None:
+        super().__init__()  # type: ignore
+
+    def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
         Both X and Y are multi-dimensional.
         """
@@ -26,7 +32,7 @@ class NeuralGaussianRegressor(nn.Module):
         assert Y.ndim == 2
         return self._fit(X, Y)
 
-    def predict_mean(self, x):
+    def predict_mean(self, x: Array) -> Array:
         """Return a mean prediction on the given datapoint.
         x is single-dimensional.
         """
@@ -34,7 +40,8 @@ class NeuralGaussianRegressor(nn.Module):
         mean, _ = self._predict_mean_var(x)
         return mean
 
-    def predict_sample(self, x, rng):
+    def predict_sample(self, x: Array,
+                       rng: np.random.Generator) -> Array:
         """Return a sampled prediction on the given datapoint.
         x is single-dimensional.
         """
@@ -49,10 +56,10 @@ class NeuralGaussianRegressor(nn.Module):
             y.append(y_i)
         return np.array(y)
 
-    def forward(self, x):
+    def forward(self, inputs: Array) -> Tensor:
         """Pytorch forward method.
         """
-        x = torch.from_numpy(np.array(x, dtype=np.float32))
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
         x = self._linears[-1](x)
@@ -65,17 +72,17 @@ class NeuralGaussianRegressor(nn.Module):
         x = torch.cat([mean, variance], dim=-1)
         return x
 
-    def _fit(self, X, Y):
+    def _fit(self, inputs: Array, outputs: Array) -> None:
         torch.manual_seed(CFG.seed)
         # Infer input and output sizes from data
-        num_data, input_size = X.shape
-        _, output_size = Y.shape
+        num_data, input_size = inputs.shape
+        _, output_size = outputs.shape
         # Initialize net
         hid_sizes = CFG.regressor_hid_sizes
         self._initialize_net(input_size, hid_sizes, output_size)
         # Convert data to torch
-        X = torch.from_numpy(np.array(X, dtype=np.float32))
-        Y = torch.from_numpy(np.array(Y, dtype=np.float32))
+        X = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        Y = torch.from_numpy(np.array(outputs, dtype=np.float32))
         # Normalize data
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         Y, self._output_shift, self._output_scale = self._normalize_data(Y)
@@ -109,14 +116,15 @@ class NeuralGaussianRegressor(nn.Module):
                 break
             itr += 1
         # Load best model
-        self.load_state_dict(torch.load(model_name))
+        self.load_state_dict(torch.load(model_name))  # type: ignore
         os.remove(model_name)
         self.eval()  # switch to eval mode
         pred_mean, pred_var = self._split_prediction(self(X))
         loss = self._loss_fn(pred_mean, Y, pred_var)
         print(f"Loaded best model with loss: {loss:.5f}")
 
-    def _initialize_net(self, in_size, hid_sizes, out_size):
+    def _initialize_net(self, in_size: int, hid_sizes: List[int],
+                        out_size: int) -> None:
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
         for i in range(len(hid_sizes)-1):
@@ -127,23 +135,28 @@ class NeuralGaussianRegressor(nn.Module):
         self._loss_fn = nn.GaussianNLLLoss()
 
     @staticmethod
-    def _split_prediction(x):
-        return torch.split(x, x.shape[-1]//2, dim=-1)
+    def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:
+        return torch.split(x, x.shape[-1]//2, dim=-1)  # type: ignore
 
-    def _predict_mean_var(self, x):
-        x = torch.from_numpy(np.array(x, dtype=np.float32))
+    def _predict_mean_var(self, inputs: Array) -> Tuple[Array, Array]:
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         x = x.unsqueeze(dim=0)
         # Normalize input
         x = (x - self._input_shift) / self._input_scale
         mean, variance = self._split_prediction(self(x))
         # Normalize output
         mean = (mean * self._output_scale) + self._output_shift
-        variance = variance * (self._output_scale**2)
-        mean = mean.squeeze(dim=0).detach().numpy()
-        variance = variance.squeeze(dim=0).detach().numpy()
-        return mean, variance
+        variance = variance * (torch.square(self._output_scale))
+        mean = mean.squeeze(dim=0)
+        mean = mean.detach()  # type: ignore
+        np_mean = mean.numpy()
+        variance = variance.squeeze(dim=0)
+        variance = variance.detach()  # type: ignore
+        np_variance = variance.numpy()
+        return np_mean, np_variance
 
-    def _normalize_data(self, data):
+    def _normalize_data(self,
+                        data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         shift = torch.min(data, dim=0, keepdim=True).values
         scale = torch.max(data - shift, dim=0, keepdim=True).values
         scale = torch.clip(scale, min=CFG.normalization_scale_clip)
@@ -153,8 +166,8 @@ class NeuralGaussianRegressor(nn.Module):
 class MLPClassifier(nn.Module):
     """MLPClassifier definition.
     """
-    def __init__(self, in_size) -> None:
-        super().__init__()
+    def __init__(self, in_size: int) -> None:
+        super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
         hid_sizes = CFG.classifier_hid_sizes
         self._linears = nn.ModuleList()
@@ -163,7 +176,7 @@ class MLPClassifier(nn.Module):
             self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
         self._linears.append(nn.Linear(hid_sizes[-1], 1))
 
-    def fit(self, X, y):
+    def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
         X is multi-dimensional, y is single-dimensional.
         """
@@ -187,24 +200,23 @@ class MLPClassifier(nn.Module):
             keep_neg_idxs = list(self._rng.choice(neg_idxs, replace=False,
                                  size=len(pos_idxs)))
             keep_idxs = pos_idxs + keep_neg_idxs
-            X = [X[i] for i in keep_idxs]
-            y = [y[i] for i in keep_idxs]
+            X_lst = [X[i] for i in keep_idxs]
+            y_lst = [y[i] for i in keep_idxs]
             print(f"Reduced dataset size from {old_len} to {len(y)}")
-        X = np.array(X)
-        y = np.array(y)
+            X = np.array(X_lst)
+            y = np.array(y_lst)
         self._fit(X, y)
-        return X, y
 
-    def forward(self, x):
+    def forward(self, inputs: Array) -> Tensor:
         """Pytorch forward method.
         """
-        x = torch.from_numpy(np.array(x, dtype=np.float32))
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
         x = self._linears[-1](x)
         return torch.sigmoid(x.squeeze(dim=-1))
 
-    def classify(self, x):
+    def classify(self, x: Array) -> bool:
         """Return a classification of the given datapoint.
         x is single-dimensional.
         """
@@ -214,20 +226,21 @@ class MLPClassifier(nn.Module):
         assert classification in [False, True]
         return classification
 
-    def _normalize_data(self, data):
-        shift = np.min(data, axis=0)
-        scale = np.max(data - shift, axis=0)
+    def _normalize_data(self, data: Array
+                        ) -> Tuple[Array, Array, Array]:
+        shift = np.min(data, axis=0)  # type: ignore
+        scale = np.max(data - shift, axis=0)  # type: ignore
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
         return (data - shift) / scale, shift, scale
 
-    def _classify(self, x):
+    def _classify(self, x: Array) -> bool:
         return self(x).item() > 0.5
 
-    def _fit(self, X, y):
+    def _fit(self, inputs: Array, outputs: Array) -> None:
         torch.manual_seed(CFG.seed)
         # Convert data to torch
-        X = torch.from_numpy(np.array(X, dtype=np.float32))
-        y = torch.from_numpy(np.array(y, dtype=np.float32))
+        X = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        y = torch.from_numpy(np.array(outputs, dtype=np.float32))
         # Train
         print(f"Training {self.__class__.__name__} on {X.shape[0]} datapoints")
         self.train()  # switch to train mode
@@ -260,7 +273,7 @@ class MLPClassifier(nn.Module):
                 break
             itr += 1
         # Load best model
-        self.load_state_dict(torch.load(model_name))
+        self.load_state_dict(torch.load(model_name))  # type: ignore
         os.remove(model_name)
         self.eval()  # switch to eval mode
         yhat = self(X)

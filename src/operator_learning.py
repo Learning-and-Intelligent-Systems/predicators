@@ -250,23 +250,23 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
 
     # Fit classifier to data
     print("Fitting classifier...")
-    X_classifier = []
+    X_classifier: List[List[Array]] = []
     for state, sub, option in positive_data + negative_data:
         # input is state features and option parameters
         X_classifier.append([])
         for var in variables:
             X_classifier[-1].extend(state[sub[var]])
         X_classifier[-1].extend(option.params)
-    X_classifier = np.array(X_classifier)
+    X_arr_classifier = np.array(X_classifier)
     # output is binary signal
-    y_classifier = np.array([1 for _ in positive_data] +
-                            [0 for _ in negative_data])
-    classifier = MLPClassifier(X_classifier.shape[1])
-    classifier.fit(X_classifier, y_classifier)
+    y_arr_classifier = np.array([1 for _ in positive_data] +
+                                [0 for _ in negative_data])
+    classifier = MLPClassifier(X_arr_classifier.shape[1])
+    classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
     print("Fitting regressor...")
-    X_regressor = []
+    X_regressor: List[List[Array]] = []
     Y_regressor = []
     for state, sub, option in positive_data:  # don't use negative data!
         # input is state features
@@ -275,18 +275,19 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
             X_regressor[-1].extend(state[sub[var]])
         # output is option parameters
         Y_regressor.append(option.params)
-    X_regressor = np.array(X_regressor)
-    Y_regressor = np.array(Y_regressor)
+    X_arr_regressor = np.array(X_regressor)
+    Y_arr_regressor = np.array(Y_regressor)
     regressor = NeuralGaussianRegressor()
-    regressor.fit(X_regressor, Y_regressor)
+    regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Define & return sampler function
-    def _sampler(state, rng, objects):
-        x = []
+    def _sampler(state: State, rng: np.random.Generator,
+                 objects: Sequence[Object]) -> Array:
+        x_lst : List[Array] = []
         sub = dict(zip(variables, objects))
         for var in variables:
-            x.extend(state[sub[var]])
-        x = np.array(x)
+            x_lst.extend(state[sub[var]])
+        x = np.array(x_lst)
         for _ in range(CFG.max_rejection_sampling_tries):
             # TODO: we should check whether using rng in this way maintains reproducibility
             params = regressor.predict_sample(x, rng)
