@@ -50,8 +50,6 @@ def test_operator_learning_specific_operators():
     for _ in range(10):
         assert abs(op.ground([cup0, cup1, cup2]).sampler(
             state1, np.random.default_rng()) - 0.2) < 0.01
-        assert abs(op.ground([cup2, cup1, cup0]).sampler(
-            state1, np.random.default_rng()) - 0.2) < 0.01
     # The following test was used to manually check that unify caches correctly.
     pred0 = Predicate("Pred0", [cup_type],
                       lambda s, o: s[o[0]][0] > 0.5)
