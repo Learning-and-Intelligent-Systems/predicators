@@ -27,6 +27,8 @@ class InteractiveLearningApproach(TAMPApproach):
         super().__init__(simulator, self._predicates, initial_options,
                          types, action_space, train_tasks)
         self._operators: Set[Operator] = set()
+        # All seen data
+        # TODO: store Dataset and corresponding ground atom dataset
 
     @property
     def is_learning_based(self) -> bool:
@@ -40,8 +42,12 @@ class InteractiveLearningApproach(TAMPApproach):
         return self._predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # First, create semi-supervised dataset
+        ground_atoms_data = create_teacher_dataset(dataset)
+        # TODO: add to dataset
+        # TODO: learn predicates
         self._operators = learn_operators_from_data(
-            dataset, self._initial_predicates)
+            dataset, self._get_current_predicates())
 
 
 class _Teacher:
