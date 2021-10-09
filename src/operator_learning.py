@@ -309,12 +309,8 @@ def _create_sampler(classifier: MLPClassifier,
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
         for _ in range(CFG.max_rejection_sampling_tries):
-            params = np.array(regressor.predict_sample(x, rng),
-                              dtype=param_option.params_space.dtype)
+            params = regressor.predict_sample(x, rng)
             if classifier.classify(np.r_[x, params]):
                 break
-        if not param_option.params_space.contains(params):
-            # Sampler gave a bad output, just sample random parameters.
-            params = param_option.params_space.sample()
         return params
     return _sampler
