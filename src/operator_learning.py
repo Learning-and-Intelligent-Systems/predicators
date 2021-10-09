@@ -301,6 +301,7 @@ def _create_sampler(classifier: MLPClassifier,
                     variables: Sequence[Variable],
                     param_option: ParameterizedOption) -> Callable[[
                         State, np.random.Generator, Sequence[Object]], Array]:
+    # TODO: update this function with PR #48
     def _sampler(state: State, rng: np.random.Generator,
                  objects: Sequence[Object]) -> Array:
         x_lst : List[Array] = []
