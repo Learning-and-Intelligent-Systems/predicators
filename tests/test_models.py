@@ -9,7 +9,7 @@ from predicators.src import utils
 def test_neural_gaussian_regressor():
     """Tests for NeuralGaussianRegressor.
     """
-    utils.update_config({"seed": 0, "regressor_max_itr": 100})
+    utils.update_config({"seed": 123, "regressor_max_itr": 100})
     input_size = 3
     output_size = 2
     num_samples = 5
@@ -30,7 +30,7 @@ def test_neural_gaussian_regressor():
 def test_mlp_classifier():
     """Tests for MLPClassifier.
     """
-    utils.update_config({"seed": 0, "classifier_max_itr": 100})
+    utils.update_config({"seed": 123, "classifier_max_itr": 100})
     input_size = 3
     num_class_samples = 5
     X = np.concatenate([

@@ -97,7 +97,7 @@ class GlobalSettings:
         )
 
 
-def get_save_path():
+def get_save_path() -> str:
     """Create a path for this experiment that can be used to save
     and load results.
     """
