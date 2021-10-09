@@ -42,6 +42,7 @@ class OperatorLearningApproach(TAMPApproach):
             pkl.dump(data, f)
 
     def load(self) -> None:
+        # TODO: this is NOT DETERMINISTIC, need to fix
         save_path = get_save_path()
         with open(f"{save_path}.operators", "rb") as f:
             data = pkl.load(f)
