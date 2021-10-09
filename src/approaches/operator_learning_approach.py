@@ -34,6 +34,8 @@ class OperatorLearningApproach(TAMPApproach):
         save_path = get_save_path()
         data = []
         for op in self._operators:
+            # Sampler neural networks are already saved in operator_learning.py.
+            # Here we'll save the other fields of the operator.
             data.append((op.name, op.parameters, op.preconditions,
                          op.add_effects, op.delete_effects, op.option.name))
         with open(f"{save_path}.operators", "wb") as f:
@@ -46,7 +48,7 @@ class OperatorLearningApproach(TAMPApproach):
         self._operators = set()
         for (operator_name, parameters, preconditions, add_effects,
              delete_effects, option_name) in data:
-            # We'll assume the option is in the initial option set.
+            # We'll assume the option name exists in the initial option set.
             # Otherwise, if it was learned, it would need to be saved.
             candidate_options = [opt for opt in self._initial_options
                                  if opt.name == option_name]
