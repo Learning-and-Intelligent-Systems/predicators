@@ -5,12 +5,13 @@ import functools
 from collections import defaultdict
 from typing import Set, Tuple, List, Sequence, FrozenSet, Callable
 import numpy as np
+import torch
 from predicators.src.structs import Dataset, Operator, GroundAtom, \
     ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub, \
     Transition, Object, Array, State
 from predicators.src import utils
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
-from predicators.src.settings import CFG
+from predicators.src.settings import CFG, get_save_path
 
 
 def learn_operators_from_data(dataset: Dataset,
@@ -50,6 +51,20 @@ def learn_operators_from_data(dataset: Dataset,
     return set(operators)
 
 
+def load_sampler(variables: Sequence[Variable],
+                 param_option: ParameterizedOption,
+                 operator_name: str) -> Callable[[
+                     State, np.random.Generator, Sequence[Object]], Array]:
+    """Load sampler from the save path get_save_path().
+    """
+    save_path = get_save_path()
+    classifier = torch.load(
+        f"{save_path}_{operator_name}.classifier")  # type: ignore
+    regressor = torch.load(
+        f"{save_path}_{operator_name}.regressor")  # type: ignore
+    return _create_sampler(classifier, regressor, variables, param_option)
+
+
 def _learn_operators_for_option(option: ParameterizedOption,
                                 transitions: List[Transition]
                                 ) -> List[Operator]:
@@ -69,8 +84,8 @@ def _learn_operators_for_option(option: ParameterizedOption,
         operator_name = f"{option.name}{i}"
         # Learn sampler
         print(f"\nLearning sampler for operator {operator_name}")
-        sampler = _learn_sampler(partitioned_transitions, variables,
-                                 preconditions, option, i)
+        sampler = _learn_sampler(operator_name, partitioned_transitions,
+                                 variables, preconditions, option, i)
         # Construct Operator object
         operators.append(Operator(
             operator_name, variables, preconditions,
@@ -203,7 +218,8 @@ def _unify(
         f_new_lifted_add_effects | f_new_lifted_delete_effects)
 
 
-def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+def _learn_sampler(operator_name: str,
+                   transitions: List[List[Tuple[Transition, ObjToVarSub]]],
                    variables: Sequence[Variable],
                    preconditions: Set[LiftedAtom],
                    param_option: ParameterizedOption,
@@ -242,6 +258,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
           f"negative examples")
     assert len(positive_data) == len(transitions[partition_idx])
+    save_path = get_save_path()
 
     # Fit classifier to data
     print("Fitting classifier...")
@@ -258,6 +275,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
                                 [0 for _ in negative_data])
     classifier = MLPClassifier(X_arr_classifier.shape[1])
     classifier.fit(X_arr_classifier, y_arr_classifier)
+    torch.save(classifier, f"{save_path}_{operator_name}.classifier")
 
     # Fit regressor to data
     print("Fitting regressor...")
@@ -274,8 +292,15 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     Y_arr_regressor = np.array(Y_regressor)
     regressor = NeuralGaussianRegressor()
     regressor.fit(X_arr_regressor, Y_arr_regressor)
+    torch.save(regressor, f"{save_path}_{operator_name}.regressor")
+    return _create_sampler(classifier, regressor, variables, param_option)
 
-    # Define & return sampler function
+
+def _create_sampler(classifier: MLPClassifier,
+                    regressor: NeuralGaussianRegressor,
+                    variables: Sequence[Variable],
+                    param_option: ParameterizedOption) -> Callable[[
+                        State, np.random.Generator, Sequence[Object]], Array]:
     def _sampler(state: State, rng: np.random.Generator,
                  objects: Sequence[Object]) -> Array:
         x_lst : List[Array] = []
@@ -284,8 +309,12 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
         for _ in range(CFG.max_rejection_sampling_tries):
-            params = regressor.predict_sample(x, rng)
+            params = np.array(regressor.predict_sample(x, rng),
+                              dtype=param_option.params_space.dtype)
             if classifier.classify(np.r_[x, params]):
                 break
+        if not param_option.params_space.contains(params):
+            # Sampler gave a bad output, just sample random parameters.
+            params = param_option.params_space.sample()
         return params
     return _sampler

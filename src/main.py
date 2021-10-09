@@ -10,7 +10,7 @@ Another example usage:
 
 import time
 from predicators.src.args import parse_args
-from predicators.src.settings import CFG, get_save_path
+from predicators.src.settings import CFG
 from predicators.src.envs import create_env
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure
@@ -39,7 +39,6 @@ def main() -> None:
         else:
             dataset = create_dataset(env)
             approach.learn_from_offline_dataset(dataset)
-            approach.save()
     # Run approach
     test_tasks = env.get_test_tasks()
     for i, task in enumerate(test_tasks):

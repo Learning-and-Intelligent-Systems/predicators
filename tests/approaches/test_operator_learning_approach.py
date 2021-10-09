@@ -14,7 +14,7 @@ def test_operator_learning_approach():
     """
     utils.update_config({"env": "cover", "approach": "operator_learning",
                          "timeout": 10, "max_samples_per_step": 10,
-                         "seed": 0, "classifier_max_itr": 500,
+                         "seed": 123, "classifier_max_itr": 500,
                          "regressor_max_itr": 500})
     env = CoverEnv()
     approach = OperatorLearningApproach(
