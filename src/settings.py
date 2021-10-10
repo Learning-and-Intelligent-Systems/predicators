@@ -25,6 +25,9 @@ class GlobalSettings:
     video_dir = "videos"
     video_fps = 2
 
+    # teacher dataset parameters
+    frac = 0.3
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are

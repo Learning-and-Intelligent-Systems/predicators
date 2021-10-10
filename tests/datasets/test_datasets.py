@@ -3,6 +3,7 @@
 
 import pytest
 from predicators.src.datasets import create_dataset
+from predicators.src.datasets.teacher import create_teacher_dataset
 from predicators.src.envs import CoverEnv
 from predicators.src import utils
 
@@ -88,6 +89,27 @@ def test_demo_replay_dataset():
     assert len(dataset[-1]) == 2
     assert len(dataset[-1][0]) == 2
     assert len(dataset[-1][1]) == 1
+    for _, actions in dataset:
+        for action in actions:
+            assert not action.has_option()
+
+
+def test_teacher_dataset():
+    """Test teacher dataset creation with Covers env.
+    """
+    # Test that data does not contain options since approach is random
+    utils.update_config({
+        "env": "cover",
+        "approach": "random",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "seed": 0,
+        "num_train_tasks": 7,
+    })
+    env = CoverEnv()
+    dataset = create_dataset(env)
+    teacher_dataset = create_teacher_dataset(env, dataset)
+    assert len(teacher_dataset) == 7
     for _, actions in dataset:
         for action in actions:
             assert not action.has_option()
