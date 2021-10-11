@@ -2,6 +2,7 @@
 Anything that varies between runs should be a command-line arg (args.py).
 """
 
+import os
 from collections import defaultdict
 from types import SimpleNamespace
 from typing import Dict, Any
@@ -22,6 +23,7 @@ class GlobalSettings:
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
     # evaluation parameters
+    save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
 
@@ -93,6 +95,16 @@ class GlobalSettings:
                 "operator_learning": 10,
             })[args["approach"]],
         )
+
+
+def get_save_path() -> str:
+    """Create a path for this experiment that can be used to save
+    and load results.
+    """
+    if not os.path.exists(CFG.save_dir):
+        os.makedirs(CFG.save_dir)
+    return f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}.saved"
+
 
 _attr_to_value = {}
 for _attr, _value in GlobalSettings.__dict__.items():
