@@ -95,10 +95,12 @@ class CoverEnv(BaseEnv):
         return next_state
 
     def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks)
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks)
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -187,7 +189,7 @@ class CoverEnv(BaseEnv):
                  state[targ][3]+state[targ][2]/10))
         return hand_regions
 
-    def _get_tasks(self, num: int) -> List[Task]:
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
         goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
         goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
@@ -195,16 +197,16 @@ class CoverEnv(BaseEnv):
                  GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
         goals = [goal1, goal2, goal3]
         for i in range(num):
-            tasks.append(Task(self._create_initial_state(),
+            tasks.append(Task(self._create_initial_state(rng),
                               goals[i%len(goals)]))
         return tasks
 
-    def _create_initial_state(self) -> State:
+    def _create_initial_state(self, rng: np.random.Generator) -> State:
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_block_widths) == len(self._blocks)
         for block, width in zip(self._blocks, CFG.cover_block_widths):
             while True:
-                pose = self._rng.uniform(width/2, 1.0-width/2)
+                pose = rng.uniform(width/2, 1.0-width/2)
                 if not self._any_intersection(pose, width, data):
                     break
             # [is_block, is_target, width, pose, grasp]
@@ -212,7 +214,7 @@ class CoverEnv(BaseEnv):
         assert len(CFG.cover_target_widths) == len(self._targets)
         for target, width in zip(self._targets, CFG.cover_target_widths):
             while True:
-                pose = self._rng.uniform(width/2, 1.0-width/2)
+                pose = rng.uniform(width/2, 1.0-width/2)
                 if not self._any_intersection(
                         pose, width, data, larger_gap=True):
                     break
