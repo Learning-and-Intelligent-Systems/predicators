@@ -32,7 +32,9 @@ def get_gt_ops(predicates: Set[Predicate],
     """Create ground truth operators for an env.
     """
     if CFG.env == "cover":
-        ops = _get_cover_gt_ops()
+        ops = _get_cover_gt_ops(options_are_typed=False)
+    elif CFG.env == "cover_typed":
+        ops = _get_cover_gt_ops(options_are_typed=True)
     else:
         raise NotImplementedError("Ground truth operators not implemented")
     # Filter out excluded predicates/options
@@ -78,7 +80,7 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_ops() -> Set[Operator]:
+def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
     """Create ground truth operators for CoverEnv.
     """
     block_type, target_type = _get_types_by_names("cover", ["block", "target"])
@@ -87,14 +89,22 @@ def _get_cover_gt_ops() -> Set[Operator]:
         _get_predicates_by_names("cover", ["IsBlock", "IsTarget", "Covers",
                                            "HandEmpty", "Holding"])
 
-    PickPlace, = _get_options_by_names("cover", ["PickPlace"])
+    if options_are_typed:
+        Pick, Place = _get_options_by_names("cover_typed", ["Pick", "Place"])
+    else:
+        PickPlace, = _get_options_by_names("cover", ["PickPlace"])
 
     operators = set()
 
     # Pick
     block = Variable("?block", block_type)
     parameters = [block]
-    option_vars = []
+    if options_are_typed:
+        option_vars = [block]
+        option = Pick
+    else:
+        option_vars = []
+        option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
     add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
@@ -109,14 +119,19 @@ def _get_cover_gt_ops() -> Set[Operator]:
         ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     pick_operator = Operator("Pick", parameters, preconditions,
-                             add_effects, delete_effects, PickPlace,
+                             add_effects, delete_effects, option,
                              option_vars, pick_sampler)
     operators.add(pick_operator)
 
     # Place
     target = Variable("?target", target_type)
     parameters = [block, target]
-    option_vars = []
+    if options_are_typed:
+        option_vars = [target]
+        option = Place
+    else:
+        option_vars = []
+        option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]),
                      LiftedAtom(IsTarget, [target]),
                      LiftedAtom(Holding, [block])}
@@ -134,7 +149,7 @@ def _get_cover_gt_ops() -> Set[Operator]:
         ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     place_operator = Operator("Place", parameters, preconditions,
-                              add_effects, delete_effects, PickPlace,
+                              add_effects, delete_effects, option,
                               option_vars, place_sampler)
     operators.add(place_operator)
 
