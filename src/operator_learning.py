@@ -78,7 +78,7 @@ def _learn_operators_for_option(option: ParameterizedOption,
         if len(part_transitions) < CFG.min_data_for_operator:
             continue
         # Learn preconditions
-        variables, preconditions = \
+        variables, option_vars, preconditions = \
             _learn_preconditions(
                 add_effects[i], delete_effects[i], part_transitions)
         operator_name = f"{option.name}{i}"
@@ -89,7 +89,7 @@ def _learn_operators_for_option(option: ParameterizedOption,
         # Construct Operator object
         operators.append(Operator(
             operator_name, variables, preconditions,
-            add_effects[i], delete_effects[i], option, sampler))
+            add_effects[i], delete_effects[i], option, option_vars, sampler))
 
     return operators
 
@@ -140,7 +140,7 @@ def  _learn_preconditions(
         add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
         transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
             Sequence[Variable], Set[LiftedAtom]]:
-    for i, ((_, atoms, _, trans_add_effects,
+    for i, ((_, atoms, option, trans_add_effects,
              trans_delete_effects), _) in enumerate(transitions):
         suc, sub = _unify(
             frozenset(trans_add_effects),
@@ -157,14 +157,16 @@ def  _learn_preconditions(
         lifted_atoms = {atom.lift(sub) for atom in atoms}
         if i == 0:
             variables = sorted(set(sub.values()))
+            option_vars = [sub[obj] for obj in option.objects]
         else:
             assert variables == sorted(set(sub.values()))
+            assert option_vars == [sub[obj] for obj in option.objects]
         if i == 0:
             preconditions = lifted_atoms
         else:
             preconditions &= lifted_atoms
 
-    return variables, preconditions
+    return variables, option_vars, preconditions
 
 
 @functools.lru_cache(maxsize=None)

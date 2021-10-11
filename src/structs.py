@@ -16,7 +16,7 @@ class Type:
     """Struct defining a type.
     """
     name: str
-    feature_names: Sequence[str]
+    feature_names: Sequence[str] = field(repr=False)
 
     @property
     def dim(self) -> int:
@@ -331,9 +331,8 @@ class ParameterizedOption:
         assert [obj.type for obj in objects] == self.types
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
-        name = (self.name + "(" + ", ".join(map(str, objects)) + "; " +
-                ", ".join(map(str, params)) + ")")
-        return _Option(name, policy=lambda s: self._policy(s, objects, params),
+        return _Option(self.name,
+                       policy=lambda s: self._policy(s, objects, params),
                        initiable=lambda s: self._initiable(s, objects, params),
                        terminal=lambda s: self._terminal(s, objects, params),
                        parent=self, objects=objects, params=params)
@@ -357,9 +356,9 @@ class _Option:
     # The parameterized option that generated this option.
     parent: ParameterizedOption = field(repr=False)
     # The objects that were used to ground this option.
-    objects: Sequence[Object] = field(repr=False)
+    objects: Sequence[Object]
     # The parameters that were used to ground this option.
-    params: Array = field(repr=False)
+    params: Array
 
 
 DefaultOption: _Option = ParameterizedOption(
@@ -391,6 +390,7 @@ class Operator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
+    Option Variables: {self.option_vars}
     Option: {self.option}"""
 
     @cached_property
@@ -459,6 +459,7 @@ class _GroundOperator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
+    Option Objects: {self.option_objs}
     Option: {self.option}"""
 
     @cached_property
