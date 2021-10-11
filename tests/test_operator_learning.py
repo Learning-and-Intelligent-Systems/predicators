@@ -196,4 +196,5 @@ def test_operator_learning_specific_operators():
             assert option1.parent.params_space.contains(
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
+    utils.update_config({"do_sampler_learning": True})
     # TODO: test unify needing to care about option as well as effects. this should involve learning some operator that has parameters NOT present in any preconditions or effects
