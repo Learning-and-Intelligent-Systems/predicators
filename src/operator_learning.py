@@ -69,18 +69,17 @@ def _learn_operators_for_option(option: ParameterizedOption,
                                 transitions: List[Transition]
                                 ) -> List[Operator]:
     # Partition the data by lifted effects
-    add_effects, delete_effects, partitioned_transitions = \
-        _partition_transitions_by_lifted_effects(
-            transitions)
+    option_vars, add_effects, delete_effects, \
+        partitioned_transitions = _partition_transitions(transitions)
 
     operators = []
     for i, part_transitions in enumerate(partitioned_transitions):
         if len(part_transitions) < CFG.min_data_for_operator:
             continue
         # Learn preconditions
-        variables, option_vars, preconditions = \
-            _learn_preconditions(
-                add_effects[i], delete_effects[i], part_transitions)
+        variables, preconditions = \
+            _learn_preconditions(option_vars[i], add_effects[i],
+                                 delete_effects[i], part_transitions)
         operator_name = f"{option.name}{i}"
         # Learn sampler
         print(f"\nLearning sampler for operator {operator_name}")
@@ -89,29 +88,38 @@ def _learn_operators_for_option(option: ParameterizedOption,
         # Construct Operator object
         operators.append(Operator(
             operator_name, variables, preconditions,
-            add_effects[i], delete_effects[i], option, option_vars, sampler))
+            add_effects[i], delete_effects[i], option, option_vars[i],
+            sampler))
 
     return operators
 
 
-def _partition_transitions_by_lifted_effects(
+def _partition_transitions(
         transitions: List[Transition]) -> Tuple[
-            List[Set[LiftedAtom]], List[Set[LiftedAtom]],
+            List[List[Variable]],
+            List[Set[LiftedAtom]],
+            List[Set[LiftedAtom]],
             List[List[Tuple[Transition, ObjToVarSub]]]]:
+    option_args: List[List[Variable]] = []
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[List[Tuple[Transition, ObjToVarSub]]] = []
     for transition in transitions:
-        _, _, _, trans_add_effects, trans_delete_effects = transition
+        _, _, option, trans_add_effects, trans_delete_effects = \
+            transition
+        trans_option_args = option.objects
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects
             # Note that both add and delete effects must unify
+            part_option_args = option_args[i]
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
             suc, sub = _unify(frozenset(trans_add_effects),
                               frozenset(trans_delete_effects),
+                              tuple(trans_option_args),
                               frozenset(part_add_effects),
-                              frozenset(part_delete_effects))
+                              frozenset(part_delete_effects),
+                              tuple(part_option_args))
             if suc:
                 # Add to this partition
                 partitions[i].append((transition, sub))
@@ -125,6 +133,7 @@ def _partition_transitions_by_lifted_effects(
             variables = [Variable(f"?x{i}", o.type)
                          for i, o in enumerate(objects_lst)]
             sub = dict(zip(objects_lst, variables))
+            option_args.append([sub[v] for v in trans_option_args])
             add_effects.append({atom.lift(sub) for atom
                                 in trans_add_effects})
             delete_effects.append({atom.lift(sub) for atom
@@ -132,11 +141,12 @@ def _partition_transitions_by_lifted_effects(
             new_partition = [(transition, sub)]
             partitions.append(new_partition)
 
-    assert len(add_effects) == len(delete_effects) == len(partitions)
-    return add_effects, delete_effects, partitions
+    assert len(option_args) == len(add_effects) == \
+           len(delete_effects) == len(partitions)
+    return option_args, add_effects, delete_effects, partitions
 
 
-def  _learn_preconditions(
+def  _learn_preconditions(option_vars: List[Variable],
         add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
         transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
             Sequence[Variable], Set[LiftedAtom]]:
@@ -145,8 +155,10 @@ def  _learn_preconditions(
         suc, sub = _unify(
             frozenset(trans_add_effects),
             frozenset(trans_delete_effects),
+            tuple(option.objects),
             frozenset(add_effects),
-            frozenset(delete_effects))
+            frozenset(delete_effects),
+            tuple(option_vars))
         assert suc  # else this transition won't be in this partition
         # Remove atoms from the state which contain objects not mentioned
         # in the effects. This cannot handle actions at a distance.
@@ -166,15 +178,17 @@ def  _learn_preconditions(
         else:
             preconditions &= lifted_atoms
 
-    return variables, option_vars, preconditions
+    return variables, preconditions
 
 
 @functools.lru_cache(maxsize=None)
 def _unify(
         ground_add_effects: FrozenSet[GroundAtom],
         ground_delete_effects: FrozenSet[GroundAtom],
+        ground_option_args: Tuple[Object, ...],
         lifted_add_effects: FrozenSet[LiftedAtom],
-        lifted_delete_effects: FrozenSet[LiftedAtom]
+        lifted_delete_effects: FrozenSet[LiftedAtom],
+        lifted_option_args: Tuple[Variable, ...]
 ) -> Tuple[bool, ObjToVarSub]:
     """Light wrapper around utils.unify() that handles split add and
     delete effects. Changes predicate names so that delete effects are
@@ -183,6 +197,11 @@ def _unify(
     Note: We could only change either add or delete predicate names,
     but to avoid potential bugs we'll just change both.
     """
+    opt_arg_pred = Predicate("OPT-ARGS",
+                             [a.type for a in ground_option_args],
+                             _classifier=lambda s, o: False)  # dummy
+    f_ground_option_args = frozenset({GroundAtom(opt_arg_pred,
+                                                 ground_option_args)})
     new_ground_add_effects = set()
     for ground_atom in ground_add_effects:
         new_predicate = Predicate("ADD-"+ground_atom.predicate.name,
@@ -199,6 +218,9 @@ def _unify(
         new_ground_delete_effects.add(GroundAtom(
             new_predicate, ground_atom.objects))
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
+
+    f_lifted_option_args = frozenset({LiftedAtom(opt_arg_pred,
+                                                 lifted_option_args)})
     new_lifted_add_effects = set()
     for lifted_atom in lifted_add_effects:
         new_predicate = Predicate("ADD-"+lifted_atom.predicate.name,
@@ -216,8 +238,10 @@ def _unify(
             new_predicate, lifted_atom.variables))
     f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
     return utils.unify(
-        f_new_ground_add_effects | f_new_ground_delete_effects,
-        f_new_lifted_add_effects | f_new_lifted_delete_effects)
+        f_ground_option_args | f_new_ground_add_effects | \
+            f_new_ground_delete_effects,
+        f_lifted_option_args | f_new_lifted_add_effects | \
+            f_new_lifted_delete_effects)
 
 
 def _learn_sampler(operator_name: str,
