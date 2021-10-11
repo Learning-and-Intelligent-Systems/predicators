@@ -26,7 +26,8 @@ def test_operator_learning_approach():
     for task in env.get_test_tasks():
         try:
             approach.solve(task, timeout=CFG.timeout)
-        except (ApproachTimeout, ApproachFailure):  # pragma: no cover
+            raise ApproachFailure  # to guarantee except hit for test coverage
+        except (ApproachTimeout, ApproachFailure):
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
@@ -38,5 +39,6 @@ def test_operator_learning_approach():
     for task in env.get_test_tasks():
         try:
             approach2.solve(task, timeout=CFG.timeout)
-        except (ApproachTimeout, ApproachFailure):  # pragma: no cover
+            raise ApproachFailure  # to guarantee except hit for test coverage
+        except (ApproachTimeout, ApproachFailure):
             pass
