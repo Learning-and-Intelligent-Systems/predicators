@@ -160,8 +160,7 @@ def _run_low_level_search(
         operator = skeleton[cur_idx]
         # Ground the operator's ParameterizedOption using the
         # operator's sampler on this state.
-        option = operator.option.ground(
-            operator.sampler(state, rng_sampler))
+        option = operator.sample_option(state, rng_sampler)
         options[cur_idx] = option
         option_traj_states, option_traj_acts = utils.option_to_trajectory(
             state, simulator, option,

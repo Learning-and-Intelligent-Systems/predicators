@@ -36,6 +36,8 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate(
             "Holding", [self._block_type], self._Holding_holds)
         # Options
+        # TODO: make this relative. we'll need two options now, since
+        # the types will need to be block type and target type.
         params_space = Box(0, 1, (1,))
         self._PickPlace = ParameterizedOption(
             "PickPlace", params_space,

@@ -294,6 +294,7 @@ class ParameterizedOption:
     For a parameterized option, all of these are conditioned on parameters.
     """
     name: str
+    types: Sequence[Type]
     params_space: Box = field(repr=False)
     # A policy maps a state and parameters to an action.
     _policy: Callable[[State, Array], Action] = field(repr=False)
@@ -315,18 +316,6 @@ class ParameterizedOption:
     def __hash__(self) -> int:
         return self._hash
 
-    def ground(self, params: Array) -> _Option:
-        """Ground into an Option, given parameter values.
-        On the Option that is returned, one can call, e.g., policy(state).
-        """
-        params = np.array(params, dtype=self.params_space.dtype)
-        assert self.params_space.contains(params)
-        name = self.name + "(" + ", ".join(map(str, params)) + ")"
-        return _Option(name, policy=lambda s: self._policy(s, params),
-                       initiable=lambda s: self._initiable(s, params),
-                       terminal=lambda s: self._terminal(s, params),
-                       parent=self, params=params)
-
 
 @dataclass(frozen=True, eq=False)
 class _Option:
@@ -335,6 +324,7 @@ class _Option:
     instantiated externally.
     """
     name: str
+    objects: Sequence[Object]
     # A policy maps a state to an action.
     policy: Callable[[State], Action] = field(repr=False)
     # An initiation classifier maps a state to a bool, which is True
@@ -349,9 +339,10 @@ class _Option:
     params: Array = field(repr=False)
 
 
-DefaultOption: _Option = ParameterizedOption(
-    "", Box(0, 1, (1,)), lambda s, p: Action(np.array([0.0])),
-    lambda s, p: False, lambda s, p: False).ground(np.array([0.0]))
+# TODO: fix this
+# DefaultOption: _Option = ParameterizedOption(
+#     "", Box(0, 1, (1,)), lambda s, p: Action(np.array([0.0])),
+#     lambda s, p: False, lambda s, p: False).ground(np.array([0.0]))
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -364,6 +355,7 @@ class Operator:
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
+    option_vars: Sequence[Variable]  # a subset of parameters
     # A sampler maps a state, RNG, and objects to option parameters.
     _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
                        Array] = field(repr=False)
@@ -403,9 +395,10 @@ class Operator:
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
-        sampler = lambda s, rng: self._sampler(s, rng, objects)
+        option_objs = [subs[v] for v in self.option_vars]
         return _GroundOperator(self, objects, preconditions, add_effects,
-                               delete_effects, self.option, sampler)
+                               delete_effects, self.option, option_objs,
+                               self._sampler)
 
     def filter_predicates(self, kept: Collection[Predicate]) -> Operator:
         """Keep only the given predicates in the preconditions,
@@ -430,7 +423,9 @@ class _GroundOperator:
     add_effects: Set[GroundAtom]
     delete_effects: Set[GroundAtom]
     option: ParameterizedOption
-    sampler: Callable[[State, np.random.Generator], Array] = field(repr=False)
+    option_objs: Sequence[Object]
+    _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
+                       Array] = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
@@ -463,6 +458,22 @@ class _GroundOperator:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, _GroundOperator)
         return str(self) == str(other)
+
+    def sample_option(self, state: State, rng: np.random.Generator
+                      ) -> _Option:
+        """Sample an option for this ground operator.
+        """
+        sub = dict(zip(self.operator.parameters, self.objects))
+        objs = [sub[v] for v in self.option.variables]
+        params = self._sampler(state, rng, self.objects)
+        params = np.array(params, dtype=self.params_space.dtype)
+        assert self.params_space.contains(params)
+        name = self.name + "(" + ", ".join(map(str, params)) + ")"
+        return _Option(name, self.option_objs,
+                       policy=lambda s: self._policy(s, params),
+                       initiable=lambda s: self._initiable(s, params),
+                       terminal=lambda s: self._terminal(s, params),
+                       parent=self, params=params)
 
 
 @dataclass(eq=False)
