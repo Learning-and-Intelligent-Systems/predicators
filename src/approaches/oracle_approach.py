@@ -113,10 +113,14 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
         assert len(objs) == 1
         b = objs[0]
         assert b.type == block_type
-        lb = float(state.get(b, "pose") - state.get(b, "width")/2)
-        lb = max(lb, 0.0)
-        ub = float(state.get(b, "pose") + state.get(b, "width")/2)
-        ub = min(ub, 1.0)
+        if options_are_typed:
+            lb = float(-state.get(b, "width")/2)  # relative positioning only
+            ub = float(state.get(b, "width")/2)  # relative positioning only
+        else:
+            lb = float(state.get(b, "pose") - state.get(b, "width")/2)
+            lb = max(lb, 0.0)
+            ub = float(state.get(b, "pose") + state.get(b, "width")/2)
+            ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     pick_operator = Operator("Pick", parameters, preconditions,
                              add_effects, delete_effects, option,
