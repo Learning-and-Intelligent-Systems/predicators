@@ -277,7 +277,7 @@ class CoverEnvTypedOptions(CoverEnv):
     def __init__(self) -> None:
         super().__init__()
         del self._PickPlace
-        def _pick_policy(s, o, p):
+        def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
             # The pick parameter is a RELATIVE position, so we need to
             # add the pose of the object.
             pick_pose = s.get(o[0], "pose") + p[0]
