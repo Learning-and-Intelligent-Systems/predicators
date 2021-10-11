@@ -12,7 +12,7 @@ from predicators.src import utils
 def test_operator_learning_specific_operators():
     """Tests with a specific desired set of operators.
     """
-    utils.update_config({"min_data_for_operator": 0, "seed": 0,
+    utils.update_config({"min_data_for_operator": 0, "seed": 123,
                          "classifier_max_itr": 1000,
                          "regressor_max_itr": 1000})
     cup_type = Type("cup_type", ["feat1"])

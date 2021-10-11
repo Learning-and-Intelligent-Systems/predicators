@@ -17,6 +17,7 @@ def parse_args() -> Dict[str, Any]:
     parser.add_argument("--seed", required=True, type=int)
     parser.add_argument("--timeout", default=10, type=float)
     parser.add_argument("--make_videos", action="store_true")
+    parser.add_argument("--load", action="store_true")
     args, overrides = parser.parse_known_args()
     print_args(args)
     arg_dict = vars(args)
