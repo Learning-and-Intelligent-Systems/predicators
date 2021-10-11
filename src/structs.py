@@ -391,8 +391,8 @@ class Operator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Option Variables: {self.option_vars}
-    Option: {self.option}"""
+    Option: {self.option}
+    Option Variables: {self.option_vars}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -460,8 +460,8 @@ class _GroundOperator:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Option Objects: {self.option_objs}
-    Option: {self.option}"""
+    Option: {self.option}
+    Option Objects: {self.option_objs}"""
 
     @cached_property
     def _hash(self) -> int:
