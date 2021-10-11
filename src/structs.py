@@ -296,14 +296,23 @@ class ParameterizedOption:
     name: str
     types: Sequence[Type]
     params_space: Box = field(repr=False)
-    # A policy maps a state and parameters to an action.
-    _policy: Callable[[State, Array], Action] = field(repr=False)
-    # An initiation classifier maps a state and parameters to a bool,
-    # which is True iff the option can start now.
-    _initiable: Callable[[State, Array], bool] = field(repr=False)
-    # A termination condition maps a state and parameters to a bool,
-    # which is True iff the option should terminate now.
-    _terminal: Callable[[State, Array], bool] = field(repr=False)
+    # A policy maps a state, objects, and parameters to an action.
+    # The objects' types will match those in self.types. The parameters
+    # will be contained in params_space.
+    _policy: Callable[[State, Sequence[Object], Array], Action] = field(
+        repr=False)
+    # An initiation classifier maps a state, objects, and parameters to a
+    # bool, which is True iff the option can start now. The objects' types
+    # will match those in self.types. The parameters will be contained
+    # in params_space.
+    _initiable: Callable[[State, Sequence[Object], Array], bool] = field(
+        repr=False)
+    # A termination condition maps a state, objects, and parameters to a
+    # bool, which is True iff the option should terminate now. The objects'
+    # types will match those in self.types. The parameters will be contained
+    # in params_space.
+    _terminal: Callable[[State, Sequence[Object], Array], bool] = field(
+        repr=False)
 
     @cached_property
     def _hash(self) -> int:
@@ -316,15 +325,26 @@ class ParameterizedOption:
     def __hash__(self) -> int:
         return self._hash
 
+    def ground(self, objects: Sequence[Object], params: Array) -> _Option:
+        """Ground into an Option, given objects and parameter values.
+        """
+        assert [obj.type for obj in objects] == self.types
+        assert self.params_space.contains(params)
+        name = (self.name + "(" + ", ".join(map(str, objects)) + "; " +
+                ", ".join(map(str, params)) + ")")
+        return _Option(name, policy=lambda s: self._policy(s, objects, params),
+                       initiable=lambda s: self._initiable(s, objects, params),
+                       terminal=lambda s: self._terminal(s, objects, params),
+                       parent=self, objects=objects, params=params)
+
 
 @dataclass(frozen=True, eq=False)
 class _Option:
     """Struct defining an option, which is like a parameterized option except
-    that its components are not conditioned on parameters. Should not be
-    instantiated externally.
+    that its components are not conditioned on objects/parameters. Should not
+    be instantiated externally.
     """
     name: str
-    objects: Sequence[Object]
     # A policy maps a state to an action.
     policy: Callable[[State], Action] = field(repr=False)
     # An initiation classifier maps a state to a bool, which is True
@@ -335,14 +355,15 @@ class _Option:
     terminal: Callable[[State], bool] = field(repr=False)
     # The parameterized option that generated this option.
     parent: ParameterizedOption = field(repr=False)
+    # The objects that were used to ground this option.
+    objects: Sequence[Object] = field(repr=False)
     # The parameters that were used to ground this option.
     params: Array = field(repr=False)
 
 
-# TODO: fix this
-# DefaultOption: _Option = ParameterizedOption(
-#     "", Box(0, 1, (1,)), lambda s, p: Action(np.array([0.0])),
-#     lambda s, p: False, lambda s, p: False).ground(np.array([0.0]))
+DefaultOption: _Option = ParameterizedOption(
+    "", [], Box(0, 1, (1,)), lambda s, o, p: Action(np.array([0.0])),
+    lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.0]))
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -355,7 +376,9 @@ class Operator:
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
-    option_vars: Sequence[Variable]  # a subset of parameters
+    # A subset of parameters corresponding to the (lifted) arguments of the
+    # option that this operator contains.
+    option_vars: Sequence[Variable]
     # A sampler maps a state, RNG, and objects to option parameters.
     _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
                        Array] = field(repr=False)
@@ -395,7 +418,7 @@ class Operator:
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
-        option_objs = [subs[v] for v in self.option_vars]
+        option_objs = [sub[v] for v in self.option_vars]
         return _GroundOperator(self, objects, preconditions, add_effects,
                                delete_effects, self.option, option_objs,
                                self._sampler)
@@ -410,12 +433,13 @@ class Operator:
         delete_effects = {a for a in self.delete_effects if a.predicate in kept}
         return Operator(self.name, self.parameters,
                         preconditions, add_effects, delete_effects,
-                        self.option, self._sampler)
+                        self.option, self.option_vars, self._sampler)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundOperator:
-    """A ground operator is an operator + objects.
+    """A ground operator is an operator + objects. Should not be instantiated
+    externally.
     """
     operator: Operator
     objects: Sequence[Object]
@@ -459,21 +483,13 @@ class _GroundOperator:
         assert isinstance(other, _GroundOperator)
         return str(self) == str(other)
 
-    def sample_option(self, state: State, rng: np.random.Generator
-                      ) -> _Option:
-        """Sample an option for this ground operator.
+    def sample_option(self, state: State, rng: np.random.Generator) -> _Option:
+        """Sample an _Option for this ground operator, by invoking
+        the contained sampler. On the Option that is returned, one can call,
+        e.g., policy(state).
         """
-        sub = dict(zip(self.operator.parameters, self.objects))
-        objs = [sub[v] for v in self.option.variables]
-        params = self._sampler(state, rng, self.objects)
-        params = np.array(params, dtype=self.params_space.dtype)
-        assert self.params_space.contains(params)
-        name = self.name + "(" + ", ".join(map(str, params)) + ")"
-        return _Option(name, self.option_objs,
-                       policy=lambda s: self._policy(s, params),
-                       initiable=lambda s: self._initiable(s, params),
-                       terminal=lambda s: self._terminal(s, params),
-                       parent=self, params=params)
+        params = self._sampler(state, rng, self.option_objs)
+        return self.option.ground(self.option_objs, params)
 
 
 @dataclass(eq=False)
