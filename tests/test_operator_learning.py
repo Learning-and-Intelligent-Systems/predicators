@@ -158,9 +158,18 @@ def test_operator_learning_specific_operators():
     ops = learn_operators_from_data(dataset, preds)
     assert len(ops) == 0
     # Test sampler giving out-of-bounds outputs
-    utils.update_config({"min_data_for_operator": 0, "seed": 0,
+    utils.update_config({"min_data_for_operator": 0, "seed": 123,
                          "classifier_max_itr": 1,
                          "regressor_max_itr": 1})
+    ops = learn_operators_from_data(dataset, preds)
+    assert len(ops) == 2
+    for op in ops:
+        for _ in range(10):
+            assert option1.parent.params_space.contains(
+                op.ground([cup0, cup1]).sampler(
+                    state1, np.random.default_rng(123)))
+    # Test max_rejection_sampling_tries = 0
+    utils.update_config({"max_rejection_sampling_tries": 0, "seed": 123})
     ops = learn_operators_from_data(dataset, preds)
     assert len(ops) == 2
     for op in ops:
