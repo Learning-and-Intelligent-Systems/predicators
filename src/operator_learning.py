@@ -129,6 +129,7 @@ def _partition_transitions(
             # Get new lifted effects
             objects = {o for atom in trans_add_effects |
                        trans_delete_effects for o in atom.objects}
+            objects.update(option.objects)
             objects_lst = sorted(objects)
             variables = [Variable(f"?x{i}", o.type)
                          for i, o in enumerate(objects_lst)]
@@ -161,9 +162,10 @@ def  _learn_preconditions(option_vars: List[Variable],
             tuple(option_vars))
         assert suc  # else this transition won't be in this partition
         # Remove atoms from the state which contain objects not mentioned
-        # in the effects. This cannot handle actions at a distance.
+        # in the effects or option. This cannot handle actions at a distance.
         objects = {o for atom in trans_add_effects |
                    trans_delete_effects for o in atom.objects}
+        objects.update(option.objects)
         atoms = {atom for atom in atoms if
                  all(o in objects for o in atom.objects)}
         lifted_atoms = {atom.lift(sub) for atom in atoms}
