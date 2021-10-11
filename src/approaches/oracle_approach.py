@@ -94,6 +94,7 @@ def _get_cover_gt_ops() -> Set[Operator]:
     # Pick
     block = Variable("?block", block_type)
     parameters = [block]
+    option_vars = []
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
     add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
@@ -109,12 +110,13 @@ def _get_cover_gt_ops() -> Set[Operator]:
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     pick_operator = Operator("Pick", parameters, preconditions,
                              add_effects, delete_effects, PickPlace,
-                             pick_sampler)
+                             option_vars, pick_sampler)
     operators.add(pick_operator)
 
     # Place
     target = Variable("?target", target_type)
     parameters = [block, target]
+    option_vars = []
     preconditions = {LiftedAtom(IsBlock, [block]),
                      LiftedAtom(IsTarget, [target]),
                      LiftedAtom(Holding, [block])}
@@ -133,7 +135,7 @@ def _get_cover_gt_ops() -> Set[Operator]:
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     place_operator = Operator("Place", parameters, preconditions,
                               add_effects, delete_effects, PickPlace,
-                              place_sampler)
+                              option_vars, place_sampler)
     operators.add(place_operator)
 
     return operators

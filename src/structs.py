@@ -329,6 +329,7 @@ class ParameterizedOption:
         """Ground into an Option, given objects and parameter values.
         """
         assert [obj.type for obj in objects] == self.types
+        params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
         name = (self.name + "(" + ", ".join(map(str, objects)) + "; " +
                 ", ".join(map(str, params)) + ")")
@@ -488,7 +489,9 @@ class _GroundOperator:
         the contained sampler. On the Option that is returned, one can call,
         e.g., policy(state).
         """
-        params = self._sampler(state, rng, self.option_objs)
+        # Note that the sampler takes in ALL self.objects, not just the subset
+        # self.option_objs of objects that are passed into the option.
+        params = self._sampler(state, rng, self.objects)
         return self.option.ground(self.option_objs, params)
 
 
