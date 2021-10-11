@@ -104,11 +104,11 @@ def test_cover_typed_options():
     target0 = [b for b in state if b.name == "target0"][0]
     target1 = [b for b in state if b.name == "target1"][0]
     robot = [b for b in state if b.name == "robby"][0]
-    # [pick block0 center, place on target0 center,
-    #  pick block1 center, place on target1 center]
-    option_sequence = [pick_option.ground([block0], [state[block0][3]]),
+    # [pick relative position 0, place on target0 center,
+    #  pick relative position 0, place on target1 center]
+    option_sequence = [pick_option.ground([block0], [0.0]),
                        place_option.ground([target0], [state[target0][3]]),
-                       pick_option.ground([block1], [state[block1][3]]),
+                       pick_option.ground([block1], [0.0]),
                        place_option.ground([target1], [state[target1][3]])]
     plan = []
     state = task.init
@@ -135,6 +135,6 @@ def test_cover_typed_options():
     # Test being outside of a hand region. Should be a no-op.
     option = next(iter(env.options))
     states, _ = utils.option_to_trajectory(
-        task.init, env.simulate, pick_option.ground([block0], [0]),
+        task.init, env.simulate, place_option.ground([target0], [0]),
         max_num_steps=100)
     assert all(np.all(states[0][obj] == states[1][obj]) for obj in states[0])
