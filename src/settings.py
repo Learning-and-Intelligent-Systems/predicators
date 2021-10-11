@@ -32,6 +32,7 @@ class GlobalSettings:
     max_rejection_sampling_tries = 100
 
     # sampler learning parameters
+    do_sampler_learning = True
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr = 10000
