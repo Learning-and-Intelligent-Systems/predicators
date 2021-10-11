@@ -32,7 +32,8 @@ def test_operator_learning_specific_operators():
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     option1 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, o, p: Action(p),
-        lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.2]))
+        lambda s, o, p: False, lambda s, o, p: False).ground(
+            [], np.array([0.2]))
     action1 = option1.policy(state1)
     action1.set_option((option1, 0))
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
@@ -90,14 +91,16 @@ def test_operator_learning_specific_operators():
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     option1 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, o, p: Action(p),
-        lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.3]))
+        lambda s, o, p: False, lambda s, o, p: False).ground(
+            [], np.array([0.3]))
     action1 = option1.policy(state1)
     action1.set_option((option1, 0))
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, o, p: Action(p),
-        lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.7]))
+        lambda s, o, p: False, lambda s, o, p: False).ground(
+            [], np.array([0.7]))
     action2 = option2.policy(state2)
     action2.set_option((option2, 0))
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
@@ -183,4 +186,4 @@ def test_operator_learning_specific_operators():
             assert option1.parent.params_space.contains(
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
-    # TODO: test unify needing to care about option as well as effects
+    # TODO: test unify needing to care about option as well as effects. this should involve learning some operator that has parameters NOT present in any preconditions or effects

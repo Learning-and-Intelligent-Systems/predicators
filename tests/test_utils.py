@@ -76,7 +76,9 @@ def test_action_to_option_trajectory():
         state, _simulator, option, max_num_steps=100)
     opt_traj = utils.action_to_option_trajectory(act_traj)
     assert len(opt_traj) == 2
-    assert repr(opt_traj[1][0]) == "_Option(name='Move', objects=[], params=array([0.5], dtype=float32))"
+    assert repr(opt_traj[1][0]) == (
+        "_Option(name='Move', objects=[], "
+        "params=array([0.5], dtype=float32))")
     state_only_traj = (act_traj[0][:1], [])
     opt_traj = utils.action_to_option_trajectory(state_only_traj)
     assert len(opt_traj[0]) == 1
@@ -90,8 +92,12 @@ def test_action_to_option_trajectory():
     opt_traj = utils.action_to_option_trajectory((states, actions))
     assert len(opt_traj) == 2
     assert len(opt_traj[1]) == 2
-    assert repr(opt_traj[1][0]) == "_Option(name='Move', objects=[], params=array([0.5], dtype=float32))"
-    assert repr(opt_traj[1][1]) == "_Option(name='Move', objects=[], params=array([0.6], dtype=float32))"
+    assert repr(opt_traj[1][0]) == (
+        "_Option(name='Move', objects=[], "
+        "params=array([0.5], dtype=float32))")
+    assert repr(opt_traj[1][1]) == (
+        "_Option(name='Move', objects=[], "
+        "params=array([0.6], dtype=float32))")
     assert len(opt_traj[0]) == 3
 
 
