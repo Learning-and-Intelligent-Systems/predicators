@@ -211,7 +211,9 @@ def test_option():
     params = [-5, 5]
     option = parameterized_option.ground([], params)
     assert isinstance(option, _Option)
-    assert repr(option) == str(option) == "_Option(name='Pick', objects=[], params=array([-5.,  5.], dtype=float32))"
+    assert repr(option) == str(option) == (
+        "_Option(name='Pick', objects=[], "
+        "params=array([-5.,  5.], dtype=float32))")
     assert option.name == "Pick"
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
@@ -222,7 +224,9 @@ def test_option():
     params = [5, -5]
     option = parameterized_option.ground([], params)
     assert isinstance(option, _Option)
-    assert repr(option) == str(option) == "_Option(name='Pick', objects=[], params=array([ 5., -5.], dtype=float32))"
+    assert repr(option) == str(option) == (
+        "_Option(name='Pick', objects=[], params=array([ 5., -5.], "
+        "dtype=float32))")
     assert option.name == "Pick"
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
@@ -240,7 +244,9 @@ def test_option():
         parameterized_option.ground([obj1], params)  # grounding type mismatch
     option = parameterized_option.ground([obj7], params)
     assert isinstance(option, _Option)
-    assert repr(option) == str(option) == "_Option(name='Pick', objects=[obj7:type1], params=array([ 5., -5.], dtype=float32))"
+    assert repr(option) == str(option) == (
+        "_Option(name='Pick', objects=[obj7:type1], "
+        "params=array([ 5., -5.], dtype=float32))")
 
 
 def test_operators():
@@ -337,7 +343,7 @@ def test_action():
         return Action(p)
     def _initiable(_1, _2, p):
         return p > 0.25
-    def _terminal(s, _, p):
+    def _terminal(s, _1, _2):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)
