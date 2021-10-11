@@ -169,10 +169,8 @@ def  _learn_preconditions(option_vars: List[Variable],
         lifted_atoms = {atom.lift(sub) for atom in atoms}
         if i == 0:
             variables = sorted(set(sub.values()))
-            option_vars = [sub[obj] for obj in option.objects]
         else:
             assert variables == sorted(set(sub.values()))
-            assert option_vars == [sub[obj] for obj in option.objects]
         if i == 0:
             preconditions = lifted_atoms
         else:

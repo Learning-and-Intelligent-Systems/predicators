@@ -181,32 +181,38 @@ def test_task():
 def test_option():
     """Tests for ParameterizedOption, Option classes.
     """
+    type1 = Type("type1", ["feat1", "feat2"])
+    type2 = Type("type2", ["feat3", "feat4", "feat5"])
+    obj7 = type1("obj7")
+    obj1 = type2("obj1")
     state = test_state()
     params_space = Box(-10, 10, (2,))
-    def _policy(s, p):
-        del s  # unused
+    def _policy(s, o, p):
+        del s, o  # unused
         return p*2
-    def _initiable(s, p):
+    def _initiable(s, o, p):
+        del o  # unused
         obj = list(s)[0]
         return p[0] < s[obj][0]
-    def _terminal(s, p):
+    def _terminal(s, o, p):
+        del o  # unused
         obj = list(s)[0]
         return p[1] > s[obj][2]
     parameterized_option = ParameterizedOption(
-        "Pick", params_space, _policy, _initiable, _terminal)
+        "Pick", [], params_space, _policy, _initiable, _terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
-            "ParameterizedOption(name='Pick')")
+            "ParameterizedOption(name='Pick', types=[])")
     params = [-15, 5]
     with pytest.raises(AssertionError):
-        parameterized_option.ground(params)  # params not in params_space
+        parameterized_option.ground([], params)  # params not in params_space
     assert not hasattr(parameterized_option, "policy")
     assert not hasattr(parameterized_option, "initiable")
     assert not hasattr(parameterized_option, "terminal")
     params = [-5, 5]
-    option = parameterized_option.ground(params)
+    option = parameterized_option.ground([], params)
     assert isinstance(option, _Option)
-    assert repr(option) == str(option) == "_Option(name='Pick(-5.0, 5.0)')"
-    assert option.name == "Pick(-5.0, 5.0)"
+    assert repr(option) == str(option) == "_Option(name='Pick', objects=[], params=array([-5.,  5.], dtype=float32))"
+    assert option.name == "Pick"
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
     assert np.all(option.policy(state) == np.array(params)*2)
@@ -214,16 +220,27 @@ def test_option():
     assert not option.terminal(state)
     assert option.params[0] == -5 and option.params[1] == 5
     params = [5, -5]
-    option = parameterized_option.ground(params)
+    option = parameterized_option.ground([], params)
     assert isinstance(option, _Option)
-    assert repr(option) == str(option) == "_Option(name='Pick(5.0, -5.0)')"
-    assert option.name == "Pick(5.0, -5.0)"
+    assert repr(option) == str(option) == "_Option(name='Pick', objects=[], params=array([ 5., -5.], dtype=float32))"
+    assert option.name == "Pick"
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
     assert np.all(option.policy(state) == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)
     assert option.params[0] == 5 and option.params[1] == -5
+    parameterized_option = ParameterizedOption(
+        "Pick", [type1], params_space, _policy, _initiable, _terminal)
+    assert (repr(parameterized_option) == str(parameterized_option) ==
+            "ParameterizedOption(name='Pick', types=[Type(name='type1')])")
+    with pytest.raises(AssertionError):
+        parameterized_option.ground([], params)  # grounding type mismatch
+    with pytest.raises(AssertionError):
+        parameterized_option.ground([obj1], params)  # grounding type mismatch
+    option = parameterized_option.ground([obj7], params)
+    assert isinstance(option, _Option)
+    assert repr(option) == str(option) == "_Option(name='Pick', objects=[obj7:type1], params=array([ 5., -5.], dtype=float32))"
 
 
 def test_operators():
@@ -241,24 +258,26 @@ def test_operators():
     add_effects = {on([cup_var, plate_var])}
     delete_effects = {not_on([cup_var, plate_var])}
     params_space = Box(-10, 10, (2,))
-    parameterized_option = ParameterizedOption("Pick",
-        params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
+    parameterized_option = ParameterizedOption(
+        "Pick", [], params_space, lambda s, o, p: 2*p, lambda s, o, p: True,
+        lambda s, o, p: True)
     def sampler(s, rng, objs):
         del s  # unused
         del rng  # unused
         del objs  # unused
         return params_space.sample()
     operator = Operator("PickOperator", parameters, preconditions, add_effects,
-                        delete_effects, parameterized_option, sampler)
+                        delete_effects, parameterized_option, [], sampler)
     assert str(operator) == repr(operator) == """PickOperator:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Option: ParameterizedOption(name='Pick')"""
+    Option: ParameterizedOption(name='Pick', types=[])
+    Option Variables: []"""
     assert isinstance(hash(operator), int)
     operator2 = Operator("PickOperator", parameters, preconditions, add_effects,
-                         delete_effects, parameterized_option, sampler)
+                         delete_effects, parameterized_option, [], sampler)
     assert operator == operator2
     # _GroundOperator
     cup = cup_type("cup")
@@ -270,12 +289,13 @@ def test_operators():
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Option: ParameterizedOption(name='Pick')"""
+    Option: ParameterizedOption(name='Pick', types=[])
+    Option Objects: []"""
     assert isinstance(hash(ground_op), int)
     ground_op2 = operator2.ground([cup, plate])
     assert ground_op == ground_op2
     state = test_state()
-    _ = ground_op.sampler(state, np.random.default_rng(123))
+    ground_op.sample_option(state, np.random.default_rng(123))
     filtered_op = operator.filter_predicates({on})
     assert len(filtered_op.parameters) == 2
     assert len(filtered_op.preconditions) == 0
@@ -313,16 +333,16 @@ def test_action():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_, p):
+    def _policy(_1, _2, p):
         return Action(p)
-    def _initiable(_1, p):
+    def _initiable(_1, _2, p):
         return p > 0.25
-    def _terminal(s, _):
+    def _terminal(s, _, p):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
-        "Move", params_space, _policy, _initiable, _terminal)
+        "Move", [], params_space, _policy, _initiable, _terminal)
     params = [0.5]
-    option = parameterized_option.ground(params)
+    option = parameterized_option.ground([], params)
     states, actions = utils.option_to_trajectory(state, _simulator, option,
                                                  max_num_steps=5)
     assert len(actions) == len(states)-1 == 5
