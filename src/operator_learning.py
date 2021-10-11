@@ -283,9 +283,16 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
         for var in variables:
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
+        # In case all sampled params are outside the params_space,
+        # or CFG.max_rejection_sampling_tries = 0, we'll initialize
+        # the params to random values from the params_space.
+        params = param_option.params_space.sample()
         for _ in range(CFG.max_rejection_sampling_tries):
-            params = regressor.predict_sample(x, rng)
-            if classifier.classify(np.r_[x, params]):
+            sample = np.array(regressor.predict_sample(x, rng),
+                              dtype=param_option.params_space.dtype)
+            if param_option.params_space.contains(sample) and \
+               classifier.classify(np.r_[x, sample]):
+                params = sample
                 break
         return params
     return _sampler
