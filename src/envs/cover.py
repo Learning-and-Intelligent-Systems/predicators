@@ -277,9 +277,15 @@ class CoverEnvTypedOptions(CoverEnv):
     def __init__(self) -> None:
         super().__init__()
         del self._PickPlace
+        def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+            # The pick parameter is a RELATIVE position, so we need to
+            # add the pose of the object.
+            pick_pose = s.get(o[0], "pose") + p[0]
+            pick_pose = min(max(pick_pose, 0.0), 1.0)
+            return Action(np.array([pick_pose], dtype=np.float32))
         self._Pick = ParameterizedOption(
-            "Pick", types=[self._block_type], params_space=Box(0, 1, (1,)),
-            _policy=lambda s, o, p: Action(p),  # action is simply the parameter
+            "Pick", types=[self._block_type], params_space=Box(-0.1, 0.1, (1,)),
+            _policy=_pick_policy,
             _initiable=lambda s, o, p: True,  # can be run from anywhere
             _terminal=lambda s, o, p: True)  # always 1 timestep
         self._Place = ParameterizedOption(

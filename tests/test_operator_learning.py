@@ -206,6 +206,7 @@ def test_operator_learning_specific_operators():
     # Option 1: A(y, z)
     # Add set 2: P(a, b)
     # Option 2: A(c, d)
+    utils.update_config({"do_sampler_learning": True})
     pred0 = Predicate("Pred0", [cup_type, cup_type],
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
