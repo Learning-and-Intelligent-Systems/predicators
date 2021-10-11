@@ -328,7 +328,8 @@ class ParameterizedOption:
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values.
         """
-        assert [obj.type for obj in objects] == self.types
+        assert [obj.type for obj in objects] == self.types, \
+            f"Mismatched types: {objects}, {self.types}"
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
         return _Option(self.name,
