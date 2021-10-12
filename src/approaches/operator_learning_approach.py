@@ -37,7 +37,8 @@ class OperatorLearningApproach(TAMPApproach):
             # Sampler neural networks are already saved in operator_learning.py.
             # Here we'll save the other fields of the operator.
             data.append((op.name, op.parameters, op.preconditions,
-                         op.add_effects, op.delete_effects, op.option.name))
+                         op.add_effects, op.delete_effects, op.option_vars,
+                         op.option.name))
         with open(f"{save_path}.operators", "wb") as f:
             pkl.dump(data, f)
 
@@ -47,7 +48,7 @@ class OperatorLearningApproach(TAMPApproach):
             data = pkl.load(f)
         self._operators = set()
         for (operator_name, parameters, preconditions, add_effects,
-             delete_effects, option_name) in data:
+             delete_effects, option_vars, option_name) in data:
             # We'll assume the option name exists in the initial option set.
             # Otherwise, if it was learned, it would need to be saved.
             candidate_options = [opt for opt in self._initial_options
@@ -57,7 +58,7 @@ class OperatorLearningApproach(TAMPApproach):
             sampler = load_sampler(parameters, option, operator_name)
             self._operators.add(Operator(
                 operator_name, parameters, preconditions, add_effects,
-                delete_effects, option, sampler))
+                delete_effects, option, option_vars, sampler))
         print("\n\nLoaded operators:")
         for op in self._operators:
             print(op)

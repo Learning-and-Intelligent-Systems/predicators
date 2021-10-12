@@ -51,8 +51,7 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         assert len(applicable_ops) > 0
         sampled_op = applicable_ops[rng.choice(len(applicable_ops))]
         # Sample a random option
-        params = sampled_op.sampler(state, rng)
-        option = sampled_op.option.ground(params)
+        option = sampled_op.sample_option(state, rng)
         # Execute the option
         replay_traj = utils.option_to_trajectory(state, env.simulate,
             option, max_num_steps=CFG.max_num_steps_option_rollout)
