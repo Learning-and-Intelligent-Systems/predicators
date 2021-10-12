@@ -39,3 +39,8 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123", "--timeout", "0.001"]
     main()
+    # Try loading.
+    sys.argv = ["dummy", "--env", "cover", "--approach", "operator_learning",
+                "--seed", "2348393", "--load"]
+    with pytest.raises(FileNotFoundError):
+        main()

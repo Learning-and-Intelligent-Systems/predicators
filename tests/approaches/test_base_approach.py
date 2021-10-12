@@ -9,6 +9,7 @@ from predicators.src.approaches import BaseApproach, create_approach
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Task, Action
+from predicators.src import utils
 
 
 class _DummyApproach(BaseApproach):
@@ -22,7 +23,7 @@ class _DummyApproach(BaseApproach):
         # Just return some option's policy, ground with random parameters.
         parameterized_option = next(iter(self._initial_options))
         params = parameterized_option.params_space.sample()
-        option = parameterized_option.ground(params)
+        option = parameterized_option.ground([], params)
         return option.policy
 
 
@@ -45,12 +46,12 @@ def test_base_approach():
         return ns
     action_space = Box(0, 0.5, (1,))
     params_space = Box(0, 1, (1,))
-    def _policy(_, p):
+    def _policy(_1, _2, p):
         return Action(np.clip(p, a_min=None, a_max=0.45))
     predicates = {pred1, pred2}
     types = {cup_type, plate_type}
     options = {ParameterizedOption(
-        "Move", params_space, _policy, _initiable=None, _terminal=None)}
+        "Move", [], params_space, _policy, _initiable=None, _terminal=None)}
     approach = BaseApproach(_simulator, predicates, options, types,
                             action_space, train_tasks=set())
     approach.seed(123)
@@ -78,6 +79,7 @@ def test_create_approach():
     """
     env = CoverEnv()
     for name in ["random", "oracle", "trivial_learning", "operator_learning"]:
+        utils.update_config({"env": "cover", "approach": name, "seed": 123})
         approach = create_approach(
             name, env.simulate, env.predicates, env.options, env.types,
             env.action_space, env.get_train_tasks())
