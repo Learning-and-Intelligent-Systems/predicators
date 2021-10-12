@@ -3,12 +3,12 @@
 
 import functools
 from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet, Callable
+from typing import Set, Tuple, List, Sequence, FrozenSet, Callable, Dict
 import numpy as np
 import torch
 from predicators.src.structs import Dataset, Operator, GroundAtom, \
     ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    Transition, Object, Array, State
+    Transition, Object, Array, State, _Option
 from predicators.src import utils
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG, get_save_path
@@ -85,7 +85,8 @@ def _learn_operators_for_option(option: ParameterizedOption,
         print(f"\nLearning sampler for operator {operator_name}")
         if CFG.do_sampler_learning:
             sampler = _learn_sampler(operator_name, partitioned_transitions,
-                                     variables, preconditions, option, i)
+                                     variables, preconditions, add_effects[i],
+                                     delete_effects[i], option, i)
         else:
             # Instantiate a random sampler.
             sampler = lambda s, o, p: option.params_space.sample()
@@ -248,23 +249,22 @@ def _unify(
             f_new_lifted_delete_effects)
 
 
-def _learn_sampler(operator_name: str,
-                   transitions: List[List[Tuple[Transition, ObjToVarSub]]],
-                   variables: Sequence[Variable],
-                   preconditions: Set[LiftedAtom],
-                   param_option: ParameterizedOption,
-                   partition_idx: int) -> Callable[[
-                       State, np.random.Generator, Sequence[Object]], Array]:
-    """Learn a sampler given data. Transitions are partitioned, so
-    that they can be used for generating negative data. Integer partition_idx
-    represents the index into transitions corresponding to the partition that
-    this sampler is being learned for.
+def _create_sampler_data(
+        transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+        variables: Sequence[Variable],
+        preconditions: Set[LiftedAtom],
+        add_effects: Set[LiftedAtom],
+        delete_effects: Set[LiftedAtom],
+        param_option: ParameterizedOption,
+        partition_idx: int) -> Tuple[List[Tuple[State,
+                                     Dict[Variable, Object], _Option]], ...]:
+    """Generate positive and negative data for training a sampler.
     """
-    # Generate positive and negative data for training models.
     positive_data = []
     negative_data = []
     for idx, part_transitions in enumerate(transitions):
-        for (state, _, option, _, _), obj_to_var in part_transitions:
+        for ((state, _, option, trans_add_effects, trans_delete_effects),
+             obj_to_var) in part_transitions:
             assert option.parent == param_option
             var_types = [var.type for var in variables]
             objects = list(state)
@@ -283,11 +283,42 @@ def _learn_sampler(operator_name: str,
                         positive_data.append((state, var_to_obj, option))
                         continue
                 sub = dict(zip(variables, grounding))
+                # When building data for a partition with effects X, if we
+                # encounter an out-of-partition transition with effects Y,
+                # and if Y is a superset of X, then we do not want to
+                # include the transition as a negative example, because
+                # if Y was achieved, then X was also achieved. So for now,
+                # we just filter out such examples.
+                ground_add_effects = {e.ground(sub) for e in add_effects}
+                ground_delete_effects = {e.ground(sub) for e in delete_effects}
+                if ground_add_effects.issubset(trans_add_effects) and \
+                   ground_delete_effects.issubset(trans_delete_effects):
+                    continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option))
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
           f"negative examples")
     assert len(positive_data) == len(transitions[partition_idx])
+    return positive_data, negative_data
+
+
+def _learn_sampler(operator_name: str,
+                   transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+                   variables: Sequence[Variable],
+                   preconditions: Set[LiftedAtom],
+                   add_effects: Set[LiftedAtom],
+                   delete_effects: Set[LiftedAtom],
+                   param_option: ParameterizedOption,
+                   partition_idx: int) -> Callable[[
+                       State, np.random.Generator, Sequence[Object]], Array]:
+    """Learn a sampler given data. Transitions are partitioned, so
+    that they can be used for generating negative data. Integer partition_idx
+    represents the index into transitions corresponding to the partition that
+    this sampler is being learned for.
+    """
+    positive_data, negative_data = _create_sampler_data(
+        transitions, variables, preconditions, add_effects, delete_effects,
+        param_option, partition_idx)
     save_path = get_save_path()
 
     # Fit classifier to data
