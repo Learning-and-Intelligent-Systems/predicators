@@ -106,7 +106,7 @@ class State:
     def __getitem__(self, key: Object) -> Array:
         return self.data[key]
 
-    def get(self, obj: Object, feature_name: str) -> np.float32:
+    def get(self, obj: Object, feature_name: str) -> Any:
         """Look up an object feature by name.
         """
         idx = obj.type.feature_names.index(feature_name)
