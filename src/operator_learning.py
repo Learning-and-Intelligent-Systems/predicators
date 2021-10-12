@@ -194,7 +194,7 @@ def _unify(
         lifted_delete_effects: FrozenSet[LiftedAtom],
         lifted_option_args: Tuple[Variable, ...]
 ) -> Tuple[bool, ObjToVarSub]:
-    """Light wrapper around utils.unify() that handles split add and
+    """Wrapper around utils.unify() that handles split add and
     delete effects. Changes predicate names so that delete effects are
     treated differently than add effects by utils.unify().
 
