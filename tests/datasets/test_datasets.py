@@ -104,7 +104,7 @@ def test_teacher_dataset():
         "approach": "random",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 7,
     })
     env = CoverEnv()
