@@ -27,6 +27,9 @@ class GlobalSettings:
     video_dir = "videos"
     video_fps = 2
 
+    # teacher dataset parameters
+    teacher_dataset_label_ratio = 0.3
+
     # operator learning parameters
     min_data_for_operator = 3
     max_rejection_sampling_tries = 100
