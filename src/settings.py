@@ -26,7 +26,7 @@ class GlobalSettings:
     video_fps = 2
 
     # teacher dataset parameters
-    frac = 0.3
+    teacher_dataset_label_ratio = 0.3
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
