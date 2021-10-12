@@ -112,6 +112,12 @@ class State:
         idx = obj.type.feature_names.index(feature_name)
         return self.data[obj][idx]
 
+    def set(self, obj: Object, feature_name: str, feature_val: Any) -> None:
+        """Set the value of an object feature by name.
+        """
+        idx = obj.type.feature_names.index(feature_name)
+        self.data[obj][idx] = feature_val
+
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the
         given ordered list.
