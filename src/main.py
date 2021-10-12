@@ -34,8 +34,11 @@ def main() -> None:
     approach.seed(CFG.seed)
     # If approach is learning-based, get training datasets
     if approach.is_learning_based:
-        dataset = create_dataset(env)
-        approach.learn_from_offline_dataset(dataset)
+        if CFG.load:
+            approach.load()
+        else:
+            dataset = create_dataset(env)
+            approach.learn_from_offline_dataset(dataset)
     # Run approach
     test_tasks = env.get_test_tasks()
     for i, task in enumerate(test_tasks):

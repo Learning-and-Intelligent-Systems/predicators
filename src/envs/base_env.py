@@ -71,7 +71,10 @@ class BaseEnv:
         raise NotImplementedError("Override me!")
 
     def seed(self, seed: int) -> None:
-        """Reset seed and rng.
+        """Reset seed and rngs.
         """
         self._seed = seed
-        self._rng = np.random.default_rng(self._seed)
+        # The train/test rng should be used when generating
+        # train/test tasks respectively.
+        self._train_rng = np.random.default_rng(self._seed)
+        self._test_rng = np.random.default_rng(self._seed)

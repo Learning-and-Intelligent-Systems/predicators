@@ -24,22 +24,22 @@ def test_option_to_trajectory():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_, p):
+    def _policy(_1, _2, p):
         return Action(p)
-    def _initiable(_1, p):
+    def _initiable(_1, _2, p):
         return p > 0.25
-    def _terminal(s, _):
+    def _terminal(s, _1, _2):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
-        "Move", params_space, _policy, _initiable, _terminal)
+        "Move", [], params_space, _policy, _initiable, _terminal)
     params = [0.1]
-    option = parameterized_option.ground(params)
+    option = parameterized_option.ground([], params)
     with pytest.raises(AssertionError):
         # option is not initiable from start state
         utils.option_to_trajectory(state, _simulator, option,
                                    max_num_steps=5)
     params = [0.5]
-    option = parameterized_option.ground(params)
+    option = parameterized_option.ground([], params)
     states, actions = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
     assert len(actions) == len(states)-1 == 19
@@ -62,27 +62,29 @@ def test_action_to_option_trajectory():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_, p):
+    def _policy(_1, _2, p):
         return Action(p)
-    def _initiable(_1, p):
+    def _initiable(_1, _2, p):
         return p > 0.25
-    def _terminal(s, _):
+    def _terminal(s, _1, _2):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
-        "Move", params_space, _policy, _initiable, _terminal)
+        "Move", [], params_space, _policy, _initiable, _terminal)
     params = [0.5]
-    option = parameterized_option.ground(params)
+    option = parameterized_option.ground([], params)
     act_traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
     opt_traj = utils.action_to_option_trajectory(act_traj)
     assert len(opt_traj) == 2
-    assert opt_traj[1][0].name == 'Move(0.5)'
+    assert repr(opt_traj[1][0]) == (
+        "_Option(name='Move', objects=[], "
+        "params=array([0.5], dtype=float32))")
     state_only_traj = (act_traj[0][:1], [])
     opt_traj = utils.action_to_option_trajectory(state_only_traj)
     assert len(opt_traj[0]) == 1
     assert len(opt_traj[1]) == 0
     params = [0.6]
-    other_option = parameterized_option.ground(params)
+    other_option = parameterized_option.ground([], params)
     other_act_traj = utils.option_to_trajectory(
         act_traj[0][-1], _simulator, other_option, max_num_steps=100)
     states = act_traj[0] + other_act_traj[0]
@@ -90,8 +92,12 @@ def test_action_to_option_trajectory():
     opt_traj = utils.action_to_option_trajectory((states, actions))
     assert len(opt_traj) == 2
     assert len(opt_traj[1]) == 2
-    assert opt_traj[1][0].name == 'Move(0.5)'
-    assert opt_traj[1][1].name == 'Move(0.6)'
+    assert repr(opt_traj[1][0]) == (
+        "_Option(name='Move', objects=[], "
+        "params=array([0.5], dtype=float32))")
+    assert repr(opt_traj[1][1]) == (
+        "_Option(name='Move', objects=[], "
+        "params=array([0.6], dtype=float32))")
     assert len(opt_traj[0]) == 3
 
 
@@ -341,10 +347,12 @@ def test_operator_methods():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     params_space = Box(-10, 10, (2,))
-    parameterized_option = ParameterizedOption("Pick",
-        params_space, lambda s, p: 2*p, lambda s, p: True, lambda s, p: True)
+    parameterized_option = ParameterizedOption(
+        "Pick", [cup_type], params_space, lambda s, o, p: 2*p,
+        lambda s, o, p: True, lambda s, o, p: True)
     operator = Operator("PickOperator", parameters, preconditions, add_effects,
-                        delete_effects, parameterized_option, _sampler=None)
+                        delete_effects, parameterized_option, [parameters[0]],
+                        _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -385,9 +393,11 @@ def test_static_operator_filtering():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     operator1 = Operator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1, option=None, _sampler=None)
+                         delete_effects1, option=None, option_vars=[],
+                         _sampler=None)
     operator2 = Operator("Place", parameters, preconditions2, add_effects2,
-                         delete_effects2, option=None, _sampler=None)
+                         delete_effects2, option=None, option_vars=[],
+                         _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -437,9 +447,11 @@ def test_is_dr_reachable():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     operator1 = Operator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1, option=None, _sampler=None)
+                         delete_effects1, option=None, option_vars=[],
+                         _sampler=None)
     operator2 = Operator("Place", parameters, preconditions2, add_effects2,
-                         delete_effects2, option=None, _sampler=None)
+                         delete_effects2, option=None, option_vars=[],
+                         _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -482,9 +494,11 @@ def test_operator_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     operator1 = Operator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1, option=None, _sampler=None)
+                         delete_effects1, option=None, option_vars=[],
+                         _sampler=None)
     operator2 = Operator("Place", parameters, preconditions2, add_effects2,
-                         delete_effects2, option=None, _sampler=None)
+                         delete_effects2, option=None, option_vars=[],
+                         _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
