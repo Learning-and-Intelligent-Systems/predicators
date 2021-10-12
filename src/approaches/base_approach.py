@@ -65,10 +65,16 @@ class BaseApproach:
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """Learning-based approaches can use an offline dataset.
+        Also, should save whatever is necessary to load() later.
 
         Note: this is not an abc.abstractmethod because it does
         not need to be defined by the subclasses. (mypy complains
         if you try to instantiate a subclass with an undefined abc).
+        """
+
+    def load(self) -> None:
+        """Load anything from CFG.get_save_path().
+        Only called if self.is_learning_based.
         """
 
 

@@ -2,6 +2,7 @@
 Anything that varies between runs should be a command-line arg (args.py).
 """
 
+import os
 from collections import defaultdict
 from types import SimpleNamespace
 from typing import Dict, Any
@@ -22,14 +23,19 @@ class GlobalSettings:
     max_skeletons = 1  # if 1, can only solve downward refinable tasks
 
     # evaluation parameters
+    save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
+
+    # teacher dataset parameters
+    teacher_dataset_label_ratio = 0.3
 
     # operator learning parameters
     min_data_for_operator = 3
     max_rejection_sampling_tries = 100
 
     # sampler learning parameters
+    do_sampler_learning = True
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr = 10000
@@ -53,17 +59,20 @@ class GlobalSettings:
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
+                "cover_typed": 10,
             })[args["env"]],
 
             # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
+                "cover_typed": 10,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
             # it solves a task.
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
+                "cover_typed": 10,
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth
@@ -97,6 +106,16 @@ class GlobalSettings:
                 "interactive_learning": 10,
             })[args["approach"]],
         )
+
+
+def get_save_path() -> str:
+    """Create a path for this experiment that can be used to save
+    and load results.
+    """
+    if not os.path.exists(CFG.save_dir):
+        os.makedirs(CFG.save_dir)
+    return f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}.saved"
+
 
 _attr_to_value = {}
 for _attr, _value in GlobalSettings.__dict__.items():
