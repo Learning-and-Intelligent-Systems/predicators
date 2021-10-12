@@ -32,6 +32,7 @@ class GlobalSettings:
     max_rejection_sampling_tries = 100
 
     # sampler learning parameters
+    do_sampler_learning = True
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr = 10000
@@ -55,17 +56,20 @@ class GlobalSettings:
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
+                "cover_typed": 10,
             })[args["env"]],
 
             # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
+                "cover_typed": 10,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
             # it solves a task.
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
+                "cover_typed": 10,
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth

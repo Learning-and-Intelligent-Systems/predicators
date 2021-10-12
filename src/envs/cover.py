@@ -36,12 +36,11 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate(
             "Holding", [self._block_type], self._Holding_holds)
         # Options
-        params_space = Box(0, 1, (1,))
         self._PickPlace = ParameterizedOption(
-            "PickPlace", params_space,
-            _policy=lambda s, p: Action(p),  # action is simply the parameter
-            _initiable=lambda s, p: True,  # can be run from anywhere
-            _terminal=lambda s, p: True)  # always 1 timestep
+            "PickPlace", types=[], params_space=Box(0, 1, (1,)),
+            _policy=lambda s, o, p: Action(p),  # action is simply the parameter
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True)  # always 1 timestep
         # Objects
         self._blocks = []
         self._targets = []
@@ -117,8 +116,7 @@ class CoverEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # For this env, the action space is the same as the option param space.
-        return self._PickPlace.params_space
+        return Box(0, 1, (1,))  # same as option param space
 
     def render(self, state: State) -> Image:
         fig, ax = plt.subplots(1, 1)
@@ -270,3 +268,32 @@ class CoverEnv(BaseEnv):
             if distance <= (width+other_feats[2])*mult:
                 return True
         return False
+
+
+class CoverEnvTypedOptions(CoverEnv):
+    """Toy cover domain with options that have object arguments. This means
+    we need two options (one for block, one for target).
+    """
+    def __init__(self) -> None:
+        super().__init__()
+        del self._PickPlace
+        def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+            # The pick parameter is a RELATIVE position, so we need to
+            # add the pose of the object.
+            pick_pose = s.get(o[0], "pose") + p[0]
+            pick_pose = min(max(pick_pose, 0.0), 1.0)
+            return Action(np.array([pick_pose], dtype=np.float32))
+        self._Pick = ParameterizedOption(
+            "Pick", types=[self._block_type], params_space=Box(-0.1, 0.1, (1,)),
+            _policy=_pick_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True)  # always 1 timestep
+        self._Place = ParameterizedOption(
+            "Place", types=[self._target_type], params_space=Box(0, 1, (1,)),
+            _policy=lambda s, o, p: Action(p),  # action is simply the parameter
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True)  # always 1 timestep
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._Pick, self._Place}
