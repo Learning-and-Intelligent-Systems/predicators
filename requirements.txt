@@ -4,3 +4,5 @@ gym
 matplotlib
 imageio
 imageio-ffmpeg
+torch
+scipy

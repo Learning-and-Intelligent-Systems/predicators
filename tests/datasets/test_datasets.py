@@ -18,7 +18,7 @@ def test_demo_dataset():
         "approach": "random",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 7,
     })
     env = CoverEnv()
@@ -34,7 +34,7 @@ def test_demo_dataset():
     utils.update_config({
         "env": "cover",
         "approach": "trivial_learning",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 7,
     })
     env = CoverEnv()
@@ -62,7 +62,7 @@ def test_demo_replay_dataset():
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
@@ -81,7 +81,7 @@ def test_demo_replay_dataset():
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
