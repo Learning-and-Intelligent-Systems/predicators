@@ -338,16 +338,19 @@ def _create_sampler(classifier: MLPClassifier,
         for var in variables:
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
-        # In case all sampled params are outside the params_space,
-        # or CFG.max_rejection_sampling_tries = 0, we'll initialize
-        # the params to random values from the params_space.
-        params = param_option.params_space.sample()
-        for _ in range(CFG.max_rejection_sampling_tries):
-            sample = np.array(regressor.predict_sample(x, rng),
+        num_rejections = 0
+        while num_rejections <= CFG.max_rejection_sampling_tries:
+            params = np.array(regressor.predict_sample(x, rng),
                               dtype=param_option.params_space.dtype)
-            if param_option.params_space.contains(sample) and \
-               classifier.classify(np.r_[x, sample]):
-                params = sample
+            if param_option.params_space.contains(params) and \
+               classifier.classify(np.r_[x, params]):
                 break
+            num_rejections += 1
+        else:
+            # Edge case: we exceeded the number of sampling tries
+            # and we might be left with a params that is not in
+            # bounds. if so, fall back to sampling from the space.
+            if not param_option.params_space.contains(params):
+                params = param_option.params_space.sample()
         return params
     return _sampler
