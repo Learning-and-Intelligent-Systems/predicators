@@ -349,7 +349,7 @@ def _create_sampler(classifier: MLPClassifier,
         else:
             # Edge case: we exceeded the number of sampling tries
             # and we might be left with a params that is not in
-            # bounds. if so, fall back to sampling from the space.
+            # bounds. If so, fall back to sampling from the space.
             if not param_option.params_space.contains(params):
                 params = param_option.params_space.sample()
         return params
