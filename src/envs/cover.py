@@ -63,34 +63,34 @@ class CoverEnv(BaseEnv):
         held_block = None
         above_block = None
         for block in self._blocks:
-            if state[block][4] != -1:
+            if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
-            block_lb = state[block][3]-state[block][2]/2
-            block_ub = state[block][3]+state[block][2]/2
-            if state[block][4] == -1 and block_lb <= pose <= block_ub:
+            block_lb = state.get(block, "pose")-state.get(block, "width")/2
+            block_ub = state.get(block, "pose")+state.get(block, "width")/2
+            if state.get(block, "grasp") == -1 and block_lb <= pose <= block_ub:
                 assert above_block is None
                 above_block = block
         # If we're not holding anything and we're above a block, grasp it.
         if held_block is None and above_block is not None:
-            grasp = pose-state[above_block][3]
-            next_state[self._robot][0] = pose
-            next_state[above_block][3] = -1000  # out of the way
-            next_state[above_block][4] = grasp
+            grasp = pose-state.get(above_block, "pose")
+            next_state.set(self._robot, "hand", pose)
+            next_state.set(above_block, "pose", -1000)  # out of the way
+            next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block or in free space.
         if held_block is not None and above_block is None:
-            new_pose = pose-state[held_block][4]
+            new_pose = pose-state.get(held_block, "grasp")
             if not self._any_intersection(
-                    new_pose, state[held_block][2], state.data,
+                    new_pose, state.get(held_block, "width"), state.data,
                     block_only=True) and \
-                any(state[targ][3]-state[targ][2]/2
+                any(state.get(targ, "pose")-state.get(targ, "width")/2
                     <= pose <=
-                    state[targ][3]+state[targ][2]/2
+                    state.get(targ, "pose")+state.get(targ, "width")/2
                     for targ in self._targets):
-                next_state[self._robot][0] = pose
-                next_state[held_block][3] = new_pose
-                next_state[held_block][4] = -1
+                next_state.set(self._robot, "hand", pose)
+                next_state.set(held_block, "pose", new_pose)
+                next_state.set(held_block, "grasp", -1)
         return next_state
 
     def get_train_tasks(self) -> List[Task]:
@@ -132,7 +132,7 @@ class CoverEnv(BaseEnv):
             plt.plot([hand_lb, hand_rb], [-0.08, -0.08], color="red",
                      alpha=0.5, lw=8., label=label)
         # Draw hand
-        plt.scatter(state[self._robot][0], 0.05, color="r",
+        plt.scatter(state.get(self._robot, "hand"), 0.05, color="r",
                     s=100, alpha=1., zorder=10, label="Hand")
         lw = 3
         height = 0.1
@@ -144,7 +144,7 @@ class CoverEnv(BaseEnv):
             c = cs[i]
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
-                pose = state[self._robot][0]-state.get(block, "grasp")
+                pose = state.get(self._robot, "hand")-state.get(block, "grasp")
                 suffix = " (grasped)"
             else:
                 lcolor = "gray"
@@ -179,12 +179,12 @@ class CoverEnv(BaseEnv):
         hand_regions = []
         for block in self._blocks:
             hand_regions.append(
-                (state[block][3]-state[block][2]/2,
-                 state[block][3]+state[block][2]/2))
+                (state.get(block, "pose")-state.get(block, "width")/2,
+                 state.get(block, "pose")+state.get(block, "width")/2))
         for targ in self._targets:
             hand_regions.append(
-                (state[targ][3]-state[targ][2]/10,
-                 state[targ][3]+state[targ][2]/10))
+                (state.get(targ, "pose")-state.get(targ, "width")/10,
+                 state.get(targ, "pose")+state.get(targ, "width")/10))
         return hand_regions
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
@@ -235,10 +235,10 @@ class CoverEnv(BaseEnv):
     @staticmethod
     def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
         block, target = objects
-        block_pose = state[block][3]
-        block_width = state[block][2]
-        target_pose = state[target][3]
-        target_width = state[target][2]
+        block_pose = state.get(block, "pose")
+        block_width = state.get(block, "width")
+        target_pose = state.get(target, "pose")
+        target_width = state.get(target, "width")
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2)
 
@@ -246,14 +246,14 @@ class CoverEnv(BaseEnv):
     def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
         assert not objects
         for obj in state:
-            if obj.type.name == "block" and state[obj][4] != -1:
+            if obj.type.name == "block" and state.get(obj, "grasp") != -1:
                 return False
         return True
 
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
-        return state[block][4] != -1
+        return state.get(block, "grasp") != -1
 
     def _any_intersection(self, pose: float, width: float,
                           data: Dict[Object, Array],
@@ -277,15 +277,9 @@ class CoverEnvTypedOptions(CoverEnv):
     def __init__(self) -> None:
         super().__init__()
         del self._PickPlace
-        def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
-            # The pick parameter is a RELATIVE position, so we need to
-            # add the pose of the object.
-            pick_pose = s.get(o[0], "pose") + p[0]
-            pick_pose = min(max(pick_pose, 0.0), 1.0)
-            return Action(np.array([pick_pose], dtype=np.float32))
         self._Pick = ParameterizedOption(
             "Pick", types=[self._block_type], params_space=Box(-0.1, 0.1, (1,)),
-            _policy=_pick_policy,
+            _policy=self._pick_policy,
             _initiable=lambda s, o, p: True,  # can be run from anywhere
             _terminal=lambda s, o, p: True)  # always 1 timestep
         self._Place = ParameterizedOption(
@@ -297,3 +291,11 @@ class CoverEnvTypedOptions(CoverEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {self._Pick, self._Place}
+
+    @staticmethod
+    def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # The pick parameter is a RELATIVE position, so we need to
+        # add the pose of the object.
+        pick_pose = s.get(o[0], "pose") + p[0]
+        pick_pose = min(max(pick_pose, 0.0), 1.0)
+        return Action(np.array([pick_pose], dtype=np.float32))

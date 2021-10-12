@@ -78,13 +78,24 @@ def test_state():
     sorted_objs = list(state)
     assert sorted_objs == [obj1, obj3, obj4, obj7, obj9]
     assert state[obj9] == state.data[obj9] == [11, 12, 13]
+    assert state.get(obj3, "feat2") == 2
+    assert state.get(obj1, "feat4") == 6
+    with pytest.raises(ValueError):
+        state.get(obj3, "feat3")  # feature not in list
+    with pytest.raises(ValueError):
+        state.get(obj1, "feat1")  # feature not in list
     vec = state.vec([obj3, obj1])
     assert vec.shape == (5,)
     assert list(vec) == [1, 2, 5, 6, 7]
+    state.set(obj3, "feat2", 122)
+    assert state.get(obj3, "feat2") == 122
     state2 = state.copy()
     assert state == state2
     state2[obj1][0] = 999
+    state2.set(obj1, "feat5", 991)
     assert state != state2  # changing copy doesn't change original
+    assert state2.get(obj1, "feat3") == 999
+    assert state2[obj1][2] == 991
     state3 = State({obj3: np.array([1, 2])})
     state3.copy()  # try copying with numpy array
     return state
