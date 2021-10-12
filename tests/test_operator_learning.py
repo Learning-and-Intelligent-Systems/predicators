@@ -295,11 +295,10 @@ def test_create_sampler_data():
     assert len(negative_examples) == 1
 
     # When building data for a partition with effects X, if we
-    # encounter an out-of-partition transition with effects Y,
-    # and if Y is a superset of X, then we do not want to
-    # include the transition as a negative example, because
-    # if Y was achieved, then X was also achieved. So for now,
-    # we just filter out such examples.
+    # encounter a transition with effects Y, and if Y is a superset
+    # of X, then we do not want to include the transition as a
+    # negative example, because if Y was achieved, then X was also
+    # achieved. So for now, we just filter out such examples.
     #
     # In the example here, transition 1's effects are a superset
     # of transition 2's effects. So when creating the examples
