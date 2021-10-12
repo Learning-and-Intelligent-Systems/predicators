@@ -284,11 +284,10 @@ def _create_sampler_data(
                         continue
                 sub = dict(zip(variables, grounding))
                 # When building data for a partition with effects X, if we
-                # encounter an out-of-partition transition with effects Y,
-                # and if Y is a superset of X, then we do not want to
-                # include the transition as a negative example, because
-                # if Y was achieved, then X was also achieved. So for now,
-                # we just filter out such examples.
+                # encounter a transition with effects Y, and if Y is a superset
+                # of X, then we do not want to include the transition as a
+                # negative example, because if Y was achieved, then X was also
+                # achieved. So for now, we just filter out such examples.
                 ground_add_effects = {e.ground(sub) for e in add_effects}
                 ground_delete_effects = {e.ground(sub) for e in delete_effects}
                 if ground_add_effects.issubset(trans_add_effects) and \
