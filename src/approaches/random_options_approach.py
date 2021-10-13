@@ -1,4 +1,4 @@
-"""An approach that just takes random options.
+"""An approach that just executes random options.
 """
 
 from collections import defaultdict
