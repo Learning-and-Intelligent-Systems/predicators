@@ -170,22 +170,15 @@ def test_oracle_approach_cluttered_table():
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
     assert not approach.is_learning_based
-    random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in env.get_train_tasks():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
-        # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
-        # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
     utils.update_config({"env": "cluttered_table",
                          "cluttered_table_num_cans_train": old_num_cans_train,
                          "cluttered_table_num_cans_test": old_num_cans_test})
@@ -196,7 +189,6 @@ def test_oracle_approach_cluttered_table():
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
     assert not approach.is_learning_based
-    random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in env.get_train_tasks():
         try:
@@ -205,9 +197,6 @@ def test_oracle_approach_cluttered_table():
                 policy, task, env.simulate, env.predicates)
         except ApproachFailure as e:
             assert str(e) == "Failure in environment"
-        # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
     for task in env.get_test_tasks():
         try:
             policy = approach.solve(task, timeout=500)
@@ -215,6 +204,3 @@ def test_oracle_approach_cluttered_table():
                 policy, task, env.simulate, env.predicates)
         except ApproachFailure as e:
             assert str(e) == "Failure in environment"
-        # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
