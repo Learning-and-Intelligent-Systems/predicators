@@ -32,6 +32,9 @@ def main() -> None:
                                env.get_train_tasks())
     env.seed(CFG.seed)
     approach.seed(CFG.seed)
+    env.action_space.seed(CFG.seed)
+    for option in env.options:
+        option.params_space.seed(CFG.seed)
     # If approach is learning-based, get training datasets
     if approach.is_learning_based:
         if CFG.load:
