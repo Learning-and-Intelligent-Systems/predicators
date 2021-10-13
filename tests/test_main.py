@@ -32,8 +32,8 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123"]
     main()
-    sys.argv = ["dummy", "--env", "cluttered_table", "--approach", "random",
-                "--seed", "123"]
+    sys.argv = ["dummy", "--env", "cluttered_table", "--approach",
+                "random_actions", "--seed", "123"]
     main()
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
     sys.argv = ["dummy", "--env", "cover", "--approach", "trivial_learning",
