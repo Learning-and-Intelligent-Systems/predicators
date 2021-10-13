@@ -87,7 +87,7 @@ class ClutteredTableEnv(BaseEnv):
             this_y = state.get(can, "pose_y")
             vec2 = np.array([end_x-this_x, end_y-this_y])
             angle = np.arccos(
-                vec1.dot(vec2) / (np.linalg.norm(vec1)*
+                vec1.dot(vec2) / (np.linalg.norm(vec1) *  # type: ignore
                                   np.linalg.norm(vec2)))  # type: ignore
             if angle < CFG.cluttered_table_collision_angle_thresh:
                 dist = np.linalg.norm(vec2)  # type: ignore
