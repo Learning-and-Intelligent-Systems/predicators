@@ -41,6 +41,7 @@ def main() -> None:
             approach.learn_from_offline_dataset(dataset)
     # Run approach
     test_tasks = env.get_test_tasks()
+    num_solved = 0
     for i, task in enumerate(test_tasks):
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
@@ -52,12 +53,14 @@ def main() -> None:
             env.simulate, env.predicates, CFG.make_videos, env.render)
         if solved:
             print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
+            num_solved += 1
         else:
             print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
     print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
+    print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
 
 
 if __name__ == "__main__":  # pragma: no cover
