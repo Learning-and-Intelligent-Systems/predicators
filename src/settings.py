@@ -24,6 +24,9 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 8
 
+    # parameters for approaches
+    random_options_max_tries = 100
+
     # SeSamE parameters
     max_samples_per_step = 10
     max_num_steps_option_rollout = 100
