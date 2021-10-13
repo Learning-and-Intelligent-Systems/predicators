@@ -40,10 +40,9 @@ def test_random_options_approach():
     policy = approach.solve(task, 500)
     solved = False
     act_var = None
-    for i in range(10):
+    for _ in range(10):
         act = policy(state)
         assert act.has_option()
-        assert act.get_option()[1] == i
         if act_var is None:
             act_var = act.arr.item()
         else:
@@ -82,7 +81,6 @@ def test_random_options_approach():
         act = policy(state)
         actions.append(act)
         assert act.has_option()
-        assert act.get_option()[1] == 0
         if act_var is None:
             act_var = act.arr.item()
         else:

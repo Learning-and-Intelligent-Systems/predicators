@@ -35,7 +35,6 @@ class RandomOptionsApproach(BaseApproach):
                 else:  # fall back to a random action
                     return Action(self._action_space.sample())
             act = cur_option.policy(state)
-            act.set_option((cur_option, cur_option_ind))
             cur_option_ind += 1
             return act
         return _policy
