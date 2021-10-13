@@ -46,6 +46,9 @@ class GlobalSettings:
     n_iter_no_change = 5000
     learning_rate = 1e-3
 
+    # interactive learning parameters
+    interactive_known_predicates = {'HandEmpty'}
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
