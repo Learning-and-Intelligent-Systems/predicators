@@ -1,4 +1,8 @@
 """Behavior (iGibson) environment.
+
+TODO:
+* Implement task thing by reseting and saving
+* Create a state by parsing the `task_obs` field
 """
 
 import os
@@ -34,6 +38,7 @@ class BehaviorEnv(BaseEnv):
             action_timestep=CFG.behavior_action_timestep,
             physics_timestep=CFG.behavior_physics_timestep
         )
+        import ipdb; ipdb.set_trace()
         super().__init__()
         # Types
         # TODO
@@ -76,8 +81,8 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # TODO
-        import ipdb; ipdb.set_trace()
+        # 11-dimensional, between -1 and 1
+        return self._env.action_space
 
     def render(self, state: State) -> Image:
         # TODO

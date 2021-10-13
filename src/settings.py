@@ -20,7 +20,7 @@ class GlobalSettings:
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples", "configs",
-        "behavior_onboard_sensing_fetch.yaml")
+        "behavior_full_observability_fetch.yaml")
     behavior_mode = "iggui"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
