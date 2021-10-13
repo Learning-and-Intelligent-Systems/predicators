@@ -180,6 +180,19 @@ def get_object_combinations(
         yield list(choice)
 
 
+def get_random_object_combination(
+        objects: Collection[Object], types: Sequence[Type],
+        rng: np.random.Generator) -> List[Object]:
+    """Get a random list of objects from the given collection that
+    satisfy the given sequence of types. Duplicates are always allowed.
+    """
+    types_to_objs = defaultdict(list)
+    for obj in objects:
+        types_to_objs[obj.type].append(obj)
+    return [types_to_objs[type][rng.choice(len(types_to_objs[type]))]
+            for type in types]
+
+
 def find_substitution(super_atoms: Collection[GroundAtom],
                       sub_atoms: Collection[LiftedAtom],
                       allow_redundant: bool = False,

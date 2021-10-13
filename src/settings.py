@@ -17,6 +17,9 @@ class GlobalSettings:
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
 
+    # parameters for approaches
+    random_options_max_tries = 100
+
     # SeSamE parameters
     max_samples_per_step = 10
     max_num_steps_option_rollout = 100
