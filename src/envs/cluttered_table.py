@@ -33,7 +33,7 @@ class ClutteredTableEnv(BaseEnv):
         self._Dump = ParameterizedOption(
             "Dump", [], params_space=Box(0, 1, (0,)),
             _policy=lambda s, o, p: Action(
-                np.array([-1.0, -1.0, -1.0, -1.0], dtype=np.float32)),
+                np.zeros(4, dtype=np.float32)),
             _initiable=lambda s, o, p: True,  # can be run from anywhere
             _terminal=lambda s, o, p: True)  # always 1 timestep
         # Objects
@@ -53,7 +53,7 @@ class ClutteredTableEnv(BaseEnv):
                 assert state.get(can, "is_trashed") < 0.5, \
                     "Grasped a can that has been trashed?"
                 grasped_can = can
-        if np.all(action.arr == -1):
+        if np.all(action.arr == 0.0):
             # Handle dumping action.
             if grasped_can is not None:
                 next_state.set(grasped_can, "pose_x", -999)
@@ -125,21 +125,17 @@ class ClutteredTableEnv(BaseEnv):
         # The action_space is 4-dimensional. The first two dimensions are the
         # start point of the vector corresponding to the grasp approach. The
         # last two dimensions are the end point. Dumping is a special action
-        # where all 4 dimensions are -1.
-        return Box(-1, 1, (4,))
+        # where all 4 dimensions are 0.
+        return Box(0, 1, (4,))
 
     def render(self, state: State) -> Image:
         raise NotImplementedError
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
         tasks = []
-        goal1 = {GroundAtom(self._Holding, [self._cans[0]])}
-        goal2 = {GroundAtom(self._Holding, [self._cans[1]])}
-        goal3 = {GroundAtom(self._Holding, [self._cans[2]])}
-        goals = [goal1, goal2, goal3]
-        for i in range(num):
-            tasks.append(Task(self._create_initial_state(train_or_test),
-                              goals[i%len(goals)]))
+        goal = {GroundAtom(self._Holding, [self._cans[0]])}
+        for _ in range(num):
+            tasks.append(Task(self._create_initial_state(train_or_test), goal))
         return tasks
 
     def _create_initial_state(self, train_or_test: str) -> State:

@@ -2,11 +2,15 @@
 """
 from predicators.src.approaches import RandomActionsApproach
 from predicators.src.envs import CoverEnv
+from predicators.src import utils
 
 
 def test_random_actions_approach():
     """Tests for RandomActionsApproach class.
     """
+    utils.update_config({"env": "cover",
+                         "approach": "random",
+                         "seed": 123})
     env = CoverEnv()
     tasks = env.get_train_tasks()
     task = tasks[0]
