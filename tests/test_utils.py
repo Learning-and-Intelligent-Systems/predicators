@@ -207,6 +207,8 @@ def test_unify():
 
 
 def test_get_random_object_combination():
+    """Tests for get_random_object_combination().
+    """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat2"])
     cup0 = cup_type("cup0")
