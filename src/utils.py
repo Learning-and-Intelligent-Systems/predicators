@@ -150,7 +150,7 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
     for s, a in zip(states[:-1], actions):
         o = a.get_option()
         # This assumes that an option is equal to another
-        # object only if they're the same python object.
+        # option only if they're the same python object.
         if o != current_option:
             new_states.append(s)
             options.append(o)
