@@ -203,7 +203,7 @@ def test_option():
     params_space = Box(-10, 10, (2,))
     def _policy(s, o, p):
         del s, o  # unused
-        return p*2
+        return Action(p*2)
     def _initiable(s, o, p):
         del o  # unused
         obj = list(s)[0]
@@ -231,7 +231,7 @@ def test_option():
     assert option.name == "Pick"
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
-    assert np.all(option.policy(state) == np.array(params)*2)
+    assert np.all(option.policy(state).arr == np.array(params)*2)
     assert option.initiable(state)
     assert not option.terminal(state)
     assert option.params[0] == -5 and option.params[1] == 5
@@ -244,7 +244,7 @@ def test_option():
     assert option.name == "Pick"
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
-    assert np.all(option.policy(state) == np.array(params)*2)
+    assert np.all(option.policy(state).arr == np.array(params)*2)
     assert not option.initiable(state)
     assert not option.terminal(state)
     assert option.params[0] == 5 and option.params[1] == -5
@@ -366,14 +366,11 @@ def test_action():
     states, actions = utils.option_to_trajectory(state, _simulator, option,
                                                  max_num_steps=5)
     assert len(actions) == len(states)-1 == 5
-    next_ind = 0
     for act in actions:
         assert act.has_option()
-        opt, ind = act.get_option()
+        opt = act.get_option()
         assert opt is option
-        assert ind == next_ind
         act.unset_option()
         assert not act.has_option()
-        next_ind += 1
     act = Action([0.5])
     assert not act.has_option()
