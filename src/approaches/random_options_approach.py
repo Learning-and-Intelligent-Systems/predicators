@@ -1,10 +1,9 @@
 """An approach that just executes random options.
 """
 
-from collections import defaultdict
-from typing import Callable, List
+from typing import Callable
 from predicators.src.approaches import BaseApproach
-from predicators.src.structs import State, Task, Action, _Option, DefaultOption
+from predicators.src.structs import State, Task, Action, DefaultOption
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -18,7 +17,7 @@ class RandomOptionsApproach(BaseApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         options = sorted(self._initial_options, key=lambda o: o.name)
-        cur_option: _Option = DefaultOption
+        cur_option = DefaultOption
         cur_option_ind = 0
         def _policy(state: State) -> Action:
             nonlocal cur_option, cur_option_ind
