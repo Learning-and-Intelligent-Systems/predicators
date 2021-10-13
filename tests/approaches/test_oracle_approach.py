@@ -3,11 +3,13 @@
 
 import numpy as np
 import pytest
-from predicators.src.approaches import OracleApproach
+from predicators.src.approaches import OracleApproach, ApproachFailure
 from predicators.src.approaches.oracle_approach import get_gt_ops
-from predicators.src.envs import CoverEnv, CoverEnvTypedOptions
+from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
+    ClutteredTableEnv, EnvironmentFailure
 from predicators.src.structs import Action
 from predicators.src import utils
+from predicators.src.settings import CFG
 
 
 def test_cover_get_gt_ops():
@@ -110,6 +112,109 @@ def test_oracle_approach_cover_typed():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(
             policy, task, env.simulate, env.predicates)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(
+            lambda s: random_action, task, env.simulate, env.predicates)
+
+
+def test_cluttered_table_get_gt_ops():
+    """Tests for get_gt_ops in ClutteredTableEnv.
+    """
+    utils.update_config({"env": "cluttered_table"})
+    # All predicates and options
+    env = ClutteredTableEnv()
+    operators = get_gt_ops(env.predicates, env.options)
+    assert len(operators) == 2
+    dump_operator, grasp_operator = sorted(operators, key=lambda o: o.name)
+    assert dump_operator.name == "Dump"
+    assert grasp_operator.name == "Grasp"
+    env.seed(123)
+    for train_task in env.get_train_tasks():
+        state = train_task.init
+        can0, can1, _, can3, _ = list(state)
+        assert can0.name == "can0"
+        assert can3.name == "can3"
+        grasp0_operator = grasp_operator.ground([can0])
+        with pytest.raises(AssertionError):
+            grasp_operator.ground([])
+        rng = np.random.default_rng(123)
+        grasp_option = grasp0_operator.sample_option(state, rng)
+        grasp_action = grasp_option.policy(state)
+        assert env.action_space.contains(grasp_action.arr)
+        try:
+            state = env.simulate(state, grasp_action)
+        except EnvironmentFailure as e:
+            assert len(e.offending_objects) == 1
+        dump0_operator = dump_operator.ground([can3])
+        with pytest.raises(AssertionError):
+            dump_operator.ground([can3, can1])
+        dump_option = dump0_operator.sample_option(state, rng)
+        dump_action = dump_option.policy(state)
+        assert env.action_space.contains(dump_action.arr)
+        env.simulate(state, dump_action)  # never raises EnvironmentFailure
+
+
+def test_oracle_approach_cluttered_table():
+    """Tests for OracleApproach class with ClutteredTableEnv.
+    """
+    # With just 1 can on the table, planning should always succeed,
+    # because there are no failures to consider.
+    old_num_cans_train = CFG.cluttered_table_num_cans_train
+    old_num_cans_test = CFG.cluttered_table_num_cans_test
+    utils.update_config({"env": "cluttered_table",
+                         "cluttered_table_num_cans_train": 1,
+                         "cluttered_table_num_cans_test": 1})
+    env = ClutteredTableEnv()
+    env.seed(123)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    approach.seed(123)
+    for task in env.get_train_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(
+            lambda s: random_action, task, env.simulate, env.predicates)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(
+            lambda s: random_action, task, env.simulate, env.predicates)
+    utils.update_config({"env": "cluttered_table",
+                         "cluttered_table_num_cans_train": old_num_cans_train,
+                         "cluttered_table_num_cans_test": old_num_cans_test})
+    # With more cans on the table, planning might fail.
+    env = ClutteredTableEnv()
+    env.seed(123)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    approach.seed(123)
+    for task in env.get_train_tasks():
+        try:
+            policy = approach.solve(task, timeout=500)
+            assert utils.policy_solves_task(
+                policy, task, env.simulate, env.predicates)
+        except ApproachFailure as e:
+            assert str(e) == "Failure in environment"
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(
+            lambda s: random_action, task, env.simulate, env.predicates)
+    for task in env.get_test_tasks():
+        try:
+            policy = approach.solve(task, timeout=500)
+            assert utils.policy_solves_task(
+                policy, task, env.simulate, env.predicates)
+        except ApproachFailure as e:
+            assert str(e) == "Failure in environment"
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(
             lambda s: random_action, task, env.simulate, env.predicates)
