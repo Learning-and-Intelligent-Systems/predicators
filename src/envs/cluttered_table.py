@@ -31,7 +31,7 @@ class ClutteredTableEnv(BaseEnv):
             _initiable=lambda s, o, p: True,  # can be run from anywhere
             _terminal=lambda s, o, p: True)  # always 1 timestep
         self._Dump = ParameterizedOption(
-            "Dump", [], params_space=Box(0, 1, (0,)),
+            "Dump", [], params_space=Box(0, 1, (0,)),  # no parameter
             _policy=lambda s, o, p: Action(
                 np.zeros(4, dtype=np.float32)),
             _initiable=lambda s, o, p: True,  # can be run from anywhere
@@ -77,7 +77,10 @@ class ClutteredTableEnv(BaseEnv):
         if desired_can is None:
             return next_state  # end point wasn't at any can
         vec1 = np.array([end_x-start_x, end_y-start_y])
-        # Handle collision checking.
+        # Handle collision checking. We'll just threshold the angle between
+        # the grasp approach vector and the vector between the desired_can
+        # and any other can. Doing an actually correct geometric computation
+        # would involve the radii somehow, but we don't really care about this.
         colliding_can = None
         colliding_can_max_dist = float("-inf")
         for can in state:
