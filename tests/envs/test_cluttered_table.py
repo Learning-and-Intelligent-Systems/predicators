@@ -49,7 +49,7 @@ def test_cluttered_table():
         act = Action(env.action_space.sample())
         try:
             env.simulate(state, act)
-        except EnvironmentFailure:
+        except EnvironmentFailure:  # pragma: no cover
             pass
         state.set(can, "is_grasped", 1.0)
         pose_x = state.get(can, "pose_x")

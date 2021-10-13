@@ -11,7 +11,7 @@ Another example usage:
 import time
 from predicators.src.args import parse_args
 from predicators.src.settings import CFG
-from predicators.src.envs import create_env
+from predicators.src.envs import create_env, EnvironmentFailure
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure
 from predicators.src.datasets import create_dataset
@@ -49,8 +49,14 @@ def main() -> None:
             print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
                   f"solve with error: {e}")
             continue
-        _, video, solved = utils.run_policy_on_task(policy, task,
-            env.simulate, env.predicates, CFG.make_videos, env.render)
+        try:
+            _, video, solved = utils.run_policy_on_task(
+                policy, task, env.simulate, env.predicates, CFG.make_videos,
+                env.render)
+        except EnvironmentFailure as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
+                  f"with error: {e}")
+            continue
         if solved:
             print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
             num_solved += 1
