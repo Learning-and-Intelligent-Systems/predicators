@@ -19,11 +19,14 @@ def test_main():
                 "--seed", "123"]
     with pytest.raises(NotImplementedError):
         main()  # invalid approach
-    sys.argv = ["dummy", "--env", "cover", "--approach", "random",
+    sys.argv = ["dummy", "--env", "cover", "--approach", "random_actions",
                 "--seed", "123", "--not-a-real-flag", "0"]
     with pytest.raises(ValueError):
         main()  # invalid flag
-    sys.argv = ["dummy", "--env", "cover", "--approach", "random",
+    sys.argv = ["dummy", "--env", "cover", "--approach", "random_actions",
+                "--seed", "123"]
+    main()
+    sys.argv = ["dummy", "--env", "cover", "--approach", "random_options",
                 "--seed", "123"]
     main()
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
