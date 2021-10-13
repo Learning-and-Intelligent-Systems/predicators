@@ -11,6 +11,7 @@ from predicators.src import utils
 def test_random_options_approach():
     """Tests for RandomOptionsApproach class.
     """
+    utils.update_config({"env": "cover"})
     cup_type = Type("cup_type", ["feat1"])
     cup = cup_type("cup")
     state = State({cup: [0.5]})
@@ -76,8 +77,10 @@ def test_random_options_approach():
     approach.seed(123)
     policy = approach.solve(task, 500)
     act_var = None
+    actions = []
     for _ in range(10):
         act = policy(state)
+        actions.append(act)
         assert act.has_option()
         assert act.get_option()[1] == 0
         if act_var is None:
@@ -87,3 +90,5 @@ def test_random_options_approach():
             assert abs(act_var-act.arr.item()) > 1e-3
             act_var = act.arr.item()
         state = _simulator(state, act)
+    # Test reproducibility
+    assert str(actions) == "[Action(_arr=array([0.70787615], dtype=float32)), Action(_arr=array([0.3698764], dtype=float32)), Action(_arr=array([0.29010695], dtype=float32)), Action(_arr=array([0.9975787], dtype=float32)), Action(_arr=array([0.9942262], dtype=float32)), Action(_arr=array([0.98252517], dtype=float32)), Action(_arr=array([0.55868745], dtype=float32)), Action(_arr=array([0.68523175], dtype=float32)), Action(_arr=array([0.99104315], dtype=float32)), Action(_arr=array([0.8620031], dtype=float32))]"  # pylint: disable=line-too-long
