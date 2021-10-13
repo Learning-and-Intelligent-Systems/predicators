@@ -2,7 +2,7 @@
 """
 
 import pytest
-from predicators.src.envs import BaseEnv, create_env
+from predicators.src.envs import BaseEnv, create_env, EnvironmentFailure
 from predicators.src.structs import State, Type
 
 
@@ -38,8 +38,20 @@ def test_base_env():
 def test_create_env():
     """Tests for create_env.
     """
-    for name in ["cover", "cover_typed"]:
+    for name in ["cover", "cover_typed", "cluttered_table"]:
         env = create_env(name)
         assert isinstance(env, BaseEnv)
     with pytest.raises(NotImplementedError):
         create_env("Not a real env")
+
+
+def test_env_failure():
+    """Tests for EnvironmentFailure class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    cup = cup_type("cup")
+    try:
+        raise EnvironmentFailure("failure123", {cup})
+    except EnvironmentFailure as e:
+        assert str(e) == "failure123"
+        assert e.offending_objects == {cup}

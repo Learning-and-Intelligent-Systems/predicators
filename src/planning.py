@@ -14,6 +14,7 @@ from predicators.src.structs import State, Task, Operator, Predicate, \
     GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, Action, \
     PyperplanFacts
 from predicators.src import utils
+from predicators.src.envs import EnvironmentFailure
 from predicators.src.settings import CFG
 
 
@@ -162,9 +163,12 @@ def _run_low_level_search(
         # This invokes the operator's sampler.
         option = operator.sample_option(state, rng_sampler)
         options[cur_idx] = option
-        option_traj_states, option_traj_acts = utils.option_to_trajectory(
-            state, simulator, option,
-            max_num_steps=CFG.max_num_steps_option_rollout)
+        try:
+            option_traj_states, option_traj_acts = utils.option_to_trajectory(
+                state, simulator, option,
+                max_num_steps=CFG.max_num_steps_option_rollout)
+        except EnvironmentFailure:
+            raise ApproachFailure("Failure in environment")
         traj[cur_idx+1] = option_traj_states[-1]  # ignore previous states
         plan[cur_idx] = option_traj_acts
         cur_idx += 1
