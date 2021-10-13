@@ -189,8 +189,8 @@ def get_random_object_combination(
     types_to_objs = defaultdict(list)
     for obj in objects:
         types_to_objs[obj.type].append(obj)
-    return [types_to_objs[type][rng.choice(len(types_to_objs[type]))]
-            for type in types]
+    return [types_to_objs[t][rng.choice(len(types_to_objs[t]))]
+            for t in types]
 
 
 def find_substitution(super_atoms: Collection[GroundAtom],
