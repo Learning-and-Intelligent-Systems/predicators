@@ -1,12 +1,16 @@
 """Behavior (iGibson) environment.
 """
 
+import os
 from typing import List, Set, Sequence, Dict, Tuple
 import numpy as np
 from gym.spaces import Box
 try:
-    from igibson.envs.behavior_env import BehaviorEnv
+    import bddl
+    import igibson
+    from igibson.envs import behavior_env
     _BEHAVIOR_IMPORTED = True
+    bddl.set_backend("iGibson")
 except ModuleNotFoundError:
     _BEHAVIOR_IMPORTED = False
 from predicators.src.envs import BaseEnv
@@ -22,6 +26,14 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
+        config_file = os.path.join(igibson.root_path,
+                                   CFG.behavior_config_file)
+        self._env = behavior_env.BehaviorEnv(
+            config_file=config_file,
+            mode=CFG.behavior_mode,
+            action_timestep=CFG.behavior_action_timestep,
+            physics_timestep=CFG.behavior_physics_timestep
+        )
         super().__init__()
         # Types
         # TODO

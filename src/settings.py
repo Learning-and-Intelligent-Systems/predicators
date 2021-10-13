@@ -17,6 +17,14 @@ class GlobalSettings:
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
 
+    # behavior env parameters
+    behavior_config_file = os.path.join(  # relative to igibson.root_path
+        "examples", "configs",
+        "behavior_onboard_sensing_fetch.yaml")
+    behavior_mode = "iggui"  # headless, pbgui, iggui
+    behavior_action_timestep = 1.0 / 10.0
+    behavior_physics_timestep = 1.0 / 120.0
+
     # SeSamE parameters
     max_samples_per_step = 10
     max_num_steps_option_rollout = 100
