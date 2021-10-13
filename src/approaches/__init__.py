@@ -7,6 +7,8 @@ from predicators.src.approaches.base_approach import BaseApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
+from predicators.src.approaches.random_options_approach import \
+    RandomOptionsApproach
 from predicators.src.approaches.tamp_approach import TAMPApproach
 from predicators.src.approaches.trivial_learning_approach import \
     TrivialLearningApproach
@@ -21,6 +23,7 @@ __all__ = [
     "BaseApproach",
     "OracleApproach",
     "RandomActionsApproach",
+    "RandomOptionsApproach",
     "TAMPApproach",
     "TrivialLearningApproach",
     "OperatorLearningApproach",
@@ -42,8 +45,12 @@ def create_approach(name: str,
         return OracleApproach(simulator, initial_predicates,
                               initial_options, types, action_space,
                               train_tasks)
-    if name == "random":
+    if name == "random_actions":
         return RandomActionsApproach(simulator, initial_predicates,
+                                     initial_options, types, action_space,
+                                     train_tasks)
+    if name == "random_options":
+        return RandomOptionsApproach(simulator, initial_predicates,
                                      initial_options, types, action_space,
                                      train_tasks)
     if name == "trivial_learning":
