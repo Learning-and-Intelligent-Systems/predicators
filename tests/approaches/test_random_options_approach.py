@@ -39,9 +39,10 @@ def test_random_options_approach():
     policy = approach.solve(task, 500)
     solved = False
     act_var = None
-    for _ in range(10):
+    for i in range(10):
         act = policy(state)
         assert act.has_option()
+        assert act.get_option()[1] == i
         if act_var is None:
             act_var = act.arr.item()
         else:
@@ -65,3 +66,24 @@ def test_random_options_approach():
     policy = approach.solve(task, 500)
     act = policy(state)
     assert not act.has_option()  # should have fallen back to random action
+    # Test what happens when the option is always terminal.
+    parameterized_option3 = ParameterizedOption(
+        "Move", [], params_space, _policy, _initiable, lambda _1, _2, _3: True)
+    approach = RandomOptionsApproach(
+        _simulator, {Solved}, {parameterized_option3}, {cup_type},
+        params_space, [])
+    task = Task(state, {Solved([cup])})
+    approach.seed(123)
+    policy = approach.solve(task, 500)
+    act_var = None
+    for _ in range(10):
+        act = policy(state)
+        assert act.has_option()
+        assert act.get_option()[1] == 0
+        if act_var is None:
+            act_var = act.arr.item()
+        else:
+            # RandomOptionsApproach should use different options on each step.
+            assert abs(act_var-act.arr.item()) > 1e-3
+            act_var = act.arr.item()
+        state = _simulator(state, act)
