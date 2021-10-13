@@ -373,6 +373,7 @@ class _Option:
 DefaultOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, o, p: Action(np.array([0.0])),
     lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.0]))
+DefaultOption.parent.params_space.seed(0)  # for reproducibility
 
 
 @dataclass(frozen=True, repr=False, eq=False)
