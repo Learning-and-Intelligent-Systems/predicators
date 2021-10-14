@@ -149,7 +149,7 @@ class ClutteredTableEnv(BaseEnv):
                     1.75 * state.get(can, "radius"),
                     facecolor="gray",
                     alpha=0.5)
-                ax.add_patch(circ)                
+                ax.add_patch(circ)
             c = cmap(i % num_colors)
             circ = plt.Circle(
                 (state.get(can, "pose_x"), state.get(can, "pose_y")),
