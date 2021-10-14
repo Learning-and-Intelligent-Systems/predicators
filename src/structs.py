@@ -92,6 +92,7 @@ class State:
     """Struct defining the low-level state of the world.
     """
     data: Dict[Object, Array]
+    simulator_state: Optional[Any] = None  # for implementing simulate
 
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
