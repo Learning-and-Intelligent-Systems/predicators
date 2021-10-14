@@ -3,7 +3,7 @@
 
 import pytest
 from predicators.src.envs import BaseEnv, create_env, EnvironmentFailure
-from predicators.src.structs import State, Type
+from predicators.src.structs import State, Type, Task
 
 
 def test_base_env():
@@ -14,6 +14,7 @@ def test_base_env():
     cup = cup_type("cup")
     plate = plate_type("plate")
     state = State({cup: [0.5], plate: [1.0, 1.2]})
+    task = Task(state, set())
     env = BaseEnv()
     env.seed(123)
     # Check that methods are abstract.
@@ -32,7 +33,7 @@ def test_base_env():
     with pytest.raises(NotImplementedError):
         env.action_space()
     with pytest.raises(NotImplementedError):
-        env.render(state)
+        env.render(state, task)
 
 
 def test_create_env():

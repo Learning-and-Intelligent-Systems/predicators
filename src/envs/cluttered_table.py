@@ -2,13 +2,15 @@
 planner's ability to handle failures reported by the environment.
 """
 
-from typing import List, Set, Sequence, Dict
+from typing import List, Set, Sequence, Dict, Optional
+import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 
 class ClutteredTableEnv(BaseEnv):
@@ -131,8 +133,54 @@ class ClutteredTableEnv(BaseEnv):
         # where all 4 dimensions are 0.
         return Box(0, 1, (4,))
 
-    def render(self, state: State) -> Image:
-        raise NotImplementedError
+    def render(self, state: State, task: Task,
+               action: Optional[Action] = None) -> Image:
+        fig, ax = plt.subplots(1, 1)
+        ax.set_aspect('equal')
+        assert len(task.goal) == 1
+        goal_atom = next(iter(task.goal))
+        assert goal_atom.predicate == self._Holding
+        assert len(goal_atom.objects) == 1
+        goal_can = goal_atom.objects[0]
+        # Draw cans
+        lw = 1
+        goal_color = "green"
+        other_color = "red"
+        lcolor = "black"
+        for can in self._cans:
+            if state.get(can, "is_grasped"):
+                circ = plt.Circle(
+                    (state.get(can, "pose_x"), state.get(can, "pose_y")),
+                    1.75 * state.get(can, "radius"),
+                    facecolor="gray",
+                    alpha=0.5)
+                ax.add_patch(circ)
+            if can == goal_can:
+                c = goal_color
+            else:
+                c = other_color
+            circ = plt.Circle(
+                (state.get(can, "pose_x"), state.get(can, "pose_y")),
+                state.get(can, "radius"),
+                linewidth=lw,
+                edgecolor=lcolor,
+                facecolor=c)
+            ax.add_patch(circ)
+        # Draw action
+        if action:
+            start_x, start_y, end_x, end_y = action.arr
+            dx, dy = end_x - start_x, end_y - start_y
+            arrow = plt.Arrow(start_x, start_y, dx, dy,
+                              width=0.1)
+            ax.add_patch(arrow)
+        plt.xlim(-0.1, 1.1)
+        plt.ylim(-0.1, 1.1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+        plt.close()
+        return img
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
         tasks = []
