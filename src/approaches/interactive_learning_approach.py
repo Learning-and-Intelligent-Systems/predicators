@@ -101,23 +101,15 @@ class InteractiveLearningApproach(TAMPApproach):
             save_path = get_save_path()
 
             # Train MLP
-            print("pos example shapes:", [ex.shape for ex in positive_examples])
-            print("neg example shapes:", [ex.shape for ex in negative_examples])
-
             X = np.array(positive_examples + negative_examples)
-            print("X:", X.shape)
             Y = np.array([1 for _ in positive_examples] +
                          [0 for _ in negative_examples])
-            print("Y:", Y.shape)
-
             model = MLPClassifier(X.shape[1])
             model.fit(X, Y)
             torch.save(model, f"{save_path}_{pred}.classifier")
 
             # Construct classifier function, create new Predicate, and save it
-            def _classifier(state: State, objects: Sequence[Object]) -> bool:
-                v = state.vec(objects)
-                return model.classify(v)
+            _classifier = _create_classifier(model)
             new_pred = Predicate(pred.name, pred.types, _classifier)
             self._predicates = self._predicates - {pred} | {new_pred}
 
@@ -177,3 +169,11 @@ def _strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
+
+
+def _create_classifier(model: MLPClassifier) -> Callable[[
+                        State, Sequence[Object]], bool]:
+    def _classifier(state: State, objects: Sequence[Object]) -> bool:
+        v = state.vec(objects)
+        return model.classify(v)
+    return _classifier
