@@ -1,10 +1,7 @@
 """Behavior (iGibson) environment.
-
-TODO:
-* Implement task thing by reseting and saving
-* Create a state by parsing the `task_obs` field
 """
 
+import functools
 import os
 from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
@@ -46,8 +43,12 @@ class BehaviorEnv(BaseEnv):
         super().__init__()
 
     def simulate(self, state: State, action: Action) -> State:
-        # TODO
-        import ipdb; ipdb.set_trace()
+        assert state.simulator_state is not None
+        # TODO test that this works as expected
+        load_internal_states(self._env.simulator, state.simulator_state)
+        self._env.step(action.arr)
+        next_state = self._current_ig_state_to_state()
+        return next_state
 
     def get_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks,
@@ -63,24 +64,9 @@ class BehaviorEnv(BaseEnv):
         # TODO: figure out how to use rng here
         for _ in range(num):
             self._env.reset()
-            # Convert iGibson state into our State
-            state_data = {}
-            for ig_obj in self._get_task_relevant_objects():
-                type_name, _ = ig_obj.bddl_object_scope.rsplit("_", 1)
-                obj_type = self._type_name_to_type[type_name]
-                # Create object for ig_obj
-                obj = Object(ig_obj.bddl_object_scope, obj_type)
-                # Get object features
-                # TODO: generalize this!
-                obj_state = np.concatenate([
-                    ig_obj.get_position(),
-                    ig_obj.get_orientation(),
-                ])
-                state_data[obj] = obj_state
-            simulator_state = save_internal_states(self._env.simulator)
-            init_state = State(state_data, simulator_state)
+            init_state = self._current_ig_state_to_state()
             # TODO: get goal for task in predicates
-            goal = set()
+            goal = {GroundAtom(self._Dummy, [])}
             task = Task(init_state, goal)
             tasks.append(task)
         return tasks
@@ -88,7 +74,8 @@ class BehaviorEnv(BaseEnv):
     @property
     def predicates(self) -> Set[Predicate]:
         # TODO
-        return set()
+        self._Dummy = Predicate("Dummy", [], lambda s, o: False)
+        return {self._Dummy}
 
     @property
     def types(self) -> Set[Type]:
@@ -104,12 +91,6 @@ class BehaviorEnv(BaseEnv):
             self._type_name_to_type[type_name] = obj_type
         return set(self._type_name_to_type.values())
 
-    def _get_task_relevant_objects(self):
-        # https://github.com/Learning-and-Intelligent-Systems/iGibson/blob/f21102347be7f3cef2cc39b943b1cf3166a428f4/igibson/envs/behavior_mp_env.py#L104
-        return [item for item in self._env.task.object_scope.values()
-                if isinstance(item, URDFObject) or isinstance(item, RoomFloor)
-        ]
-
     @property
     def options(self) -> Set[ParameterizedOption]:
         # TODO
@@ -124,3 +105,29 @@ class BehaviorEnv(BaseEnv):
                action: Optional[Action] = None) -> Image:
         # TODO
         import ipdb; ipdb.set_trace()
+
+    def _get_task_relevant_objects(self):
+        # https://github.com/Learning-and-Intelligent-Systems/iGibson/blob/f21102347be7f3cef2cc39b943b1cf3166a428f4/igibson/envs/behavior_mp_env.py#L104
+        return [item for item in self._env.task.object_scope.values()
+                if isinstance(item, URDFObject) or isinstance(item, RoomFloor)
+        ]
+
+    @functools.lru_cache(maxsize=None)
+    def _ig_object_to_object(self, ig_obj):
+        type_name, _ = ig_obj.bddl_object_scope.rsplit("_", 1)
+        obj_type = self._type_name_to_type[type_name]
+        return Object(ig_obj.bddl_object_scope, obj_type)
+
+    def _current_ig_state_to_state(self):
+        state_data = {}
+        for ig_obj in self._get_task_relevant_objects():
+            obj = self._ig_object_to_object(ig_obj)
+            # Get object features
+            # TODO: generalize this!
+            obj_state = np.concatenate([
+                ig_obj.get_position(),
+                ig_obj.get_orientation(),
+            ])
+            state_data[obj] = obj_state
+        simulator_state = save_internal_states(self._env.simulator)
+        return State(state_data, simulator_state)

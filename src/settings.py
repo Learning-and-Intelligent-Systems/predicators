@@ -96,6 +96,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed": 10,
                 "cluttered_table": 25,
+                "behavior": 100,
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth
