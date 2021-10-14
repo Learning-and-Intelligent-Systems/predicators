@@ -1,10 +1,11 @@
 """An approach that learns predicates from a teacher.
 """
 
+import itertools
+from typing import Set, Callable, List, Sequence, Collection
 import numpy as np
 import torch
 from gym.spaces import Box
-from typing import Set, Callable, List, Sequence, Tuple, Collection
 
 from predicators.src import utils
 from predicators.src.approaches import TAMPApproach
@@ -31,7 +32,7 @@ class InteractiveLearningApproach(TAMPApproach):
         self._known_predicates = {p for p in true_predicates
                                   if p.name in CFG.interactive_known_predicates}
         predicates_to_learn = true_predicates - self._known_predicates
-        self._teacher = _Teacher(predicates_to_learn)
+        self._teacher = _Teacher(true_predicates, predicates_to_learn)
         # All seen data
         self.dataset: List[ActionTrajectory] = []
         self.ground_atom_dataset: List[List[Set[GroundAtom]]] = []
@@ -56,23 +57,21 @@ class InteractiveLearningApproach(TAMPApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Get data from teacher
-        data, ground_atom_data = self._teacher.generate_data_for_student(dataset)
-        self.dataset.extend(data)
+        ground_atom_data = self._teacher.generate_data(dataset)
+        self.dataset.extend(dataset)
         self.ground_atom_dataset.extend(ground_atom_data)
         # Learn predicates
         for pred in self._predicates:
-            print("Predicate:", pred)
-            if pred in self._known_predicates:
-                continue
-
+            print("\nPredicate:", pred)
+            assert pred not in self._known_predicates
             positive_examples = []
             negative_examples = []
             # Positive examples
             for i, trajectory in enumerate(self.ground_atom_dataset):
-                for j, set in enumerate(trajectory):
+                for j, ground_atom_set in enumerate(trajectory):
                     state = self.dataset[i][0][j]
                     positives = [state.vec(ground_atom.objects)
-                                 for ground_atom in set
+                                 for ground_atom in ground_atom_set
                                  if ground_atom.predicate == pred]
                     positive_examples.extend(positives)
             # Negative examples - assume unlabeled is negative for now
@@ -83,21 +82,17 @@ class InteractiveLearningApproach(TAMPApproach):
                                                   list(state),
                                                   pred.types,
                                                   allow_duplicates=False)]
-                    # TODO: this is ugly
-                    # negatives = [ex for ex in possible
-                    #              if ex not in positive_examples]
                     negatives = []
-                    for ex in possible:
-                        found = False
-                        for pos in positive_examples:
-                            if np.array_equal(ex, pos):
-                                found = True
-                                break
-                        if not found:
-                            negatives.append(ex)
+                    for (ex, pos) in itertools.product(possible,
+                                                       positive_examples):
+                        if np.array_equal(ex, pos):
+                            break
+                    else:
+                        # It's not a positive example
+                        negatives.append(ex)
                     negative_examples.extend(negatives)
-            print(f"Generated {len(positive_examples)} positive and {len(negative_examples)} "
-                  f"negative examples")
+            print(f"Generated {len(positive_examples)} positive and "
+                  f"{len(negative_examples)} negative examples")
             save_path = get_save_path()
 
             # Train MLP
@@ -116,22 +111,26 @@ class InteractiveLearningApproach(TAMPApproach):
         # Learn operators
         print("Learning operators...")
         self._operators = learn_operators_from_data(
-            self.dataset, self._known_predicates | self._get_current_predicates())
+            self.dataset, self._known_predicates | self._predicates)
+
+    def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
+        """Returns whether the ground atom is true in the state.
+        """
+        return self._teacher.ask(state, ground_atom)
 
 
 class _Teacher:
     """Answers queries about GroundAtoms in States.
     """
-    def __init__(self, predicates_to_learn: Set[Predicate]) -> None:
-        self._name_to_predicate = {p.name : p for p in predicates_to_learn}
+    def __init__(self, true_predicates: Set[Predicate],
+                 predicates_to_learn: Set[Predicate]) -> None:
+        self._name_to_predicate = {p.name : p for p in true_predicates}
+        self._predicates_to_learn = predicates_to_learn
 
-    def generate_data_for_student(self,
-                                  dataset: Dataset) -> Tuple[
-                                      Dataset, List[List[Set[GroundAtom]]]]:
-        ground_atom_data = create_teacher_dataset(
-                               self._name_to_predicate.values(),
-                               dataset)
-        return (dataset, ground_atom_data)
+    def generate_data(self, dataset: Dataset) -> List[List[Set[GroundAtom]]]:
+        """Creates sparse dataset of GroundAtoms.
+        """
+        return create_teacher_dataset(self._predicates_to_learn, dataset)
 
     def ask(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state.
