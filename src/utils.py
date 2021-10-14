@@ -125,9 +125,8 @@ def option_to_trajectory(
     assert option.initiable(init)
     state = init
     states = [state]
-    for i in range(max_num_steps):
+    for _ in range(max_num_steps):
         act = option.policy(state)
-        act.set_option((option, i))
         actions.append(act)
         state = simulator(state, act)
         states.append(state)
@@ -146,21 +145,16 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
     new_states = [states[0]]
     if len(actions) == 0:
         return new_states, []
-    current_option, t = actions[0].get_option()
-    assert t == 0
-    expected_t = 0
+    current_option = actions[0].get_option()
     options = [current_option]
     for s, a in zip(states[:-1], actions):
-        o, t = a.get_option()
+        o = a.get_option()
+        # This assumes that an option is equal to another
+        # option only if they're the same python object.
         if o != current_option:
-            assert t == 0
-            expected_t = 0
             new_states.append(s)
             options.append(o)
             current_option = o
-        else:
-            assert t == expected_t
-            expected_t += 1
     new_states.append(states[-1])
     return new_states, options
 
@@ -178,6 +172,19 @@ def get_object_combinations(
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue
         yield list(choice)
+
+
+def get_random_object_combination(
+        objects: Collection[Object], types: Sequence[Type],
+        rng: np.random.Generator) -> List[Object]:
+    """Get a random list of objects from the given collection that
+    satisfy the given sequence of types. Duplicates are always allowed.
+    """
+    types_to_objs = defaultdict(list)
+    for obj in objects:
+        types_to_objs[obj.type].append(obj)
+    return [types_to_objs[t][rng.choice(len(types_to_objs[t]))]
+            for t in types]
 
 
 def find_substitution(super_atoms: Collection[GroundAtom],

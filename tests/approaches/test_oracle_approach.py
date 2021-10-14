@@ -3,12 +3,11 @@
 
 import numpy as np
 import pytest
-from predicators.src.approaches import OracleApproach, ApproachFailure, \
-    ApproachTimeout
+from predicators.src.approaches import OracleApproach, ApproachFailure
 from predicators.src.approaches.oracle_approach import get_gt_ops
-from predicators.src.envs import CoverEnv, CoverEnvTypedOptions
-from predicators.src.structs import Task, Action
-from predicators.src.planning import sesame_plan
+from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
+    ClutteredTableEnv, EnvironmentFailure
+from predicators.src.structs import Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 
@@ -118,53 +117,90 @@ def test_oracle_approach_cover_typed():
             lambda s: random_action, task, env.simulate, env.predicates)
 
 
-def test_oracle_approach_cover_failures():
-    """Tests for failures in the OracleApproach.
+def test_cluttered_table_get_gt_ops():
+    """Tests for get_gt_ops in ClutteredTableEnv.
     """
-    utils.update_config({"env": "cover"})
-    env = CoverEnv()
+    utils.update_config({"env": "cluttered_table"})
+    # All predicates and options
+    env = ClutteredTableEnv()
+    operators = get_gt_ops(env.predicates, env.options)
+    assert len(operators) == 2
+    dump_operator, grasp_operator = sorted(operators, key=lambda o: o.name)
+    assert dump_operator.name == "Dump"
+    assert grasp_operator.name == "Grasp"
+    env.seed(123)
+    for train_task in env.get_train_tasks():
+        state = train_task.init
+        can0, can1, _, can3, _ = list(state)
+        assert can0.name == "can0"
+        assert can3.name == "can3"
+        grasp0_operator = grasp_operator.ground([can0])
+        with pytest.raises(AssertionError):
+            grasp_operator.ground([])
+        rng = np.random.default_rng(123)
+        grasp_option = grasp0_operator.sample_option(state, rng)
+        grasp_action = grasp_option.policy(state)
+        assert env.action_space.contains(grasp_action.arr)
+        try:
+            state = env.simulate(state, grasp_action)
+        except EnvironmentFailure as e:
+            assert len(e.offending_objects) == 1
+        dump0_operator = dump_operator.ground([can3])
+        with pytest.raises(AssertionError):
+            dump_operator.ground([can3, can1])
+        dump_option = dump0_operator.sample_option(state, rng)
+        dump_action = dump_option.policy(state)
+        assert env.action_space.contains(dump_action.arr)
+        env.simulate(state, dump_action)  # never raises EnvironmentFailure
+
+
+def test_oracle_approach_cluttered_table():
+    """Tests for OracleApproach class with ClutteredTableEnv.
+    """
+    # With just 1 can on the table, planning should always succeed,
+    # because there are no failures to consider.
+    old_num_cans_train = CFG.cluttered_table_num_cans_train
+    old_num_cans_test = CFG.cluttered_table_num_cans_test
+    utils.update_config({"env": "cluttered_table",
+                         "cluttered_table_num_cans_train": 1,
+                         "cluttered_table_num_cans_test": 1})
+    env = ClutteredTableEnv()
     env.seed(123)
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
+    assert not approach.is_learning_based
     approach.seed(123)
-    task = env.get_train_tasks()[0]
-    trivial_task = Task(task.init, set())
-    policy = approach.solve(trivial_task, timeout=500)
-    with pytest.raises(ApproachFailure):
-        policy(task.init)  # plan should get exhausted immediately
-    assert utils.policy_solves_task(
-        policy, trivial_task, env.simulate, env.predicates)
-    assert len(task.goal) == 1
-    Covers = next(iter(task.goal)).predicate
-    block0 = [obj for obj in task.init if obj.name == "block0"][0]
-    target0 = [obj for obj in task.init if obj.name == "target0"][0]
-    target1 = [obj for obj in task.init if obj.name == "target1"][0]
-    impossible_task = Task(task.init, {Covers([block0, target0]),
-                                       Covers([block0, target1])})
-    with pytest.raises(ApproachTimeout):
-        approach.solve(impossible_task, timeout=0.1)  # times out
-    with pytest.raises(ApproachTimeout):
-        approach.solve(impossible_task, timeout=-100)  # times out
-    old_max_samples_per_step = CFG.max_samples_per_step
-    old_max_skeletons = CFG.max_skeletons
-    CFG.max_samples_per_step = 1
-    CFG.max_skeletons = float("inf")
-    with pytest.raises(ApproachTimeout):
-        approach.solve(impossible_task, timeout=1)  # backtracking occurs
-    CFG.max_skeletons = old_max_skeletons
-    with pytest.raises(ApproachFailure):
-        approach.solve(impossible_task, timeout=1)  # hits skeleton limit
-    CFG.max_samples_per_step = old_max_samples_per_step
-    operators = get_gt_ops(env.predicates, env.options)
-    operators = {op for op in operators if op.name == "Place"}
-    with pytest.raises(ApproachFailure):
-        # Goal is not dr-reachable, should fail fast.
-        sesame_plan(task, env.simulate, operators,
-                    env.predicates, timeout=500, seed=123)
-    with pytest.raises(ApproachFailure):
-        # Goal is not dr-reachable, but we disable that check.
-        # Should run out of skeletons.
-        sesame_plan(task, env.simulate, operators,
-                    env.predicates, timeout=500, seed=123,
-                    check_dr_reachable=False)
+    for task in env.get_train_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+    utils.update_config({"env": "cluttered_table",
+                         "cluttered_table_num_cans_train": old_num_cans_train,
+                         "cluttered_table_num_cans_test": old_num_cans_test})
+    # With more cans on the table, planning might fail.
+    env = ClutteredTableEnv()
+    env.seed(123)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
+    assert not approach.is_learning_based
+    approach.seed(123)
+    for task in env.get_train_tasks():
+        try:
+            policy = approach.solve(task, timeout=500)
+            assert utils.policy_solves_task(
+                policy, task, env.simulate, env.predicates)
+        except ApproachFailure as e:
+            assert str(e) == "Failure in environment"
+    for task in env.get_test_tasks():
+        try:
+            policy = approach.solve(task, timeout=500)
+            assert utils.policy_solves_task(
+                policy, task, env.simulate, env.predicates)
+        except ApproachFailure as e:
+            assert str(e) == "Failure in environment"

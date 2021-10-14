@@ -206,6 +206,33 @@ def test_unify():
     assert assignment == {}
 
 
+def test_get_random_object_combination():
+    """Tests for get_random_object_combination().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat2"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    rng = np.random.default_rng(123)
+    objs = utils.get_random_object_combination(
+        {cup0, cup1, cup2}, [cup_type, cup_type], rng)
+    assert all(obj.type == cup_type for obj in objs)
+    objs = utils.get_random_object_combination(
+        {cup0, cup1, cup2, plate0, plate1, plate2}, [cup_type, plate_type], rng)
+    assert [obj.type for obj in objs] == [cup_type, plate_type]
+    objs = utils.get_random_object_combination(
+        {cup0}, [cup_type, cup_type, cup_type], rng)
+    assert len(objs) == 3
+    assert len(set(objs)) == 1
+    with pytest.raises(ValueError):
+        objs = utils.get_random_object_combination(
+            {cup0}, [plate_type], rng)
+
+
 def test_find_substitution():
     """Tests for find_substitution().
     """
