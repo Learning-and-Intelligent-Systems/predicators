@@ -3,12 +3,14 @@ planner's ability to handle failures reported by the environment.
 """
 
 from typing import List, Set, Sequence, Dict, Optional
+import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 
 class ClutteredTableEnv(BaseEnv):
@@ -133,7 +135,42 @@ class ClutteredTableEnv(BaseEnv):
 
     def render(self, state: State,
                action: Optional[Action] = None) -> Image:
-        raise NotImplementedError
+        fig, ax = plt.subplots(1, 1)
+        # Draw cans
+        lw = 1
+        num_colors = 12
+        cmap = plt.cm.get_cmap("hsv", num_colors)
+        lcolor = "black"
+        for i, can in enumerate(self._cans):
+            if state.get(can, "is_grasped"):
+                circ = plt.Circle(
+                    (state.get(can, "pose_x"), state.get(can, "pose_y")),
+                    1.75 * state.get(can, "radius"),
+                    facecolor="gray",
+                    alpha=0.5)
+                ax.add_patch(circ)                
+            c = cmap(i % num_colors)
+            circ = plt.Circle(
+                (state.get(can, "pose_x"), state.get(can, "pose_y")),
+                state.get(can, "radius"),
+                linewidth=lw,
+                edgecolor=lcolor,
+                facecolor=c)
+            ax.add_patch(circ)
+        # Draw action
+        if action:
+            start_x, start_y, end_x, end_y = action.arr
+            dx, dy = end_x - start_x, end_y - start_y
+            arrow = plt.Arrow((start_x, start_y), (dx, dy))
+        plt.xlim(-0.1, 1.1)
+        plt.ylim(-0.1, 1.1)
+        plt.xticks([])
+        plt.yticks([])
+        ax.axis("equal")
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+        plt.close()
+        return img
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
         tasks = []
