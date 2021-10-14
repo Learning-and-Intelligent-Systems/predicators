@@ -1,7 +1,6 @@
 """Test cases for the interactive learning approach.
 """
 
-from predicators.src.envs import CoverEnv
 from predicators.src.approaches import InteractiveLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.approaches.interactive_learning_approach import \
@@ -48,10 +47,9 @@ def test_teacher_dataset():
         assert teacher_lengths[i] == int(ratio * lengths[i])
 
 
-def test_operator_learning_approach():
+def test_interactive_learning_approach():
     """Tests for InteractiveLearningApproach class.
     """
-    # TODO
     utils.update_config({"env": "cover", "approach": "interactive_learning",
                          "timeout": 10, "max_samples_per_step": 10,
                          "seed": 12345, "classifier_max_itr": 500,
@@ -70,13 +68,10 @@ def test_operator_learning_approach():
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
-    # Now test loading operators.
-    approach2 = InteractiveLearningApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    approach2.load()
-    for task in env.get_test_tasks():
-        try:
-            approach2.solve(task, timeout=CFG.timeout)
-        except (ApproachTimeout, ApproachFailure):  # pragma: no cover
-            pass
+
+    # Test teacher
+    (ss, _) = dataset[0]
+    for s in ss:
+        ground_atoms = list(utils.abstract(s, env.predicates))
+        for g in ground_atoms:
+            assert approach.ask_teacher(s, g)
