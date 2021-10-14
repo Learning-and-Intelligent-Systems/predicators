@@ -2,7 +2,7 @@
 """
 
 import abc
-from typing import List, Set
+from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
@@ -65,8 +65,9 @@ class BaseEnv:
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def render(self, state: State) -> Image:
-        """Render a state into an image.
+    def render(self, state: State,
+               action: Optional[Action] = None) -> Image:
+        """Render a state and action into an image.
         """
         raise NotImplementedError("Override me!")
 
