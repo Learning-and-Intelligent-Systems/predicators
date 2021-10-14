@@ -136,6 +136,7 @@ class ClutteredTableEnv(BaseEnv):
     def render(self, state: State,
                action: Optional[Action] = None) -> Image:
         fig, ax = plt.subplots(1, 1)
+        ax.set_aspect('equal')
         # Draw cans
         lw = 1
         num_colors = 12
@@ -161,12 +162,13 @@ class ClutteredTableEnv(BaseEnv):
         if action:
             start_x, start_y, end_x, end_y = action.arr
             dx, dy = end_x - start_x, end_y - start_y
-            arrow = plt.Arrow((start_x, start_y), (dx, dy))
+            arrow = plt.Arrow(start_x, start_y, dx, dy,
+                              width=0.1)
+            ax.add_patch(arrow)
         plt.xlim(-0.1, 1.1)
         plt.ylim(-0.1, 1.1)
         plt.xticks([])
         plt.yticks([])
-        ax.axis("equal")
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
