@@ -122,8 +122,9 @@ class InteractiveLearningApproach(TAMPApproach):
             self._predicates = self._predicates - {pred} | {new_pred}
 
         # Learn operators
+        print("Learning operators...")
         self._operators = learn_operators_from_data(
-            self.dataset, self._get_current_predicates())
+            self.dataset, self._known_predicates | self._get_current_predicates())
 
 
 class _Teacher:
