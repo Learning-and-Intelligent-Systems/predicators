@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet
+    Tuple, Any, cast, FrozenSet, Optional
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
