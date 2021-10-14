@@ -2,7 +2,7 @@
 planner's ability to handle failures reported by the environment.
 """
 
-from typing import List, Set, Sequence, Dict
+from typing import List, Set, Sequence, Dict, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv, EnvironmentFailure
@@ -131,7 +131,8 @@ class ClutteredTableEnv(BaseEnv):
         # where all 4 dimensions are 0.
         return Box(0, 1, (4,))
 
-    def render(self, state: State) -> Image:
+    def render(self, state: State,
+               action: Optional[Action] = None) -> Image:
         raise NotImplementedError
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:

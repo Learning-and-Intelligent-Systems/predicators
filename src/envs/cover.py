@@ -2,7 +2,7 @@
 won't ever fail), but it still requires backtracking.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple
+from typing import List, Set, Sequence, Dict, Tuple, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -118,7 +118,9 @@ class CoverEnv(BaseEnv):
     def action_space(self) -> Box:
         return Box(0, 1, (1,))  # same as option param space
 
-    def render(self, state: State) -> Image:
+    def render(self, state: State,
+               action: Optional[Action] = None) -> Image:
+        del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
