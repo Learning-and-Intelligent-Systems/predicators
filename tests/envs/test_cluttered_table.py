@@ -1,7 +1,6 @@
 """Test cases for the cluttered table environment.
 """
 
-import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import ClutteredTableEnv
@@ -57,5 +56,4 @@ def test_cluttered_table():
         act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
         next_state = env.simulate(state, act)  # grasp while already grasping
         assert all(np.all(next_state[can] == state[can]) for can in state)
-        with pytest.raises(NotImplementedError):
-            env.render(state)
+        env.render(state, act)
