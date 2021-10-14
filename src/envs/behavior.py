@@ -6,13 +6,17 @@ TODO:
 """
 
 import os
-from typing import List, Set, Sequence, Dict, Tuple
+from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
 from gym.spaces import Box
 try:
     import bddl
     import igibson
     from igibson.envs import behavior_env
+    from igibson.objects.articulated_object import URDFObject
+    from igibson.object_states.on_floor import RoomFloor
+    from igibson.utils.checkpoint_utils import \
+        save_internal_states, load_internal_states
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")
 except ModuleNotFoundError:
@@ -38,52 +42,85 @@ class BehaviorEnv(BaseEnv):
             action_timestep=CFG.behavior_action_timestep,
             physics_timestep=CFG.behavior_physics_timestep
         )
-        import ipdb; ipdb.set_trace()
+        self._type_name_to_type = {}
         super().__init__()
-        # Types
-        # TODO
-        
-        # Predicates
-        # TODO
-        
-        # Options
-        # TODO
-        
-        # Objects
-        # TODO
 
     def simulate(self, state: State, action: Action) -> State:
         # TODO
         import ipdb; ipdb.set_trace()
 
     def get_train_tasks(self) -> List[Task]:
-        # TODO
-        import ipdb; ipdb.set_trace()
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
-        # TODO
-        import ipdb; ipdb.set_trace()
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng)
+
+    def _get_tasks(self, num: int,
+                   rng: np.random.Generator) -> List[Task]:
+        tasks = []
+        # TODO: figure out how to use rng here
+        for _ in range(num):
+            self._env.reset()
+            # Convert iGibson state into our State
+            state_data = {}
+            for ig_obj in self._get_task_relevant_objects():
+                type_name, _ = ig_obj.bddl_object_scope.rsplit("_", 1)
+                obj_type = self._type_name_to_type[type_name]
+                # Create object for ig_obj
+                obj = Object(ig_obj.bddl_object_scope, obj_type)
+                # Get object features
+                # TODO: generalize this!
+                obj_state = np.concatenate([
+                    ig_obj.get_position(),
+                    ig_obj.get_orientation(),
+                ])
+                state_data[obj] = obj_state
+            simulator_state = save_internal_states(self._env.simulator)
+            init_state = State(state_data, simulator_state)
+            # TODO: get goal for task in predicates
+            goal = set()
+            task = Task(init_state, goal)
+            tasks.append(task)
+        return tasks
 
     @property
     def predicates(self) -> Set[Predicate]:
         # TODO
-        import ipdb; ipdb.set_trace()
+        return set()
 
     @property
     def types(self) -> Set[Type]:
-        # TODO
-        import ipdb; ipdb.set_trace()
+        self._env.reset()  # TODO is this required?
+        for ig_obj in self._get_task_relevant_objects():
+            # Create type
+            type_name, _ = ig_obj.bddl_object_scope.rsplit("_", 1)
+            if type_name in self._type_name_to_type:
+                continue
+            # TODO: get type-specific features
+            obj_type = Type(type_name, ["pos_x", "pos_y", "pos_z",
+                                        "orn_0", "orn_1", "orn_2", "orn_3"])
+            self._type_name_to_type[type_name] = obj_type
+        return set(self._type_name_to_type.values())
+
+    def _get_task_relevant_objects(self):
+        # https://github.com/Learning-and-Intelligent-Systems/iGibson/blob/f21102347be7f3cef2cc39b943b1cf3166a428f4/igibson/envs/behavior_mp_env.py#L104
+        return [item for item in self._env.task.object_scope.values()
+                if isinstance(item, URDFObject) or isinstance(item, RoomFloor)
+        ]
 
     @property
     def options(self) -> Set[ParameterizedOption]:
         # TODO
-        import ipdb; ipdb.set_trace()
+        return set()
 
     @property
     def action_space(self) -> Box:
         # 11-dimensional, between -1 and 1
         return self._env.action_space
 
-    def render(self, state: State) -> Image:
+    def render(self, state: State, task: Task,
+               action: Optional[Action] = None) -> Image:
         # TODO
         import ipdb; ipdb.set_trace()

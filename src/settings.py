@@ -21,7 +21,7 @@ class GlobalSettings:
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples", "configs",
-        "behavior_full_observability_fetch.yaml")
+        "njk_sorting_books_full_obs.yaml")
     behavior_mode = "iggui"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
@@ -79,6 +79,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed": 10,
                 "cluttered_table": 25,
+                "behavior": 10,
             })[args["env"]],
 
             # Number of test tasks in each environment.
@@ -86,6 +87,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed": 10,
                 "cluttered_table": 100,
+                "behavior": 10,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
