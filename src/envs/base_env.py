@@ -65,7 +65,7 @@ class BaseEnv:
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def render(self, state: State,
+    def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> Image:
         """Render a state and action into an image.
         """

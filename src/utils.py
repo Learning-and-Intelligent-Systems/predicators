@@ -73,8 +73,8 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate],
                        make_video: bool = False,
-                       render: Optional[Callable[[State, Action],
-                                                  Image]] = None,
+                       render: Optional[Callable[[State, Task,
+                                    Action], Image]] = None,
                        ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
@@ -93,7 +93,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
             act = policy(state)
             if make_video:
                 assert render is not None
-                video.append(render(state, act))
+                video.append(render(state, task, act))
             state = simulator(state, act)
             atoms = abstract(state, predicates)
             actions.append(act)
@@ -107,7 +107,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         # support Callables with optional arguments. mypy
         # extensions does, but for the sake of avoiding an
         # additional dependency, we'll just ignore this here.
-        video.append(render(state))  # type: ignore
+        video.append(render(state, task))  # type: ignore
     return (states, actions), video, goal_reached
 
 

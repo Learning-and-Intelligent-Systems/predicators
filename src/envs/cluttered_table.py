@@ -133,16 +133,21 @@ class ClutteredTableEnv(BaseEnv):
         # where all 4 dimensions are 0.
         return Box(0, 1, (4,))
 
-    def render(self, state: State,
+    def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> Image:
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
+        assert len(task.goal) == 1
+        goal_atom = next(iter(task.goal))
+        assert goal_atom.predicate == self._Holding
+        assert len(goal_atom.objects) == 1
+        goal_can = goal_atom.objects[0]
         # Draw cans
         lw = 1
-        num_colors = 12
-        cmap = plt.cm.get_cmap("hsv", num_colors)
+        goal_color = "green"
+        other_color = "red"
         lcolor = "black"
-        for i, can in enumerate(self._cans):
+        for can in self._cans:
             if state.get(can, "is_grasped"):
                 circ = plt.Circle(
                     (state.get(can, "pose_x"), state.get(can, "pose_y")),
@@ -150,7 +155,10 @@ class ClutteredTableEnv(BaseEnv):
                     facecolor="gray",
                     alpha=0.5)
                 ax.add_patch(circ)
-            c = cmap(i % num_colors)
+            if can == goal_can:
+                c = goal_color
+            else:
+                c = other_color
             circ = plt.Circle(
                 (state.get(can, "pose_x"), state.get(can, "pose_y")),
                 state.get(can, "radius"),

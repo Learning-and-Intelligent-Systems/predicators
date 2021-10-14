@@ -118,8 +118,9 @@ class CoverEnv(BaseEnv):
     def action_space(self) -> Box:
         return Box(0, 1, (1,))  # same as option param space
 
-    def render(self, state: State,
+    def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> Image:
+        del task  # not used by this render function
         del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
         # Draw main line
