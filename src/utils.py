@@ -73,7 +73,8 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate],
                        make_video: bool = False,
-                       render: Optional[Callable[[State], Image]] = None,
+                       render: Optional[Callable[[State, Task,
+                                    Action], Image]] = None,
                        ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
@@ -84,23 +85,30 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     states = [state]
     actions: List[Action] = []
     video: Video = []
+    if task.goal.issubset(atoms):  # goal is already satisfied
+        goal_reached = True
+    else:
+        goal_reached = False
+        for _ in range(CFG.max_num_steps_check_policy):
+            act = policy(state)
+            if make_video:
+                assert render is not None
+                video.append(render(state, task, act))
+            state = simulator(state, act)
+            atoms = abstract(state, predicates)
+            actions.append(act)
+            states.append(state)
+            if task.goal.issubset(atoms):
+                goal_reached = True
+                break
     if make_video:
         assert render is not None
-        video.append(render(state))
-    if task.goal.issubset(atoms):  # goal is already satisfied
-        return (states, actions), video, True
-    for _ in range(CFG.max_num_steps_check_policy):
-        act = policy(state)
-        state = simulator(state, act)
-        atoms = abstract(state, predicates)
-        actions.append(act)
-        states.append(state)
-        if make_video:
-            assert render is not None
-            video.append(render(state))
-        if task.goal.issubset(atoms):
-            return (states, actions), video, True
-    return (states, actions), video, False
+        # Explanation of type ignore: mypy currently does not
+        # support Callables with optional arguments. mypy
+        # extensions does, but for the sake of avoiding an
+        # additional dependency, we'll just ignore this here.
+        video.append(render(state, task))  # type: ignore
+    return (states, actions), video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
