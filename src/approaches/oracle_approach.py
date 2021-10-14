@@ -35,6 +35,8 @@ def get_gt_ops(predicates: Set[Predicate],
         ops = _get_cover_gt_ops(options_are_typed=False)
     elif CFG.env == "cover_typed":
         ops = _get_cover_gt_ops(options_are_typed=True)
+    elif CFG.env == "cluttered_table":
+        ops = _get_cluttered_table_gt_ops()
     else:
         raise NotImplementedError("Ground truth operators not implemented")
     # Filter out excluded predicates/options
@@ -156,5 +158,54 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                               add_effects, delete_effects, option,
                               option_vars, place_sampler)
     operators.add(place_operator)
+
+    return operators
+
+
+def _get_cluttered_table_gt_ops() -> Set[Operator]:
+    """Create ground truth operators for ClutteredTableEnv.
+    """
+    can_type, = _get_types_by_names("cluttered_table", ["can"])
+
+    HandEmpty, Holding = _get_predicates_by_names(
+        "cluttered_table", ["HandEmpty", "Holding"])
+
+    Grasp, Dump = _get_options_by_names("cluttered_table", ["Grasp", "Dump"])
+
+    operators = set()
+
+    # Grasp
+    can = Variable("?can", can_type)
+    parameters = [can]
+    option_vars = [can]
+    option = Grasp
+    preconditions = {LiftedAtom(HandEmpty, [])}
+    add_effects = {LiftedAtom(Holding, [can])}
+    delete_effects = {LiftedAtom(HandEmpty, [])}
+    def grasp_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
+        assert len(objs) == 1
+        can = objs[0]
+        end_x = state.get(can, "pose_x")
+        end_y = state.get(can, "pose_y")
+        start_x, start_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
+        return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
+    grasp_operator = Operator("Grasp", parameters, preconditions,
+                              add_effects, delete_effects, option,
+                              option_vars, grasp_sampler)
+    operators.add(grasp_operator)
+
+    # Dump
+    can = Variable("?can", can_type)
+    parameters = [can]
+    option_vars = []
+    option = Dump
+    preconditions = {LiftedAtom(Holding, [can])}
+    add_effects = {LiftedAtom(HandEmpty, [])}
+    delete_effects = {LiftedAtom(Holding, [can])}
+    dump_operator = Operator("Dump", parameters, preconditions, add_effects,
+                             delete_effects, option, option_vars,
+                             lambda s, r, o: np.array([], dtype=np.float32))
+    operators.add(dump_operator)
 
     return operators

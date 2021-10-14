@@ -6,6 +6,7 @@ import os
 from collections import defaultdict
 from types import SimpleNamespace
 from typing import Dict, Any
+import numpy as np
 
 
 class GlobalSettings:
@@ -24,6 +25,15 @@ class GlobalSettings:
     behavior_mode = "iggui"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
+
+    # cluttered table env parameters
+    cluttered_table_num_cans_train = 5
+    cluttered_table_num_cans_test = 10
+    cluttered_table_can_radius = 0.01
+    cluttered_table_collision_angle_thresh = np.pi / 8
+
+    # parameters for approaches
+    random_options_max_tries = 100
 
     # SeSamE parameters
     max_samples_per_step = 10
@@ -68,12 +78,14 @@ class GlobalSettings:
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
+                "cluttered_table": 25,
             })[args["env"]],
 
             # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
+                "cluttered_table": 100,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
@@ -81,6 +93,7 @@ class GlobalSettings:
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
+                "cluttered_table": 25,
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth

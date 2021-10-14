@@ -123,6 +123,8 @@ class State:
         given ordered list.
         """
         feats: List[Array] = []
+        if len(objects) == 0:
+            return np.zeros(0)
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
@@ -339,7 +341,7 @@ class ParameterizedOption:
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
         return _Option(self.name,
-                       policy=lambda s: self._policy(s, objects, params),
+                       lambda s: self._policy(s, objects, params),
                        initiable=lambda s: self._initiable(s, objects, params),
                        terminal=lambda s: self._terminal(s, objects, params),
                        parent=self, objects=objects, params=params)
@@ -353,7 +355,7 @@ class _Option:
     """
     name: str
     # A policy maps a state to an action.
-    policy: Callable[[State], Action] = field(repr=False)
+    _policy: Callable[[State], Action] = field(repr=False)
     # An initiation classifier maps a state to a bool, which is True
     # iff the option can start now.
     initiable: Callable[[State], bool] = field(repr=False)
@@ -367,10 +369,17 @@ class _Option:
     # The parameters that were used to ground this option.
     params: Array
 
+    def policy(self, state: State) -> Action:
+        """Call the policy and set the action's option.
+        """
+        action = self._policy(state)
+        action.set_option(self)
+        return action
 
 DefaultOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, o, p: Action(np.array([0.0])),
     lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.0]))
+DefaultOption.parent.params_space.seed(0)  # for reproducibility
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -507,11 +516,9 @@ class _GroundOperator:
 class Action:
     """An action in an environment. This is a light wrapper around a numpy
     float array that can optionally store the option which produced it.
-    The _option field is a tuple of the option itself and a timestep index.
     """
     _arr: Array
-    _option: Tuple[_Option, int] = field(
-        repr=False, default=(DefaultOption, -1))
+    _option: _Option = field(repr=False, default=DefaultOption)
 
     @property
     def arr(self) -> Array:
@@ -522,15 +529,15 @@ class Action:
     def has_option(self) -> bool:
         """Whether this action has a non-default option attached.
         """
-        return self._option[0] is not DefaultOption
+        return self._option is not DefaultOption
 
-    def get_option(self) -> Tuple[_Option, int]:
+    def get_option(self) -> _Option:
         """Get the option that produced this action.
         """
         assert self.has_option()
         return self._option
 
-    def set_option(self, option: Tuple[_Option, int]) -> None:
+    def set_option(self, option: _Option) -> None:
         """Set the option that produced this action.
         """
         self._option = option
@@ -538,7 +545,7 @@ class Action:
     def unset_option(self) -> None:
         """Unset the option that produced this action.
         """
-        self._option = (DefaultOption, -1)
+        self._option = DefaultOption
         assert not self.has_option()
 
 
