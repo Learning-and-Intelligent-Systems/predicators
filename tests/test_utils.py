@@ -101,6 +101,28 @@ def test_action_to_option_trajectory():
     assert len(opt_traj[0]) == 3
 
 
+def test_strip_predicate():
+    """Test for strip_predicate().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    def _classifier1(state, objects):
+        cup, plate = objects
+        return state[cup][0] + state[plate][0] < 2
+    pred = Predicate("On", [cup_type, plate_type], _classifier1)
+    cup = cup_type("cup")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
+    pred_stripped = utils.strip_predicate(pred)
+    assert pred.name == pred_stripped.name
+    assert pred.types == pred_stripped.types
+    assert pred.holds(state, (cup, plate1))
+    assert pred.holds(state, (cup, plate2))
+    assert not pred_stripped.holds(state, (cup, plate1))
+    assert not pred_stripped.holds(state, (cup, plate2))
+
+
 def test_abstract():
     """Tests for abstract().
     """
