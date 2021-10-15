@@ -23,24 +23,25 @@ class InteractiveLearningApproach(TAMPApproach):
     """
     def __init__(self,
                  simulator: Callable[[State, Action], State],
-                 true_predicates: Set[Predicate],
+                 all_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
                  action_space: Box,
                  train_tasks: List[Task]) -> None:
         # Only the teacher is allowed to know about the initial predicates
-        self._known_predicates = {p for p in true_predicates
+        self._known_predicates = {p for p in all_predicates
                                   if p.name in CFG.interactive_known_predicates}
-        predicates_to_learn = true_predicates - self._known_predicates
-        self._teacher = _Teacher(true_predicates, predicates_to_learn)
+        predicates_to_learn = all_predicates - self._known_predicates
+        self._teacher = _Teacher(all_predicates, predicates_to_learn)
         # All seen data
-        self.dataset: List[ActionTrajectory] = []
-        self.ground_atom_dataset: List[List[Set[GroundAtom]]] = []
+        self._dataset: List[ActionTrajectory] = []
+        self._ground_atom_dataset: List[List[Set[GroundAtom]]] = []
         # No cheating!
-        self._predicates = {_strip_predicate(p) for p in predicates_to_learn}
-        del true_predicates
+        self._predicates_to_learn = {_strip_predicate(p)
+                                     for p in predicates_to_learn}
+        del all_predicates
         del predicates_to_learn
-        super().__init__(simulator, self._predicates, initial_options,
+        super().__init__(simulator, self._predicates_to_learn, initial_options,
                          types, action_space, train_tasks)
         self._operators: Set[Operator] = set()
 
@@ -53,29 +54,28 @@ class InteractiveLearningApproach(TAMPApproach):
         return self._operators
 
     def _get_current_predicates(self) -> Set[Predicate]:
-        return self._predicates
+        return self._known_predicates | self._predicates_to_learn
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Get data from teacher
         ground_atom_data = self._teacher.generate_data(dataset)
-        self.dataset.extend(dataset)
-        self.ground_atom_dataset.extend(ground_atom_data)
+        self._dataset.extend(dataset)
+        self._ground_atom_dataset.extend(ground_atom_data)
         # Learn predicates
-        for pred in self._predicates:
-            print("\nPredicate:", pred)
+        for pred in self._predicates_to_learn:
             assert pred not in self._known_predicates
             positive_examples = []
             negative_examples = []
             # Positive examples
-            for i, trajectory in enumerate(self.ground_atom_dataset):
+            for i, trajectory in enumerate(self._ground_atom_dataset):
                 for j, ground_atom_set in enumerate(trajectory):
-                    state = self.dataset[i][0][j]
+                    state = self._dataset[i][0][j]
                     positives = [state.vec(ground_atom.objects)
                                  for ground_atom in ground_atom_set
                                  if ground_atom.predicate == pred]
                     positive_examples.extend(positives)
             # Negative examples - assume unlabeled is negative for now
-            for (ss, _) in self.dataset:
+            for (ss, _) in self._dataset:
                 for state in ss:
                     possible = [state.vec(choice)
                                 for choice in get_object_combinations(
@@ -92,7 +92,8 @@ class InteractiveLearningApproach(TAMPApproach):
                         negatives.append(ex)
                     negative_examples.extend(negatives)
             print(f"Generated {len(positive_examples)} positive and "
-                  f"{len(negative_examples)} negative examples")
+                  f"{len(negative_examples)} negative examples for "
+                  f"predicate {pred}")
             save_path = get_save_path()
 
             # Train MLP
@@ -106,12 +107,13 @@ class InteractiveLearningApproach(TAMPApproach):
             # Construct classifier function, create new Predicate, and save it
             _classifier = _create_classifier(model)
             new_pred = Predicate(pred.name, pred.types, _classifier)
-            self._predicates = self._predicates - {pred} | {new_pred}
+            self._predicates_to_learn = \
+                (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn operators
         print("Learning operators...")
         self._operators = learn_operators_from_data(
-            self.dataset, self._known_predicates | self._predicates)
+            self._dataset, self._known_predicates | self._predicates_to_learn)
 
     def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state.
@@ -122,9 +124,9 @@ class InteractiveLearningApproach(TAMPApproach):
 class _Teacher:
     """Answers queries about GroundAtoms in States.
     """
-    def __init__(self, true_predicates: Set[Predicate],
+    def __init__(self, all_predicates: Set[Predicate],
                  predicates_to_learn: Set[Predicate]) -> None:
-        self._name_to_predicate = {p.name : p for p in true_predicates}
+        self._name_to_predicate = {p.name : p for p in all_predicates}
         self._predicates_to_learn = predicates_to_learn
 
     def generate_data(self, dataset: Dataset) -> List[List[Set[GroundAtom]]]:
