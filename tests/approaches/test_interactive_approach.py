@@ -52,8 +52,8 @@ def test_interactive_learning_approach():
     """
     utils.update_config({"env": "cover", "approach": "interactive_learning",
                          "timeout": 10, "max_samples_per_step": 10,
-                         "seed": 12345, "classifier_max_itr": 500,
-                         "regressor_max_itr": 500})
+                         "seed": 12345, "classifier_max_itr": 50,
+                         "regressor_max_itr": 50})
     env = CoverEnv()
     approach = InteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
