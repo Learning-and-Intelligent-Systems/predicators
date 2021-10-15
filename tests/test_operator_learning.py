@@ -3,9 +3,10 @@
 
 from gym.spaces import Box
 import numpy as np
-from predicators.src.operator_learning import learn_operators_from_data
+from predicators.src.operator_learning import \
+    learn_operators_from_data, _create_sampler_data
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption
+    ParameterizedOption, LiftedAtom
 from predicators.src import utils
 
 
@@ -35,7 +36,7 @@ def test_operator_learning_specific_operators():
         lambda s, o, p: False, lambda s, o, p: False).ground(
             [], np.array([0.2]))
     action1 = option1.policy(state1)
-    action1.set_option((option1, 0))
+    action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [([state1, next_state1], [action1])]
     ops = learn_operators_from_data(dataset, preds)
@@ -62,11 +63,11 @@ def test_operator_learning_specific_operators():
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     action1 = option1.policy(state1)
-    action1.set_option((option1, 0))
+    action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     state2 = State({cup3: [0.4], cup4: [0.7], cup5: [0.1]})
     action2 = option1.policy(state2)
-    action2.set_option((option1, 0))
+    action2.set_option(option1)
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
@@ -94,7 +95,7 @@ def test_operator_learning_specific_operators():
         lambda s, o, p: False, lambda s, o, p: False).ground(
             [], np.array([0.3]))
     action1 = option1.policy(state1)
-    action1.set_option((option1, 0))
+    action1.set_option(option1)
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
@@ -102,7 +103,7 @@ def test_operator_learning_specific_operators():
         lambda s, o, p: False, lambda s, o, p: False).ground(
             [], np.array([0.7]))
     action2 = option2.policy(state2)
-    action2.set_option((option2, 0))
+    action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
@@ -137,11 +138,11 @@ def test_operator_learning_specific_operators():
     preds = {pred0}
     state1 = State({cup0: [0.5], cup1: [0.5]})
     action1 = option2.policy(state1)
-    action1.set_option((option2, 0))
+    action1.set_option(option2)
     next_state1 = State({cup0: [0.9], cup1: [0.1],})
     state2 = State({cup4: [0.9], cup5: [0.1]})
     action2 = option2.policy(state2)
-    action2.set_option((option2, 0))
+    action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
@@ -219,7 +220,7 @@ def test_operator_learning_specific_operators():
         lambda s, o, p: True, lambda s, o, p: True).ground(
             [cup0, cup1], np.array([0.3]))
     action3 = option3.policy(state3)
-    action3.set_option((option3, 0))
+    action3.set_option(option3)
     # Pred0(cup1, cup2) true
     next_state3 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     # Nothing true
@@ -231,10 +232,83 @@ def test_operator_learning_specific_operators():
         lambda s, o, p: True, lambda s, o, p: True).ground(
             [cup2, cup3], np.array([0.7]))
     action4 = option4.policy(state4)
-    action4.set_option((option4, 0))
+    action4.set_option(option4)
     # Pred0(cup4, cup5) True
     next_state4 = State({cup4: [0.8], cup5: [0.1], cup2: [0.5], cup3: [0.5]})
     dataset = [([state3, next_state3], [action3]),
                ([state4, next_state4], [action4])]
     ops = learn_operators_from_data(dataset, preds)
     assert len(ops) == 2
+
+
+def test_create_sampler_data():
+    """Tests for _create_sampler_data().
+    """
+    utils.update_config({"min_data_for_operator": 0, "seed": 123})
+    # Create two partitions
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    var_cup0 = cup_type("?cup0")
+    pred0 = Predicate("Pred0", [cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    predicates = {pred0}
+    option = ParameterizedOption(
+        "dummy", [], Box(0.1, 1, (1,)), lambda s, o, p: Action(p),
+        lambda s, o, p: False, lambda s, o, p: False).ground(
+            [], np.array([0.3]))
+
+    # Transition 1: adds pred0(cup0)
+    state = State({cup0: [0.4]})
+    action = option.policy(state)
+    action.set_option(option)
+    next_state = State({cup0: [0.9]})
+    atoms = utils.abstract(state, predicates)
+    next_atoms = utils.abstract(next_state, predicates)
+    add_effects = next_atoms - atoms
+    delete_effects = atoms - next_atoms
+    transition1 = (state, atoms, option, add_effects, delete_effects)
+
+    # Transition 2: does nothing
+    state = State({cup0: [0.4]})
+    action = option.policy(state)
+    action.set_option(option)
+    next_state = state
+    atoms = utils.abstract(state, predicates)
+    next_atoms = utils.abstract(next_state, predicates)
+    add_effects = next_atoms - atoms
+    delete_effects = atoms - next_atoms
+    transition2 = (state, atoms, option, add_effects, delete_effects)
+
+    transitions = [[(transition1, {cup0: var_cup0})],
+                   [(transition2, {})]]
+    variables = [var_cup0]
+    preconditions = set()
+    add_effects = {LiftedAtom(pred0, [var_cup0])}
+    delete_effects = set()
+    param_option = option.parent
+    partition_idx = 0
+
+    positive_examples, negative_examples = _create_sampler_data(
+        transitions, variables, preconditions, add_effects,
+        delete_effects, param_option, partition_idx)
+    assert len(positive_examples) == 1
+    assert len(negative_examples) == 1
+
+    # When building data for a partition with effects X, if we
+    # encounter a transition with effects Y, and if Y is a superset
+    # of X, then we do not want to include the transition as a
+    # negative example, because if Y was achieved, then X was also
+    # achieved. So for now, we just filter out such examples.
+    #
+    # In the example here, transition 1's effects are a superset
+    # of transition 2's effects. So when creating the examples
+    # for partition 2, we do not want to inclue transition 1
+    # in the negative effects.
+    variables = []
+    add_effects = set()
+    partition_idx = 1
+    positive_examples, negative_examples = _create_sampler_data(
+        transitions, variables, preconditions, add_effects,
+        delete_effects, param_option, partition_idx)
+    assert len(positive_examples) == 1
+    assert len(negative_examples) == 0
