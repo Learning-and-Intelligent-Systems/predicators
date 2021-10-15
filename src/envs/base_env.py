@@ -2,11 +2,11 @@
 """
 
 import abc
-from typing import List, Set
+from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image
+    ParameterizedOption, Type, Action, Image, Object
 
 
 class BaseEnv:
@@ -65,8 +65,9 @@ class BaseEnv:
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def render(self, state: State) -> Image:
-        """Render a state into an image.
+    def render(self, state: State, task: Task,
+               action: Optional[Action] = None) -> Image:
+        """Render a state and action into an image.
         """
         raise NotImplementedError("Override me!")
 
@@ -78,3 +79,12 @@ class BaseEnv:
         # train/test tasks respectively.
         self._train_rng = np.random.default_rng(self._seed)
         self._test_rng = np.random.default_rng(self._seed)
+
+
+class EnvironmentFailure(Exception):
+    """Exception raised when any type of failure occurs in an environment.
+    Failures are associated with a set of objects that are responsible.
+    """
+    def __init__(self, message: str, offending_objects: Set[Object]):
+        super().__init__(message)
+        self.offending_objects = offending_objects

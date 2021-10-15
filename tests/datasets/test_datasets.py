@@ -10,10 +10,10 @@ from predicators.src import utils
 def test_demo_dataset():
     """Test demo-only dataset creation with Covers env.
     """
-    # Test that data does not contain options since approach is random
+    # Test that data does not contain options since approach is random_actions
     utils.update_config({
         "env": "cover",
-        "approach": "random",
+        "approach": "random_actions",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
         "seed": 123,
@@ -72,10 +72,10 @@ def test_demo_replay_dataset():
     for _, actions in dataset:
         for action in actions:
             assert action.has_option()
-    # Test that data does not contain options since approach is random
+    # Test that data does not contain options since approach is random_actions
     utils.update_config({
         "env": "cover",
-        "approach": "random",
+        "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,

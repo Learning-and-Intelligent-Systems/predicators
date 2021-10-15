@@ -73,7 +73,8 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate],
                        make_video: bool = False,
-                       render: Optional[Callable[[State], Image]] = None,
+                       render: Optional[Callable[[State, Task,
+                                    Action], Image]] = None,
                        ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
@@ -84,23 +85,30 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     states = [state]
     actions: List[Action] = []
     video: Video = []
+    if task.goal.issubset(atoms):  # goal is already satisfied
+        goal_reached = True
+    else:
+        goal_reached = False
+        for _ in range(CFG.max_num_steps_check_policy):
+            act = policy(state)
+            if make_video:
+                assert render is not None
+                video.append(render(state, task, act))
+            state = simulator(state, act)
+            atoms = abstract(state, predicates)
+            actions.append(act)
+            states.append(state)
+            if task.goal.issubset(atoms):
+                goal_reached = True
+                break
     if make_video:
         assert render is not None
-        video.append(render(state))
-    if task.goal.issubset(atoms):  # goal is already satisfied
-        return (states, actions), video, True
-    for _ in range(CFG.max_num_steps_check_policy):
-        act = policy(state)
-        state = simulator(state, act)
-        atoms = abstract(state, predicates)
-        actions.append(act)
-        states.append(state)
-        if make_video:
-            assert render is not None
-            video.append(render(state))
-        if task.goal.issubset(atoms):
-            return (states, actions), video, True
-    return (states, actions), video, False
+        # Explanation of type ignore: mypy currently does not
+        # support Callables with optional arguments. mypy
+        # extensions does, but for the sake of avoiding an
+        # additional dependency, we'll just ignore this here.
+        video.append(render(state, task))  # type: ignore
+    return (states, actions), video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
@@ -125,9 +133,8 @@ def option_to_trajectory(
     assert option.initiable(init)
     state = init
     states = [state]
-    for i in range(max_num_steps):
+    for _ in range(max_num_steps):
         act = option.policy(state)
-        act.set_option((option, i))
         actions.append(act)
         state = simulator(state, act)
         states.append(state)
@@ -146,21 +153,16 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
     new_states = [states[0]]
     if len(actions) == 0:
         return new_states, []
-    current_option, t = actions[0].get_option()
-    assert t == 0
-    expected_t = 0
+    current_option = actions[0].get_option()
     options = [current_option]
     for s, a in zip(states[:-1], actions):
-        o, t = a.get_option()
+        o = a.get_option()
+        # This assumes that an option is equal to another
+        # option only if they're the same python object.
         if o != current_option:
-            assert t == 0
-            expected_t = 0
             new_states.append(s)
             options.append(o)
             current_option = o
-        else:
-            assert t == expected_t
-            expected_t += 1
     new_states.append(states[-1])
     return new_states, options
 
@@ -178,6 +180,19 @@ def get_object_combinations(
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue
         yield list(choice)
+
+
+def get_random_object_combination(
+        objects: Collection[Object], types: Sequence[Type],
+        rng: np.random.Generator) -> List[Object]:
+    """Get a random list of objects from the given collection that
+    satisfy the given sequence of types. Duplicates are always allowed.
+    """
+    types_to_objs = defaultdict(list)
+    for obj in objects:
+        types_to_objs[obj.type].append(obj)
+    return [types_to_objs[t][rng.choice(len(types_to_objs[t]))]
+            for t in types]
 
 
 def find_substitution(super_atoms: Collection[GroundAtom],
