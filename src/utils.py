@@ -270,6 +270,12 @@ def _substitution_consistent(
     return True
 
 
+def strip_predicate(predicate: Predicate) -> Predicate:
+    """Remove classifier from predicate to make new Predicate.
+    """
+    return Predicate(predicate.name, predicate.types, lambda s, o: False)
+
+
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set
     of ground atoms), using the given set of predicates.
