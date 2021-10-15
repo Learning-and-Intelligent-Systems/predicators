@@ -14,7 +14,7 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Object
 from predicators.src.operator_learning import learn_operators_from_data
 from predicators.src.models import MLPClassifier
-from predicators.src.utils import get_object_combinations
+from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG, get_save_path
 
 
@@ -37,7 +37,7 @@ class InteractiveLearningApproach(TAMPApproach):
         self._dataset: List[ActionTrajectory] = []
         self._ground_atom_dataset: List[List[Set[GroundAtom]]] = []
         # No cheating!
-        self._predicates_to_learn = {_strip_predicate(p)
+        self._predicates_to_learn = {strip_predicate(p)
                                      for p in predicates_to_learn}
         del all_predicates
         del predicates_to_learn
@@ -164,12 +164,6 @@ def create_teacher_dataset(preds: Collection[Predicate],
         ground_atoms_dataset.append(ground_atoms_traj)
     assert len(ground_atoms_dataset) == len(dataset)
     return ground_atoms_dataset
-
-
-def _strip_predicate(predicate: Predicate) -> Predicate:
-    """Remove classifier from predicate to make new Predicate.
-    """
-    return Predicate(predicate.name, predicate.types, lambda s, o: False)
 
 
 def _create_classifier(model: MLPClassifier) -> Callable[[
