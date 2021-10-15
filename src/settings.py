@@ -56,6 +56,9 @@ class GlobalSettings:
     n_iter_no_change = 5000
     learning_rate = 1e-3
 
+    # interactive learning parameters
+    interactive_known_predicates = {'HandEmpty'}
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
@@ -93,12 +96,14 @@ class GlobalSettings:
             include_options_in_offline_data=defaultdict(bool, {
                 "trivial_learning": True,
                 "operator_learning": True,
+                "interactive_learning": True,
             })[args["approach"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
                 "trivial_learning": "demo",
                 "operator_learning": "demo+replay",
+                "interactive_learning": "demo",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
@@ -106,6 +111,7 @@ class GlobalSettings:
             offline_data_planning_timeout=defaultdict(int, {
                 "trivial_learning": 500,
                 "operator_learning": 500,
+                "interactive_learning": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
@@ -113,6 +119,7 @@ class GlobalSettings:
             offline_data_num_replays=defaultdict(int, {
                 "trivial_learning": 10,
                 "operator_learning": 10,
+                "interactive_learning": 10,
             })[args["approach"]],
         )
 
