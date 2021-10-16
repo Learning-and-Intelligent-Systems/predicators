@@ -4,11 +4,11 @@ and/or options.
 
 import abc
 from collections import defaultdict
-from typing import Set, Callable, List, DefaultDict
+from typing import Set, Callable, List
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
-    ParameterizedOption, Action, Dataset
+    ParameterizedOption, Action, Dataset, Metrics
 
 
 class BaseApproach:
@@ -29,7 +29,7 @@ class BaseApproach:
         self._types = types
         self._action_space = action_space
         self._train_tasks = train_tasks
-        self._metrics: DefaultDict[str, float] = defaultdict(float)
+        self._metrics: Metrics = defaultdict(float)
         self.seed(0)
 
     @property
@@ -80,7 +80,7 @@ class BaseApproach:
         """
 
     @property
-    def metrics(self) -> DefaultDict[str, float]:
+    def metrics(self) -> Metrics:
         """Return a dictionary of metrics, which can hold arbitrary
         evaluation information about the performance of this approach.
         """
