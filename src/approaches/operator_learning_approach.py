@@ -30,7 +30,7 @@ class OperatorLearningApproach(TAMPApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._operators = learn_operators_from_data(
-            dataset, self._initial_predicates)
+            dataset, self._get_current_predicates())
         save_path = get_save_path()
         data = []
         for op in self._operators:
