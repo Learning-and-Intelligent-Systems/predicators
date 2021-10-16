@@ -83,7 +83,7 @@ def _learn_operators_for_option(option: ParameterizedOption,
         operator_name = f"{option.name}{i}"
         # Learn sampler
         print(f"\nLearning sampler for operator {operator_name}")
-        if CFG.do_sampler_learning:
+        if CFG.do_sampler_learning and option.params_space.shape != (0,):
             sampler = _learn_sampler(operator_name, partitioned_transitions,
                                      variables, preconditions, add_effects[i],
                                      delete_effects[i], option, i)

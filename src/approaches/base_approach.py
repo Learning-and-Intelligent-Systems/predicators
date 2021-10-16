@@ -3,7 +3,8 @@ and/or options.
 """
 
 import abc
-from typing import Set, Callable, List
+from collections import defaultdict
+from typing import Set, Callable, List, DefaultDict
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
@@ -28,6 +29,7 @@ class BaseApproach:
         self._types = types
         self._action_space = action_space
         self._train_tasks = train_tasks
+        self._metrics: DefaultDict[str, float] = defaultdict(float)
         self.seed(0)
 
     @property
@@ -76,6 +78,18 @@ class BaseApproach:
         """Load anything from CFG.get_save_path().
         Only called if self.is_learning_based.
         """
+
+    @property
+    def metrics(self) -> DefaultDict[str, float]:
+        """Return a dictionary of metrics, which can hold arbitrary
+        evaluation information about the performance of this approach.
+        """
+        return self._metrics.copy()
+
+    def reset_metrics(self) -> None:
+        """Reset the metrics dictionary.
+        """
+        self._metrics = defaultdict(float)
 
 
 class ApproachTimeout(Exception):
