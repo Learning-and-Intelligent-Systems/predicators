@@ -4,6 +4,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
+from collections import defaultdict
 import heapq as hq
 import time
 from typing import Collection, Callable, List, Set, Optional, Tuple, Dict
@@ -12,12 +13,12 @@ import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, Operator, Predicate, \
     GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, Action, \
-    PyperplanFacts
+    PyperplanFacts, Metrics
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.settings import CFG
 
-NOT_CAUSES_FAILURE = "NotCausesFailure"
+_NOT_CAUSES_FAILURE = "NotCausesFailure"
 
 
 @dataclass(repr=False, eq=False)
@@ -41,10 +42,10 @@ def sesame_plan(task: Task,
                 initial_predicates: Set[Predicate],
                 timeout: float, seed: int,
                 check_dr_reachable: bool = True
-                ) -> Tuple[List[Action], Dict[str, int]]:
-    """Run TAMP. Return a sequence of low-level actions, and a dictionary of
-    metrics. Uses the SeSamE strategy: SEarch-and-SAMple planning, then
-    Execution.
+                ) -> Tuple[List[Action], Metrics]:
+    """Run TAMP. Return a sequence of low-level actions, and a dictionary
+    of metrics for this run of the planner. Uses the SeSamE strategy:
+    SEarch-and-SAMple planning, then Execution.
     """
     op_preds, _ = utils.extract_preds_and_types(current_operators)
     # Ensure that initial predicates are always included.
@@ -59,28 +60,26 @@ def sesame_plan(task: Task,
         ground_operators, atoms)
     # Keep restarting the A* search while we get new discovered failures.
     start_time = time.time()
-    num_failures_discovered = 0
-    num_skeletons_optimized = [0]  # a list so that we can "pass by reference"
+    metrics: Metrics = defaultdict(float)
     while True:
         if check_dr_reachable and \
            not utils.is_dr_reachable(ground_operators, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         try:
+            new_seed = seed+int(metrics["num_failures_discovered"])
             plan = _run_search(
                 task, simulator, ground_operators, atoms, predicates,
-                timeout-(time.time()-start_time), seed+num_failures_discovered,
-                num_skeletons_optimized)
+                timeout-(time.time()-start_time), new_seed, metrics)
             break  # planning succeeded, break out of loop
         except _DiscoveredFailureException as e:
-            num_failures_discovered += 1
+            metrics["num_failures_discovered"] += 1
             _update_operators_with_failure(
                 e.discovered_failure, ground_operators)
     print(f"Planning succeeded! Found plan of length {len(plan)} after trying "
-          f"{num_skeletons_optimized[0]} skeletons and discovering "
-          f"{num_failures_discovered} failures")
-    return plan, {"num_skeletons_optimized": num_skeletons_optimized[0],
-                  "num_failures_discovered": num_failures_discovered,
-                  "plan_length": len(plan)}
+          f"{int(metrics['num_skeletons_optimized'])} skeletons, discovering "
+          f"{int(metrics['num_failures_discovered'])} failures")
+    metrics["plan_length"] = len(plan)
+    return plan, metrics
 
 
 def _run_search(task: Task,
@@ -89,7 +88,7 @@ def _run_search(task: Task,
                 init_atoms: Collection[GroundAtom],
                 predicates: Set[Predicate],
                 timeout: float, seed: int,
-                num_skeletons_optimized: List[int]) -> List[Action]:
+                metrics: Metrics) -> List[Action]:
     """A* search over skeletons (sequences of ground operators).
     """
     start_time = time.time()
@@ -113,14 +112,15 @@ def _run_search(task: Task,
                         root_node))
     # Start search.
     while queue and (time.time()-start_time < timeout):
-        if num_skeletons_optimized[0] == CFG.max_skeletons_optimized:
+        if (int(metrics["num_skeletons_optimized"]) ==
+            CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, run low-level search.
-            num_skeletons_optimized[0] += 1
+            metrics["num_skeletons_optimized"] += 1
             plan = _run_low_level_search(
                 task, simulator, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
@@ -203,7 +203,7 @@ def _run_low_level_search(
             assert len(traj) == len(atoms_sequence)
             atoms = utils.abstract(traj[cur_idx], predicates)
             if atoms == {atom for atom in atoms_sequence[cur_idx]
-                         if atom.predicate.name != NOT_CAUSES_FAILURE}:
+                         if atom.predicate.name != _NOT_CAUSES_FAILURE}:
                 can_continue_on = True
                 if cur_idx == len(skeleton):  # success!
                     result = [act for acts in plan for act in acts]  # flatten
@@ -242,7 +242,7 @@ def _update_operators_with_failure(
     DiscoveredFailure.
     """
     for obj in discovered_failure.env_failure.offending_objects:
-        atom = GroundAtom(Predicate(NOT_CAUSES_FAILURE, [obj.type],
+        atom = GroundAtom(Predicate(_NOT_CAUSES_FAILURE, [obj.type],
                                     _classifier=lambda s, o: False), [obj])
         # Update the preconditions of the failing operator.
         discovered_failure.failing_operator.preconditions.add(atom)
