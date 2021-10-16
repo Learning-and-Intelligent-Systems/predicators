@@ -50,6 +50,7 @@ def main() -> None:
     # Run approach
     test_tasks = env.get_test_tasks()
     num_solved = 0
+    approach.reset_metrics()
     for i, task in enumerate(test_tasks):
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
@@ -75,6 +76,7 @@ def main() -> None:
             utils.save_video(outfile, video)
     print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
     print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
+    print(f"Approach metrics: {approach.metrics}")
 
 
 if __name__ == "__main__":  # pragma: no cover

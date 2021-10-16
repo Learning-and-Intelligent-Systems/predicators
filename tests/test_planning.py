@@ -53,12 +53,12 @@ def test_sesame_plan_failures():
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=-100)  # times out
     old_max_samples_per_step = CFG.max_samples_per_step
-    old_max_skeletons = CFG.max_skeletons
+    old_max_skeletons = CFG.max_skeletons_optimized
     CFG.max_samples_per_step = 1
-    CFG.max_skeletons = float("inf")
+    CFG.max_skeletons_optimized = float("inf")
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=1)  # backtracking occurs
-    CFG.max_skeletons = old_max_skeletons
+    CFG.max_skeletons_optimized = old_max_skeletons
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.max_samples_per_step = old_max_samples_per_step

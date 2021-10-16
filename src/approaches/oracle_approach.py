@@ -23,8 +23,7 @@ class OracleApproach(TAMPApproach):
         return False
 
     def _get_current_operators(self) -> Set[Operator]:
-        return get_gt_ops(self._initial_predicates,
-                           self._initial_options)
+        return get_gt_ops(self._initial_predicates, self._initial_options)
 
 
 def get_gt_ops(predicates: Set[Predicate],

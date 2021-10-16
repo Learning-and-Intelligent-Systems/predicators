@@ -3,7 +3,7 @@
 
 import pytest
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv
+from predicators.src.envs import CoverEnv, ClutteredTableEnv
 from predicators.src import utils
 
 
@@ -91,3 +91,19 @@ def test_demo_replay_dataset():
     for _, actions in dataset:
         for action in actions:
             assert not action.has_option()
+    # Test cluttered table data collection
+    utils.update_config({
+        "env": "cluttered_table",
+        "approach": "random_actions",
+        "offline_data_method": "demo+replay",
+        "offline_data_planning_timeout": 500,
+        "offline_data_num_replays": 10,
+        "seed": 123,
+        "num_train_tasks": 5,
+    })
+    env = ClutteredTableEnv()
+    dataset = create_dataset(env)
+    assert len(dataset) <= 5 + 5  # less than, because transitions might fail
+    assert len(dataset[-1]) == 2
+    assert len(dataset[-1][0]) == 2
+    assert len(dataset[-1][1]) == 1
