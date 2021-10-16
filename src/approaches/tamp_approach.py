@@ -6,7 +6,8 @@ import abc
 from typing import Callable, Set, Any
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
-from predicators.src.structs import State, Action, Task, Operator
+from predicators.src.structs import State, Action, Task, Operator, \
+    Predicate
 
 
 class TAMPApproach(BaseApproach):
@@ -21,7 +22,8 @@ class TAMPApproach(BaseApproach):
         seed = self._seed+self._num_calls  # ensure random over successive calls
         plan, metrics = sesame_plan(task, self._simulator,
                                     self._get_current_operators(),
-                                    self._initial_predicates, timeout, seed)
+                                    self._get_current_predicates(),
+                                    timeout, seed)
         for metric in ["num_skeletons_optimized",
                        "num_failures_discovered",
                        "plan_length"]:
@@ -37,3 +39,9 @@ class TAMPApproach(BaseApproach):
         """Get the current set of operators.
         """
         raise NotImplementedError("Override me!")
+
+    def _get_current_predicates(self) -> Set[Predicate]:
+        """Get the current set of predicates.
+        Defaults to initial predicates.
+        """
+        return self._initial_predicates

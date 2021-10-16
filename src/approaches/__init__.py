@@ -15,6 +15,8 @@ from predicators.src.approaches.trivial_learning_approach import \
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.approaches.operator_learning_approach import \
     OperatorLearningApproach
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
 
@@ -27,6 +29,7 @@ __all__ = [
     "TAMPApproach",
     "TrivialLearningApproach",
     "OperatorLearningApproach",
+    "InteractiveLearningApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -61,4 +64,8 @@ def create_approach(name: str,
         return OperatorLearningApproach(simulator, initial_predicates,
                                         initial_options, types, action_space,
                                         train_tasks)
+    if name == "interactive_learning":
+        return InteractiveLearningApproach(simulator, initial_predicates,
+                                           initial_options, types, action_space,
+                                           train_tasks)
     raise NotImplementedError(f"Unknown env: {name}")
