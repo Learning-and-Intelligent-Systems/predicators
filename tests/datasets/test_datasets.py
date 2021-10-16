@@ -4,7 +4,6 @@
 import pytest
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, ClutteredTableEnv
-from predicators.src.settings import CFG
 from predicators.src import utils
 
 
