@@ -4,7 +4,7 @@
 from typing import List
 import numpy as np
 from predicators.src.approaches.oracle_approach import get_gt_ops
-from predicators.src.envs import BaseEnv
+from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Dataset, _GroundOperator
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
@@ -53,8 +53,12 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         # Sample a random option
         option = sampled_op.sample_option(state, rng)
         # Execute the option
-        replay_traj = utils.option_to_trajectory(state, env.simulate,
-            option, max_num_steps=CFG.max_num_steps_option_rollout)
+        try:
+            replay_traj = utils.option_to_trajectory(
+                state, env.simulate, option,
+                max_num_steps=CFG.max_num_steps_option_rollout)
+        except EnvironmentFailure:
+            continue
         if not CFG.include_options_in_offline_data:
             for act in replay_traj[1]:
                 act.unset_option()

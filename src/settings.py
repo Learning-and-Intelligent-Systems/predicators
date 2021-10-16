@@ -22,15 +22,16 @@ class GlobalSettings:
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
     cluttered_table_can_radius = 0.01
-    cluttered_table_collision_angle_thresh = np.pi / 8
+    cluttered_table_collision_angle_thresh = np.pi / 4
 
     # parameters for approaches
     random_options_max_tries = 100
 
     # SeSamE parameters
+    propagate_failures = True
     max_samples_per_step = 10
     max_num_steps_option_rollout = 100
-    max_skeletons = 1  # if 1, can only solve downward refinable tasks
+    max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
 
     # evaluation parameters
     save_dir = "saved_data"
@@ -70,14 +71,14 @@ class GlobalSettings:
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
-                "cluttered_table": 25,
+                "cluttered_table": 50,
             })[args["env"]],
 
             # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
-                "cluttered_table": 100,
+                "cluttered_table": 50,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether

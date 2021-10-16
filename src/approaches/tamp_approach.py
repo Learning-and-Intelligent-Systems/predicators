@@ -19,9 +19,13 @@ class TAMPApproach(BaseApproach):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
         seed = self._seed+self._num_calls  # ensure random over successive calls
-        plan = sesame_plan(task, self._simulator,
-                           self._get_current_operators(),
-                           self._initial_predicates, timeout, seed)
+        plan, metrics = sesame_plan(task, self._simulator,
+                                    self._get_current_operators(),
+                                    self._initial_predicates, timeout, seed)
+        for metric in ["num_skeletons_optimized",
+                       "num_failures_discovered",
+                       "plan_length"]:
+            self._metrics[f"total_{metric}"] += metrics[metric]
         def _policy(_: State) -> Action:
             if not plan:
                 raise ApproachFailure("Finished executing plan!")
