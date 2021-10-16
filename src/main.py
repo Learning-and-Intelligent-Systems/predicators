@@ -6,6 +6,11 @@ Example usage:
 Another example usage:
     python src/main.py --env cover --approach oracle --seed 0 \
         --make_videos --num_test_tasks 1
+
+Another example usage:
+    python src/main.py --env cover --approach interactive_learning \
+         --seed 0
+
 """
 
 import time

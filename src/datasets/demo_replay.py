@@ -58,6 +58,7 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
                 state, env.simulate, option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         except EnvironmentFailure:
+            # We ignore replay data which leads to an environment failure.
             continue
         if not CFG.include_options_in_offline_data:
             for act in replay_traj[1]:
