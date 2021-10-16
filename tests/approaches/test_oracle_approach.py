@@ -3,13 +3,12 @@
 
 import numpy as np
 import pytest
-from predicators.src.approaches import OracleApproach, ApproachFailure
+from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_ops
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     ClutteredTableEnv, EnvironmentFailure
 from predicators.src.structs import Action
 from predicators.src import utils
-from predicators.src.settings import CFG
 
 
 def test_cover_get_gt_ops():
