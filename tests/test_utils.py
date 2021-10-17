@@ -7,7 +7,51 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator, Action
+from predicators.src.settings import get_save_path
 from predicators.src import utils
+from predicators.src.models import MLPClassifier
+
+
+def test_atoms_pickleable_conversion():
+    """Tests for atoms_to_pickleable() and pickleable_to_atoms().
+    """
+    utils.update_config({"env": "cover", "approach": "dummyapproach",
+                         "seed": 123})
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    pred1 = Predicate("Given", [cup_type], _classifier=lambda s, o: False)
+    pred2 = Predicate("Learned", [plate_type], _classifier=lambda s, o: False,
+                      is_learned=True)
+    assert not pred1.is_learned
+    cup = cup_type("?cup")
+    plate = plate_type("?plate")
+    atom1 = pred1([cup])
+    atom2 = pred2([plate])
+    atoms = {atom1, atom2}
+    pickleable = utils.atoms_to_pickleable(atoms)
+    assert pickleable == {atom1, ("Learned", (plate_type,), (plate,))}
+    with pytest.raises(FileNotFoundError):
+        utils.pickleable_to_atoms(pickleable)  # no saved classifier
+
+
+def test_create_predicate_classifier():
+    """Tests for create_predicate_classifier().
+    """
+    model = MLPClassifier(3)
+    utils.update_config({"env": "cover", "approach": "dummyapproach",
+                         "seed": 904534})
+    save_path = get_save_path()
+    utils.create_predicate_classifier(model, "MyTest",  do_save=True)
+    assert os.path.exists(f"{save_path}_MyTest.predicate")
+    atoms = utils.pickleable_to_atoms({("MyTest", tuple(), tuple())})
+    assert len(atoms) == 1
+    atom = atoms.pop()
+    assert not atom.variables
+    assert not atom.predicate.types
+    assert atom.predicate.name == "MyTest"
+    os.remove(f"{save_path}_MyTest.predicate")
+    utils.create_predicate_classifier(model, "MyTest2",  do_save=False)
+    assert not os.path.exists(f"{save_path}_MyTest2.predicate")
 
 
 def test_option_to_trajectory():

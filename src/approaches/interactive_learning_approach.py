@@ -2,27 +2,22 @@
 """
 
 import itertools
-from typing import Set, Callable, List, Sequence, Collection
+from typing import Set, Callable, List, Collection
 import numpy as np
-import torch
 from gym.spaces import Box
-
 from predicators.src import utils
-from predicators.src.approaches import TAMPApproach
+from predicators.src.approaches import OperatorLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Operator, Dataset, GroundAtom, ActionTrajectory, \
-    Object
-from predicators.src.operator_learning import learn_operators_from_data
+    Type, Task, Action, Dataset, GroundAtom, ActionTrajectory
 from predicators.src.models import MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
-from predicators.src.settings import CFG, get_save_path
+from predicators.src.settings import CFG
 
 
-class InteractiveLearningApproach(TAMPApproach):
+class InteractiveLearningApproach(OperatorLearningApproach):
     """An approach that learns predicates from a teacher.
     """
-    def __init__(self,
-                 simulator: Callable[[State, Action], State],
+    def __init__(self, simulator: Callable[[State, Action], State],
                  all_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
@@ -43,15 +38,6 @@ class InteractiveLearningApproach(TAMPApproach):
         del predicates_to_learn
         super().__init__(simulator, self._predicates_to_learn, initial_options,
                          types, action_space, train_tasks)
-        self._operators: Set[Operator] = set()
-
-    @property
-    def is_learning_based(self) -> bool:
-        return True
-
-    def _get_current_operators(self) -> Set[Operator]:
-        assert self._operators, "Operators not learned"
-        return self._operators
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
@@ -94,7 +80,6 @@ class InteractiveLearningApproach(TAMPApproach):
             print(f"Generated {len(positive_examples)} positive and "
                   f"{len(negative_examples)} negative examples for "
                   f"predicate {pred}")
-            save_path = get_save_path()
 
             # Train MLP
             X = np.array(positive_examples + negative_examples)
@@ -102,18 +87,17 @@ class InteractiveLearningApproach(TAMPApproach):
                          [0 for _ in negative_examples])
             model = MLPClassifier(X.shape[1])
             model.fit(X, Y)
-            torch.save(model, f"{save_path}_{pred}.classifier")
 
             # Construct classifier function, create new Predicate, and save it
-            _classifier = _create_classifier(model)
-            new_pred = Predicate(pred.name, pred.types, _classifier)
+            _classifier = utils.create_predicate_classifier(
+                model, pred.name, do_save=True)
+            new_pred = Predicate(pred.name, pred.types, _classifier,
+                                 is_learned=True)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
-        # Learn operators
-        print("Learning operators...")
-        self._operators = learn_operators_from_data(
-            self._dataset, self._known_predicates | self._predicates_to_learn)
+        # Learn operators via super() method
+        super().learn_from_offline_dataset(dataset)
 
     def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state.
@@ -164,11 +148,3 @@ def create_teacher_dataset(preds: Collection[Predicate],
         ground_atoms_dataset.append(ground_atoms_traj)
     assert len(ground_atoms_dataset) == len(dataset)
     return ground_atoms_dataset
-
-
-def _create_classifier(model: MLPClassifier) -> Callable[[
-                        State, Sequence[Object]], bool]:
-    def _classifier(state: State, objects: Sequence[Object]) -> bool:
-        v = state.vec(objects)
-        return model.classify(v)
-    return _classifier

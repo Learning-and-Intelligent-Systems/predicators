@@ -10,14 +10,16 @@ from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional
 import heapq as hq
+import torch
 import imageio
 import matplotlib
 import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub
-from predicators.src.settings import CFG, GlobalSettings
+    ObjToVarSub, VarToObjSub, PickleableAtom
+from predicators.src.settings import CFG, GlobalSettings, get_save_path
+from predicators.src.models import MLPClassifier
 matplotlib.use("Agg")
 
 
@@ -274,6 +276,51 @@ def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
+
+
+def create_predicate_classifier(
+        model: MLPClassifier, predicate_name: str, do_save: bool) -> Callable[[
+            State, Sequence[Object]], bool]:
+    """Create a classifier function from the given torch model,
+    and save the model for later loading.
+    """
+    if do_save:
+        save_path = get_save_path()
+        torch.save(model, f"{save_path}_{predicate_name}.predicate")
+    def _classifier(state: State, objects: Sequence[Object]) -> bool:
+        v = state.vec(objects)
+        return model.classify(v)
+    return _classifier
+
+
+def atoms_to_pickleable(atoms: Set[LiftedAtom]) -> Set[PickleableAtom]:
+    """Convert the given set of lifted atoms to a pickleable representation.
+    Since we can't pickle the classifiers for learned predicates, we'll treat
+    them specially, saving them by name instead of object.
+    """
+    return {atom if not atom.predicate.is_learned
+            else (atom.predicate.name, tuple(atom.predicate.types),
+                  tuple(atom.variables)) for atom in atoms}
+
+
+def pickleable_to_atoms(pickleable_atoms: Set[PickleableAtom]
+                        ) -> Set[LiftedAtom]:
+    """The inverse of atoms_to_pickleable. Expects to have a model saved
+    from an earlier call to create_predicate_classifier() with do_save=True.
+    """
+    atoms = set()
+    for atom in pickleable_atoms:
+        if isinstance(atom, tuple):  # a learned predicate
+            name, types, variables = atom
+            save_path = get_save_path()
+            model = torch.load(f"{save_path}_{name}.predicate")  # type: ignore
+            classifier = create_predicate_classifier(model, name, do_save=False)
+            predicate = Predicate(name, types, _classifier=classifier,
+                                  is_learned=True)
+            atoms.add(LiftedAtom(predicate, variables))
+        else:
+            atoms.add(atom)
+    return atoms
 
 
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
