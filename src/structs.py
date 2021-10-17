@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Union
+    Tuple, Any, cast, FrozenSet, DefaultDict
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -160,7 +160,6 @@ class Predicate:
     # treated "specially" by the classifier.
     _classifier: Callable[[State, Sequence[Object]], bool] = field(
         compare=False)
-    is_learned: bool = field(default=False)
 
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
@@ -563,8 +562,3 @@ VarToObjSub = Dict[Variable, Object]
 Transition = Tuple[State, Set[GroundAtom], _Option, Set[GroundAtom],
                    Set[GroundAtom]]
 Metrics = DefaultDict[str, float]
-# A pickleable atom is either a lifted atom itself (if the predicate is
-# not learned) or a tuple of (predicate name, predicate types, variables),
-# since a learned classifier should not be pickled.
-PickleableAtom = Union[LiftedAtom, Tuple[str, Tuple[Type, ...],
-                                         Tuple[Variable, ...]]]
