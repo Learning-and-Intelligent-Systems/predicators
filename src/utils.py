@@ -280,6 +280,7 @@ def strip_predicate(predicate: Predicate) -> Predicate:
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedSampler:
     """A convenience class for holding the models underlying a learned sampler.
+    Prefer to use this because it is pickleable.
     """
     _classifier: MLPClassifier
     _regressor: NeuralGaussianRegressor
@@ -331,6 +332,7 @@ class RandomSampler:
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
     """A convenience class for holding the model underlying a learned predicate.
+    Prefer to use this because it is pickleable.
     """
     _model: MLPClassifier
 
