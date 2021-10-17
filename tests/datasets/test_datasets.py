@@ -103,7 +103,6 @@ def test_demo_replay_dataset():
     })
     env = ClutteredTableEnv()
     dataset = create_dataset(env)
-    assert len(dataset) <= 5 + 5  # less than, because transitions might fail
     assert len(dataset[-1]) == 2
     assert len(dataset[-1][0]) == 2
     assert len(dataset[-1][1]) == 1
