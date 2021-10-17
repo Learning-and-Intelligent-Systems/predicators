@@ -29,15 +29,14 @@ class ClutteredTableEnv(BaseEnv):
         # Options
         self._Grasp = ParameterizedOption(
             "Grasp", [self._can_type], params_space=Box(0, 1, (4,)),
-            _policy=lambda s, o, p: Action(p),  # action is just parameter
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._Grasp_policy,
+            _initiable=self._GraspDump_initiable,
+            _terminal=self._GraspDump_terminal)
         self._Dump = ParameterizedOption(
             "Dump", [], params_space=Box(0, 1, (0,)),  # no parameter
-            _policy=lambda s, o, p: Action(
-                np.zeros(4, dtype=np.float32)),
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._Dump_policy,
+            _initiable=self._GraspDump_initiable,
+            _terminal=self._GraspDump_terminal)
         # Objects
         self._cans = []
         for i in range(max(CFG.cluttered_table_num_cans_train,
@@ -224,6 +223,30 @@ class ClutteredTableEnv(BaseEnv):
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         can, = objects
         return state.get(can, "is_grasped") > 0.5
+
+    @staticmethod
+    def _Grasp_policy(state: State, objects: Sequence[Object],
+                      params: Array) -> Action:
+        del state, objects  # unused
+        return Action(params)  # action is simply the parameter
+
+    @staticmethod
+    def _Dump_policy(state: State, objects: Sequence[Object],
+                     params: Array) -> Action:
+        del state, objects, params  # unused
+        return Action(np.zeros(4, dtype=np.float32))  # no parameter for dumping
+
+    @staticmethod
+    def _GraspDump_initiable(state: State, objects: Sequence[Object],
+                             params: Array) -> bool:
+        del state, objects, params  # unused
+        return True  # can be run from anywhere
+
+    @staticmethod
+    def _GraspDump_terminal(state: State, objects: Sequence[Object],
+                            params: Array) -> bool:
+        del state, objects, params  # unused
+        return True  # always 1 timestep
 
     @staticmethod
     def _any_intersection(pose: Array, radius: float,
