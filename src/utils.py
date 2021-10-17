@@ -17,9 +17,9 @@ import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, PickleableAtom
+    ObjToVarSub, VarToObjSub, ParameterizedOption, Array
 from predicators.src.settings import CFG, GlobalSettings, get_save_path
-from predicators.src.models import MLPClassifier
+from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 matplotlib.use("Agg")
 
 
@@ -278,49 +278,69 @@ def strip_predicate(predicate: Predicate) -> Predicate:
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
 
 
-def create_predicate_classifier(
-        model: MLPClassifier, predicate_name: str, do_save: bool) -> Callable[[
-            State, Sequence[Object]], bool]:
-    """Create a classifier function from the given torch model,
-    and save the model for later loading.
+@dataclass(frozen=True, eq=False, repr=False)
+class LearnedSampler:
+    """A convenience class for holding the models underlying a learned sampler.
     """
-    if do_save:
-        save_path = get_save_path()
-        torch.save(model, f"{save_path}_{predicate_name}.predicate")
-    def _classifier(state: State, objects: Sequence[Object]) -> bool:
-        v = state.vec(objects)
-        return model.classify(v)
-    return _classifier
+    _classifier: MLPClassifier
+    _regressor: NeuralGaussianRegressor
+    _variables: Sequence[Variable]
+    _param_option: ParameterizedOption
 
-
-def atoms_to_pickleable(atoms: Set[LiftedAtom]) -> Set[PickleableAtom]:
-    """Convert the given set of lifted atoms to a pickleable representation.
-    Since we can't pickle the classifiers for learned predicates, we'll treat
-    them specially, saving them by name instead of object.
-    """
-    return {atom if not atom.predicate.is_learned
-            else (atom.predicate.name, tuple(atom.predicate.types),
-                  tuple(atom.variables)) for atom in atoms}
-
-
-def pickleable_to_atoms(pickleable_atoms: Set[PickleableAtom]
-                        ) -> Set[LiftedAtom]:
-    """The inverse of atoms_to_pickleable. Expects to have a model saved
-    from an earlier call to create_predicate_classifier() with do_save=True.
-    """
-    atoms = set()
-    for atom in pickleable_atoms:
-        if isinstance(atom, tuple):  # a learned predicate
-            name, types, variables = atom
-            save_path = get_save_path()
-            model = torch.load(f"{save_path}_{name}.predicate")  # type: ignore
-            classifier = create_predicate_classifier(model, name, do_save=False)
-            predicate = Predicate(name, types, _classifier=classifier,
-                                  is_learned=True)
-            atoms.add(LiftedAtom(predicate, variables))
+    def sampler(self, state: State, rng: np.random.Generator,
+                objects: Sequence[Object]) -> Array:
+        """The sampler corresponding to the given models. May be used
+        as the _sampler field in an Operator.
+        """
+        x_lst : List[Array] = []
+        sub = dict(zip(self._variables, objects))
+        for var in self._variables:
+            x_lst.extend(state[sub[var]])
+        x = np.array(x_lst)
+        num_rejections = 0
+        while num_rejections <= CFG.max_rejection_sampling_tries:
+            params = np.array(self._regressor.predict_sample(x, rng),
+                              dtype=self._param_option.params_space.dtype)
+            if self._param_option.params_space.contains(params) and \
+               self._classifier.classify(np.r_[x, params]):
+                break
+            num_rejections += 1
         else:
-            atoms.add(atom)
-    return atoms
+            # Edge case: we exceeded the number of sampling tries
+            # and we might be left with a params that is not in
+            # bounds. If so, fall back to sampling from the space.
+            if not self._param_option.params_space.contains(params):
+                params = self._param_option.params_space.sample()
+        return params
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class RandomSampler:
+    """A convenience class for implementing a random sampler. Prefer
+    to use this over a lambda function because it is pickleable.
+    """
+    _param_option: ParameterizedOption
+
+    def sampler(self, state: State, rng: np.random.Generator,
+                objects: Sequence[Object]) -> Array:
+        """A random sampler for this option. Ignores all arguments.
+        """
+        del state, rng, objects  # unused
+        return self._param_option.params_space.sample()
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class LearnedPredicateClassifier:
+    """A convenience class for holding the model underlying a learned predicate.
+    """
+    _model: MLPClassifier
+
+    def classifier(self, state: State, objects: Sequence[Object]) -> bool:
+        """The classifier corresponding to the given model. May be used
+        as the _classifier field in a Predicate.
+        """
+        v = state.vec(objects)
+        return self._model.classify(v)
 
 
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:

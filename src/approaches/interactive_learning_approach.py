@@ -89,15 +89,14 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it
-            _classifier = utils.create_predicate_classifier(
-                model, pred.name, do_save=True)
-            new_pred = Predicate(pred.name, pred.types, _classifier,
+            classifier = utils.LearnedPredicateClassifier(model).classifier
+            new_pred = Predicate(pred.name, pred.types, classifier,
                                  is_learned=True)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
-        # Learn operators via super() method
-        super().learn_from_offline_dataset(dataset)
+        # Learn operators via superclass
+        self._learn_operators(dataset)
 
     def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state.
