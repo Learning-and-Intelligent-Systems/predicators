@@ -305,7 +305,7 @@ class CoverEnvTypedOptions(CoverEnv):
             _terminal=self._PickPlace_terminal)
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type], params_space=Box(0, 1, (1,)),
-            _policy=self._PickPlace_policy,  # use the parent class's here
+            _policy=self._PickPlace_policy,  # use the parent class's policy
             _initiable=self._PickPlace_initiable,
             _terminal=self._PickPlace_terminal)
 

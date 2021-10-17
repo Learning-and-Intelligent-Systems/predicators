@@ -16,9 +16,8 @@ import numpy as np
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, ParameterizedOption, Array
+    ObjToVarSub, VarToObjSub
 from predicators.src.settings import CFG, GlobalSettings
-from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 matplotlib.use("Agg")
 
 
@@ -275,73 +274,6 @@ def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class LearnedSampler:
-    """A convenience class for holding the models underlying a learned sampler.
-    Prefer to use this because it is pickleable.
-    """
-    _classifier: MLPClassifier
-    _regressor: NeuralGaussianRegressor
-    _variables: Sequence[Variable]
-    _param_option: ParameterizedOption
-
-    def sampler(self, state: State, rng: np.random.Generator,
-                objects: Sequence[Object]) -> Array:
-        """The sampler corresponding to the given models. May be used
-        as the _sampler field in an Operator.
-        """
-        x_lst : List[Array] = []
-        sub = dict(zip(self._variables, objects))
-        for var in self._variables:
-            x_lst.extend(state[sub[var]])
-        x = np.array(x_lst)
-        num_rejections = 0
-        while num_rejections <= CFG.max_rejection_sampling_tries:
-            params = np.array(self._regressor.predict_sample(x, rng),
-                              dtype=self._param_option.params_space.dtype)
-            if self._param_option.params_space.contains(params) and \
-               self._classifier.classify(np.r_[x, params]):
-                break
-            num_rejections += 1
-        else:
-            # Edge case: we exceeded the number of sampling tries
-            # and we might be left with a params that is not in
-            # bounds. If so, fall back to sampling from the space.
-            if not self._param_option.params_space.contains(params):
-                params = self._param_option.params_space.sample()
-        return params
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class RandomSampler:
-    """A convenience class for implementing a random sampler. Prefer
-    to use this over a lambda function because it is pickleable.
-    """
-    _param_option: ParameterizedOption
-
-    def sampler(self, state: State, rng: np.random.Generator,
-                objects: Sequence[Object]) -> Array:
-        """A random sampler for this option. Ignores all arguments.
-        """
-        del state, rng, objects  # unused
-        return self._param_option.params_space.sample()
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class LearnedPredicateClassifier:
-    """A convenience class for holding the model underlying a learned predicate.
-    Prefer to use this because it is pickleable.
-    """
-    _model: MLPClassifier
-
-    def classifier(self, state: State, objects: Sequence[Object]) -> bool:
-        """The classifier corresponding to the given model. May be used
-        as the _classifier field in a Predicate.
-        """
-        v = state.vec(objects)
-        return self._model.classify(v)
 
 
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:

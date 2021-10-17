@@ -36,6 +36,9 @@ class OperatorLearningApproach(TAMPApproach):
         return self._operators
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # The only thing we need to do here is learn operators,
+        # which we split off into a different function in case
+        # subclasses want to make use of it.
         self._learn_operators(dataset)
 
     def _learn_operators(self, dataset: Dataset) -> None:
