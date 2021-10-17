@@ -2,6 +2,7 @@
 """
 
 import functools
+from dataclasses import dataclass
 from collections import defaultdict
 from typing import Set, Tuple, List, Sequence, FrozenSet, Callable, Dict
 import numpy as np
@@ -74,7 +75,7 @@ def _learn_operators_for_option(option: ParameterizedOption,
                                      delete_effects[i], option, i)
         else:
             # Instantiate a random sampler.
-            sampler = utils.RandomSampler(option).sampler
+            sampler = _RandomSampler(option).sampler
         # Construct Operator object
         operators.append(Operator(
             operator_name, variables, preconditions,
@@ -336,5 +337,57 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     regressor.fit(X_arr_regressor, Y_arr_regressor)
 
     # Construct and return sampler
-    return utils.LearnedSampler(classifier, regressor, variables,
-                                param_option).sampler
+    return _LearnedSampler(classifier, regressor, variables,
+                           param_option).sampler
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _LearnedSampler:
+    """A convenience class for holding the models underlying a learned sampler.
+    Prefer to use this because it is pickleable.
+    """
+    _classifier: MLPClassifier
+    _regressor: NeuralGaussianRegressor
+    _variables: Sequence[Variable]
+    _param_option: ParameterizedOption
+
+    def sampler(self, state: State, rng: np.random.Generator,
+                objects: Sequence[Object]) -> Array:
+        """The sampler corresponding to the given models. May be used
+        as the _sampler field in an Operator.
+        """
+        x_lst : List[Array] = []
+        sub = dict(zip(self._variables, objects))
+        for var in self._variables:
+            x_lst.extend(state[sub[var]])
+        x = np.array(x_lst)
+        num_rejections = 0
+        while num_rejections <= CFG.max_rejection_sampling_tries:
+            params = np.array(self._regressor.predict_sample(x, rng),
+                              dtype=self._param_option.params_space.dtype)
+            if self._param_option.params_space.contains(params) and \
+               self._classifier.classify(np.r_[x, params]):
+                break
+            num_rejections += 1
+        else:
+            # Edge case: we exceeded the number of sampling tries
+            # and we might be left with a params that is not in
+            # bounds. If so, fall back to sampling from the space.
+            if not self._param_option.params_space.contains(params):
+                params = self._param_option.params_space.sample()
+        return params
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _RandomSampler:
+    """A convenience class for implementing a random sampler. Prefer
+    to use this over a lambda function because it is pickleable.
+    """
+    _param_option: ParameterizedOption
+
+    def sampler(self, state: State, rng: np.random.Generator,
+                objects: Sequence[Object]) -> Array:
+        """A random sampler for this option. Ignores all arguments.
+        """
+        del state, rng, objects  # unused
+        return self._param_option.params_space.sample()

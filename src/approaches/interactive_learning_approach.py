@@ -2,13 +2,14 @@
 """
 
 import itertools
-from typing import Set, Callable, List, Collection
+from dataclasses import dataclass
+from typing import Set, Callable, List, Collection, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import OperatorLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, ActionTrajectory
+    Type, Task, Action, Dataset, GroundAtom, ActionTrajectory, Object
 from predicators.src.models import MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG
@@ -89,7 +90,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it
-            classifier = utils.LearnedPredicateClassifier(model).classifier
+            classifier = _LearnedPredicateClassifier(model).classifier
             new_pred = Predicate(pred.name, pred.types, classifier)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
@@ -146,3 +147,18 @@ def create_teacher_dataset(preds: Collection[Predicate],
         ground_atoms_dataset.append(ground_atoms_traj)
     assert len(ground_atoms_dataset) == len(dataset)
     return ground_atoms_dataset
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _LearnedPredicateClassifier:
+    """A convenience class for holding the model underlying a learned predicate.
+    Prefer to use this because it is pickleable.
+    """
+    _model: MLPClassifier
+
+    def classifier(self, state: State, objects: Sequence[Object]) -> bool:
+        """The classifier corresponding to the given model. May be used
+        as the _classifier field in a Predicate.
+        """
+        v = state.vec(objects)
+        return self._model.classify(v)
