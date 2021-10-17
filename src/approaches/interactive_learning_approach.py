@@ -90,8 +90,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
             # Construct classifier function, create new Predicate, and save it
             classifier = utils.LearnedPredicateClassifier(model).classifier
-            new_pred = Predicate(pred.name, pred.types, classifier,
-                                 is_learned=True)
+            new_pred = Predicate(pred.name, pred.types, classifier)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
 

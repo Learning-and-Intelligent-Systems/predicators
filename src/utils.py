@@ -10,7 +10,6 @@ from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional
 import heapq as hq
-import torch
 import imageio
 import matplotlib
 import numpy as np
@@ -18,7 +17,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
     ObjToVarSub, VarToObjSub, ParameterizedOption, Array
-from predicators.src.settings import CFG, GlobalSettings, get_save_path
+from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 matplotlib.use("Agg")
 
