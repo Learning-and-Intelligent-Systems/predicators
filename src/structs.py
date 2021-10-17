@@ -565,6 +565,6 @@ Transition = Tuple[State, Set[GroundAtom], _Option, Set[GroundAtom],
 Metrics = DefaultDict[str, float]
 # A pickleable atom is either a lifted atom itself (if the predicate is
 # not learned) or a tuple of (predicate name, predicate types, variables),
-# since the classifier itself should not be pickled.
+# since a learned classifier should not be pickled.
 PickleableAtom = Union[LiftedAtom, Tuple[str, Tuple[Type, ...],
                                          Tuple[Variable, ...]]]
