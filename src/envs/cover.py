@@ -38,9 +38,9 @@ class CoverEnv(BaseEnv):
         # Options
         self._PickPlace = ParameterizedOption(
             "PickPlace", types=[], params_space=Box(0, 1, (1,)),
-            _policy=lambda s, o, p: Action(p),  # action is simply the parameter
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._PickPlace_policy,
+            _initiable=self._PickPlace_initiable,
+            _terminal=self._PickPlace_terminal)
         # Objects
         self._blocks = []
         self._targets = []
@@ -258,6 +258,24 @@ class CoverEnv(BaseEnv):
         block, = objects
         return state.get(block, "grasp") != -1
 
+    @staticmethod
+    def _PickPlace_policy(state: State, objects: Sequence[Object],
+                          params: Array) -> Action:
+        del state, objects  # unused
+        return Action(params)  # action is simply the parameter
+
+    @staticmethod
+    def _PickPlace_initiable(state: State, objects: Sequence[Object],
+                             params: Array) -> bool:
+        del state, objects, params  # unused
+        return True  # can be run from anywhere
+
+    @staticmethod
+    def _PickPlace_terminal(state: State, objects: Sequence[Object],
+                            params: Array) -> bool:
+        del state, objects, params  # unused
+        return True  # always 1 timestep
+
     def _any_intersection(self, pose: float, width: float,
                           data: Dict[Object, Array],
                           block_only: bool=False,
@@ -282,21 +300,21 @@ class CoverEnvTypedOptions(CoverEnv):
         del self._PickPlace
         self._Pick = ParameterizedOption(
             "Pick", types=[self._block_type], params_space=Box(-0.1, 0.1, (1,)),
-            _policy=self._pick_policy,
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._Pick_policy,
+            _initiable=self._PickPlace_initiable,
+            _terminal=self._PickPlace_terminal)
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type], params_space=Box(0, 1, (1,)),
-            _policy=lambda s, o, p: Action(p),  # action is simply the parameter
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._PickPlace_policy,  # use the parent class's here
+            _initiable=self._PickPlace_initiable,
+            _terminal=self._PickPlace_terminal)
 
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {self._Pick, self._Place}
 
     @staticmethod
-    def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+    def _Pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
         # The pick parameter is a RELATIVE position, so we need to
         # add the pose of the object.
         pick_pose = s.get(o[0], "pose") + p[0]
