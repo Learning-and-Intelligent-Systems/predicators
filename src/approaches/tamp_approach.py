@@ -3,18 +3,25 @@ planning strategy: SEarch-and-SAMple planning, then Execution.
 """
 
 import abc
-from typing import Callable, Set, Any
+from typing import Callable, Set, List
+from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
 from predicators.src.structs import State, Action, Task, Operator, \
-    Predicate
+    Predicate, ParameterizedOption, Type
 
 
 class TAMPApproach(BaseApproach):
     """TAMP approach.
     """
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, simulator: Callable[[State, Action], State],
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption],
+                 types: Set[Type],
+                 action_space: Box,
+                 train_tasks: List[Task]) -> None:
+        super().__init__(simulator, initial_predicates, initial_options, types,
+                         action_space, train_tasks)
         self._num_calls = 0
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
