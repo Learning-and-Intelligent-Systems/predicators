@@ -16,15 +16,31 @@ __all__ = [
 ]
 
 
+_MOST_RECENT_ENV_INSTANCE = {}
+
+
 def create_env(name: str) -> BaseEnv:
     """Create an environment given its name.
     """
     if name == "cover":
-        return CoverEnv()
-    if name == "cover_typed":
-        return CoverEnvTypedOptions()
-    if name == "behavior":
-        return BehaviorEnv()
-    if name == "cluttered_table":
-        return ClutteredTableEnv()
-    raise NotImplementedError(f"Unknown env: {name}")
+        env = CoverEnv()
+    elif name == "cover_typed":
+        env = CoverEnvTypedOptions()
+    elif name == "behavior":
+        env = BehaviorEnv()
+    elif name == "cluttered_table":
+        env = ClutteredTableEnv()
+    else:
+        raise NotImplementedError(f"Unknown env: {name}")
+
+    _MOST_RECENT_ENV_INSTANCE[name] = env
+
+    return env
+
+
+def get_env_instance(name: str) -> BaseEnv:
+    """Get the most recent env instance, or make a new one.
+    """
+    if name in _MOST_RECENT_ENV_INSTANCE:
+        return _MOST_RECENT_ENV_INSTANCE[name]
+    return create_env(name)

@@ -1,4 +1,16 @@
 """Behavior (iGibson) environment.
+
+TODO next:
+1. add "agent" object and type
+2. add some trivial options for NavigateTo, Pick, Place,
+   which will later be replaced
+3. figure out how to handle the fact that those options
+   could be parameterized by multiple different types.
+   maybe auto-generate one option per possible type
+   combo like we are doing for predicates?
+4. finish writing operators by hand, and verify that
+   the skeleton found is as expectedd
+5. start integrating options from Nishanth (still WIP)
 """
 
 import functools
