@@ -121,7 +121,7 @@ class BehaviorEnv(BaseEnv):
     def types(self) -> Set[Type]:
         for ig_obj in self._get_task_relevant_objects():
             # Create type
-            type_name, _ = ig_obj.bddl_object_scope.rsplit("_", 1)
+            type_name = _ig_object_to_type_name(ig_obj)
             if type_name in self._type_name_to_type:
                 continue
             # TODO: get type-specific features
@@ -153,7 +153,7 @@ class BehaviorEnv(BaseEnv):
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj):
-        type_name, _ = ig_obj.bddl_object_scope.rsplit("_", 1)
+        type_name = _ig_object_to_type_name(ig_obj)
         obj_type = self._type_name_to_type[type_name]
         return Object(ig_obj.bddl_object_scope, obj_type)
 
@@ -217,6 +217,15 @@ class BehaviorEnv(BaseEnv):
             
             raise ValueError("BDDL predicate has unexpected arity.")
         return _classifier
+
+
+def _ig_object_to_type_name(ig_obj):
+    if isinstance(ig_obj, RoomFloor):
+        assert ":" in ig_obj.bddl_object_scope
+        type_name = ig_obj.bddl_object_scope.split(":")[0]
+        return type_name.rsplit("_", 1)[0]
+    assert isinstance(ig_obj, URDFObject)
+    return ig_obj.bddl_object_scope.rsplit("_", 1)[0]
 
 
 def _bddl_predicate_arity(bddl_predicate):
