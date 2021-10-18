@@ -90,6 +90,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     else:
         goal_reached = False
         for _ in range(CFG.max_num_steps_check_policy):
+            print("ATOMS:", atoms)
             act = policy(state)
             if make_video:
                 assert render is not None
