@@ -54,5 +54,5 @@ def test_env_failure():
     try:
         raise EnvironmentFailure("failure123", {cup})
     except EnvironmentFailure as e:
-        assert str(e) == "failure123"
+        assert str(e) == "EnvironmentFailure('failure123'): {cup:cup_type}"
         assert e.offending_objects == {cup}

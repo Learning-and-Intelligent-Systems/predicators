@@ -88,3 +88,9 @@ class EnvironmentFailure(Exception):
     def __init__(self, message: str, offending_objects: Set[Object]):
         super().__init__(message)
         self.offending_objects = offending_objects
+
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}: {self.offending_objects}"
+
+    def __str__(self) -> str:
+        return repr(self)

@@ -30,7 +30,7 @@ def test_cluttered_table():
     # Action space should be 4-dimensional.
     assert env.action_space == Box(0, 1, (4,))
     # Test init state and simulate()
-    for task in env.get_test_tasks():
+    for i, task in enumerate(env.get_test_tasks()):
         state = task.init
         for can1 in state:
             pose_x1 = state.get(can1, "pose_x")
@@ -46,7 +46,8 @@ def test_cluttered_table():
                     [pose_y2-pose_y1, pose_x2-pose_x1]) > rad1+rad2
         can = list(state)[0]
         act = Action(env.action_space.sample())
-        env.render(state, task, act)
+        if i == 0:
+            env.render(state, task, act)
         try:
             env.simulate(state, act)
         except EnvironmentFailure:  # pragma: no cover
@@ -57,4 +58,5 @@ def test_cluttered_table():
         act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
         next_state = env.simulate(state, act)  # grasp while already grasping
         assert all(np.all(next_state[can] == state[can]) for can in state)
-        env.render(state, task, act)
+        if i == 0:
+            env.render(state, task, act)
