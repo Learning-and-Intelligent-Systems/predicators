@@ -29,15 +29,14 @@ class ClutteredTableEnv(BaseEnv):
         # Options
         self._Grasp = ParameterizedOption(
             "Grasp", [self._can_type], params_space=Box(0, 1, (4,)),
-            _policy=lambda s, o, p: Action(p),  # action is just parameter
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._Grasp_policy,
+            _initiable=self._GraspDump_initiable,
+            _terminal=self._GraspDump_terminal)
         self._Dump = ParameterizedOption(
             "Dump", [], params_space=Box(0, 1, (0,)),  # no parameter
-            _policy=lambda s, o, p: Action(
-                np.zeros(4, dtype=np.float32)),
-            _initiable=lambda s, o, p: True,  # can be run from anywhere
-            _terminal=lambda s, o, p: True)  # always 1 timestep
+            _policy=self._Dump_policy,
+            _initiable=self._GraspDump_initiable,
+            _terminal=self._GraspDump_terminal)
         # Objects
         self._cans = []
         for i in range(max(CFG.cluttered_table_num_cans_train,
@@ -91,10 +90,11 @@ class ClutteredTableEnv(BaseEnv):
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
             vec2 = np.array([end_x-this_x, end_y-this_y])
-            angle = np.arccos(
+            angle = np.arccos(np.clip(
                 vec1.dot(vec2) / (np.linalg.norm(vec1) *  # type: ignore
-                                  np.linalg.norm(vec2)))  # type: ignore
-            if angle < CFG.cluttered_table_collision_angle_thresh:
+                                  np.linalg.norm(vec2)),  # type: ignore
+                -1.0, 1.0))
+            if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
                 dist = np.linalg.norm(vec2)  # type: ignore
                 if dist > colliding_can_max_dist:
                     colliding_can_max_dist = dist
@@ -147,7 +147,7 @@ class ClutteredTableEnv(BaseEnv):
         goal_color = "green"
         other_color = "red"
         lcolor = "black"
-        for can in self._cans:
+        for can in state:
             if state.get(can, "is_grasped"):
                 circ = plt.Circle(
                     (state.get(can, "pose_x"), state.get(can, "pose_y")),
@@ -202,8 +202,8 @@ class ClutteredTableEnv(BaseEnv):
         for i in range(num_cans):
             can = self._cans[i]
             while True:
-                # multiply radius by 4 to keep cans away from edge of table
-                pose = np.array(rng.uniform(radius*4, 1.0-radius*4, size=2),
+                # keep cans near center of table to allow grasps from all angles
+                pose = np.array(rng.uniform(0.25, 0.75, size=2),
                                 dtype=np.float32)
                 if not self._any_intersection(pose, radius, data):
                     break
@@ -223,6 +223,30 @@ class ClutteredTableEnv(BaseEnv):
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         can, = objects
         return state.get(can, "is_grasped") > 0.5
+
+    @staticmethod
+    def _Grasp_policy(state: State, objects: Sequence[Object],
+                      params: Array) -> Action:
+        del state, objects  # unused
+        return Action(params)  # action is simply the parameter
+
+    @staticmethod
+    def _Dump_policy(state: State, objects: Sequence[Object],
+                     params: Array) -> Action:
+        del state, objects, params  # unused
+        return Action(np.zeros(4, dtype=np.float32))  # no parameter for dumping
+
+    @staticmethod
+    def _GraspDump_initiable(state: State, objects: Sequence[Object],
+                             params: Array) -> bool:
+        del state, objects, params  # unused
+        return True  # can be run from anywhere
+
+    @staticmethod
+    def _GraspDump_terminal(state: State, objects: Sequence[Object],
+                            params: Array) -> bool:
+        del state, objects, params  # unused
+        return True  # always 1 timestep
 
     @staticmethod
     def _any_intersection(pose: Array, radius: float,

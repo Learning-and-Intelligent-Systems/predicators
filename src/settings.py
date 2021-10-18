@@ -30,15 +30,16 @@ class GlobalSettings:
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
     cluttered_table_can_radius = 0.01
-    cluttered_table_collision_angle_thresh = np.pi / 8
+    cluttered_table_collision_angle_thresh = np.pi / 4
 
     # parameters for approaches
     random_options_max_tries = 100
 
     # SeSamE parameters
+    propagate_failures = True
     max_samples_per_step = 10
     max_num_steps_option_rollout = 100
-    max_skeletons = 1  # if 1, can only solve downward refinable tasks
+    max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
 
     # evaluation parameters
     save_dir = "saved_data"
@@ -64,6 +65,9 @@ class GlobalSettings:
     n_iter_no_change = 5000
     learning_rate = 1e-3
 
+    # interactive learning parameters
+    interactive_known_predicates = {'HandEmpty'}
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
@@ -78,7 +82,7 @@ class GlobalSettings:
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
-                "cluttered_table": 25,
+                "cluttered_table": 50,
                 "behavior": 10,
             })[args["env"]],
 
@@ -86,7 +90,7 @@ class GlobalSettings:
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
-                "cluttered_table": 100,
+                "cluttered_table": 50,
                 "behavior": 10,
             })[args["env"]],
 
@@ -104,12 +108,14 @@ class GlobalSettings:
             include_options_in_offline_data=defaultdict(bool, {
                 "trivial_learning": True,
                 "operator_learning": True,
+                "interactive_learning": True,
             })[args["approach"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
                 "trivial_learning": "demo",
                 "operator_learning": "demo+replay",
+                "interactive_learning": "demo",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
@@ -117,6 +123,7 @@ class GlobalSettings:
             offline_data_planning_timeout=defaultdict(int, {
                 "trivial_learning": 500,
                 "operator_learning": 500,
+                "interactive_learning": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
@@ -124,6 +131,7 @@ class GlobalSettings:
             offline_data_num_replays=defaultdict(int, {
                 "trivial_learning": 10,
                 "operator_learning": 10,
+                "interactive_learning": 10,
             })[args["approach"]],
         )
 

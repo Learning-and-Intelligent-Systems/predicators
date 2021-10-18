@@ -3,13 +3,12 @@
 
 import numpy as np
 import pytest
-from predicators.src.approaches import OracleApproach, ApproachFailure
+from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_ops
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     ClutteredTableEnv, EnvironmentFailure
 from predicators.src.structs import Action
 from predicators.src import utils
-from predicators.src.settings import CFG
 
 
 def test_cover_get_gt_ops():
@@ -157,13 +156,7 @@ def test_cluttered_table_get_gt_ops():
 def test_oracle_approach_cluttered_table():
     """Tests for OracleApproach class with ClutteredTableEnv.
     """
-    # With just 1 can on the table, planning should always succeed,
-    # because there are no failures to consider.
-    old_num_cans_train = CFG.cluttered_table_num_cans_train
-    old_num_cans_test = CFG.cluttered_table_num_cans_test
-    utils.update_config({"env": "cluttered_table",
-                         "cluttered_table_num_cans_train": 1,
-                         "cluttered_table_num_cans_test": 1})
+    utils.update_config({"env": "cluttered_table"})
     env = ClutteredTableEnv()
     env.seed(123)
     approach = OracleApproach(
@@ -171,36 +164,11 @@ def test_oracle_approach_cluttered_table():
         env.action_space, env.get_train_tasks())
     assert not approach.is_learning_based
     approach.seed(123)
-    for task in env.get_train_tasks():
-        policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
-    for task in env.get_test_tasks():
-        policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
-    utils.update_config({"env": "cluttered_table",
-                         "cluttered_table_num_cans_train": old_num_cans_train,
-                         "cluttered_table_num_cans_test": old_num_cans_test})
-    # With more cans on the table, planning might fail.
-    env = ClutteredTableEnv()
-    env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    assert not approach.is_learning_based
-    approach.seed(123)
-    for task in env.get_train_tasks():
-        try:
-            policy = approach.solve(task, timeout=500)
-            assert utils.policy_solves_task(
-                policy, task, env.simulate, env.predicates)
-        except ApproachFailure as e:
-            assert str(e) == "Failure in environment"
-    for task in env.get_test_tasks():
-        try:
-            policy = approach.solve(task, timeout=500)
-            assert utils.policy_solves_task(
-                policy, task, env.simulate, env.predicates)
-        except ApproachFailure as e:
-            assert str(e) == "Failure in environment"
+    train_task = env.get_train_tasks()[0]
+    policy = approach.solve(train_task, timeout=500)
+    assert utils.policy_solves_task(
+        policy, train_task, env.simulate, env.predicates)
+    test_task = env.get_test_tasks()[0]
+    policy = approach.solve(test_task, timeout=500)
+    assert utils.policy_solves_task(
+        policy, test_task, env.simulate, env.predicates)
