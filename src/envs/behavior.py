@@ -89,11 +89,27 @@ class BehaviorEnv(BaseEnv):
         for _ in range(num):
             self._env.reset()
             init_state = self._current_ig_state_to_state()
-            # TODO: get goal for task in predicates
-            goal = {GroundAtom(self._Dummy, [])}
+            goal = self._get_task_goal()
             task = Task(init_state, goal)
             tasks.append(task)
         return tasks
+
+    def _get_task_goal(self) -> Set[GroundAtom]:
+        # TODO: figure out a more general, less hacky way to do this.
+        # Currently assumes that the goal is a single AND of
+        # ground atoms (this is also assumed by the planner).
+        goal = set()
+        assert len(self._env.task.ground_goal_state_options) == 1
+        for head_expr in self._env.task.ground_goal_state_options[0]:
+            bddl_name = head_expr.terms[0]  # untyped
+            ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
+            objects = [self._ig_object_to_object(i) for i in ig_objs]
+            pred_name = _create_predicate_name(bddl_name,
+                                               [o.type for o in objects])
+            pred = self._name_to_predicate(pred_name)
+            atom = GroundAtom(pred, objects)
+            goal.add(atom)
+        return goal
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -105,16 +121,10 @@ class BehaviorEnv(BaseEnv):
             # TODO: filter out implausible type combinations per predicate.
             arity = _bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
-                type_names = "-".join(t.name for t in type_combo)
-                pred_name = f"{bddl_name}-{type_names}"
+                pred_name = _create_predicate_name(bddl_name, type_combo)
                 _classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), _classifier)
                 predicates.add(pred)
-
-        # TODO remove this
-        self._Dummy = Predicate("Dummy", [], lambda s, o: False)
-        predicates.add(self._Dummy)
-
         return predicates
 
     @property
@@ -148,8 +158,7 @@ class BehaviorEnv(BaseEnv):
     def _get_task_relevant_objects(self):
         # https://github.com/Learning-and-Intelligent-Systems/iGibson/blob/f21102347be7f3cef2cc39b943b1cf3166a428f4/igibson/envs/behavior_mp_env.py#L104
         return [item for item in self._env.task.object_scope.values()
-                if isinstance(item, URDFObject) or isinstance(item, RoomFloor)
-        ]
+                if isinstance(item, URDFObject) or isinstance(item, RoomFloor)]
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj):
@@ -159,10 +168,21 @@ class BehaviorEnv(BaseEnv):
 
     @functools.lru_cache(maxsize=None)
     def _object_to_ig_object(self, obj):
+        return self._name_to_ig_object(obj.name)
+
+    @functools.lru_cache(maxsize=None)
+    def _name_to_ig_object(self, name):
         for ig_obj in self._get_task_relevant_objects():
-            if ig_obj.bddl_object_scope == obj.name:
+            if ig_obj.bddl_object_scope == name:
                 return ig_obj
-        raise ValueError(f"No IG object found for object {obj}.")
+        raise ValueError(f"No IG object found for name {name}.")
+
+    @functools.lru_cache(maxsize=None)
+    def _name_to_predicate(self, name):
+        for pred in self.predicates:
+            if name == pred.name:
+                return pred
+        raise ValueError(f"No predicate found for name {name}.")
 
     def _current_ig_state_to_state(self):
         state_data = {}
@@ -236,3 +256,9 @@ def _bddl_predicate_arity(bddl_predicate):
     if ObjectStateBinaryPredicate in bddl_predicate.__bases__:
         return 2
     raise ValueError("BDDL predicate has unexpected arity.")
+
+
+def _create_predicate_name(bddl_name, type_combo):
+    type_names = "-".join(t.name for t in type_combo)
+    return f"{bddl_name}-{type_names}"
+
