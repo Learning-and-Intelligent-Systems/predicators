@@ -1,9 +1,12 @@
 """Behavior (iGibson) environment.
 
 TODO next:
-4. finish writing operators by hand, and verify that
-   the skeleton found is as expected
-5. start integrating options from Nishanth (still WIP)
+- add custom predicates for holding and handsfull
+  using self._env.obj_in_hand (None if handempty,
+  and equal to ig_obj if holding)
+- finish writing operators by hand, and verify that
+  the skeleton found is as expected
+- start integrating options from Nishanth (still WIP)
 
 Other notes
 * OnFloor(robot, floor) does not evaluate to true now,
@@ -41,6 +44,9 @@ from predicators.src import utils
 
 
 # TODO move this to settings
+# Note that we also define custom predicates in the env
+# which are not defined in behavior, namely, handempty
+# and holding.
 _BDDL_PREDICATE_NAMES = {
     "inside",
     "nextto",
@@ -115,7 +121,7 @@ class BehaviorEnv(BaseEnv):
             bddl_name = head_expr.terms[0]  # untyped
             ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
-            pred_name = create_type_combo_name(bddl_name,
+            pred_name = _create_type_combo_name(bddl_name,
                                                [o.type for o in objects])
             pred = self._name_to_predicate(pred_name)
             atom = GroundAtom(pred, objects)
@@ -126,15 +132,26 @@ class BehaviorEnv(BaseEnv):
     def predicates(self) -> Set[Predicate]:
         predicates = set()
         types_lst = sorted(self.types)  # for determinism
+        # Extract predicates from behavior/igibson 
         for bddl_name in _BDDL_PREDICATE_NAMES:
             bddl_predicate = SUPPORTED_PREDICATES[bddl_name]
             # We will create one predicate for every combination of types.
             # TODO: filter out implausible type combinations per predicate.
             arity = _bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
-                pred_name = create_type_combo_name(bddl_name, type_combo)
+                pred_name = _create_type_combo_name(bddl_name, type_combo)
                 _classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), _classifier)
+                predicates.add(pred)
+        # Add custom predicates
+        custom_predicate_specs = [
+            ("handempty", self._handempty_classifier, 0),
+            ("holding", self._holding_classifier, 1),
+        ]
+        for name, classifier, arity in custom_predicate_specs:
+            for type_combo in itertools.product(types_lst, repeat=arity):
+                pred_name = _create_type_combo_name(name, type_combo)
+                pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
         return predicates
 
@@ -167,7 +184,7 @@ class BehaviorEnv(BaseEnv):
             # Create a different option for each type combo
             for type_combo in itertools.product(self.types,
                                                 repeat=num_args):
-                option_name = create_type_combo_name(name, type_combo)
+                option_name = _create_type_combo_name(name, type_combo)
                 option = ParameterizedOption(option_name,
                     types=list(type_combo),
                     params_space=Box(0, 1, (0,)),  # placeholders
@@ -271,6 +288,26 @@ class BehaviorEnv(BaseEnv):
             raise ValueError("BDDL predicate has unexpected arity.")
         return _classifier
 
+    def _get_grasped_objects(self, state):
+        grasped_objs = set()
+        for obj in state:
+            ig_obj = self._object_to_ig_object(obj)
+            if any(self._env.robots[0].is_grasping(ig_obj)):
+                grasped_objs.add(obj)
+        return grasped_objs
+
+    def _handempty_classifier(self, state, objs):
+        assert len(objs) == 0
+        # See disclaimers in _create_classifier_from_bddl
+        grasped_objs = self._get_grasped_objects(state)
+        return len(grasped_objs) == 0
+
+    def _holding_classifier(self, state, objs):
+        assert len(objs) == 1
+        # See disclaimers in _create_classifier_from_bddl
+        grasped_objs = self._get_grasped_objects(state)
+        return objs[0] in grasped_objs
+
 
 def _ig_object_name(ig_obj):
     if isinstance(ig_obj, (URDFObject, RoomFloor)):
@@ -300,6 +337,6 @@ def _bddl_predicate_arity(bddl_predicate):
     raise ValueError("BDDL predicate has unexpected arity.")
 
 
-def create_type_combo_name(original_name, type_combo):
+def _create_type_combo_name(original_name, type_combo):
     type_names = "-".join(t.name for t in type_combo)
     return f"{original_name}-{type_names}"
