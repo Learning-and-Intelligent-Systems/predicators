@@ -7,6 +7,7 @@ that operator will not be generated at all.
 """
 
 from typing import List, Sequence, Set
+import itertools
 import numpy as np
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import get_env_instance
@@ -230,6 +231,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
     agent_obj = Variable("?agent", agent_type)
 
     operators = set()
+    op_name_count = itertools.count()
 
     for option in env.options:
         split_name = option.name.split("-")
@@ -243,12 +245,13 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             target_obj = Variable("?targ", target_obj_type)
 
             # Navigate to from nowhere
-            parameters = [target_obj]
+            parameters = [target_obj, agent_obj]
             option_vars = [target_obj]
             preconditions = set()
             add_effects = {_get_lifted_atom("nextto", [target_obj, agent_obj])}
             delete_effects = set()
-            operator = Operator(option.name, parameters, preconditions, add_effects,
+            operator = Operator(f"{option.name}-{next(op_name_count)}",
+                                parameters, preconditions, add_effects,
                                 delete_effects, option, option_vars,
                                 # TODO: create sampler
                                 lambda s, r, o: np.array([], dtype=np.float32))
@@ -258,13 +261,14 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             for origin_obj_type in env.types:
                 origin_obj = Variable("?origin", origin_obj_type)
                 origin_next_to = _get_lifted_atom("nextto", [origin_obj, agent_obj])
-                targ_next_to = _get_lifted_atom("nextto", [targ_obj, agent_obj])
-                parameters = [origin_obj, target_obj]
+                targ_next_to = _get_lifted_atom("nextto", [target_obj, agent_obj])
+                parameters = [origin_obj, agent_obj, target_obj]
                 option_vars = [target_obj]
                 preconditions = {origin_next_to}
                 add_effects = {targ_next_to}
                 delete_effects = {origin_next_to}
-                operator = Operator(option.name, parameters, preconditions, add_effects,
+                operator = Operator(f"{option.name}-{next(op_name_count)}",
+                                    parameters, preconditions, add_effects,
                                     delete_effects, option, option_vars,
                                     # TODO: create sampler
                                     lambda s, r, o: np.array([], dtype=np.float32))
@@ -272,62 +276,56 @@ def _get_behavior_gt_ops() -> Set[Operator]:
 
         elif base_option_name == "Pick":
             assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+
+            # Pick from ontop something
+            for surf_obj_type in env.types:
+                surf_obj = Variable("?surf", surf_obj_type)
+                parameters = [target_obj, agent_obj, surf_obj]
+                option_vars = [target_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                targ_next_to = _get_lifted_atom("nextto", [target_obj, agent_obj])
+                targ_holding = _get_lifted_atom("holding", [target_obj])
+                ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
+                preconditions = {handempty, targ_next_to, ontop}
+                add_effects = {targ_holding}
+                delete_effects = {handempty, ontop}
+                operator = Operator(f"{option.name}-{next(op_name_count)}",
+                                    parameters, preconditions, add_effects,
+                                    delete_effects, option, option_vars,
+                                    # TODO: create sampler
+                                    lambda s, r, o: np.array([], dtype=np.float32))
+                operators.add(operator)
 
         elif base_option_name == "PlaceOnTop":
             assert len(option_arg_type_names) == 2
+            held_obj_type_name = option_arg_type_names[0]
+            held_obj_type = type_name_to_type[held_obj_type_name]
+            held_obj = Variable("?held", held_obj_type)
+            surf_obj_type_name = option_arg_type_names[1]
+            surf_obj_type = type_name_to_type[surf_obj_type_name]
+            surf_obj = Variable("?surf", surf_obj_type)
 
-        elif base_option_name == "PlaceInside":
-            assert len(option_arg_type_names) == 2
-
+            parameters = [held_obj, agent_obj, surf_obj]
+            option_vars = [held_obj, surf_obj]
+            handempty = _get_lifted_atom("handempty", [])
+            held_holding = _get_lifted_atom("holding", [held_obj])
+            surf_next_to = _get_lifted_atom("nextto", [surf_obj, agent_obj])
+            ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
+            preconditions = {held_holding, surf_next_to}
+            add_effects = {ontop, handempty}
+            delete_effects = {held_holding}
+            operator = Operator(f"{option.name}-{next(op_name_count)}",
+                                parameters, preconditions, add_effects,
+                                delete_effects, option, option_vars,
+                                # TODO: create sampler
+                                lambda s, r, o: np.array([], dtype=np.float32))
+            operators.add(operator)
+        
         else:
             raise ValueError(
                 f"Unexpected base option name: {base_option_name}")
-
-
-    """
-    Nishanth & Willie's PDDL operators
-
-    (:action navigate_to
-        :parameters (?objto - object ?agent - agent.n.01)
-        :precondition (not (nextto ?objto ?agent))
-        :effect (and (nextto ?objto ?agent) 
-                        (when 
-                            (exists 
-                                (?objfrom - object) 
-                                (nextto ?objfrom ?agent)
-                            )
-                            (not (nextto ?objfrom ?agent))
-                        ) 
-                )
-    )
-
-    (:action grasp
-        :parameters (?obj - object ?agent - agent.n.01)
-        :precondition (and (not (holding ?obj))
-                            (not (handsfull ?agent)) 
-                            (nextto ?obj ?agent))
-        :effect (and (holding ?obj) 
-                        (handsfull ?agent))
-    )
-    
-    (:action place_ontop ; place object 1 onto object 2
-        :parameters (?obj2 - object ?agent - agent.n.01 ?obj1 - object)
-        :precondition (and (holding ?obj1) 
-                            (nextto ?obj2 ?agent))
-        :effect (and (ontop ?obj1 ?obj2) 
-                        (not (holding ?obj1)) 
-                        (not (handsfull ?agent)))
-    )
-
-    (:action place_inside ; place object 1 inside object 2
-        :parameters (?obj2 - object ?agent - agent.n.01 ?obj1 - object)
-        :precondition (and (holding ?obj1) 
-                            (nextto ?obj2 ?agent) 
-                            (open ?obj2))
-        :effect (and (inside ?obj1 ?obj2) 
-                        (not (holding ?obj1)) 
-                        (not (handsfull ?agent)))
-    )
-    """
 
     return operators
