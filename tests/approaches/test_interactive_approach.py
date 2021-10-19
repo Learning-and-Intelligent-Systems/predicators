@@ -79,7 +79,7 @@ def test_interactive_learning_approach():
 
 
 def test_interactive_learning_approach_exception():
-    """Tests for InteractiveLearningApproach class.
+    """Test for failure when teacher dataset contains set of 0 ground atoms.
     """
     utils.update_config({"env": "cover", "approach": "interactive_learning",
                          "timeout": 10, "max_samples_per_step": 10,
