@@ -1,16 +1,21 @@
 """Behavior (iGibson) environment.
 
 TODO next:
-1. add "agent" object and type
 2. add some trivial options for NavigateTo, Pick, Place,
    which will later be replaced
-3. figure out how to handle the fact that those options
+3. figure out how to handle the ffact that those options
    could be parameterized by multiple different types.
    maybe auto-generate one option per possible type
    combo like we are doing for predicates?
 4. finish writing operators by hand, and verify that
-   the skeleton found is as expectedd
+   the skeleton found is as expected
 5. start integrating options from Nishanth (still WIP)
+
+Other notes
+* OnFloor(robot, floor) does not evaluate to true now,
+  even though it's in the initial BDDL state, because
+  it uses geometry, and the behaviorbot actually floats
+  and doesn't touch the floor. But it doesn't matter.
 """
 
 import functools
@@ -168,15 +173,14 @@ class BehaviorEnv(BaseEnv):
         import ipdb; ipdb.set_trace()
 
     def _get_task_relevant_objects(self):
-        # https://github.com/Learning-and-Intelligent-Systems/iGibson/blob/f21102347be7f3cef2cc39b943b1cf3166a428f4/igibson/envs/behavior_mp_env.py#L104
-        return [item for item in self._env.task.object_scope.values()
-                if isinstance(item, URDFObject) or isinstance(item, RoomFloor)]
+        return list(self._env.task.object_scope.values())
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj):
         type_name = _ig_object_to_type_name(ig_obj)
         obj_type = self._type_name_to_type[type_name]
-        return Object(ig_obj.bddl_object_scope, obj_type)
+        ig_obj_name = _ig_object_name(ig_obj)
+        return Object(ig_obj_name, obj_type)
 
     @functools.lru_cache(maxsize=None)
     def _object_to_ig_object(self, obj):
@@ -185,7 +189,7 @@ class BehaviorEnv(BaseEnv):
     @functools.lru_cache(maxsize=None)
     def _name_to_ig_object(self, name):
         for ig_obj in self._get_task_relevant_objects():
-            if ig_obj.bddl_object_scope == name:
+            if _ig_object_name(ig_obj) == name:
                 return ig_obj
         raise ValueError(f"No IG object found for name {name}.")
 
@@ -251,13 +255,22 @@ class BehaviorEnv(BaseEnv):
         return _classifier
 
 
+def _ig_object_name(ig_obj):
+    if isinstance(ig_obj, (URDFObject, RoomFloor)):
+        return ig_obj.bddl_object_scope
+    # Robot is special
+    assert "robot" in str(ig_obj)
+    return "agent.n.01_1"
+
+
 def _ig_object_to_type_name(ig_obj):
+    ig_obj_name = _ig_object_name(ig_obj)
     if isinstance(ig_obj, RoomFloor):
-        assert ":" in ig_obj.bddl_object_scope
-        type_name = ig_obj.bddl_object_scope.split(":")[0]
+        assert ":" in ig_obj_name
+        type_name = ig_obj_name.split(":")[0]
         return type_name.rsplit("_", 1)[0]
-    assert isinstance(ig_obj, URDFObject)
-    return ig_obj.bddl_object_scope.rsplit("_", 1)[0]
+    # Object is either URDFObject or robot
+    return ig_obj_name.rsplit("_", 1)[0]
 
 
 def _bddl_predicate_arity(bddl_predicate):
