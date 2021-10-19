@@ -7,7 +7,7 @@ from typing import Set, Callable, List, Collection, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
-from predicators.src.approaches import OperatorLearningApproach
+from predicators.src.approaches import OperatorLearningApproach, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, ActionTrajectory, Object
 from predicators.src.models import MLPClassifier
@@ -136,9 +136,11 @@ def create_teacher_dataset(preds: Collection[Predicate],
     for (ss, _) in dataset:
         ground_atoms_traj = []
         for s in ss:
-            ground_atoms = list(utils.abstract(s, preds))
+            ground_atoms = sorted(utils.abstract(s, preds))
             # select random subset to keep
             n_samples = int(len(ground_atoms) * ratio)
+            if n_samples < 1:
+                raise ApproachFailure("Need at least 1 ground atom sample")
             subset = rng.choice(np.arange(len(ground_atoms)),
                                 size=(n_samples,),
                                 replace=False)
