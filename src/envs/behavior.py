@@ -1,9 +1,6 @@
 """Behavior (iGibson) environment.
 
 TODO next:
-- add custom predicates for holding and handsfull
-  using self._env.obj_in_hand (None if handempty,
-  and equal to ig_obj if holding)
 - finish writing operators by hand, and verify that
   the skeleton found is as expected
 - start integrating options from Nishanth (still WIP)
