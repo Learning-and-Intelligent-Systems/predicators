@@ -72,10 +72,10 @@ class CoverEnv(BaseEnv):
                 assert above_block is None
                 above_block = block
         # If we're not holding anything and we're above a block, grasp it.
+        # The grasped block's pose stays the same.
         if held_block is None and above_block is not None:
             grasp = pose-state.get(above_block, "pose")
             next_state.set(self._robot, "hand", pose)
-            next_state.set(above_block, "pose", -1000)  # out of the way
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block or in free space.
