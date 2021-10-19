@@ -215,39 +215,73 @@ def _get_cluttered_table_gt_ops() -> Set[Operator]:
 def _get_behavior_gt_ops() -> Set[Operator]:
     """Create ground truth operators for BehaviorEnv.
     """
-    # Currently specific to re-shelving task
+    env = get_env_instance("behavior")
 
-    type_names = [
-        "book.n.02",
-        "table.n.02",
-        "shelf.n.01",
-        "floor.n.01",
-        "agent.n.01",
-    ]
+    type_name_to_type = {t.name : t for t in env.types}
+    pred_name_to_pred = {p.name : p for p in env.predicates}
 
-    book_type, table_type, shelf_type, floor_type, agent_type = \
-        _get_types_by_names("behavior", type_names)
+    def _get_lifted_atom(base_pred_name, objects):
+        type_names = "-".join(o.type.name for o in objects)
+        pred_name = f"{base_pred_name}-{type_names}"
+        pred = pred_name_to_pred[pred_name]
+        return LiftedAtom(pred, objects)
 
-    NavigateTo, Pick, PlaceOnTop = _get_options_by_names("behavior",
-        ["NavigateTo", "Pick", "PlaceOnTop"])
+    agent_type = type_name_to_type["agent.n.01"]
+    agent_obj = Variable("?agent", agent_type)
 
     operators = set()
 
-    # Navigate to book from nowhere
-    book = Variable("?book", book_type)
-    parameters = [book]
-    option_vars = [book]
-    option = NavigateTo
-    preconditions = set()
-    add_effects = {_create_behavior_atom("nextto", [book_type, agent_type])}
-    delete_effects = set()
-    operator = Operator("NavigateToBook", parameters, preconditions, add_effects,
-                        delete_effects, option, option_vars,
-                        # TODO: create sampler
-                        lambda s, r, o: np.array([], dtype=np.float32))
-    operators.add(operator)
+    for option in env.options:
+        split_name = option.name.split("-")
+        base_option_name = split_name[0]
+        option_arg_type_names = split_name[1:]
 
-    # TODO more operators
+        if base_option_name == "NavigateTo":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+
+            # Navigate to from nowhere
+            parameters = [target_obj]
+            option_vars = [target_obj]
+            preconditions = set()
+            add_effects = {_get_lifted_atom("nextto", [target_obj, agent_obj])}
+            delete_effects = set()
+            operator = Operator(option.name, parameters, preconditions, add_effects,
+                                delete_effects, option, option_vars,
+                                # TODO: create sampler
+                                lambda s, r, o: np.array([], dtype=np.float32))
+            operators.add(operator)
+
+            # Navigate to while nextto something
+            for origin_obj_type in env.types:
+                origin_obj = Variable("?origin", origin_obj_type)
+                origin_next_to = _get_lifted_atom("nextto", [origin_obj, agent_obj])
+                targ_next_to = _get_lifted_atom("nextto", [targ_obj, agent_obj])
+                parameters = [origin_obj, target_obj]
+                option_vars = [target_obj]
+                preconditions = {origin_next_to}
+                add_effects = {targ_next_to}
+                delete_effects = {origin_next_to}
+                operator = Operator(option.name, parameters, preconditions, add_effects,
+                                    delete_effects, option, option_vars,
+                                    # TODO: create sampler
+                                    lambda s, r, o: np.array([], dtype=np.float32))
+                operators.add(operator)
+
+        elif base_option_name == "Pick":
+            assert len(option_arg_type_names) == 1
+
+        elif base_option_name == "PlaceOnTop":
+            assert len(option_arg_type_names) == 2
+
+        elif base_option_name == "PlaceInside":
+            assert len(option_arg_type_names) == 2
+
+        else:
+            raise ValueError(
+                f"Unexpected base option name: {base_option_name}")
 
 
     """
