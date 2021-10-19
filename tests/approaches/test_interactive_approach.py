@@ -1,6 +1,7 @@
 """Test cases for the interactive learning approach.
 """
 
+import pytest
 from predicators.src.approaches import InteractiveLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.approaches.interactive_learning_approach import \
@@ -72,6 +73,24 @@ def test_interactive_learning_approach():
     # Test teacher
     (ss, _) = dataset[0]
     for s in ss:
-        ground_atoms = list(utils.abstract(s, env.predicates))
+        ground_atoms = sorted(utils.abstract(s, env.predicates))
         for g in ground_atoms:
             assert approach.ask_teacher(s, g)
+
+
+def test_interactive_learning_approach_exception():
+    """Test for failure when teacher dataset contains set of 0 ground atoms.
+    """
+    utils.update_config({"env": "cover", "approach": "interactive_learning",
+                         "timeout": 10, "max_samples_per_step": 10,
+                         "seed": 12345, "classifier_max_itr": 50,
+                         "regressor_max_itr": 50,
+                         "teacher_dataset_label_ratio": 0})
+    env = CoverEnv()
+    approach = InteractiveLearningApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
+    dataset = create_dataset(env)
+    assert approach.is_learning_based
+    with pytest.raises(ApproachFailure):
+        approach.learn_from_offline_dataset(dataset)
