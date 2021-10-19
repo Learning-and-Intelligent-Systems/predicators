@@ -172,7 +172,6 @@ class BehaviorEnv(BaseEnv):
             "NavigateTo": 1,
             "Pick": 1,
             "PlaceOnTop": 2,
-            "PlaceInside": 2,
         }
 
         options = set()
