@@ -1,4 +1,4 @@
-"""Toy cover domain. This environment IS downward refinability (low-level search
+"""Toy cover domain. This environment IS downward refinable (low-level search
 won't ever fail), but it still requires backtracking.
 """
 
