@@ -1,12 +1,6 @@
 """Behavior (iGibson) environment.
 
 TODO next:
-2. add some trivial options for NavigateTo, Pick, Place,
-   which will later be replaced
-3. figure out how to handle the ffact that those options
-   could be parameterized by multiple different types.
-   maybe auto-generate one option per possible type
-   combo like we are doing for predicates?
 4. finish writing operators by hand, and verify that
    the skeleton found is as expected
 5. start integrating options from Nishanth (still WIP)
@@ -121,7 +115,7 @@ class BehaviorEnv(BaseEnv):
             bddl_name = head_expr.terms[0]  # untyped
             ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
-            pred_name = _create_predicate_name(bddl_name,
+            pred_name = create_type_combo_name(bddl_name,
                                                [o.type for o in objects])
             pred = self._name_to_predicate(pred_name)
             atom = GroundAtom(pred, objects)
@@ -138,7 +132,7 @@ class BehaviorEnv(BaseEnv):
             # TODO: filter out implausible type combinations per predicate.
             arity = _bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
-                pred_name = _create_predicate_name(bddl_name, type_combo)
+                pred_name = create_type_combo_name(bddl_name, type_combo)
                 _classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), _classifier)
                 predicates.add(pred)
@@ -159,8 +153,31 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        # TODO
-        return set()
+        # TODO: integrate implementations from Nishanth & Willie
+        name_to_num_args = {
+            "NavigateTo": 1,
+            "Pick": 1,
+            "PlaceOnTop": 2,
+            "PlaceInside": 2,
+        }
+
+        options = set()
+
+        for name, num_args in name_to_num_args.items():
+            # Create a different option for each type combo
+            for type_combo in itertools.product(self.types,
+                                                repeat=num_args):
+                option_name = create_type_combo_name(name, type_combo)
+                option = ParameterizedOption(option_name,
+                    types=list(type_combo),
+                    params_space=Box(0, 1, (0,)),  # placeholders
+                    _policy=lambda s, o, p: Action(self._env.action_space.sample()),
+                    _initiable=lambda s, o, p: True,
+                    _terminal=lambda s, o, p: True)
+
+                options.add(option)
+
+        return options
 
     @property
     def action_space(self) -> Box:
@@ -283,7 +300,6 @@ def _bddl_predicate_arity(bddl_predicate):
     raise ValueError("BDDL predicate has unexpected arity.")
 
 
-def _create_predicate_name(bddl_name, type_combo):
+def create_type_combo_name(original_name, type_combo):
     type_names = "-".join(t.name for t in type_combo)
-    return f"{bddl_name}-{type_names}"
-
+    return f"{original_name}-{type_names}"
