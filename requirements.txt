@@ -6,4 +6,3 @@ imageio
 imageio-ffmpeg
 torch
 scipy
-ipdb
