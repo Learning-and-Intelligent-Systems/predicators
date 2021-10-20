@@ -42,8 +42,7 @@ from predicators.src import utils
 
 # TODO move this to settings
 # Note that we also define custom predicates in the env
-# which are not defined in behavior, namely, handempty
-# and holding.
+# which are not defined in behavior.
 _BDDL_PREDICATE_NAMES = {
     "inside",
     "nextto",
@@ -144,6 +143,7 @@ class BehaviorEnv(BaseEnv):
         custom_predicate_specs = [
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
+            ("nextto-nothing", self._nextto_nothing_classifier, 1),
         ]
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
@@ -303,6 +303,23 @@ class BehaviorEnv(BaseEnv):
         # See disclaimers in _create_classifier_from_bddl
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
+
+    def _nextto_nothing_classifier(self, state, objs):
+        assert len(objs) == 1
+        ig_obj = self._object_to_ig_object(objs[0])
+        # See disclaimers in _create_classifier_from_bddl
+        bddl_predicate = SUPPORTED_PREDICATES["nextto"]
+        for obj in state:
+            # TODO maybe refactor out common code
+            other_ig_obj = self._object_to_ig_object(obj)
+            bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
+            bddl_ground_atom.initialize(self._env.simulator)
+            try:
+                if bddl_ground_atom.get_value(other_ig_obj):
+                    return False
+            except KeyError:
+                continue
+        return True
 
 
 def _ig_object_name(ig_obj):

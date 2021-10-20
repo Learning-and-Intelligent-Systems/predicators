@@ -244,12 +244,13 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
 
-            # Navigate to from nowhere
+            # Navigate to from nextto nothing
+            nextto_nothing = _get_lifted_atom("nextto-nothing", [agent_obj])
             parameters = [target_obj, agent_obj]
             option_vars = [target_obj]
-            preconditions = set()
+            preconditions = {nextto_nothing}
             add_effects = {_get_lifted_atom("nextto", [target_obj, agent_obj])}
-            delete_effects = set()
+            delete_effects = {nextto_nothing}
             operator = Operator(f"{option.name}-{next(op_name_count)}",
                                 parameters, preconditions, add_effects,
                                 delete_effects, option, option_vars,
