@@ -5,7 +5,6 @@ predicate invention.
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
-import ipdb
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
@@ -78,13 +77,10 @@ class BlocksEnv(BaseEnv):
         _, _, z, fingers = action.arr
         # Infer which transition function to follow
         if fingers < 0.5:
-            fn_name = "pick"
             transition_fn = self._transition_pick
         elif z < self.table_height + CFG.blocks_block_size:
-            fn_name = "putontable"
             transition_fn = self._transition_putontable
         else:
-            fn_name = "stack"
             transition_fn = self._transition_stack
         next_state = transition_fn(state, action)
         return next_state
