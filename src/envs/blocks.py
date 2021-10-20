@@ -13,8 +13,6 @@ from predicators.src.structs import Type, Predicate, State, Task, \
 from predicators.src.settings import CFG
 from predicators.src import utils
 
-DEBUG = False
-
 
 class BlocksEnv(BaseEnv):
     """Blocks domain.
@@ -88,8 +86,6 @@ class BlocksEnv(BaseEnv):
         else:
             fn_name = "stack"
             transition_fn = self._transition_stack
-        if DEBUG:
-            print(f"Selected transition function: {fn_name}")
         next_state = transition_fn(state, action)
         return next_state
 
@@ -97,19 +93,13 @@ class BlocksEnv(BaseEnv):
         next_state = state.copy()
         # Can only pick if fingers are open
         if state.get(self._robot, "fingers") < self.open_fingers:
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         x, y, z, fingers = action.arr
         block = self._get_block_at_xyz(state, x, y, z)
         if block is None:  # no block at this pose
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Can only pick if object is clear
         if state.get(block, "clear") < self.clear_tol:
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Execute pick
         next_state.set(block, "pose_x", x)
@@ -133,13 +123,9 @@ class BlocksEnv(BaseEnv):
         next_state = state.copy()
         # Can only putontable if fingers are closed
         if state.get(self._robot, "fingers") >= self.open_fingers:
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         block = self._get_held_block(state)
         if block is None:  # no currently held block
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         x, y, z, fingers = action.arr
         # Check that table surface is clear at this pose
@@ -149,8 +135,6 @@ class BlocksEnv(BaseEnv):
                  if b.type == self._block_type]
         existing_xys = {(float(p[0]), float(p[1])) for p in poses}
         if not self._table_xy_is_clear(x, y, existing_xys):
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Execute putontable
         next_state.set(block, "pose_x", x)
@@ -165,30 +149,20 @@ class BlocksEnv(BaseEnv):
         next_state = state.copy()
         # Can only stack if fingers are closed
         if state.get(self._robot, "fingers") >= self.open_fingers:
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Check that both blocks exist
         block = self._get_held_block(state)
         if block is None:  # no currently held block
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         x, y, z, fingers = action.arr
         other_block = self._get_highest_block_below(state, x, y, z)
         if other_block is None:  # no block to stack onto
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Can't stack onto yourself!
         if block == other_block:
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Need block we're stacking onto to be clear
         if state.get(other_block, "clear") < self.clear_tol:
-            if DEBUG:
-                ipdb.set_trace()
             return next_state
         # Execute stack by snapping into place
         cur_x = state.get(other_block, "pose_x")
@@ -307,14 +281,13 @@ class BlocksEnv(BaseEnv):
         return goal_atoms
 
     def _sample_initial_pile_xy(self, rng: np.random.Generator,
-                                existing_xys: Set[Tuple[float, float]],
-                                max_attempts: int=1000) -> Tuple[float, float]:
-        for _ in range(max_attempts):
+                                existing_xys: Set[Tuple[float, float]]
+                                ) -> Tuple[float, float]:
+        while True:
             x = rng.uniform(self.x_lb, self.x_ub)
             y = rng.uniform(self.y_lb, self.y_ub)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
-        raise Exception("Exhausted max attempts in sampling new x, y")
 
     @staticmethod
     def _table_xy_is_clear(x: float, y: float,
