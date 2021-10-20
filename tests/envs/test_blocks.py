@@ -26,8 +26,13 @@ def test_blocks():
     assert len(env.types) == 2
     block_type = [t for t in env.types if t.name == "block"][0]
     assert env.action_space.shape == (4,)
-    assert np.all(env.action_space.low <= min(BlocksEnv.x_lb, BlocksEnv.y_lb))
-    assert np.all(env.action_space.high >= min(BlocksEnv.x_ub, BlocksEnv.y_ub))
+    assert abs(env.action_space.low[0]-BlocksEnv.x_lb) < 1e-3
+    assert abs(env.action_space.high[0]-BlocksEnv.x_ub) < 1e-3
+    assert abs(env.action_space.low[1]-BlocksEnv.y_lb) < 1e-3
+    assert abs(env.action_space.high[1]-BlocksEnv.y_ub) < 1e-3
+    assert abs(env.action_space.low[2]) < 1e-3
+    assert abs(env.action_space.low[3]) < 1e-3
+    assert abs(env.action_space.high[3]-1) < 1e-3
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
         for block in state:
@@ -66,7 +71,7 @@ def test_blocks_failure_cases():
     assert On([block2, block1]) in atoms
     # No block at this pose, pick fails
     act = Pick.ground([block0], np.array(
-        [-1, -1, -1], dtype=np.float32)).policy(state)
+        [0, -1, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert np.all(state[o] == next_state[o] for o in state)
     # Object not clear, pick fails
@@ -102,7 +107,7 @@ def test_blocks_failure_cases():
     assert np.all(state[o] == next_state[o] for o in state)
     # Cannot stack onto no block
     act = Stack.ground([block1], np.array(
-        [-1, -1, CFG.blocks_block_size], dtype=np.float32)).policy(state)
+        [0, -1, CFG.blocks_block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert np.all(state[o] == next_state[o] for o in state)
     # Cannot stack onto yourself
