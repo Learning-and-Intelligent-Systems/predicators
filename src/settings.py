@@ -24,6 +24,11 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
 
+    # blocks env parameters
+    blocks_num_blocks_train = [3, 4]
+    blocks_num_blocks_test = [5, 6]
+    blocks_block_size = 0.1
+
     # parameters for approaches
     random_options_max_tries = 100
 
@@ -75,6 +80,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed": 10,
                 "cluttered_table": 50,
+                "blocks": 50,
             })[args["env"]],
 
             # Number of test tasks in each environment.
@@ -82,6 +88,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed": 10,
                 "cluttered_table": 50,
+                "blocks": 50,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
@@ -90,6 +97,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed": 10,
                 "cluttered_table": 25,
+                "blocks": 25,
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth
