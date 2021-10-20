@@ -52,7 +52,8 @@ class BlocksEnv(BaseEnv):
         self._Pick = ParameterizedOption(
             # variables: [object to pick]
             # params: [delta x, delta y, delta z]
-            "Pick", types=[self._block_type], params_space=Box(-1, 1, (3,)),
+            "Pick", types=[self._block_type],
+            params_space=Box(-1, 1, (3,)),
             _policy=self._Pick_policy,
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
@@ -337,14 +338,15 @@ class BlocksEnv(BaseEnv):
         block, = objects
         return state.get(block, "clear") >= BlocksEnv.clear_tol
 
-    @staticmethod
-    def _Pick_policy(state: State, objects: Sequence[Object],
+    def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
         block, = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
-        return Action(np.r_[block_pose+params, 0.0].astype(np.float32))
+        arr = np.r_[block_pose+params, 0.0].astype(np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
 
     @staticmethod
     def _Pick_initiable(state: State, objects: Sequence[Object],
@@ -358,14 +360,15 @@ class BlocksEnv(BaseEnv):
         del state, objects, params  # unused
         return True  # always 1 timestep
 
-    @staticmethod
-    def _Stack_policy(state: State, objects: Sequence[Object],
+    def _Stack_policy(self, state: State, objects: Sequence[Object],
                       params: Array) -> Action:
         block, = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
-        return Action(np.r_[block_pose+params, 1.0].astype(np.float32))
+        arr = np.r_[block_pose+params, 1.0].astype(np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
 
     @staticmethod
     def _Stack_initiable(state: State, objects: Sequence[Object],
@@ -387,7 +390,9 @@ class BlocksEnv(BaseEnv):
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
         y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
         z = self.table_height + 0.5*CFG.blocks_block_size
-        return Action(np.array([x, y, z, 1.0], dtype=np.float32))
+        arr = np.array([x, y, z, 1.0], dtype=np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
 
     @staticmethod
     def _PutOnTable_initiable(state: State, objects: Sequence[Object],
