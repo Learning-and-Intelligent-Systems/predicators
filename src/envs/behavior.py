@@ -1,9 +1,7 @@
 """Behavior (iGibson) environment.
 
 TODO next:
-- finish writing operators by hand, and verify that
-  the skeleton found is as expected
-- start integrating options from Nishanth (still WIP)
+- start integrating options from Nishanth and Willie (still WIP)
 
 Other notes
 * OnFloor(robot, floor) does not evaluate to true now,
