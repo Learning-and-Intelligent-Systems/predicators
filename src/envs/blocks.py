@@ -1,6 +1,8 @@
 """Blocks domain. This environment IS downward refinable and DOESN'T
-require any backtracking. Its simplicity makes it a good testbed for
-predicate invention.
+require any backtracking (as long as all the blocks can fit comfortably
+on the table, which is true here because the block size and number of blocks
+are much less than the table dimensions). The simplicity of this environment
+makes it a good testbed for predicate invention.
 """
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional
