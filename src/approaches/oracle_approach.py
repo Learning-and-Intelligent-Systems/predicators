@@ -36,6 +36,8 @@ def get_gt_ops(predicates: Set[Predicate],
         ops = _get_cover_gt_ops(options_are_typed=True)
     elif CFG.env == "cluttered_table":
         ops = _get_cluttered_table_gt_ops()
+    elif CFG.env == "blocks":
+        ops = _get_blocks_gt_ops()
     else:
         raise NotImplementedError("Ground truth operators not implemented")
     # Filter out excluded predicates/options
@@ -206,5 +208,108 @@ def _get_cluttered_table_gt_ops() -> Set[Operator]:
                              delete_effects, option, option_vars,
                              lambda s, r, o: np.array([], dtype=np.float32))
     operators.add(dump_operator)
+
+    return operators
+
+
+def _get_blocks_gt_ops() -> Set[Operator]:
+    """Create ground truth operators for BlocksEnv.
+    """
+    block_type, robot_type = _get_types_by_names("blocks", ["block", "robot"])
+
+    On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
+        "blocks", ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+
+    Pick, Stack, PutOnTable = _get_options_by_names(
+        "blocks", ["Pick", "Stack", "PutOnTable"])
+
+    operators = set()
+
+    # PickFromTable
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
+    option_vars = [block]
+    option = Pick
+    preconditions = {LiftedAtom(OnTable, [block]),
+                     LiftedAtom(Clear, [block]),
+                     LiftedAtom(GripperOpen, [robot])}
+    add_effects = {LiftedAtom(Holding, [block])}
+    delete_effects = {LiftedAtom(OnTable, [block]),
+                      LiftedAtom(Clear, [block]),
+                      LiftedAtom(GripperOpen, [robot])}
+    def pick_sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        del state, rng, objs  # unused
+        return np.zeros(3, dtype=np.float32)
+    pickfromtable_operator = Operator(
+        "PickFromTable", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, pick_sampler)
+    operators.add(pickfromtable_operator)
+
+    # Unstack
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [block]
+    option = Pick
+    preconditions = {LiftedAtom(On, [block, otherblock]),
+                     LiftedAtom(Clear, [block]),
+                     LiftedAtom(GripperOpen, [robot])}
+    add_effects = {LiftedAtom(Holding, [block]),
+                   LiftedAtom(Clear, [otherblock])}
+    delete_effects = {LiftedAtom(On, [block, otherblock]),
+                      LiftedAtom(Clear, [block]),
+                      LiftedAtom(GripperOpen, [robot])}
+    unstack_operator = Operator(
+        "Unstack", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, pick_sampler)
+    operators.add(unstack_operator)
+
+    # Stack
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [otherblock]
+    option = Stack
+    preconditions = {LiftedAtom(Holding, [block]),
+                     LiftedAtom(Clear, [otherblock])}
+    add_effects = {LiftedAtom(On, [block, otherblock]),
+                   LiftedAtom(Clear, [block]),
+                   LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {LiftedAtom(Holding, [block]),
+                      LiftedAtom(Clear, [otherblock])}
+    def stack_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
+        del state, rng, objs  # unused
+        return np.array([0, 0, CFG.blocks_block_size], dtype=np.float32)
+    stack_operator = Operator(
+        "Stack", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, stack_sampler)
+    operators.add(stack_operator)
+
+    # PutOnTable
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
+    option_vars = []
+    option = PutOnTable
+    preconditions = {LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(OnTable, [block]),
+                   LiftedAtom(Clear, [block]),
+                   LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {LiftedAtom(Holding, [block])}
+    def putontable_sampler(state: State, rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        del state, objs  # unused
+        x = rng.uniform()
+        y = rng.uniform()
+        return np.array([x, y], dtype=np.float32)
+    putontable_operator = Operator(
+        "PutOnTable", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, putontable_sampler)
+    operators.add(putontable_operator)
 
     return operators
