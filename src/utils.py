@@ -596,7 +596,7 @@ def save_video(outfile: str, video: Video) -> None:
         os.makedirs(outdir)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
-    print(f"Wrote out to {outpath}.")
+    print(f"Wrote out to {outpath}")
 
 
 def update_config(args: Dict[str, Any]) -> None:
