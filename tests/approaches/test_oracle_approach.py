@@ -185,10 +185,12 @@ def test_oracle_approach_blocks():
         env.action_space, env.get_train_tasks())
     assert not approach.is_learning_based
     approach.seed(123)
-    train_task = env.get_train_tasks()[0]
-    policy = approach.solve(train_task, timeout=500)
-    assert utils.policy_solves_task(
-        policy, train_task, env.simulate, env.predicates)
+    # Test a couple of train tasks so that we get at least one which
+    # requires resampling placement poses on the table.
+    for train_task in env.get_train_tasks()[:10]:
+        policy = approach.solve(train_task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, train_task, env.simulate, env.predicates)
     test_task = env.get_test_tasks()[0]
     policy = approach.solve(test_task, timeout=500)
     assert utils.policy_solves_task(

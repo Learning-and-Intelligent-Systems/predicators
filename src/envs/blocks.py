@@ -121,8 +121,7 @@ class BlocksEnv(BaseEnv):
         if state.get(self._robot, "fingers") >= self.open_fingers:
             return next_state
         block = self._get_held_block(state)
-        if block is None:  # no currently held block
-            return next_state
+        assert block is not None
         x, y, z, fingers = action.arr
         # Check that table surface is clear at this pose
         poses = [[state.get(b, "pose_x"),
@@ -148,8 +147,7 @@ class BlocksEnv(BaseEnv):
             return next_state
         # Check that both blocks exist
         block = self._get_held_block(state)
-        if block is None:  # no currently held block
-            return next_state
+        assert block is not None
         x, y, z, fingers = action.arr
         other_block = self._get_highest_block_below(state, x, y, z)
         if other_block is None:  # no block to stack onto
