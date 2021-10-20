@@ -57,7 +57,7 @@ class BlocksEnv(BaseEnv):
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
         self._Stack = ParameterizedOption(
-            # variables: [object to stack currently held object onto]
+            # variables: [object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z]
             "Stack", types=[self._block_type],
             params_space=Box(-1, 1, (3,)),
@@ -199,7 +199,9 @@ class BlocksEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # dimensions: [x, y, z, fingers]
-        return Box(-100.0, 100.0, (4,))
+        lowers = np.array([self.x_lb, self.y_lb, 0.0, 0.0], dtype=np.float32)
+        uppers = np.array([self.x_ub, self.y_ub, 10.0, 1.0], dtype=np.float32)
+        return Box(lowers, uppers)
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> Image:
