@@ -119,7 +119,7 @@ class CoverEnv(BaseEnv):
         return Box(0, 1, (1,))  # same as option param space
 
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
+               action: Optional[Action] = None) -> List[Image]:
         del task  # not used by this render function
         del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
@@ -176,7 +176,7 @@ class CoverEnv(BaseEnv):
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
-        return img
+        return [img]
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
