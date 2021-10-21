@@ -7,7 +7,8 @@ from typing import Set, Callable, List, Collection, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
-from predicators.src.approaches import OperatorLearningApproach, ApproachFailure
+from predicators.src.approaches import OperatorLearningApproach, \
+    ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, ActionTrajectory, Object
 from predicators.src.models import MLPClassifier
@@ -48,6 +49,37 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         ground_atom_data = self._teacher.generate_data(dataset)
         self._dataset.extend(dataset)
         self._ground_atom_dataset.extend(ground_atom_data)
+        # Learn predicates and operators
+        self.semi_supervised_learning(self._dataset)
+        # Active learning
+        for i in range(1, CFG.active_num_episodes+1):
+            # Sample starting state from train tasks
+            index = self._rng.choice(len(self._train_tasks))
+            state = self._train_tasks[index].init
+            # Policy for exploration
+            task = plan_with_glib(state, self._get_current_predicates(),
+                                    self._ground_atom_dataset)
+            policy = self.solve(task, timeout=CFG.timeout)
+            states = []
+            actions = []
+            for _ in range(CFG.active_max_steps):
+                action = policy(state)
+                state = self._simulator(state, action)
+                states.append(state)
+                actions.append(action)
+            action_traj: ActionTrajectory = (states, actions)
+            self._dataset.append(action_traj)
+            if i % CFG.active_learning_relearn_every == 0:
+                # TODO: look at new states and determine which to ask about
+
+                # TODO: ask_strategy
+
+                self.semi_supervised_learning(self._dataset)
+
+
+    def semi_supervised_learning(self, dataset: Dataset) -> None:
+        """Learns predicates and operators in a semi-supervised fashion.
+        """
         # Learn predicates
         for pred in self._predicates_to_learn:
             assert pred not in self._known_predicates
@@ -97,6 +129,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
         # Learn operators via superclass
         self._learn_operators(dataset)
+
 
     def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state.
@@ -149,6 +182,48 @@ def create_teacher_dataset(preds: Collection[Predicate],
         ground_atoms_dataset.append(ground_atoms_traj)
     assert len(ground_atoms_dataset) == len(dataset)
     return ground_atoms_dataset
+
+
+def plan_with_glib(initial_state: State,
+                   predicates: Set[Predicate],
+                   ground_atom_dataset: List[List[Set[GroundAtom]]]) -> Task:
+    """Creates a policy for exploration using the GLIB approach.
+    """
+    assert CFG.atom_type_babbled == "ground"
+    rng = np.random.default_rng(CFG.seed)
+    ground_atoms = set()
+    for pred in predicates:
+        ground_atoms |= utils.all_ground_predicates(
+                                pred, list(initial_state))
+    all_ground_atoms = sorted(ground_atoms)
+    best_score = 0.0
+    best_goal: Set[GroundAtom] = set()
+    for _ in range(CFG.active_num_babbles):
+        # Sample num atoms to babble
+        num_atoms = 1 + rng.choice(CFG.max_num_atoms_babbled)
+        # Sample goal (a set of atoms)
+        idxs = rng.choice(np.arange(len(all_ground_atoms)),
+                          size=(num_atoms,),
+                          replace=False)
+        goal = {all_ground_atoms[i] for i in idxs}
+        # Score and remember best goal
+        score = score_goal(ground_atom_dataset, goal)
+        if score > best_score:
+            best_score = score
+            best_goal = goal
+    return Task(initial_state, best_goal)
+
+
+def score_goal(ground_atom_dataset: List[List[Set[GroundAtom]]],
+               goal: Set[GroundAtom]) -> float:
+    """Score goal as inversely proportional to the number of examples seen
+    during training.
+    """
+    count = 1  # Avoid division by 0
+    for trajectory in ground_atom_dataset:
+        for ground_atom_set in trajectory:
+            count += 1 if goal.issubset(ground_atom_set) else 0
+    return 1.0 / count
 
 
 @dataclass(frozen=True, eq=False, repr=False)

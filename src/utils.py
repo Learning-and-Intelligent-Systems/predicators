@@ -305,6 +305,22 @@ def all_ground_operators(
     return ground_operators
 
 
+def all_ground_predicates(pred: Predicate,
+                          objects: Collection[Object]) -> Set[GroundAtom]:
+    """Get all possible groundings of the given predicate with the given
+    objects.
+
+    NOTE: Duplicate arguments in predicates are DISALLOWED.
+    """
+    atoms = {pred(choice) for choice in get_object_combinations(
+                                            objects, pred.types,
+                                            allow_duplicates=False)}
+    ground_atoms = {GroundAtom(a.predicate, a.entities) for a in atoms}
+    for a in ground_atoms:
+        assert isinstance(a, GroundAtom)
+    return ground_atoms
+
+
 def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given operators.
