@@ -66,8 +66,8 @@ class BaseEnv:
 
     @abc.abstractmethod
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
-        """Render a state and action into an image.
+               action: Optional[Action] = None) -> List[Image]:
+        """Render a state and action into a list of images.
         """
         raise NotImplementedError("Override me!")
 
