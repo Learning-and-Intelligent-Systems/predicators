@@ -40,10 +40,11 @@ def test_blocks():
             assert not (state.get(block, "held") and state.get(block, "clear"))
         if i == 0:
             # Force initial pick to test rendering with holding
+            Pick = [o for o in env.options if o.name == "Pick"][0]
             block = sorted([o for o in state if o.type.name == "block" and \
                             state.get(o, 'clear') > env.clear_tol])[0]
-            pick = env._Pick_policy(state, [block], np.zeros(3))  # pylint: disable=protected-access
-            state = env.simulate(state, pick)
+            act = Pick.ground([block], np.zeros(3)).policy(state)
+            state = env.simulate(state, act)
             env.render(state, task)
 
 def test_blocks_failure_cases():
