@@ -8,6 +8,8 @@ makes it a good testbed for predicate invention.
 from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
 from gym.spaces import Box
+from matplotlib import pyplot as plt
+from matplotlib import patches
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
@@ -206,7 +208,51 @@ class BlocksEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        raise NotImplementedError
+        r = CFG.blocks_block_size * 0.5  # block radius
+
+        width_ratio = max(1./5, min(5.,  # prevent from being too extreme
+            (self.y_ub - self.y_lb) / (self.x_ub - self.x_lb)))
+        fig, (xz_ax, yz_ax) = plt.subplots(1, 2, figsize=(20, 8),
+            gridspec_kw={'width_ratios': [1, width_ratio]})
+        xz_ax.set_xlabel("x", fontsize=24)
+        xz_ax.set_ylabel("z", fontsize=24)
+        xz_ax.set_xlim((self.x_lb - 2*r, self.x_ub + 2*r))
+        xz_ax.set_ylim((self.table_height, r * 16 + 0.1))
+        yz_ax.set_xlabel("y", fontsize=24)
+        yz_ax.set_ylabel("z", fontsize=24)
+        yz_ax.set_xlim((self.y_lb - 2*r, self.y_ub + 2*r))
+        yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
+
+        colors = ["red", "blue", "green", "orange", "purple", "yellow",
+                  "brown", "cyan"]
+        blocks = [o for o in state if o.type == self._block_type]
+        held = "None"
+        for i, block in enumerate(sorted(blocks)):
+            x = state.get(block, "pose_x")
+            y = state.get(block, "pose_y")
+            z = state.get(block, "pose_z")
+            c = colors[i % len(colors)]  # block color
+            if state.get(block, "held") > self.held_tol:
+                assert held == "None"
+                held = f"{block.name} ({c})"
+
+            # xz axis
+            xz_rect = patches.Rectangle(
+                (x - r, z - r), 2*r, 2*r, zorder=-y,
+                linewidth=1, edgecolor='black', facecolor=c)
+            xz_ax.add_patch(xz_rect)
+
+            # yz axis
+            yz_rect = patches.Rectangle(
+                (y - r, z - r), 2*r, 2*r, zorder=-x,
+                linewidth=1, edgecolor='black', facecolor=c)
+            yz_ax.add_patch(yz_rect)
+
+        plt.suptitle(f"Held: {held}", fontsize=36)
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+
+        return [img]
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[Task]:

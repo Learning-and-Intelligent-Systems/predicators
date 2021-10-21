@@ -1,11 +1,9 @@
 """Test cases for the blocks environment.
 """
 
-import pytest
 import numpy as np
 from predicators.src.envs import BlocksEnv
 from predicators.src import utils
-from predicators.src.structs import Action
 from predicators.src.settings import CFG
 
 
@@ -40,12 +38,14 @@ def test_blocks():
                 assert block.type.name == "robot"
                 continue
             assert not (state.get(block, "held") and state.get(block, "clear"))
-        act = Action(env.action_space.sample())
         if i == 0:
-            with pytest.raises(NotImplementedError):
-                env.render(state, task, act)
-        env.simulate(state, act)
-
+            # Force initial pick to test rendering with holding
+            Pick = [o for o in env.options if o.name == "Pick"][0]
+            block = sorted([o for o in state if o.type.name == "block" and \
+                            state.get(o, 'clear') > env.clear_tol])[0]
+            act = Pick.ground([block], np.zeros(3)).policy(state)
+            state = env.simulate(state, act)
+            env.render(state, task)
 
 def test_blocks_failure_cases():
     """Tests for the cases where simulate() is a no-op.
