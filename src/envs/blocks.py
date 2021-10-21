@@ -205,7 +205,7 @@ class BlocksEnv(BaseEnv):
         return Box(lowers, uppers)
 
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
+               action: Optional[Action] = None) -> List[Image]:
         raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
