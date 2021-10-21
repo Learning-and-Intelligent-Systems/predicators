@@ -39,7 +39,7 @@ class GlobalSettings:
     video_fps = 2
 
     # teacher dataset parameters
-    teacher_dataset_label_ratio = 0.3
+    teacher_dataset_label_ratio = 1.0
 
     # operator learning parameters
     min_data_for_operator = 3
@@ -58,7 +58,13 @@ class GlobalSettings:
     learning_rate = 1e-3
 
     # interactive learning parameters
-    interactive_known_predicates = {'HandEmpty'}
+    interactive_known_predicates = {'HandEmpty', 'Covers'}
+    active_num_episodes = 10
+    active_max_steps = 10
+    active_learning_relearn_every = 5
+    active_num_babbles = 10
+    max_num_atoms_babbled = 1
+    atom_type_babbled = "ground"
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
