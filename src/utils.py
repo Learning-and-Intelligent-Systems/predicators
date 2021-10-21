@@ -73,8 +73,8 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate],
                        make_video: bool = False,
-                       render: Optional[Callable[[State, Task,
-                                    Action], Image]] = None,
+                       render: Optional[
+                           Callable[[State, Task, Action], List[Image]]] = None,
                        ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
