@@ -3,7 +3,7 @@
 
 import itertools
 from dataclasses import dataclass
-from typing import Set, Callable, List, Collection, Sequence
+from typing import Set, Callable, List, Collection, Sequence, Dict
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -53,13 +53,15 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         self.semi_supervised_learning(self._dataset)
         # Active learning
         for i in range(1, CFG.active_num_episodes+1):
+            print(f"Active learning episode {i}")
             # Sample starting state from train tasks
             index = self._rng.choice(len(self._train_tasks))
             state = self._train_tasks[index].init
             # Policy for exploration
-            task = plan_with_glib(state, self._get_current_predicates(),
-                                    self._ground_atom_dataset)
+            task = glib_sample(state, self._get_current_predicates(),
+                               self._ground_atom_dataset)
             policy = self.solve(task, timeout=CFG.timeout)
+            print("Policy found! Collecting exploration data...")
             states = []
             actions = []
             for _ in range(CFG.active_max_steps):
@@ -68,18 +70,31 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 states.append(state)
                 actions.append(action)
             action_traj: ActionTrajectory = (states, actions)
-            self._dataset.append(action_traj)
+            # Update datasets
+            ground_atom_data = self._teacher.generate_data([action_traj])
+            self._dataset.extend([action_traj])
+            self._ground_atom_dataset.extend(ground_atom_data)
             if i % CFG.active_learning_relearn_every == 0:
-                # TODO: look at new states and determine which to ask about
-
-                # TODO: ask_strategy
-
+                # Pick a state from the new states explored
+                states_to_scores = {s: score_goal(
+                                        self._ground_atom_dataset,
+                                        utils.abstract(s,
+                                            self._get_current_predicates()))
+                                    for s in states}
+                for s in self.get_states_to_ask(states_to_scores):
+                    # For now, pick a random ground atom to ask about
+                    ground_atoms = utils.all_ground_atoms(
+                                            s, self._get_current_predicates())
+                    idx = self._rng.choice(len(ground_atoms))
+                    self.ask_teacher(s, ground_atoms[idx])
+                # Relearn predicates and operators
                 self.semi_supervised_learning(self._dataset)
 
 
     def semi_supervised_learning(self, dataset: Dataset) -> None:
         """Learns predicates and operators in a semi-supervised fashion.
         """
+        print("Starting semi-supervised learning...")
         # Learn predicates
         for pred in self._predicates_to_learn:
             assert pred not in self._known_predicates
@@ -129,6 +144,24 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
         # Learn operators via superclass
         self._learn_operators(dataset)
+
+
+    def get_states_to_ask(self,
+                        #   goal_state: Set[GroundAtom],
+                          states_to_scores: Dict[State, float]) -> Set[State]:
+        """Gets set of states to ask about, according to ask_strategy.
+        """
+        # if CFG.ask_strategy == "goal_state_only":
+            # return {goal_state}
+        if CFG.ask_strategy == "all_seen_states":
+            return set(states_to_scores.keys())
+        elif CFG.ask_strategy == "threshold":
+            assert isinstance(CFG.ask_strategy_threshold, float)
+            return {s for (s, score) in states_to_scores.items()
+                    if score >= CFG.ask_strategy_threshold}
+        else:
+            raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
+                                      "not supported")
 
 
     def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
@@ -184,28 +217,25 @@ def create_teacher_dataset(preds: Collection[Predicate],
     return ground_atoms_dataset
 
 
-def plan_with_glib(initial_state: State,
+def glib_sample(initial_state: State,
                    predicates: Set[Predicate],
                    ground_atom_dataset: List[List[Set[GroundAtom]]]) -> Task:
-    """Creates a policy for exploration using the GLIB approach.
+    """Sample a task via the GLIB approach.
     """
+    print("Sampling a task using GLIB approach...")
     assert CFG.atom_type_babbled == "ground"
     rng = np.random.default_rng(CFG.seed)
-    ground_atoms = set()
-    for pred in predicates:
-        ground_atoms |= utils.all_ground_predicates(
-                                pred, list(initial_state))
-    all_ground_atoms = sorted(ground_atoms)
+    ground_atoms = utils.all_ground_atoms(initial_state, predicates)
     best_score = 0.0
     best_goal: Set[GroundAtom] = set()
     for _ in range(CFG.active_num_babbles):
         # Sample num atoms to babble
         num_atoms = 1 + rng.choice(CFG.max_num_atoms_babbled)
         # Sample goal (a set of atoms)
-        idxs = rng.choice(np.arange(len(all_ground_atoms)),
+        idxs = rng.choice(np.arange(len(ground_atoms)),
                           size=(num_atoms,),
                           replace=False)
-        goal = {all_ground_atoms[i] for i in idxs}
+        goal = {ground_atoms[i] for i in idxs}
         # Score and remember best goal
         score = score_goal(ground_atom_dataset, goal)
         if score > best_score:
@@ -216,7 +246,7 @@ def plan_with_glib(initial_state: State,
 
 def score_goal(ground_atom_dataset: List[List[Set[GroundAtom]]],
                goal: Set[GroundAtom]) -> float:
-    """Score goal as inversely proportional to the number of examples seen
+    """Score a goal as inversely proportional to the number of examples seen
     during training.
     """
     count = 1  # Avoid division by 0

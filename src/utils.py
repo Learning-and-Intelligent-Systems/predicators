@@ -321,6 +321,16 @@ def all_ground_predicates(pred: Predicate,
     return ground_atoms
 
 
+def all_ground_atoms(state: State, preds: Set[Predicate]) -> List[GroundAtom]:
+    """Get a sorted list of all ground atoms in a state given the predicates.
+    """
+    objects = list(state)
+    ground_atoms = set()
+    for pred in preds:
+        ground_atoms |= all_ground_predicates(pred, objects)
+    return sorted(ground_atoms)
+
+
 def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given operators.
