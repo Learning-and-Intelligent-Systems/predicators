@@ -59,12 +59,14 @@ class GlobalSettings:
 
     # interactive learning parameters
     interactive_known_predicates = {'HandEmpty', 'Covers'}
-    active_num_episodes = 10
+    active_num_episodes = 3
     active_max_steps = 10
-    active_learning_relearn_every = 5
+    active_learning_relearn_every = 3
     active_num_babbles = 10
     max_num_atoms_babbled = 1
     atom_type_babbled = "ground"
+    ask_strategy = "threshold"
+    ask_strategy_threshold = 0.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
