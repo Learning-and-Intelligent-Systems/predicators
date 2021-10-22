@@ -3,7 +3,7 @@
 
 import itertools
 from dataclasses import dataclass
-from typing import Set, Callable, List, Collection, Sequence, Dict
+from typing import Set, Callable, List, Collection, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -76,12 +76,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             self._ground_atom_dataset.extend(ground_atom_data)
             if i % CFG.active_learning_relearn_every == 0:
                 # Pick a state from the new states explored
-                states_to_scores = {s: score_goal(
-                                        self._ground_atom_dataset,
-                                        utils.abstract(s,
-                                            self._get_current_predicates()))
-                                    for s in states}
-                for s in self.get_states_to_ask(states_to_scores):
+                for s in self.get_states_to_ask(states):
                     # For now, pick a random ground atom to ask about
                     ground_atoms = utils.all_ground_atoms(
                                             s, self._get_current_predicates())
@@ -148,19 +143,23 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
     def get_states_to_ask(self,
                         #   goal_state: Set[GroundAtom],
-                          states_to_scores: Dict[State, float]) -> Set[State]:
+                          new_states: List[State]) -> Set[State]:
         """Gets set of states to ask about, according to ask_strategy.
         """
+        states_to_scores = {s: score_goal(
+                                self._ground_atom_dataset,
+                                utils.abstract(s,
+                                    self._get_current_predicates()))
+                            for s in new_states}
         # if CFG.ask_strategy == "goal_state_only":
             # return {goal_state}
         if CFG.ask_strategy == "all_seen_states":
             return set(states_to_scores.keys())
-        elif CFG.ask_strategy == "threshold":
+        if CFG.ask_strategy == "threshold":
             assert isinstance(CFG.ask_strategy_threshold, float)
             return {s for (s, score) in states_to_scores.items()
                     if score >= CFG.ask_strategy_threshold}
-        else:
-            raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
+        raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
                                       "not supported")
 
 
