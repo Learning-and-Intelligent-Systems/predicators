@@ -8,7 +8,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import OperatorLearningApproach, \
-    ApproachFailure
+    ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, ActionTrajectory, Object
 from predicators.src.models import MLPClassifier
@@ -53,19 +53,28 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         self.semi_supervised_learning(self._dataset)
         # Active learning
         for i in range(1, CFG.active_num_episodes+1):
-            print(f"Active learning episode {i}")
-            # Sample starting state from train tasks
-            index = self._rng.choice(len(self._train_tasks))
-            state = self._train_tasks[index].init
-            # Policy for exploration
-            task = glib_sample(state, self._get_current_predicates(),
-                               self._ground_atom_dataset)
-            policy = self.solve(task, timeout=CFG.timeout)
-            print("Policy found! Collecting exploration data...")
+            print(f"\nActive learning episode {i}")
+            while True:
+                # Sample initial state from train tasks
+                index = self._rng.choice(len(self._train_tasks))
+                state = self._train_tasks[index].init
+                # Policy for exploration
+                task = glib_sample(state, self._get_current_predicates(),
+                                self._ground_atom_dataset)
+                try:
+                    print("Solving for policy...")
+                    policy = self.solve(task, timeout=CFG.timeout)
+                    break
+                except (ApproachTimeout, ApproachFailure) as e:
+                    print(f"Approach failed to solve with error: {e}")
+            # Roll out policy
             states = []
             actions = []
             for _ in range(CFG.active_max_steps):
-                action = policy(state)
+                try:
+                    action = policy(state)
+                except ApproachFailure:
+                    break
                 state = self._simulator(state, action)
                 states.append(state)
                 actions.append(action)
@@ -74,14 +83,20 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             ground_atom_data = self._teacher.generate_data([action_traj])
             self._dataset.extend([action_traj])
             self._ground_atom_dataset.extend(ground_atom_data)
+            print("Datasets updated.")
             if i % CFG.active_learning_relearn_every == 0:
+                print("Asking teacher...")
                 # Pick a state from the new states explored
                 for s in self.get_states_to_ask(states):
                     # For now, pick a random ground atom to ask about
                     ground_atoms = utils.all_ground_atoms(
                                             s, self._get_current_predicates())
                     idx = self._rng.choice(len(ground_atoms))
-                    self.ask_teacher(s, ground_atoms[idx])
+                    random_atom = ground_atoms[idx]
+                    # how to use this information?
+                    self.ask_teacher(s, random_atom)
+                    # agent_says = random_atom.predicate.holds(s,
+                    #                 random_atom.objects)
                 # Relearn predicates and operators
                 self.semi_supervised_learning(self._dataset)
 
@@ -89,7 +104,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
     def semi_supervised_learning(self, dataset: Dataset) -> None:
         """Learns predicates and operators in a semi-supervised fashion.
         """
-        print("Starting semi-supervised learning...")
+        print("\nStarting semi-supervised learning...")
         # Learn predicates
         for pred in self._predicates_to_learn:
             assert pred not in self._known_predicates
@@ -143,22 +158,20 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
     def get_states_to_ask(self,
                         #   goal_state: Set[GroundAtom],
-                          new_states: List[State]) -> Set[State]:
+                          new_states: List[State]) -> List[State]:
         """Gets set of states to ask about, according to ask_strategy.
         """
-        states_to_scores = {s: score_goal(
-                                self._ground_atom_dataset,
-                                utils.abstract(s,
-                                    self._get_current_predicates()))
-                            for s in new_states}
+        scores = [score_goal(self._ground_atom_dataset,
+                             utils.abstract(s, self._get_current_predicates()))
+                  for s in new_states]
         # if CFG.ask_strategy == "goal_state_only":
             # return {goal_state}
         if CFG.ask_strategy == "all_seen_states":
-            return set(states_to_scores.keys())
+            return new_states
         if CFG.ask_strategy == "threshold":
             assert isinstance(CFG.ask_strategy_threshold, float)
-            return {s for (s, score) in states_to_scores.items()
-                    if score >= CFG.ask_strategy_threshold}
+            return [s for (s, score) in zip(new_states, scores)
+                    if score >= CFG.ask_strategy_threshold]
         raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
                                       "not supported")
 

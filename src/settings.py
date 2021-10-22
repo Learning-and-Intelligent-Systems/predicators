@@ -61,7 +61,7 @@ class GlobalSettings:
     interactive_known_predicates = {'HandEmpty', 'Covers'}
     active_num_episodes = 3
     active_max_steps = 10
-    active_learning_relearn_every = 3
+    active_learning_relearn_every = 5
     active_num_babbles = 10
     max_num_atoms_babbled = 1
     atom_type_babbled = "ground"
