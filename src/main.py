@@ -3,13 +3,17 @@
 Example usage:
     python src/main.py --env cover --approach oracle --seed 0
 
-Another example usage:
+To make videos:
     python src/main.py --env cover --approach oracle --seed 0 \
         --make_videos --num_test_tasks 1
 
-Another example usage:
+To run interactive learning approach:
     python src/main.py --env cover --approach interactive_learning \
          --seed 0
+
+To exclude predicates:
+    python src/main.py --env cover --approach oracle --seed 0 \
+         --excluded_predicates Holding
 
 """
 
@@ -32,7 +36,15 @@ def main() -> None:
     utils.update_config(args)
     # Create & seed classes
     env = create_env(CFG.env)
-    approach = create_approach(CFG.approach, env.simulate, env.predicates,
+    if CFG.excluded_predicates:
+        excludeds = set(CFG.excluded_predicates.split(","))
+        assert excludeds.issubset({pred.name for pred in env.predicates}), \
+            "Unrecognized excluded_predicates!"
+        preds = {pred for pred in env.predicates
+                 if pred.name not in excludeds}
+    else:
+        preds = env.predicates
+    approach = create_approach(CFG.approach, env.simulate, preds,
                                env.options, env.types, env.action_space,
                                env.get_train_tasks())
     env.seed(CFG.seed)
@@ -52,6 +64,7 @@ def main() -> None:
     num_solved = 0
     approach.reset_metrics()
     for i, task in enumerate(test_tasks):
+        print(end="", flush=True)
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:

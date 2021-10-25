@@ -15,7 +15,8 @@ from predicators.src.settings import CFG
 
 
 def learn_operators_from_data(dataset: Dataset,
-                              predicates: Set[Predicate]
+                              predicates: Set[Predicate],
+                              do_sampler_learning: bool,
                               ) -> Set[Operator]:
     """Learn operators from the given dataset of transitions.
     States are parsed using the given set of predicates.
@@ -40,7 +41,7 @@ def learn_operators_from_data(dataset: Dataset,
     for param_option in transitions_by_option:
         option_transitions = transitions_by_option[param_option]
         option_ops = _learn_operators_for_option(
-            param_option, option_transitions)
+            param_option, option_transitions, do_sampler_learning)
         operators.extend(option_ops)
 
     print("\n\nLearned operators:")
@@ -52,7 +53,8 @@ def learn_operators_from_data(dataset: Dataset,
 
 
 def _learn_operators_for_option(option: ParameterizedOption,
-                                transitions: List[Transition]
+                                transitions: List[Transition],
+                                do_sampler_learning: bool,
                                 ) -> List[Operator]:
     # Partition the data by lifted effects
     option_vars, add_effects, delete_effects, \
@@ -69,7 +71,7 @@ def _learn_operators_for_option(option: ParameterizedOption,
         operator_name = f"{option.name}{i}"
         # Learn sampler
         print(f"\nLearning sampler for operator {operator_name}")
-        if CFG.do_sampler_learning and option.params_space.shape != (0,):
+        if do_sampler_learning and option.params_space.shape != (0,):
             sampler = _learn_sampler(partitioned_transitions, variables,
                                      preconditions, add_effects[i],
                                      delete_effects[i], option, i)
