@@ -52,21 +52,30 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         # Learn predicates and operators
         self.semi_supervised_learning(self._dataset)
         # Active learning
+        new_trajectories: Dataset = []
         for i in range(1, CFG.active_num_episodes+1):
             print(f"\nActive learning episode {i}")
-            while True:
-                # Sample initial state from train tasks
-                index = self._rng.choice(len(self._train_tasks))
-                state = self._train_tasks[index].init
-                # Policy for exploration
-                task = glib_sample(state, self._get_current_predicates(),
-                                self._ground_atom_dataset)
+            # Sample initial state from train tasks
+            index = self._rng.choice(len(self._train_tasks))
+            state = self._train_tasks[index].init
+            # Find policy for exploration
+            task_list = glib_sample(state, self._get_current_predicates(),
+                                    self._ground_atom_dataset)
+            for task in task_list:
+                if task.goal.issubset(utils.abstract(state,
+                                      self._get_current_predicates())):
+                    # Plan will have length 0, which causes problems.
+                    continue
                 try:
                     print("Solving for policy...")
                     policy = self.solve(task, timeout=CFG.timeout)
                     break
                 except (ApproachTimeout, ApproachFailure) as e:
                     print(f"Approach failed to solve with error: {e}")
+                    continue
+            else:  # No policy found
+                raise ApproachFailure("Failed to sample a task that approach "
+                                      "can solve.")
             # Roll out policy
             states = []
             actions = []
@@ -75,30 +84,28 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                     action = policy(state)
                 except ApproachFailure:
                     break
-                state = self._simulator(state, action)
                 states.append(state)
                 actions.append(action)
-            action_traj: ActionTrajectory = (states, actions)
-            # Update datasets
-            ground_atom_data = self._teacher.generate_data([action_traj])
-            self._dataset.extend([action_traj])
-            self._ground_atom_dataset.extend(ground_atom_data)
-            print("Datasets updated.")
+                state = self._simulator(state, action)
+            new_trajectories.append((states, actions))
             if i % CFG.active_learning_relearn_every == 0:
                 print("Asking teacher...")
+                # Update dataset
+                self._dataset.extend(new_trajectories)
                 # Pick a state from the new states explored
-                for s in self.get_states_to_ask(states):
+                for s in self.get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
                     ground_atoms = utils.all_ground_atoms(
                                             s, self._get_current_predicates())
                     idx = self._rng.choice(len(ground_atoms))
                     random_atom = ground_atoms[idx]
-                    # how to use this information?
-                    self.ask_teacher(s, random_atom)
-                    # agent_says = random_atom.predicate.holds(s,
-                    #                 random_atom.objects)
+                    # Add this atom if it's a positive example
+                    if self.ask_teacher(s, random_atom):
+                        self._ground_atom_dataset.append([{random_atom}])
                 # Relearn predicates and operators
                 self.semi_supervised_learning(self._dataset)
+                # Reset trajectories list
+                new_trajectories = []
 
 
     def semi_supervised_learning(self, dataset: Dataset) -> None:
@@ -157,21 +164,27 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
 
     def get_states_to_ask(self,
-                        #   goal_state: Set[GroundAtom],
-                          new_states: List[State]) -> List[State]:
+                          trajectories: Dataset) -> List[State]:
         """Gets set of states to ask about, according to ask_strategy.
         """
+        new_states = []
+        for (ss, _) in trajectories:
+            new_states.extend(ss)
         scores = [score_goal(self._ground_atom_dataset,
                              utils.abstract(s, self._get_current_predicates()))
                   for s in new_states]
-        # if CFG.ask_strategy == "goal_state_only":
-            # return {goal_state}
         if CFG.ask_strategy == "all_seen_states":
             return new_states
         if CFG.ask_strategy == "threshold":
             assert isinstance(CFG.ask_strategy_threshold, float)
             return [s for (s, score) in zip(new_states, scores)
                     if score >= CFG.ask_strategy_threshold]
+        if CFG.ask_strategy == "top_k_percent":
+            assert isinstance(CFG.ask_strategy_percent, float)
+            n = int(CFG.ask_strategy_percent * len(new_states))
+            sorted_states = zip(new_states, scores).sort(
+                                    key=lambda tup: tup[1], reverse=True)
+            return [s for (s, _) in sorted_states[:n]]
         raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
                                       "not supported")
 
@@ -189,10 +202,14 @@ class _Teacher:
                  predicates_to_learn: Set[Predicate]) -> None:
         self._name_to_predicate = {p.name : p for p in all_predicates}
         self._predicates_to_learn = predicates_to_learn
+        self._has_generated_data = False
 
     def generate_data(self, dataset: Dataset) -> List[List[Set[GroundAtom]]]:
         """Creates sparse dataset of GroundAtoms.
         """
+        # No cheating!
+        assert not self._has_generated_data
+        self._has_generated_data = True
         return create_teacher_dataset(self._predicates_to_learn, dataset)
 
     def ask(self, state: State, ground_atom: GroundAtom) -> bool:
@@ -230,16 +247,16 @@ def create_teacher_dataset(preds: Collection[Predicate],
 
 
 def glib_sample(initial_state: State,
-                   predicates: Set[Predicate],
-                   ground_atom_dataset: List[List[Set[GroundAtom]]]) -> Task:
-    """Sample a task via the GLIB approach.
+                predicates: Set[Predicate],
+                ground_atom_dataset: List[List[Set[GroundAtom]]]
+                ) -> List[Task]:
+    """Sample some tasks via the GLIB approach.
     """
     print("Sampling a task using GLIB approach...")
     assert CFG.atom_type_babbled == "ground"
     rng = np.random.default_rng(CFG.seed)
     ground_atoms = utils.all_ground_atoms(initial_state, predicates)
-    best_score = 0.0
-    best_goal: Set[GroundAtom] = set()
+    goals = []  # list of (goal, score) tuples
     for _ in range(CFG.active_num_babbles):
         # Sample num atoms to babble
         num_atoms = 1 + rng.choice(CFG.max_num_atoms_babbled)
@@ -248,12 +265,9 @@ def glib_sample(initial_state: State,
                           size=(num_atoms,),
                           replace=False)
         goal = {ground_atoms[i] for i in idxs}
-        # Score and remember best goal
-        score = score_goal(ground_atom_dataset, goal)
-        if score > best_score:
-            best_score = score
-            best_goal = goal
-    return Task(initial_state, best_goal)
+        goals.append((goal, score_goal(ground_atom_dataset, goal)))
+    goals.sort(key=lambda tup: tup[1], reverse=True)
+    return [Task(initial_state, g) for (g, _) in goals[:CFG.num_tasks_babbled]]
 
 
 def score_goal(ground_atom_dataset: List[List[Set[GroundAtom]]],
