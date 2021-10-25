@@ -356,7 +356,7 @@ class _LearnedSampler:
         """The sampler corresponding to the given models. May be used
         as the _sampler field in an Operator.
         """
-        x_lst : List[Any] = [1]  # start with bias term
+        x_lst : List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
