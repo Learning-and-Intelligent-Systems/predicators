@@ -80,7 +80,7 @@ def test_create_approach():
     env = CoverEnv()
     for name in ["random_actions", "random_options", "oracle",
                  "trivial_learning", "operator_learning",
-                 "interactive_learning"]:
+                 "interactive_learning", "iterative_invention"]:
         utils.update_config({"env": "cover", "approach": name, "seed": 123})
         approach = create_approach(
             name, env.simulate, env.predicates, env.options, env.types,

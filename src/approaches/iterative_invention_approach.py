@@ -34,12 +34,13 @@ class IterativeInventionApproach(OperatorLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # pylint:disable-all
-        # First, learn operators with the predicates we have
+
+        # Learn operators with the predicates we have
         ops = learn_operators_from_data(
             dataset, self._get_current_predicates(), do_sampler_learning=False)
 
         # Invent new predicates
-        # raise NotImplementedError  # TODO: invention & remove pylint disable
+        # TODO: invention & remove pylint disable
 
         # Learn operators via superclass
         self._learn_operators(dataset)
