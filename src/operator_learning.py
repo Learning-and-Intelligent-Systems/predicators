@@ -4,7 +4,7 @@
 import functools
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet, Callable, Dict
+from typing import Set, Tuple, List, Sequence, FrozenSet, Callable, Dict, Any
 import numpy as np
 from predicators.src.structs import Dataset, Operator, GroundAtom, \
     ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub, \
@@ -309,7 +309,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     X_classifier: List[List[Array]] = []
     for state, sub, option in positive_data + negative_data:
         # input is state features and option parameters
-        X_classifier.append([1])  # 1 for bias term
+        X_classifier.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_classifier[-1].extend(state[sub[var]])
         X_classifier[-1].extend(option.params)
@@ -326,7 +326,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     Y_regressor = []
     for state, sub, option in positive_data:  # don't use negative data!
         # input is state features
-        X_regressor.append([1])  # 1 for bias term
+        X_regressor.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
         # output is option parameters
@@ -356,7 +356,7 @@ class _LearnedSampler:
         """The sampler corresponding to the given models. May be used
         as the _sampler field in an Operator.
         """
-        x_lst : List[Array] = [1]  # 1 for bias term
+        x_lst : List[Any] = [1]  # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
