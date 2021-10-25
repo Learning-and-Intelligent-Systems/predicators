@@ -179,7 +179,7 @@ def test_operator_learning_specific_operators():
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # Test max_rejection_sampling_tries = 0
-    utils.update_config({"max_rejection_sampling_tries": 0, "seed": 123})
+    utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
     ops = learn_operators_from_data(dataset, preds)
     assert len(ops) == 2
     for op in ops:
