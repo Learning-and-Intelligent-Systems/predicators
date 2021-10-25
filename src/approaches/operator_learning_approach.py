@@ -11,7 +11,7 @@ from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, Operator, ParameterizedOption, \
     State, Action, Predicate, Type, Task
 from predicators.src.operator_learning import learn_operators_from_data
-from predicators.src.settings import get_save_path
+from predicators.src.settings import get_save_path, CFG
 
 
 class OperatorLearningApproach(TAMPApproach):
@@ -43,7 +43,8 @@ class OperatorLearningApproach(TAMPApproach):
 
     def _learn_operators(self, dataset: Dataset) -> None:
         self._operators = learn_operators_from_data(
-            dataset, self._get_current_predicates())
+            dataset, self._get_current_predicates(),
+            do_sampler_learning=CFG.do_sampler_learning)
         save_path = get_save_path()
         with open(f"{save_path}.operators", "wb") as f:
             pkl.dump(self._operators, f)
