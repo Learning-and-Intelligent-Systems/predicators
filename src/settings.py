@@ -49,7 +49,7 @@ class GlobalSettings:
     do_sampler_learning = True
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
-    classifier_max_itr = 10000
+    classifier_max_itr = 100
     classifier_balance_data = True
     regressor_hid_sizes = [32, 32]
     regressor_max_itr = 10000

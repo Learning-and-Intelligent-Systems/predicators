@@ -44,11 +44,14 @@ class InteractiveLearningApproach(OperatorLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # Get data from teacher
+    def load_dataset(self, dataset: Dataset) -> None:
+        """Stores dataset and corresponding ground atom dataset."""
         ground_atom_data = self._teacher.generate_data(dataset)
         self._dataset.extend(dataset)
         self._ground_atom_dataset.extend(ground_atom_data)
+
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        self.load_dataset(dataset)
         # Learn predicates and operators
         self.semi_supervised_learning(self._dataset)
         # Active learning
@@ -70,7 +73,8 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                     print("Solving for policy...")
                     policy = self.solve(task, timeout=CFG.timeout)
                     break
-                except (ApproachTimeout, ApproachFailure) as e:
+                except (ApproachTimeout, ApproachFailure) \
+                        as e:  # pragma: no cover
                     print(f"Approach failed to solve with error: {e}")
                     continue
             else:  # No policy found
@@ -181,10 +185,10 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                     if score >= CFG.ask_strategy_threshold]
         if CFG.ask_strategy == "top_k_percent":
             assert isinstance(CFG.ask_strategy_percent, float)
-            n = int(CFG.ask_strategy_percent * len(new_states))
-            sorted_states = zip(new_states, scores).sort(
-                                    key=lambda tup: tup[1], reverse=True)
-            return [s for (s, _) in sorted_states[:n]]
+            n = int(CFG.ask_strategy_percent / 100. * len(new_states))
+            states_and_scores = list(zip(new_states, scores))
+            states_and_scores.sort(key=lambda tup: tup[1], reverse=True)
+            return [s for (s, _) in states_and_scores[:n]]
         raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
                                       "not supported")
 
