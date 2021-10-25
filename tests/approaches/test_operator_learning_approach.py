@@ -24,30 +24,43 @@ def _test_approach(approach_name):
     dataset = create_dataset(env)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
-    task_sequences = []
-    tasks = env.get_test_tasks()
-    for task in tasks:
+    task_sequences = {}
+    utils.update_config({"env": "cover", "approach": approach_name,
+                         "timeout": 10, "max_samples_per_step": 2,
+                         "seed": 12345, "classifier_max_itr": 500,
+                         "regressor_max_itr": 500})
+    tasks = env.get_test_tasks()[:3]
+    for i, task in enumerate(tasks):
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure):  # pragma: no cover
-            pass
+            continue
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
-        task_sequences.append(utils.run_policy_on_task(
-            policy, task, env.simulate, env.predicates)[0][1])
+        try:
+            task_sequences[i] = utils.run_policy_on_task(
+                policy, task, env.simulate, env.predicates)[0][1]
+        except (ApproachTimeout, ApproachFailure):  # pragma: no cover
+            continue
     # Now test loading operators & predicates.
     # Should give the same results as above.
     approach2 = create_approach(approach_name,
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
     approach2.load()
-    for task, expected_sequence in zip(tasks, task_sequences):
+    for i, task in enumerate(tasks):
         try:
             policy = approach2.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure):  # pragma: no cover
-            pass
-        sequence = utils.run_policy_on_task(
-            policy, task, env.simulate, env.predicates)[0][1]
+            continue
+        try:
+            sequence = utils.run_policy_on_task(
+                policy, task, env.simulate, env.predicates)[0][1]
+        except (ApproachTimeout, ApproachFailure):  # pragma: no cover
+            continue
+        if i not in task_sequences:
+            continue
+        expected_sequence = task_sequences[i]
         assert len(sequence) == len(expected_sequence)
         assert all(np.allclose(act.arr, expected_act.arr, atol=1e-3)
                    for act, expected_act in zip(sequence, expected_sequence))
