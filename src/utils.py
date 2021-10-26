@@ -71,7 +71,7 @@ def unify(ground_atoms: FrozenSet[GroundAtom],
 
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
-                       predicates: Collection[Predicate],
+                       predicates: Collection[Predicate], max_steps: int,
                        make_video: bool = False,
                        render: Optional[Callable[[State, Task,
                                     Action], Image]] = None,
@@ -89,7 +89,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         goal_reached = True
     else:
         goal_reached = False
-        for _ in range(CFG.max_num_steps_check_policy):
+        for _ in range(max_steps):
             act = policy(state)
             if make_video:
                 assert render is not None
@@ -116,7 +116,8 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        predicates: Collection[Predicate]) -> bool:
     """Return whether the given policy solves the given task.
     """
-    _, _, solved = run_policy_on_task(policy, task, simulator, predicates)
+    _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
+                                      CFG.max_num_steps_check_policy)
     return solved
 
 
@@ -312,13 +313,9 @@ def all_ground_predicates(pred: Predicate,
 
     NOTE: Duplicate arguments in predicates are DISALLOWED.
     """
-    atoms = {pred(choice) for choice in get_object_combinations(
-                                            objects, pred.types,
-                                            allow_duplicates=False)}
-    ground_atoms = {GroundAtom(a.predicate, a.entities) for a in atoms}
-    for a in ground_atoms:
-        assert isinstance(a, GroundAtom)
-    return ground_atoms
+    return {GroundAtom(pred, choice)
+            for choice in get_object_combinations(objects, pred.types,
+                                                  allow_duplicates=False)}
 
 
 def all_ground_atoms(state: State, preds: Set[Predicate]) -> List[GroundAtom]:

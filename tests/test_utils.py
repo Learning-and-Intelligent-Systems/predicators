@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, Operator, Action
+    Predicate, Operator, Action, GroundAtom
 from predicators.src import utils
 
 
@@ -421,6 +421,33 @@ def test_operator_methods():
     preds, types = utils.extract_preds_and_types({operator})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
+
+
+def test_ground_atom_methods():
+    """Tests for all_ground_predicates(), all_ground_atoms().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    state = State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
+    on_ground = {GroundAtom(on, [cup1, plate1]),
+                 GroundAtom(on, [cup1, plate2]),
+                 GroundAtom(on, [cup2, plate1]),
+                 GroundAtom(on, [cup2, plate2])}
+    not_on_ground = {GroundAtom(not_on, [cup1, plate1]),
+                     GroundAtom(not_on, [cup1, plate2]),
+                     GroundAtom(not_on, [cup2, plate1]),
+                     GroundAtom(not_on, [cup2, plate2])}
+    ground_atoms = sorted(on_ground | not_on_ground)
+    assert utils.all_ground_predicates(on, objects) == on_ground
+    assert utils.all_ground_predicates(not_on, objects) == not_on_ground
+    assert utils.all_ground_atoms(state, {on, not_on}) == ground_atoms
 
 
 def test_static_operator_filtering():
