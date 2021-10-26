@@ -202,40 +202,20 @@ def _unify(
                              _classifier=lambda s, o: False)  # dummy
     f_ground_option_args = frozenset({GroundAtom(opt_arg_pred,
                                                  ground_option_args)})
-    new_ground_add_effects = set()
-    for ground_atom in ground_add_effects:
-        new_predicate = Predicate("ADD-"+ground_atom.predicate.name,
-                                  ground_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_ground_add_effects.add(GroundAtom(
-            new_predicate, ground_atom.objects))
+    new_ground_add_effects = utils.wrap_atom_predicates_ground(
+        ground_add_effects, "ADD-")
     f_new_ground_add_effects = frozenset(new_ground_add_effects)
-    new_ground_delete_effects = set()
-    for ground_atom in ground_delete_effects:
-        new_predicate = Predicate("DEL-"+ground_atom.predicate.name,
-                                  ground_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_ground_delete_effects.add(GroundAtom(
-            new_predicate, ground_atom.objects))
+    new_ground_delete_effects = utils.wrap_atom_predicates_ground(
+        ground_delete_effects, "DEL-")
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
 
     f_lifted_option_args = frozenset({LiftedAtom(opt_arg_pred,
                                                  lifted_option_args)})
-    new_lifted_add_effects = set()
-    for lifted_atom in lifted_add_effects:
-        new_predicate = Predicate("ADD-"+lifted_atom.predicate.name,
-                                  lifted_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_lifted_add_effects.add(LiftedAtom(
-            new_predicate, lifted_atom.variables))
+    new_lifted_add_effects = utils.wrap_atom_predicates_lifted(
+        lifted_add_effects, "ADD-")
     f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
-    new_lifted_delete_effects = set()
-    for lifted_atom in lifted_delete_effects:
-        new_predicate = Predicate("DEL-"+lifted_atom.predicate.name,
-                                  lifted_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_lifted_delete_effects.add(LiftedAtom(
-            new_predicate, lifted_atom.variables))
+    new_lifted_delete_effects = utils.wrap_atom_predicates_lifted(
+        lifted_delete_effects, "DEL-")
     f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
     return utils.unify(
         f_ground_option_args | f_new_ground_add_effects | \
