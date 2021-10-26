@@ -118,6 +118,10 @@ class ClutteredTableEnv(BaseEnv):
         return {self._HandEmpty, self._Holding}
 
     @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._Holding}
+
+    @property
     def types(self) -> Set[Type]:
         return {self._can_type}
 

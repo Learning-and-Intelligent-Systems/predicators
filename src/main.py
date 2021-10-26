@@ -36,12 +36,15 @@ def main() -> None:
     utils.update_config(args)
     # Create & seed classes
     env = create_env(CFG.env)
+    assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
         excludeds = set(CFG.excluded_predicates.split(","))
         assert excludeds.issubset({pred.name for pred in env.predicates}), \
             "Unrecognized excluded_predicates!"
         preds = {pred for pred in env.predicates
                  if pred.name not in excludeds}
+        assert env.goal_predicates.issubset(preds), \
+            "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
     approach = create_approach(CFG.approach, env.simulate, preds,
