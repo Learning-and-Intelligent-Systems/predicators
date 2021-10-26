@@ -200,6 +200,16 @@ class Predicate:
     def __repr__(self) -> str:
         return str(self)
 
+    def get_negation(self) -> Predicate:
+        """Return a negated version of this predicate.
+        """
+        return Predicate("NOT-"+self.name, self.types, self._negated_classifier)
+
+    def _negated_classifier(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        # Separate this into a named function for pickling reasons.
+        return not self._classifier(state, objects)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _Atom:
