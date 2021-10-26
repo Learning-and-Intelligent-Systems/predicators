@@ -149,6 +149,10 @@ def test_predicate_and_atom():
     lifted_atom = pred([cup_var, plate_var])
     lifted_atom2 = pred([cup_var, plate_var])
     lifted_atom3 = pred2([cup_var, plate_var])
+    with pytest.raises(AssertionError):
+        pred2([cup_var])  # bad arity
+    with pytest.raises(AssertionError):
+        pred2([plate_var, cup_var])  # bad types
     assert lifted_atom.predicate == pred
     assert lifted_atom.variables == [cup_var, plate_var]
     assert {lifted_atom, lifted_atom2} == {lifted_atom}
