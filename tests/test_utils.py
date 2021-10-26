@@ -2,6 +2,7 @@
 """
 
 import os
+import time
 import pytest
 import numpy as np
 from gym.spaces import Box
@@ -275,7 +276,10 @@ def test_get_all_groundings():
     lifted_atoms = frozenset({pred1([cup_var, plate_var]),
                               pred2([cup_var, plate_var])})
     objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
-    all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
+    start_time = time.time()
+    for _ in range(10000):
+        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
+    assert time.time()-start_time < 1, "Should be fast due to caching"
     # For pred1, there are 12 groundings (3 cups * 4 plates).
     # For pred2, there are 48 groundings (3 cups * 4 plates * 4 plates).
     # In total, there are 12 * 48 groundings.
