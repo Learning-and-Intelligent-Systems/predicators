@@ -192,6 +192,10 @@ class BlocksEnv(BaseEnv):
                 self._Clear}
 
     @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._On, self._OnTable}
+
+    @property
     def types(self) -> Set[Type]:
         return {self._block_type, self._robot_type}
 
