@@ -42,7 +42,7 @@ class OperatorLearningApproach(TAMPApproach):
         self._learn_operators(dataset)
 
     def _learn_operators(self, dataset: Dataset) -> None:
-        self._operators, _ = learn_operators_from_data(
+        self._operators = learn_operators_from_data(
             dataset, self._get_current_predicates(),
             do_sampler_learning=CFG.do_sampler_learning)
         save_path = get_save_path()
