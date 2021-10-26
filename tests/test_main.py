@@ -56,3 +56,22 @@ def test_main():
                 "--seed", "2348393", "--load"]
     with pytest.raises(FileNotFoundError):
         main()
+    # Try predicate exclusion.
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "NotARealPredicate"]
+    with pytest.raises(AssertionError):
+        main()  # can't exclude a non-existent predicate
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "Covers"]
+    with pytest.raises(AssertionError):
+        main()  # can't exclude a goal predicate
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "Holding,HandEmpty"]
+    main()  # correct usage
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "HandEmpty"]
+    main()  # correct usage

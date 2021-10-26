@@ -14,6 +14,7 @@ def parse_args() -> Dict[str, Any]:
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", required=True, type=str)
     parser.add_argument("--approach", required=True, type=str)
+    parser.add_argument("--excluded_predicates", default="", type=str)
     parser.add_argument("--seed", required=True, type=int)
     parser.add_argument("--timeout", default=10, type=float)
     parser.add_argument("--make_videos", action="store_true")

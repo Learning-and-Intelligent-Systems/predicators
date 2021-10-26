@@ -20,6 +20,7 @@ def test_blocks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
     assert len(env.predicates) == 5
+    assert {pred.name for pred in env.goal_predicates} == {"On", "OnTable"}
     assert len(env.options) == 3
     assert len(env.types) == 2
     block_type = [t for t in env.types if t.name == "block"][0]

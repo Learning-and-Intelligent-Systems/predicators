@@ -106,6 +106,7 @@ class GlobalSettings:
                 "trivial_learning": True,
                 "operator_learning": True,
                 "interactive_learning": True,
+                "iterative_invention": True,
             })[args["approach"]],
 
             # For learning-based approaches, the data collection strategy.
@@ -113,6 +114,7 @@ class GlobalSettings:
                 "trivial_learning": "demo",
                 "operator_learning": "demo+replay",
                 "interactive_learning": "demo",
+                "iterative_invention": "demo+replay",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
@@ -121,6 +123,7 @@ class GlobalSettings:
                 "trivial_learning": 500,
                 "operator_learning": 500,
                 "interactive_learning": 500,
+                "iterative_invention": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
@@ -129,6 +132,7 @@ class GlobalSettings:
                 "trivial_learning": 10,
                 "operator_learning": 10,
                 "interactive_learning": 10,
+                "iterative_invention": 10,
             })[args["approach"]],
         )
 

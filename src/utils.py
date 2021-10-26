@@ -581,8 +581,8 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
     """
     fig.set_dpi(dpi)
     fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_argb(),  # type: ignore
-                         dtype=np.uint8, sep='')
+    data = np.frombuffer(fig.canvas.tostring_argb(),  # type: ignore
+                         dtype=np.uint8).copy()
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data

@@ -17,6 +17,8 @@ from predicators.src.approaches.operator_learning_approach import \
     OperatorLearningApproach
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
+from predicators.src.approaches.iterative_invention_approach import \
+    IterativeInventionApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
 
@@ -30,6 +32,7 @@ __all__ = [
     "TrivialLearningApproach",
     "OperatorLearningApproach",
     "InteractiveLearningApproach",
+    "IterativeInventionApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -68,4 +71,8 @@ def create_approach(name: str,
         return InteractiveLearningApproach(simulator, initial_predicates,
                                            initial_options, types, action_space,
                                            train_tasks)
+    if name == "iterative_invention":
+        return IterativeInventionApproach(simulator, initial_predicates,
+                                          initial_options, types, action_space,
+                                          train_tasks)
     raise NotImplementedError(f"Unknown env: {name}")

@@ -44,6 +44,13 @@ class BaseEnv:
 
     @property
     @abc.abstractmethod
+    def goal_predicates(self) -> Set[Predicate]:
+        """Get the subset of self.predicates that are used in goals.
+        """
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment.
         """

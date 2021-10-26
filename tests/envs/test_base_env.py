@@ -27,6 +27,8 @@ def test_base_env():
     with pytest.raises(NotImplementedError):
         env.predicates()
     with pytest.raises(NotImplementedError):
+        env.goal_predicates()
+    with pytest.raises(NotImplementedError):
         env.options()
     with pytest.raises(NotImplementedError):
         env.types()
