@@ -269,7 +269,8 @@ def test_create_sampler_data():
     next_atoms = utils.abstract(next_state, predicates)
     add_effects = next_atoms - atoms
     delete_effects = atoms - next_atoms
-    transition1 = (state, atoms, option, add_effects, delete_effects)
+    transition1 = (state, next_state, atoms, option, next_atoms,
+                   add_effects, delete_effects)
 
     # Transition 2: does nothing
     state = State({cup0: [0.4]})
@@ -280,7 +281,8 @@ def test_create_sampler_data():
     next_atoms = utils.abstract(next_state, predicates)
     add_effects = next_atoms - atoms
     delete_effects = atoms - next_atoms
-    transition2 = (state, atoms, option, add_effects, delete_effects)
+    transition2 = (state, next_state, atoms, option, next_atoms,
+                   add_effects, delete_effects)
 
     transitions = [[(transition1, {cup0: var_cup0})],
                    [(transition2, {})]]
