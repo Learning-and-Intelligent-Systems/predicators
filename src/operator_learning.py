@@ -15,34 +15,15 @@ from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_operators_from_data(
-        dataset: Dataset, predicates: Set[Predicate],
-        do_sampler_learning: bool) -> Tuple[
-            Set[Operator], DefaultDict[ParameterizedOption, List[Transition]]]:
+def learn_operators_from_data(dataset: Dataset, predicates: Set[Predicate],
+                              do_sampler_learning: bool) -> Set[Operator]:
     """Learn operators from the given dataset of transitions.
     States are abstracted using the given set of predicates.
-
-    Along with the learned operators, this method returns a dict mapping
-    ParameterizedOptions to a list of transitions, where each transition
-    contains all the ground and abstract information about that transition.
     """
     print(f"\nLearning operators on {len(dataset)} trajectories...")
 
-    # Set up data
-    transitions_by_option = defaultdict(list)
-    for act_traj in dataset:
-        states, options = utils.action_to_option_trajectory(act_traj)
-        assert len(states) == len(options) + 1
-        for i, option in enumerate(options):
-            atoms = utils.abstract(states[i], predicates)
-            next_atoms = utils.abstract(states[i+1], predicates)
-            add_effects = next_atoms - atoms
-            delete_effects = atoms - next_atoms
-            transition = (states[i], states[i+1], atoms, option, next_atoms,
-                          add_effects, delete_effects)
-            transitions_by_option[option.parent].append(transition)
+    transitions_by_option = generate_transitions(dataset, predicates)
 
-    # Learn operators
     operators = []
     for param_option in transitions_by_option:
         option_transitions = transitions_by_option[param_option]
@@ -55,7 +36,28 @@ def learn_operators_from_data(
         print(operator)
     print()
 
-    return set(operators), transitions_by_option
+    return set(operators)
+
+
+def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
+                         ) -> DefaultDict[
+                             ParameterizedOption, List[Transition]]:
+    """Given a dataset and predicates, go through the dataset and compute
+    the abstract states. Returns a dict mapping ParameterizedOptions to a
+    list of transitions.
+    """
+    transitions_by_option = defaultdict(list)
+    for act_traj in dataset:
+        states, options = utils.action_to_option_trajectory(act_traj)
+        assert len(states) == len(options) + 1
+        for i, option in enumerate(options):
+            atoms = utils.abstract(states[i], predicates)
+            next_atoms = utils.abstract(states[i+1], predicates)
+            add_effects = next_atoms - atoms
+            delete_effects = atoms - next_atoms
+            transition = (states[i], atoms, option, add_effects, delete_effects)
+            transitions_by_option[option.parent].append(transition)
+    return transitions_by_option
 
 
 def _learn_operators_for_option(option: ParameterizedOption,
@@ -104,7 +106,7 @@ def _partition_transitions(
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[List[Tuple[Transition, ObjToVarSub]]] = []
     for transition in transitions:
-        _, _, _, option, _, trans_add_effects, trans_delete_effects = transition
+        _, _, option, trans_add_effects, trans_delete_effects = transition
         trans_option_args = option.objects
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects
@@ -149,7 +151,7 @@ def  _learn_preconditions(option_vars: List[Variable],
         add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
         transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
             Sequence[Variable], Set[LiftedAtom]]:
-    for i, ((_, _, atoms, option, _, trans_add_effects,
+    for i, ((_, atoms, option, trans_add_effects,
              trans_delete_effects), _) in enumerate(transitions):
         suc, sub = _unify(
             frozenset(trans_add_effects),
@@ -256,7 +258,7 @@ def _create_sampler_data(
     positive_data = []
     negative_data = []
     for idx, part_transitions in enumerate(transitions):
-        for ((state, _, _, option, _, trans_add_effects, trans_delete_effects),
+        for ((state, _, option, trans_add_effects, trans_delete_effects),
              obj_to_var) in part_transitions:
             assert option.parent == param_option
             var_types = [var.type for var in variables]
