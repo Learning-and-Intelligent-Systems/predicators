@@ -176,8 +176,8 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
     of (ground atoms, substitution dictionary) tuples.
     """
     choices = []
-    atoms = sorted(atoms)
-    for atom in atoms:
+    sorted_atoms = sorted(atoms)
+    for atom in sorted_atoms:
         combs = []
         for comb in get_object_combinations(
                 objects, atom.predicate.types, allow_duplicates=False):
@@ -187,9 +187,9 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
     result = []
     for choice in itertools.product(*choices):
         # Filter out choices which don't agree with repeated variables.
-        sub = {}
+        sub: VarToObjSub = {}
         do_filter = False
-        for lifted_atom, ground_atom in zip(atoms, choice):
+        for lifted_atom, ground_atom in zip(sorted_atoms, choice):
             for var, obj in zip(lifted_atom.variables, ground_atom.objects):
                 if var in sub and sub[var] != obj:
                     do_filter = True
