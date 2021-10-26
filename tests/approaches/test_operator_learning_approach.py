@@ -58,12 +58,13 @@ def _test_approach(approach_name):
                 policy, task, env.simulate, env.predicates)[0][1]
         except (ApproachTimeout, ApproachFailure):  # pragma: no cover
             continue
-        if i not in task_sequences:
+        if i not in task_sequences:  # pragma: no cover
             continue
         expected_sequence = task_sequences[i]
         assert len(sequence) == len(expected_sequence)
         assert all(np.allclose(act.arr, expected_act.arr, atol=1e-3)
                    for act, expected_act in zip(sequence, expected_sequence))
+    utils.update_config({"max_samples_per_step": 10})
 
 
 def test_operator_learning_approach():
