@@ -187,8 +187,9 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             states_and_scores = list(zip(new_states, scores))
             states_and_scores.sort(key=lambda tup: tup[1], reverse=True)
             return [s for (s, _) in states_and_scores[:n]]
-        raise NotImplementedError(f"Ask strategy {CFG.interactive_ask_strategy} "
-                                      "not supported")
+        raise NotImplementedError(f"Ask strategy "
+                                  f"{CFG.interactive_ask_strategy} "
+                                   "not supported")
 
 
     def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
