@@ -107,6 +107,10 @@ class CoverEnv(BaseEnv):
                 self._HandEmpty, self._Holding}
 
     @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._Covers}
+
+    @property
     def types(self) -> Set[Type]:
         return {self._block_type, self._target_type, self._robot_type}
 

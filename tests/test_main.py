@@ -61,12 +61,17 @@ def test_main():
                 "random_options", "--seed", "123",
                 "--excluded_predicates", "NotARealPredicate"]
     with pytest.raises(AssertionError):
-        main()
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "random_options", "--seed", "123",
-                "--excluded_predicates", "Holding,HandEmpty"]
-    main()
+        main()  # can't exclude a non-existent predicate
     sys.argv = ["dummy", "--env", "cover", "--approach",
                 "random_options", "--seed", "123",
                 "--excluded_predicates", "Covers"]
-    main()
+    with pytest.raises(AssertionError):
+        main()  # can't exclude a goal predicate
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "Holding,HandEmpty"]
+    main()  # correct usage
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "HandEmpty"]
+    main()  # correct usage
