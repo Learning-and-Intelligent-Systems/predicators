@@ -180,7 +180,7 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
         variables.update(atom.variables)
     variables = sorted(variables)
     types = [var.type for var in variables]
-    # NOTE: we WON'T use a generator here because that breaks lru_cache.
+    # NOTE: We WON'T use a generator here because that breaks lru_cache.
     result = []
     # Allow duplicate arguments here because this is across all atoms.
     # We'll handle within-atom duplicates below.
