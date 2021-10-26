@@ -182,6 +182,8 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
     types = [var.type for var in variables]
     # NOTE: we WON'T use a generator here because that breaks lru_cache.
     result = []
+    # Allow duplicate arguments here because this is across all atoms.
+    # We'll handle within-atom duplicates below.
     for choice in get_object_combinations(
             objects, types, allow_duplicates=True):
         sub: VarToObjSub = dict(zip(variables, choice))
