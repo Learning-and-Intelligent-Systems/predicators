@@ -269,23 +269,40 @@ def test_get_all_groundings():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     plate3 = plate_type("plate3")
-    plate_var = plate_type("?plate")
+    plate_var1 = plate_type("?plate1")
+    plate_var2 = plate_type("?plate2")
+    plate_var3 = plate_type("?plate3")
     pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
     pred2 = Predicate("Pred2", [cup_type, plate_type, plate_type],
                       lambda s, o: True)
-    lifted_atoms = frozenset({pred1([cup_var, plate_var]),
-                              pred2([cup_var, plate_var])})
+    lifted_atoms = frozenset({pred1([cup_var, plate_var1]),
+                              pred2([cup_var, plate_var1, plate_var2])})
     objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
     start_time = time.time()
     for _ in range(10000):
         all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
     assert time.time()-start_time < 1, "Should be fast due to caching"
     # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # For pred2, there are 48 groundings (3 cups * 4 plates * 4 plates).
-    # In total, there are 12 * 48 groundings.
-    assert len(all_groundings) == (3*4)*(3*4*4)
-    for grounding in all_groundings:
+    # Pred2 adds on 3 options for plate_var2 (it can't be the same as
+    # plate_var1), bringing the total to 36.
+    assert len(all_groundings) == 36
+    for grounding, sub in all_groundings:
         assert len(grounding) == len(lifted_atoms)
+        assert len(sub) == 3  # three variables
+    lifted_atoms = frozenset({pred1([cup_var, plate_var1]),
+                              pred2([cup_var, plate_var2, plate_var3])})
+    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
+    start_time = time.time()
+    for _ in range(10000):
+        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
+    assert time.time()-start_time < 1, "Should be fast due to caching"
+    # For pred1, there are 12 groundings (3 cups * 4 plates).
+    # Pred2 adds on 4*3 options (plate_var2 and plate_var3 can't be the same),
+    # bringing the total to 12*12.
+    assert len(all_groundings) == 12*12
+    for grounding, sub in all_groundings:
+        assert len(grounding) == len(lifted_atoms)
+        assert len(sub) == 4  # four variables
 
 
 def test_find_substitution():
@@ -399,7 +416,7 @@ def test_find_substitution():
     plate0 = plate_type("plate0")
     var3 = plate_type("?var3")
     pred4 = Predicate("Pred4", [plate_type], lambda s, o: True)
-    pred5 = Predicate("Pred5", [cup_type, plate_type], lambda s, o: True)
+    pred5 = Predicate("Pred5", [plate_type, cup_type], lambda s, o: True)
 
     kb12 = [pred4([plate0])]
     q12 = [pred0([var0])]
