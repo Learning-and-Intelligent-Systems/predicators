@@ -40,7 +40,7 @@ def test_operator_learning_specific_operators():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [([state1, next_state1], [action1])]
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 1
     op = ops.pop()
     assert str(op) == """dummy0:
@@ -72,7 +72,7 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 1
     op = ops.pop()
     assert str(op) == """dummy0:
@@ -108,7 +108,7 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     expected = {"dummy0": """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
@@ -147,7 +147,7 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     expected = {"dummy0": """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
@@ -166,13 +166,13 @@ def test_operator_learning_specific_operators():
         assert str(op) == expected[op.name]
     # Test minimum number of examples parameter
     utils.update_config({"min_data_for_operator": 3})
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 0
     # Test sampler giving out-of-bounds outputs
     utils.update_config({"min_data_for_operator": 0, "seed": 123,
                          "classifier_max_itr": 1,
                          "regressor_max_itr": 1})
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     for op in ops:
         for _ in range(10):
@@ -181,7 +181,7 @@ def test_operator_learning_specific_operators():
                     state1, np.random.default_rng(123)).params)
     # Test max_rejection_sampling_tries = 0
     utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     for op in ops:
         for _ in range(10):
@@ -192,7 +192,7 @@ def test_operator_learning_specific_operators():
     utils.update_config({"seed": 123, "classifier_max_itr": 100000,
                          "regressor_max_itr": 100000})
     start_time = time.time()
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
     assert time.time()-start_time < 0.1  # should be lightning fast
     assert len(ops) == 2
     for op in ops:
@@ -240,7 +240,7 @@ def test_operator_learning_specific_operators():
     next_state4 = State({cup4: [0.8], cup5: [0.1], cup2: [0.5], cup3: [0.5]})
     dataset = [([state3, next_state3], [action3]),
                ([state4, next_state4], [action4])]
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
     assert len(ops) == 2
 
 
