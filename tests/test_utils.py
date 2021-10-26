@@ -255,6 +255,35 @@ def test_get_random_object_combination():
             {cup0}, [plate_type], rng)
 
 
+def test_get_all_groundings():
+    """Tests for get_all_groundings().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat2"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var = cup_type("?cup")
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    plate3 = plate_type("plate3")
+    plate_var = plate_type("?plate")
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type, plate_type],
+                      lambda s, o: True)
+    lifted_atoms = frozenset({pred1([cup_var, plate_var]),
+                              pred2([cup_var, plate_var])})
+    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
+    all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
+    # For pred1, there are 12 groundings (3 cups * 4 plates).
+    # For pred2, there are 48 groundings (3 cups * 4 plates * 4 plates).
+    # In total, there are 12 * 48 groundings.
+    assert len(all_groundings) == (3*4)*(3*4*4)
+    for grounding in all_groundings:
+        assert len(grounding) == len(lifted_atoms)
+
+
 def test_find_substitution():
     """Tests for find_substitution().
     """
