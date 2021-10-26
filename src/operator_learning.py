@@ -55,7 +55,8 @@ def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
             next_atoms = utils.abstract(states[i+1], predicates)
             add_effects = next_atoms - atoms
             delete_effects = atoms - next_atoms
-            transition = (states[i], atoms, option, add_effects, delete_effects)
+            transition = (states[i], states[i+1], atoms, option, next_atoms,
+                          add_effects, delete_effects)
             transitions_by_option[option.parent].append(transition)
     return transitions_by_option
 
@@ -106,7 +107,7 @@ def _partition_transitions(
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[List[Tuple[Transition, ObjToVarSub]]] = []
     for transition in transitions:
-        _, _, option, trans_add_effects, trans_delete_effects = transition
+        _, _, _, option, _, trans_add_effects, trans_delete_effects = transition
         trans_option_args = option.objects
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects
@@ -151,7 +152,7 @@ def  _learn_preconditions(option_vars: List[Variable],
         add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
         transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
             Sequence[Variable], Set[LiftedAtom]]:
-    for i, ((_, atoms, option, trans_add_effects,
+    for i, ((_, _, atoms, option, _, trans_add_effects,
              trans_delete_effects), _) in enumerate(transitions):
         suc, sub = _unify(
             frozenset(trans_add_effects),
@@ -258,7 +259,7 @@ def _create_sampler_data(
     positive_data = []
     negative_data = []
     for idx, part_transitions in enumerate(transitions):
-        for ((state, _, option, trans_add_effects, trans_delete_effects),
+        for ((state, _, _, option, _, trans_add_effects, trans_delete_effects),
              obj_to_var) in part_transitions:
             assert option.parent == param_option
             var_types = [var.type for var in variables]
