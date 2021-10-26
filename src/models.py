@@ -165,7 +165,7 @@ class NeuralGaussianRegressor(nn.Module):
 class MLPClassifier(nn.Module):
     """MLPClassifier definition.
     """
-    def __init__(self, in_size: int) -> None:
+    def __init__(self, in_size: int, max_itr: int) -> None:
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
         torch.manual_seed(CFG.seed)
@@ -177,6 +177,7 @@ class MLPClassifier(nn.Module):
         self._linears.append(nn.Linear(hid_sizes[-1], 1))
         self._input_shift = np.zeros(1)
         self._input_scale = np.zeros(1)
+        self._max_itr = max_itr
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
@@ -257,12 +258,12 @@ class MLPClassifier(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.classifier_max_itr}",
+                print(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}",
                       end="\r", flush=True)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if itr == CFG.classifier_max_itr:
+            if itr == self._max_itr:
                 print()
                 break
             if itr-best_itr > CFG.n_iter_no_change:

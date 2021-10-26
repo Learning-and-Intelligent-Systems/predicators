@@ -60,8 +60,8 @@ def main() -> None:
             continue
         try:
             _, video, solved = utils.run_policy_on_task(
-                policy, task, env.simulate, env.predicates, CFG.make_videos,
-                env.render)
+                policy, task, env.simulate, env.predicates,
+                CFG.max_num_steps_check_policy, CFG.make_videos, env.render)
         except EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")

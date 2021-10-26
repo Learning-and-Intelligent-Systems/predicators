@@ -49,7 +49,8 @@ class GlobalSettings:
     do_sampler_learning = True
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
-    classifier_max_itr = 100
+    classifier_max_itr_sampler = 10000
+    classifier_max_itr_predicate = 100
     classifier_balance_data = True
     regressor_hid_sizes = [32, 32]
     regressor_max_itr = 10000
@@ -59,16 +60,16 @@ class GlobalSettings:
 
     # interactive learning parameters
     interactive_known_predicates = {'HandEmpty', 'Covers'}
-    active_num_episodes = 3
-    active_max_steps = 10
-    active_learning_relearn_every = 3
-    active_num_babbles = 10
-    max_num_atoms_babbled = 1
-    num_tasks_babbled = 5
-    atom_type_babbled = "ground"
-    ask_strategy = "all_seen_states"
-    ask_strategy_threshold = 0.0
-    ask_strategy_percent = 20.0
+    interactive_num_episodes = 3
+    interactive_max_steps = 10
+    interactive_relearn_every = 3
+    interactive_num_babbles = 10
+    interactive_max_num_atoms_babbled = 1
+    interactive_num_tasks_babbled = 5
+    interactive_atom_type_babbled = "ground"
+    interactive_ask_strategy = "all_seen_states"
+    interactive_ask_strategy_threshold = 0.0
+    interactive_ask_strategy_pct = 20.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

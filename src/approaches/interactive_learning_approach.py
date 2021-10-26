@@ -44,19 +44,19 @@ class InteractiveLearningApproach(OperatorLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
 
-    def load_dataset(self, dataset: Dataset) -> None:
+    def _load_dataset(self, dataset: Dataset) -> None:
         """Stores dataset and corresponding ground atom dataset."""
         ground_atom_data = self._teacher.generate_data(dataset)
         self._dataset.extend(dataset)
         self._ground_atom_dataset.extend(ground_atom_data)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        self.load_dataset(dataset)
+        self._load_dataset(dataset)
         # Learn predicates and operators
-        self.semi_supervised_learning(self._dataset)
+        self._semi_supervised_learning(self._dataset)
         # Active learning
         new_trajectories: Dataset = []
-        for i in range(1, CFG.active_num_episodes+1):
+        for i in range(1, CFG.interactive_num_episodes+1):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
             index = self._rng.choice(len(self._train_tasks))
@@ -64,6 +64,8 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             # Find policy for exploration
             task_list = glib_sample(state, self._get_current_predicates(),
                                     self._ground_atom_dataset)
+            assert task_list
+            task = task_list[0]
             for task in task_list:
                 if task.goal.issubset(utils.abstract(state,
                                       self._get_current_predicates())):
@@ -81,38 +83,34 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 raise ApproachFailure("Failed to sample a task that approach "
                                       "can solve.")
             # Roll out policy
-            states = []
-            actions = []
-            for _ in range(CFG.active_max_steps):
-                try:
-                    action = policy(state)
-                except ApproachFailure:
-                    break
-                states.append(state)
-                actions.append(action)
-                state = self._simulator(state, action)
-            new_trajectories.append((states, actions))
-            if i % CFG.active_learning_relearn_every == 0:
+            action_traj, _, _ = utils.run_policy_on_task(
+                                    policy, task, self._simulator,
+                                    self._get_current_predicates(),
+                                    max_steps=CFG.interactive_max_steps)
+            new_trajectories.append(action_traj)
+            if i % CFG.interactive_relearn_every == 0:
                 print("Asking teacher...")
                 # Update dataset
                 self._dataset.extend(new_trajectories)
                 # Pick a state from the new states explored
-                for s in self.get_states_to_ask(new_trajectories):
+                for s in self._get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
                     ground_atoms = utils.all_ground_atoms(
                                             s, self._get_current_predicates())
                     idx = self._rng.choice(len(ground_atoms))
                     random_atom = ground_atoms[idx]
-                    # Add this atom if it's a positive example
-                    if self.ask_teacher(s, random_atom):
+                    if self._ask_teacher(s, random_atom):
+                        # Add this atom if it's a positive example
                         self._ground_atom_dataset.append([{random_atom}])
+                        # Add corresponding "action trajectory" to dataset
+                        self._dataset.append(([s], []))
                 # Relearn predicates and operators
-                self.semi_supervised_learning(self._dataset)
+                self._semi_supervised_learning(self._dataset)
                 # Reset trajectories list
                 new_trajectories = []
 
 
-    def semi_supervised_learning(self, dataset: Dataset) -> None:
+    def _semi_supervised_learning(self, dataset: Dataset) -> None:
         """Learns predicates and operators in a semi-supervised fashion.
         """
         print("\nStarting semi-supervised learning...")
@@ -154,7 +152,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             X = np.array(positive_examples + negative_examples)
             Y = np.array([1 for _ in positive_examples] +
                          [0 for _ in negative_examples])
-            model = MLPClassifier(X.shape[1])
+            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it
@@ -167,7 +165,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         self._learn_operators(dataset)
 
 
-    def get_states_to_ask(self,
+    def _get_states_to_ask(self,
                           trajectories: Dataset) -> List[State]:
         """Gets set of states to ask about, according to ask_strategy.
         """
@@ -177,23 +175,23 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         scores = [score_goal(self._ground_atom_dataset,
                              utils.abstract(s, self._get_current_predicates()))
                   for s in new_states]
-        if CFG.ask_strategy == "all_seen_states":
+        if CFG.interactive_ask_strategy == "all_seen_states":
             return new_states
-        if CFG.ask_strategy == "threshold":
-            assert isinstance(CFG.ask_strategy_threshold, float)
+        if CFG.interactive_ask_strategy == "threshold":
+            assert isinstance(CFG.interactive_ask_strategy_threshold, float)
             return [s for (s, score) in zip(new_states, scores)
-                    if score >= CFG.ask_strategy_threshold]
-        if CFG.ask_strategy == "top_k_percent":
-            assert isinstance(CFG.ask_strategy_percent, float)
-            n = int(CFG.ask_strategy_percent / 100. * len(new_states))
+                    if score >= CFG.interactive_ask_strategy_threshold]
+        if CFG.interactive_ask_strategy == "top_k_percent":
+            assert isinstance(CFG.interactive_ask_strategy_pct, float)
+            n = int(CFG.interactive_ask_strategy_pct / 100. * len(new_states))
             states_and_scores = list(zip(new_states, scores))
             states_and_scores.sort(key=lambda tup: tup[1], reverse=True)
             return [s for (s, _) in states_and_scores[:n]]
-        raise NotImplementedError(f"Ask strategy {CFG.ask_strategy} "
+        raise NotImplementedError(f"Ask strategy {CFG.interactive_ask_strategy} "
                                       "not supported")
 
 
-    def ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
+    def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state.
         """
         return self._teacher.ask(state, ground_atom)
@@ -257,13 +255,13 @@ def glib_sample(initial_state: State,
     """Sample some tasks via the GLIB approach.
     """
     print("Sampling a task using GLIB approach...")
-    assert CFG.atom_type_babbled == "ground"
+    assert CFG.interactive_atom_type_babbled == "ground"
     rng = np.random.default_rng(CFG.seed)
     ground_atoms = utils.all_ground_atoms(initial_state, predicates)
     goals = []  # list of (goal, score) tuples
-    for _ in range(CFG.active_num_babbles):
+    for _ in range(CFG.interactive_num_babbles):
         # Sample num atoms to babble
-        num_atoms = 1 + rng.choice(CFG.max_num_atoms_babbled)
+        num_atoms = 1 + rng.choice(CFG.interactive_max_num_atoms_babbled)
         # Sample goal (a set of atoms)
         idxs = rng.choice(np.arange(len(ground_atoms)),
                           size=(num_atoms,),
@@ -271,7 +269,8 @@ def glib_sample(initial_state: State,
         goal = {ground_atoms[i] for i in idxs}
         goals.append((goal, score_goal(ground_atom_dataset, goal)))
     goals.sort(key=lambda tup: tup[1], reverse=True)
-    return [Task(initial_state, g) for (g, _) in goals[:CFG.num_tasks_babbled]]
+    return [Task(initial_state, g) for (g, _) in \
+            goals[:CFG.interactive_num_tasks_babbled]]
 
 
 def score_goal(ground_atom_dataset: List[List[Set[GroundAtom]]],
