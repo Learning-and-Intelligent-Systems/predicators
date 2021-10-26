@@ -27,7 +27,7 @@ def learn_operators_from_data(dataset: Dataset, predicates: Set[Predicate],
     operators = []
     for param_option in transitions_by_option:
         option_transitions = transitions_by_option[param_option]
-        option_ops = _learn_operators_for_option(
+        option_ops = learn_operators_for_option(
             param_option, option_transitions, do_sampler_learning)
         operators.extend(option_ops)
 
@@ -61,10 +61,12 @@ def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
     return transitions_by_option
 
 
-def _learn_operators_for_option(option: ParameterizedOption,
-                                transitions: List[Transition],
-                                do_sampler_learning: bool,
-                                ) -> List[Operator]:
+def learn_operators_for_option(option: ParameterizedOption,
+                               transitions: List[Transition],
+                               do_sampler_learning: bool,
+                               ) -> List[Operator]:
+    """Given an option and data for it, learn operators.
+    """
     # Partition the data by lifted effects
     option_vars, add_effects, delete_effects, \
         partitioned_transitions = _partition_transitions(transitions)
@@ -191,12 +193,9 @@ def _unify(
         lifted_delete_effects: FrozenSet[LiftedAtom],
         lifted_option_args: Tuple[Variable, ...]
 ) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles split add and
-    delete effects. Changes predicate names so that delete effects are
-    treated differently than add effects by utils.unify().
-
-    Note: We could only change either add or delete predicate names,
-    but to avoid potential bugs we'll just change both.
+    """Wrapper around utils.unify() that handles option arguments, add effects,
+    and delete effects. Changes predicate names so that all are treated
+    differently by utils.unify().
     """
     opt_arg_pred = Predicate("OPT-ARGS",
                              [a.type for a in ground_option_args],
