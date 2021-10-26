@@ -69,6 +69,36 @@ def unify(ground_atoms: FrozenSet[GroundAtom],
     return solved, rev_sub
 
 
+def wrap_atom_predicates_lifted(atoms: Collection[LiftedAtom],
+                                prefix: str) -> Set[LiftedAtom]:
+    """Return a new set of lifted atoms which adds the given prefix
+    string to the name of every predicate in atoms.
+    NOTE: the classifier is removed.
+    """
+    new_atoms = set()
+    for atom in atoms:
+        new_predicate = Predicate(prefix+atom.predicate.name,
+                                  atom.predicate.types,
+                                  _classifier=lambda s, o: False)  # dummy
+        new_atoms.add(LiftedAtom(new_predicate, atom.variables))
+    return new_atoms
+
+
+def wrap_atom_predicates_ground(atoms: Collection[GroundAtom],
+                                prefix: str) -> Set[GroundAtom]:
+    """Return a new set of ground atoms which adds the given prefix
+    string to the name of every predicate in atoms.
+    NOTE: the classifier is removed.
+    """
+    new_atoms = set()
+    for atom in atoms:
+        new_predicate = Predicate(prefix+atom.predicate.name,
+                                  atom.predicate.types,
+                                  _classifier=lambda s, o: False)  # dummy
+        new_atoms.add(GroundAtom(new_predicate, atom.objects))
+    return new_atoms
+
+
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate],
