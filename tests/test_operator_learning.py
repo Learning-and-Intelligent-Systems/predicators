@@ -192,7 +192,8 @@ def test_operator_learning_specific_operators():
     utils.update_config({"seed": 123, "classifier_max_itr": 100000,
                          "regressor_max_itr": 100000})
     start_time = time.time()
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
+    ops, _ = learn_operators_from_data(
+        dataset, preds, do_sampler_learning=False)
     assert time.time()-start_time < 0.1  # should be lightning fast
     assert len(ops) == 2
     for op in ops:
@@ -240,7 +241,8 @@ def test_operator_learning_specific_operators():
     next_state4 = State({cup4: [0.8], cup5: [0.1], cup2: [0.5], cup3: [0.5]})
     dataset = [([state3, next_state3], [action3]),
                ([state4, next_state4], [action4])]
-    ops, _ = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
+    ops, _ = learn_operators_from_data(
+        dataset, preds, do_sampler_learning=False)
     assert len(ops) == 2
 
 
