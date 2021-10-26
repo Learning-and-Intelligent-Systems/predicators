@@ -136,6 +136,9 @@ def test_predicate_and_atom():
     assert pred.holds(state, [cup1, plate])
     assert not other_pred.holds(state, [cup1, plate])
     assert not pred.holds(state, [cup2, plate])
+    neg_pred = pred.get_negation()
+    assert not neg_pred.holds(state, [cup1, plate])
+    assert neg_pred.holds(state, [cup2, plate])
     assert str(pred) == repr(pred) == "On"
     assert {pred, pred} == {pred}
     pred2 = Predicate("On2", [cup_type, plate_type], _classifier)
