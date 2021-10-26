@@ -170,7 +170,7 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
 @functools.lru_cache(maxsize=None)
 def get_all_groundings(atoms: FrozenSet[LiftedAtom],
                        objects: FrozenSet[Object]
-                       ) -> Iterator[FrozenSet[GroundAtom]]:
+                       ) -> List[FrozenSet[GroundAtom]]:
     """Get all the ways to ground the given set of lifted atoms into
     a set of ground atoms, using the given objects.
     """
@@ -181,8 +181,11 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
                 objects, atom.predicate.types, allow_duplicates=True):
             combs.append(GroundAtom(atom.predicate, comb))
         choices.append(combs)
+    # NOTE: we WON'T use a generator here because that breaks lru_cache.
+    result = []
     for choice in itertools.product(*choices):
-        yield frozenset(choice)
+        result.append(frozenset(choice))
+    return result
 
 
 def get_object_combinations(
