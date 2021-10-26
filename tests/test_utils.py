@@ -416,7 +416,7 @@ def test_find_substitution():
     plate0 = plate_type("plate0")
     var3 = plate_type("?var3")
     pred4 = Predicate("Pred4", [plate_type], lambda s, o: True)
-    pred5 = Predicate("Pred5", [cup_type, plate_type], lambda s, o: True)
+    pred5 = Predicate("Pred5", [plate_type, cup_type], lambda s, o: True)
 
     kb12 = [pred4([plate0])]
     q12 = [pred0([var0])]
