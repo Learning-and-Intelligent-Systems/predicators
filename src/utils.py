@@ -175,28 +175,27 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
     a set of ground atoms, using the given objects. Returns a list
     of (ground atoms, substitution dictionary) tuples.
     """
-    choices = []
-    sorted_atoms = sorted(atoms)
-    for atom in sorted_atoms:
-        combs = []
-        for comb in get_object_combinations(
-                objects, atom.predicate.types, allow_duplicates=False):
-            combs.append(GroundAtom(atom.predicate, comb))
-        choices.append(combs)
+    variables = set()
+    for atom in atoms:
+        variables.update(atom.variables)
+    variables = sorted(variables)
+    types = [var.type for var in variables]
     # NOTE: we WON'T use a generator here because that breaks lru_cache.
     result = []
-    for choice in itertools.product(*choices):
-        # Filter out choices which don't agree with repeated variables.
-        sub: VarToObjSub = {}
+    for choice in get_object_combinations(
+            objects, types, allow_duplicates=True):
+        sub: VarToObjSub = dict(zip(variables, choice))
+        ground_atoms = set()
         do_filter = False
-        for lifted_atom, ground_atom in zip(sorted_atoms, choice):
-            for var, obj in zip(lifted_atom.variables, ground_atom.objects):
-                if var in sub and sub[var] != obj:
-                    do_filter = True
-                sub[var] = obj
+        for atom in atoms:
+            sub_for_atom = [sub[v] for v in atom.variables]
+            if len(sub_for_atom) != len(set(sub_for_atom)):
+                # Any individual atom can't have duplicate arguments.
+                do_filter = True
+            ground_atoms.add(atom.ground(sub))
         if do_filter:
             continue
-        result.append((frozenset(choice), sub))
+        result.append((frozenset(ground_atoms), sub))
     return result
 
 
