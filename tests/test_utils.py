@@ -142,6 +142,19 @@ def test_abstract():
     plate2 = plate_type("plate2")
     state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
     atoms = utils.abstract(state, {pred1, pred2})
+    with pytest.raises(AttributeError):
+        utils.wrap_atom_predicates_lifted(atoms, "TEST-PREFIX-G-")
+    wrapped = utils.wrap_atom_predicates_ground(atoms, "TEST-PREFIX-G-")
+    assert len(wrapped) == len(atoms)
+    for atom in wrapped:
+        assert atom.predicate.name.startswith("TEST-PREFIX-G-")
+    lifted_atoms = {pred1([cup_type("?cup"), plate_type("?plate")])}
+    with pytest.raises(AttributeError):
+        utils.wrap_atom_predicates_ground(lifted_atoms, "TEST-PREFIX-L-")
+    wrapped = utils.wrap_atom_predicates_lifted(lifted_atoms, "TEST-PREFIX-L-")
+    assert len(wrapped) == len(lifted_atoms)
+    for atom in wrapped:
+        assert atom.predicate.name.startswith("TEST-PREFIX-L-")
     assert len(atoms) == 3
     assert atoms == {pred1([cup, plate1]),
                      pred1([cup, plate2]),
