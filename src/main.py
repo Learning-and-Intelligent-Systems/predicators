@@ -18,7 +18,6 @@ To exclude predicates:
 """
 
 import time
-from predicators.src.args import parse_args
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure
 from predicators.src.approaches import create_approach, ApproachTimeout, \
@@ -32,7 +31,7 @@ def main() -> None:
     """
     start = time.time()
     # Parse & validate args
-    args = parse_args()
+    args = utils.parse_args()
     utils.update_config(args)
     # Create & seed classes
     env = create_env(CFG.env)

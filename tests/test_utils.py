@@ -8,6 +8,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Operator, Action, GroundAtom
+from predicators.src.settings import CFG
 from predicators.src import utils
 
 
@@ -775,3 +776,26 @@ def test_get_config_path_str():
     })
     s = utils.get_config_path_str()
     assert s == "dummyenv__dummyapproach__321"
+
+
+def test_update_config():
+    """Tests for update_config().
+    """
+    utils.update_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "seed": 123,
+    })
+    assert CFG.env == "cover"
+    assert CFG.approach == "random_actions"
+    assert CFG.seed == 123
+    utils.update_config({
+        "env": "dummyenv",
+        "approach": "dummyapproach",
+        "seed": 321,
+    })
+    assert CFG.env == "dummyenv"
+    assert CFG.approach == "dummyapproach"
+    assert CFG.seed == 321
+    with pytest.raises(ValueError):
+        utils.update_config({"not a real setting name": 0})
