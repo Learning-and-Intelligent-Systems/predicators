@@ -150,29 +150,6 @@ def test_interactive_learning_approach_ask_strategies():
         approach.get_states_to_ask(dataset)
 
 
-def test_interactive_learning_approach_no_exploration_policy():
-    """Test for InteractiveLearningApproach class that finds no policy for
-    exploration.
-    """
-    utils.update_config({"env": "cover", "approach": "interactive_learning",
-                         "timeout": 10, "max_samples_per_step": 10,
-                         "seed": 12345, "classifier_max_itr_sampler": 50,
-                         "classifier_max_itr_predicate": 50,
-                         "regressor_max_itr": 50,
-                         "interactive_num_episodes": 1,
-                         "interactive_relearn_every": 1,
-                         "interactive_num_babbles": 1,
-                         "interactive_ask_strategy": "all_seen_states"})
-    env = CoverEnv()
-    approach = InteractiveLearningApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
-    assert approach.is_learning_based
-    with pytest.raises(ApproachFailure):
-        approach.learn_from_offline_dataset(dataset)
-
-
 def test_interactive_learning_approach_exception():
     """Test for failure when teacher dataset contains set of 0 ground atoms.
     """

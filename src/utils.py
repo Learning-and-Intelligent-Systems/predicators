@@ -318,8 +318,10 @@ def all_ground_predicates(pred: Predicate,
                                                   allow_duplicates=False)}
 
 
-def all_ground_atoms(state: State, preds: Set[Predicate]) -> List[GroundAtom]:
-    """Get a sorted list of all ground atoms in a state given the predicates.
+def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
+        -> List[GroundAtom]:
+    """Get a sorted list of all possible ground atoms in a state given the
+    predicates. Ignores the predicates' classifiers.
     """
     objects = list(state)
     ground_atoms = set()

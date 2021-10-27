@@ -53,7 +53,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._load_dataset(dataset)
         # Learn predicates and operators
-        self._semi_supervised_learning(self._dataset)
+        self._relearn_predicates_and_operators()
         # Active learning
         new_trajectories: Dataset = []
         for i in range(1, CFG.interactive_num_episodes+1):
@@ -67,10 +67,6 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             assert task_list
             task = task_list[0]
             for task in task_list:
-                if task.goal.issubset(utils.abstract(state,
-                                      self._get_current_predicates())):
-                    # Plan will have length 0, which causes problems.
-                    continue
                 try:
                     print("Solving for policy...")
                     policy = self.solve(task, timeout=CFG.timeout)
@@ -81,7 +77,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                     continue
             else:  # No policy found
                 raise ApproachFailure("Failed to sample a task that approach "
-                                      "can solve.")
+                                      "can solve.")  # pragma: no cover
             # Roll out policy
             action_traj, _, _ = utils.run_policy_on_task(
                                     policy, task, self._simulator,
@@ -95,7 +91,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 # Pick a state from the new states explored
                 for s in self._get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
-                    ground_atoms = utils.all_ground_atoms(
+                    ground_atoms = utils.all_possible_ground_atoms(
                                             s, self._get_current_predicates())
                     idx = self._rng.choice(len(ground_atoms))
                     random_atom = ground_atoms[idx]
@@ -104,13 +100,14 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                         self._ground_atom_dataset.append([{random_atom}])
                         # Add corresponding "action trajectory" to dataset
                         self._dataset.append(([s], []))
+                    # Still need to implement a way to use negative examples
                 # Relearn predicates and operators
-                self._semi_supervised_learning(self._dataset)
+                self._relearn_predicates_and_operators()
                 # Reset trajectories list
                 new_trajectories = []
 
 
-    def _semi_supervised_learning(self, dataset: Dataset) -> None:
+    def _relearn_predicates_and_operators(self) -> None:
         """Learns predicates and operators in a semi-supervised fashion.
         """
         print("\nStarting semi-supervised learning...")
@@ -162,7 +159,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn operators via superclass
-        self._learn_operators(dataset)
+        self._learn_operators(self._dataset)
 
 
     def _get_states_to_ask(self,
@@ -258,7 +255,7 @@ def glib_sample(initial_state: State,
     print("Sampling a task using GLIB approach...")
     assert CFG.interactive_atom_type_babbled == "ground"
     rng = np.random.default_rng(CFG.seed)
-    ground_atoms = utils.all_ground_atoms(initial_state, predicates)
+    ground_atoms = utils.all_possible_ground_atoms(initial_state, predicates)
     goals = []  # list of (goal, score) tuples
     for _ in range(CFG.interactive_num_babbles):
         # Sample num atoms to babble
