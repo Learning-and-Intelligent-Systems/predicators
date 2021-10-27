@@ -75,6 +75,10 @@ def learn_operators_for_option(option: ParameterizedOption,
     for i, part_transitions in enumerate(partitioned_transitions):
         if len(part_transitions) < CFG.min_data_for_operator:
             continue
+        if not add_effects[i] and not delete_effects[i]:
+            # Don't learn any operators for empty effects, since they're
+            # not useful for planning or predicate invention.
+            continue
         # Learn preconditions
         variables, preconditions = \
             _learn_preconditions(option_vars[i], add_effects[i],
