@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+import argparse
 import functools
 import itertools
 import os
@@ -13,6 +14,7 @@ import heapq as hq
 import imageio
 import matplotlib
 import numpy as np
+from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
@@ -699,6 +701,15 @@ def save_video(outfile: str, video: Video) -> None:
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG.
     """
+    # Only override attributes, don't create new ones
+    allowed_args = set(CFG.__dict__)
+    parser = create_arg_parser()
+    # Unfortunately, can't figure out any other way to do this
+    for parser_action in parser._actions:  # pylint: disable=protected-access
+        allowed_args.add(parser_action.dest)
+    for k in args:
+        if k not in allowed_args:
+            raise ValueError(f"Unrecognized arg: {k}")
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
@@ -708,3 +719,39 @@ def get_config_path_str() -> str:
     """Create a filename prefix based on the current CFG.
     """
     return f"{CFG.env}__{CFG.approach}__{CFG.seed}"
+
+
+def parse_args() -> Dict[str, Any]:
+    """Parses command line arguments.
+    """
+    parser = create_arg_parser()
+    args, overrides = parser.parse_known_args()
+    print_args(args)
+    arg_dict = vars(args)
+    if len(overrides) == 0:
+        return arg_dict
+    # Update initial settings to make sure we're overriding
+    # existing flags only
+    update_config(arg_dict)
+    # Override global settings
+    assert len(overrides) >= 2
+    assert len(overrides) % 2 == 0
+    for flag, value in zip(overrides[:-1:2], overrides[1::2]):
+        assert flag.startswith("--")
+        setting_name = flag[2:]
+        if setting_name not in CFG.__dict__:
+            raise ValueError(f"Unrecognized flag: {setting_name}")
+        if value.isdigit():
+            value = eval(value)
+        arg_dict[setting_name] = value
+    return arg_dict
+
+
+def print_args(args: argparse.Namespace) -> None:
+    """Print all info for this experiment.
+    """
+    print(f"Seed: {args.seed}")
+    print(f"Env: {args.env}")
+    print(f"Approach: {args.approach}")
+    print(f"Timeout: {args.timeout}")
+    print()
