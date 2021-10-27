@@ -19,6 +19,7 @@ from gym.spaces import Box
 try:
     import bddl
     import igibson
+    import pybullet as p
     from igibson.envs import behavior_env
     from igibson.objects.articulated_object import URDFObject
     from igibson.object_states.on_floor import RoomFloor
@@ -26,6 +27,8 @@ try:
         save_internal_states, load_internal_states
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
+    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS, get_base_difference_fn
+    from igibson.utils.behavior_robot_planning_utils import plan_base_motion_br
     from bddl.condition_evaluation import get_predicate_for_token    
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")
@@ -72,8 +75,10 @@ class BehaviorEnv(BaseEnv):
             config_file=config_file,
             mode=CFG.behavior_mode,
             action_timestep=CFG.behavior_action_timestep,
-            physics_timestep=CFG.behavior_physics_timestep
+            physics_timestep=CFG.behavior_physics_timestep,
+            action_filter="mobile_manipulation",
         )
+        self._env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type = {}
         super().__init__()
 
@@ -81,7 +86,25 @@ class BehaviorEnv(BaseEnv):
         assert state.simulator_state is not None
         # TODO test that this works as expected
         load_internal_states(self._env.simulator, state.simulator_state)
-        self._env.step(action.arr)
+
+        a = action.arr
+
+        # TEMPORARY TESTING
+        if not hasattr(self, "_temp_plan"):
+            obj = sorted(state)[2]
+            ig_obj = self._object_to_ig_object(obj)
+            print("ATTEMPTING TO NAVIGATE TO ", obj, ig_obj)
+            self._temp_plan, _ = navigate_to_obj_pos(self._env, ig_obj,
+                np.array([-0.6, 0.6]))
+            print("FOUND PLAN:", self._temp_plan.shape)
+            print("PLAN:", self._temp_plan)
+            import ipdb; ipdb.set_trace()
+            self._temp_plan = list(self._temp_plan.T)
+        a = self._temp_plan.pop(0)
+        print("STEPPING ACTION:", a)
+        # END TEMPORARY TESTING
+
+        self._env.step(a)
         next_state = self._current_ig_state_to_state()
         return next_state
 
@@ -192,7 +215,8 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # 11-dimensional, between -1 and 1
+        # 17-dimensional, between -1 and 1
+        assert self._env.action_space.shape == (17,)
         return self._env.action_space
 
     def render(self, state: State, task: Task,
@@ -351,3 +375,139 @@ def _bddl_predicate_arity(bddl_predicate):
 def _create_type_combo_name(original_name, type_combo):
     type_names = "-".join(t.name for t in type_combo)
     return f"{original_name}-{type_names}"
+
+
+### Option definitions ###
+
+def get_body_ids(env, include_self=False):
+    ids = []
+    for object in env.scene.get_objects():
+        if isinstance(object, URDFObject):
+            ids.extend(object.body_ids)
+
+    if include_self:
+        ids.append(env.robots[0].parts["left_hand"].get_body_id())
+        ids.append(env.robots[0].parts["body"].get_body_id())
+
+    return ids
+
+
+def detect_collision(bodyA, object_in_hand=None):
+    collision = False
+    for body_id in range(p.getNumBodies()):
+        if body_id == bodyA or body_id == object_in_hand:
+            continue
+        closest_points = p.getClosestPoints(bodyA, body_id, distance=0.01)
+        if len(closest_points) > 0:
+            collision = True
+            break
+    return collision
+
+
+def detect_robot_collision(robot):
+    object_in_hand = robot.parts["right_hand"].object_in_hand
+    return (
+        detect_collision(robot.parts["body"].body_id)
+        or detect_collision(robot.parts["left_hand"].body_id)
+        or detect_collision(robot.parts["right_hand"].body_id, object_in_hand)
+    )
+
+
+def sample_fn(env):
+    random_point = env.scene.get_random_point()
+    x, y = random_point[1][:2]
+    theta = np.random.uniform(*CIRCULAR_LIMITS)
+    return (x, y, theta)
+
+
+def navigate_to_obj_pos(env, obj, pos_offset):
+    """
+    Parameterized controller for navigation.
+    Runs motion planning to find a feasible trajectory to a certain x,y position offset from obj 
+    and selects an orientation such that the robot is facing the object. If the navigation is infeasible,
+    returns an indication to this effect.
+
+    :param obj: an object to navigate toward
+    :param to_pos: a length-2 numpy array (x, y) containing a position to navigate to
+
+    :return: ret_actions: an np.array of shape (17,n), where, n is the number of low-level 
+        action commands the controller has commanded in order to get to pos_offset.
+    :return: exec_status: a boolean indicating the execution status.
+    """
+
+    # test agent positions around an obj
+    # try to place the agent near the object, and rotate it to the object
+    valid_position = None  # ((x,y,z),(roll, pitch, yaw))
+    original_position = env.robots[0].get_position()
+    original_orientation = env.robots[0].get_orientation()
+    base_diff_fn = get_base_difference_fn()
+
+    if isinstance(obj, URDFObject): # must be a URDFObject so we can get its position!
+        obj_pos = obj.get_position()
+        pos = [pos_offset[0] + obj_pos[0], pos_offset[1] + obj_pos[1], env.robots[0].initial_z_offset] 
+        yaw_angle = np.arctan2(pos_offset[1], pos_offset[0])
+        orn = [0, 0, yaw_angle]
+        env.robots[0].set_position_orientation(pos, p.getQuaternionFromEuler(orn))
+        print(pos)
+        print(p.getQuaternionFromEuler(orn))
+        eye_pos = env.robots[0].parts["eye"].get_position()
+        ray_test_res = p.rayTest(eye_pos, obj_pos)
+        # Test to see if the robot is obstructed by some object, but make sure that object 
+        # is not either the robot's body or the object we want to pick up!
+        blocked = len(ray_test_res) > 0 and (ray_test_res[0][0] not in (env.robots[0].parts["body"].get_body_id(), obj.get_body_id()))
+        if not detect_robot_collision(env.robots[0]) and not blocked:
+            valid_position = (pos, orn)
+    else:
+        print("ERROR! Object to navigate to is not valid (not an instance of URDFObject).")
+        env.robots[0].set_position_orientation(original_position, original_orientation)
+        return np.zeros((17,1)), False
+
+    if valid_position is not None:
+        env.robots[0].set_position_orientation(original_position, original_orientation)
+        plan = plan_base_motion_br(
+            robot=env.robots[0],
+            end_conf=[valid_position[0][0], valid_position[0][1], valid_position[1][2]],
+            base_limits=(),
+            obstacles=get_body_ids(env),
+            override_sample_fn=lambda : sample_fn(env),
+        )
+
+        plan_num_steps = len(plan)
+        ret_actions = np.zeros((17, plan_num_steps - 1))
+        plan_arr = np.array(plan)
+
+        for i in range(1, plan_num_steps):
+            # First compute the delta x,y and rotation in the world frame
+            curr_delta_xyrot_W = base_diff_fn(plan_arr[i, :], plan_arr[i-1, :])
+            curr_delta_xy_W = curr_delta_xyrot_W[0:2]
+            curr_delta_rot_W = curr_delta_xyrot_W[2]
+            curr_delta_xyz_W = np.array([curr_delta_xy_W[0], curr_delta_xy_W[1], 0.0])
+            curr_delta_quat_W = p.getQuaternionFromEuler(np.array([0.0, 0.0, curr_delta_rot_W]))
+            
+            # Next, grab the current position and orientation in the world frame
+            curr_xyz_W = np.array([plan_arr[i-1,0], plan_arr[i-1,1], env.robots[0].initial_z_offset])
+            curr_rot_W = plan_arr[i-1,2]
+            curr_quat_W = p.getQuaternionFromEuler(np.array([original_orientation[0], original_orientation[1], curr_rot_W]))
+
+            # Use these to compute the delta pose in the frame of the current pose
+            curr_xyz_O, curr_quat_O = p.invertTransform(curr_xyz_W, curr_quat_W) # Invert the current position in the world frame
+            curr_xyrot_O = np.array([curr_xyz_O[0], curr_xyz_O[1], p.getEulerFromQuaternion(curr_quat_O)[2]]) # Turn this into x,y,z_rot
+            # Multiplying the current pose inverse just computed by the delta pose in the world frame computed above gives 
+            # the new pose in the object frame
+            new_xyz_O, curr_delta_quat_O = p.multiplyTransforms(curr_xyz_O, curr_quat_O, curr_delta_xyz_W, curr_delta_quat_W)
+            new_rot_O = p.getEulerFromQuaternion(curr_delta_quat_O)
+            # Get the velocity in the object frame by subtracting this new pose from the old one
+            delta_xyzrot_O = base_diff_fn(np.array([new_xyz_O[0], new_xyz_O[1], new_rot_O[2]]), curr_xyrot_O)
+            
+            # Finally, use this delta pose to compute the action (x,y,z_rot) to be returned 
+            ret_actions[0:3, i-1] = delta_xyzrot_O
+
+        env.robots[0].set_position_orientation(original_position, original_orientation)        
+        return ret_actions, True
+        
+    else:
+        print("Position commanded is in collision!")
+        env.robots[0].set_position_orientation(original_position, original_orientation)
+        return np.zeros((17, 1)), False
+
+### End option definitions ###
