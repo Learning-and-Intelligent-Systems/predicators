@@ -1,6 +1,7 @@
 """Tests for operator learning.
 """
 
+import time
 from gym.spaces import Box
 import numpy as np
 from predicators.src.operator_learning import \
@@ -39,7 +40,7 @@ def test_operator_learning_specific_operators():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [([state1, next_state1], [action1])]
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 1
     op = ops.pop()
     assert str(op) == """dummy0:
@@ -71,7 +72,7 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 1
     op = ops.pop()
     assert str(op) == """dummy0:
@@ -107,7 +108,7 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     expected = {"dummy0": """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
@@ -146,7 +147,7 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     expected = {"dummy0": """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
@@ -165,13 +166,13 @@ def test_operator_learning_specific_operators():
         assert str(op) == expected[op.name]
     # Test minimum number of examples parameter
     utils.update_config({"min_data_for_operator": 3})
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 0
     # Test sampler giving out-of-bounds outputs
     utils.update_config({"min_data_for_operator": 0, "seed": 123,
                          "classifier_max_itr": 1,
                          "regressor_max_itr": 1})
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     for op in ops:
         for _ in range(10):
@@ -179,8 +180,8 @@ def test_operator_learning_specific_operators():
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # Test max_rejection_sampling_tries = 0
-    utils.update_config({"max_rejection_sampling_tries": 0, "seed": 123})
-    ops = learn_operators_from_data(dataset, preds)
+    utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
     for op in ops:
         for _ in range(10):
@@ -188,12 +189,15 @@ def test_operator_learning_specific_operators():
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # Test do_sampler_learning = False
-    utils.update_config({"do_sampler_learning": False, "seed": 123})
-    ops = learn_operators_from_data(dataset, preds)
+    utils.update_config({"seed": 123, "classifier_max_itr": 100000,
+                         "regressor_max_itr": 100000})
+    start_time = time.time()
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
+    assert time.time()-start_time < 0.1  # should be lightning fast
     assert len(ops) == 2
     for op in ops:
         for _ in range(10):
-            # Will just return random parameters, hard to test
+            # Will just return random parameters
             assert option1.parent.params_space.contains(
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
@@ -207,7 +211,6 @@ def test_operator_learning_specific_operators():
     # Option 1: A(y, z)
     # Add set 2: P(a, b)
     # Option 2: A(c, d)
-    utils.update_config({"do_sampler_learning": True})
     pred0 = Predicate("Pred0", [cup_type, cup_type],
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
@@ -237,7 +240,7 @@ def test_operator_learning_specific_operators():
     next_state4 = State({cup4: [0.8], cup5: [0.1], cup2: [0.5], cup3: [0.5]})
     dataset = [([state3, next_state3], [action3]),
                ([state4, next_state4], [action4])]
-    ops = learn_operators_from_data(dataset, preds)
+    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
     assert len(ops) == 2
 
 
@@ -266,7 +269,8 @@ def test_create_sampler_data():
     next_atoms = utils.abstract(next_state, predicates)
     add_effects = next_atoms - atoms
     delete_effects = atoms - next_atoms
-    transition1 = (state, atoms, option, add_effects, delete_effects)
+    transition1 = (state, next_state, atoms, option, next_atoms,
+                   add_effects, delete_effects)
 
     # Transition 2: does nothing
     state = State({cup0: [0.4]})
@@ -277,7 +281,8 @@ def test_create_sampler_data():
     next_atoms = utils.abstract(next_state, predicates)
     add_effects = next_atoms - atoms
     delete_effects = atoms - next_atoms
-    transition2 = (state, atoms, option, add_effects, delete_effects)
+    transition2 = (state, next_state, atoms, option, next_atoms,
+                   add_effects, delete_effects)
 
     transitions = [[(transition1, {cup0: var_cup0})],
                    [(transition2, {})]]

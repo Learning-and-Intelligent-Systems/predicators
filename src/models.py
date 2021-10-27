@@ -2,8 +2,9 @@
 """
 
 import os
+from dataclasses import dataclass
 import tempfile
-from typing import List, Tuple
+from typing import Sequence, List, Tuple
 from scipy.stats import truncnorm
 import torch
 from torch import nn
@@ -11,7 +12,7 @@ from torch import optim
 from torch import Tensor
 import torch.nn.functional as F
 import numpy as np
-from predicators.src.structs import Array
+from predicators.src.structs import Array, Object, State
 from predicators.src.settings import CFG
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
@@ -278,3 +279,18 @@ class MLPClassifier(nn.Module):
         yhat = self(X)
         loss = loss_fn(yhat, y)
         print(f"Loaded best model with loss: {loss:.5f}")
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class LearnedPredicateClassifier:
+    """A convenience class for holding the model underlying a learned predicate.
+    Prefer to use this because it is pickleable.
+    """
+    _model: MLPClassifier
+
+    def classifier(self, state: State, objects: Sequence[Object]) -> bool:
+        """The classifier corresponding to the given model. May be used
+        as the _classifier field in a Predicate.
+        """
+        v = state.vec(objects)
+        return self._model.classify(v)

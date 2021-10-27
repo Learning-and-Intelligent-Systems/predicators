@@ -44,6 +44,13 @@ class BaseEnv:
 
     @property
     @abc.abstractmethod
+    def goal_predicates(self) -> Set[Predicate]:
+        """Get the subset of self.predicates that are used in goals.
+        """
+        raise NotImplementedError("Override me!")
+
+    @property
+    @abc.abstractmethod
     def types(self) -> Set[Type]:
         """Get the set of types that are given with this environment.
         """
@@ -66,8 +73,8 @@ class BaseEnv:
 
     @abc.abstractmethod
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
-        """Render a state and action into an image.
+               action: Optional[Action] = None) -> List[Image]:
+        """Render a state and action into a list of images.
         """
         raise NotImplementedError("Override me!")
 
