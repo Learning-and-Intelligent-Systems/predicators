@@ -254,8 +254,8 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             operator = Operator(f"{option.name}-{next(op_name_count)}",
                                 parameters, preconditions, add_effects,
                                 delete_effects, option, option_vars,
-                                # TODO: create sampler
-                                lambda s, r, o: np.array([], dtype=np.float32))
+                                # TODO: create real sampler
+                                lambda s, r, o: np.array([-0.6, 0.6]))
             operators.add(operator)
 
             # Navigate to while nextto something
@@ -271,8 +271,8 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                 operator = Operator(f"{option.name}-{next(op_name_count)}",
                                     parameters, preconditions, add_effects,
                                     delete_effects, option, option_vars,
-                                    # TODO: create sampler
-                                    lambda s, r, o: np.array([], dtype=np.float32))
+                                    # TODO: create real sampler
+                                    lambda s, r, o: np.array([-0.6, 0.6]))
                 operators.add(operator)
 
         elif base_option_name == "Pick":
@@ -297,7 +297,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                                     parameters, preconditions, add_effects,
                                     delete_effects, option, option_vars,
                                     # TODO: create sampler
-                                    lambda s, r, o: np.array([], dtype=np.float32))
+                                    lambda s, r, o: np.zeros((0,)))
                 operators.add(operator)
 
         elif base_option_name == "PlaceOnTop":
@@ -322,7 +322,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                                 parameters, preconditions, add_effects,
                                 delete_effects, option, option_vars,
                                 # TODO: create sampler
-                                lambda s, r, o: np.array([], dtype=np.float32))
+                                lambda s, r, o: np.zeros((0,)))
             operators.add(operator)
         
         else:
