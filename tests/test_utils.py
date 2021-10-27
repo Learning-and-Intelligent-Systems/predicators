@@ -775,3 +775,10 @@ def test_get_config_path_str():
     })
     s = utils.get_config_path_str()
     assert s == "dummyenv__dummyapproach__321"
+
+
+def test_update_config():
+    """Tests for update_config().
+    """
+    with pytest.raises(ValueError):
+        utils.update_config({"not a real setting name": 0})

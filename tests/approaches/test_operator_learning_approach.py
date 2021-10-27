@@ -14,8 +14,8 @@ def _test_approach(approach_name):
     """
     utils.update_config({"env": "cover", "approach": approach_name,
                          "timeout": 10, "max_samples_per_step": 10,
-                         "seed": 12345, "classifier_max_itr": 500,
-                         "regressor_max_itr": 500})
+                         "seed": 12345, "regressor_max_itr": 500,
+                         "classifier_max_itr_sampler": 500})
     env = CoverEnv()
     approach = create_approach(approach_name,
         env.simulate, env.predicates, env.options, env.types,
