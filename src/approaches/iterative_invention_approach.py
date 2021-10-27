@@ -45,12 +45,12 @@ class IterativeInventionApproach(OperatorLearningApproach):
                 # No new invention for any operator, terminate.
                 print("\tFound no new predicates, terminating invention\n")
                 break
-            # Add the new predicate to our set. Also add the negation.
+            # Add the new predicate and its negation to our predicate set.
             neg_new_predicate = new_predicate.get_negation()
             self._learned_predicates.add(new_predicate)
             self._learned_predicates.add(neg_new_predicate)
             self._num_inventions += 1
-            # Add the new predicate to all the transitions.
+            # Add the new predicate and its negation to all the transitions.
             for transitions in transitions_by_option.values():
                 for i, (state, next_state, atoms, option, next_atoms,
                         _, _) in enumerate(transitions):
