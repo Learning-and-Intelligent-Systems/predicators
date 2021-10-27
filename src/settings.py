@@ -146,7 +146,7 @@ class GlobalSettings:
                 "trivial_learning": 10,
                 "operator_learning": 10,
                 "interactive_learning": 10,
-                "iterative_invention": 100,
+                "iterative_invention": 500,
             })[args["approach"]],
         )
 
