@@ -2,8 +2,7 @@
 """
 
 from predicators.src.envs import create_env
-from predicators.src.approaches import create_approach, \
-    ApproachTimeout, ApproachFailure
+from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
 from predicators.src.settings import CFG
 from predicators.src import utils
