@@ -9,7 +9,8 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-def _test_approach(env_name, approach_name, excluded_predicates=""):
+def _test_approach(env_name, approach_name, excluded_predicates="",
+                   try_solving=True):
     """Integration test for the given approach.
     """
     utils.update_config({"env": env_name, "approach": approach_name,
@@ -37,10 +38,8 @@ def _test_approach(env_name, approach_name, excluded_predicates=""):
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]
-    try:
+    if try_solving:
         approach.solve(task, timeout=CFG.timeout)
-    except (ApproachTimeout, ApproachFailure):  # pragma: no cover
-        pass
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading operators & predicates.
@@ -48,10 +47,8 @@ def _test_approach(env_name, approach_name, excluded_predicates=""):
         env.simulate, preds, env.options, env.types,
         env.action_space, env.get_train_tasks())
     approach2.load()
-    try:
+    if try_solving:
         approach2.solve(task, timeout=CFG.timeout)
-    except (ApproachTimeout, ApproachFailure):  # pragma: no cover
-        pass
 
 
 def test_operator_learning_approach():
@@ -65,3 +62,5 @@ def test_iterative_invention_approach():
     """
     _test_approach(env_name="blocks", approach_name="iterative_invention",
                    excluded_predicates="Holding")
+    _test_approach(env_name="cover", approach_name="iterative_invention",
+                   excluded_predicates="Holding", try_solving=False)
