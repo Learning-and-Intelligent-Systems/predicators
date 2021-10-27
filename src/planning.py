@@ -121,6 +121,10 @@ def _run_search(task: Task,
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, run low-level search.
             metrics["num_skeletons_optimized"] += 1
+            print("RUNNING LOW-LEVEL SEARCH FOR SKELETON:")
+            for i in node.skeleton:
+                print(i)
+            print()
             plan = _run_low_level_search(
                 task, simulator, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
@@ -184,7 +188,9 @@ def _run_low_level_search(
         operator = skeleton[cur_idx]
         # Ground the operator's ParameterizedOption into an _Option.
         # This invokes the operator's sampler.
+        print("SAMPLING FOR OPERATOR", operator)
         option = operator.sample_option(state, rng_sampler)
+        print("CREATED OPTION", option)
         options[cur_idx] = option
         try:
             option_traj_states, option_traj_acts = utils.option_to_trajectory(

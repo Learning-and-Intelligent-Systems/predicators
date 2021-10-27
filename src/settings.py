@@ -40,7 +40,7 @@ class GlobalSettings:
     # SeSamE parameters
     propagate_failures = True
     max_samples_per_step = 10
-    max_num_steps_option_rollout = 100
+    max_num_steps_option_rollout = 500
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
 
     # evaluation parameters

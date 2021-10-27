@@ -95,17 +95,17 @@ class BehaviorEnv(BaseEnv):
         a = action.arr
 
         # # TEMPORARY TESTING
-        if not hasattr(self, "_temp_option"):
-            obj = sorted(state)[2]
-            print("ATTEMPTING TO NAVIGATE TO ", obj)
-            options = sorted(self.options, key=lambda o: o.name)
-            nav = options[1]
-            assert nav.name == 'NavigateTo-book.n.02'
-            self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
-            print("CREATED OPTION:", self._temp_option)
-        action = self._temp_option.policy(state)
-        a = action.arr
-        print("STEPPING ACTION:", a)
+        # if not hasattr(self, "_temp_option"):
+        #     obj = sorted(state)[2]
+        #     print("ATTEMPTING TO NAVIGATE TO ", obj)
+        #     options = sorted(self.options, key=lambda o: o.name)
+        #     nav = options[1]
+        #     assert nav.name == 'NavigateTo-book.n.02'
+        #     self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
+        #     print("CREATED OPTION:", self._temp_option)
+        # action = self._temp_option.policy(state)
+        # a = action.arr
+        # print("STEPPING ACTION:", a)
         # # END TEMPORARY TESTING
 
         # # TEMPORARY TESTING
