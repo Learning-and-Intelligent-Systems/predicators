@@ -2,7 +2,7 @@
 """
 
 import sys
-from predicators.src.args import parse_args
+from predicators.src import utils
 
 
 def test_args():
@@ -10,7 +10,7 @@ def test_args():
     """
     sys.argv = ["dummy", "--env", "my_env", "--approach", "my_approach",
                 "--seed", "123"]
-    args = parse_args()
+    args = utils.parse_args()
     assert args["env"] == "my_env"
     assert args["approach"] == "my_approach"
     assert args["seed"] == 123
