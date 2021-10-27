@@ -63,6 +63,9 @@ class GlobalSettings:
     n_iter_no_change = 5000
     learning_rate = 1e-3
 
+    # iterative invention parameters
+    iterative_invention_accept_score = 1-1e-3
+
     # interactive learning parameters
     interactive_known_predicates = {'HandEmpty', 'Covers'}
     interactive_num_episodes = 3
@@ -143,7 +146,7 @@ class GlobalSettings:
                 "trivial_learning": 10,
                 "operator_learning": 10,
                 "interactive_learning": 10,
-                "iterative_invention": 10,
+                "iterative_invention": 500,
             })[args["approach"]],
         )
 
@@ -154,7 +157,8 @@ def get_save_path() -> str:
     """
     if not os.path.exists(CFG.save_dir):
         os.makedirs(CFG.save_dir)
-    return f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}.saved"
+    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
+            f"{CFG.excluded_predicates}.saved")
 
 
 _attr_to_value = {}
