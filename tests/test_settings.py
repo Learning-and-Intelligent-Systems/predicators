@@ -17,8 +17,15 @@ def test_settings():
     dirname = "_fake_tmp_save_dir"
     old_save_dir = CFG.save_dir
     utils.update_config({"env": "test_env", "approach": "test_approach",
-                         "seed": 123, "save_dir": dirname})
+                         "seed": 123, "save_dir": dirname,
+                         "excluded_predicates": "test_pred1,test_pred2"})
     save_path = get_save_path()
-    assert save_path == dirname + "/test_env___test_approach___123.saved"
+    assert save_path == dirname + ("/test_env___test_approach___123___"
+                                   "test_pred1,test_pred2.saved")
+    utils.update_config({"env": "test_env", "approach": "test_approach",
+                         "seed": 123, "save_dir": dirname,
+                         "excluded_predicates": ""})
+    save_path = get_save_path()
+    assert save_path == dirname + "/test_env___test_approach___123___.saved"
     os.rmdir(dirname)
     utils.update_config({"save_dir": old_save_dir})
