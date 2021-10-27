@@ -88,6 +88,10 @@ class IterativeInventionApproach(OperatorLearningApproach):
     def _invent_for_operator(self, operator: Operator,
                              transitions: List[Transition]
                              ) -> Optional[Predicate]:
+        if not operator.parameters:
+            # We can't learn 0-arity predicates since the vectorized
+            # states would be empty, i.e. the X matrix has no features.
+            return None
         opt_arg_pred = Predicate("OPT-ARGS", operator.option.types,
                                  _classifier=lambda s, o: False)  # dummy
         lifted_opt_atom = LiftedAtom(opt_arg_pred, operator.option_vars)
