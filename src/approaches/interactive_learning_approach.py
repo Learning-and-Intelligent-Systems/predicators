@@ -280,18 +280,3 @@ def score_goal(ground_atom_dataset: List[List[Set[GroundAtom]]],
         for ground_atom_set in trajectory:
             count += 1 if goal.issubset(ground_atom_set) else 0
     return 1.0 / count
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class _LearnedPredicateClassifier:
-    """A convenience class for holding the model underlying a learned predicate.
-    Prefer to use this because it is pickleable.
-    """
-    _model: MLPClassifier
-
-    def classifier(self, state: State, objects: Sequence[Object]) -> bool:
-        """The classifier corresponding to the given model. May be used
-        as the _classifier field in a Predicate.
-        """
-        v = state.vec(objects)
-        return self._model.classify(v)
