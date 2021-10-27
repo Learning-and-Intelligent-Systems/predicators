@@ -157,7 +157,7 @@ def get_save_path() -> str:
     """
     if not os.path.exists(CFG.save_dir):
         os.makedirs(CFG.save_dir)
-    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}__"
+    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
             f"{CFG.excluded_predicates}.saved")
 
 
