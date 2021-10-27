@@ -68,13 +68,16 @@ class IterativeInventionApproach(OperatorLearningApproach):
     def _invent_for_some_operator(self, transitions_by_option: DefaultDict[
             ParameterizedOption, List[Transition]]) -> Optional[Predicate]:
         # Iterate over parameterized options in a random order.
-        for param_option in self._rng.permutation(list(transitions_by_option)):
+        param_options = list(transitions_by_option)
+        for idx1 in self._rng.permutation(len(param_options)):
+            param_option = param_options[idx1]
             option_transitions = transitions_by_option[param_option]
             # Run operator learning.
             operators = learn_operators_for_option(
                 param_option, option_transitions, do_sampler_learning=False)
             # Iterate over operators in a random order.
-            for operator in self._rng.permutation(operators):
+            for idx2 in self._rng.permutation(len(operators)):
+                operator = operators[idx2]
                 new_predicate = self._invent_for_operator(
                     operator, option_transitions)
                 if new_predicate is not None:
@@ -154,7 +157,7 @@ class IterativeInventionApproach(OperatorLearningApproach):
                      [0 for _ in negative_data])
         model = MLPClassifier(X.shape[1])
         model.fit(X, Y)
-        score = sum([model.classify(x) for x in X] == Y) / len(Y)
+        score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
         if score < CFG.iterative_invention_accept_score:
             print(f"\t\tRejecting predicate with score: {score:.5f}")
             return None
