@@ -15,7 +15,7 @@ def test_operator_learning_specific_operators():
     """Tests with a specific desired set of operators.
     """
     utils.update_config({"min_data_for_operator": 0, "seed": 123,
-                         "classifier_max_itr": 1000,
+                         "classifier_max_itr_sampler": 1000,
                          "regressor_max_itr": 1000})
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
@@ -170,7 +170,7 @@ def test_operator_learning_specific_operators():
     assert len(ops) == 0
     # Test sampler giving out-of-bounds outputs
     utils.update_config({"min_data_for_operator": 0, "seed": 123,
-                         "classifier_max_itr": 1,
+                         "classifier_max_itr_sampler": 1,
                          "regressor_max_itr": 1})
     ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
     assert len(ops) == 2
@@ -189,7 +189,7 @@ def test_operator_learning_specific_operators():
                 op.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # Test do_sampler_learning = False
-    utils.update_config({"seed": 123, "classifier_max_itr": 100000,
+    utils.update_config({"seed": 123, "classifier_max_itr_sampler": 100000,
                          "regressor_max_itr": 100000})
     start_time = time.time()
     ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)

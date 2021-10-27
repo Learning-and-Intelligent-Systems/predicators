@@ -44,7 +44,7 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         traj_states = demo_dataset[traj_idx][0]
         # Sample a state
         state = traj_states[rng.choice(len(traj_states))]
-        # Sample an applicable operator
+        # Sample an operator
         ops = ground_operators[traj_idx]
         assert len(ops) > 0
         sampled_op = ops[rng.choice(len(ops))]
