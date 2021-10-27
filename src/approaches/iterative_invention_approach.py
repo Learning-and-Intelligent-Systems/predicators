@@ -159,7 +159,7 @@ class IterativeInventionApproach(OperatorLearningApproach):
         X = np.array(positive_data + negative_data)
         Y = np.array([1 for _ in positive_data] +
                      [0 for _ in negative_data])
-        model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_sampler)
+        model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
         model.fit(X, Y)
         score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
         if score < CFG.iterative_invention_accept_score:
