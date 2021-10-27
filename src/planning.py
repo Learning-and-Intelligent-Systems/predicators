@@ -38,7 +38,7 @@ class _Node:
 
 def sesame_plan(task: Task,
                 simulator: Callable[[State, Action], State],
-                current_operators: Set[Operator],
+                operators: Set[Operator],
                 initial_predicates: Set[Predicate],
                 timeout: float, seed: int,
                 check_dr_reachable: bool = True
@@ -47,13 +47,13 @@ def sesame_plan(task: Task,
     of metrics for this run of the planner. Uses the SeSamE strategy:
     SEarch-and-SAMple planning, then Execution.
     """
-    op_preds, _ = utils.extract_preds_and_types(current_operators)
+    op_preds, _ = utils.extract_preds_and_types(operators)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(op_preds.values())
     atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     ground_operators = []
-    for op in current_operators:
+    for op in operators:
         for ground_op in utils.all_ground_operators(op, objects):
             ground_operators.append(ground_op)
     ground_operators = utils.filter_static_operators(

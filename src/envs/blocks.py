@@ -52,24 +52,25 @@ class BlocksEnv(BaseEnv):
             "Clear", [self._block_type], self._Clear_holds)
         # Options
         self._Pick = ParameterizedOption(
-            # variables: [object to pick]
+            # variables: [robot, object to pick]
             # params: [delta x, delta y, delta z]
-            "Pick", types=[self._block_type],
+            "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Pick_policy,
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
         self._Stack = ParameterizedOption(
-            # variables: [object on which to stack currently-held-object]
+            # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z]
-            "Stack", types=[self._block_type],
+            "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Stack_policy,
             _initiable=self._Stack_initiable,
             _terminal=self._Stack_terminal)
         self._PutOnTable = ParameterizedOption(
+            # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
-            "PutOnTable", types=[],
+            "PutOnTable", types=[self._robot_type],
             params_space=Box(0, 1, (2,)),
             _policy=self._PutOnTable_policy,
             _initiable=self._PutOnTable_initiable,
@@ -390,7 +391,7 @@ class BlocksEnv(BaseEnv):
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
-        block, = objects
+        _, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
@@ -412,7 +413,7 @@ class BlocksEnv(BaseEnv):
 
     def _Stack_policy(self, state: State, objects: Sequence[Object],
                       params: Array) -> Action:
-        block, = objects
+        _, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])

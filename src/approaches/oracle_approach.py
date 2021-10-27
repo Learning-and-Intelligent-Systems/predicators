@@ -229,7 +229,7 @@ def _get_blocks_gt_ops() -> Set[Operator]:
     block = Variable("?block", block_type)
     robot = Variable("?robot", robot_type)
     parameters = [block, robot]
-    option_vars = [block]
+    option_vars = [robot, block]
     option = Pick
     preconditions = {LiftedAtom(OnTable, [block]),
                      LiftedAtom(Clear, [block]),
@@ -252,7 +252,7 @@ def _get_blocks_gt_ops() -> Set[Operator]:
     otherblock = Variable("?otherblock", block_type)
     robot = Variable("?robot", robot_type)
     parameters = [block, otherblock, robot]
-    option_vars = [block]
+    option_vars = [robot, block]
     option = Pick
     preconditions = {LiftedAtom(On, [block, otherblock]),
                      LiftedAtom(Clear, [block]),
@@ -272,7 +272,7 @@ def _get_blocks_gt_ops() -> Set[Operator]:
     otherblock = Variable("?otherblock", block_type)
     robot = Variable("?robot", robot_type)
     parameters = [block, otherblock, robot]
-    option_vars = [otherblock]
+    option_vars = [robot, otherblock]
     option = Stack
     preconditions = {LiftedAtom(Holding, [block]),
                      LiftedAtom(Clear, [otherblock])}
@@ -294,7 +294,7 @@ def _get_blocks_gt_ops() -> Set[Operator]:
     block = Variable("?block", block_type)
     robot = Variable("?robot", robot_type)
     parameters = [block, robot]
-    option_vars = []
+    option_vars = [robot]
     option = PutOnTable
     preconditions = {LiftedAtom(Holding, [block])}
     add_effects = {LiftedAtom(OnTable, [block]),
