@@ -424,12 +424,12 @@ def test_operator_methods():
 
 
 def test_ground_atom_methods():
-    """Tests for all_ground_predicates(), all_ground_atoms().
+    """Tests for all_ground_predicates(), all_possible_ground_atoms().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
-    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
-    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: False)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: False)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -447,7 +447,8 @@ def test_ground_atom_methods():
     ground_atoms = sorted(on_ground | not_on_ground)
     assert utils.all_ground_predicates(on, objects) == on_ground
     assert utils.all_ground_predicates(not_on, objects) == not_on_ground
-    assert utils.all_ground_atoms(state, {on, not_on}) == ground_atoms
+    assert utils.all_possible_ground_atoms(state, {on, not_on}) == ground_atoms
+    assert not utils.abstract(state, {on, not_on})
 
 
 def test_static_operator_filtering():
