@@ -198,5 +198,8 @@ class IterativeInventionApproach(OperatorLearningApproach):
                 best_pred = pred
                 best_params = params
                 best_score = score
+        # Note that we could get here with both best_params and best_pred
+        # being None, meaning that all predicates were rejected due to the
+        # accept_score threshold.
         print(f"\t\tChose parameters {best_params}")
         return best_pred
