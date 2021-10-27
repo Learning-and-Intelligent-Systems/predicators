@@ -44,12 +44,10 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         traj_states = demo_dataset[traj_idx][0]
         # Sample a state
         state = traj_states[rng.choice(len(traj_states))]
-        atoms = utils.abstract(state, env.predicates)
-        # Sample an applicable operator
-        applicable_ops = list(utils.get_applicable_operators(
-            ground_operators[traj_idx], atoms))
-        assert len(applicable_ops) > 0
-        sampled_op = applicable_ops[rng.choice(len(applicable_ops))]
+        # Sample an operator
+        ops = ground_operators[traj_idx]
+        assert len(ops) > 0
+        sampled_op = ops[rng.choice(len(ops))]
         # Sample a random option
         option = sampled_op.sample_option(state, rng)
         # Execute the option
