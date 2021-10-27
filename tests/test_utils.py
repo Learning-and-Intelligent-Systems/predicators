@@ -2,6 +2,7 @@
 """
 
 import os
+import time
 import pytest
 import numpy as np
 from gym.spaces import Box
@@ -141,6 +142,19 @@ def test_abstract():
     plate2 = plate_type("plate2")
     state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
     atoms = utils.abstract(state, {pred1, pred2})
+    with pytest.raises(AttributeError):
+        utils.wrap_atom_predicates_lifted(atoms, "TEST-PREFIX-G-")
+    wrapped = utils.wrap_atom_predicates_ground(atoms, "TEST-PREFIX-G-")
+    assert len(wrapped) == len(atoms)
+    for atom in wrapped:
+        assert atom.predicate.name.startswith("TEST-PREFIX-G-")
+    lifted_atoms = {pred1([cup_type("?cup"), plate_type("?plate")])}
+    with pytest.raises(AttributeError):
+        utils.wrap_atom_predicates_ground(lifted_atoms, "TEST-PREFIX-L-")
+    wrapped = utils.wrap_atom_predicates_lifted(lifted_atoms, "TEST-PREFIX-L-")
+    assert len(wrapped) == len(lifted_atoms)
+    for atom in wrapped:
+        assert atom.predicate.name.startswith("TEST-PREFIX-L-")
     assert len(atoms) == 3
     assert atoms == {pred1([cup, plate1]),
                      pred1([cup, plate2]),
@@ -255,6 +269,55 @@ def test_get_random_object_combination():
             {cup0}, [plate_type], rng)
 
 
+def test_get_all_groundings():
+    """Tests for get_all_groundings().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat2"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup_var = cup_type("?cup")
+    plate0 = plate_type("plate0")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    plate3 = plate_type("plate3")
+    plate_var1 = plate_type("?plate1")
+    plate_var2 = plate_type("?plate2")
+    plate_var3 = plate_type("?plate3")
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type, plate_type],
+                      lambda s, o: True)
+    lifted_atoms = frozenset({pred1([cup_var, plate_var1]),
+                              pred2([cup_var, plate_var1, plate_var2])})
+    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
+    start_time = time.time()
+    for _ in range(10000):
+        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
+    assert time.time()-start_time < 1, "Should be fast due to caching"
+    # For pred1, there are 12 groundings (3 cups * 4 plates).
+    # Pred2 adds on 3 options for plate_var2 (it can't be the same as
+    # plate_var1), bringing the total to 36.
+    assert len(all_groundings) == 36
+    for grounding, sub in all_groundings:
+        assert len(grounding) == len(lifted_atoms)
+        assert len(sub) == 3  # three variables
+    lifted_atoms = frozenset({pred1([cup_var, plate_var1]),
+                              pred2([cup_var, plate_var2, plate_var3])})
+    objs = frozenset({cup0, cup1, cup2, plate0, plate1, plate2, plate3})
+    start_time = time.time()
+    for _ in range(10000):
+        all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
+    assert time.time()-start_time < 1, "Should be fast due to caching"
+    # For pred1, there are 12 groundings (3 cups * 4 plates).
+    # Pred2 adds on 4*3 options (plate_var2 and plate_var3 can't be the same),
+    # bringing the total to 12*12.
+    assert len(all_groundings) == 12*12
+    for grounding, sub in all_groundings:
+        assert len(grounding) == len(lifted_atoms)
+        assert len(sub) == 4  # four variables
+
+
 def test_find_substitution():
     """Tests for find_substitution().
     """
@@ -366,7 +429,7 @@ def test_find_substitution():
     plate0 = plate_type("plate0")
     var3 = plate_type("?var3")
     pred4 = Predicate("Pred4", [plate_type], lambda s, o: True)
-    pred5 = Predicate("Pred5", [cup_type, plate_type], lambda s, o: True)
+    pred5 = Predicate("Pred5", [plate_type, cup_type], lambda s, o: True)
 
     kb12 = [pred4([plate0])]
     q12 = [pred0([var0])]

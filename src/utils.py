@@ -69,12 +69,42 @@ def unify(ground_atoms: FrozenSet[GroundAtom],
     return solved, rev_sub
 
 
+def wrap_atom_predicates_lifted(atoms: Collection[LiftedAtom],
+                                prefix: str) -> Set[LiftedAtom]:
+    """Return a new set of lifted atoms which adds the given prefix
+    string to the name of every predicate in atoms.
+    NOTE: the classifier is removed.
+    """
+    new_atoms = set()
+    for atom in atoms:
+        new_predicate = Predicate(prefix+atom.predicate.name,
+                                  atom.predicate.types,
+                                  _classifier=lambda s, o: False)  # dummy
+        new_atoms.add(LiftedAtom(new_predicate, atom.variables))
+    return new_atoms
+
+
+def wrap_atom_predicates_ground(atoms: Collection[GroundAtom],
+                                prefix: str) -> Set[GroundAtom]:
+    """Return a new set of ground atoms which adds the given prefix
+    string to the name of every predicate in atoms.
+    NOTE: the classifier is removed.
+    """
+    new_atoms = set()
+    for atom in atoms:
+        new_predicate = Predicate(prefix+atom.predicate.name,
+                                  atom.predicate.types,
+                                  _classifier=lambda s, o: False)  # dummy
+        new_atoms.add(GroundAtom(new_predicate, atom.objects))
+    return new_atoms
+
+
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate], max_steps: int,
                        make_video: bool = False,
-                       render: Optional[Callable[[State, Task,
-                                    Action], Image]] = None,
+                       render: Optional[
+                           Callable[[State, Task, Action], List[Image]]] = None,
                        ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
@@ -93,7 +123,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
             act = policy(state)
             if make_video:
                 assert render is not None
-                video.append(render(state, task, act))
+                video.extend(render(state, task, act))
             state = simulator(state, act)
             atoms = abstract(state, predicates)
             actions.append(act)
@@ -107,7 +137,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         # support Callables with optional arguments. mypy
         # extensions does, but for the sake of avoiding an
         # additional dependency, we'll just ignore this here.
-        video.append(render(state, task))  # type: ignore
+        video.extend(render(state, task))  # type: ignore
     return (states, actions), video, goal_reached
 
 
@@ -166,6 +196,40 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
             current_option = o
     new_states.append(states[-1])
     return new_states, options
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_groundings(atoms: FrozenSet[LiftedAtom],
+                       objects: FrozenSet[Object]
+                       ) -> List[Tuple[FrozenSet[GroundAtom], VarToObjSub]]:
+    """Get all the ways to ground the given set of lifted atoms into
+    a set of ground atoms, using the given objects. Returns a list
+    of (ground atoms, substitution dictionary) tuples.
+    """
+    variables = set()
+    for atom in atoms:
+        variables.update(atom.variables)
+    sorted_variables = sorted(variables)
+    types = [var.type for var in sorted_variables]
+    # NOTE: We WON'T use a generator here because that breaks lru_cache.
+    result = []
+    # Allow duplicate arguments here because this is across all atoms.
+    # We'll handle within-atom duplicates below.
+    for choice in get_object_combinations(
+            objects, types, allow_duplicates=True):
+        sub: VarToObjSub = dict(zip(sorted_variables, choice))
+        ground_atoms = set()
+        do_filter = False
+        for atom in atoms:
+            sub_for_atom = [sub[v] for v in atom.variables]
+            if len(sub_for_atom) != len(set(sub_for_atom)):
+                # Any individual atom can't have duplicate arguments.
+                do_filter = True
+            ground_atoms.add(atom.ground(sub))
+        if do_filter:
+            continue
+        result.append((frozenset(ground_atoms), sub))
+    return result
 
 
 def get_object_combinations(
@@ -606,8 +670,8 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
     """
     fig.set_dpi(dpi)
     fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_argb(),  # type: ignore
-                         dtype=np.uint8, sep='')
+    data = np.frombuffer(fig.canvas.tostring_argb(),  # type: ignore
+                         dtype=np.uint8).copy()
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
@@ -621,7 +685,7 @@ def save_video(outfile: str, video: Video) -> None:
         os.makedirs(outdir)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
-    print(f"Wrote out to {outpath}.")
+    print(f"Wrote out to {outpath}")
 
 
 def update_config(args: Dict[str, Any]) -> None:

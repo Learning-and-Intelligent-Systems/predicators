@@ -21,6 +21,8 @@ def test_cover():
             assert len(obj.type.feature_names) == len(task.init[obj])
     # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
     assert len(env.predicates) == 5
+    # Goal predicates should be {Covers}.
+    assert {pred.name for pred in env.goal_predicates} == {"Covers"}
     # Options should be {PickPlace}.
     assert len(env.options) == 1
     # Types should be {block, target, robot}

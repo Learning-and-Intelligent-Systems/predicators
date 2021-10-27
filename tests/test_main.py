@@ -35,6 +35,12 @@ def test_main():
     sys.argv = ["dummy", "--env", "cluttered_table", "--approach",
                 "random_actions", "--seed", "123"]
     main()
+    sys.argv = ["dummy", "--env", "blocks", "--approach",
+                "random_actions", "--seed", "123"]
+    main()
+    sys.argv = ["dummy", "--env", "blocks", "--approach",
+                "random_options", "--seed", "123"]
+    main()
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
     sys.argv = ["dummy", "--env", "cover", "--approach", "trivial_learning",
                 "--seed", "123", "--make_videos", "--num_test_tasks", "1",
@@ -50,3 +56,22 @@ def test_main():
                 "--seed", "2348393", "--load"]
     with pytest.raises(FileNotFoundError):
         main()
+    # Try predicate exclusion.
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "NotARealPredicate"]
+    with pytest.raises(AssertionError):
+        main()  # can't exclude a non-existent predicate
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "Covers"]
+    with pytest.raises(AssertionError):
+        main()  # can't exclude a goal predicate
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "Holding,HandEmpty"]
+    main()  # correct usage
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "HandEmpty"]
+    main()  # correct usage

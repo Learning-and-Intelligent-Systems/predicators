@@ -2,16 +2,15 @@
 """
 
 import itertools
-from dataclasses import dataclass
-from typing import Set, Callable, List, Collection, Sequence
+from typing import Set, Callable, List, Collection
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import OperatorLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, ActionTrajectory, Object
-from predicators.src.models import MLPClassifier
+    Type, Task, Action, Dataset, GroundAtom, ActionTrajectory
+from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG
 
@@ -153,7 +152,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it
-            classifier = _LearnedPredicateClassifier(model).classifier
+            classifier = LearnedPredicateClassifier(model).classifier
             new_pred = Predicate(pred.name, pred.types, classifier)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}

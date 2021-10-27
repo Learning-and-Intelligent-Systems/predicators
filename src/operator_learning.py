@@ -4,7 +4,8 @@
 import functools
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet, Callable, Dict
+from typing import Set, Tuple, List, Sequence, FrozenSet, Callable, Dict, Any, \
+    DefaultDict
 import numpy as np
 from predicators.src.structs import Dataset, Operator, GroundAtom, \
     ParameterizedOption, LiftedAtom, Variable, Predicate, ObjToVarSub, \
@@ -14,15 +15,37 @@ from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_operators_from_data(dataset: Dataset,
-                              predicates: Set[Predicate]
-                              ) -> Set[Operator]:
+def learn_operators_from_data(dataset: Dataset, predicates: Set[Predicate],
+                              do_sampler_learning: bool) -> Set[Operator]:
     """Learn operators from the given dataset of transitions.
-    States are parsed using the given set of predicates.
+    States are abstracted using the given set of predicates.
     """
     print(f"\nLearning operators on {len(dataset)} trajectories...")
 
-    # Set up data
+    transitions_by_option = generate_transitions(dataset, predicates)
+
+    operators = []
+    for param_option in transitions_by_option:
+        option_transitions = transitions_by_option[param_option]
+        option_ops = learn_operators_for_option(
+            param_option, option_transitions, do_sampler_learning)
+        operators.extend(option_ops)
+
+    print("\nLearned operators:")
+    for operator in operators:
+        print(operator)
+    print()
+
+    return set(operators)
+
+
+def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
+                         ) -> DefaultDict[
+                             ParameterizedOption, List[Transition]]:
+    """Given a dataset and predicates, go through the dataset and compute
+    the abstract states. Returns a dict mapping ParameterizedOptions to a
+    list of transitions.
+    """
     transitions_by_option = defaultdict(list)
     for act_traj in dataset:
         states, options = utils.action_to_option_trajectory(act_traj)
@@ -32,28 +55,18 @@ def learn_operators_from_data(dataset: Dataset,
             next_atoms = utils.abstract(states[i+1], predicates)
             add_effects = next_atoms - atoms
             delete_effects = atoms - next_atoms
-            transition = (states[i], atoms, option, add_effects, delete_effects)
+            transition = (states[i], states[i+1], atoms, option, next_atoms,
+                          add_effects, delete_effects)
             transitions_by_option[option.parent].append(transition)
-
-    # Learn operators
-    operators = []
-    for param_option in transitions_by_option:
-        option_transitions = transitions_by_option[param_option]
-        option_ops = _learn_operators_for_option(
-            param_option, option_transitions)
-        operators.extend(option_ops)
-
-    print("\n\nLearned operators:")
-    for operator in operators:
-        print(operator)
-    print()
-
-    return set(operators)
+    return transitions_by_option
 
 
-def _learn_operators_for_option(option: ParameterizedOption,
-                                transitions: List[Transition]
-                                ) -> List[Operator]:
+def learn_operators_for_option(option: ParameterizedOption,
+                               transitions: List[Transition],
+                               do_sampler_learning: bool,
+                               ) -> List[Operator]:
+    """Given an option and data for it, learn operators.
+    """
     # Partition the data by lifted effects
     option_vars, add_effects, delete_effects, \
         partitioned_transitions = _partition_transitions(transitions)
@@ -68,8 +81,8 @@ def _learn_operators_for_option(option: ParameterizedOption,
                                  delete_effects[i], part_transitions)
         operator_name = f"{option.name}{i}"
         # Learn sampler
-        print(f"\nLearning sampler for operator {operator_name}")
-        if CFG.do_sampler_learning and option.params_space.shape != (0,):
+        if do_sampler_learning and option.params_space.shape != (0,):
+            print(f"\nLearning sampler for operator {operator_name}")
             sampler = _learn_sampler(partitioned_transitions, variables,
                                      preconditions, add_effects[i],
                                      delete_effects[i], option, i)
@@ -96,8 +109,7 @@ def _partition_transitions(
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[List[Tuple[Transition, ObjToVarSub]]] = []
     for transition in transitions:
-        _, _, option, trans_add_effects, trans_delete_effects = \
-            transition
+        _, _, _, option, _, trans_add_effects, trans_delete_effects = transition
         trans_option_args = option.objects
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects
@@ -142,7 +154,7 @@ def  _learn_preconditions(option_vars: List[Variable],
         add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
         transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
             Sequence[Variable], Set[LiftedAtom]]:
-    for i, ((_, atoms, option, trans_add_effects,
+    for i, ((_, _, atoms, option, _, trans_add_effects,
              trans_delete_effects), _) in enumerate(transitions):
         suc, sub = _unify(
             frozenset(trans_add_effects),
@@ -181,52 +193,29 @@ def _unify(
         lifted_delete_effects: FrozenSet[LiftedAtom],
         lifted_option_args: Tuple[Variable, ...]
 ) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles split add and
-    delete effects. Changes predicate names so that delete effects are
-    treated differently than add effects by utils.unify().
-
-    Note: We could only change either add or delete predicate names,
-    but to avoid potential bugs we'll just change both.
+    """Wrapper around utils.unify() that handles option arguments, add effects,
+    and delete effects. Changes predicate names so that all are treated
+    differently by utils.unify().
     """
     opt_arg_pred = Predicate("OPT-ARGS",
                              [a.type for a in ground_option_args],
                              _classifier=lambda s, o: False)  # dummy
     f_ground_option_args = frozenset({GroundAtom(opt_arg_pred,
                                                  ground_option_args)})
-    new_ground_add_effects = set()
-    for ground_atom in ground_add_effects:
-        new_predicate = Predicate("ADD-"+ground_atom.predicate.name,
-                                  ground_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_ground_add_effects.add(GroundAtom(
-            new_predicate, ground_atom.objects))
+    new_ground_add_effects = utils.wrap_atom_predicates_ground(
+        ground_add_effects, "ADD-")
     f_new_ground_add_effects = frozenset(new_ground_add_effects)
-    new_ground_delete_effects = set()
-    for ground_atom in ground_delete_effects:
-        new_predicate = Predicate("DEL-"+ground_atom.predicate.name,
-                                  ground_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_ground_delete_effects.add(GroundAtom(
-            new_predicate, ground_atom.objects))
+    new_ground_delete_effects = utils.wrap_atom_predicates_ground(
+        ground_delete_effects, "DEL-")
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
 
     f_lifted_option_args = frozenset({LiftedAtom(opt_arg_pred,
                                                  lifted_option_args)})
-    new_lifted_add_effects = set()
-    for lifted_atom in lifted_add_effects:
-        new_predicate = Predicate("ADD-"+lifted_atom.predicate.name,
-                                  lifted_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_lifted_add_effects.add(LiftedAtom(
-            new_predicate, lifted_atom.variables))
+    new_lifted_add_effects = utils.wrap_atom_predicates_lifted(
+        lifted_add_effects, "ADD-")
     f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
-    new_lifted_delete_effects = set()
-    for lifted_atom in lifted_delete_effects:
-        new_predicate = Predicate("DEL-"+lifted_atom.predicate.name,
-                                  lifted_atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_lifted_delete_effects.add(LiftedAtom(
-            new_predicate, lifted_atom.variables))
+    new_lifted_delete_effects = utils.wrap_atom_predicates_lifted(
+        lifted_delete_effects, "DEL-")
     f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
     return utils.unify(
         f_ground_option_args | f_new_ground_add_effects | \
@@ -249,7 +238,7 @@ def _create_sampler_data(
     positive_data = []
     negative_data = []
     for idx, part_transitions in enumerate(transitions):
-        for ((state, _, option, trans_add_effects, trans_delete_effects),
+        for ((state, _, _, option, _, trans_add_effects, trans_delete_effects),
              obj_to_var) in part_transitions:
             assert option.parent == param_option
             var_types = [var.type for var in variables]
@@ -309,7 +298,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     X_classifier: List[List[Array]] = []
     for state, sub, option in positive_data + negative_data:
         # input is state features and option parameters
-        X_classifier.append([])
+        X_classifier.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_classifier[-1].extend(state[sub[var]])
         X_classifier[-1].extend(option.params)
@@ -327,7 +316,7 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     Y_regressor = []
     for state, sub, option in positive_data:  # don't use negative data!
         # input is state features
-        X_regressor.append([])
+        X_regressor.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
         # output is option parameters
@@ -357,7 +346,7 @@ class _LearnedSampler:
         """The sampler corresponding to the given models. May be used
         as the _sampler field in an Operator.
         """
-        x_lst : List[Array] = []
+        x_lst : List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])

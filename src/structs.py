@@ -164,6 +164,9 @@ class Predicate:
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
+        assert len(entities) == self.arity
+        for ent, pred_type in zip(entities, self.types):
+            assert ent.type == pred_type
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -199,6 +202,16 @@ class Predicate:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def get_negation(self) -> Predicate:
+        """Return a negated version of this predicate.
+        """
+        return Predicate("NOT-"+self.name, self.types, self._negated_classifier)
+
+    def _negated_classifier(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        # Separate this into a named function for pickling reasons.
+        return not self._classifier(state, objects)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -559,6 +572,6 @@ Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
-Transition = Tuple[State, Set[GroundAtom], _Option, Set[GroundAtom],
-                   Set[GroundAtom]]
+Transition = Tuple[State, State, Set[GroundAtom], _Option,
+                   Set[GroundAtom], Set[GroundAtom], Set[GroundAtom]]
 Metrics = DefaultDict[str, float]
