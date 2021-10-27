@@ -63,6 +63,9 @@ class GlobalSettings:
     n_iter_no_change = 5000
     learning_rate = 1e-3
 
+    # iterative invention parameters
+    iterative_invention_accept_score = 0.8
+
     # interactive learning parameters
     interactive_known_predicates = {'HandEmpty', 'Covers'}
     interactive_num_episodes = 3
