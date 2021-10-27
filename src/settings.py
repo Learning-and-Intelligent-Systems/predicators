@@ -79,6 +79,7 @@ class GlobalSettings:
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
+                "cover_augmented": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
             })[args["env"]],
@@ -87,6 +88,7 @@ class GlobalSettings:
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
+                "cover_augmented": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
             })[args["env"]],
@@ -96,6 +98,7 @@ class GlobalSettings:
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
                 "cover_typed": 10,
+                "cover_augmented": 10,
                 "cluttered_table": 25,
                 "blocks": 25,
             })[args["env"]],

@@ -320,3 +320,277 @@ class CoverEnvTypedOptions(CoverEnv):
         pick_pose = s.get(o[0], "pose") + p[0]
         pick_pose = min(max(pick_pose, 0.0), 1.0)
         return Action(np.array([pick_pose], dtype=np.float32))
+
+class AugmentedCoverEnv(BaseEnv):
+    """Toy cover domain.
+    """
+    def __init__(self) -> None:
+        super().__init__()
+        # Types
+        self._block_type = Type(
+            "block", ["is_block", "is_target", "width", "pose", "y", "grasped"])
+        self._target_type = Type(
+            "target", ["is_block", "is_target", "width", "pose"])
+        self._robot_type = Type("robot", ["gripper_x", "gripper_y", "grasp_active"])
+        # Predicates
+        self._IsBlock = Predicate(
+            "IsBlock", [self._block_type], self._IsBlock_holds)
+        self._IsTarget = Predicate(
+            "IsTarget", [self._target_type], self._IsTarget_holds)
+        self._Covers = Predicate(
+            "Covers", [self._block_type, self._target_type], self._Covers_holds)
+        self._HandEmpty = Predicate(
+            "HandEmpty", [], self._HandEmpty_holds)
+        self._Holding = Predicate(
+            "Holding", [self._block_type], self._Holding_holds)
+        # Options
+        self._Move = ParameterizedOption(
+            "Move",
+            types=[],
+            param_space=Box(low=np.array([0, 0, 0]), high=np.array([1, 1, 1])),
+            _policy=lambda s, o, p: self._move_policy
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True)  # always 1 timestep
+        )
+        self._Pick = ParameterizedOption(
+            "Pick",
+            types=[],
+            param_space=Box(low=np.array([0, 0, 0]), high=np.array([1, 1, 1])),
+            _policy=self._pick_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True)  # always 1 timestep
+        )
+        self._Place = ParameterizedOption(
+            "Place",
+            types=[],
+            param_space=Box(low=np.array([-1, -1, 0]), high=np.array([1, 1, 1])),
+            _policy=self._place_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True)  # always 1 timestep
+        )
+        # Objects
+        self._blocks = []
+        self._targets = []
+        for i in range(CFG.cover_num_blocks):
+            self._blocks.append(Object(f"block{i}", self._block_type))
+        for i in range(CFG.cover_num_targets):
+            self._targets.append(Object(f"target{i}", self._target_type))
+        self._robot = Object("robby", self._robot_type)
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        delta_x, delta_y, next_gripper_active = action.arr.item()
+        next_gripper_active = next_gripper_active >= 0.5
+        next_gripper_x = gripper_x + delta_x
+        next_gripper_y = gripper_y + delta_y
+        next_state = state.copy()
+        gripper_x = state.get(self._robot. "gripper_x")
+        gripper_y = state.get(self._robot. "gripper_y")
+        gripper_active = state.get(self._robot, "gripper_active")
+        if 0 <= (next_gripper_x) <= 1 and (next_gripper_y) >= 0:
+            next_state.set(self._robot, "gripper_x", next_gripper_x)
+            next_state.set(self._robot, "gripper_y", next_gripper_y)
+        else:
+            return next_state
+
+        # Identify which block we're holding and which block we're above based
+        # on the current state.
+        held_block = None
+        above_block = None
+        for block in self._blocks:
+            if state.get(block, "grasped") != 0:
+                assert held_block is None
+                assert state.get(self._robot, "gripper_active") == 1
+                held_block = block
+
+            block_lb = state.get(block, "pose")-state.get(block, "width")/2
+            block_ub = state.get(block, "pose")+state.get(block, "width")/2
+            if (state.get(block, "grasped") == 0) and (block_lb <= next_gripper_x <= block_ub):
+                assert above_block is None
+                above_block = block
+
+        if held_block is not None and above_block is not None:
+            assert gripper_active
+            # We moved somewhere while holding a block.
+            # There is a block under us.
+            # Not allowed to place a block on top of another block.
+            return next_state
+
+        elif held_block is None and above_block is None:
+            # We moved somewhere while not holding a block.
+            # There is no block under us.
+            # Allowed to set gripper configuration arbitrarily.
+            next_state.set(self._robot, "gripper_active", next_gripper_active)
+
+        elif held_block is not None and above_block is None:
+            # We moved somewhere while holding a block.
+            # There is no block directly under our gripper.
+            # Allowed to place this block down if the block fits.
+            assert gripper_active
+            block_x, block_y = state.get(held_block, "pose"), state.get(block, "y")
+            next_x = block_x + delta_x
+            next_y = block_y + delta_y
+            # We can only move if the block stays above the ground.
+            if next_y < 0:
+                # Revert change.
+                next_state.set(self._robot, "gripper_x", gripper_x)
+                next_state.set(self._robot, "gripper_y", gripper_y)
+            else:
+                # Disallow placing on another block, but allow placing in free space.
+                if not self._any_intersection(new_x, state.get(held_block, "width"), state.data, block_only=True):
+                    if not next_gripper_active:
+                        next_state.set(held_block, "y", 0)
+                        next_state.set(held_block, "grasped", 0)
+                        next_state.set(self._robot, "gripper_active", 0)
+
+        elif held_block is None and above_block is not None:
+            # We moved somewhere while not holding a block.
+            # There is a block under us.
+            # Allowed to grasp this block if we are close enough.
+            if new_gripper_y <= 0.5:
+                if new_gripper_active and not gripper_active:
+                    next_state.set(above_block, "grasped", 1)
+                    next_state.set(self._robot, "gripper_active", 1)
+
+        return next_state
+
+    def get_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks,
+                               rng=self._train_rng)
+
+    def get_test_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_test_tasks,
+                               rng=self._test_rng)
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {self._IsBlock, self._IsTarget, self._Covers,
+                self._HandEmpty, self._Holding}
+
+    @property
+    def types(self) -> Set[Type]:
+        return {self._block_type, self._target_type, self._robot_type}
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._Move, self._Pick, self._Place}
+
+    @property
+    def action_space(self) -> Box:
+        # same as option param space
+        return Box(low=np.array([-1, 1, 0]), high=np.array([1, 1, 1]))
+
+    def render(self, state: State, task: Task,
+               action: Optional[Action] = None) -> Image:
+        pass
+
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
+        for block in self._blocks:
+            hand_regions.append(
+                (state.get(block, "pose")-state.get(block, "width")/2,
+                 state.get(block, "pose")+state.get(block, "width")/2))
+        for targ in self._targets:
+            hand_regions.append(
+                (state.get(targ, "pose")-state.get(targ, "width")/10,
+                 state.get(targ, "pose")+state.get(targ, "width")/10))
+        return hand_regions
+
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
+        tasks = []
+        goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
+        goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
+        goal3 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]]),
+                 GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
+        goals = [goal1, goal2, goal3]
+        for i in range(num):
+            tasks.append(Task(self._create_initial_state(rng),
+                              goals[i%len(goals)]))
+        return tasks
+
+    def _create_initial_state(self, rng: np.random.Generator) -> State:
+        data: Dict[Object, Array] = {}
+        assert len(CFG.cover_block_widths) == len(self._blocks)
+        for block, width in zip(self._blocks, CFG.cover_block_widths):
+            while True:
+                pose = rng.uniform(width/2, 1.0-width/2)
+                if not self._any_intersection(pose, width, data):
+                    break
+            # [is_block, is_target, width, pose, grasped]
+            data[block] = np.array([1.0, 0.0, width, pose, 0])
+        assert len(CFG.cover_target_widths) == len(self._targets)
+        for target, width in zip(self._targets, CFG.cover_target_widths):
+            while True:
+                pose = rng.uniform(width/2, 1.0-width/2)
+                if not self._any_intersection(
+                        pose, width, data, larger_gap=True):
+                    break
+            # [is_block, is_target, width, pose]
+            data[target] = np.array([0.0, 1.0, width, pose])
+        # [gripper_pose, grasp_active]
+        data[self._robot] = np.array([0.0, 0.0])
+        return State(data)
+
+    @staticmethod
+    def _IsBlock_holds(state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        return block in state
+
+    @staticmethod
+    def _IsTarget_holds(state: State, objects: Sequence[Object]) -> bool:
+        target, = objects
+        return target in state
+
+    @staticmethod
+    def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
+        block, target = objects
+        block_pose = state.get(block, "pose")
+        block_width = state.get(block, "width")
+        target_pose = state.get(target, "pose")
+        target_width = state.get(target, "width")
+        return (block_pose-block_width/2 <= target_pose-target_width/2) and \
+               (block_pose+block_width/2 >= target_pose+target_width/2)
+
+    @staticmethod
+    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
+        assert not objects
+        for obj in state:
+            if obj.type.name == "block" and state.get(obj, "grasped") != -1:
+                return False
+        return True
+
+    @staticmethod
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        return state.get(block, "grasped") != -1
+
+    def _any_intersection(self, pose: float, width: float,
+                          data: Dict[Object, Array],
+                          block_only: bool=False,
+                          larger_gap: bool=False) -> bool:
+        mult = 1.5 if larger_gap else 0.5
+        for other in data:
+            if block_only and other not in self._blocks:
+                continue
+            other_feats = data[other]
+            distance = abs(other_feats[3]-pose)
+            if distance <= (width+other_feats[2])*mult:
+                return True
+        return False
+
+    @staticmethod
+    def _move_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # if gripper is open keep it open, if it is closed keep it closed
+        gripper_status = s.get(self._robot, "gripper_active")
+        delta_x, delta_y = p[0], p[1]
+        return Action(np.array([delta_x, delta_y, gripper_status], dtype=np.float32))
+
+    @staticmethod
+    def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # close the gripper
+        return Action(np.array([0, 0, 1], dtype=np.float32))
+
+    @staticmethod
+    def _place_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # open the gripper
+        return Action(np.array([0, 0, 0], dtype=np.float32))

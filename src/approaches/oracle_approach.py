@@ -34,6 +34,8 @@ def get_gt_ops(predicates: Set[Predicate],
         ops = _get_cover_gt_ops(options_are_typed=False)
     elif CFG.env == "cover_typed":
         ops = _get_cover_gt_ops(options_are_typed=True)
+    elif CFG.env == "augmented_cover":
+        ops = _get_cover_augmented_gt_ops()
     elif CFG.env == "cluttered_table":
         ops = _get_cluttered_table_gt_ops()
     elif CFG.env == "blocks":
@@ -162,6 +164,8 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
 
     return operators
 
+def _get_cover_augmented_gt_ops() -> Set[Operator]:
+    pass
 
 def _get_cluttered_table_gt_ops() -> Set[Operator]:
     """Create ground truth operators for ClutteredTableEnv.
