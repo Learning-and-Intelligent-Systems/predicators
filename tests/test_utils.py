@@ -162,6 +162,24 @@ def test_abstract():
                      pred2([cup, plate1, plate2])}
 
 
+def test_powerset():
+    """Tests for powerset().
+    """
+    lst = [3, 1, 2]
+    pwr = list(utils.powerset(lst, exclude_empty=False))
+    assert len(pwr) == len(set(pwr)) == 8
+    assert tuple(lst) in pwr
+    assert tuple() in pwr
+    pwr = list(utils.powerset(lst, exclude_empty=True))
+    assert len(pwr) == len(set(pwr)) == 7
+    assert tuple(lst) in pwr
+    assert tuple() not in pwr
+    for s in utils.powerset(lst, exclude_empty=False):
+        assert set(s).issubset(set(lst))
+    assert not list(utils.powerset([], exclude_empty=True))
+    assert list(utils.powerset([], exclude_empty=False)) == [tuple()]
+
+
 def test_unify():
     """Tests for unify().
     """
