@@ -40,6 +40,9 @@ from predicators.src.structs import Type, Predicate, State, Task, \
 from predicators.src.settings import CFG
 from predicators.src import utils
 
+# TODO: remove
+np.random.seed(0)
+
 
 # TODO move this to settings
 # Note that we also define custom predicates in the env
@@ -79,7 +82,9 @@ class BehaviorEnv(BaseEnv):
             action_filter="mobile_manipulation",
         )
         self._env.robots[0].initial_z_offset = 0.7
+
         self._type_name_to_type = {}
+
         super().__init__()
 
     def simulate(self, state: State, action: Action) -> State:
@@ -89,20 +94,34 @@ class BehaviorEnv(BaseEnv):
 
         a = action.arr
 
-        # TEMPORARY TESTING
-        if not hasattr(self, "_temp_plan"):
+        # # TEMPORARY TESTING
+        if not hasattr(self, "_temp_option"):
             obj = sorted(state)[2]
-            ig_obj = self._object_to_ig_object(obj)
-            print("ATTEMPTING TO NAVIGATE TO ", obj, ig_obj)
-            self._temp_plan, _ = navigate_to_obj_pos(self._env, ig_obj,
-                np.array([-0.6, 0.6]))
-            print("FOUND PLAN:", self._temp_plan.shape)
-            print("PLAN:", self._temp_plan)
-            import ipdb; ipdb.set_trace()
-            self._temp_plan = list(self._temp_plan.T)
-        a = self._temp_plan.pop(0)
+            print("ATTEMPTING TO NAVIGATE TO ", obj)
+            options = sorted(self.options, key=lambda o: o.name)
+            nav = options[1]
+            assert nav.name == 'NavigateTo-book.n.02'
+            self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
+            print("CREATED OPTION:", self._temp_option)
+        action = self._temp_option.policy(state)
+        a = action.arr
         print("STEPPING ACTION:", a)
-        # END TEMPORARY TESTING
+        # # END TEMPORARY TESTING
+
+        # # TEMPORARY TESTING
+        # if not hasattr(self, "_temp_plan"):
+        #     obj = sorted(state)[2]
+        #     ig_obj = self._object_to_ig_object(obj)
+        #     print("ATTEMPTING TO NAVIGATE TO ", obj, ig_obj)
+        #     self._temp_plan, _ = navigate_to_obj_pos(self._env, ig_obj,
+        #         np.array([-0.6, 0.6]))
+        #     print("FOUND PLAN:", self._temp_plan.shape)
+        #     print("PLAN:", self._temp_plan)
+        #     import ipdb; ipdb.set_trace()
+        #     self._temp_plan = list(self._temp_plan.T)
+        # a = self._temp_plan.pop(0)
+        # print("STEPPING ACTION:", a)
+        # # END TEMPORARY TESTING
 
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
@@ -188,26 +207,28 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        # TODO: integrate implementations from Nishanth & Willie
-        name_to_num_args = {
-            "NavigateTo": 1,
-            "Pick": 1,
-            "PlaceOnTop": 2,
-        }
+        # name, controller_fn, param_dim, arity
+        controllers = [
+            ("NavigateTo", navigate_to_obj_pos_controller, 2, 1),
+            ("Pick", pick_controller, 0, 1),
+            ("PlaceOnTop", place_on_top_controller, 0, 2),
+        ]
 
         options = set()
 
-        for name, num_args in name_to_num_args.items():
+        for name, controller_fn, param_dim, num_args in controllers:
             # Create a different option for each type combo
             for type_combo in itertools.product(self.types,
                                                 repeat=num_args):
                 option_name = _create_type_combo_name(name, type_combo)
+                controller = _StatefulController(controller_fn, self._env,
+                    self._object_to_ig_object)
                 option = ParameterizedOption(option_name,
                     types=list(type_combo),
-                    params_space=Box(0, 1, (0,)),  # placeholders
-                    _policy=lambda s, o, p: Action(self._env.action_space.sample()),
+                    params_space=Box(-1, 1, (param_dim,)),
+                    _policy=controller.get_action,
                     _initiable=lambda s, o, p: True,
-                    _terminal=lambda s, o, p: True)
+                    _terminal=controller.has_terminated)
 
                 options.add(option)
 
@@ -379,6 +400,32 @@ def _create_type_combo_name(original_name, type_combo):
 
 ### Option definitions ###
 
+class _StatefulController:
+    """Temporary glue for options and controllers.
+    """
+    def __init__(self, controller_fn, env, object_to_ig_object):
+        self._controller_fn = controller_fn
+        self._env = env
+        self._object_to_ig_object = object_to_ig_object
+        self._plan = None
+
+    def get_action(self, s, o, p):
+        if self._plan is None:
+            igo = [self._object_to_ig_object(i) for i in o]
+            # TODO: assert s is current state of self._env
+            plan, success = self._controller_fn(self._env, igo, p)
+            self._plan = list(plan.T)
+            if not success:
+                raise Exception("Failed to find a plan in controller.")
+            print("FOUND PLAN OF LEN:", len(self._plan))
+        assert len(self._plan) > 0
+        action = self._plan.pop(0)
+        return Action(action)
+
+    def has_terminated(self, s, o, p):
+        return len(self._plan) == 0
+
+
 def get_body_ids(env, include_self=False):
     ids = []
     for object in env.scene.get_objects():
@@ -416,11 +463,12 @@ def detect_robot_collision(robot):
 def sample_fn(env):
     random_point = env.scene.get_random_point()
     x, y = random_point[1][:2]
+    # TODO: unfortunate that this is not deterministic...
     theta = np.random.uniform(*CIRCULAR_LIMITS)
     return (x, y, theta)
 
 
-def navigate_to_obj_pos(env, obj, pos_offset):
+def navigate_to_obj_pos_controller(env, objs, pos_offset):
     """
     Parameterized controller for navigation.
     Runs motion planning to find a feasible trajectory to a certain x,y position offset from obj 
@@ -434,6 +482,8 @@ def navigate_to_obj_pos(env, obj, pos_offset):
         action commands the controller has commanded in order to get to pos_offset.
     :return: exec_status: a boolean indicating the execution status.
     """
+    assert len(objs) == 1
+    obj = objs[0]
 
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
@@ -509,5 +559,14 @@ def navigate_to_obj_pos(env, obj, pos_offset):
         print("Position commanded is in collision!")
         env.robots[0].set_position_orientation(original_position, original_orientation)
         return np.zeros((17, 1)), False
+
+def pick_controller(env, objs, params):
+    # TODO
+    return np.reshape(env.action_space.sample(), (17, 1)), True
+
+
+def place_on_top_controller(env, objs, params):
+    # TODO
+    return np.reshape(env.action_space.sample(), (17, 1)), True
 
 ### End option definitions ###
