@@ -335,6 +335,14 @@ def _substitution_consistent(
     return True
 
 
+def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
+    """Get an iterator over the powerset of the given sequence.
+    """
+    start = 1 if exclude_empty else 0
+    return itertools.chain.from_iterable(itertools.combinations(list(seq), r)
+                                         for r in range(start, len(seq)+1))
+
+
 def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
