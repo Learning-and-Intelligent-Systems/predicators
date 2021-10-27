@@ -55,7 +55,7 @@ class GlobalSettings:
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr_sampler = 10000
-    classifier_max_itr_predicate = 100
+    classifier_max_itr_predicate = 1000
     classifier_balance_data = True
     regressor_hid_sizes = [32, 32]
     regressor_max_itr = 10000
