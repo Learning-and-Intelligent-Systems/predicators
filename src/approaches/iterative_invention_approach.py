@@ -198,8 +198,5 @@ class IterativeInventionApproach(OperatorLearningApproach):
                 best_pred = pred
                 best_params = params
                 best_score = score
-        if best_pred is None:
-            print("\t\tAll predicates were rejected")
-            return None
         print(f"\t\tChose parameters {best_params}")
         return best_pred
