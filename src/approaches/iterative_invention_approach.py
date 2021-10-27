@@ -88,6 +88,11 @@ class IterativeInventionApproach(OperatorLearningApproach):
     def _invent_for_operator(self, operator: Operator,
                              transitions: List[Transition]
                              ) -> Optional[Predicate]:
+        """Go through the data, splitting it into positives and negatives
+        based on whether the operator correctly predicts each transition
+        or not. If there is any negative data, we have a classification
+        problem, which we solve to produce a new predicate.
+        """
         if not operator.parameters:
             # We can't learn 0-arity predicates since the vectorized
             # states would be empty, i.e. the X matrix has no features.
@@ -101,20 +106,23 @@ class IterativeInventionApproach(OperatorLearningApproach):
             operator.add_effects, "ADD-")
         operator_del_effs = utils.wrap_atom_predicates_lifted(
             operator.delete_effects, "DEL-")
+        lifteds = frozenset(operator_pre | operator_add_effs |
+                            operator_del_effs | {lifted_opt_atom})
         # Organize transitions by the set of objects that are in each one.
         transitions_by_objects = defaultdict(list)
         for transition in transitions:
             state, _, _, option, _, _, _ = transition
             assert operator.option == option.parent
-            objects = frozenset(list(state))
+            objects = frozenset(state)
             transitions_by_objects[objects].append(transition)
         del transitions
-        positive_data = []
-        negative_data = []
         # Figure out which transitions the operator makes wrong predictions on.
+        # Keep track of data for every subset of operator parameters, so that
+        # we can do pruning later.
+        data = {}
+        for params in utils.powerset(operator.parameters, exclude_empty=True):
+            data[params] = {"pos": [], "neg": []}
         for objects in transitions_by_objects:
-            lifteds = frozenset(operator_pre | operator_add_effs |
-                                operator_del_effs | {lifted_opt_atom})
             for grounding, sub in utils.get_all_groundings(lifteds, objects):
                 for (state, _, atoms, option, _, add_effs,
                      del_effs) in transitions_by_objects[objects]:
@@ -142,32 +150,54 @@ class IterativeInventionApproach(OperatorLearningApproach):
                                              operator_add_effs}
                     grounding_delete_effects = {atom.ground(sub) for atom in
                                                 operator_del_effs}
-                    predicate_objects = [sub[v] for v in operator.parameters]
-                    if trans_add_effs == grounding_add_effects and \
-                       trans_del_effs == grounding_delete_effects:
-                        positive_data.append(state.vec(predicate_objects))
-                    else:
-                        negative_data.append(state.vec(predicate_objects))
-        assert positive_data, "How was this operator learned...?"
-        if not negative_data:
+                    for params, params_data in data.items():
+                        predicate_objects = [sub[v] for v in params]
+                        vec = state.vec(predicate_objects)
+                        if trans_add_effs == grounding_add_effects and \
+                           trans_del_effs == grounding_delete_effects:
+                            params_data["pos"].append(vec)
+                        else:
+                            params_data["neg"].append(vec)
+        all_params = tuple(operator.parameters)
+        assert data[all_params]["pos"], "How was this operator learned...?"
+        if not data[all_params]["neg"]:
             print(f"\tNo wrong predictions for operator {operator.name}")
             return None
         print(f"\tFound a classification problem for operator {operator.name}")
-        print(f"\t\tData: {len(positive_data)} positives, "
-              f"{len(negative_data)} negatives")
-        # Fit MLP classifier and score predicate
-        X = np.array(positive_data + negative_data)
-        Y = np.array([1 for _ in positive_data] +
-                     [0 for _ in negative_data])
-        model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
-        model.fit(X, Y)
-        score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
-        if score < CFG.iterative_invention_accept_score:
-            print(f"\t\tRejecting predicate with score: {score:.5f}")
+        print(f"\t\tData: {len(data[all_params]['pos'])} positives, "
+              f"{len(data[all_params]['neg'])} negatives")
+        # For every subset of operator parameters, try to fit an MLP classifier.
+        # Score based on how well the classifier fits the data, regularized
+        # by the number of parameters in this subset.
+        best_pred = None
+        best_params = None
+        best_score = float("-inf")
+        for params, params_data in data.items():
+            X = np.array(params_data["pos"] + params_data["neg"])
+            Y = np.array([1 for _ in params_data["pos"]] +
+                         [0 for _ in params_data["neg"]])
+            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
+            model.fit(X, Y)
+            fit_score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
+            if fit_score < CFG.iterative_invention_accept_score:
+                print(f"\t\tFor parameters {params}, rejecting predicate due "
+                      f"to fit score: {fit_score:.5f}")
+                continue
+            score = fit_score - 0.1 * len(params)  # regularize
+            print(f"\t\tFor parameters {params}, got regularized score: "
+                  f"{score:.5f}")
+            # Construct classifier function & create new Predicate.
+            types = [param.type for param in params]
+            classifier = LearnedPredicateClassifier(model).classifier
+            pred = Predicate(f"InventedPredicate-{self._num_inventions}",
+                             types, classifier)
+            # Update bests.
+            if score > best_score:
+                best_pred = pred
+                best_params = params
+                best_score = score
+        if best_pred is None:
+            print("\t\tAll predicates were rejected")
             return None
-        print(f"\t\tAccepting predicate with score: {score:.5f}")
-        # Construct classifier function & create new Predicate
-        types = [param.type for param in operator.parameters]
-        classifier = LearnedPredicateClassifier(model).classifier
-        return Predicate(f"InventedPredicate-{self._num_inventions}",
-                         types, classifier)
+        print(f"\t\tChose parameters {best_params}")
+        return best_pred
