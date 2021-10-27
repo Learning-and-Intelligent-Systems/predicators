@@ -2,13 +2,15 @@
 """
 
 from collections import defaultdict
-from typing import Set, Callable, List, Optional, DefaultDict
+from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
+    Any
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import OperatorLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, Transition, Operator, LiftedAtom
+    Type, Task, Action, Dataset, GroundAtom, Transition, Operator, LiftedAtom, \
+    Array
 from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
 from predicators.src.operator_learning import generate_transitions, \
     learn_operators_for_option
@@ -119,7 +121,7 @@ class IterativeInventionApproach(OperatorLearningApproach):
         # Figure out which transitions the operator makes wrong predictions on.
         # Keep track of data for every subset of operator parameters, so that
         # we can do pruning later.
-        data = {}
+        data: Dict[Sequence[Any], Dict[str, List[Array]]] = {}
         for params in utils.powerset(operator.parameters, exclude_empty=True):
             data[params] = {"pos": [], "neg": []}
         for objects in transitions_by_objects:
