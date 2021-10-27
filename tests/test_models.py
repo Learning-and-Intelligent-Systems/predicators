@@ -3,6 +3,7 @@
 
 import numpy as np
 from predicators.src.models import NeuralGaussianRegressor, MLPClassifier
+from predicators.src.settings import CFG
 from predicators.src import utils
 
 
@@ -41,7 +42,7 @@ def test_mlp_classifier():
         np.zeros((num_class_samples)),
         np.ones((num_class_samples))
     ])
-    model = MLPClassifier(input_size)
+    model = MLPClassifier(input_size, CFG.classifier_max_itr_sampler)
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
     assert prediction == 0

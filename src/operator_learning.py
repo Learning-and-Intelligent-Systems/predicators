@@ -306,7 +306,8 @@ def _learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
                                 [0 for _ in negative_data])
-    classifier = MLPClassifier(X_arr_classifier.shape[1])
+    classifier = MLPClassifier(X_arr_classifier.shape[1],
+                               CFG.classifier_max_itr_sampler)
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
