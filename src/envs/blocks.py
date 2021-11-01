@@ -133,7 +133,7 @@ class BlocksEnv(BaseEnv):
         poses = [[state.get(b, "pose_x"),
                   state.get(b, "pose_y"),
                   state.get(b, "pose_z")] for b in state
-                 if b.type == self._block_type]
+                 if b.is_instance(self._block_type)]
         existing_xys = {(float(p[0]), float(p[1])) for p in poses}
         if not self._table_xy_is_clear(x, y, existing_xys):
             return next_state
@@ -230,7 +230,7 @@ class BlocksEnv(BaseEnv):
 
         colors = ["red", "blue", "green", "orange", "purple", "yellow",
                   "brown", "cyan"]
-        blocks = [o for o in state if o.type == self._block_type]
+        blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
         for i, block in enumerate(sorted(blocks)):
             x = state.get(block, "pose_x")
@@ -459,7 +459,7 @@ class BlocksEnv(BaseEnv):
 
     def _get_held_block(self, state: State) -> Optional[Object]:
         for block in state:
-            if block.type != self._block_type:
+            if not block.is_instance(self._block_type):
                 continue
             if state.get(block, "held") >= self.held_tol:
                 return block
@@ -469,7 +469,7 @@ class BlocksEnv(BaseEnv):
                           z: float) -> Optional[Object]:
         close_blocks = []
         for block in state:
-            if block.type != self._block_type:
+            if not block.is_instance(self._block_type):
                 continue
             block_pose = np.array([state.get(block, "pose_x"),
                                    state.get(block, "pose_y"),
@@ -486,7 +486,7 @@ class BlocksEnv(BaseEnv):
                                  z: float) -> Optional[Object]:
         blocks_here = []
         for block in state:
-            if block.type != self._block_type:
+            if not block.is_instance(self._block_type):
                 continue
             block_pose = np.array([state.get(block, "pose_x"),
                                    state.get(block, "pose_y")])

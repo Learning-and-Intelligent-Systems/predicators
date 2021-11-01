@@ -178,7 +178,7 @@ class Predicate:
         """
         assert len(entities) == self.arity
         for ent, pred_type in zip(entities, self.types):
-            assert ent.type == pred_type
+            assert ent.is_instance(pred_type)
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -206,7 +206,7 @@ class Predicate:
         assert len(objects) == self.arity
         for obj, pred_type in zip(objects, self.types):
             assert isinstance(obj, Object)
-            assert obj.type == pred_type
+            assert obj.is_instance(pred_type)
         return self._classifier(state, objects)
 
     def __str__(self) -> str:
@@ -361,8 +361,9 @@ class ParameterizedOption:
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values.
         """
-        assert [obj.type for obj in objects] == self.types, \
-            f"Mismatched types: {objects}, {self.types}"
+        assert len(objects) == len(self.types)
+        for obj, t in zip(objects, self.types):
+            assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
         return _Option(self.name,
@@ -455,7 +456,8 @@ class Operator:
         """Ground into a _GroundOperator, given objects.
         """
         assert len(objects) == len(self.parameters)
-        assert all(o.type == p.type for o, p in zip(objects, self.parameters))
+        assert all(o.is_instance(p.type) for o, p
+                   in zip(objects, self.parameters))
         sub = dict(zip(self.parameters, objects))
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
