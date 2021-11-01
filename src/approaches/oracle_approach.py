@@ -30,9 +30,9 @@ def get_gt_ops(predicates: Set[Predicate],
                options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground truth operators for an env.
     """
-    if CFG.env == "cover":
+    if CFG.env in ("cover", "cover_hierarchical_types"):
         ops = _get_cover_gt_ops(options_are_typed=False)
-    elif CFG.env == "cover_typed":
+    elif CFG.env == "cover_typed_options":
         ops = _get_cover_gt_ops(options_are_typed=True)
     elif CFG.env == "cluttered_table":
         ops = _get_cluttered_table_gt_ops()
@@ -93,7 +93,8 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                                            "HandEmpty", "Holding"])
 
     if options_are_typed:
-        Pick, Place = _get_options_by_names("cover_typed", ["Pick", "Place"])
+        Pick, Place = _get_options_by_names(
+            "cover_typed_options", ["Pick", "Place"])
     else:
         PickPlace, = _get_options_by_names("cover", ["PickPlace"])
 
@@ -115,7 +116,7 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                      objs: Sequence[Object]) -> Array:
         assert len(objs) == 1
         b = objs[0]
-        assert b.type == block_type
+        assert b.is_instance(block_type)
         if options_are_typed:
             lb = float(-state.get(b, "width")/2)  # relative positioning only
             ub = float(state.get(b, "width")/2)  # relative positioning only
@@ -149,7 +150,7 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                       objs: Sequence[Object]) -> Array:
         assert len(objs) == 2
         t = objs[1]
-        assert t.type == target_type
+        assert t.is_instance(target_type)
         lb = float(state.get(t, "pose") - state.get(t, "width")/10)
         lb = max(lb, 0.0)
         ub = float(state.get(t, "pose") + state.get(t, "width")/10)
