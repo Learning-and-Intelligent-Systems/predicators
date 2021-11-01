@@ -239,10 +239,14 @@ def get_object_combinations(
         allow_duplicates: bool) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence.
     """
-    type_to_objs = defaultdict(list)
-    for obj in sorted(objects):
-        type_to_objs[obj.type].append(obj)
-    choices = [type_to_objs[vt] for vt in types]
+    sorted_objects = sorted(objects)
+    choices = []
+    for vt in types:
+        this_choices = []
+        for obj in sorted_objects:
+            if obj.is_instance(vt):
+                this_choices.append(obj)
+        choices.append(this_choices)
     for choice in itertools.product(*choices):
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue

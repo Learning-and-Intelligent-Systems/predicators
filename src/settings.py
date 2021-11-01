@@ -92,7 +92,8 @@ class GlobalSettings:
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
-                "cover_typed": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
             })[args["env"]],
@@ -100,7 +101,8 @@ class GlobalSettings:
             # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
-                "cover_typed": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
             })[args["env"]],
@@ -109,7 +111,8 @@ class GlobalSettings:
             # it solves a task.
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
-                "cover_typed": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
                 "cluttered_table": 25,
                 "blocks": 25,
             })[args["env"]],
