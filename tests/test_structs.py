@@ -28,12 +28,17 @@ def test_object_type():
     assert my_type2.feature_names == feats
     assert isinstance(hash(my_type2), int)
     assert my_type2.parent == my_type
+    name = "test2"
+    feats = ["feat3"]
+    my_type3 = Type(name, feats, parent=my_type)  # same as my_type2
     obj = my_type("obj1")
     assert obj.is_instance(my_type)
     assert not obj.is_instance(my_type2)
+    assert not obj.is_instance(my_type3)
     obj = my_type2("obj2")
     assert obj.is_instance(my_type)
     assert obj.is_instance(my_type2)
+    assert obj.is_instance(my_type3)
 
 
 def test_object():
