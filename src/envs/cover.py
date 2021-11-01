@@ -19,11 +19,14 @@ class CoverEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
+        self._base_type = Type("base", [])
         self._block_type = Type(
-            "block", ["is_block", "is_target", "width", "pose", "grasp"])
+            "block", ["is_block", "is_target", "width", "pose", "grasp"],
+            parent=self._base_type)
         self._target_type = Type(
-            "target", ["is_block", "is_target", "width", "pose"])
-        self._robot_type = Type("robot", ["hand"])
+            "target", ["is_block", "is_target", "width", "pose"],
+            parent=self._base_type)
+        self._robot_type = Type("robot", ["hand"], parent=self._base_type)
         # Predicates
         self._IsBlock = Predicate(
             "IsBlock", [self._block_type], self._IsBlock_holds)

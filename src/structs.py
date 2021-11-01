@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -17,6 +17,7 @@ class Type:
     """
     name: str
     feature_names: Sequence[str] = field(repr=False)
+    parent: Optional[Type] = field(default=None, repr=False)
 
     @property
     def dim(self) -> int:
@@ -57,6 +58,17 @@ class _TypedEntity:
 
     def __repr__(self) -> str:
         return self._str
+
+    def is_instance(self, t: Type) -> bool:
+        """Return whether this entity is an instance of the given type, taking
+        hierarchical typing into account.
+        """
+        cur_type = self.type
+        while cur_type is not None:
+            if cur_type == t:
+                return True
+            cur_type = cur_type.parent
+        return False
 
 
 @dataclass(frozen=True, order=True, repr=False)
