@@ -63,7 +63,7 @@ class _TypedEntity:
         """Return whether this entity is an instance of the given type, taking
         hierarchical typing into account.
         """
-        cur_type = self.type
+        cur_type: Optional[Type] = self.type
         while cur_type is not None:
             if cur_type == t:
                 return True
