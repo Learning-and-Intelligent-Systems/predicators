@@ -1,7 +1,6 @@
 """An approach that learns predicates from a teacher.
 """
 
-import itertools
 from typing import Set, Callable, List, Collection
 import numpy as np
 from gym.spaces import Box
@@ -85,8 +84,6 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             new_trajectories.append(action_traj)
             if i % CFG.interactive_relearn_every == 0:
                 print("Asking teacher...")
-                # Update dataset
-                self._dataset.extend(new_trajectories)
                 # Pick a state from the new states explored
                 for s in self._get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
@@ -118,6 +115,8 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             # Positive examples
             for i, trajectory in enumerate(self._ground_atom_dataset):
                 for j, ground_atom_set in enumerate(trajectory):
+                    if len(ground_atom_set) == 0:
+                        continue
                     state = self._dataset[i][0][j]
                     positives = [state.vec(ground_atom.objects)
                                  for ground_atom in ground_atom_set
@@ -132,13 +131,12 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                                                   pred.types,
                                                   allow_duplicates=False)]
                     negatives = []
-                    for (ex, pos) in itertools.product(possible,
-                                                       positive_examples):
-                        if np.array_equal(ex, pos):
-                            break
-                    else:
-                        # It's not a positive example
-                        negatives.append(ex)
+                    for ex in possible:
+                        for pos in positive_examples:
+                            if np.array_equal(ex, pos):
+                                break
+                        else:  # It's not a positive example
+                            negatives.append(ex)
                     negative_examples.extend(negatives)
             print(f"Generated {len(positive_examples)} positive and "
                   f"{len(negative_examples)} negative examples for "
@@ -233,8 +231,6 @@ def create_teacher_dataset(preds: Collection[Predicate],
             ground_atoms = sorted(utils.abstract(s, preds))
             # select random subset to keep
             n_samples = int(len(ground_atoms) * ratio)
-            if n_samples < 1:
-                raise ApproachFailure("Need at least 1 ground atom sample")
             subset = rng.choice(np.arange(len(ground_atoms)),
                                 size=(n_samples,),
                                 replace=False)
