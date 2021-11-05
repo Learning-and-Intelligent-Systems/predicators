@@ -39,19 +39,13 @@ def test_teacher_dataset():
     # Test that data does not contain options since approach is random
     utils.update_config({
         "env": "cover",
-        "approach": "random",
-        "offline_data_method": "demo",
-        "offline_data_planning_timeout": 500,
+        "approach": "interactive_learning",
         "seed": 123,
-        "num_train_tasks": 7,
     })
     env = CoverEnv()
     dataset = create_dataset(env)
     teacher_dataset = create_teacher_dataset(env.predicates, dataset)
-    assert len(teacher_dataset) == 7
-    for _, actions in dataset:
-        for action in actions:
-            assert not action.has_option()
+    assert len(teacher_dataset) == 10
 
     # Test the first trajectory for correct usage of ratio
     # Generate groundatoms
@@ -73,6 +67,7 @@ def test_interactive_learning_approach():
     """Test for InteractiveLearningApproach class, entire pipeline.
     """
     utils.update_config({"env": "cover", "approach": "interactive_learning",
+                         "excluded_predicates": "",
                          "timeout": 10, "max_samples_per_step": 10,
                          "seed": 12345, "classifier_max_itr_sampler": 500,
                          "classifier_max_itr_predicate": 500,
@@ -148,22 +143,3 @@ def test_interactive_learning_approach_ask_strategies():
     utils.update_config({"interactive_ask_strategy": "foo"})
     with pytest.raises(NotImplementedError):
         approach.get_states_to_ask(dataset)
-
-
-def test_interactive_learning_approach_exception():
-    """Test for failure when teacher dataset contains set of 0 ground atoms.
-    """
-    utils.update_config({"env": "cover", "approach": "interactive_learning",
-                         "timeout": 10, "max_samples_per_step": 10,
-                         "seed": 12345, "classifier_max_itr_sampler": 50,
-                         "classifier_max_itr_predicate": 50,
-                         "regressor_max_itr": 50,
-                         "teacher_dataset_label_ratio": 0})
-    env = CoverEnv()
-    approach = InteractiveLearningApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
-    assert approach.is_learning_based
-    with pytest.raises(ApproachFailure):
-        approach.learn_from_offline_dataset(dataset)
