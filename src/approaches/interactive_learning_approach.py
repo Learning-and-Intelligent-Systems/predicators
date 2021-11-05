@@ -91,7 +91,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 for s in self._get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
                     ground_atoms = utils.all_possible_ground_atoms(
-                                            s, self._get_current_predicates())
+                                            s, self._predicates_to_learn)
                     idx = self._rng.choice(len(ground_atoms))
                     random_atom = ground_atoms[idx]
                     if self._ask_teacher(s, random_atom):
