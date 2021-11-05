@@ -29,6 +29,9 @@ class GlobalSettings:
     blocks_num_blocks_test = [5, 6]
     blocks_block_size = 0.1
 
+    # playroom env parameters
+    playroom_num_blocks = 4
+
     # parameters for approaches
     random_options_max_tries = 100
 
@@ -96,6 +99,7 @@ class GlobalSettings:
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "playroom": 50,
             })[args["env"]],
 
             # Number of test tasks in each environment.
@@ -105,6 +109,7 @@ class GlobalSettings:
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "playroom": 50,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
@@ -115,6 +120,7 @@ class GlobalSettings:
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 25,
                 "blocks": 25,
+                "playroom": 25,
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth
