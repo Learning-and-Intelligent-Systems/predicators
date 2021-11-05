@@ -2,7 +2,7 @@
 """
 
 import itertools
-from typing import Set, Callable, List, Collection, Tuple
+from typing import Set, Callable, List, Collection
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -30,7 +30,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         predicates_to_learn = all_predicates - self._known_predicates
         self._teacher = _Teacher(all_predicates, predicates_to_learn)
         # All seen data
-        self._dataset: Dataset = []
+        self._dataset: List[ActionTrajectory] = []
         self._ground_atom_dataset: List[List[Set[GroundAtom]]] = []
         # No cheating!
         self._predicates_to_learn = {strip_predicate(p)
@@ -45,8 +45,8 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
     def _load_dataset(self, dataset: Dataset) -> None:
         """Stores dataset and corresponding ground atom dataset."""
-        new_dataset, ground_atom_data = self._teacher.generate_data(dataset)
-        self._dataset.extend(new_dataset)
+        ground_atom_data = self._teacher.generate_data(dataset)
+        self._dataset.extend(dataset)
         self._ground_atom_dataset.extend(ground_atom_data)
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
@@ -86,15 +86,12 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             if i % CFG.interactive_relearn_every == 0:
                 print("Asking teacher...")
                 # Update dataset
-                # TODO: is this right???
                 self._dataset.extend(new_trajectories)
-
                 # Pick a state from the new states explored
                 for s in self._get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
-                    # Use score function here?
                     ground_atoms = utils.all_possible_ground_atoms(
-                                            s, self._predicates_to_learn)
+                                            s, self._get_current_predicates())
                     idx = self._rng.choice(len(ground_atoms))
                     random_atom = ground_atoms[idx]
                     if self._ask_teacher(s, random_atom):
@@ -103,6 +100,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                         # Add corresponding "action trajectory" to dataset
                         self._dataset.append(([s], []))
                     # Still need to implement a way to use negative examples
+                # Relearn predicates and operators
                 self._relearn_predicates_and_operators()
                 # Reset trajectories list
                 new_trajectories = []
@@ -205,8 +203,7 @@ class _Teacher:
         self._predicates_to_learn = predicates_to_learn
         self._has_generated_data = False
 
-    def generate_data(self, dataset: Dataset) -> Tuple[
-            Dataset, List[List[Set[GroundAtom]]]]:
+    def generate_data(self, dataset: Dataset) -> List[List[Set[GroundAtom]]]:
         """Creates sparse dataset of GroundAtoms.
         """
         # No cheating!
@@ -224,33 +221,28 @@ class _Teacher:
 
 
 def create_teacher_dataset(preds: Collection[Predicate],
-                           dataset: Dataset) -> Tuple[Dataset, List[List[Set[GroundAtom]]]]:
+                           dataset: Dataset) -> List[List[Set[GroundAtom]]]:
     """Create sparse dataset of GroundAtoms for interactive learning.
     """
     ratio = CFG.teacher_dataset_label_ratio
     rng = np.random.default_rng(CFG.seed)
-    new_dataset: Dataset = []
     ground_atoms_dataset = []
-    for (states, _) in dataset:
-        new_states = []
+    for (ss, _) in dataset:
         ground_atoms_traj = []
-        for s in states:
+        for s in ss:
             ground_atoms = sorted(utils.abstract(s, preds))
             # select random subset to keep
             n_samples = int(len(ground_atoms) * ratio)
             if n_samples < 1:
-                continue
+                raise ApproachFailure("Need at least 1 ground atom sample")
             subset = rng.choice(np.arange(len(ground_atoms)),
                                 size=(n_samples,),
                                 replace=False)
             subset_atoms = {ground_atoms[j] for j in subset}
-            new_states.append(s)
             ground_atoms_traj.append(subset_atoms)
-        assert len(new_states) == len(ground_atoms_traj)
-        new_dataset.append((new_states, []))  # TODO: empty list of Actions??
         ground_atoms_dataset.append(ground_atoms_traj)
-    assert len(ground_atoms_dataset) == len(new_dataset)
-    return new_dataset, ground_atoms_dataset
+    assert len(ground_atoms_dataset) == len(dataset)
+    return ground_atoms_dataset
 
 
 def glib_sample(initial_state: State,
