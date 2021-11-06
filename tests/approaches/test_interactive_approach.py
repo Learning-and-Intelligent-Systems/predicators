@@ -33,7 +33,7 @@ class _DummyInteractiveLearningApproach(InteractiveLearningApproach):
         return super()._ask_teacher(state, ground_atom)
 
 
-def test_teacher_dataset():
+def test_create_teacher_dataset():
     """Test teacher dataset creation with Covers env.
     """
     # Test that data does not contain options since approach is random
@@ -55,8 +55,9 @@ def test_teacher_dataset():
         ground_atoms = list(utils.abstract(s, env.predicates))
         ground_atoms_traj.append(ground_atoms)
     # Check that numbers of groundatoms are as expected
-    lengths = [len(e) for e in ground_atoms_traj]
-    teacher_lengths = [len(e) for e in teacher_dataset[0]]
+    lengths = [len(elt) for elt in ground_atoms_traj]
+    _, _, traj = teacher_dataset[0]
+    teacher_lengths = [len(elt) for elt in traj]
     assert len(lengths) == len(teacher_lengths)
     ratio = CFG.teacher_dataset_label_ratio
     for i in range(len(lengths)):
