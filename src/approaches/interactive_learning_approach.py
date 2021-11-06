@@ -112,7 +112,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 assert len(states) == len(ground_atom_sets)
                 for (state, ground_atom_set) in zip(states, ground_atom_sets):
                     if len(ground_atom_set) == 0:
-                        continue
+                        continue  # pragma: no cover
                     positives = [state.vec(ground_atom.objects)
                                  for ground_atom in ground_atom_set
                                  if ground_atom.predicate == pred]
