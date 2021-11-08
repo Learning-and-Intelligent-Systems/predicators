@@ -104,6 +104,9 @@ class State:
     """Struct defining the low-level state of the world.
     """
     data: Dict[Object, Array]
+    # Some environments will need to store additional simulator state, so
+    # this field is provided.
+    simulator_state: Optional[Any] = None
 
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
@@ -156,6 +159,17 @@ class State:
             return type(val)(self._copy_state_value(v) for v in val)
         assert hasattr(val, "copy")
         return val.copy()
+
+    def allclose(self, other: State) -> bool:
+        """Return whether this state is close enough to another one,
+        i.e., its objects are the same, and the features are close.
+        """
+        if not sorted(self.data) == sorted(other.data):
+            return False
+        for obj in self.data:
+            if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
+                return False
+        return True
 
 
 DefaultState = State({})
