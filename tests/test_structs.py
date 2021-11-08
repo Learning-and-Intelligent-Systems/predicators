@@ -149,6 +149,7 @@ def test_state():
     # Test including simulator_state
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"
+    assert state.simulator_state is None
     return state
 
 
