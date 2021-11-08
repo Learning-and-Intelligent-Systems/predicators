@@ -1,4 +1,4 @@
-"""Boring room vs. playroom domain. TODO
+"""Boring room vs. playroom domain.
 """
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional
@@ -34,8 +34,8 @@ class PlayroomEnv(BaseEnv):
     held_tol = 0.5
     clear_tol = 0.5
     open_fingers = 0.8
-    pick_tol = 0.08
-    assert pick_tol < CFG.blocks_block_size
+    pick_tol = 0.4
+    assert pick_tol < CFG.playroom_block_size
     lift_amt = 1.0
 
     def __init__(self) -> None:
@@ -109,7 +109,7 @@ class PlayroomEnv(BaseEnv):
                 and self._robot_is_facing_table(action):
                 if fingers < 0.5:
                     transition_fn = self._transition_pick
-                elif z < self.table_height + CFG.blocks_block_size:
+                elif z < self.table_height + CFG.playroom_block_size:
                     transition_fn = self._transition_putontable
                 else:
                     transition_fn = self._transition_stack
@@ -407,7 +407,7 @@ class PlayroomEnv(BaseEnv):
         cur_z = state.get(other_block, "pose_z")
         next_state.set(block, "pose_x", cur_x)
         next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z+CFG.blocks_block_size)
+        next_state.set(block, "pose_z", cur_z+CFG.playroom_block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(block, "clear", 1.0)
         next_state.set(other_block, "clear", 0.0)
@@ -448,21 +448,60 @@ class PlayroomEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        r = CFG.blocks_block_size * 0.5  # block radius
+        r = CFG.playroom_block_size * 0.5  # block radius
 
-        width_ratio = max(1./5, min(5.,  # prevent from being too extreme
-            (self.y_ub - self.y_lb) / (self.x_ub - self.x_lb)))
-        fig, (xz_ax, yz_ax) = plt.subplots(1, 2, figsize=(20, 8),
-            gridspec_kw={'width_ratios': [1, width_ratio]})
-        xz_ax.set_xlabel("x", fontsize=24)
-        xz_ax.set_ylabel("z", fontsize=24)
-        xz_ax.set_xlim((self.x_lb - 2*r, self.x_ub + 2*r))
-        xz_ax.set_ylim((self.table_height, r * 16 + 0.1))
-        yz_ax.set_xlabel("y", fontsize=24)
-        yz_ax.set_ylabel("z", fontsize=24)
-        yz_ax.set_xlim((self.y_lb - 2*r, self.y_ub + 2*r))
-        yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
+        fig, ax = plt.subplots(1, 1)
+        ax.set_xlabel("x", fontsize=24)
+        ax.set_ylabel("y", fontsize=24)
+        ax.set_xlim((self.x_lb - 5, self.x_ub + 5))
+        ax.set_ylim((self.y_lb - 5, self.y_ub + 5))
 
+        # Draw rooms and hallway
+        boring_room = patches.Rectangle(
+                (self.x_lb, self.y_lb), 30, 30, zorder=0, linewidth=1,
+                edgecolor='black', facecolor='white')
+        ax.add_patch(boring_room)
+        playroom = patches.Rectangle(
+                (110, self.y_lb), 30, 30, zorder=0, linewidth=1,
+                edgecolor='black', facecolor='white')
+        ax.add_patch(playroom)
+        hallway = patches.Rectangle(
+                (30, 10), 80, 10, zorder=0, linewidth=1,
+                edgecolor='black', facecolor='white')
+        ax.add_patch(hallway)
+
+        # Draw doors
+        for door in self._doors:
+            x = state.get(door, "pose_x")
+            y = state.get(door, "pose_y")
+            if state.get(door, "open") < 0.5:  # door closed
+                door = patches.Rectangle(
+                        (x-1.0, y-5.0), 1, 10, zorder=1, linewidth=1,
+                        edgecolor='black', facecolor='brown')
+                ax.add_patch(door)
+            else:
+                door = patches.Rectangle(
+                        (x-1.0, y-5.0), 1, 1, zorder=1, linewidth=1,
+                        edgecolor='black', facecolor='brown')
+                ax.add_patch(door)
+
+        # Draw dial
+        dial_x = state.get(self._dial, "pose_x")
+        dial_y = state.get(self._dial, "pose_y")
+        dial_face = patches.Circle((dial_x, dial_y), radius=5,
+                                   edgecolor='black', facecolor='black')
+        ax.add_patch(dial_face)
+        level = state.get(self._dial, "level")
+        dx, dy = 5*np.sin(level*2*np.pi), 5*np.cos(level*2*np.pi)
+        dial_arrow = patches.Arrow(dial_x, dial_y, dx, dy, edgecolor='red',
+                                   facecolor='red')
+        ax.add_patch(dial_arrow)
+
+        # Draw table and blocks
+        table = patches.Rectangle(
+                (10, 10), 10, 10, zorder=self.table_height,
+                linewidth=1, edgecolor='black', facecolor='brown')
+        ax.add_patch(table)
         colors = ["red", "blue", "green", "orange", "purple", "yellow",
                   "brown", "cyan"]
         blocks = [o for o in state if o.is_instance(self._block_type)]
@@ -475,20 +514,28 @@ class PlayroomEnv(BaseEnv):
             if state.get(block, "held") > self.held_tol:
                 assert held == "None"
                 held = f"{block.name} ({c})"
-
-            # xz axis
-            xz_rect = patches.Rectangle(
-                (x - r, z - r), 2*r, 2*r, zorder=-y,
+            rect = patches.Rectangle(
+                (x - r, y - r), 2*r, 2*r, zorder=self.table_height+z,
                 linewidth=1, edgecolor='black', facecolor=c)
-            xz_ax.add_patch(xz_rect)
+            ax.add_patch(rect)
 
-            # yz axis
-            yz_rect = patches.Rectangle(
-                (y - r, z - r), 2*r, 2*r, zorder=-x,
-                linewidth=1, edgecolor='black', facecolor=c)
-            yz_ax.add_patch(yz_rect)
+        # Draw robot
+        robot_x = state.get(self._robot, "pose_x")
+        robot_y = state.get(self._robot, "pose_y")
+        fingers = state.get(self._robot, "fingers")
+        # robot_img = plt.imread("robot.jpg")
+        # ax_in = ax.inset_axes([robot_x-5, robot_y-5, 10, 10])
+        # ax_in.imshow(robot_img)
+        robby = patches.Circle((robot_x, robot_y), radius=1,
+                               edgecolor='black', facecolor='yellow')
+        ax.add_patch(robby)
+        rotation = state.get(self._robot, "rotation")
+        dx, dy = np.cos(rotation*np.pi), np.sin(rotation*np.pi)
+        robot_arrow = patches.Arrow(robot_x, robot_y, dx, dy, edgecolor='black',
+                                   facecolor='black', width=0.5)
+        ax.add_patch(robot_arrow)
 
-        plt.suptitle(f"Held: {held}", fontsize=36)
+        plt.suptitle(f"Held: {held}, Fingers: {fingers}", fontsize=36)
         plt.tight_layout()
         img = utils.fig2data(fig)
 
@@ -537,7 +584,7 @@ class PlayroomEnv(BaseEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + CFG.blocks_block_size * (0.5 + pile_j)
+            z = self.table_height + CFG.playroom_block_size * (0.5 + pile_j)
             max_j = max(j for i, j in block_to_pile_idx.values() if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
@@ -576,18 +623,18 @@ class PlayroomEnv(BaseEnv):
                                 existing_xys: Set[Tuple[float, float]]
                                 ) -> Tuple[float, float]:
         while True:
-            x = rng.uniform(self.x_lb, self.x_ub)
-            y = rng.uniform(self.y_lb, self.y_ub)
+            x = rng.uniform(self.table_x_lb, self.table_x_ub)
+            y = rng.uniform(self.table_y_lb, self.table_y_ub)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 
     @staticmethod
     def _table_xy_is_clear(x: float, y: float,
                            existing_xys: Set[Tuple[float, float]]) -> bool:
-        if all(abs(x-other_x) > 2*CFG.blocks_block_size
+        if all(abs(x-other_x) > 2*CFG.playroom_block_size
                for other_x, _ in existing_xys):
             return True
-        if all(abs(y-other_y) > 2*CFG.blocks_block_size
+        if all(abs(y-other_y) > 2*CFG.playroom_block_size
                for _, other_y in existing_xys):
             return True
         return False
@@ -605,7 +652,7 @@ class PlayroomEnv(BaseEnv):
         x2 = state.get(block2, "pose_x")
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.blocks_block_size],
+        return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.playroom_block_size],
                            atol=cls.pick_tol)
 
     @staticmethod
@@ -613,7 +660,7 @@ class PlayroomEnv(BaseEnv):
         block, = objects
         z = state.get(block, "pose_z")
         cls = PlayroomEnv
-        desired_z = cls.table_height + CFG.blocks_block_size * 0.5
+        desired_z = cls.table_height + CFG.playroom_block_size * 0.5
         return (state.get(block, "held") < cls.held_tol) and \
             (desired_z-cls.pick_tol < z < desired_z+cls.pick_tol)
 
@@ -710,7 +757,7 @@ class PlayroomEnv(BaseEnv):
         x_norm, y_norm = params
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
         y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-        z = self.table_height + 0.5*CFG.blocks_block_size
+        z = self.table_height + 0.5*CFG.playroom_block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
@@ -789,7 +836,6 @@ class PlayroomEnv(BaseEnv):
         return False
 
     def _robot_is_facing_dial(self, state: State, action: Action) -> bool:
-        # TODO: this is so similar to _robot_is_facing_table
         x, y, _, rotation, _ = action.arr
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")

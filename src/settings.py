@@ -31,6 +31,7 @@ class GlobalSettings:
 
     # playroom env parameters
     playroom_num_blocks = 4
+    playroom_block_size = 0.5
 
     # parameters for approaches
     random_options_max_tries = 100
