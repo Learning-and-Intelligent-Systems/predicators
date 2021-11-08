@@ -79,6 +79,7 @@ def test_state():
     obj3 = type1("obj3")
     obj7 = type1("obj7")
     obj1 = type2("obj1")
+    obj2 = type2("obj2")
     obj1_dup = type2("obj1")
     obj4 = type2("obj4")
     obj9 = type2("obj9")
@@ -120,6 +121,34 @@ def test_state():
     # Test state vec with no objects
     vec = state.vec([])
     assert vec.shape == (0,)
+    # Test allclose
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj1: [5, 6, 7],
+                    obj4: [8, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert state.allclose(state2)
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj1: [5, 6, 7],
+                    obj4: [8.3, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert not state.allclose(state2)  # obj4 state is different
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj4: [8, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert not state.allclose(state2)  # obj1 is missing
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj1: [5, 6, 7],
+                    obj2: [5, 6, 7],
+                    obj4: [8, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert not state.allclose(state2)  # obj2 is extra
+    # Test including simulator_state
+    state_with_sim = State({}, "simulator_state")
+    assert state_with_sim.simulator_state == "simulator_state"
     return state
 
 
