@@ -73,8 +73,10 @@ class BehaviorEnv(BaseEnv):
     def _get_tasks(self, num: int,
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
-        # TODO: figure out how to use rng here
         for _ in range(num):
+            # Behavior uses np.random everywhere. This is a somewhat
+            # hacky workaround for that.
+            np.random.seed(rng.integers(0, 2**32 - 1))
             self._env.reset()
             init_state = self._current_ig_state_to_state()
             goal = self._get_task_goal()
@@ -262,7 +264,8 @@ class BehaviorEnv(BaseEnv):
                 grasped_objs.add(obj)
         return grasped_objs
 
-    def _handempty_classifier(self, state: State, objs: Sequence[Object]) -> bool:
+    def _handempty_classifier(self, state: State,
+                              objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 0
@@ -276,7 +279,8 @@ class BehaviorEnv(BaseEnv):
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
 
-    def _nextto_nothing_classifier(self, state: State, objs: Sequence[Object]) -> bool:
+    def _nextto_nothing_classifier(self, state: State,
+                                   objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 1
@@ -321,6 +325,7 @@ class BehaviorEnv(BaseEnv):
         raise ValueError("BDDL predicate has unexpected arity.")
 
     @staticmethod
-    def _create_type_combo_name(original_name: str, type_combo: Sequence[Type]) -> str:
+    def _create_type_combo_name(original_name: str,
+                                type_combo: Sequence[Type]) -> str:
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
