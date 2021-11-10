@@ -8,25 +8,36 @@ import os
 from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
-try:
-    import bddl
-    import igibson
-    from igibson.envs import behavior_env
-    from igibson.objects.articulated_object import URDFObject
-    from igibson.object_states.on_floor import RoomFloor
-    from igibson.robots.behavior_robot import BRBody
-    from igibson.utils.checkpoint_utils import \
-        save_internal_states, load_internal_states
-    from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
-        ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
-    _BEHAVIOR_IMPORTED = True
-    bddl.set_backend("iGibson")  # pylint: disable=no-member
-except ModuleNotFoundError:
-    _BEHAVIOR_IMPORTED = False
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image
 from predicators.src.settings import CFG
+
+
+_BEHAVIOR_IMPORTED = False
+
+def _import_behavior():
+    """Lazy imports for iGibson/Pybullet etc.
+
+    These imports are not that slow, but they're nonzero
+    time, so we import lazily to keep unit tests fast.
+    """
+    global _BEHAVIOR_IMPORTED
+    try:
+        import bddl
+        import igibson
+        from igibson.envs import behavior_env
+        from igibson.objects.articulated_object import URDFObject
+        from igibson.object_states.on_floor import RoomFloor
+        from igibson.robots.behavior_robot import BRBody
+        from igibson.utils.checkpoint_utils import \
+            save_internal_states, load_internal_states
+        from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
+            ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
+        _BEHAVIOR_IMPORTED = True
+        bddl.set_backend("iGibson")  # pylint: disable=no-member
+    except ModuleNotFoundError:
+        _BEHAVIOR_IMPORTED = False
 
 
 class BehaviorEnv(BaseEnv):
@@ -34,6 +45,8 @@ class BehaviorEnv(BaseEnv):
     """
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
+            _import_behavior()  # Lazy imports
+        if not _BEHAVIOR_IMPORTED:  # If still False, not installed
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path,
                                    CFG.behavior_config_file)
@@ -55,7 +68,6 @@ class BehaviorEnv(BaseEnv):
         # TODO: test that this works as expected
         load_internal_states(self._env.simulator, state.simulator_state)
         a = action.arr
-        print("stepping:",a)#TODO: delete
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
         return next_state
@@ -81,7 +93,6 @@ class BehaviorEnv(BaseEnv):
         return tasks
 
     def _get_task_goal(self) -> Set[GroundAtom]:
-        # TODO: figure out a more general, less hacky way to do this.
         # Currently assumes that the goal is a single AND of
         # ground atoms (this is also assumed by the planner).
         goal = set()
@@ -124,7 +135,9 @@ class BehaviorEnv(BaseEnv):
                 "frozen"]:
             bddl_predicate = SUPPORTED_PREDICATES[bddl_name]
             # We will create one predicate for every combination of types.
-            # TODO: filter out implausible type combinations per predicate.
+            # Ideally, we would filter out implausible type combinations
+            # per predicate, but this should happen automatically when we
+            # go to collect data and do operator learning.
             arity = self._bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
                 pred_name = self._create_type_combo_name(bddl_name, type_combo)
@@ -155,7 +168,8 @@ class BehaviorEnv(BaseEnv):
             type_name = self._ig_object_to_type_name(ig_obj)
             if type_name in self._type_name_to_type:
                 continue
-            # TODO: get type-specific features
+            # In the future, we may need other object attributes,
+            # but for the moment, we just need position and orientation.
             obj_type = Type(type_name, ["pos_x", "pos_y", "pos_z",
                                         "orn_0", "orn_1", "orn_2", "orn_3"])
             self._type_name_to_type[type_name] = obj_type
@@ -210,8 +224,8 @@ class BehaviorEnv(BaseEnv):
         state_data = {}
         for ig_obj in self._get_task_relevant_objects():
             obj = self._ig_object_to_object(ig_obj)
-            # Get object features
-            # TODO: generalize this!
+            # In the future, we may need other object attributes,
+            # but for the moment, we just need position and orientation.
             obj_state = np.concatenate([
                 ig_obj.get_position(),
                 ig_obj.get_orientation(),
