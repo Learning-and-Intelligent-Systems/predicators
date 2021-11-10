@@ -27,6 +27,7 @@ class PlayroomEnv(BaseEnv):
     table_y_lb = 10.0
     table_x_ub = 20.0
     table_y_ub = 20.0
+    door_r = 5.0  # half of width
     door_button_z = 1.0  # relative to ground
     door_tol = 0.2
     dial_r = 3.0
@@ -44,7 +45,8 @@ class PlayroomEnv(BaseEnv):
         # Types
         self._block_type = Type(
             "block", ["pose_x", "pose_y", "pose_z", "held", "clear"])
-        self._robot_type = Type("robot", ["pose_x", "pose_y", "rotation", "fingers"])
+        self._robot_type = Type("robot", ["pose_x", "pose_y", "rotation",
+                                          "fingers"])
         self._door_type = Type("door", ["pose_x", "pose_y", "open"])
         self._dial_type = Type("dial", ["pose_x", "pose_y", "level"])
         # Predicates
@@ -98,7 +100,8 @@ class PlayroomEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        prev_x, prev_y = state.get(self._robot, "pose_x"), state.get(self._robot, "pose_y")
+        prev_x = state.get(self._robot, "pose_x")
+        prev_y = state.get(self._robot, "pose_y")
         x, y, z, rotation, fingers = action.arr
         cls = PlayroomEnv
         # Infer which transition function to follow
@@ -116,108 +119,69 @@ class PlayroomEnv(BaseEnv):
                     transition_fn = self._transition_stack
             # Move elsewhere in boring room
             elif (0.0 < x < 30.0) and (0.0 < y < 30.0):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             # Move to hallway or to playroom
             elif ((30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (110.0 < x < 140.0 and 0.0 < y < 30.0)) \
                     and self._robot_can_move(state, action):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In boring room next to door
-        elif (0.0 < prev_x < 30.0) and (0.0 < prev_y < 30.0) and self._NextToDoor_holds(state, (self._robot, self._door1)):
-            door_x, door_y = state.get(self._door1, "pose_x"), state.get(self._door1, "pose_y")
+        elif (0.0 < prev_x < 30.0) and (0.0 < prev_y < 30.0) and \
+                self._NextToDoor_holds(state, (self._robot, self._door1)):
+            door_x = state.get(self._door1, "pose_x")
+            door_y = state.get(self._door1, "pose_y")
             # Open/close door
             if (door_x-cls.door_tol < x < door_x + cls.door_tol) \
                 and (door_y-cls.door_tol < y < door_y+cls.door_tol) \
-                and (cls.door_button_z-cls.door_tol < z < cls.door_button_z+cls.door_tol) \
+                and (cls.door_button_z-cls.door_tol < z
+                        < cls.door_button_z+cls.door_tol) \
                 and 0.5 >= rotation >= -0.5:
-                next_state = state.copy()
-                if state.get(self._door1, "open") < 0.5:
-                    next_state.set(self._door1, "open", 1.0)
-                else:
-                    next_state.set(self._door1, "open", 0.0)
-                return next_state
+                transition_fn = self._transition_door
             # Move elsewhere in boring room
             if (0.0 < x < 30.0) and (0.0 < y < 30.0):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             # Move to hallway or to playroom
             if ((30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (110.0 < x < 140.0 and 0.0 < y < 30.0)) \
                     and self._robot_can_move(state, action):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In boring room not next to anything
         elif (0.0 < prev_x < 30.0) and (0.0 < prev_y < 30.0):
             # Move elsewhere in boring room
             if (0.0 < x < 30.0) and (0.0 < y < 30.0):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             # Move to hallway or to playroom
             elif ((30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (110.0 < x < 140.0 and 0.0 < y < 30.0)) \
                     and self._robot_can_move(state, action):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In hallway next to a door
         elif (30.0 < prev_x < 110.0) and (10.0 < prev_y < 20.0) and \
-            any(self._NextToDoor_holds(state, (door,)) for door in self._doors):
+            any(self._NextToDoor_holds(state, (door,))
+                for door in self._doors):
             door = self._get_door_next_to(state, action)
-            door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
+            door_x = state.get(door, "pose_x")
+            door_y = state.get(door, "pose_y")
             # Open/close door
-            if (door_x-cls.door_tol < x < door_x + cls.door_tol) \
+            if (door_x-cls.door_tol < x < door_x+cls.door_tol) \
                 and (door_y-cls.door_tol < y < door_y+cls.door_tol) \
-                and (cls.door_button_z-cls.door_tol < z < cls.door_button_z+cls.door_tol) \
+                and (cls.door_button_z-cls.door_tol < z
+                        < cls.door_button_z+cls.door_tol) \
                 and fingers >= 0.5 \
                 and self._robot_is_facing_door(state, action, door):
-                next_state = state.copy()
-                if state.get(door, "open") < 0.5:
-                    next_state.set(door, "open", 1.0)
-                else:
-                    next_state.set(door, "open", 0.0)
-                return next_state
+                transition_fn = self._transition_door
             # Move elsewhere in hallway or to boring room or to playroom
             elif (30.0 < x < 110.0 and 10.0 < y < 20.0) \
                 or (0.0 < x < 30.0 and 0.0 < y < 30.0) \
                 or (110.0 < x < 140.0 and 0.0 < y < 30.0):
                 if self._robot_can_move(state, action):
-                    next_state = state.copy()
-                    state.set(self._robot, "pose_x", x)
-                    state.set(self._robot, "pose_y", y)
-                    state.set(self._robot, "rotation", rotation)
-                    state.set(self._robot, "fingers", fingers)
-                    return next_state
+                    transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In hallway not next to a door
@@ -227,21 +191,18 @@ class PlayroomEnv(BaseEnv):
                 or (0.0 < x < 30.0 and 0.0 < y < 30.0) \
                 or (110.0 < x < 140.0 and 0.0 < y < 30.0):
                 if self._robot_can_move(state, action):
-                    next_state = state.copy()
-                    state.set(self._robot, "pose_x", x)
-                    state.set(self._robot, "pose_y", y)
-                    state.set(self._robot, "rotation", rotation)
-                    state.set(self._robot, "fingers", fingers)
-                    return next_state
+                    transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In playroom next to dial
         elif (110.0 < prev_x < 140.0) and (0.0 < prev_y < 30.0) and \
             self._NextToDial_holds(state, (self._robot, self._dial)):
-            dial_x, dial_y = state.get(self._dial, "pose_x"), state.get(self._dial, "pose_y")
+            dial_x = state.get(self._dial, "pose_x")
+            dial_y = state.get(self._dial, "pose_y")
             # Toggle dial
-            if (dial_x-cls.dial_button_tol < x < dial_x + cls.dial_button_tol) \
-                and (dial_y-cls.dial_button_tol < y < dial_y + cls.dial_button_tol) \
+            if (dial_x-cls.dial_button_tol < x < dial_x+cls.dial_button_tol) \
+                and (dial_y-cls.dial_button_tol < y
+                     < dial_y+cls.dial_button_tol) \
                 and self._robot_is_facing_dial(state, action):
                 next_state = state.copy()
                 if state.get(self._dial, "level") < 0.5:
@@ -252,78 +213,50 @@ class PlayroomEnv(BaseEnv):
             # Move elsewhere in playroom
             elif (110.0 < x < 140.0) and (0.0 < y < 30.0):
                 next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
+                next_state.set(self._robot, "pose_x", x)
+                next_state.set(self._robot, "pose_y", y)
+                next_state.set(self._robot, "rotation", rotation)
+                next_state.set(self._robot, "fingers", fingers)
                 return next_state
             # Move to hallway or to boring room
             elif (30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (0.0 < x < 30.0 and 0.0 < y < 30.0):
                 if self._robot_can_move(state, action):
-                    next_state = state.copy()
-                    state.set(self._robot, "pose_x", x)
-                    state.set(self._robot, "pose_y", y)
-                    state.set(self._robot, "rotation", rotation)
-                    state.set(self._robot, "fingers", fingers)
-                    return next_state
+                    transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In playroom next to door
         elif (110.0 < prev_x < 140.0) and (0.0 < prev_y < 30.0) and \
             self._NextToDoor_holds(state, (self._robot, self._door6)):
-            door_x, door_y = state.get(self._door6, "pose_x"), state.get(self._door6, "pose_y")
+            door_x = state.get(self._door6, "pose_x")
+            door_y = state.get(self._door6, "pose_y")
             # Open/close door
             if (door_x-cls.door_tol < x < door_x + cls.door_tol) and \
                 (door_y-cls.door_tol < y < door_y+cls.door_tol) \
-                and (cls.door_button_z-cls.door_tol < z < cls.door_button_z+cls.door_tol) \
+                and (cls.door_button_z-cls.door_tol < z
+                     < cls.door_button_z+cls.door_tol) \
                 and (rotation >= 1.5 or rotation <= -1.5):
-                next_state = state.copy()
-                if state.get(self._door6, "open") < 0.5:
-                    next_state.set(self._door6, "open", 1.0)
-                else:
-                    next_state.set(self._door6, "open", 0.0)
-                return next_state
+                    transition_fn = self._transition_door
             # Move elsewhere in playroom
             elif (110.0 < x < 140.0) and (0.0 < y < 30.0):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             # Move to hallway or to boring room
             elif (30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (0.0 < x < 30.0 and 0.0 < y < 30.0):
                 if self._robot_can_move(state, action):
-                    next_state = state.copy()
-                    state.set(self._robot, "pose_x", x)
-                    state.set(self._robot, "pose_y", y)
-                    state.set(self._robot, "rotation", rotation)
-                    state.set(self._robot, "fingers", fingers)
-                    return next_state
+                    transition_fn = self._transition_move
             else:  # Invalid
                 return state
         # In playroom not next to anything
         elif (110.0 < prev_x < 140.0) and (0.0 < prev_y < 30.0):
             # Move elsewhere in playroom
             if (110.0 < x < 140.0) and (0.0 < y < 30.0):
-                next_state = state.copy()
-                state.set(self._robot, "pose_x", x)
-                state.set(self._robot, "pose_y", y)
-                state.set(self._robot, "rotation", rotation)
-                state.set(self._robot, "fingers", fingers)
-                return next_state
+                transition_fn = self._transition_move
             # Move to hallway or to boring room
             elif (30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (0.0 < x < 30.0 and 0.0 < y < 30.0):
                 if self._robot_can_move(state, action):
-                    next_state = state.copy()
-                    state.set(self._robot, "pose_x", x)
-                    state.set(self._robot, "pose_y", y)
-                    state.set(self._robot, "rotation", rotation)
-                    state.set(self._robot, "fingers", fingers)
-                    return next_state
+                    transition_fn = self._transition_move
             else:  # Invalid
                 return state
         next_state = transition_fn(state, action)
@@ -415,6 +348,24 @@ class PlayroomEnv(BaseEnv):
         next_state.set(self._robot, "fingers", fingers)
         return next_state
 
+    def _transition_move(self, state: State, action: Action) -> State:
+        x, y, _, rotation, fingers = action.arr
+        next_state = state.copy()
+        next_state.set(self._robot, "pose_x", x)
+        next_state.set(self._robot, "pose_y", y)
+        next_state.set(self._robot, "rotation", rotation)
+        next_state.set(self._robot, "fingers", fingers)
+        return next_state
+
+    def _transition_door(self, state: State, action: Action) -> State:
+        # TODO: recover the door?
+        next_state = state.copy()
+        if state.get(self._door6, "open") < 0.5:
+            next_state.set(self._door6, "open", 1.0)
+        else:
+            next_state.set(self._door6, "open", 0.0)
+        return next_state
+
     def get_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                rng=self._train_rng)
@@ -443,8 +394,10 @@ class PlayroomEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # dimensions: [x, y, z, rotation, fingers]
-        lowers = np.array([self.x_lb, self.y_lb, 0.0, -2.0, 0.0], dtype=np.float32)
-        uppers = np.array([self.x_ub, self.y_ub, 10.0, 2.0, 1.0], dtype=np.float32)
+        lowers = np.array([self.x_lb, self.y_lb, 0.0, -2.0, 0.0],
+                          dtype=np.float32)
+        uppers = np.array([self.x_ub, self.y_ub, 10.0, 2.0, 1.0],
+                          dtype=np.float32)
         return Box(lowers, uppers)
 
     def render(self, state: State, task: Task,
@@ -533,8 +486,8 @@ class PlayroomEnv(BaseEnv):
         ax.add_patch(robby)
         rotation = state.get(self._robot, "rotation")
         dx, dy = np.cos(rotation*np.pi), np.sin(rotation*np.pi)
-        robot_arrow = patches.Arrow(robot_x, robot_y, dx, dy, edgecolor='black',
-                                   facecolor='black', width=0.5)
+        robot_arrow = patches.Arrow(robot_x, robot_y, dx, dy,
+            edgecolor='black', facecolor='black', width=0.5)
         ax.add_patch(robot_arrow)
 
         plt.suptitle(f"Held: {held}, Fingers: {fingers}", fontsize=36)
@@ -543,14 +496,16 @@ class PlayroomEnv(BaseEnv):
 
         return [img]
 
-    def _get_tasks(self, num_tasks: int, rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num_tasks: int, rng: np.random.Generator
+                   ) -> List[Task]:
         tasks = []
         for _ in range(num_tasks):
             piles = self._sample_initial_piles(CFG.playroom_num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
             atoms = utils.abstract(init_state, self.predicates)
             while True:  # repeat until goal is not satisfied
-                goal = self._sample_goal_from_piles(CFG.playroom_num_blocks, piles, rng)
+                goal = self._sample_goal_from_piles(CFG.playroom_num_blocks,
+                                                    piles, rng)
                 if not goal.issubset(atoms):
                     break
             tasks.append(Task(init_state, goal))
@@ -590,17 +545,17 @@ class PlayroomEnv(BaseEnv):
             max_j = max(j for i, j in block_to_pile_idx.values() if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
-        # [pose_x, pose_y, rotation, fingers]
-        data[self._robot] = np.array([5.0, 5.0, 0.0, 1.0])  # fingers start off open
-        # [pose_x, pose_y, open]
-        data[self._door1] = np.array([30.0, 15.0, 0.0])  # all doors start off closed
+        # [pose_x, pose_y, rotation, fingers], fingers start off open
+        data[self._robot] = np.array([5.0, 5.0, 0.0, 1.0])
+        # [pose_x, pose_y, open], all doors start off closed
+        data[self._door1] = np.array([30.0, 15.0, 0.0])
         data[self._door2] = np.array([50.0, 15.0, 0.0])
         data[self._door3] = np.array([60.0, 15.0, 0.0])
         data[self._door4] = np.array([80.0, 15.0, 0.0])
         data[self._door5] = np.array([100.0, 15.0, 0.0])
         data[self._door6] = np.array([110.0, 15.0, 0.0])
-        # [pose_x, pose_y, level]
-        data[self._dial] = np.array([125.0, 15.0, 0.0])  # light starts off not on
+        # [pose_x, pose_y, level], light starts off off
+        data[self._dial] = np.array([125.0, 15.0, 0.0])
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,
@@ -686,8 +641,10 @@ class PlayroomEnv(BaseEnv):
         robot, = objects
         x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
         cls = PlayroomEnv
-        return (cls.table_x_lb-cls.table_tol < x < cls.table_x_ub+cls.table_tol) \
-                and (cls.table_y_lb-cls.table_tol < y < cls.table_y_ub+cls.table_tol)
+        return (cls.table_x_lb-cls.table_tol < x
+                < cls.table_x_ub+cls.table_tol) and \
+               (cls.table_y_lb-cls.table_tol < y
+                < cls.table_y_ub+cls.table_tol)
 
     @staticmethod
     def _NextToDoor_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -696,7 +653,8 @@ class PlayroomEnv(BaseEnv):
         door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
         cls = PlayroomEnv
         return (door_x-cls.door_tol < x < door_x+cls.door_tol) \
-                and (door_y-5.0-cls.door_tol < y < door_y+5.0+cls.door_tol)
+                and (door_y-cls.door_r-cls.door_tol < y
+                     < door_y+cls.door_r+cls.door_tol)
 
     @staticmethod
     def _NextToDial_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -704,9 +662,10 @@ class PlayroomEnv(BaseEnv):
         x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
         dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
         cls = PlayroomEnv
-        return (dial_x-5.0-cls.dial_tol < x < dial_x+5.0+cls.dial_tol) \
-                and (dial_y-5.0-cls.dial_tol < y < dial_y+5.0+cls.dial_tol)
-
+        return (dial_x-cls.dial_r-cls.dial_tol < x
+                < dial_x+cls.dial_r+cls.dial_tol) and \
+               (dial_y-cls.dial_r-cls.dial_tol < y
+                < dial_y+cls.dial_r+cls.dial_tol)
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
@@ -819,9 +778,8 @@ class PlayroomEnv(BaseEnv):
 
     def _robot_is_facing_table(self, action: Action) -> bool:
         x, y, _, rotation, _ = action.arr
-        cls = PlayroomEnv
-        table_x = (cls.table_x_lb+cls.table_x_ub)/2
-        table_y = (cls.table_y_lb+cls.table_y_ub)/2
+        table_x = (self.table_x_lb+self.table_x_ub)/2
+        table_y = (self.table_y_lb+self.table_y_ub)/2
         theta = np.arctan2(y-table_y, x-table_x)
         if np.pi*3/4 >= theta >= np.pi/4:  # N
             if 1.5 >= rotation >= 0.5:
@@ -861,13 +819,16 @@ class PlayroomEnv(BaseEnv):
         x, y, _, _, _ = action.arr
         cls = PlayroomEnv
         for door in self._doors:
-            door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
-            if (door_x-cls.door_tol < x < door_x+cls.door_tol) \
-                and (door_y-5.0-cls.door_tol < y < door_y+5.0+cls.door_tol):
+            door_x = state.get(door, "pose_x")
+            door_y = state.get(door, "pose_y")
+            if (door_x-cls.door_tol < x < door_x+cls.door_tol) and \
+               (door_y-cls.door_r-cls.door_tol < y
+                    < door_y+cls.door_r+cls.door_tol):
                 return door
         raise RuntimeError("Robot not next to any door")
 
-    def _robot_is_facing_door(self, state: State, action: Action, door: Object) -> bool:
+    def _robot_is_facing_door(self, state: State, action: Action, door: Object
+                              ) -> bool:
         door_x = state.get(door, "pose_x")
         x, _, _, rotation, _ = action.arr
         return (x < door_x and (rotation >= 1.5 or rotation <= -1.5)) \
@@ -879,7 +840,7 @@ class PlayroomEnv(BaseEnv):
         x = action.arr[0]
         for door in self._doors:
             if x <= state.get(door, "pose_x") <= prev_x \
-                or prev_x <= state.get(door, "pose_x") <= x:
+               or prev_x <= state.get(door, "pose_x") <= x:
                 if state.get(door, "open") < 0.5:
                     return False
         return True
