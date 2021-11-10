@@ -144,3 +144,24 @@ def test_interactive_learning_approach_ask_strategies():
     utils.update_config({"interactive_ask_strategy": "foo"})
     with pytest.raises(NotImplementedError):
         approach.get_states_to_ask(dataset)
+
+def test_interactive_learning_approach_no_ground_atoms():
+    """Test for InteractiveLearningApproach class where the dataset contains
+    an empty ground atom set.
+    """
+    utils.update_config({"env": "cover", "approach": "interactive_learning",
+                         "timeout": 10, "max_samples_per_step": 10,
+                         "seed": 12345,
+                         "interactive_num_episodes": 0,
+                         "teacher_dataset_label_ratio": 0.0,
+                         "interactive_known_predicates": {'HandEmpty',
+                            'IsBlock', 'IsTarget', 'Holding'}})
+    env = CoverEnv()
+    approach = _DummyInteractiveLearningApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
+    dataset = create_dataset(env)
+    assert approach.is_learning_based
+    # MLP training fails since there are 0 positive examples
+    with pytest.raises(RuntimeError):
+        approach.learn_from_offline_dataset(dataset)
