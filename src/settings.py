@@ -117,6 +117,15 @@ class GlobalSettings:
                 "blocks": 25,
             })[args["env"]],
 
+            # Name of the option model to use.
+            option_model_name=defaultdict(str, {
+                "cover": "default",
+                "cover_typed_options": "default",
+                "cover_hierarchical_types": "default",
+                "cluttered_table": "default",
+                "blocks": "default",
+            })[args["env"]],
+
             # For learning-based approaches, whether to include ground truth
             # options in the offline dataset.
             include_options_in_offline_data=defaultdict(bool, {
