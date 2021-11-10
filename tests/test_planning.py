@@ -10,6 +10,7 @@ from predicators.src.planning import sesame_plan
 from predicators.src import utils
 from predicators.src.structs import Task
 from predicators.src.settings import CFG
+from predicators.src.option_model import create_option_model
 
 
 def test_sesame_plan():
@@ -19,7 +20,8 @@ def test_sesame_plan():
     env = CoverEnv()
     operators = get_gt_ops(env.predicates, env.options)
     task = env.get_train_tasks()[0]
-    plan = sesame_plan(task, env.simulate, operators,
+    option_model = create_option_model(CFG.option_model_name, env.simulate)
+    plan = sesame_plan(task, option_model, operators,
                        env.predicates, 1, 123)
     assert len(plan) == 2
 
@@ -30,6 +32,7 @@ def test_sesame_plan_failures():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
+    option_model = create_option_model(CFG.option_model_name, env.simulate)
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
         env.action_space, env.get_train_tasks())
@@ -66,11 +69,11 @@ def test_sesame_plan_failures():
     operators = {op for op in operators if op.name == "Place"}
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, should fail fast.
-        sesame_plan(task, env.simulate, operators,
+        sesame_plan(task, option_model, operators,
                     env.predicates, timeout=500, seed=123)
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
-        sesame_plan(task, env.simulate, operators,
+        sesame_plan(task, option_model, operators,
                     env.predicates, timeout=500, seed=123,
                     check_dr_reachable=False)
