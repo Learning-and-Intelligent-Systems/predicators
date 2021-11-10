@@ -7,37 +7,27 @@ import itertools
 import os
 from typing import List, Set, Optional
 import numpy as np
+try:
+    import bddl
+    import igibson
+    from igibson.envs import behavior_env
+    from igibson.objects.articulated_object import URDFObject
+    from igibson.object_states.on_floor import RoomFloor
+    from igibson.robots.behavior_robot import BRBody
+    from igibson.utils.checkpoint_utils import \
+        save_internal_states, load_internal_states
+    from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
+        ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
+    _BEHAVIOR_IMPORTED = True
+    bddl.set_backend("iGibson")  # pylint: disable=no-member
+except ModuleNotFoundError:
+    _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image
 from predicators.src.settings import CFG
 
-
-_BEHAVIOR_IMPORTED = False
-
-def _import_behavior():
-    """Lazy imports for iGibson/Pybullet etc.
-
-    These imports are not that slow, but they're nonzero
-    time, so we import lazily to keep unit tests fast.
-    """
-    global _BEHAVIOR_IMPORTED
-    try:
-        import bddl
-        import igibson
-        from igibson.envs import behavior_env
-        from igibson.objects.articulated_object import URDFObject
-        from igibson.object_states.on_floor import RoomFloor
-        from igibson.robots.behavior_robot import BRBody
-        from igibson.utils.checkpoint_utils import \
-            save_internal_states, load_internal_states
-        from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
-            ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
-        _BEHAVIOR_IMPORTED = True
-        bddl.set_backend("iGibson")  # pylint: disable=no-member
-    except ModuleNotFoundError:
-        _BEHAVIOR_IMPORTED = False
 
 
 class BehaviorEnv(BaseEnv):
@@ -65,8 +55,10 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        # TODO: test that this works as expected
         load_internal_states(self._env.simulator, state.simulator_state)
+        # We can remove this after we're confident in it
+        loaded_state = self._current_ig_state_to_state()
+        assert loaded_state.allclose(state)
         a = action.arr
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
