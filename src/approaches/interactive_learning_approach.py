@@ -1,7 +1,6 @@
 """An approach that learns predicates from a teacher.
 """
 
-import itertools
 from typing import Set, Callable, List, Collection
 import numpy as np
 from gym.spaces import Box
@@ -9,7 +8,7 @@ from predicators.src import utils
 from predicators.src.approaches import OperatorLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, ActionTrajectory
+    Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory
 from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG
@@ -30,8 +29,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         predicates_to_learn = all_predicates - self._known_predicates
         self._teacher = _Teacher(all_predicates, predicates_to_learn)
         # All seen data
-        self._dataset: List[ActionTrajectory] = []
-        self._ground_atom_dataset: List[List[Set[GroundAtom]]] = []
+        self._dataset: List[GroundAtomTrajectory] = []
         # No cheating!
         self._predicates_to_learn = {strip_predicate(p)
                                      for p in predicates_to_learn}
@@ -45,9 +43,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
     def _load_dataset(self, dataset: Dataset) -> None:
         """Stores dataset and corresponding ground atom dataset."""
-        ground_atom_data = self._teacher.generate_data(dataset)
-        self._dataset.extend(dataset)
-        self._ground_atom_dataset.extend(ground_atom_data)
+        self._dataset.extend(self._teacher.generate_data(dataset))
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._load_dataset(dataset)
@@ -62,7 +58,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             state = self._train_tasks[index].init
             # Find policy for exploration
             task_list = glib_sample(state, self._get_current_predicates(),
-                                    self._ground_atom_dataset)
+                                    self._dataset)
             assert task_list
             task = task_list[0]
             for task in task_list:
@@ -85,20 +81,16 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             new_trajectories.append(action_traj)
             if i % CFG.interactive_relearn_every == 0:
                 print("Asking teacher...")
-                # Update dataset
-                self._dataset.extend(new_trajectories)
                 # Pick a state from the new states explored
                 for s in self._get_states_to_ask(new_trajectories):
                     # For now, pick a random ground atom to ask about
                     ground_atoms = utils.all_possible_ground_atoms(
-                                            s, self._get_current_predicates())
+                                            s, self._predicates_to_learn)
                     idx = self._rng.choice(len(ground_atoms))
                     random_atom = ground_atoms[idx]
+                    # Add this atom if it's a positive example
                     if self._ask_teacher(s, random_atom):
-                        # Add this atom if it's a positive example
-                        self._ground_atom_dataset.append([{random_atom}])
-                        # Add corresponding "action trajectory" to dataset
-                        self._dataset.append(([s], []))
+                        self._dataset.append(([s], [], [{random_atom}]))
                     # Still need to implement a way to use negative examples
                 # Relearn predicates and operators
                 self._relearn_predicates_and_operators()
@@ -116,29 +108,30 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             positive_examples = []
             negative_examples = []
             # Positive examples
-            for i, trajectory in enumerate(self._ground_atom_dataset):
-                for j, ground_atom_set in enumerate(trajectory):
-                    state = self._dataset[i][0][j]
+            for (states, _, ground_atom_sets) in self._dataset:
+                assert len(states) == len(ground_atom_sets)
+                for (state, ground_atom_set) in zip(states, ground_atom_sets):
+                    if len(ground_atom_set) == 0:
+                        continue
                     positives = [state.vec(ground_atom.objects)
                                  for ground_atom in ground_atom_set
                                  if ground_atom.predicate == pred]
                     positive_examples.extend(positives)
             # Negative examples - assume unlabeled is negative for now
-            for (ss, _) in self._dataset:
-                for state in ss:
+            for (states, _, _) in self._dataset:
+                for state in states:
                     possible = [state.vec(choice)
                                 for choice in get_object_combinations(
                                                   list(state),
                                                   pred.types,
                                                   allow_duplicates=False)]
                     negatives = []
-                    for (ex, pos) in itertools.product(possible,
-                                                       positive_examples):
-                        if np.array_equal(ex, pos):
-                            break
-                    else:
-                        # It's not a positive example
-                        negatives.append(ex)
+                    for ex in possible:
+                        for pos in positive_examples:
+                            if np.array_equal(ex, pos):
+                                break
+                        else:  # It's not a positive example
+                            negatives.append(ex)
                     negative_examples.extend(negatives)
             print(f"Generated {len(positive_examples)} positive and "
                   f"{len(negative_examples)} negative examples for "
@@ -158,7 +151,9 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn operators via superclass
-        self._learn_operators(self._dataset)
+        # Reconstruct Dataset
+        dataset: Dataset = [(s, a) for (s, a, _) in self._dataset]
+        self._learn_operators(dataset)
 
 
     def _get_states_to_ask(self,
@@ -168,7 +163,7 @@ class InteractiveLearningApproach(OperatorLearningApproach):
         new_states = []
         for (ss, _) in trajectories:
             new_states.extend(ss)
-        scores = [score_goal(self._ground_atom_dataset,
+        scores = [score_goal(self._dataset,
                              utils.abstract(s, self._get_current_predicates()))
                   for s in new_states]
         if CFG.interactive_ask_strategy == "all_seen_states":
@@ -203,7 +198,7 @@ class _Teacher:
         self._predicates_to_learn = predicates_to_learn
         self._has_generated_data = False
 
-    def generate_data(self, dataset: Dataset) -> List[List[Set[GroundAtom]]]:
+    def generate_data(self, dataset: Dataset) -> List[GroundAtomTrajectory]:
         """Creates sparse dataset of GroundAtoms.
         """
         # No cheating!
@@ -221,33 +216,34 @@ class _Teacher:
 
 
 def create_teacher_dataset(preds: Collection[Predicate],
-                           dataset: Dataset) -> List[List[Set[GroundAtom]]]:
+                           dataset: Dataset) -> List[GroundAtomTrajectory]:
     """Create sparse dataset of GroundAtoms for interactive learning.
     """
     ratio = CFG.teacher_dataset_label_ratio
     rng = np.random.default_rng(CFG.seed)
-    ground_atoms_dataset = []
-    for (ss, _) in dataset:
-        ground_atoms_traj = []
-        for s in ss:
+    teacher_dataset: List[GroundAtomTrajectory] = []
+    for (states, actions) in dataset:
+        ground_atoms_traj: List[Set[GroundAtom]] = []
+        for s in states:
             ground_atoms = sorted(utils.abstract(s, preds))
             # select random subset to keep
             n_samples = int(len(ground_atoms) * ratio)
-            if n_samples < 1:
-                raise ApproachFailure("Need at least 1 ground atom sample")
-            subset = rng.choice(np.arange(len(ground_atoms)),
-                                size=(n_samples,),
-                                replace=False)
-            subset_atoms = {ground_atoms[j] for j in subset}
+            subset_atoms = set()
+            if n_samples > 0:
+                subset = rng.choice(np.arange(len(ground_atoms)),
+                                    size=(n_samples,),
+                                    replace=False)
+                subset_atoms = {ground_atoms[j] for j in subset}
             ground_atoms_traj.append(subset_atoms)
-        ground_atoms_dataset.append(ground_atoms_traj)
-    assert len(ground_atoms_dataset) == len(dataset)
-    return ground_atoms_dataset
+        assert len(states) == len(ground_atoms_traj)
+        teacher_dataset.append((states, actions, ground_atoms_traj))
+    assert len(teacher_dataset) == len(dataset)
+    return teacher_dataset
 
 
 def glib_sample(initial_state: State,
                 predicates: Set[Predicate],
-                ground_atom_dataset: List[List[Set[GroundAtom]]]
+                dataset: List[GroundAtomTrajectory],
                 ) -> List[Task]:
     """Sample some tasks via the GLIB approach.
     """
@@ -264,19 +260,19 @@ def glib_sample(initial_state: State,
                           size=(num_atoms,),
                           replace=False)
         goal = {ground_atoms[i] for i in idxs}
-        goals.append((goal, score_goal(ground_atom_dataset, goal)))
+        goals.append((goal, score_goal(dataset, goal)))
     goals.sort(key=lambda tup: tup[1], reverse=True)
     return [Task(initial_state, g) for (g, _) in \
             goals[:CFG.interactive_num_tasks_babbled]]
 
 
-def score_goal(ground_atom_dataset: List[List[Set[GroundAtom]]],
+def score_goal(dataset: List[GroundAtomTrajectory],
                goal: Set[GroundAtom]) -> float:
     """Score a goal as inversely proportional to the number of examples seen
     during training.
     """
     count = 1  # Avoid division by 0
-    for trajectory in ground_atom_dataset:
+    for (_, _, trajectory) in dataset:
         for ground_atom_set in trajectory:
             count += 1 if goal.issubset(ground_atom_set) else 0
     return 1.0 / count
