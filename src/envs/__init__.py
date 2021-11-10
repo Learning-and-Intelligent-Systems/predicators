@@ -34,5 +34,5 @@ def create_env(name: str) -> BaseEnv:
     if name == "blocks":
         return BlocksEnv()
     if name == "behavior":
-        return BehaviorEnv()
+        return BehaviorEnv()  # pragma: no cover
     raise NotImplementedError(f"Unknown env: {name}")
