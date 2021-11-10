@@ -116,15 +116,19 @@ class BehaviorEnv(BaseEnv):
                 # it uses geometry, and the behaviorbot actually floats
                 # and doesn't touch the floor. But it doesn't matter.
                 "onfloor",
-                "cooked",
-                "burnt",
+                # NOTE: these three are currently disabled because there
+                # is a behavior bug in evaluating the respective low-level
+                # attributes. When moving to tasks involving these, we
+                # will need to reactivate them.
+                # "cooked",
+                # "burnt",
+                # "frozen",
                 "soaked",
                 "open",
                 "dusty",
                 "stained",
                 "sliced",
-                "toggled_on",
-                "frozen"]:
+                "toggled_on",]:
             bddl_predicate = SUPPORTED_PREDICATES[bddl_name]
             # We will create one predicate for every combination of types.
             # Ideally, we would filter out implausible type combinations
@@ -240,7 +244,6 @@ class BehaviorEnv(BaseEnv):
                 ig_obj = self._object_to_ig_object(o[0])
                 bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
                 bddl_ground_atom.initialize(self._env.simulator)
-                # TODO: figure out why this is crashing with KeyError
                 return bddl_ground_atom.get_value()
             if arity == 2:
                 assert len(o) == 2
