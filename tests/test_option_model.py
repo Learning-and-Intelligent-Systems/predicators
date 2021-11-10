@@ -2,16 +2,10 @@
 """
 
 import pytest
-from predicators.src.approaches import OracleApproach
-from predicators.src.approaches.oracle_approach import get_gt_ops
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan
-from predicators.src import utils
 from gym.spaces import Box
-from predicators.src.structs import Type, Object, Variable, State, Predicate, \
-    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    Operator, _GroundOperator, Action
+from predicators.src import utils
+from predicators.src.envs import CoverEnv
+from predicators.src.structs import State, Action, Type, ParameterizedOption
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model, _OptionModel
 
@@ -36,7 +30,7 @@ def test_default_option_model():
         del s, o  # unused
         return Action(p*2)
     def _initiable(s, o, p):
-        del o  # unused
+        del o, p  # unused
         obj = list(s)[0]
         return s[obj][0] < 10 or s[obj][0] > 60
     def _terminal(s, o, p):
