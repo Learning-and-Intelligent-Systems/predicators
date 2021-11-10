@@ -11,7 +11,8 @@ try:
     import bddl
     import igibson
     from igibson.envs import behavior_env
-    from igibson.objects.articulated_object import ArticulatedObject, URDFObject
+    from igibson.objects.articulated_object import ArticulatedObject  # pylint: disable=unused-import
+    from igibson.objects.articulated_object import URDFObject
     from igibson.object_states.on_floor import RoomFloor
     from igibson.robots.behavior_robot import BRBody
     from igibson.utils.checkpoint_utils import \
@@ -34,7 +35,7 @@ class BehaviorEnv(BaseEnv):
     """Behavior (iGibson) environment.
     """
     def __init__(self) -> None:
-        if not _BEHAVIOR_IMPORTED:  # If still False, not installed
+        if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path,
                                    CFG.behavior_config_file)
@@ -188,22 +189,22 @@ class BehaviorEnv(BaseEnv):
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
-    def _get_task_relevant_objects(self) -> List[ArticulatedObject]:
+    def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
         return list(self._env.task.object_scope.values())
 
     @functools.lru_cache(maxsize=None)
-    def _ig_object_to_object(self, ig_obj: ArticulatedObject) -> Object:
+    def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
         type_name = self._ig_object_to_type_name(ig_obj)
         obj_type = self._type_name_to_type[type_name]
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
     @functools.lru_cache(maxsize=None)
-    def _object_to_ig_object(self, obj: Object) -> ArticulatedObject:
+    def _object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
         return self._name_to_ig_object(obj.name)
 
     @functools.lru_cache(maxsize=None)
-    def _name_to_ig_object(self, name: str) -> ArticulatedObject:
+    def _name_to_ig_object(self, name: str) -> "ArticulatedObject":
         for ig_obj in self._get_task_relevant_objects():
             if self._ig_object_name(ig_obj) == name:
                 return ig_obj
@@ -295,7 +296,7 @@ class BehaviorEnv(BaseEnv):
         return True
 
     @staticmethod
-    def _ig_object_name(ig_obj: ArticulatedObject) -> str:
+    def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
         if isinstance(ig_obj, (URDFObject, RoomFloor)):
             return ig_obj.bddl_object_scope
         # Robot does not have a field "bddl_object_scope", so we define
@@ -304,7 +305,7 @@ class BehaviorEnv(BaseEnv):
         return "agent.n.01_1"
 
     @staticmethod
-    def _ig_object_to_type_name(ig_obj: ArticulatedObject) -> str:
+    def _ig_object_to_type_name(ig_obj: "ArticulatedObject") -> str:
         ig_obj_name = BehaviorEnv._ig_object_name(ig_obj)
         if isinstance(ig_obj, RoomFloor):
             assert ":" in ig_obj_name
