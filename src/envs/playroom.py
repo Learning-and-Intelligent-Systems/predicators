@@ -27,8 +27,9 @@ class PlayroomEnv(BaseEnv):
     table_y_lb = 10.0
     table_x_ub = 20.0
     table_y_ub = 20.0
-    door_button_z = 1.0  # Relative to ground
+    door_button_z = 1.0  # relative to ground
     door_tol = 0.2
+    dial_r = 3.0
     dial_tol = 1.0
     dial_button_tol = 0.2
     held_tol = 0.5
@@ -450,7 +451,7 @@ class PlayroomEnv(BaseEnv):
                action: Optional[Action] = None) -> List[Image]:
         r = CFG.playroom_block_size * 0.5  # block radius
 
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(1, 1, figsize=(20, 8))
         ax.set_xlabel("x", fontsize=24)
         ax.set_ylabel("y", fontsize=24)
         ax.set_xlim((self.x_lb - 5, self.x_ub + 5))
@@ -488,11 +489,12 @@ class PlayroomEnv(BaseEnv):
         # Draw dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        dial_face = patches.Circle((dial_x, dial_y), radius=5,
+        dial_face = patches.Circle((dial_x, dial_y), radius=self.dial_r,
                                    edgecolor='black', facecolor='black')
         ax.add_patch(dial_face)
         level = state.get(self._dial, "level")
-        dx, dy = 5*np.sin(level*2*np.pi), 5*np.cos(level*2*np.pi)
+        dx = self.dial_r*np.sin(level*2*np.pi)
+        dy = self.dial_r*np.cos(level*2*np.pi)
         dial_arrow = patches.Arrow(dial_x, dial_y, dx, dy, edgecolor='red',
                                    facecolor='red')
         ax.add_patch(dial_arrow)
