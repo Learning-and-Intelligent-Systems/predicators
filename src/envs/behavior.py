@@ -5,13 +5,13 @@
 import functools
 import itertools
 import os
-from typing import List, Set, Optional
+from typing import List, Set, Optional, Dict, Callable, Sequence
 import numpy as np
 try:
     import bddl
     import igibson
     from igibson.envs import behavior_env
-    from igibson.objects.articulated_object import URDFObject
+    from igibson.objects.articulated_object import ArticulatedObject, URDFObject
     from igibson.object_states.on_floor import RoomFloor
     from igibson.robots.behavior_robot import BRBody
     from igibson.utils.checkpoint_utils import \
@@ -34,8 +34,6 @@ class BehaviorEnv(BaseEnv):
     """Behavior (iGibson) environment.
     """
     def __init__(self) -> None:
-        if not _BEHAVIOR_IMPORTED:
-            _import_behavior()  # Lazy imports
         if not _BEHAVIOR_IMPORTED:  # If still False, not installed
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path,
@@ -49,7 +47,7 @@ class BehaviorEnv(BaseEnv):
         )
         self._env.robots[0].initial_z_offset = 0.7
 
-        self._type_name_to_type = {}
+        self._type_name_to_type : Dict[str, Type] = {}
 
         super().__init__()
 
@@ -184,45 +182,45 @@ class BehaviorEnv(BaseEnv):
         return self._env.action_space
 
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
+               action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
-    def _get_task_relevant_objects(self):
+    def _get_task_relevant_objects(self) -> List[ArticulatedObject]:
         return list(self._env.task.object_scope.values())
 
     @functools.lru_cache(maxsize=None)
-    def _ig_object_to_object(self, ig_obj):
+    def _ig_object_to_object(self, ig_obj: ArticulatedObject) -> Object:
         type_name = self._ig_object_to_type_name(ig_obj)
         obj_type = self._type_name_to_type[type_name]
         ig_obj_name = self._ig_object_name(ig_obj)
         return Object(ig_obj_name, obj_type)
 
     @functools.lru_cache(maxsize=None)
-    def _object_to_ig_object(self, obj):
+    def _object_to_ig_object(self, obj: Object) -> ArticulatedObject:
         return self._name_to_ig_object(obj.name)
 
     @functools.lru_cache(maxsize=None)
-    def _name_to_ig_object(self, name):
+    def _name_to_ig_object(self, name: str) -> ArticulatedObject:
         for ig_obj in self._get_task_relevant_objects():
             if self._ig_object_name(ig_obj) == name:
                 return ig_obj
         raise ValueError(f"No IG object found for name {name}.")
 
     @functools.lru_cache(maxsize=None)
-    def _name_to_predicate(self, name):
+    def _name_to_predicate(self, name: str) -> Predicate:
         for pred in self.predicates:
             if name == pred.name:
                 return pred
         raise ValueError(f"No predicate found for name {name}.")
 
-    def _current_ig_state_to_state(self):
+    def _current_ig_state_to_state(self) -> State:
         state_data = {}
         for ig_obj in self._get_task_relevant_objects():
             obj = self._ig_object_to_object(ig_obj)
             # In the future, we may need other object attributes,
             # but for the moment, we just need position and orientation.
-            obj_state = np.concatenate([
+            obj_state = np.hstack([
                 ig_obj.get_position(),
                 ig_obj.get_orientation(),
             ])
@@ -230,8 +228,9 @@ class BehaviorEnv(BaseEnv):
         simulator_state = save_internal_states(self._env.simulator)
         return State(state_data, simulator_state)
 
-    def _create_classifier_from_bddl(self, bddl_predicate):
-        def _classifier(s, o):
+    def _create_classifier_from_bddl(self, bddl_predicate: "bddl.AtomicFormula",
+            ) -> Callable[[State, Sequence[Object]], bool]:
+        def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
             # predicate. Because of this, we will assert that whenever
@@ -255,7 +254,7 @@ class BehaviorEnv(BaseEnv):
             raise ValueError("BDDL predicate has unexpected arity.")
         return _classifier
 
-    def _get_grasped_objects(self, state):
+    def _get_grasped_objects(self, state: State) -> Set[Object]:
         grasped_objs = set()
         for obj in state:
             ig_obj = self._object_to_ig_object(obj)
@@ -263,21 +262,21 @@ class BehaviorEnv(BaseEnv):
                 grasped_objs.add(obj)
         return grasped_objs
 
-    def _handempty_classifier(self, state, objs):
+    def _handempty_classifier(self, state: State, objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
-    def _holding_classifier(self, state, objs):
+    def _holding_classifier(self, state: State, objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
 
-    def _nextto_nothing_classifier(self, state, objs):
+    def _nextto_nothing_classifier(self, state: State, objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 1
@@ -292,7 +291,7 @@ class BehaviorEnv(BaseEnv):
         return True
 
     @staticmethod
-    def _ig_object_name(ig_obj):
+    def _ig_object_name(ig_obj: ArticulatedObject) -> str:
         if isinstance(ig_obj, (URDFObject, RoomFloor)):
             return ig_obj.bddl_object_scope
         # Robot does not have a field "bddl_object_scope", so we define
@@ -301,7 +300,7 @@ class BehaviorEnv(BaseEnv):
         return "agent.n.01_1"
 
     @staticmethod
-    def _ig_object_to_type_name(ig_obj):
+    def _ig_object_to_type_name(ig_obj: ArticulatedObject) -> str:
         ig_obj_name = BehaviorEnv._ig_object_name(ig_obj)
         if isinstance(ig_obj, RoomFloor):
             assert ":" in ig_obj_name
@@ -312,7 +311,7 @@ class BehaviorEnv(BaseEnv):
         return ig_obj_name.rsplit("_", 1)[0]
 
     @staticmethod
-    def _bddl_predicate_arity(bddl_predicate):
+    def _bddl_predicate_arity(bddl_predicate: "bddl.AtomicFormula") -> int:
         # NOTE: isinstance does not work here, maybe because of the
         # way that these bddl_predicate classes are created?
         if ObjectStateUnaryPredicate in bddl_predicate.__bases__:
@@ -322,6 +321,6 @@ class BehaviorEnv(BaseEnv):
         raise ValueError("BDDL predicate has unexpected arity.")
 
     @staticmethod
-    def _create_type_combo_name(original_name, type_combo):
+    def _create_type_combo_name(original_name: str, type_combo: Sequence[Type]) -> str:
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
