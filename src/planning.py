@@ -12,10 +12,11 @@ from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, Operator, Predicate, \
-    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, Action, \
+    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, \
     PyperplanFacts, Metrics
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
+from predicators.src.option_model import _OptionModel
 from predicators.src.settings import CFG
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -37,7 +38,7 @@ class _Node:
 
 
 def sesame_plan(task: Task,
-                simulator: Callable[[State, Action], State],
+                option_model: _OptionModel,
                 operators: Set[Operator],
                 initial_predicates: Set[Predicate],
                 timeout: float, seed: int,
@@ -68,7 +69,7 @@ def sesame_plan(task: Task,
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
             plan = _run_search(
-                task, simulator, ground_operators, atoms, predicates,
+                task, option_model, ground_operators, atoms, predicates,
                 timeout-(time.time()-start_time), new_seed, metrics)
             break  # planning succeeded, break out of loop
         except _DiscoveredFailureException as e:
@@ -83,7 +84,7 @@ def sesame_plan(task: Task,
 
 
 def _run_search(task: Task,
-                simulator: Callable[[State, Action], State],
+                option_model: _OptionModel,
                 ground_operators: List[_GroundOperator],
                 init_atoms: Collection[GroundAtom],
                 predicates: Set[Predicate],
@@ -122,7 +123,7 @@ def _run_search(task: Task,
             # If this skeleton satisfies the goal, run low-level search.
             metrics["num_skeletons_optimized"] += 1
             plan = _run_low_level_search(
-                task, simulator, node.skeleton, node.atoms_sequence,
+                task, option_model, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
             if plan is not None:
                 return plan
@@ -154,7 +155,7 @@ def _run_search(task: Task,
 
 def _run_low_level_search(
         task: Task,
-        simulator: Callable[[State, Action], State],
+        option_model: _OptionModel,
         skeleton: List[_GroundOperator],
         atoms_sequence: List[Collection[GroundAtom]],
         rng_sampler: np.random.Generator,
@@ -186,16 +187,14 @@ def _run_low_level_search(
         option = operator.sample_option(state, rng_sampler)
         plan[cur_idx] = option
         try:
-            option_traj_states, _ = utils.option_to_trajectory(
-                state, simulator, option,
-                max_num_steps=CFG.max_num_steps_option_rollout)
+            next_state = option_model.get_next_state(state, option)
             discovered_failures[cur_idx] = None  # no failure occurred
         except EnvironmentFailure as e:
             can_continue_on = False
             discovered_failures[cur_idx] = _DiscoveredFailure(
                 e, operator)  # remember only the most recent failure
         if not discovered_failures[cur_idx]:
-            traj[cur_idx+1] = option_traj_states[-1]  # ignore previous states
+            traj[cur_idx+1] = next_state
             cur_idx += 1
             # Check atoms again expected atoms_sequence constraint.
             assert len(traj) == len(atoms_sequence)
