@@ -174,7 +174,7 @@ class PlayroomEnv(BaseEnv):
                 and (cls.door_button_z-cls.door_tol < z
                         < cls.door_button_z+cls.door_tol) \
                 and fingers >= 0.5 \
-                and self._robot_is_facing_door(state, action, door):
+                and self._robot_is_facing_door(state, action):
                 transition_fn = self._transition_door
             # Move elsewhere in hallway or to boring room or to playroom
             elif (30.0 < x < 110.0 and 10.0 < y < 20.0) \
@@ -196,7 +196,7 @@ class PlayroomEnv(BaseEnv):
                 return state
         # In playroom next to dial
         elif (110.0 < prev_x < 140.0) and (0.0 < prev_y < 30.0) and \
-            self._NextToDial_holds(state, (self._robot, self._dial)):
+                self._NextToDial_holds(state, (self._robot, self._dial)):
             dial_x = state.get(self._dial, "pose_x")
             dial_y = state.get(self._dial, "pose_y")
             # Toggle dial
@@ -211,13 +211,8 @@ class PlayroomEnv(BaseEnv):
                     next_state.set(self._dial, "level", 0.0)
                 return next_state
             # Move elsewhere in playroom
-            elif (110.0 < x < 140.0) and (0.0 < y < 30.0):
-                next_state = state.copy()
-                next_state.set(self._robot, "pose_x", x)
-                next_state.set(self._robot, "pose_y", y)
-                next_state.set(self._robot, "rotation", rotation)
-                next_state.set(self._robot, "fingers", fingers)
-                return next_state
+            if (110.0 < x < 140.0) and (0.0 < y < 30.0):
+                transition_fn = self._transition_move
             # Move to hallway or to boring room
             elif (30.0 < x < 110.0 and 10.0 < y < 20.0) \
                     or (0.0 < x < 30.0 and 0.0 < y < 30.0):
@@ -236,7 +231,7 @@ class PlayroomEnv(BaseEnv):
                 and (cls.door_button_z-cls.door_tol < z
                      < cls.door_button_z+cls.door_tol) \
                 and (rotation >= 1.5 or rotation <= -1.5):
-                    transition_fn = self._transition_door
+                transition_fn = self._transition_door
             # Move elsewhere in playroom
             elif (110.0 < x < 140.0) and (0.0 < y < 30.0):
                 transition_fn = self._transition_move
@@ -358,12 +353,13 @@ class PlayroomEnv(BaseEnv):
         return next_state
 
     def _transition_door(self, state: State, action: Action) -> State:
-        # TODO: recover the door?
+        # opens/closes a door that the robot is next to and facing
+        door = self._get_door_next_to(state, action)
         next_state = state.copy()
-        if state.get(self._door6, "open") < 0.5:
-            next_state.set(self._door6, "open", 1.0)
+        if state.get(door, "open") < 0.5:
+            next_state.set(door, "open", 1.0)
         else:
-            next_state.set(self._door6, "open", 0.0)
+            next_state.set(door, "open", 0.0)
         return next_state
 
     def get_train_tasks(self) -> List[Task]:
@@ -827,8 +823,8 @@ class PlayroomEnv(BaseEnv):
                 return door
         raise RuntimeError("Robot not next to any door")
 
-    def _robot_is_facing_door(self, state: State, action: Action, door: Object
-                              ) -> bool:
+    def _robot_is_facing_door(self, state: State, action: Action) -> bool:
+        door = self._get_door_next_to(state, action)
         door_x = state.get(door, "pose_x")
         x, _, _, rotation, _ = action.arr
         return (x < door_x and (rotation >= 1.5 or rotation <= -1.5)) \
