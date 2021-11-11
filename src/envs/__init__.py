@@ -4,6 +4,7 @@
 from predicators.src.envs.base_env import BaseEnv, EnvironmentFailure
 from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes
+from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.blocks import BlocksEnv
 
@@ -15,6 +16,7 @@ __all__ = [
     "CoverEnvHierarchicalTypes",
     "ClutteredTableEnv",
     "BlocksEnv",
+    "BehaviorEnv",
 ]
 
 
@@ -31,4 +33,6 @@ def create_env(name: str) -> BaseEnv:
         return ClutteredTableEnv()
     if name == "blocks":
         return BlocksEnv()
+    if name == "behavior":
+        return BehaviorEnv()  # pragma: no cover
     raise NotImplementedError(f"Unknown env: {name}")

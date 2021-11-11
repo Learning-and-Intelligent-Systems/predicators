@@ -29,6 +29,16 @@ class GlobalSettings:
     blocks_num_blocks_test = [5, 6]
     blocks_block_size = 0.1
 
+    # behavior env parameters
+    behavior_config_file = os.path.join(  # relative to igibson.root_path
+        "examples", "configs",
+        "njk_re-shelving_library_books_full_obs.yaml",
+        # "njk_sorting_books_full_obs.yaml"
+    )
+    behavior_mode = "headless"  # headless, pbgui, iggui
+    behavior_action_timestep = 1.0 / 10.0
+    behavior_physics_timestep = 1.0 / 120.0
+
     # parameters for approaches
     random_options_max_tries = 100
 
@@ -96,6 +106,7 @@ class GlobalSettings:
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "behavior": 10,
             })[args["env"]],
 
             # Number of test tasks in each environment.
@@ -105,6 +116,7 @@ class GlobalSettings:
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "behavior": 10,
             })[args["env"]],
 
             # Maximum number of steps to run a policy when checking whether
@@ -115,6 +127,7 @@ class GlobalSettings:
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 25,
                 "blocks": 25,
+                "behavior": 100,
             })[args["env"]],
 
             # Name of the option model to use.
