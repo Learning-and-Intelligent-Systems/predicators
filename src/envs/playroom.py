@@ -665,11 +665,12 @@ class PlayroomEnv(BaseEnv):
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
-        _, block = objects
+        robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
-        arr = np.r_[block_pose+params, 0.0].astype(np.float32)
+        rotation = state.get(robot, "rotation")
+        arr = np.r_[block_pose+params, rotation, 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -687,11 +688,12 @@ class PlayroomEnv(BaseEnv):
 
     def _Stack_policy(self, state: State, objects: Sequence[Object],
                       params: Array) -> Action:
-        _, block = objects
+        robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
-        arr = np.r_[block_pose+params, 1.0].astype(np.float32)
+        rotation = state.get(robot, "rotation")
+        arr = np.r_[block_pose+params, rotation, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -709,13 +711,14 @@ class PlayroomEnv(BaseEnv):
 
     def _PutOnTable_policy(self, state: State, objects: Sequence[Object],
                            params: Array) -> Action:
-        del state, objects  # unused
+        robot, = objects
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
         y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
         z = self.table_height + 0.5*CFG.playroom_block_size
-        arr = np.array([x, y, z, 1.0], dtype=np.float32)
+        rotation = state.get(robot, "rotation")
+        arr = np.array([x, y, z, rotation, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
