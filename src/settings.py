@@ -30,7 +30,8 @@ class GlobalSettings:
     blocks_block_size = 0.1
 
     # playroom env parameters
-    playroom_num_blocks = 3
+    playroom_num_blocks_train = [3]
+    playroom_num_blocks_test = [3]
     playroom_block_size = 0.5
 
     # parameters for approaches
