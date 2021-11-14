@@ -22,7 +22,7 @@ def test_playroom():
     assert len(env.predicates) == 5
     assert {pred.name for pred in env.goal_predicates} == {"On", "OnTable"}
     assert len(env.options) == 3
-    assert len(env.types) == 2
+    assert len(env.types) == 4
     block_type = [t for t in env.types if t.name == "block"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     assert env.action_space.shape == (5,)

@@ -350,12 +350,10 @@ class BlocksEnv(BaseEnv):
             return True
         return False
 
-    @staticmethod
-    def _On_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block1, block2 = objects
-        cls = BlocksEnv
-        if state.get(block1, "held") >= cls.held_tol or \
-           state.get(block2, "held") >= cls.held_tol:
+        if state.get(block1, "held") >= self.held_tol or \
+           state.get(block2, "held") >= self.held_tol:
             return False
         x1 = state.get(block1, "pose_x")
         y1 = state.get(block1, "pose_y")
@@ -364,16 +362,14 @@ class BlocksEnv(BaseEnv):
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
         return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.blocks_block_size],
-                           atol=cls.pick_tol)
+                           atol=self.pick_tol)
 
-    @staticmethod
-    def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
-        cls = BlocksEnv
-        desired_z = cls.table_height + CFG.blocks_block_size * 0.5
-        return (state.get(block, "held") < cls.held_tol) and \
-            (desired_z-cls.pick_tol < z < desired_z+cls.pick_tol)
+        desired_z = self.table_height + CFG.blocks_block_size * 0.5
+        return (state.get(block, "held") < self.held_tol) and \
+            (desired_z-self.pick_tol < z < desired_z+self.pick_tol)
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -384,10 +380,9 @@ class BlocksEnv(BaseEnv):
         block, = objects
         return self._get_held_block(state) == block
 
-    @staticmethod
-    def _Clear_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
-        return state.get(block, "clear") >= BlocksEnv.clear_tol
+        return state.get(block, "clear") >= self.clear_tol
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
