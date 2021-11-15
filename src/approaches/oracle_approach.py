@@ -224,7 +224,8 @@ def _get_behavior_gt_ops() -> Set[Operator]:
     type_name_to_type = {t.name : t for t in env.types}
     pred_name_to_pred = {p.name : p for p in env.predicates}
 
-    def _get_lifted_atom(base_pred_name, objects):
+    def _get_lifted_atom(base_pred_name: str,
+                         objects: Sequence[Variable]) -> LiftedAtom:
         type_names = "-".join(o.type.name for o in objects)
         pred_name = f"{base_pred_name}-{type_names}"
         pred = pred_name_to_pred[pred_name]
@@ -264,8 +265,10 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             # Navigate to while nextto something
             for origin_obj_type in env.types:
                 origin_obj = Variable("?origin", origin_obj_type)
-                origin_next_to = _get_lifted_atom("nextto", [origin_obj, agent_obj])
-                targ_next_to = _get_lifted_atom("nextto", [target_obj, agent_obj])
+                origin_next_to = _get_lifted_atom("nextto",
+                    [origin_obj, agent_obj])
+                targ_next_to = _get_lifted_atom("nextto",
+                    [target_obj, agent_obj])
                 parameters = [origin_obj, agent_obj, target_obj]
                 option_vars = [target_obj]
                 preconditions = {origin_next_to}
@@ -290,7 +293,8 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                 parameters = [target_obj, agent_obj, surf_obj]
                 option_vars = [target_obj]
                 handempty = _get_lifted_atom("handempty", [])
-                targ_next_to = _get_lifted_atom("nextto", [target_obj, agent_obj])
+                targ_next_to = _get_lifted_atom("nextto",
+                    [target_obj, agent_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
                 preconditions = {handempty, targ_next_to, ontop}
@@ -327,7 +331,6 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                                 # TODO: create sampler
                                 lambda s, r, o: np.zeros((0,)))
             operators.add(operator)
-        
         else:
             raise ValueError(
                 f"Unexpected base option name: {base_option_name}")

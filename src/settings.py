@@ -136,7 +136,6 @@ class GlobalSettings:
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
                 "cluttered_table": 25,
-                "behavior": 100,
                 "blocks": 25,
                 "behavior": 100,
             })[args["env"]],
