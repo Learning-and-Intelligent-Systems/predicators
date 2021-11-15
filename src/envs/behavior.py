@@ -19,6 +19,7 @@ try:
         save_internal_states, load_internal_states
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
+    from predicators.src.envs.behavior_options import navigate_to_obj_pos
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
 except ModuleNotFoundError:
@@ -26,9 +27,45 @@ except ModuleNotFoundError:
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
 
+
+class _BehaviorOptionGlue:
+    """Glue for behavior options. We may want to remove or change.
+    """
+    def __init__(self, controller_fn: Callable, env: BaseEnv,
+                 object_to_ig_object: Callable):
+        self._controller_fn = controller_fn
+        self._env = env
+        self._object_to_ig_object = object_to_ig_object
+        self._option = None
+        self._has_terminated = False
+
+    def get_action(self, s: State, o: Sequence[Object],
+                   p: Array) -> Action:
+        """Set up and call option policy.
+        """
+        assert not self._has_terminated
+        if self._option is None:
+            igo = [self._object_to_ig_object(i) for i in o]
+            # TODO: remove this assumption. Will require a small
+            # change on the behavior option side. I'm trying not
+            # to modify anything in that file for now.
+            assert len(igo) == 1
+            self._option = self._controller_fn(self._env, igo[0], p)
+            assert self._option is not None
+        action, self._has_terminated = self._option(s, self._env)
+        return Action(action)
+
+    def has_terminated(self, s: State, o: Sequence[Object],
+                       p: Array) -> bool:
+        """Return whether the option is done.
+        """
+        del s  # Unused
+        del o  # Unused
+        del p  # Unused
+        return self._has_terminated
 
 
 class BehaviorEnv(BaseEnv):
@@ -59,6 +96,21 @@ class BehaviorEnv(BaseEnv):
         loaded_state = self._current_ig_state_to_state()
         assert loaded_state.allclose(state)
         a = action.arr
+
+        # TEMPORARY TESTING
+        if not hasattr(self, "_temp_option"):
+            obj = sorted(state)[2]
+            print("ATTEMPTING TO NAVIGATE TO ", obj)
+            options = sorted(self.options, key=lambda o: o.name)
+            nav = options[1]
+            assert nav.name == 'NavigateTo-book.n.02'
+            self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
+            print("CREATED OPTION:", self._temp_option)
+        action = self._temp_option.policy(state)
+        a = action.arr
+        print("STEPPING ACTION:", a)
+        # END TEMPORARY TESTING
+
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
         return next_state
@@ -174,7 +226,29 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return set()
+        # name, controller_fn, param_dim, arity
+        controllers = [
+            ("NavigateTo", navigate_to_obj_pos, 2, 1),
+        ]
+
+        options = set()
+
+        for name, controller_fn, param_dim, num_args in controllers:
+            # Create a different option for each type combo
+            for types in itertools.product(self.types,
+                                                repeat=num_args):
+                option_name = self._create_type_combo_name(name, types)
+                glue = _BehaviorOptionGlue(controller_fn, self._env,
+                    self._object_to_ig_object)
+                option = ParameterizedOption(option_name,
+                    types=list(types),
+                    params_space=Box(-1, 1, (param_dim,)),
+                    _policy=glue.get_action,
+                    _initiable=lambda s, o, p: True,
+                    _terminal=glue.has_terminated)
+                options.add(option)
+
+        return options
 
     @property
     def action_space(self) -> Box:
