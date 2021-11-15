@@ -3,18 +3,21 @@
 Example usage:
     python src/main.py --env cover --approach oracle --seed 0
 
-Another example usage:
+To make videos:
     python src/main.py --env cover --approach oracle --seed 0 \
         --make_videos --num_test_tasks 1
 
-Another example usage:
+To run interactive learning approach:
     python src/main.py --env cover --approach interactive_learning \
          --seed 0
+
+To exclude predicates:
+    python src/main.py --env cover --approach oracle --seed 0 \
+         --excluded_predicates Holding
 
 """
 
 import time
-from predicators.src.args import parse_args
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure
 from predicators.src.approaches import create_approach, ApproachTimeout, \
@@ -28,11 +31,22 @@ def main() -> None:
     """
     start = time.time()
     # Parse & validate args
-    args = parse_args()
+    args = utils.parse_args()
     utils.update_config(args)
     # Create & seed classes
     env = create_env(CFG.env)
-    approach = create_approach(CFG.approach, env.simulate, env.predicates,
+    assert env.goal_predicates.issubset(env.predicates)
+    if CFG.excluded_predicates:
+        excludeds = set(CFG.excluded_predicates.split(","))
+        assert excludeds.issubset({pred.name for pred in env.predicates}), \
+            "Unrecognized excluded_predicates!"
+        preds = {pred for pred in env.predicates
+                 if pred.name not in excludeds}
+        assert env.goal_predicates.issubset(preds), \
+            "Can't exclude a goal predicate!"
+    else:
+        preds = env.predicates
+    approach = create_approach(CFG.approach, env.simulate, preds,
                                env.options, env.types, env.action_space,
                                env.get_train_tasks())
     env.seed(CFG.seed)
@@ -52,6 +66,7 @@ def main() -> None:
     num_solved = 0
     approach.reset_metrics()
     for i, task in enumerate(test_tasks):
+        print(end="", flush=True)
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
@@ -60,8 +75,8 @@ def main() -> None:
             continue
         try:
             _, video, solved = utils.run_policy_on_task(
-                policy, task, env.simulate, env.predicates, CFG.make_videos,
-                env.render)
+                policy, task, env.simulate, env.predicates,
+                CFG.max_num_steps_check_policy, CFG.make_videos, env.render)
         except EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")

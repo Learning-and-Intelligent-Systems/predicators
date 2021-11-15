@@ -34,6 +34,21 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
 
+    # blocks env parameters
+    blocks_num_blocks_train = [3, 4]
+    blocks_num_blocks_test = [5, 6]
+    blocks_block_size = 0.1
+
+    # behavior env parameters
+    behavior_config_file = os.path.join(  # relative to igibson.root_path
+        "examples", "configs",
+        "njk_re-shelving_library_books_full_obs.yaml",
+        # "njk_sorting_books_full_obs.yaml"
+    )
+    behavior_mode = "headless"  # headless, pbgui, iggui
+    behavior_action_timestep = 1.0 / 10.0
+    behavior_physics_timestep = 1.0 / 120.0
+
     # parameters for approaches
     random_options_max_tries = 100
 
@@ -49,7 +64,7 @@ class GlobalSettings:
     video_fps = 2
 
     # teacher dataset parameters
-    teacher_dataset_label_ratio = 0.3
+    teacher_dataset_label_ratio = 1.0
 
     # operator learning parameters
     min_data_for_operator = 3
@@ -59,7 +74,8 @@ class GlobalSettings:
     do_sampler_learning = True
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
-    classifier_max_itr = 10000
+    classifier_max_itr_sampler = 10000
+    classifier_max_itr_predicate = 1000
     classifier_balance_data = True
     regressor_hid_sizes = [32, 32]
     regressor_max_itr = 10000
@@ -67,8 +83,21 @@ class GlobalSettings:
     n_iter_no_change = 5000
     learning_rate = 1e-3
 
+    # iterative invention parameters
+    iterative_invention_accept_score = 1-1e-3
+
     # interactive learning parameters
-    interactive_known_predicates = {'HandEmpty'}
+    interactive_known_predicates = {'HandEmpty', 'Covers'}
+    interactive_num_episodes = 3
+    interactive_max_steps = 10
+    interactive_relearn_every = 3
+    interactive_num_babbles = 10
+    interactive_max_num_atoms_babbled = 1
+    interactive_num_tasks_babbled = 5
+    interactive_atom_type_babbled = "ground"
+    interactive_ask_strategy = "all_seen_states"
+    interactive_ask_strategy_threshold = 0.0
+    interactive_ask_strategy_pct = 20.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -83,16 +112,20 @@ class GlobalSettings:
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
                 "cover": 10,
-                "cover_typed": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
+                "blocks": 50,
                 "behavior": 10,
             })[args["env"]],
 
             # Number of test tasks in each environment.
             num_test_tasks=defaultdict(int, {
                 "cover": 10,
-                "cover_typed": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
                 "cluttered_table": 50,
+                "blocks": 50,
                 "behavior": 10,
             })[args["env"]],
 
@@ -100,9 +133,22 @@ class GlobalSettings:
             # it solves a task.
             max_num_steps_check_policy=defaultdict(int, {
                 "cover": 10,
-                "cover_typed": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
                 "cluttered_table": 25,
                 "behavior": 100,
+                "blocks": 25,
+                "behavior": 100,
+            })[args["env"]],
+
+            # Name of the option model to use.
+            option_model_name=defaultdict(str, {
+                "cover": "default",
+                "cover_typed_options": "default",
+                "cover_hierarchical_types": "default",
+                "cluttered_table": "default",
+                "blocks": "default",
+                "behavior": "default",
             })[args["env"]],
 
             # For learning-based approaches, whether to include ground truth
@@ -111,6 +157,7 @@ class GlobalSettings:
                 "trivial_learning": True,
                 "operator_learning": True,
                 "interactive_learning": True,
+                "iterative_invention": True,
             })[args["approach"]],
 
             # For learning-based approaches, the data collection strategy.
@@ -118,6 +165,7 @@ class GlobalSettings:
                 "trivial_learning": "demo",
                 "operator_learning": "demo+replay",
                 "interactive_learning": "demo",
+                "iterative_invention": "demo+replay",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
@@ -126,6 +174,7 @@ class GlobalSettings:
                 "trivial_learning": 500,
                 "operator_learning": 500,
                 "interactive_learning": 500,
+                "iterative_invention": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
@@ -134,6 +183,7 @@ class GlobalSettings:
                 "trivial_learning": 10,
                 "operator_learning": 10,
                 "interactive_learning": 10,
+                "iterative_invention": 500,
             })[args["approach"]],
         )
 
@@ -144,7 +194,8 @@ def get_save_path() -> str:
     """
     if not os.path.exists(CFG.save_dir):
         os.makedirs(CFG.save_dir)
-    return f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}.saved"
+    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
+            f"{CFG.excluded_predicates}.saved")
 
 
 _attr_to_value = {}

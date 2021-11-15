@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+import argparse
 import functools
 import itertools
 import os
@@ -13,6 +14,7 @@ import heapq as hq
 import imageio
 import matplotlib
 import numpy as np
+from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
@@ -69,12 +71,42 @@ def unify(ground_atoms: FrozenSet[GroundAtom],
     return solved, rev_sub
 
 
+def wrap_atom_predicates_lifted(atoms: Collection[LiftedAtom],
+                                prefix: str) -> Set[LiftedAtom]:
+    """Return a new set of lifted atoms which adds the given prefix
+    string to the name of every predicate in atoms.
+    NOTE: the classifier is removed.
+    """
+    new_atoms = set()
+    for atom in atoms:
+        new_predicate = Predicate(prefix+atom.predicate.name,
+                                  atom.predicate.types,
+                                  _classifier=lambda s, o: False)  # dummy
+        new_atoms.add(LiftedAtom(new_predicate, atom.variables))
+    return new_atoms
+
+
+def wrap_atom_predicates_ground(atoms: Collection[GroundAtom],
+                                prefix: str) -> Set[GroundAtom]:
+    """Return a new set of ground atoms which adds the given prefix
+    string to the name of every predicate in atoms.
+    NOTE: the classifier is removed.
+    """
+    new_atoms = set()
+    for atom in atoms:
+        new_predicate = Predicate(prefix+atom.predicate.name,
+                                  atom.predicate.types,
+                                  _classifier=lambda s, o: False)  # dummy
+        new_atoms.add(GroundAtom(new_predicate, atom.objects))
+    return new_atoms
+
+
 def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
-                       predicates: Collection[Predicate],
+                       predicates: Collection[Predicate], max_steps: int,
                        make_video: bool = False,
-                       render: Optional[Callable[[State, Task,
-                                    Action], Image]] = None,
+                       render: Optional[
+                           Callable[[State, Task, Action], List[Image]]] = None,
                        ) -> Tuple[ActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
@@ -89,12 +121,11 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         goal_reached = True
     else:
         goal_reached = False
-        for _ in range(CFG.max_num_steps_check_policy):
-            print("ATOMS:", atoms)
+        for _ in range(max_steps):
             act = policy(state)
             if make_video:
                 assert render is not None
-                video.append(render(state, task, act))
+                video.extend(render(state, task, act))
             state = simulator(state, act)
             atoms = abstract(state, predicates)
             actions.append(act)
@@ -108,7 +139,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         # support Callables with optional arguments. mypy
         # extensions does, but for the sake of avoiding an
         # additional dependency, we'll just ignore this here.
-        video.append(render(state, task))  # type: ignore
+        video.extend(render(state, task))  # type: ignore
     return (states, actions), video, goal_reached
 
 
@@ -117,7 +148,8 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        predicates: Collection[Predicate]) -> bool:
     """Return whether the given policy solves the given task.
     """
-    _, _, solved = run_policy_on_task(policy, task, simulator, predicates)
+    _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
+                                      CFG.max_num_steps_check_policy)
     return solved
 
 
@@ -168,15 +200,53 @@ def action_to_option_trajectory(act_traj: ActionTrajectory
     return new_states, options
 
 
+@functools.lru_cache(maxsize=None)
+def get_all_groundings(atoms: FrozenSet[LiftedAtom],
+                       objects: FrozenSet[Object]
+                       ) -> List[Tuple[FrozenSet[GroundAtom], VarToObjSub]]:
+    """Get all the ways to ground the given set of lifted atoms into
+    a set of ground atoms, using the given objects. Returns a list
+    of (ground atoms, substitution dictionary) tuples.
+    """
+    variables = set()
+    for atom in atoms:
+        variables.update(atom.variables)
+    sorted_variables = sorted(variables)
+    types = [var.type for var in sorted_variables]
+    # NOTE: We WON'T use a generator here because that breaks lru_cache.
+    result = []
+    # Allow duplicate arguments here because this is across all atoms.
+    # We'll handle within-atom duplicates below.
+    for choice in get_object_combinations(
+            objects, types, allow_duplicates=True):
+        sub: VarToObjSub = dict(zip(sorted_variables, choice))
+        ground_atoms = set()
+        do_filter = False
+        for atom in atoms:
+            sub_for_atom = [sub[v] for v in atom.variables]
+            if len(sub_for_atom) != len(set(sub_for_atom)):
+                # Any individual atom can't have duplicate arguments.
+                do_filter = True
+            ground_atoms.add(atom.ground(sub))
+        if do_filter:
+            continue
+        result.append((frozenset(ground_atoms), sub))
+    return result
+
+
 def get_object_combinations(
         objects: Collection[Object], types: Sequence[Type],
         allow_duplicates: bool) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence.
     """
-    type_to_objs = defaultdict(list)
-    for obj in sorted(objects):
-        type_to_objs[obj.type].append(obj)
-    choices = [type_to_objs[vt] for vt in types]
+    sorted_objects = sorted(objects)
+    choices = []
+    for vt in types:
+        this_choices = []
+        for obj in sorted_objects:
+            if obj.is_instance(vt):
+                this_choices.append(obj)
+        choices.append(this_choices)
     for choice in itertools.product(*choices):
         if not allow_duplicates and len(set(choice)) != len(choice):
             continue
@@ -271,6 +341,14 @@ def _substitution_consistent(
     return True
 
 
+def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
+    """Get an iterator over the powerset of the given sequence.
+    """
+    start = 1 if exclude_empty else 0
+    return itertools.chain.from_iterable(itertools.combinations(list(seq), r)
+                                         for r in range(start, len(seq)+1))
+
+
 def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
@@ -304,6 +382,30 @@ def all_ground_operators(
                                           allow_duplicates=True):
         ground_operators.add(op.ground(choice))
     return ground_operators
+
+
+def all_ground_predicates(pred: Predicate,
+                          objects: Collection[Object]) -> Set[GroundAtom]:
+    """Get all possible groundings of the given predicate with the given
+    objects.
+
+    NOTE: Duplicate arguments in predicates are DISALLOWED.
+    """
+    return {GroundAtom(pred, choice)
+            for choice in get_object_combinations(objects, pred.types,
+                                                  allow_duplicates=False)}
+
+
+def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
+        -> List[GroundAtom]:
+    """Get a sorted list of all possible ground atoms in a state given the
+    predicates. Ignores the predicates' classifiers.
+    """
+    objects = list(state)
+    ground_atoms = set()
+    for pred in preds:
+        ground_atoms |= all_ground_predicates(pred, objects)
+    return sorted(ground_atoms)
 
 
 def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
@@ -582,8 +684,8 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
     """
     fig.set_dpi(dpi)
     fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_argb(),  # type: ignore
-                         dtype=np.uint8, sep='')
+    data = np.frombuffer(fig.canvas.tostring_argb(),  # type: ignore
+                         dtype=np.uint8).copy()
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
@@ -597,12 +699,21 @@ def save_video(outfile: str, video: Video) -> None:
         os.makedirs(outdir)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
-    print(f"Wrote out to {outpath}.")
+    print(f"Wrote out to {outpath}")
 
 
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG.
     """
+    # Only override attributes, don't create new ones
+    allowed_args = set(CFG.__dict__)
+    parser = create_arg_parser()
+    # Unfortunately, can't figure out any other way to do this
+    for parser_action in parser._actions:  # pylint: disable=protected-access
+        allowed_args.add(parser_action.dest)
+    for k in args:
+        if k not in allowed_args:
+            raise ValueError(f"Unrecognized arg: {k}")
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
@@ -612,3 +723,39 @@ def get_config_path_str() -> str:
     """Create a filename prefix based on the current CFG.
     """
     return f"{CFG.env}__{CFG.approach}__{CFG.seed}"
+
+
+def parse_args() -> Dict[str, Any]:
+    """Parses command line arguments.
+    """
+    parser = create_arg_parser()
+    args, overrides = parser.parse_known_args()
+    print_args(args)
+    arg_dict = vars(args)
+    if len(overrides) == 0:
+        return arg_dict
+    # Update initial settings to make sure we're overriding
+    # existing flags only
+    update_config(arg_dict)
+    # Override global settings
+    assert len(overrides) >= 2
+    assert len(overrides) % 2 == 0
+    for flag, value in zip(overrides[:-1:2], overrides[1::2]):
+        assert flag.startswith("--")
+        setting_name = flag[2:]
+        if setting_name not in CFG.__dict__:
+            raise ValueError(f"Unrecognized flag: {setting_name}")
+        if value.isdigit():
+            value = eval(value)
+        arg_dict[setting_name] = value
+    return arg_dict
+
+
+def print_args(args: argparse.Namespace) -> None:
+    """Print all info for this experiment.
+    """
+    print(f"Seed: {args.seed}")
+    print(f"Env: {args.env}")
+    print(f"Approach: {args.approach}")
+    print(f"Timeout: {args.timeout}")
+    print()

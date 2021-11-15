@@ -118,6 +118,10 @@ class ClutteredTableEnv(BaseEnv):
         return {self._HandEmpty, self._Holding}
 
     @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._Holding}
+
+    @property
     def types(self) -> Set[Type]:
         return {self._can_type}
 
@@ -134,7 +138,7 @@ class ClutteredTableEnv(BaseEnv):
         return Box(0, 1, (4,))
 
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
+               action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
         assert len(task.goal) == 1
@@ -180,7 +184,7 @@ class ClutteredTableEnv(BaseEnv):
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
-        return img
+        return [img]
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
         tasks = []

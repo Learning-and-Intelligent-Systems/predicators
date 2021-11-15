@@ -9,6 +9,8 @@ from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
 from predicators.src.structs import State, Action, Task, Operator, \
     Predicate, ParameterizedOption, Type
+from predicators.src.option_model import create_option_model
+from predicators.src.settings import CFG
 
 
 class TAMPApproach(BaseApproach):
@@ -22,12 +24,14 @@ class TAMPApproach(BaseApproach):
                  train_tasks: List[Task]) -> None:
         super().__init__(simulator, initial_predicates, initial_options, types,
                          action_space, train_tasks)
+        self._option_model = create_option_model(
+            CFG.option_model_name, self._simulator)
         self._num_calls = 0
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
         seed = self._seed+self._num_calls  # ensure random over successive calls
-        plan, metrics = sesame_plan(task, self._simulator,
+        plan, metrics = sesame_plan(task, self._option_model,
                                     self._get_current_operators(),
                                     self._get_current_predicates(),
                                     timeout, seed)
@@ -35,10 +39,15 @@ class TAMPApproach(BaseApproach):
                        "num_failures_discovered",
                        "plan_length"]:
             self._metrics[f"total_{metric}"] += metrics[metric]
-        def _policy(_: State) -> Action:
+        def _policy(state: State) -> Action:
             if not plan:
                 raise ApproachFailure("Finished executing plan!")
-            return plan.pop(0)
+            cur_option = plan[0]
+            assert cur_option.initiable(state), "Unsound planner output"
+            act = cur_option.policy(state)
+            if cur_option.terminal(state):
+                plan.pop(0)  # this option is exhausted, continue to next
+            return act
         return _policy
 
     @abc.abstractmethod
