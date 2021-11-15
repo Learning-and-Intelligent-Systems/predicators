@@ -28,17 +28,17 @@ def create_env(name: str) -> BaseEnv:
     """Create an environment given its name.
     """
     if name == "cover":
-        return CoverEnv()
-    if name == "cover_typed_options":
-        return CoverEnvTypedOptions()
-    if name == "cover_hierarchical_types":
-        return CoverEnvHierarchicalTypes()
-    if name == "cluttered_table":
-        return ClutteredTableEnv()
-    if name == "blocks":
-        return BlocksEnv()
-    if name == "behavior":
-        return BehaviorEnv()  # pragma: no cover
+        env : BaseEnv = CoverEnv()
+    elif name == "cover_typed_options":
+        env = CoverEnvTypedOptions()
+    elif name == "cover_hierarchical_types":
+        env = CoverEnvHierarchicalTypes()
+    elif name == "cluttered_table":
+        env = ClutteredTableEnv()
+    elif name == "blocks":
+        env = BlocksEnv()
+    elif name == "behavior":
+        env = BehaviorEnv()  # pragma: no cover
     else:
         raise NotImplementedError(f"Unknown env: {name}")
 
