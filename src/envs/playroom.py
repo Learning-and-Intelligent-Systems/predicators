@@ -209,6 +209,8 @@ class PlayroomEnv(BlocksEnv):
     @property
     def action_space(self) -> Box:
         # dimensions: [x, y, z, rotation, fingers]
+        # x, y, z location for the robot's disembodied hand
+        # robot's heading is the angle (rotation * pi) in standard position
         lowers = np.array([self.x_lb, self.y_lb, 0.0, -2.0, 0.0],
                           dtype=np.float32)
         uppers = np.array([self.x_ub, self.y_ub, 10.0, 2.0, 1.0],
@@ -310,6 +312,7 @@ class PlayroomEnv(BlocksEnv):
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[Task]:
+        # to change later: right now tasks only vary by block placement
         tasks = []
         for _ in range(num_tasks):
             num_blocks = rng.choice(possible_num_blocks)
@@ -511,8 +514,8 @@ class PlayroomEnv(BlocksEnv):
         door = self._get_door_next_to(state, action)
         door_x = state.get(door, "pose_x")
         x, _, _, rotation, _ = action.arr
-        return (x < door_x and (rotation >= 1.5 or rotation <= -1.5)) \
-            or (x >= door_x and 0.5 >= rotation >= -0.5)
+        return (x < door_x and 0.5 >= rotation >= -0.5) \
+            or (x >= door_x and (rotation >= 1.5 or rotation <= -1.5))
 
     def _robot_can_move(self, state: State, action: Action) -> bool:
         # Any doors along the path must be open
