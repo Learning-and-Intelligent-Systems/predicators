@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, Optional, DefaultDict
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -17,6 +17,7 @@ class Type:
     """
     name: str
     feature_names: Sequence[str] = field(repr=False)
+    parent: Optional[Type] = field(default=None, repr=False)
 
     @property
     def dim(self) -> int:
@@ -58,6 +59,17 @@ class _TypedEntity:
     def __repr__(self) -> str:
         return self._str
 
+    def is_instance(self, t: Type) -> bool:
+        """Return whether this entity is an instance of the given type, taking
+        hierarchical typing into account.
+        """
+        cur_type: Optional[Type] = self.type
+        while cur_type is not None:
+            if cur_type == t:
+                return True
+            cur_type = cur_type.parent
+        return False
+
 
 @dataclass(frozen=True, order=True, repr=False)
 class Object(_TypedEntity):
@@ -92,7 +104,9 @@ class State:
     """Struct defining the low-level state of the world.
     """
     data: Dict[Object, Array]
-    simulator_state: Optional[Any] = None  # for implementing simulate
+    # Some environments will need to store additional simulator state, so
+    # this field is provided.
+    simulator_state: Optional[Any] = None
 
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
@@ -146,6 +160,17 @@ class State:
         assert hasattr(val, "copy")
         return val.copy()
 
+    def allclose(self, other: State) -> bool:
+        """Return whether this state is close enough to another one,
+        i.e., its objects are the same, and the features are close.
+        """
+        if not sorted(self.data) == sorted(other.data):
+            return False
+        for obj in self.data:
+            if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
+                return False
+        return True
+
 
 DefaultState = State({})
 
@@ -165,6 +190,9 @@ class Predicate:
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
+        assert len(entities) == self.arity
+        for ent, pred_type in zip(entities, self.types):
+            assert ent.is_instance(pred_type)
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -192,7 +220,7 @@ class Predicate:
         assert len(objects) == self.arity
         for obj, pred_type in zip(objects, self.types):
             assert isinstance(obj, Object)
-            assert obj.type == pred_type
+            assert obj.is_instance(pred_type)
         return self._classifier(state, objects)
 
     def __str__(self) -> str:
@@ -200,6 +228,16 @@ class Predicate:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def get_negation(self) -> Predicate:
+        """Return a negated version of this predicate.
+        """
+        return Predicate("NOT-"+self.name, self.types, self._negated_classifier)
+
+    def _negated_classifier(self, state: State,
+                            objects: Sequence[Object]) -> bool:
+        # Separate this into a named function for pickling reasons.
+        return not self._classifier(state, objects)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -337,8 +375,9 @@ class ParameterizedOption:
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values.
         """
-        assert [obj.type for obj in objects] == self.types, \
-            f"Mismatched types: {objects}, {self.types}"
+        assert len(objects) == len(self.types)
+        for obj, t in zip(objects, self.types):
+            assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
         return _Option(self.name,
@@ -431,7 +470,8 @@ class Operator:
         """Ground into a _GroundOperator, given objects.
         """
         assert len(objects) == len(self.parameters)
-        assert all(o.type == p.type for o, p in zip(objects, self.parameters))
+        assert all(o.is_instance(p.type) for o, p
+                   in zip(objects, self.parameters))
         sub = dict(zip(self.parameters, objects))
         preconditions = {atom.ground(sub) for atom in self.preconditions}
         add_effects = {atom.ground(sub) for atom in self.add_effects}
@@ -554,12 +594,13 @@ class Action:
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
 Dataset = List[ActionTrajectory]
+GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
-Transition = Tuple[State, Set[GroundAtom], _Option, Set[GroundAtom],
-                   Set[GroundAtom]]
+Transition = Tuple[State, State, Set[GroundAtom], _Option,
+                   Set[GroundAtom], Set[GroundAtom], Set[GroundAtom]]
 Metrics = DefaultDict[str, float]

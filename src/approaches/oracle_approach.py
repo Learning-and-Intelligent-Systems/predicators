@@ -31,14 +31,16 @@ def get_gt_ops(predicates: Set[Predicate],
                options: Set[ParameterizedOption]) -> Set[Operator]:
     """Create ground truth operators for an env.
     """
-    if CFG.env == "cover":
+    if CFG.env in ("cover", "cover_hierarchical_types"):
         ops = _get_cover_gt_ops(options_are_typed=False)
-    elif CFG.env == "cover_typed":
+    elif CFG.env == "cover_typed_options":
         ops = _get_cover_gt_ops(options_are_typed=True)
     elif CFG.env == "cluttered_table":
         ops = _get_cluttered_table_gt_ops()
     elif CFG.env == "behavior":
         ops = _get_behavior_gt_ops()
+    elif CFG.env == "blocks":
+        ops = _get_blocks_gt_ops()
     else:
         raise NotImplementedError("Ground truth operators not implemented")
     # Filter out excluded predicates/options
@@ -94,7 +96,8 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                                            "HandEmpty", "Holding"])
 
     if options_are_typed:
-        Pick, Place = _get_options_by_names("cover_typed", ["Pick", "Place"])
+        Pick, Place = _get_options_by_names(
+            "cover_typed_options", ["Pick", "Place"])
     else:
         PickPlace, = _get_options_by_names("cover", ["PickPlace"])
 
@@ -116,7 +119,7 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                      objs: Sequence[Object]) -> Array:
         assert len(objs) == 1
         b = objs[0]
-        assert b.type == block_type
+        assert b.is_instance(block_type)
         if options_are_typed:
             lb = float(-state.get(b, "width")/2)  # relative positioning only
             ub = float(state.get(b, "width")/2)  # relative positioning only
@@ -150,7 +153,7 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
                       objs: Sequence[Object]) -> Array:
         assert len(objs) == 2
         t = objs[1]
-        assert t.type == target_type
+        assert t.is_instance(target_type)
         lb = float(state.get(t, "pose") - state.get(t, "width")/10)
         lb = max(lb, 0.0)
         ub = float(state.get(t, "pose") + state.get(t, "width")/10)
@@ -328,5 +331,108 @@ def _get_behavior_gt_ops() -> Set[Operator]:
         else:
             raise ValueError(
                 f"Unexpected base option name: {base_option_name}")
+
+    return operators
+
+
+def _get_blocks_gt_ops() -> Set[Operator]:
+    """Create ground truth operators for BlocksEnv.
+    """
+    block_type, robot_type = _get_types_by_names("blocks", ["block", "robot"])
+
+    On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
+        "blocks", ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+
+    Pick, Stack, PutOnTable = _get_options_by_names(
+        "blocks", ["Pick", "Stack", "PutOnTable"])
+
+    operators = set()
+
+    # PickFromTable
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
+    option_vars = [robot, block]
+    option = Pick
+    preconditions = {LiftedAtom(OnTable, [block]),
+                     LiftedAtom(Clear, [block]),
+                     LiftedAtom(GripperOpen, [robot])}
+    add_effects = {LiftedAtom(Holding, [block])}
+    delete_effects = {LiftedAtom(OnTable, [block]),
+                      LiftedAtom(Clear, [block]),
+                      LiftedAtom(GripperOpen, [robot])}
+    def pick_sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        del state, rng, objs  # unused
+        return np.zeros(3, dtype=np.float32)
+    pickfromtable_operator = Operator(
+        "PickFromTable", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, pick_sampler)
+    operators.add(pickfromtable_operator)
+
+    # Unstack
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [robot, block]
+    option = Pick
+    preconditions = {LiftedAtom(On, [block, otherblock]),
+                     LiftedAtom(Clear, [block]),
+                     LiftedAtom(GripperOpen, [robot])}
+    add_effects = {LiftedAtom(Holding, [block]),
+                   LiftedAtom(Clear, [otherblock])}
+    delete_effects = {LiftedAtom(On, [block, otherblock]),
+                      LiftedAtom(Clear, [block]),
+                      LiftedAtom(GripperOpen, [robot])}
+    unstack_operator = Operator(
+        "Unstack", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, pick_sampler)
+    operators.add(unstack_operator)
+
+    # Stack
+    block = Variable("?block", block_type)
+    otherblock = Variable("?otherblock", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, otherblock, robot]
+    option_vars = [robot, otherblock]
+    option = Stack
+    preconditions = {LiftedAtom(Holding, [block]),
+                     LiftedAtom(Clear, [otherblock])}
+    add_effects = {LiftedAtom(On, [block, otherblock]),
+                   LiftedAtom(Clear, [block]),
+                   LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {LiftedAtom(Holding, [block]),
+                      LiftedAtom(Clear, [otherblock])}
+    def stack_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
+        del state, rng, objs  # unused
+        return np.array([0, 0, CFG.blocks_block_size], dtype=np.float32)
+    stack_operator = Operator(
+        "Stack", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, stack_sampler)
+    operators.add(stack_operator)
+
+    # PutOnTable
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
+    option_vars = [robot]
+    option = PutOnTable
+    preconditions = {LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(OnTable, [block]),
+                   LiftedAtom(Clear, [block]),
+                   LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {LiftedAtom(Holding, [block])}
+    def putontable_sampler(state: State, rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        del state, objs  # unused
+        x = rng.uniform()
+        y = rng.uniform()
+        return np.array([x, y], dtype=np.float32)
+    putontable_operator = Operator(
+        "PutOnTable", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, putontable_sampler)
+    operators.add(putontable_operator)
 
     return operators

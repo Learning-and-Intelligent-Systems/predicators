@@ -2,8 +2,9 @@
 """
 
 import os
+from dataclasses import dataclass
 import tempfile
-from typing import List, Tuple
+from typing import Sequence, List, Tuple
 from scipy.stats import truncnorm
 import torch
 from torch import nn
@@ -11,7 +12,7 @@ from torch import optim
 from torch import Tensor
 import torch.nn.functional as F
 import numpy as np
-from predicators.src.structs import Array
+from predicators.src.structs import Array, Object, State
 from predicators.src.settings import CFG
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
@@ -165,7 +166,7 @@ class NeuralGaussianRegressor(nn.Module):
 class MLPClassifier(nn.Module):
     """MLPClassifier definition.
     """
-    def __init__(self, in_size: int) -> None:
+    def __init__(self, in_size: int, max_itr: int) -> None:
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
         torch.manual_seed(CFG.seed)
@@ -177,6 +178,7 @@ class MLPClassifier(nn.Module):
         self._linears.append(nn.Linear(hid_sizes[-1], 1))
         self._input_shift = np.zeros(1)
         self._input_scale = np.zeros(1)
+        self._max_itr = max_itr
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
@@ -257,12 +259,12 @@ class MLPClassifier(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.classifier_max_itr}",
+                print(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}",
                       end="\r", flush=True)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if itr == CFG.classifier_max_itr:
+            if itr == self._max_itr:
                 print()
                 break
             if itr-best_itr > CFG.n_iter_no_change:
@@ -277,3 +279,18 @@ class MLPClassifier(nn.Module):
         yhat = self(X)
         loss = loss_fn(yhat, y)
         print(f"Loaded best model with loss: {loss:.5f}")
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class LearnedPredicateClassifier:
+    """A convenience class for holding the model underlying a learned predicate.
+    Prefer to use this because it is pickleable.
+    """
+    _model: MLPClassifier
+
+    def classifier(self, state: State, objects: Sequence[Object]) -> bool:
+        """The classifier corresponding to the given model. May be used
+        as the _classifier field in a Predicate.
+        """
+        v = state.vec(objects)
+        return self._model.classify(v)

@@ -20,6 +20,25 @@ def test_object_type():
     assert my_type.dim == len(my_type.feature_names) == len(feats)
     assert my_type.feature_names == feats
     assert isinstance(hash(my_type), int)
+    name = "test2"
+    feats = ["feat3"]
+    my_type2 = Type(name, feats, parent=my_type)
+    assert my_type2.name == name
+    assert my_type2.dim == len(my_type2.feature_names) == len(feats)
+    assert my_type2.feature_names == feats
+    assert isinstance(hash(my_type2), int)
+    assert my_type2.parent == my_type
+    name = "test2"
+    feats = ["feat3"]
+    my_type3 = Type(name, feats, parent=my_type)  # same as my_type2
+    obj = my_type("obj1")
+    assert obj.is_instance(my_type)
+    assert not obj.is_instance(my_type2)
+    assert not obj.is_instance(my_type3)
+    obj = my_type2("obj2")
+    assert obj.is_instance(my_type)
+    assert obj.is_instance(my_type2)
+    assert obj.is_instance(my_type3)
 
 
 def test_object():
@@ -60,6 +79,7 @@ def test_state():
     obj3 = type1("obj3")
     obj7 = type1("obj7")
     obj1 = type2("obj1")
+    obj2 = type2("obj2")
     obj1_dup = type2("obj1")
     obj4 = type2("obj4")
     obj9 = type2("obj9")
@@ -101,6 +121,35 @@ def test_state():
     # Test state vec with no objects
     vec = state.vec([])
     assert vec.shape == (0,)
+    # Test allclose
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj1: [5, 6, 7],
+                    obj4: [8, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert state.allclose(state2)
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj1: [5, 6, 7],
+                    obj4: [8.3, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert not state.allclose(state2)  # obj4 state is different
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj4: [8, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert not state.allclose(state2)  # obj1 is missing
+    state2 = State({obj3: [1, 122],
+                    obj7: [3, 4],
+                    obj1: [5, 6, 7],
+                    obj2: [5, 6, 7],
+                    obj4: [8, 9, 10],
+                    obj9: [11, 12, 13]})
+    assert not state.allclose(state2)  # obj2 is extra
+    # Test including simulator_state
+    state_with_sim = State({}, "simulator_state")
+    assert state_with_sim.simulator_state == "simulator_state"
+    assert state.simulator_state is None
     return state
 
 
@@ -136,6 +185,9 @@ def test_predicate_and_atom():
     assert pred.holds(state, [cup1, plate])
     assert not other_pred.holds(state, [cup1, plate])
     assert not pred.holds(state, [cup2, plate])
+    neg_pred = pred.get_negation()
+    assert not neg_pred.holds(state, [cup1, plate])
+    assert neg_pred.holds(state, [cup2, plate])
     assert str(pred) == repr(pred) == "On"
     assert {pred, pred} == {pred}
     pred2 = Predicate("On2", [cup_type, plate_type], _classifier)
@@ -146,6 +198,10 @@ def test_predicate_and_atom():
     lifted_atom = pred([cup_var, plate_var])
     lifted_atom2 = pred([cup_var, plate_var])
     lifted_atom3 = pred2([cup_var, plate_var])
+    with pytest.raises(AssertionError):
+        pred2([cup_var])  # bad arity
+    with pytest.raises(AssertionError):
+        pred2([plate_var, cup_var])  # bad types
     assert lifted_atom.predicate == pred
     assert lifted_atom.variables == [cup_var, plate_var]
     assert {lifted_atom, lifted_atom2} == {lifted_atom}

@@ -1,4 +1,4 @@
-"""Toy cover domain. This environment IS downward refinability (low-level search
+"""Toy cover domain. This environment IS downward refinable (low-level search
 won't ever fail), but it still requires backtracking.
 """
 
@@ -72,10 +72,10 @@ class CoverEnv(BaseEnv):
                 assert above_block is None
                 above_block = block
         # If we're not holding anything and we're above a block, grasp it.
+        # The grasped block's pose stays the same.
         if held_block is None and above_block is not None:
             grasp = pose-state.get(above_block, "pose")
             next_state.set(self._robot, "hand", pose)
-            next_state.set(above_block, "pose", -1000)  # out of the way
             next_state.set(above_block, "grasp", grasp)
         # If we are holding something, place it.
         # Disallow placing on another block or in free space.
@@ -107,6 +107,10 @@ class CoverEnv(BaseEnv):
                 self._HandEmpty, self._Holding}
 
     @property
+    def goal_predicates(self) -> Set[Predicate]:
+        return {self._Covers}
+
+    @property
     def types(self) -> Set[Type]:
         return {self._block_type, self._target_type, self._robot_type}
 
@@ -119,7 +123,7 @@ class CoverEnv(BaseEnv):
         return Box(0, 1, (1,))  # same as option param space
 
     def render(self, state: State, task: Task,
-               action: Optional[Action] = None) -> Image:
+               action: Optional[Action] = None) -> List[Image]:
         del task  # not used by this render function
         del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
@@ -176,7 +180,7 @@ class CoverEnv(BaseEnv):
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
-        return img
+        return [img]
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
@@ -245,11 +249,11 @@ class CoverEnv(BaseEnv):
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2)
 
-    @staticmethod
-    def _HandEmpty_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
         assert not objects
         for obj in state:
-            if obj.type.name == "block" and state.get(obj, "grasp") != -1:
+            if obj.is_instance(self._block_type) and \
+               state.get(obj, "grasp") != -1:
                 return False
         return True
 
@@ -320,3 +324,24 @@ class CoverEnvTypedOptions(CoverEnv):
         pick_pose = s.get(o[0], "pose") + p[0]
         pick_pose = min(max(pick_pose, 0.0), 1.0)
         return Action(np.array([pick_pose], dtype=np.float32))
+
+
+class CoverEnvHierarchicalTypes(CoverEnv):
+    """Toy cover domain with hierarchical types, just for testing.
+    """
+    def __init__(self) -> None:
+        super().__init__()
+        # Change blocks to be of a derived type
+        self._block_type_derived = Type(
+            "block_derived",
+            ["is_block", "is_target", "width", "pose", "grasp"],
+            parent=self._block_type)
+        # Objects
+        self._blocks = []
+        for i in range(CFG.cover_num_blocks):
+            self._blocks.append(Object(f"block{i}", self._block_type_derived))
+
+    @property
+    def types(self) -> Set[Type]:
+        return {self._block_type, self._block_type_derived,
+                self._target_type, self._robot_type}
