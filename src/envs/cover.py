@@ -345,3 +345,300 @@ class CoverEnvHierarchicalTypes(CoverEnv):
     def types(self) -> Set[Type]:
         return {self._block_type, self._block_type_derived,
                 self._target_type, self._robot_type}
+
+
+class CoverMultistepOptions(CoverEnvTypedOptions):
+    """Cover domain with a lower level action space.
+
+    Useful for using and learning multistep options.
+
+    The action space is (dx, dy, dgrip). The last dimension
+    controls the gripper "magnet" or "vacuum".
+
+    The state space also needs to change to track x, y, grip.
+
+    The notion of allowed hand regions needs to be adjusted.
+    We will allow the gripper to move anywhere, except when
+    the y dimension is less than a certain threshold, then
+    the x dimension will still need to be within a hand region.
+
+    Currently simulate disallows dropping blocks except when
+    over a target region. We should fix this to allow dropping
+    blocks anywhere. Also, would be good to check collisions.
+    """
+    hand_region_height = 0.1
+    grasp_height_tol = 1e-2
+    grasp_thresh = 0.1
+    initial_block_y = 0.05
+    block_height = 0.1
+    target_height = 0.1
+    initial_robot_y = 0.4
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Need to now include y and gripper info in state.
+        # Removing "pose" because that's ambiguous.
+        # Also adding height to blocks.
+        # The y position will correspond to the top of the block.
+        self._block_type = Type(
+            "block", ["is_block", "is_target", "width", "x",
+                      "grasp", "y", "height"])
+        # Targets don't need y because they're constant.
+        self._target_type = Type(
+            "target", ["is_block", "is_target", "width", "x"])
+        # Also removing "hand" because that's ambiguous.
+        self._robot_type = Type("robot", ["x", "y", "grip"])
+        # Need to override predicate creation because the types are
+        # now different (in terms of equality).
+        self._IsBlock = Predicate(
+            "IsBlock", [self._block_type], self._IsBlock_holds)
+        self._IsTarget = Predicate(
+            "IsTarget", [self._target_type], self._IsTarget_holds)
+        self._Covers = Predicate(
+            "Covers", [self._block_type, self._target_type], self._Covers_holds)
+        self._HandEmpty = Predicate(
+            "HandEmpty", [], self._HandEmpty_holds)
+        self._Holding = Predicate(
+            "Holding", [self._block_type], self._Holding_holds)
+        # Need to override object creation because the types are now
+        # different (in terms of equality).
+        self._blocks = []
+        self._targets = []
+        for i in range(CFG.cover_num_blocks):
+            self._blocks.append(Object(f"block{i}", self._block_type))
+        for i in range(CFG.cover_num_targets):
+            self._targets.append(Object(f"target{i}", self._target_type))
+        self._robot = Object("robby", self._robot_type)
+        # Override the original options to make them multi-step
+        self._Pick = ParameterizedOption(
+            "Pick", types=[self._block_type],
+            params_space=Box(-0.1, 0.1, (1,)),
+            _policy=self._Pick_policy,
+            _initiable=self._Pick_initiable,
+            _terminal=self._Pick_terminal)
+        self._Place = ParameterizedOption(
+            "Place", types=[self._target_type],
+            params_space=Box(0, 1, (1,)),
+            _policy=self._Place_policy,
+            _initiable=self._Place_initiable,
+            _terminal=self._Place_terminal)
+
+    @property
+    def action_space(self) -> Box:
+        # This is the main difference with respect to the parent
+        # env. The action space now is (dx, dy, dgrip). The
+        # last dimension controls the gripper "magnet" or "vacuum".
+        # Note that the bounds are relatively low, which necessitates
+        # multi-step options.
+        return Box(-0.1, 0.1, (3,))
+
+    def simulate(self, state: State, action: Action) -> State:
+        # Since the action space is lower level, we need to write
+        # a lower level simulate function.
+        assert self.action_space.contains(action.arr)
+        dx, dy, dgrip = action.arr
+        next_state = state.copy()
+        x = state.get(self._robot, "x")
+        y = state.get(self._robot, "y")
+        grip = state.get(self._robot, "grip")
+        # Update robot state based on action.
+        x += dx
+        y += dy
+        grip += dgrip
+        next_state.set(self._robot, "x", x)
+        next_state.set(self._robot, "y", y)
+        next_state.set(self._robot, "grip", grip)
+        # If y is below a threshold, then we need to be in hand region.
+        if y < self.hand_region_height:
+            hand_regions = self._get_hand_regions(state)
+            # If we're not in any hand region, no-op.
+            if not any(hand_lb <= x <= hand_rb
+                       for hand_lb, hand_rb in hand_regions):
+                return next_state
+        # Identify which block we're holding and which block we're above.
+        held_block = None
+        above_block = None
+        for block in self._blocks:
+            if state.get(block, "grasp") != -1:
+                assert held_block is None
+                held_block = block
+            block_x_lb = state.get(block, "x") - state.get(block, "width")/2
+            block_x_ub = state.get(block, "x") + state.get(block, "width")/2
+            block_y_lb = state.get(block, "y") - self.grasp_height_tol
+            block_y_ub = state.get(block, "y") + self.grasp_height_tol
+            if state.get(block, "grasp") == -1 and \
+               block_x_lb <= x <= block_x_ub and \
+               block_y_lb <= y <= block_y_ub:
+                assert above_block is None
+                above_block = block
+        # If we're not holding anything and we're above a block, grasp it.
+        # The grasped block's pose stays the same.
+        # Note: unlike parent env, we also need to check the grip.
+        if held_block is None and above_block is not None and \
+           grip > self.grasp_thresh:
+            grasp = x - state.get(above_block, "x")
+            next_state.set(above_block, "grasp", grasp)
+        # If we are holding something, place it.
+        # Disallow placing on another block or in free space.
+        # Note: unlike parent env, we also need to check the grip.
+        # Also unlike parent env, we disallow placing except when
+        # below the hand_region_height.
+        if held_block is not None and above_block is None and \
+            grip < self.grasp_thresh and y < self.hand_region_height:
+            new_x = x - state.get(held_block, "grasp")
+            if not self._any_intersection(
+                    new_x, state.get(held_block, "width"), state.data,
+                    block_only=True) and \
+                any(state.get(targ, "x") - state.get(targ, "width")/2
+                    <= x <=
+                    state.get(targ, "x") + state.get(targ, "width")/2
+                    for targ in self._targets):
+                next_state.set(held_block, "x", new_x)
+                # Always apply gravity immediately when dropping
+                next_state.set(held_block, "y", self.initial_block_y)
+                next_state.set(held_block, "grasp", -1)
+        return next_state
+
+    def render(self, state: State, task: Task,
+               action: Optional[Action] = None) -> List[Image]:
+        # Need to override rendering to account for new state features.
+        del task  # not used by this render function
+        del action  # not used by this render function
+        fig, ax = plt.subplots(1, 1)
+        # Draw main line
+        plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
+        # Draw hand regions
+        hand_regions = self._get_hand_regions(state)
+        for i, (hand_lb, hand_rb) in enumerate(hand_regions):
+            if i == 0:
+                label = "Allowed hand region"
+            else:
+                label = None
+            plt.plot([hand_lb, hand_rb], [-0.08, -0.08], color="red",
+                     alpha=0.5, lw=8., label=label)
+        # Draw hand
+        plt.scatter(state.get(self._robot, "x"),
+                    state.get(self._robot, "y"),
+                    color="r", s=100, alpha=1., zorder=10, label="Hand")
+        lw = 3
+        cs = ["blue", "purple", "green", "yellow"]
+        block_alpha = 0.75
+        targ_alpha = 0.25
+        # Draw blocks
+        for i, block in enumerate(self._blocks):
+            c = cs[i]
+            if state.get(block, "grasp") != -1:
+                lcolor = "red"
+                bx = state.get(self._robot, "x") - state.get(block, "grasp")
+                by = state.get(self._robot, "y")
+                suffix = " (grasped)"
+            else:
+                lcolor = "gray"
+                bx = state.get(block, "x")
+                by = state.get(block, "y")
+                suffix = ""
+            rect = plt.Rectangle(
+                (bx - state.get(block, "width")/2.,
+                 by - state.get(block, "height")),
+                state.get(block, "width"),
+                state.get(block, "height"),
+                linewidth=lw, edgecolor=lcolor, facecolor=c,
+                alpha=block_alpha, label=f"block{i}"+suffix)
+            ax.add_patch(rect)
+        # Draw targets
+        for i, targ in enumerate(self._targets):
+            c = cs[i]
+            rect = plt.Rectangle(
+                (state.get(targ, "x")-state.get(targ, "width")/2.,
+                 -self.target_height/2.),
+                state.get(targ, "width"),
+                self.target_height,
+                linewidth=lw,
+                edgecolor=lcolor,
+                facecolor=c, alpha=targ_alpha, label=f"target{i}")
+            ax.add_patch(rect)
+        grip = state.get(self._robot, "grip")
+        plt.title(f"Grip: {grip:.3f}")
+        plt.xlim(-0.2, 1.2)
+        plt.ylim(-0.25, 0.5)
+        plt.legend()
+        plt.tight_layout()
+        img = utils.fig2data(fig)
+        plt.close()
+        return [img]
+
+    def _create_initial_state(self, rng: np.random.Generator) -> State:
+        # Need to override to account for new low-level state features.
+        # Note: I originally tried to use super(), but ran into issues
+        # because the parent class types and this class types are
+        # actually different (in terms of equality checking).
+        data: Dict[Object, Array] = {}
+        assert len(CFG.cover_block_widths) == len(self._blocks)
+        for block, width in zip(self._blocks, CFG.cover_block_widths):
+            while True:
+                x = rng.uniform(width/2, 1.0-width/2)
+                if not self._any_intersection(x, width, data):
+                    break
+            # [is_block, is_target, width, x, grasp, y, height]
+            data[block] = np.array([1.0, 0.0, width, x, -1.0,
+                self.initial_block_y, self.block_height])
+        assert len(CFG.cover_target_widths) == len(self._targets)
+        for target, width in zip(self._targets, CFG.cover_target_widths):
+            while True:
+                x = rng.uniform(width/2, 1.0-width/2)
+                if not self._any_intersection(
+                        x, width, data, larger_gap=True):
+                    break
+            # [is_block, is_target, width, x]
+            data[target] = np.array([0.0, 1.0, width, x])
+        # [x, y, grip]
+        data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0])
+        return State(data)
+
+    @staticmethod
+    def _Pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        raise NotImplementedError("TODO")
+
+    @staticmethod
+    def _Pick_initiable(s: State, o: Sequence[Object], p: Array) -> bool:
+        raise NotImplementedError("TODO")
+
+    @staticmethod
+    def _Pick_terminal(s: State, o: Sequence[Object], p: Array) -> bool:
+        raise NotImplementedError("TODO")
+
+    @staticmethod
+    def _Place_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        raise NotImplementedError("TODO")
+
+    @staticmethod
+    def _Place_initiable(s: State, o: Sequence[Object], p: Array) -> bool:
+        raise NotImplementedError("TODO")
+
+    @staticmethod
+    def _Place_terminal(s: State, o: Sequence[Object], p: Array) -> bool:
+        raise NotImplementedError("TODO")
+
+    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+        # Overriding because of the change from "pose" to "x".
+        hand_regions = []
+        for block in self._blocks:
+            hand_regions.append(
+                (state.get(block, "x")-state.get(block, "width")/2,
+                 state.get(block, "x")+state.get(block, "width")/2))
+        for targ in self._targets:
+            hand_regions.append(
+                (state.get(targ, "x")-state.get(targ, "width")/10,
+                 state.get(targ, "x")+state.get(targ, "width")/10))
+        return hand_regions
+
+    @staticmethod
+    def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
+        # Overriding because of the change from "pose" to "x".
+        block, target = objects
+        block_pose = state.get(block, "x")
+        block_width = state.get(block, "width")
+        target_pose = state.get(target, "x")
+        target_width = state.get(target, "width")
+        return (block_pose-block_width/2 <= target_pose-target_width/2) and \
+               (block_pose+block_width/2 >= target_pose+target_width/2)
