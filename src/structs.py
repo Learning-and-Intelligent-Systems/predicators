@@ -104,6 +104,9 @@ class State:
     """Struct defining the low-level state of the world.
     """
     data: Dict[Object, Array]
+    # Some environments will need to store additional simulator state, so
+    # this field is provided.
+    simulator_state: Optional[Any] = None
 
     def __post_init__(self) -> None:
         # Check feature vector dimensions.
@@ -591,6 +594,7 @@ class Action:
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
 Dataset = List[ActionTrajectory]
+GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
