@@ -416,9 +416,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             _policy=self._Pick_policy,
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
+        # Note: there is a change here -- the parameter space is now
+        # relative to the target. In the parent env, the parameter
+        # space is absolute, and the state of the target is not used.
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type],
-            params_space=Box(0, 1, (1,)),
+            params_space=Box(-0.1, 0.1, (1,)),
             _policy=self._Place_policy,
             _initiable=self._Place_initiable,
             _terminal=self._Place_terminal)
@@ -595,29 +598,98 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0])
         return State(data)
 
-    @staticmethod
-    def _Pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
-        raise NotImplementedError("TODO")
+    def _Pick_initiable(self, s: State, o: Sequence[Object],
+                        p: Array) -> bool:
+        # Pick is initiable if the hand is empty.
+        del o  # unused
+        del p  # unused
+        return self._HandEmpty_holds(s, [])
 
-    @staticmethod
-    def _Pick_initiable(s: State, o: Sequence[Object], p: Array) -> bool:
-        raise NotImplementedError("TODO")
+    def _Pick_policy(self, s: State, o: Sequence[Object],  # type: ignore
+                     p: Array) -> Action:
+        # The object is the one we want to pick.
+        assert len(o) == 1
+        obj = o[0]
+        # The parameter is a relative x position to pick at.
+        assert len(p) == 1
+        rel_x = p.item()
+        assert obj.type == self._block_type
+        desired_x = s.get(obj, "x") + rel_x
+        x = s.get(self._robot, "x")
+        at_desired_x = abs(desired_x - x) < 1e-5
+        y = s.get(self._robot, "y")
+        desired_y = s.get(obj, "y")
+        at_desired_y = abs(desired_y - y) < 1e-5
+        # If we're already above the object and prepared to pick,
+        # then execute the pick (turn up the magnet).
+        if at_desired_x and at_desired_y:
+            return Action(np.array([0., 0., 0.1], dtype=np.float32))
+        # If we're above the object but not yet close enough, move down.
+        if at_desired_x:
+            delta_y = np.clip(desired_y - y, -0.1, 0.1)
+            return Action(np.array([0., delta_y, 0.], dtype=np.float32))
+        # If we're not above the object, but we're at a safe height,
+        # then move left/right.
+        if y >= self.initial_robot_y:
+            delta_x = np.clip(desired_x - x, -0.1, 0.1)
+            return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
+        # If we're not above the object, and we're not at a safe height,
+        # then move up.
+        delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
+        return Action(np.array([0., delta_y, 0.], dtype=np.float32))
 
-    @staticmethod
-    def _Pick_terminal(s: State, o: Sequence[Object], p: Array) -> bool:
-        raise NotImplementedError("TODO")
+    def _Pick_terminal(self, s: State, o: Sequence[Object], p: Array) -> bool:
+        # Pick is done when we're holding the desired object.
+        del p  # unused
+        return self._Holding_holds(s, o)
 
-    @staticmethod
-    def _Place_policy(s: State, o: Sequence[Object], p: Array) -> Action:
-        raise NotImplementedError("TODO")
+    def _Place_initiable(self, s: State, o: Sequence[Object],
+                         p: Array) -> bool:
+        # Place is initiable if we're holding something.
+        # Also may want to eventually check that the target is clear.
+        del o  # unused
+        del p  # unused
+        return not self._HandEmpty_holds(s, [])
 
-    @staticmethod
-    def _Place_initiable(s: State, o: Sequence[Object], p: Array) -> bool:
-        raise NotImplementedError("TODO")
+    def _Place_policy(self, s: State, o: Sequence[Object],
+                      p: Array) -> Action:
+        # The object is the one we want to place at.
+        assert len(o) == 1
+        obj = o[0]
+        # The parameter is a relative x position to place at.
+        assert len(p) == 1
+        rel_x = p.item()
+        assert obj.type == self._target_type
+        desired_x = s.get(obj, "x") + rel_x
+        x = s.get(self._robot, "x")
+        at_desired_x = abs(desired_x - x) < 1e-5
+        y = s.get(self._robot, "y")
+        desired_y = self.initial_block_y
+        at_desired_y = abs(desired_y - y) < 1e-5
+        # If we're already above the object and prepared to place,
+        # then execute the place (turn down the magnet).
+        if at_desired_x and at_desired_y:
+            return Action(np.array([0., 0., -0.1], dtype=np.float32))
+        # If we're above the object but not yet close enough, move down.
+        if at_desired_x:
+            delta_y = np.clip(desired_y - y, -0.1, 0.1)
+            return Action(np.array([0., delta_y, 0.], dtype=np.float32))
+        # If we're not above the object, but we're at a safe height,
+        # then move left/right.
+        if y >= self.initial_robot_y:
+            delta_x = np.clip(desired_x - x, -0.1, 0.1)
+            return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
+        # If we're not above the object, and we're not at a safe height,
+        # then move up.
+        delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
+        return Action(np.array([0., delta_y, 0.], dtype=np.float32))
 
-    @staticmethod
-    def _Place_terminal(s: State, o: Sequence[Object], p: Array) -> bool:
-        raise NotImplementedError("TODO")
+    def _Place_terminal(self, s: State, o: Sequence[Object],
+                        p: Array) -> bool:
+        # Place is done when the hand is empty.
+        del o  # unused
+        del p  # unused
+        return self._HandEmpty_holds(s, [])
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         # Overriding because of the change from "pose" to "x".
