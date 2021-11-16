@@ -164,7 +164,7 @@ def test_cover_multistep_options():
     assert len(env.types) == 3
     # Action space should be 3-dimensional.
     assert env.action_space == Box(-0.1, 0.1, (3,))
-    # Run through a specific plan to test atoms.
+    # Run through a specific plan of low-level actions.
     task = env.get_test_tasks()[0]
     action_arrs = [
         # Move to above block0
@@ -222,12 +222,45 @@ def test_cover_multistep_options():
         policy, task, env.simulate, env.predicates,
         len(action_arrs), make_video, env.render)
     if make_video:
-        outfile = "hardcoded_covers_options_multistep.mp4"
+        outfile = "hardcoded_actions_covers_options_multistep.mp4"
         utils.save_video(outfile, video)
-    block0 = [b for b in states[0] if b.name == "block0"][0]
-    target0 = [b for b in states[0] if b.name == "target0"][0]
+    state = states[0]
+    block0 = [b for b in state if b.name == "block0"][0]
+    block1 = [b for b in state if b.name == "block1"][0]
+    target0 = [b for b in state if b.name == "target0"][0]
+    target1 = [b for b in state if b.name == "target1"][0]
+    block0 = [b for b in state if b.name == "block0"][0]
+    target0 = [b for b in state if b.name == "target0"][0]
     Covers = [p for p in env.predicates if p.name == "Covers"][0]
-    init_atoms = utils.abstract(states[0], env.predicates)
+    init_atoms = utils.abstract(state, env.predicates)
     final_atoms = utils.abstract(states[-1], env.predicates)
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
+    # Run through a specific plan of options.
+    pick_option = [o for o in env.options if o.name == "Pick"][0]
+    place_option = [o for o in env.options if o.name == "Place"][0]
+    option_sequence = [
+        pick_option.ground([block1], [0.0]),
+        place_option.ground([target1], [0.0]),
+        pick_option.ground([block0], [0.0]),
+        place_option.ground([target0], [0.0]),
+    ]
+    assert option_sequence[0].initiable(state)
+    make_video = True  # Can toggle to true for debugging
+    def option_policy(s: State) -> Action:
+        current_option = option_sequence[0]
+        if current_option.terminal(s):
+            option_sequence.pop(0)
+            assert len(option_sequence) > 0
+            current_option = option_sequence[0]
+            assert current_option.initiable(s)
+        return current_option.policy(s)
+    (states, _), video, _ = utils.run_policy_on_task(
+        option_policy, task, env.simulate, env.predicates,
+        100, make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_options_covers_options_multistep.mp4"
+        utils.save_video(outfile, video)
+    final_atoms = utils.abstract(states[-1], env.predicates)
+    assert Covers([block0, target0]) in final_atoms
+    assert Covers([block1, target1]) in final_atoms
