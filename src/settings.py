@@ -18,16 +18,6 @@ class GlobalSettings:
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
 
-    # behavior env parameters
-    behavior_config_file = os.path.join(  # relative to igibson.root_path
-        "examples", "configs",
-        "njk_re-shelving_library_books_full_obs.yaml",
-        #"njk_sorting_books_full_obs.yaml"
-    )
-    behavior_mode = "iggui"  # headless, pbgui, iggui
-    behavior_action_timestep = 1.0 / 10.0
-    behavior_physics_timestep = 1.0 / 120.0
-
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
