@@ -28,11 +28,11 @@ class PlayroomEnv(BlocksEnv):
     table_y_ub = 20.0
     door_r = 5.0  # half of width
     door_button_z = 1.0  # relative to ground
-    door_tol = 0.2
+    door_tol = 1.0
     dial_on = 0.5
     dial_r = 3.0
     dial_tol = 1.0
-    dial_button_tol = 0.2
+    dial_button_tol = 0.4
     pick_tol = 0.4
     assert pick_tol < CFG.playroom_block_size
 
@@ -148,13 +148,98 @@ class PlayroomEnv(BlocksEnv):
 
         return state.copy()
 
+    def _transition_pick(self, state: State, action: Action) -> State:
+        next_state = state.copy()
+        # Can only pick if fingers are open
+        if state.get(self._robot, "fingers") < self.open_fingers:
+            return next_state
+        x, y, z, _, fingers = action.arr
+        block = self._get_block_at_xyz(state, x, y, z)
+        if block is None:  # no block at this pose
+            return next_state
+        # Can only pick if object is clear
+        if state.get(block, "clear") < self.clear_tol:
+            return next_state
+        # Execute pick
+        next_state.set(block, "pose_x", x)
+        next_state.set(block, "pose_y", y)
+        next_state.set(block, "pose_z", z+self.lift_amt)
+        next_state.set(block, "held", 1.0)
+        next_state.set(block, "clear", 0.0)
+        next_state.set(self._robot, "fingers", fingers)
+        # Update clear bit of block below, if there is one
+        cur_x = state.get(block, "pose_x")
+        cur_y = state.get(block, "pose_y")
+        cur_z = state.get(block, "pose_z")
+        poss_below_block = self._get_highest_block_below(
+            state, cur_x, cur_y, cur_z)
+        assert poss_below_block != block
+        if poss_below_block is not None:
+            next_state.set(poss_below_block, "clear", 1.0)
+        return next_state
+
+    def _transition_putontable(self, state: State, action: Action) -> State:
+        next_state = state.copy()
+        # Can only putontable if fingers are closed
+        if state.get(self._robot, "fingers") >= self.open_fingers:
+            return next_state
+        block = self._get_held_block(state)
+        assert block is not None
+        x, y, z, _, fingers = action.arr
+        # Check that table surface is clear at this pose
+        poses = [[state.get(b, "pose_x"),
+                  state.get(b, "pose_y"),
+                  state.get(b, "pose_z")] for b in state
+                 if b.is_instance(self._block_type)]
+        existing_xys = {(float(p[0]), float(p[1])) for p in poses}
+        if not self._table_xy_is_clear(x, y, existing_xys):
+            return next_state
+        # Execute putontable
+        next_state.set(block, "pose_x", x)
+        next_state.set(block, "pose_y", y)
+        next_state.set(block, "pose_z", z)
+        next_state.set(block, "held", 0.0)
+        next_state.set(block, "clear", 1.0)
+        next_state.set(self._robot, "fingers", fingers)
+        return next_state
+
+    def _transition_stack(self, state: State, action: Action) -> State:
+        next_state = state.copy()
+        # Can only stack if fingers are closed
+        if state.get(self._robot, "fingers") >= self.open_fingers:
+            return next_state
+        # Check that both blocks exist
+        block = self._get_held_block(state)
+        assert block is not None
+        x, y, z, _, fingers = action.arr
+        other_block = self._get_highest_block_below(state, x, y, z)
+        if other_block is None:  # no block to stack onto
+            return next_state
+        # Can't stack onto yourself!
+        if block == other_block:
+            return next_state
+        # Need block we're stacking onto to be clear
+        if state.get(other_block, "clear") < self.clear_tol:
+            return next_state
+        # Execute stack by snapping into place
+        cur_x = state.get(other_block, "pose_x")
+        cur_y = state.get(other_block, "pose_y")
+        cur_z = state.get(other_block, "pose_z")
+        next_state.set(block, "pose_x", cur_x)
+        next_state.set(block, "pose_y", cur_y)
+        next_state.set(block, "pose_z", cur_z+CFG.blocks_block_size)
+        next_state.set(block, "held", 0.0)
+        next_state.set(block, "clear", 1.0)
+        next_state.set(other_block, "clear", 0.0)
+        next_state.set(self._robot, "fingers", fingers)
+        return next_state
+
     def _transition_move(self, state: State, action: Action) -> State:
-        x, y, _, rotation, fingers = action.arr
+        x, y, _, rotation, _ = action.arr
         next_state = state.copy()
         next_state.set(self._robot, "pose_x", x)
         next_state.set(self._robot, "pose_y", y)
         next_state.set(self._robot, "rotation", rotation)
-        next_state.set(self._robot, "fingers", fingers)
         return next_state
 
     def _transition_door(self, state: State, action: Action) -> State:
@@ -210,7 +295,7 @@ class PlayroomEnv(BlocksEnv):
     def action_space(self) -> Box:
         # dimensions: [x, y, z, rotation, fingers]
         # x, y, z location for the robot's disembodied hand
-        # robot's heading is the angle (rotation * pi) in standard position
+        # robot's heading is the angle (rotation * pi/2) in standard position
         lowers = np.array([self.x_lb, self.y_lb, 0.0, -2.0, 0.0],
                           dtype=np.float32)
         uppers = np.array([self.x_ub, self.y_ub, 10.0, 2.0, 1.0],
@@ -396,15 +481,15 @@ class PlayroomEnv(BlocksEnv):
         block, = objects
         return state.get(block, "clear") >= self.clear_tol
 
-    def _NextToTable_holds(self, state: State, objects: Sequence[Object]
-                           ) -> bool:
-        # for now this also includes all table coords
-        robot, = objects
-        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-        return (self.table_x_lb-self.table_tol < x
-                < self.table_x_ub+self.table_tol) and \
-               (self.table_y_lb-self.table_tol < y
-                < self.table_y_ub+self.table_tol)
+    # def _NextToTable_holds(self, state: State, objects: Sequence[Object]
+    #                        ) -> bool:
+    #     # for now this also includes all table coords
+    #     robot, = objects
+    #     x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
+    #     return (self.table_x_lb-self.table_tol < x
+    #             < self.table_x_ub+self.table_tol) and \
+    #            (self.table_y_lb-self.table_tol < y
+    #             < self.table_y_ub+self.table_tol)
 
     def _NextToDoor_holds(self, state: State, objects: Sequence[Object]
                           ) -> bool:
@@ -415,15 +500,15 @@ class PlayroomEnv(BlocksEnv):
                 and (door_y-self.door_r-self.door_tol < y
                      < door_y+self.door_r+self.door_tol)
 
-    def _NextToDial_holds(self, state: State, objects: Sequence[Object]
-                          ) -> bool:
-        robot, dial = objects
-        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-        dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-        return (dial_x-self.dial_r-self.dial_tol < x
-                < dial_x+self.dial_r+self.dial_tol) and \
-               (dial_y-self.dial_r-self.dial_tol < y
-                < dial_y+self.dial_r+self.dial_tol)
+    # def _NextToDial_holds(self, state: State, objects: Sequence[Object]
+    #                       ) -> bool:
+    #     robot, dial = objects
+    #     x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
+    #     dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
+    #     return (dial_x-self.dial_r-self.dial_tol < x
+    #             < dial_x+self.dial_r+self.dial_tol) and \
+    #            (dial_y-self.dial_r-self.dial_tol < y
+    #             < dial_y+self.dial_r+self.dial_tol)
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
@@ -464,7 +549,7 @@ class PlayroomEnv(BlocksEnv):
         x, y, _, rotation, _ = action.arr
         table_x = (self.table_x_lb+self.table_x_ub)/2
         table_y = (self.table_y_lb+self.table_y_ub)/2
-        theta = np.arctan2(y-table_y, x-table_x)
+        theta = np.arctan2(table_y-y, table_x-x)
         if np.pi*3/4 >= theta >= np.pi/4:  # N
             if 1.5 >= rotation >= 0.5:
                 return True
@@ -483,7 +568,7 @@ class PlayroomEnv(BlocksEnv):
         x, y, _, rotation, _ = action.arr
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        theta = np.arctan2(y-dial_y, x-dial_x)
+        theta = np.arctan2(dial_y-y, dial_x-x)
         if np.pi*3/4 >= theta >= np.pi/4:  # N
             if 1.5 >= rotation >= 0.5:
                 return True
