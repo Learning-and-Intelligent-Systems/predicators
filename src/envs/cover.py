@@ -325,6 +325,329 @@ class CoverEnvTypedOptions(CoverEnv):
         pick_pose = min(max(pick_pose, 0.0), 1.0)
         return Action(np.array([pick_pose], dtype=np.float32))
 
+class CoverEnvAugmentedActions(CoverEnv):
+    """Toy cover domain with with options that have object arguments and an
+    augmented action space that specifies ∆x, ∆y, and toggling of the gripper.
+    """
+    def __init__(self) -> None:
+        super().__init__()
+        # Change types to include some more attributes.
+        self._block_type = Type("block", ["is_block", "is_target", "width", "pose", "y", "grasped"])
+        self._target_type = Type("target", ["is_block", "is_target", "width", "pose"])
+        self._robot_type = Type("robot", ["gripper_x", "gripper_y", "gripper_active"])
+        # Two new predicates to ensure high-level state changes after executing
+        # the move_to operator.
+        self._IsBlockBelow = Predicate(
+            "IsBlockBelow", [self._block_type, self._robot_type], self._IsObjBelow_holds)
+        self._IsTargetBelow = Predicate(
+            "IsTargetBelow", [self._target_type, self._robot_type], self._IsObjBelow_holds)
+        # Options
+        del self._PickPlace
+        self._MoveToBlock = ParameterizedOption(
+            "MoveToBlock",
+            types=[self._robot_type, self._block_type],
+            params_space=Box(low=np.array([-1.0, 1.0, 0.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float64),
+            _policy=self._move_to_obj_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=self._move_to_obj_terminate_cond
+        )
+        self._MoveToTarget = ParameterizedOption(
+            "MoveToTarget",
+            types=[self._robot_type, self._target_type],
+            params_space=Box(low=np.array([-1.0, 1.0, 0.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float64),
+            _policy=self._move_to_obj_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=self._move_to_obj_terminate_cond
+        )
+        self._Pick = ParameterizedOption(
+            "Pick",
+            types=[],
+            params_space=Box(low=np.array([-1.0, 1.0, 0.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float64),
+            _policy=self._pick_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True  # always 1 timestep
+        )
+        self._Place = ParameterizedOption(
+            "Place",
+            types=[],
+            params_space=Box(low=np.array([-1.0, 1.0, 0.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float64),
+            _policy=self._place_policy,
+            _initiable=lambda s, o, p: True,  # can be run from anywhere
+            _terminal=lambda s, o, p: True  # always 1 timestep
+        )
+        # Change objects to be of the new updated type
+        self._blocks = []
+        self._targets = []
+        for i in range(CFG.cover_num_blocks):
+            self._blocks.append(Object(f"block{i}", self._block_type))
+        for i in range(CFG.cover_num_targets):
+            self._targets.append(Object(f"target{i}", self._target_type))
+        self._robot = Object("robby", self._robot_type)
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        delta_x, delta_y, next_gripper_active = action.arr
+        next_gripper_active = next_gripper_active >= 0.5
+        gripper_x = state.get(self._robot, "gripper_x")
+        gripper_y = state.get(self._robot, "gripper_y")
+        next_gripper_x = gripper_x + delta_x
+        next_gripper_y = gripper_y + delta_y
+        next_state = state.copy()
+        hand_regions = self._get_hand_regions(state)
+        gripper_active = state.get(self._robot, "gripper_active")
+        if 0 <= (next_gripper_x) <= 1 and 0 <= (next_gripper_y):
+            next_state.set(self._robot, "gripper_x", next_gripper_x)
+            next_state.set(self._robot, "gripper_y", next_gripper_y)
+        else:
+            return next_state
+
+        # Identify which block we're holding and which block we're above based
+        # on the current state.
+        held_block = None
+        above_block = None
+        for block in self._blocks:
+            if state.get(block, "grasped") != 0:
+                assert held_block is None
+                assert state.get(self._robot, "gripper_active") == 1
+                held_block = block
+
+            block_lb = state.get(block, "pose")-state.get(block, "width")/2
+            block_ub = state.get(block, "pose")+state.get(block, "width")/2
+            if (state.get(block, "grasped") == 0) and (block_lb <= next_gripper_x <= block_ub):
+                assert above_block is None
+                above_block = block
+
+        if held_block is not None and above_block is not None:
+            assert gripper_active
+            # We moved somewhere while holding a block.
+            # There is a block under us.
+            # Not allowed to place a block on top of another block.
+            return next_state
+
+        elif held_block is None and above_block is None:
+            # We moved somewhere while not holding a block.
+            # There is no block under us.
+            # Allowed to set gripper configuration arbitrarily.
+            next_state.set(self._robot, "gripper_active", next_gripper_active)
+
+        elif held_block is not None and above_block is None:
+            # We moved somewhere while holding a block.
+            # There is no block directly under our gripper.
+            # Allowed to place this block down if the block fits.
+            assert gripper_active
+            block_x, block_y = state.get(held_block, "pose"), state.get(block, "y")
+            next_x = block_x + delta_x
+            next_y = block_y + delta_y
+            # We can only move if the block stays above the ground.
+            if next_y < 0:
+                # Revert change.
+                next_state.set(self._robot, "gripper_x", gripper_x)
+                next_state.set(self._robot, "gripper_y", gripper_y)
+            else:
+                next_state.set(held_block, "pose", next_x)
+                next_state.set(held_block, "y", next_y)
+                # Disallow placing on another block, but allow placing in free space.
+                if not self._any_intersection(next_x, state.get(held_block, "width"), state.data, block_only=True):
+                    if not next_gripper_active:
+                        next_state.set(held_block, "y", 0)
+                        next_state.set(held_block, "grasped", 0)
+                        next_state.set(self._robot, "gripper_active", 0)
+
+        elif held_block is None and above_block is not None:
+            # We moved somewhere while not holding a block.
+            # There is a block under us.
+            # Allowed to grasp this block if we are close enough and if we are
+            # in the allowed hand region.
+            if next_gripper_y <= 0.5:
+                if next_gripper_active and not gripper_active and any(hand_lb <= gripper_x <= hand_rb for hand_lb, hand_rb in hand_regions):
+                    next_state.set(above_block, "grasped", 1)
+                    next_state.set(self._robot, "gripper_active", 1)
+
+        return next_state
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return {self._IsBlock, self._IsTarget, self._Covers, self._HandEmpty, self._Holding, self._IsBlockBelow, self._IsTargetBelow}
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._MoveToBlock, self._MoveToTarget, self._Pick, self._Place}
+
+    @property
+    def action_space(self) -> Box:
+        return Box(low=np.array([-1.0, -1.0, 0.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float64)
+
+    def render(self, state: State, task: Task,
+           action: Optional[Action] = None) -> Image:
+        # print("state: ", state)
+        del task  # not used by this render function
+        del action  # not used by this render function
+        fig, ax = plt.subplots(1, 1)
+        # Draw main line
+        plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
+        # Draw hand regions
+        hand_regions = self._get_hand_regions(state)
+        for i, (hand_lb, hand_rb) in enumerate(hand_regions):
+            if i == 0:
+                label = "Allowed hand region"
+            else:
+                label = None
+            plt.plot([hand_lb, hand_rb], [-0.08, -0.08], color="red",
+                     alpha=0.5, lw=8., label=label)
+        # Draw hand
+        plt.scatter(x=[state.get(self._robot, "gripper_x")], y=[state.get(self._robot, "gripper_y")], color="r", s=[100], alpha=1.0, zorder=10, label="Gripper")
+        lw = 3
+        height = 0.1
+        cs = ["blue", "purple", "green", "yellow"]
+        block_alpha = 0.75
+        targ_alpha = 0.25
+        # Draw blocks
+        for i, block in enumerate(self._blocks):
+            c = cs[i]
+            if state.get(block, "grasped") != 0:
+                lcolor = "red"
+                pose = state.get(block, "pose")
+                y = state.get(block, "y")
+                suffix = " (grasped)"
+            else:
+                lcolor = "gray"
+                pose =  state.get(block, "pose")
+                y = state.get(block, "y")
+                suffix = ""
+            rect = plt.Rectangle(
+                (pose-state.get(block, "width")/2., y-height/2.),
+                state.get(block, "width"), height, linewidth=lw,
+                edgecolor=lcolor, facecolor=c, alpha=block_alpha,
+                label=f"block{i}"+suffix)
+            ax.add_patch(rect)
+        # Draw targets
+        for i, targ in enumerate(self._targets):
+            c = cs[i]
+            rect = plt.Rectangle(
+                (state.get(targ, "pose")-state.get(targ, "width")/2.,
+                 -height/2.),
+                state.get(targ, "width"), height, linewidth=lw,
+                edgecolor=lcolor,
+                facecolor=c, alpha=targ_alpha, label=f"target{i}")
+            ax.add_patch(rect)
+        plt.xlim(0.0, 1.2)
+        plt.ylim(-0.25, 0.5)
+        plt.yticks(np.linspace(-0.1, 1, 12))
+        plt.legend()
+        plt.tight_layout()
+        import random
+        import string
+        import time
+        name = str(int(time.time()*1000))
+        # name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        # plt.savefig("images/" + name)
+        img = utils.fig2data(fig)
+        plt.close()
+        return [img]
+
+    def _create_initial_state(self, rng: np.random.Generator) -> State:
+        data: Dict[Object, Array] = {}
+        assert len(CFG.cover_block_widths) == len(self._blocks)
+        for block, width in zip(self._blocks, CFG.cover_block_widths):
+            while True:
+                pose = rng.uniform(width/2, 1.0-width/2)
+                if not self._any_intersection(pose, width, data):
+                    break
+            # [is_block, is_target, width, pose, y, grasped]
+            data[block] = np.array([1, 0, width, pose, 0.0, 0])
+        assert len(CFG.cover_target_widths) == len(self._targets)
+        for target, width in zip(self._targets, CFG.cover_target_widths):
+            while True:
+                pose = rng.uniform(width/2, 1.0-width/2)
+                if not self._any_intersection(
+                        pose, width, data, larger_gap=True):
+                    break
+            # [is_block, is_target, width, pose]
+            data[target] = np.array([0.0, 1.0, width, pose])
+        # [gripper_x, gripper_y, grasp_active]
+        data[self._robot] = np.array([0.27, 0.0, 0.0])
+        return State(data)
+
+    def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        assert not objects
+        for obj in state:
+            if obj.is_instance(self._block_type) and \
+               state.get(obj, "grasped") != 0:
+                return False
+        return True
+
+    @staticmethod
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        return state.get(block, "grasped") != 0
+
+    @staticmethod
+    def _IsObjBelow_holds(state: State, objects: Sequence[Object]) -> bool:
+        obj, robot = objects
+        gripper_x = state.get(robot, "gripper_x")
+        gripper_y = state.get(robot, "gripper_y")
+        obj_x = state.get(obj, "pose")
+        obj_width = state.get(obj, "width")
+
+        # gripper_y can never be below an object, so only have to check "x".
+        if (obj_x - obj_width/2 <= gripper_x <= obj_x + obj_width/2):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def _move_to_obj_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # if gripper is open keep it open, if it is closed keep it closed
+        robot, obj = o
+        gripper_status = s.get(robot, "gripper_active")
+        gripper_x = s.get(robot, "gripper_x")
+        gripper_y = s.get(robot, "gripper_y")
+        obj_x = s.get(obj, "pose")
+        obj_width = s.get(obj, "width")
+        x_offset = p[0] * obj_width
+
+        # Only move laterally when above this height. That is, there are no
+        # blocks with height greater than 10.
+        CONSTANT = 10.5
+        if gripper_y < CONSTANT:
+            # We first move up to avoid hitting any other blocks.
+            delta_y_commanded = CONSTANT - gripper_y
+            delta_x_commanded = 0
+        elif gripper_y >= CONSTANT:
+            # We are allowed to move laterally.
+            # If we are not above the block, move to the block.
+            # Otherwise, move down to the block.
+            if gripper_x == (obj_x + x_offset):
+                delta_y_commanded = -gripper_y + 0.5
+                delta_x_commanded = 0
+            else:
+                delta_y_commanded = 0
+                delta_x_commanded = ((obj_x + x_offset) - gripper_x)
+
+        return Action(np.array([delta_x_commanded, delta_y_commanded, gripper_status], dtype=np.float32))
+
+    @staticmethod
+    def _move_to_obj_terminate_cond(s: State, o: Sequence[Object], p: Array) -> bool:
+        robot, obj = o
+        gripper_x = s.get(robot, "gripper_x")
+        gripper_y = s.get(robot, "gripper_y")
+        obj_x = s.get(obj, "pose")
+        obj_width = s.get(obj, "width")
+        # Stop if our gripper is near the object.
+        if (gripper_y <= 0.5) and (obj_x - obj_width/2 <= gripper_x <= obj_x + obj_width/2):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def _pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # close the gripper
+        return Action(np.array([0, 0, 1], dtype=np.float32))
+
+    @staticmethod
+    def _place_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+        # open the gripper
+        return Action(np.array([0, 0, 0], dtype=np.float32))
 
 class CoverEnvHierarchicalTypes(CoverEnv):
     """Toy cover domain with hierarchical types, just for testing.

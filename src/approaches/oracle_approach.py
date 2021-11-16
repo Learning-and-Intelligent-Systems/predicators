@@ -34,6 +34,8 @@ def get_gt_ops(predicates: Set[Predicate],
         ops = _get_cover_gt_ops(options_are_typed=False)
     elif CFG.env == "cover_typed_options":
         ops = _get_cover_gt_ops(options_are_typed=True)
+    elif CFG.env == "cover_augmented_actions":
+        ops = _get_cover_augmented_gt_ops()
     elif CFG.env == "cluttered_table":
         ops = _get_cluttered_table_gt_ops()
     elif CFG.env == "blocks":
@@ -81,7 +83,6 @@ def _get_options_by_names(env_name: str,
     """Load parameterized options from an env given their names.
     """
     return _get_from_env_by_names(env_name, names, "options")
-
 
 def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
     """Create ground truth operators for CoverEnv.
@@ -163,6 +164,87 @@ def _get_cover_gt_ops(options_are_typed: bool) -> Set[Operator]:
 
     return operators
 
+def _get_cover_augmented_gt_ops() -> Set[Operator]:
+    robot_type, block_type, target_type = _get_types_by_names("cover_augmented_actions", ["robot", "block", "target"])
+
+    IsBlock, IsTarget, Covers, HandEmpty, Holding, IsBlockBelow, IsTargetBelow = _get_predicates_by_names("cover_augmented_actions", ["IsBlock", "IsTarget", "Covers",
+                                           "HandEmpty", "Holding", "IsBlockBelow", "IsTargetBelow"])
+
+    Pick, Place, MoveToBlock, MoveToTarget = _get_options_by_names("cover_augmented_actions", ["Pick", "Place", "MoveToBlock", "MoveToTarget"])
+
+    operators = set()
+
+    # MoveFromNothingToBlock
+    robot = Variable("?robot", robot_type)
+    block = Variable("?block", block_type)
+    parameters = [robot, block]
+    option_vars = [robot, block]
+    option = MoveToBlock
+    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
+    add_effects = {LiftedAtom(IsBlockBelow, [block])}
+    delete_effects = {}
+    def sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        return np.array(r.uniform(-1.0, 1.0, size=(3,)), dtype=np.float64)
+    move_to_block_operator = Operator("MoveFromNothingToBlock", parameters, preconditions,
+                             add_effects, delete_effects, option,
+                             option_vars, sampler)
+    operators.add(move_to_block_operator)
+
+    # MoveFromBlockToTarget
+    robot = Variable("?robot", robot_type)
+    target =  Variable("?target", target_type)
+    block = Variable("?block", block_type)
+    parameters = [robot, block, target]
+    option_vars = [robot, block, target]
+    option = MoveToTarget
+    preconditions = {LiftedAtom(IsTarget, [target]), LiftedAtom(IsBlock, [block]), LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(IsTargetBelow, [target])}
+    delete_effects = {LiftedAtom(IsBlockBelow, [block])}
+    def sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        return np.array(r.uniform(-1.0, 1.0, size=(3,)), dtype=np.float64)
+    move_to_target_operator = Operator("MoveFromTargetToBlock", parameters, preconditions,
+                             add_effects, delete_effects, option,
+                             option_vars, sampler)
+    operators.add(move_to_target_operator)
+
+    # Pick
+    robot = Variable("?robot", robot_type)
+    block = Variable("?block", block_type)
+    parameters = [robot, block]
+    option_vars = [robot, block]
+    option = Pick
+    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(IsBlockBelow, [block]), LiftedAtom(HandEmpty, [])}
+    add_effects = {LiftedAtom(Holding, [block])}
+    delete_effects = {LiftedAtom(IsBlockBelow, [block]), LiftedAtom(HandEmpty, [])}
+    def sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        return np.array(r.uniform(-1.0, 1.0, size=(3,)), dtype=np.float64)
+    pick_operator = Operator("Pick", parameters, preconditions,
+                             add_effects, delete_effects, option,
+                             option_vars, sampler)
+    operators.add(pick_operator)
+
+    # Place
+    robot = Variable("?robot", robot_type)
+    target =  Variable("?target", target_type)
+    block = Variable("?block", block_type)
+    parameters = [robot, block, target]
+    option_vars = [robot, block, target]
+    option = Place
+    preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(IsTarget, [target]), LiftedAtom(IsTargetBelow, [target]), LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(Covers, [block, target]), LiftedAtom(HandEmpty, [])}
+    delete_effects = {LiftedAtom(Holding, [block]), LiftedAtom(IsTargetBelow, [target])}
+    def sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        return np.array(r.uniform(-1.0, 1.0, size=(3,)), dtype=np.float64)
+    place_operator = Operator("Place", parameters, preconditions,
+                             add_effects, delete_effects, option,
+                             option_vars, sampler)
+    operators.add(place_operator)
+
+    return operators 
 
 def _get_cluttered_table_gt_ops() -> Set[Operator]:
     """Create ground truth operators for ClutteredTableEnv.
