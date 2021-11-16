@@ -9,7 +9,7 @@ from predicators.src.structs import Action
 
 
 def test_playroom():
-    """Tests for PlayroomEnv class.
+    """Tests for PlayroomEnv class: properties and rendering.
     """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
@@ -46,6 +46,9 @@ def test_playroom():
                             state.get(item, "clear"))
         assert robot is not None
         if i == 0:
+            # Open a door to test rendering
+            act = Action(np.array([29.8, 15, 1, 0, 1]).astype(np.float32))
+            state = env.simulate(state, act)            
             # Force initial pick to test rendering with holding
             Pick = [o for o in env.options if o.name == "Pick"][0]
             block = sorted([o for o in state if o.type.name == "block" and \
@@ -60,9 +63,6 @@ def test_playroom_failure_cases():
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
-    Pick = [o for o in env.options if o.name == "Pick"][0]
-    Stack = [o for o in env.options if o.name == "Stack"][0]
-    PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
     On = [o for o in env.predicates if o.name == "On"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     block_type = [t for t in env.types if t.name == "block"][0]
@@ -72,7 +72,6 @@ def test_playroom_failure_cases():
     block2 = block_type("block2")
     task = env.get_train_tasks()[0]
     state = task.init
-    print("\nINITIAL STATE:", state)
     atoms = utils.abstract(state, env.predicates)
     robot = None
     for item in state:
@@ -85,62 +84,64 @@ def test_playroom_failure_cases():
     assert OnTable([block1]) not in atoms
     assert OnTable([block2]) in atoms
     assert On([block1, block0]) in atoms
-    # No block at this pose, pick fails
-    act = Action(np.array([20, 20, 0.45, -1.5, 0]).astype(np.float32))
+    # Cannot pick while not facing table
+    act = Action(np.array([11.8, 18, 0.45, 1.7, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
-        if o.type != robot_type:
-            assert np.all(state[o] == next_state[o])
-    # TODO
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
+    # No block at this pose, pick fails
+    act = Action(np.array([19, 19, 0.45, -1.5, 0]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
     # Object not clear, pick fails
     act = Action(np.array([12.2, 11.8, 0.45, 0.7, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
-    
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
     # Cannot putontable or stack without picking first
-    act = Stack.ground([robot, block1], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
+    act = Action(np.array([12.2, 11.8, 5, 0.7, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
-    act = PutOnTable.ground([robot], np.array(
-        [0.5, 0.5], dtype=np.float32)).policy(state)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
+    act = Action(np.array([19, 14, 0.45, 1.9, 0.8]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
     # Perform valid pick
-    # TODO: this doesn't work bc rotation isn't set to face the table
-    # print("STATE BEFORE:", state)
-    act = Pick.ground([robot, block2], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
-    # print("\nACTION FROM GROUNDING:", act)
+    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
-    # print("\nNEXT STATE:", next_state)
+    assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block2] != next_state[block2])
     # Change the state
     state = next_state
     # Cannot pick twice in a row
-    act = Pick.ground([robot, block2], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
+    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Cannot stack onto non-clear block
-    act = Stack.ground([robot, block0], np.array(
-        [0, 0, CFG.playroom_block_size], dtype=np.float32)).policy(state)
+    act = Action(np.array([12.2, 11.8, 0.8, 0.7, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
     # Cannot stack onto no block
-    act = Stack.ground([robot, block1], np.array(
-        [0, -1, CFG.playroom_block_size], dtype=np.float32)).policy(state)
+    act = Action(np.array([15, 16, 0.8, -1.0, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
     # Cannot stack onto yourself
-    act = Stack.ground([robot, block2], np.array(
-        [0, 0, CFG.playroom_block_size], dtype=np.float32)).policy(state)
+    act = Action(np.array([11.8, 18, 1.5, -0.3, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
+    # Cannot put on table when not clear
+    act = Action(np.array([12.2, 11.8, 0.5, 0.7, 0.7]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
     # Cannot move to invalid location
     act = Action(np.array([40, 5, 0, 0, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
 
 def test_playroom_simulate_blocks():
     """Tests for the cases where simulate() allows the robot to interact
@@ -209,13 +210,19 @@ def test_playroom_simulate_doors_and_dial():
             dial = item
     assert robot is not None
     assert dial is not None
+    # Move somewhere without interacting with anything
+    act = Action(np.array([25, 25, 1, 0, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
+    state = next_state
     # Open boring room door
     act = Action(np.array([29.8, 15, 1, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[door1] != next_state[door1])
     state = next_state
-    # Open all the other doors
+    # Open all the other doors from left to right
     door_locs = [49.8, 59.8, 79.8, 99.8, 109.8]
     doors = [door2, door3, door4, door5, door6]
     for x, door in zip(door_locs, doors):
@@ -228,13 +235,29 @@ def test_playroom_simulate_doors_and_dial():
     next_state = env.simulate(state, act)
     assert np.any(state[door6] != next_state[door6])
     state = next_state
-    # Turn dial on
+    # Cannot go through closed door
+    act = Action(np.array([105, 15, 1, 2, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])
+    # Turn dial on, facing S
+    act = Action(np.array([125, 15.1, 1, -1, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert np.any(state[dial] != next_state[dial])
+    state = next_state
+    # Turn dial off, facing E
     act = Action(np.array([125, 15, 1, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[dial] != next_state[dial])
     state = next_state
-    # Turn dial off
-    act = Action(np.array([125, 15, 1, 0, 1]).astype(np.float32))
+    # Turn dial on, facing N
+    act = Action(np.array([125, 14.9, 1, 1, 1]).astype(np.float32))
+    state = env.simulate(state, act)
+    # Turn dial off, facing W
+    act = Action(np.array([125.1, 15, 1, 2, 1]).astype(np.float32))
+    state = env.simulate(state, act)
+    # Can't toggle when not facing dial
+    act = Action(np.array([125.1, 15, 1, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.any(state[dial] != next_state[dial])
-    state = next_state
+    for o in state:
+        if o.type != robot_type: assert np.all(state[o] == next_state[o])

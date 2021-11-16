@@ -95,14 +95,6 @@ class PlayroomEnv(BlocksEnv):
                        self._door4, self._door5, self._door6)
         self._dial = Object("dial", self._dial_type)
 
-    @staticmethod
-    def _is_valid_loc(action: Action) -> bool:
-        x, y, _, _, _ = action.arr
-        return (0 <= x <= 30 and 0 <= y <= 30) or \
-               (30 <= x <= 110 and 10 <= y <= 20) or \
-               (110 <= x <= 140 and 0 <= y <= 30)
-
-
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
@@ -126,7 +118,7 @@ class PlayroomEnv(BlocksEnv):
         # Interact with some door
         if any(self._NextToDoor_holds(state, (self._robot, door))
                for door in self._doors):
-            door = self._get_door_next_to(state, action)
+            door = self._get_door_next_to(state)
             door_x = state.get(door, "pose_x")
             door_y = state.get(door, "pose_y")
             if (door_x-self.door_tol < x < door_x+self.door_tol) \
@@ -134,8 +126,8 @@ class PlayroomEnv(BlocksEnv):
                 and (self.door_button_z-self.door_tol < z
                         < self.door_button_z+self.door_tol) \
                 and fingers >= self.open_fingers \
-                and self._robot_is_facing_door(state, action):
-                return self._transition_door(state, action)
+                and self._robot_is_facing_door(state, action, door):
+                return self._transition_door(state, door)
         # Interact with dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
@@ -242,9 +234,9 @@ class PlayroomEnv(BlocksEnv):
         next_state.set(self._robot, "rotation", rotation)
         return next_state
 
-    def _transition_door(self, state: State, action: Action) -> State:
+    def _transition_door(self, state: State, door: Object) -> State:
         # opens/closes a door that the robot is next to and facing
-        door = self._get_door_next_to(state, action)
+        assert door.type == self._door_type
         next_state = state.copy()
         if state.get(door, "open") < 0.5:
             next_state.set(door, "open", 1.0)
@@ -522,7 +514,7 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _Stack_policy(self, state: State, objects: Sequence[Object],
-                      params: Array) -> Action:
+                      params: Array) -> Action:  # pragma: no cover
         robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -533,7 +525,7 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _PutOnTable_policy(self, state: State, objects: Sequence[Object],
-                           params: Array) -> Action:
+                           params: Array) -> Action:  # pragma: no cover
         robot, = objects
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params
@@ -569,34 +561,31 @@ class PlayroomEnv(BlocksEnv):
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
         theta = np.arctan2(dial_y-y, dial_x-x)
-        if np.pi*3/4 >= theta >= np.pi/4:  # N
-            if 1.5 >= rotation >= 0.5:
+        if np.pi*3/4 >= theta > np.pi/4:  # N
+            if 1.5 >= rotation > 0.5:
                 return True
-        elif np.pi/4 >= theta >= -np.pi/4:  # E
-            if 0.5 >= rotation >= -0.5:
+        elif np.pi/4 >= theta > -np.pi/4:  # E
+            if 0.5 >= rotation > -0.5:
                 return True
-        elif -np.pi/4 >= theta >= -np.pi*3/4:  # S
-            if -0.5 >= rotation >= -1.5:
+        elif -np.pi/4 >= theta > -np.pi*3/4:  # S
+            if -0.5 >= rotation > -1.5:
                 return True
         else:  # W
-            if rotation >= 1.5 or rotation <= -1.5:
+            if rotation > 1.5 or rotation <= -1.5:
                 return True
         return False
 
-    def _get_door_next_to(self, state: State, action: Action) -> Object:
+    def _get_door_next_to(self, state: State) -> Object:
         # cannot be next to multiple doors at once
-        x, y, _, _, _ = action.arr
         for door in self._doors:
-            door_x = state.get(door, "pose_x")
-            door_y = state.get(door, "pose_y")
-            if (door_x-self.door_tol < x < door_x+self.door_tol) and \
-               (door_y-self.door_r-self.door_tol < y
-                    < door_y+self.door_r+self.door_tol):
+            if self._NextToDoor_holds(state, (self._robot, door)):
                 return door
-        raise RuntimeError("Robot not next to any door")
+        # usage should ensure this is never reached
+        raise RuntimeError("Robot not next to any door")  # pragma: no cover
 
-    def _robot_is_facing_door(self, state: State, action: Action) -> bool:
-        door = self._get_door_next_to(state, action)
+    def _robot_is_facing_door(self, state: State, action: Action, door: Object
+                              ) -> bool:
+        assert door.type == self._door_type
         door_x = state.get(door, "pose_x")
         x, _, _, rotation, _ = action.arr
         return (x < door_x and 0.5 >= rotation >= -0.5) \
@@ -612,3 +601,10 @@ class PlayroomEnv(BlocksEnv):
                 if state.get(door, "open") < 0.5:
                     return False
         return True
+
+    @staticmethod
+    def _is_valid_loc(action: Action) -> bool:
+        x, y, _, _, _ = action.arr
+        return (0 <= x <= 30 and 0 <= y <= 30) or \
+               (30 <= x <= 110 and 10 <= y <= 20) or \
+               (110 <= x <= 140 and 0 <= y <= 30)
