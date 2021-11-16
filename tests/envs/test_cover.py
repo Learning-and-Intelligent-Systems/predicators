@@ -1,7 +1,6 @@
 """Test cases for the cover environment.
 """
 
-import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions
 from predicators.src import utils
