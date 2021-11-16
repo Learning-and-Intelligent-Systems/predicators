@@ -1,7 +1,6 @@
 """Test cases for the cover environment.
 """
 
-import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions
 from predicators.src import utils
@@ -72,7 +71,8 @@ def test_cover():
     states, _ = utils.option_to_trajectory(
         task.init, env.simulate, option.ground([], [0]),
         max_num_steps=100)
-    assert all(np.all(states[0][obj] == states[1][obj]) for obj in states[0])
+    assert len(states) == 2
+    assert states[0].allclose(states[1])
 
 
 def test_cover_typed_options():
@@ -139,4 +139,5 @@ def test_cover_typed_options():
     states, _ = utils.option_to_trajectory(
         task.init, env.simulate, place_option.ground([target0], [0]),
         max_num_steps=100)
-    assert all(np.all(states[0][obj] == states[1][obj]) for obj in states[0])
+    assert len(states) == 2
+    assert states[0].allclose(states[1])
