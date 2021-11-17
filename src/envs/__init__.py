@@ -17,7 +17,7 @@ __all__ = [
     "CoverEnvHierarchicalTypes",
     "ClutteredTableEnv",
     "BlocksEnv",
-    "PlayroomEnv"
+    "PlayroomEnv",
     "BehaviorEnv",
 ]
 
