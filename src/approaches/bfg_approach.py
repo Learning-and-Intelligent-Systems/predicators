@@ -88,6 +88,27 @@ class BFGApproach(OperatorLearningApproach):
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
             transitions_by_option: DefaultDict[
                 ParameterizedOption, List[Transition]]) -> Set[Predicate]:
+        # Standardize transitions so that they are effectively propositional,
+        # and so that they are associated with a unique identifier.
+        standard_transitions = self._standardize_transitions(candidates,
+            transitions_by_option)
+
+        # TODO: what to do about options?
+
+        # Set up MaxSAT problem based on bisimulation objective.
+        formulas = []
+
+        # Formula 1: defines the meaning of D1(s, t).
+        for i, s in enumerate(standard_transitions[:-1]):
+            for t in standard_transitions[i+1:]:
+                d1_s_t = f"D1({s.id}, {t.id})"
+                # Find features that are different in s vs t
+                all_selected_atoms = []
+                for atom in (s.atoms - t.atoms) | (t.atoms - s.atoms):
+                    selected_atom = f"selected({atom})"
+                    all_selected_atoms.append(selected_atom)
+
+
         # TODO
         kept_predicates = candidates
 
