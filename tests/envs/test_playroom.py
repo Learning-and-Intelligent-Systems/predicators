@@ -117,7 +117,8 @@ def test_playroom_failure_cases():
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block2] != next_state[block2])
-    # Change the state
+    atoms = utils.abstract(next_state, env.predicates)
+    assert OnTable([block2]) not in atoms
     state = next_state
     # Cannot pick twice in a row
     act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
