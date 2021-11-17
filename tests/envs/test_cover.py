@@ -1,6 +1,7 @@
 """Test cases for the cover environment.
 """
 
+import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverMultistepOptions
@@ -247,7 +248,7 @@ def test_cover_multistep_options():
         place_option.ground([target0], [0.0]),
     ]
     assert option_sequence[0].initiable(state)
-    make_video = True  # Can toggle to true for debugging
+    make_video = False  # Can toggle to true for debugging
     def option_policy(s: State) -> Action:
         current_option = option_sequence[0]
         if current_option.terminal(s):
