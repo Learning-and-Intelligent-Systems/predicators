@@ -63,20 +63,37 @@ class BFGApproach(OperatorLearningApproach):
 
     def _generate_candidate_predicates(self) -> Set[Predicate]:
         # TODO
-
         # Testing: python src/main.py --env cover --approach bfg --seed 0 --excluded_predicates Holding
+
+        candidates = set()
+
+        # A necessary predicate
         name = "InventedHolding"
         block_type = [t for t in self._types if t.name == "block"][0]
         types = [block_type]
-
         classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
-        
         predicate = Predicate(name, types, classifier)
+        candidates.add(predicate)
 
-        return {predicate}
+        # An unnecessary predicate (because it's redundant)
+        name = "InventedDummy"
+        block_type = [t for t in self._types if t.name == "block"][0]
+        types = [block_type]
+        classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
+        predicate = Predicate(name, types, classifier)
+        candidates.add(predicate)
+
+        return candidates
 
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
             transitions_by_option: DefaultDict[
                 ParameterizedOption, List[Transition]]) -> Set[Predicate]:
         # TODO
-        return candidates
+        kept_predicates = candidates
+
+        print(f"Selected {len(kept_predicates)} predicates out of "
+              f"{len(candidates)} candidates:")
+        for pred in kept_predicates:
+            print(pred)
+
+        return kept_predicates
