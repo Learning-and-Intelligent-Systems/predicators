@@ -3,14 +3,15 @@ planning strategy: SEarch-and-SAMple planning, then Execution.
 """
 
 import abc
-from typing import Callable, Set, List, Sequence
+from typing import Callable, Set, List
 from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
 from predicators.src.structs import State, Action, Task, Operator, \
-    Predicate, ParameterizedOption, Type, _Option
+    Predicate, ParameterizedOption, Type
 from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 
 class TAMPApproach(BaseApproach):
@@ -39,7 +40,13 @@ class TAMPApproach(BaseApproach):
                        "num_failures_discovered",
                        "plan_length"]:
             self._metrics[f"total_{metric}"] += metrics[metric]
-        return option_plan_to_policy(plan)
+        option_policy = utils.option_plan_to_policy(plan)
+        def _policy(s: State) -> Action:
+            try:
+                return option_policy(s)
+            except utils.OptionPlanExhausted:
+                raise ApproachFailure("Option plan exhausted.")
+        return _policy
 
     @abc.abstractmethod
     def _get_current_operators(self) -> Set[Operator]:
@@ -52,38 +59,3 @@ class TAMPApproach(BaseApproach):
         Defaults to initial predicates.
         """
         return self._initial_predicates
-
-
-def option_plan_to_policy(plan: Sequence[_Option]
-                          ) -> Callable[[State], Action]:
-    """Create a policy that executes the options in order.
-
-    We may want to move this out of here later, but I'm leaving
-    it for now, because it's annoying to import ApproachFailure
-    in utils.py, for example.
-
-    The logic for this is somewhat complicated because we want:
-    * If an option's termination and initiation conditions are
-      always true, we want the option to execute for one step.
-    * After the first step that the option is executed, it
-      should terminate as soon as it sees a state that is
-      terminal; it should not take one more action after.
-    """
-    queue = list(plan)  # Don't modify plan, just in case
-    initialized = False  # Special case first step
-    def _policy(state: State) -> Action:
-        nonlocal initialized
-        # On the very first state, check initiation condition, and
-        # take the action no matter what.
-        if not initialized:
-            if not queue:
-                raise ApproachFailure("Ran out of options in the plan!")
-            assert queue[0].initiable(state), "Unsound option plan"
-            initialized = True
-        elif queue[0].terminal(state):
-            queue.pop(0)
-            if not queue:
-                raise ApproachFailure("Ran out of options in the plan!")
-            assert queue[0].initiable(state), "Unsound option plan"
-        return queue[0].policy(state)
-    return _policy
