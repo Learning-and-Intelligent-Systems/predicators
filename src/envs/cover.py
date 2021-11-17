@@ -368,7 +368,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     """
     hand_region_height = 0.1
     grasp_height_tol = 1e-2
-    grasp_thresh = 0.1
+    grasp_thresh = 0.
     initial_block_y = 0.05
     block_height = 0.1
     target_height = 0.1
@@ -447,7 +447,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Update robot state based on action.
         x += dx
         y += dy
-        grip += dgrip
+        grip = dgrip  # desired grip; set directly
         next_state.set(self._robot, "x", x)
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "grip", grip)
@@ -457,7 +457,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             # If we're not in any hand region, no-op.
             if not any(hand_lb <= x <= hand_rb
                        for hand_lb, hand_rb in hand_regions):
-                return next_state
+                return state.copy()
         # Identify which block we're holding and which block we're above.
         held_block = None
         above_block = None
@@ -614,7 +614,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         assert len(p) == 1
         rel_x = p.item()
         assert obj.type == self._block_type
-        desired_x = s.get(obj, "x") + rel_x
+        desired_x = s.get(obj, "x") + rel_x * s.get(obj, "width")/2.
         x = s.get(self._robot, "x")
         at_desired_x = abs(desired_x - x) < 1e-5
         y = s.get(self._robot, "y")
@@ -660,7 +660,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         assert len(p) == 1
         rel_x = p.item()
         assert obj.type == self._target_type
-        desired_x = s.get(obj, "x") + rel_x
+        desired_x = s.get(obj, "x") + rel_x * s.get(obj, "width")/2.
         x = s.get(self._robot, "x")
         at_desired_x = abs(desired_x - x) < 1e-5
         y = s.get(self._robot, "y")
@@ -673,16 +673,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # If we're above the object but not yet close enough, move down.
         if at_desired_x:
             delta_y = np.clip(desired_y - y, -0.1, 0.1)
-            return Action(np.array([0., delta_y, 0.], dtype=np.float32))
+            return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
         # If we're not above the object, but we're at a safe height,
         # then move left/right.
         if y >= self.initial_robot_y:
             delta_x = np.clip(desired_x - x, -0.1, 0.1)
-            return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
+            return Action(np.array([delta_x, 0., 0.1], dtype=np.float32))
         # If we're not above the object, and we're not at a safe height,
         # then move up.
         delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
-        return Action(np.array([0., delta_y, 0.], dtype=np.float32))
+        return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
 
     def _Place_terminal(self, s: State, o: Sequence[Object],
                         p: Array) -> bool:
