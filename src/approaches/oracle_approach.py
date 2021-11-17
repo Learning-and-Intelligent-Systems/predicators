@@ -281,7 +281,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                                     lambda s, r, o: np.array([-0.6, 0.6]))
                 operators.add(operator)
 
-        elif base_option_name == "Pick":
+        elif base_option_name == "Grasp":
             assert len(option_arg_type_names) == 1
             target_obj_type_name = option_arg_type_names[0]
             target_obj_type = type_name_to_type[target_obj_type_name]
@@ -308,29 +308,29 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                 operators.add(operator)
 
         elif base_option_name == "PlaceOnTop":
-            assert len(option_arg_type_names) == 2
-            held_obj_type_name = option_arg_type_names[0]
-            held_obj_type = type_name_to_type[held_obj_type_name]
-            held_obj = Variable("?held", held_obj_type)
-            surf_obj_type_name = option_arg_type_names[1]
+            assert len(option_arg_type_names) == 1
+            surf_obj_type_name = option_arg_type_names[0]
             surf_obj_type = type_name_to_type[surf_obj_type_name]
             surf_obj = Variable("?surf", surf_obj_type)
 
-            parameters = [held_obj, agent_obj, surf_obj]
-            option_vars = [held_obj, surf_obj]
-            handempty = _get_lifted_atom("handempty", [])
-            held_holding = _get_lifted_atom("holding", [held_obj])
-            surf_next_to = _get_lifted_atom("nextto", [surf_obj, agent_obj])
-            ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
-            preconditions = {held_holding, surf_next_to}
-            add_effects = {ontop, handempty}
-            delete_effects = {held_holding}
-            operator = Operator(f"{option.name}-{next(op_name_count)}",
-                                parameters, preconditions, add_effects,
-                                delete_effects, option, option_vars,
-                                # TODO: create sampler
-                                lambda s, r, o: np.zeros((0,)))
-            operators.add(operator)
+            # We need to place the object we're holding!
+            for held_obj_types in env.types:
+                held_obj = Variable("?held", held_obj_types)
+                parameters = [held_obj, agent_obj, surf_obj]
+                option_vars = [held_obj, surf_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                held_holding = _get_lifted_atom("holding", [held_obj])
+                surf_next_to = _get_lifted_atom("nextto", [surf_obj, agent_obj])
+                ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
+                preconditions = {held_holding, surf_next_to}
+                add_effects = {ontop, handempty}
+                delete_effects = {held_holding}
+                operator = Operator(f"{option.name}-{next(op_name_count)}",
+                                    parameters, preconditions, add_effects,
+                                    delete_effects, option, option_vars,
+                                    # TODO: create sampler
+                                    lambda s, r, o: np.zeros((0,)))
+                operators.add(operator)
         else:
             raise ValueError(
                 f"Unexpected base option name: {base_option_name}")

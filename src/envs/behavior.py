@@ -19,10 +19,11 @@ try:
         save_internal_states, load_internal_states
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
-    from predicators.src.envs.behavior_options import navigate_to_obj_pos
+    from predicators.src.envs.behavior_options import navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-except ModuleNotFoundError:
+except ModuleNotFoundError as e:
+    print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
@@ -35,12 +36,13 @@ class _BehaviorOptionGlue:
     """Glue for behavior options. We may want to remove or change.
     """
     def __init__(self, controller_fn: Callable, env: BaseEnv,
-                 object_to_ig_object: Callable):
+                 object_to_ig_object: Callable, rng=np.random.default_rng(0)):
         self._controller_fn = controller_fn
         self._env = env
         self._object_to_ig_object = object_to_ig_object
         self._option = None
         self._has_terminated = False
+        self._rng = rng
 
     def get_action(self, s: State, o: Sequence[Object],
                    p: Array) -> Action:
@@ -53,7 +55,7 @@ class _BehaviorOptionGlue:
             # change on the behavior option side. I'm trying not
             # to modify anything in that file for now.
             assert len(igo) == 1
-            self._option = self._controller_fn(self._env, igo[0], p)
+            self._option = self._controller_fn(self._env, igo[0], p, rng=self._rng)
             assert self._option is not None
         action, self._has_terminated = self._option(s, self._env)
         return Action(action)
@@ -76,12 +78,14 @@ class BehaviorEnv(BaseEnv):
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path,
                                    CFG.behavior_config_file)
+        self._rng = np.random.default_rng(0)
         self._env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
             action_timestep=CFG.behavior_action_timestep,
             physics_timestep=CFG.behavior_physics_timestep,
             action_filter="mobile_manipulation",
+            rng=self._rng
         )
         self._env.robots[0].initial_z_offset = 0.7
 
@@ -97,19 +101,19 @@ class BehaviorEnv(BaseEnv):
         assert loaded_state.allclose(state)
         a = action.arr
 
-        # TEMPORARY TESTING
-        if not hasattr(self, "_temp_option"):
-            obj = sorted(state)[2]
-            print("ATTEMPTING TO NAVIGATE TO ", obj)
-            options = sorted(self.options, key=lambda o: o.name)
-            nav = options[1]
-            assert nav.name == 'NavigateTo-book.n.02'
-            self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
-            print("CREATED OPTION:", self._temp_option)
-        action = self._temp_option.policy(state)
-        a = action.arr
-        print("STEPPING ACTION:", a)
-        # END TEMPORARY TESTING
+        # # TEMPORARY TESTING
+        # if not hasattr(self, "_temp_option"):
+        #     obj = sorted(state)[2]
+        #     print("ATTEMPTING TO NAVIGATE TO ", obj)
+        #     options = sorted(self.options, key=lambda o: o.name)
+        #     nav = options[1]
+        #     assert nav.name == 'NavigateTo-book.n.02'
+        #     self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
+        #     print("CREATED OPTION:", self._temp_option)
+        # action = self._temp_option.policy(state)
+        # a = action.arr
+        # print("STEPPING ACTION:", a)
+        # # END TEMPORARY TESTING
 
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
@@ -229,6 +233,8 @@ class BehaviorEnv(BaseEnv):
         # name, controller_fn, param_dim, arity
         controllers = [
             ("NavigateTo", navigate_to_obj_pos, 2, 1),
+            ("Grasp", grasp_obj_at_pos, 5, 1),
+            ("PlaceOnTop", place_ontop_obj_pos, 7, 1),
         ]
 
         options = set()
@@ -239,7 +245,7 @@ class BehaviorEnv(BaseEnv):
                                                 repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
                 glue = _BehaviorOptionGlue(controller_fn, self._env,
-                    self._object_to_ig_object)
+                    self._object_to_ig_object, rng=self._rng)
                 option = ParameterizedOption(option_name,
                     types=list(types),
                     params_space=Box(-1, 1, (param_dim,)),
