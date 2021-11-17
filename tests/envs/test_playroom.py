@@ -49,10 +49,7 @@ def test_playroom():
             act = Action(np.array([29.8, 15, 1, 0, 1]).astype(np.float32))
             state = env.simulate(state, act)
             # Force initial pick to test rendering with holding
-            Pick = [o for o in env.options if o.name == "Pick"][0]
-            block = sorted([o for o in state if o.type.name == "block" and \
-                            state.get(o, 'clear') > env.clear_tol])[0]
-            act = Pick.ground([robot, block], np.zeros(3)).policy(state)
+            act = Action(np.array([16.6, 19, 1.45, -1, 0]).astype(np.float32))
             state = env.simulate(state, act)
             env.render(state, task)
 
@@ -117,9 +114,9 @@ def test_playroom_failure_cases():
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block2] != next_state[block2])
-    atoms = utils.abstract(next_state, env.predicates)
-    assert OnTable([block2]) not in atoms
     state = next_state
+    atoms = utils.abstract(state, env.predicates)
+    assert OnTable([block2]) not in atoms
     # Cannot pick twice in a row
     act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -160,6 +157,7 @@ def test_playroom_simulate_blocks():
     env.seed(123)
     block_type = [t for t in env.types if t.name == "block"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
+    block1 = block_type("block1")
     block2 = block_type("block2")
     task = env.get_train_tasks()[0]
     state = task.init
@@ -169,20 +167,21 @@ def test_playroom_simulate_blocks():
             robot = item
             break
     assert robot is not None
-    # Perform valid pick
-    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
+    # Perform valid pick of block 1
+    act = Action(np.array([12, 11.8, 0.95, 0.7, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
-    assert np.any(state[block2] != next_state[block2])
+    assert np.any(state[block1] != next_state[block1])
     state = next_state
     # Perform valid put on table
     act = Action(np.array([19, 14, 0.45, 1.9, 0.8]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.any(state[block2] != next_state[block2])
+    assert np.any(state[block1] != next_state[block1])
     state = next_state
-    # Pick up block again
-    act = Action(np.array([19, 14, 0.45, 1.9, 0]).astype(np.float32))
+    # Perform valid pick of block 2
+    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
+    assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block2] != next_state[block2])
     state = next_state
     # Perform valid stack
@@ -272,3 +271,27 @@ def test_playroom_simulate_doors_and_dial():
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
+
+def test_playroom_options():
+    """Tests predicate option policies.
+    """
+    utils.update_config({"env": "playroom"})
+    env = PlayroomEnv()
+    env.seed(123)
+    Pick = [o for o in env.options if o.name == "Pick"][0]
+    Stack = [o for o in env.options if o.name == "Stack"][0]
+    PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
+    block_type = [t for t in env.types if t.name == "block"][0]
+    robot_type = [t for t in env.types if t.name == "robot"][0]
+    block0 = block_type("block0")
+    block1 = block_type("block1")
+    robot = robot_type("robby")
+    task = env.get_train_tasks()[0]
+    state = task.init
+    # Right now this is just for code coverage -- to add more later
+    Pick.ground([robot, block0], np.array(
+        [0, -1, 0], dtype=np.float32)).policy(state)
+    Stack.ground([robot, block1], np.array(
+        [0, 0, 0], dtype=np.float32)).policy(state)
+    PutOnTable.ground([robot], np.array(
+        [0.5, 0.5], dtype=np.float32)).policy(state)

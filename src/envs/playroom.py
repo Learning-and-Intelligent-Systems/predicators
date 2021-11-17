@@ -523,7 +523,7 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _Stack_policy(self, state: State, objects: Sequence[Object],
-                      params: Array) -> Action:  # pragma: no cover
+                      params: Array) -> Action:
         robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -534,12 +534,12 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _PutOnTable_policy(self, state: State, objects: Sequence[Object],
-                           params: Array) -> Action:  # pragma: no cover
+                           params: Array) -> Action:
         robot, = objects
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params
-        x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
-        y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
+        x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
+        y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
         z = self.table_height + 0.5*CFG.playroom_block_size
         rotation = state.get(robot, "rotation")
         arr = np.array([x, y, z, rotation, 1.0], dtype=np.float32)
