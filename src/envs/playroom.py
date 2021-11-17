@@ -448,31 +448,7 @@ class PlayroomEnv(BlocksEnv):
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 
-    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        block1, block2 = objects
-        if state.get(block1, "held") >= self.held_tol or \
-           state.get(block2, "held") >= self.held_tol:
-            return False
-        x1 = state.get(block1, "pose_x")
-        y1 = state.get(block1, "pose_y")
-        z1 = state.get(block1, "pose_z")
-        x2 = state.get(block2, "pose_x")
-        y2 = state.get(block2, "pose_y")
-        z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.playroom_block_size],
-                           atol=self.pick_tol)
-
-    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        block, = objects
-        z = state.get(block, "pose_z")
-        desired_z = self.table_height + CFG.playroom_block_size * 0.5
-        return (state.get(block, "held") < self.held_tol) and \
-            (desired_z-self.pick_tol < z < desired_z+self.pick_tol)
-
-    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        block, = objects
-        return state.get(block, "clear") >= self.clear_tol
-
+    # To pull in when I add all the predicates
     # def _NextToTable_holds(self, state: State, objects: Sequence[Object]
     #                        ) -> bool:
     #     # for now this also includes all table coords
@@ -492,6 +468,7 @@ class PlayroomEnv(BlocksEnv):
                 and (door_y-self.door_r-self.door_tol < y
                      < door_y+self.door_r+self.door_tol)
 
+    # To pull in when I add all the predicates
     # def _NextToDial_holds(self, state: State, objects: Sequence[Object]
     #                       ) -> bool:
     #     robot, dial = objects
