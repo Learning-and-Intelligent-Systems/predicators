@@ -33,7 +33,7 @@ class GlobalSettings:
     playroom_num_blocks_train = [3]
     playroom_num_blocks_test = [3]
     playroom_block_size = 0.5
-    
+
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples", "configs",
