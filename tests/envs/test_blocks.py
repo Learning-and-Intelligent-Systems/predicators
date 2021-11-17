@@ -78,45 +78,45 @@ def test_blocks_failure_cases():
     act = Pick.ground([robot, block0], np.array(
         [0, -1, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Object not clear, pick fails
     act = Pick.ground([robot, block1], np.array(
         [0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Cannot putontable or stack without picking first
     act = Stack.ground([robot, block1], np.array(
         [0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     act = PutOnTable.ground([robot], np.array(
         [0.5, 0.5], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Perform valid pick
     act = Pick.ground([robot, block0], np.array(
         [0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.any(state[o] != next_state[o] for o in state)
+    assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Cannot pick twice in a row
     act = Pick.ground([robot, block2], np.array(
         [0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Cannot stack onto non-clear block
     act = Stack.ground([robot, block1], np.array(
         [0, 0, CFG.blocks_block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Cannot stack onto no block
     act = Stack.ground([robot, block1], np.array(
         [0, -1, CFG.blocks_block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)
     # Cannot stack onto yourself
     act = Stack.ground([robot, block0], np.array(
         [0, 0, CFG.blocks_block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert np.all(state[o] == next_state[o] for o in state)
+    assert state.allclose(next_state)

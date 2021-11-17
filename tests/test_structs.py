@@ -110,7 +110,7 @@ def test_state():
     state.set(obj3, "feat2", 122)
     assert state.get(obj3, "feat2") == 122
     state2 = state.copy()
-    assert state == state2
+    assert state.allclose(state2)
     state2[obj1][0] = 999
     state2.set(obj1, "feat5", 991)
     assert state != state2  # changing copy doesn't change original
@@ -244,7 +244,7 @@ def test_task():
         Task(state, lifted_goal)  # tasks require ground goals
     goal = {pred([cup, plate])}
     task = Task(state, goal)
-    assert task.init == state
+    assert task.init.allclose(state)
     assert task.goal == goal
 
 
