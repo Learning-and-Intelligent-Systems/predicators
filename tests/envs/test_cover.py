@@ -224,9 +224,12 @@ def test_cover_multistep_options():
         policy, task, env.simulate, env.predicates,
         len(action_arrs), make_video, env.render)
     if make_video:
-        outfile = "hardcoded_actions_covers_options_multistep.mp4"
-        utils.save_video(outfile, video)
+        outfile = "hardcoded_actions_com.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
     state = states[0]
+    env.render(state, task)
+    # Render a state where we're grasping
+    env.render(states[20], task)
     block0 = [b for b in state if b.name == "block0"][0]
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]
@@ -261,8 +264,8 @@ def test_cover_multistep_options():
         option_policy, task, env.simulate, env.predicates,
         100, make_video, env.render)
     if make_video:
-        outfile = "hardcoded_options_covers_options_multistep.mp4"
-        utils.save_video(outfile, video)
+        outfile = "hardcoded_options_com.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
     final_atoms = utils.abstract(states[-1], env.predicates)
     assert Covers([block0, target0]) in final_atoms
     assert Covers([block1, target1]) in final_atoms
