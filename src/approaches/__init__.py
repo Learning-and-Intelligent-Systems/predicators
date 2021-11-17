@@ -19,6 +19,7 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.approaches.iterative_invention_approach import \
     IterativeInventionApproach
+from predicators.src.approaches.bfg_approach import BFGApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
 
@@ -33,6 +34,7 @@ __all__ = [
     "OperatorLearningApproach",
     "InteractiveLearningApproach",
     "IterativeInventionApproach",
+    "BFGApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -75,4 +77,8 @@ def create_approach(name: str,
         return IterativeInventionApproach(simulator, initial_predicates,
                                           initial_options, types, action_space,
                                           train_tasks)
+    if name == "bfg":
+        return BFGApproach(simulator, initial_predicates,
+                           initial_options, types, action_space,
+                           train_tasks)
     raise NotImplementedError(f"Unknown env: {name}")
