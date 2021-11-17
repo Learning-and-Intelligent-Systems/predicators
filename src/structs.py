@@ -517,7 +517,7 @@ class _GroundOperator:
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Option: {self.option}
-    Option Objects: {self.option_objs}"""
+    Option Objects: {self.option_objs}\n"""
 
     @cached_property
     def _hash(self) -> int:

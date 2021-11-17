@@ -98,7 +98,11 @@ class BehaviorEnv(BaseEnv):
         load_internal_states(self._env.simulator, state.simulator_state)
         # We can remove this after we're confident in it
         loaded_state = self._current_ig_state_to_state()
-        assert loaded_state.allclose(state)
+        
+        # assert loaded_state.allclose(state)
+        if not loaded_state.allclose(state):
+            import ipdb; ipdb.set_trace()
+        
         a = action.arr
 
         # # TEMPORARY TESTING
@@ -232,14 +236,14 @@ class BehaviorEnv(BaseEnv):
     def options(self) -> Set[ParameterizedOption]:
         # name, controller_fn, param_dim, arity
         controllers = [
-            ("NavigateTo", navigate_to_obj_pos, 2, 1),
-            ("Grasp", grasp_obj_at_pos, 5, 1),
-            ("PlaceOnTop", place_ontop_obj_pos, 7, 1),
+            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-2.4, 2.4)),
+            ("Grasp", grasp_obj_at_pos, 5, 1, (-1.0, 1.0)),
+            ("PlaceOnTop", place_ontop_obj_pos, 7, 1, (-1.0, 1.0)),
         ]
 
         options = set()
 
-        for name, controller_fn, param_dim, num_args in controllers:
+        for name, controller_fn, param_dim, num_args, parameter_limits in controllers:
             # Create a different option for each type combo
             for types in itertools.product(self.types,
                                                 repeat=num_args):
@@ -248,7 +252,7 @@ class BehaviorEnv(BaseEnv):
                     self._object_to_ig_object, rng=self._rng)
                 option = ParameterizedOption(option_name,
                     types=list(types),
-                    params_space=Box(-1, 1, (param_dim,)),
+                    params_space=Box(parameter_limits[0], parameter_limits[1], (param_dim,)),
                     _policy=glue.get_action,
                     _initiable=lambda s, o, p: True,
                     _terminal=glue.has_terminated)
