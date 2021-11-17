@@ -3,6 +3,7 @@ Bonet, Frances & Geffner (2018), hence the name BFG.
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
     Any
 import numpy as np
@@ -11,14 +12,27 @@ from predicators.src import utils
 from predicators.src.approaches import OperatorLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, Transition, Operator, LiftedAtom, \
-    Array
+    Array, Object
 from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
 from predicators.src.operator_learning import generate_transitions, \
     learn_operators_for_option
 from predicators.src.settings import CFG
 
 
-class BFGInventionApproach(OperatorLearningApproach):
+@dataclass(frozen=True, eq=False, repr=False)
+class _SingleAttributeGEClassifier:
+    """Check whether a single attribute value on an object is >= some value.
+    """
+    object_index: int
+    attribute_name: str
+    value: float
+
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        obj = o[self.object_index]
+        return s.get(obj, self.attribute_name) >= self.value
+
+
+class BFGApproach(OperatorLearningApproach):
     """An approach that invents predicates using BFG.
     """
     def __init__(self, simulator: Callable[[State, Action], State],
@@ -48,9 +62,21 @@ class BFGInventionApproach(OperatorLearningApproach):
         self._learn_operators(dataset)
 
     def _generate_candidate_predicates(self) -> Set[Predicate]:
-        import ipdb; ipdb.set_trace()
+        # TODO
 
-    def _select_predicates_to_keep(self,
-        candidates: Set[Predicate]) -> Set[Predicate]:
-        import ipdb; ipdb.set_trace()
+        # Testing: python src/main.py --env cover --approach bfg --seed 0 --excluded_predicates Holding
+        name = "InventedHolding"
+        block_type = [t for t in self._types if t.name == "block"][0]
+        types = [block_type]
 
+        classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
+        
+        predicate = Predicate(name, types, classifier)
+
+        return {predicate}
+
+    def _select_predicates_to_keep(self, candidates: Set[Predicate],
+            transitions_by_option: DefaultDict[
+                ParameterizedOption, List[Transition]]) -> Set[Predicate]:
+        # TODO
+        return candidates
