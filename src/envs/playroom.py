@@ -219,7 +219,7 @@ class PlayroomEnv(BlocksEnv):
         cur_z = state.get(other_block, "pose_z")
         next_state.set(block, "pose_x", cur_x)
         next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z+CFG.blocks_block_size)
+        next_state.set(block, "pose_z", cur_z+CFG.playroom_block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(block, "clear", 1.0)
         next_state.set(other_block, "clear", 0.0)
@@ -447,6 +447,38 @@ class PlayroomEnv(BlocksEnv):
             y = rng.uniform(self.table_y_lb, self.table_y_ub)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
+
+    @staticmethod
+    def _table_xy_is_clear(x: float, y: float,
+                           existing_xys: Set[Tuple[float, float]]) -> bool:
+        if all(abs(x-other_x) > 2*CFG.playroom_block_size
+               for other_x, _ in existing_xys):
+            return True
+        if all(abs(y-other_y) > 2*CFG.playroom_block_size
+               for _, other_y in existing_xys):
+            return True
+        return False
+
+    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block1, block2 = objects
+        if state.get(block1, "held") >= self.held_tol or \
+           state.get(block2, "held") >= self.held_tol:
+            return False
+        x1 = state.get(block1, "pose_x")
+        y1 = state.get(block1, "pose_y")
+        z1 = state.get(block1, "pose_z")
+        x2 = state.get(block2, "pose_x")
+        y2 = state.get(block2, "pose_y")
+        z2 = state.get(block2, "pose_z")
+        return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.playroom_block_size],
+                           atol=self.pick_tol)
+
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        block, = objects
+        z = state.get(block, "pose_z")
+        desired_z = self.table_height + CFG.playroom_block_size * 0.5
+        return (state.get(block, "held") < self.held_tol) and \
+            (desired_z-self.pick_tol < z < desired_z+self.pick_tol)
 
     # To pull in when I add all the predicates
     # def _NextToTable_holds(self, state: State, objects: Sequence[Object]
