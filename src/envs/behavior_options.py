@@ -19,18 +19,6 @@ from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
 from igibson.objects.articulated_object import URDFObject
 from igibson.utils.behavior_robot_planning_utils import plan_base_motion_br, plan_hand_motion_br
 from igibson.object_states.utils import continuous_param_kinematics
-from igibson.utils import sampling_utils
-from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
-
-from igibson.external.pybullet_tools.utils import (
-    get_aabb,
-    get_aabb_center,
-    get_aabb_extent,
-    get_link_pose,
-    matrix_from_quat,
-    stable_z_on_aabb,
-)
-from igibson.object_states.aabb import AABB
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
     # "hit_to_plane_threshold": 0.1,  # TODO: Tune this parameter.
@@ -105,12 +93,6 @@ def reset_and_release_hand(env):
         env.robots[0].parts["right_hand"].trigger_fraction = 0
         p.stepSimulation()
 
-def sample_fn(env, rng):
-    random_point = env.scene.get_random_point(rng=rng)
-    x, y = random_point[1][:2]
-    theta = (CIRCULAR_LIMITS[1] - CIRCULAR_LIMITS[0]) * rng.random() + CIRCULAR_LIMITS[0]
-    return (x, y, theta)
-
 def get_metrics_callbacks(config):
     metrics = [
         KinematicDisarrangement(),
@@ -169,6 +151,13 @@ def get_delta_low_level_base_action(env, original_orientation, old_xytheta, new_
 
 # Navigate To #
 
+def navigate_to_param_sampler(rng):
+    distance_to_try = [0.6, 1.2, 1.8, 2.4]
+    distance = rng.choice(distance_to_try)
+    yaw = rng.random() * (2 * np.pi) - np.pi
+    return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
+
+
 def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
     """
     Parameterized controller for navigation.
@@ -181,12 +170,17 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
     and itself returns a low-level action and 'done' bit. Note that this return value may be None if
     no plan could be found.
     """
-
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
     valid_position = None  # ((x,y,z),(roll, pitch, yaw))
     original_orientation = env.robots[0].get_orientation()
     state = p.saveState()
+
+    def sample_fn(env, rng):
+        random_point = env.scene.get_random_point(rng=rng)
+        x, y = random_point[1][:2]
+        theta = (rng.random() * (CIRCULAR_LIMITS[1] - CIRCULAR_LIMITS[0])) + CIRCULAR_LIMITS[0]
+        return (x, y, theta)
 
     if isinstance(obj, URDFObject): # must be a URDFObject so we can get its position!
         obj_pos = obj.get_position()
@@ -540,7 +534,6 @@ def place_ontop_obj_pos(env, obj, place_pos_and_quat, rng=np.random.default_rng(
                         nonlocal plan
                         nonlocal plan_executed_forwards
                         nonlocal tried_opening_gripper
-                        #import ipdb; ipdb.set_trace()
                         done_bit = False
 
                         atol_xy = 0.1

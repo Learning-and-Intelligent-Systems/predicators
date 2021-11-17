@@ -14,6 +14,7 @@ from predicators.src.envs import get_env_instance
 from predicators.src.structs import Operator, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
+from predicators.src.envs.behavior_options import navigate_to_param_sampler
 
 
 class OracleApproach(TAMPApproach):
@@ -258,8 +259,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             operator = Operator(f"{option.name}-{next(op_name_count)}",
                                 parameters, preconditions, add_effects,
                                 delete_effects, option, option_vars,
-                                # TODO: create real sampler
-                                lambda s, r, o: np.array([-0.6, 0.6]))
+                                lambda s, r, o: navigate_to_param_sampler(r))
             operators.add(operator)
 
             # Navigate to while nextto something
@@ -277,8 +277,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                 operator = Operator(f"{option.name}-{next(op_name_count)}",
                                     parameters, preconditions, add_effects,
                                     delete_effects, option, option_vars,
-                                    # TODO: create real sampler
-                                    lambda s, r, o: np.array([-0.6, 0.6]))
+                                    lambda s, r, o: navigate_to_param_sampler(r))
                 operators.add(operator)
 
         elif base_option_name == "Grasp":

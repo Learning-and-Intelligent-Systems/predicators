@@ -119,6 +119,7 @@ def _run_search(task: Task,
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
+        # print(node.skeleton)
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, run low-level search.
             metrics["num_skeletons_optimized"] += 1
