@@ -2,16 +2,17 @@
 """
 
 from collections import defaultdict
-from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
+from typing import Set, Callable, List, Optional, Dict, Sequence, \
     Any
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, Transition, NSRT, LiftedAtom, \
-    Array
+    Type, Task, Action, Dataset, Array, STRIPSOperator, Partition, Segment
 from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
+from predicators.src.nsrt_learning import segment_trajectory, \
+    learn_strips_operators
 from predicators.src.settings import CFG
 
 
@@ -33,16 +34,16 @@ class IterativeInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # Use the current predicates to generate transitions.
-        transitions_by_option = generate_transitions(
-            dataset, self._get_current_predicates())
+        # Use the current predicates to segment dataset.
+        predicates = self._get_current_predicates()
+        segments = [seg for traj in dataset
+                    for seg in segment_trajectory(traj, predicates)]
         while True:
             print(f"\n\nInvention iteration {self._num_inventions}")
             # Invent predicates one at a time (iteratively).
-            new_predicate = self._invent_for_some_nsrt(
-                transitions_by_option)
+            new_predicate = self._invent_for_some_op(segments)
             if new_predicate is None:
-                # No new invention for any NSRT, terminate.
+                # No new invention for any operator, terminate.
                 print("\tFound no new predicates, terminating invention\n")
                 break
             # Add the new predicate and its negation to our predicate set.
@@ -51,104 +52,87 @@ class IterativeInventionApproach(NSRTLearningApproach):
             self._learned_predicates.add(neg_new_predicate)
             self._num_inventions += 1
             # Add the new predicate and its negation to all the transitions.
-            for transitions in transitions_by_option.values():
-                for i, (state, next_state, atoms, option, next_atoms,
-                        _, _) in enumerate(transitions):
-                    atoms = atoms | utils.abstract(
-                        state, {new_predicate, neg_new_predicate})
-                    next_atoms = next_atoms | utils.abstract(
-                        next_state, {new_predicate, neg_new_predicate})
-                    add_effects = next_atoms - atoms
-                    delete_effects = atoms - next_atoms
-                    transitions[i] = (state, next_state, atoms, option,
-                                      next_atoms, add_effects, delete_effects)
+            new_preds = {new_predicate, neg_new_predicate}
+            for segment in segments:
+                before_state, after_state = segment[0][0][0], segment[0][0][-1]
+                segment[2] |= utils.abstract(before_state, new_preds)
+                segment[3] |= utils.abstract(after_state, new_preds)
         # Finally, learn NSRTs via superclass, using all the predicates.
         self._learn_nsrts(dataset)
 
-    def _invent_for_some_nsrt(self, transitions_by_option: DefaultDict[
-            ParameterizedOption, List[Transition]]) -> Optional[Predicate]:
+    def _invent_for_some_op(self, segments: Sequence[Segment]
+                            ) -> Optional[Predicate]:
         # Iterate over parameterized options in a random order.
-        param_options = list(transitions_by_option)
-        for idx1 in self._rng.permutation(len(param_options)):
-            param_option = param_options[idx1]
-            option_transitions = transitions_by_option[param_option]
-            # Run NSRT learning.
-            nsrts = learn_nsrts_for_option(
-                param_option, option_transitions, do_sampler_learning=False)
-            # Iterate over NSRTs in a random order.
-            for idx2 in self._rng.permutation(len(nsrts)):
-                nsrt = nsrts[idx2]
-                new_predicate = self._invent_for_nsrt(
-                    nsrt, option_transitions)
-                if new_predicate is not None:
-                    # Halt on ANY successful invention.
-                    return new_predicate
+        # Run operator learning.
+        strips_ops, partitions = learn_strips_operators(segments)
+        # Iterate over operators in a random order.
+        for idx in self._rng.permutation(len(strips_ops)):
+            new_predicate = self._invent_for_op(strips_ops[idx], partitions)
+            if new_predicate is not None:
+                # Halt on ANY successful invention.
+                return new_predicate
         return None
 
-    def _invent_for_nsrt(self, nsrt: NSRT, transitions: List[Transition]
-                         ) -> Optional[Predicate]:
+    def _invent_for_op(self, op: STRIPSOperator, partitions: Sequence[Partition]
+                       ) -> Optional[Predicate]:
         """Go through the data, splitting it into positives and negatives
-        based on whether the NSRT correctly predicts each transition
+        based on whether the operator correctly predicts each transition
         or not. If there is any negative data, we have a classification
         problem, which we solve to produce a new predicate.
         """
-        if not nsrt.parameters:
+        if not op.parameters:
             # We can't learn 0-arity predicates since the vectorized
             # states would be empty, i.e. the X matrix has no features.
             return None
-        opt_arg_pred = Predicate("OPT-ARGS", nsrt.option.types,
-                                 _classifier=lambda s, o: False)  # dummy
-        lifted_opt_atom = LiftedAtom(opt_arg_pred, nsrt.option_vars)
-        nsrt_pre = utils.wrap_atom_predicates_lifted(
-            nsrt.preconditions, "PRE-")
-        nsrt_add_effs = utils.wrap_atom_predicates_lifted(
-            nsrt.add_effects, "ADD-")
-        nsrt_del_effs = utils.wrap_atom_predicates_lifted(
-            nsrt.delete_effects, "DEL-")
-        lifteds = frozenset(nsrt_pre | nsrt_add_effs |
-                            nsrt_del_effs | {lifted_opt_atom})
-        # Organize transitions by the set of objects that are in each one.
-        transitions_by_objects = defaultdict(list)
-        for transition in transitions:
-            state, _, _, option, _, _, _ = transition
-            assert nsrt.option == option.parent
-            objects = frozenset(state)
-            transitions_by_objects[objects].append(transition)
-        del transitions
-        # Figure out which transitions the NSRT makes wrong predictions on.
-        # Keep track of data for every subset of NSRT parameters, so that
+        op_pre = utils.wrap_atom_predicates_lifted(
+            op.preconditions, "PRE-")
+        op_add_effs = utils.wrap_atom_predicates_lifted(
+            op.add_effects, "ADD-")
+        op_del_effs = utils.wrap_atom_predicates_lifted(
+            op.delete_effects, "DEL-")
+        lifteds = frozenset(op_pre | op_add_effs | op_del_effs)
+        # Organize segments by the set of objects that are in each one.
+        segments_by_objects = defaultdict(list)
+        for partition in partitions:
+            for (segment, _) in partition:
+                state = segment[0][0][0]
+                objects = frozenset(state)
+                segments_by_objects[objects].append(segment)
+        del partitions
+        # Figure out which transitions the op makes wrong predictions on.
+        # Keep track of data for every subset of op parameters, so that
         # we can do pruning later.
         data: Dict[Sequence[Any], Dict[str, List[Array]]] = {}
-        for params in utils.powerset(nsrt.parameters, exclude_empty=True):
+        for params in utils.powerset(op.parameters, exclude_empty=True):
             data[params] = {"pos": [], "neg": []}
-        for objects in transitions_by_objects:
+        for objects in segments_by_objects:
             for grounding, sub in utils.get_all_groundings(lifteds, objects):
-                for (state, _, atoms, option, _, add_effs,
-                     del_effs) in transitions_by_objects[objects]:
-                    ground_opt_atom = GroundAtom(opt_arg_pred, option.objects)
+                for (traj, _, before, after) in segments_by_objects[objects]:
+                    state = traj[0][0]
+                    atoms = before
+                    add_effs = after - before
+                    del_effs = before - after
                     trans_atoms = utils.wrap_atom_predicates_ground(
                         atoms, "PRE-")
                     trans_add_effs = utils.wrap_atom_predicates_ground(
                         add_effs, "ADD-")
                     trans_del_effs = utils.wrap_atom_predicates_ground(
                         del_effs, "DEL-")
-                    # Check whether the grounding holds for the atoms & option.
+                    # Check whether the grounding holds for the atoms.
                     # If not, continue.
-                    pre_opt_grounding = {atom for atom in grounding if
-                                         atom.predicate.name == "OPT-ARGS" or
-                                         atom.predicate.name.startswith("PRE-")}
-                    if not pre_opt_grounding.issubset(
-                            trans_atoms | {ground_opt_atom}):
+                    pre_grounding = {atom for atom in grounding if
+                                     atom.predicate.name.startswith("PRE-")}
+                    if not pre_grounding.issubset(trans_atoms):
                         continue
                     # Since we made it past the above check, we know that the
-                    # preconditions of the NSRT and the option arguments
-                    # can be bound to this transition. So, this transition
-                    # belongs in our dataset. Assign it to either positive_data
-                    # or negative_data depending on whether the effects hold.
+                    # preconditions of the operator can be bound to this
+                    # transition. So, this transition belongs in our dataset.
+                    # Assign it to either positive_data or negative_data
+                    # depending on whether the effects hold.
                     grounding_add_effects = {atom.ground(sub) for atom in
-                                             nsrt_add_effs}
+                                             op_add_effs}
                     grounding_delete_effects = {atom.ground(sub) for atom in
-                                                nsrt_del_effs}
+                                                op_del_effs}
                     for params, params_data in data.items():
                         predicate_objects = [sub[v] for v in params]
                         vec = state.vec(predicate_objects)
@@ -157,15 +141,15 @@ class IterativeInventionApproach(NSRTLearningApproach):
                             params_data["pos"].append(vec)
                         else:
                             params_data["neg"].append(vec)
-        all_params = tuple(nsrt.parameters)
-        assert data[all_params]["pos"], "How was this NSRT learned...?"
+        all_params = tuple(op.parameters)
+        assert data[all_params]["pos"], "How was this operator learned...?"
         if not data[all_params]["neg"]:
-            print(f"\tNo wrong predictions for NSRT {nsrt.name}")
+            print(f"\tNo wrong predictions for operator {op.name}")
             return None
-        print(f"\tFound a classification problem for NSRT {nsrt.name}")
+        print(f"\tFound a classification problem for operator {op.name}")
         print(f"\t\tData: {len(data[all_params]['pos'])} positives, "
               f"{len(data[all_params]['neg'])} negatives")
-        # For every subset of NSRT parameters, try to fit an MLP classifier.
+        # For every subset of op parameters, try to fit an MLP classifier.
         # Score based on how well the classifier fits the data, regularized
         # by the number of parameters in this subset.
         best_pred = None
