@@ -38,6 +38,15 @@ class IterativeInventionApproach(NSRTLearningApproach):
         predicates = self._get_current_predicates()
         segments = [seg for traj in dataset
                     for seg in segment_trajectory(traj, predicates)]
+        # If options are known, annotate the segments correctly.
+        if not CFG.do_option_learning:
+            new_segments = []
+            for segment in segments:
+                traj, _, before, after = segment
+                option = traj[1][0].get_option()
+                new_segment = (traj, option, before, after)
+                new_segments.append(new_segment)
+            segments = new_segments
         while True:
             print(f"\n\nInvention iteration {self._num_inventions}")
             # Invent predicates one at a time (iteratively).
@@ -55,8 +64,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
             new_preds = {new_predicate, neg_new_predicate}
             for segment in segments:
                 before_state, after_state = segment[0][0][0], segment[0][0][-1]
-                segment[2] |= utils.abstract(before_state, new_preds)
-                segment[3] |= utils.abstract(after_state, new_preds)
+                segment[2].update(utils.abstract(before_state, new_preds))
+                segment[3].update(utils.abstract(after_state, new_preds))
         # Finally, learn NSRTs via superclass, using all the predicates.
         self._learn_nsrts(dataset)
 
@@ -67,13 +76,16 @@ class IterativeInventionApproach(NSRTLearningApproach):
         strips_ops, partitions = learn_strips_operators(segments)
         # Iterate over operators in a random order.
         for idx in self._rng.permutation(len(strips_ops)):
-            new_predicate = self._invent_for_op(strips_ops[idx], partitions)
+            op = strips_ops[idx]
+            new_predicate = self._invent_for_op(op, partitions, idx)
             if new_predicate is not None:
                 # Halt on ANY successful invention.
                 return new_predicate
         return None
 
-    def _invent_for_op(self, op: STRIPSOperator, partitions: Sequence[Partition]
+    def _invent_for_op(self, op: STRIPSOperator,
+                       partitions: Sequence[Partition],
+                       partition_idx: int
                        ) -> Optional[Predicate]:
         """Go through the data, splitting it into positives and negatives
         based on whether the operator correctly predicts each transition
@@ -91,10 +103,16 @@ class IterativeInventionApproach(NSRTLearningApproach):
         op_del_effs = utils.wrap_atom_predicates_lifted(
             op.delete_effects, "DEL-")
         lifteds = frozenset(op_pre | op_add_effs | op_del_effs)
+        # Extract the option for this partition. It may be DefaultOption if
+        # we're learning options.
+        param_option = partitions[partition_idx][0][0][1].parent
         # Organize segments by the set of objects that are in each one.
         segments_by_objects = defaultdict(list)
         for partition in partitions:
             for (segment, _) in partition:
+                # Exclude if options don't match.
+                if segment[1].parent != param_option:
+                    continue
                 state = segment[0][0][0]
                 objects = frozenset(state)
                 segments_by_objects[objects].append(segment)
