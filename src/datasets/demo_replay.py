@@ -46,6 +46,7 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         # We don't allow sampling the final state in the trajectory here,
         # because there's no guarantee that an initiable option exists
         # from that state
+        assert len(traj_states) > 1
         state = traj_states[rng.choice(len(traj_states)-1)]
         # Sample a random option that is initiable
         nsrts = ground_nsrts[traj_idx]
