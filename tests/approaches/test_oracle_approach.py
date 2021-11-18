@@ -6,7 +6,8 @@ import pytest
 from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, BlocksEnv
+    CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, \
+    BlocksEnv, CoverMultistepOptions
 from predicators.src.structs import Action
 from predicators.src import utils
 
@@ -121,6 +122,34 @@ def test_oracle_approach_cover_hierarchical_types():
     """
     utils.update_config({"env": "cover_hierarchical_types"})
     env = CoverEnvHierarchicalTypes()
+    env.seed(123)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space, env.get_train_tasks())
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    approach.seed(123)
+    for task in env.get_train_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(
+            lambda s: random_action, task, env.simulate, env.predicates)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(
+            lambda s: random_action, task, env.simulate, env.predicates)
+
+
+def test_oracle_approach_cover_multistep_options():
+    """Tests for OracleApproach class with CoverMultistepOptions.
+    """
+    utils.update_config({"env": "cover_multistep_options"})
+    env = CoverMultistepOptions()
     env.seed(123)
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
