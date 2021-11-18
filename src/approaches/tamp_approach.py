@@ -11,6 +11,7 @@ from predicators.src.structs import State, Action, Task, Operator, \
     Predicate, ParameterizedOption, Type
 from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 
 class TAMPApproach(BaseApproach):
@@ -39,15 +40,12 @@ class TAMPApproach(BaseApproach):
                        "num_failures_discovered",
                        "plan_length"]:
             self._metrics[f"total_{metric}"] += metrics[metric]
-        def _policy(state: State) -> Action:
-            if not plan:
-                raise ApproachFailure("Finished executing plan!")
-            cur_option = plan[0]
-            assert cur_option.initiable(state), "Unsound planner output"
-            act = cur_option.policy(state)
-            if cur_option.terminal(state):
-                plan.pop(0)  # this option is exhausted, continue to next
-            return act
+        option_policy = utils.option_plan_to_policy(plan)
+        def _policy(s: State) -> Action:
+            try:
+                return option_policy(s)
+            except utils.OptionPlanExhausted:
+                raise ApproachFailure("Option plan exhausted.")
         return _policy
 
     @abc.abstractmethod
