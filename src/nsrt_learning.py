@@ -3,10 +3,10 @@
 
 import functools
 from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet, DefaultDict
+from typing import Set, Tuple, List, Sequence, FrozenSet, DefaultDict, Dict
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, Transition, Object
+    ObjToVarSub, Transition, Object, ActionTrajectory, Segment
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_sampler
@@ -19,14 +19,32 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     """
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
-    transitions_by_option = generate_transitions(dataset, predicates)
+    # Segment transitions based on changes in predicates.
+    segments = [seg for traj in dataset
+                for seg in segment_trajectory(traj, predicates)]
 
+    # Learn strips operators. t
+    strips_ops = learn_strips_operators(segments)
+
+    # Learn options, or if known, just look them up.
+    # The order of the options corresponds to the strips_ops.
+    # Each item is a (ParameterizedOption, Sequence[Variable])
+    # with the latter holding the option_vars.
+    options = learn_options(strips_ops, segments)
+    assert len(options) == len(strips_ops)
+
+    # Learn samplers.
+    # The order of the samplers also corresponds to strips_ops.
+    samplers = learn_samplers(strips_ops, options, segments,
+                              do_sampler_learning)
+    assert len(samplers) == len(strips_ops)
+
+    # Create final NSRTs.
     nsrts = []
-    for param_option in transitions_by_option:
-        option_transitions = transitions_by_option[param_option]
-        option_nsrts = learn_nsrts_for_option(
-            param_option, option_transitions, do_sampler_learning)
-        nsrts.extend(option_nsrts)
+    for op, option_spec, sampler in zip(strips_ops, options, samplers):
+        param_option, option_vars = option_spec
+        nsrt = op.make_nsrt(param_option, option_vars, sampler)
+        nsrts.append(nsrt)
 
     print("\nLearned NSRTs:")
     for nsrt in nsrts:
@@ -36,26 +54,94 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     return set(nsrts)
 
 
-def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
-                         ) -> DefaultDict[
-                             ParameterizedOption, List[Transition]]:
-    """Given a dataset and predicates, go through the dataset and compute
-    the abstract states. Returns a dict mapping ParameterizedOptions to a
-    list of transitions.
+def segment_trajectory(trajectory: ActionTrajectory,
+                       predicates: Set[Predicate]
+                       ) -> List[Segment]:
+    """Segment an action trajectory according to abstract state changes.
     """
-    transitions_by_option = defaultdict(list)
-    for act_traj in dataset:
-        states, options = utils.action_to_option_trajectory(act_traj)
-        assert len(states) == len(options) + 1
-        for i, option in enumerate(options):
-            atoms = utils.abstract(states[i], predicates)
-            next_atoms = utils.abstract(states[i+1], predicates)
-            add_effects = next_atoms - atoms
-            delete_effects = atoms - next_atoms
-            transition = (states[i], states[i+1], atoms, option, next_atoms,
-                          add_effects, delete_effects)
-            transitions_by_option[option.parent].append(transition)
-    return transitions_by_option
+    segments = []
+    states, actions = trajectory
+    assert len(states) == len(actions) + 1
+    all_atoms = [utils.abstract(s, predicates) for s in states]
+    current_segment_traj = ([states[0]], [])
+    for t in range(len(actions)):
+        current_segment_traj[0].append(states[t])
+        current_segment_traj[1].append(actions[t])
+        if all_atoms[t] != all_atoms[t+1]:
+            # Include the final state as both the end of this segment
+            # and the start of the next segment.
+            current_segment_traj[0].append(states[t+1])
+            segment = (current_segment_traj, all_atoms[t], all_atoms[t+1])
+            segments.append(segment)
+            current_segment_traj = ([states[t+1]], [])
+    # Don't include the last current segment because it didn't result in
+    # an abstract state change. (E.g., the option may not be terminating.)
+    return segments
+
+
+def learn_strips_operators(segments: List[Segment]
+        ) -> Dict[STRIPSOperator, List[Tuple[Segment, ObjToVarSub]]]:
+    """Learn operators given the segmented transitions.
+    """
+    # Partition the segments according to common effects.
+    params: List[Sequence[Variable]] = []
+    add_effects: List[Set[LiftedAtom]] = []
+    delete_effects: List[Set[LiftedAtom]] = []
+    partitions: List[Tuple[Segment, ObjToVarSub]] = []
+    for segment in segments:
+        _, before, after = segment
+        seg_add_effects = after - before
+        seg_delete_effects = before - after
+        for i in range(len(partitions)):
+            # Try to unify this transition with existing effects.
+            # Note that both add and delete effects must unify.
+            part_add_effects = add_effects[i]
+            part_delete_effects = delete_effects[i]
+            suc, sub = _unify(frozenset(seg_add_effects),
+                              frozenset(seg_delete_effects),
+                              frozenset(part_add_effects),
+                              frozenset(part_delete_effects))
+            if suc:
+                # Add to this partition
+                assert set(sub.values()) == set(params[i])
+                partitions[i].append((segment, sub))
+                break
+        # Otherwise, create a new group
+        else:
+            # Get new lifted effects
+            objects = {o for atom in seg_add_effects |
+                       seg_delete_effects for o in atom.objects}
+            objects_lst = sorted(objects)
+            variables = [Variable(f"?x{i}", o.type)
+                         for i, o in enumerate(objects_lst)]
+            sub = dict(zip(objects_lst, variables))
+            params.append(variables)
+            add_effects.append({atom.lift(sub) for atom
+                                in seg_add_effects})
+            delete_effects.append({atom.lift(sub) for atom
+                                   in seg_delete_effects})
+            new_partition = [(segment, sub)]
+            partitions.append(new_partition)
+
+    assert len(params) == len(add_effects) == \
+           len(delete_effects) == len(partitions)
+
+    # Learn preconditions.
+    preconds = [_learn_preconditions(p, s) for p, s in zip(params, partitions)]
+
+    # Finalize the operators.
+    op_to_partition = {}
+    for i in range(len(params)):
+        name = f"Operator{i}"
+        op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
+                            delete_effects[i])
+        print("Learned STRIPSOperator:")
+        print(op)
+        op_to_partition[op] = partitions[i]
+
+    import ipdb; ipdb.set_trace()
+
+    return op_to_partition
 
 
 def learn_nsrts_for_option(option: ParameterizedOption,
@@ -93,77 +179,12 @@ def learn_nsrts_for_option(option: ParameterizedOption,
     return nsrts
 
 
-def _partition_transitions(
-        transitions: List[Transition]) -> Tuple[
-            List[List[Variable]],
-            List[Set[LiftedAtom]],
-            List[Set[LiftedAtom]],
-            List[List[Tuple[Transition, ObjToVarSub]]]]:
-    option_args: List[List[Variable]] = []
-    add_effects: List[Set[LiftedAtom]] = []
-    delete_effects: List[Set[LiftedAtom]] = []
-    partitions: List[List[Tuple[Transition, ObjToVarSub]]] = []
-    for transition in transitions:
-        _, _, _, option, _, trans_add_effects, trans_delete_effects = transition
-        trans_option_args = option.objects
-        for i in range(len(partitions)):
-            # Try to unify this transition with existing effects
-            # Note that both add and delete effects must unify
-            part_option_args = option_args[i]
-            part_add_effects = add_effects[i]
-            part_delete_effects = delete_effects[i]
-            suc, sub = _unify(frozenset(trans_add_effects),
-                              frozenset(trans_delete_effects),
-                              tuple(trans_option_args),
-                              frozenset(part_add_effects),
-                              frozenset(part_delete_effects),
-                              tuple(part_option_args))
-            if suc:
-                # Add to this partition
-                partitions[i].append((transition, sub))
-                break
-        # Otherwise, create a new group
-        else:
-            # Get new lifted effects
-            objects = {o for atom in trans_add_effects |
-                       trans_delete_effects for o in atom.objects}
-            objects.update(option.objects)
-            objects_lst = sorted(objects)
-            variables = [Variable(f"?x{i}", o.type)
-                         for i, o in enumerate(objects_lst)]
-            sub = dict(zip(objects_lst, variables))
-            option_args.append([sub[v] for v in trans_option_args])
-            add_effects.append({atom.lift(sub) for atom
-                                in trans_add_effects})
-            delete_effects.append({atom.lift(sub) for atom
-                                   in trans_delete_effects})
-            new_partition = [(transition, sub)]
-            partitions.append(new_partition)
-
-    assert len(option_args) == len(add_effects) == \
-           len(delete_effects) == len(partitions)
-    return option_args, add_effects, delete_effects, partitions
-
-
-def  _learn_preconditions(option_vars: List[Variable],
-        add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
-        transitions: List[Tuple[Transition, ObjToVarSub]]) -> Tuple[
-            Sequence[Variable], Set[LiftedAtom]]:
-    for i, ((_, _, atoms, option, _, trans_add_effects,
-             trans_delete_effects), _) in enumerate(transitions):
-        suc, sub = _unify(
-            frozenset(trans_add_effects),
-            frozenset(trans_delete_effects),
-            tuple(option.objects),
-            frozenset(add_effects),
-            frozenset(delete_effects),
-            tuple(option_vars))
-        assert suc  # else this transition won't be in this partition
-        # Remove atoms from the state which contain objects not mentioned
-        # in the effects or option. This cannot handle actions at a distance.
-        objects = {o for atom in trans_add_effects |
-                   trans_delete_effects for o in atom.objects}
-        objects.update(option.objects)
+def  _learn_preconditions(params: Sequence[Variable],
+                          segments: List[Tuple[Segment, ObjToVarSub]]
+                          ) -> Set[LiftedAtom]:
+    for i, (segment, sub) in enumerate(segments):
+        _, atoms, _ = segment
+        objects = set(sub.keys())
         atoms = {atom for atom in atoms if
                  all(o in objects for o in atom.objects)}
         lifted_atoms = {atom.lift(sub) for atom in atoms}
@@ -175,37 +196,26 @@ def  _learn_preconditions(option_vars: List[Variable],
             preconditions = lifted_atoms
         else:
             preconditions &= lifted_atoms
-
-    return variables, preconditions
+    return preconditions
 
 
 @functools.lru_cache(maxsize=None)
 def _unify(
         ground_add_effects: FrozenSet[GroundAtom],
         ground_delete_effects: FrozenSet[GroundAtom],
-        ground_option_args: Tuple[Object, ...],
         lifted_add_effects: FrozenSet[LiftedAtom],
         lifted_delete_effects: FrozenSet[LiftedAtom],
-        lifted_option_args: Tuple[Variable, ...]
 ) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles option arguments, add effects,
-    and delete effects. Changes predicate names so that all are treated
-    differently by utils.unify().
+    """Wrapper around utils.unify() that handles add and delete effects.
+    Changes predicate names so that all are treated differently by
+    utils.unify().
     """
-    opt_arg_pred = Predicate("OPT-ARGS",
-                             [a.type for a in ground_option_args],
-                             _classifier=lambda s, o: False)  # dummy
-    f_ground_option_args = frozenset({GroundAtom(opt_arg_pred,
-                                                 ground_option_args)})
     new_ground_add_effects = utils.wrap_atom_predicates_ground(
         ground_add_effects, "ADD-")
     f_new_ground_add_effects = frozenset(new_ground_add_effects)
     new_ground_delete_effects = utils.wrap_atom_predicates_ground(
         ground_delete_effects, "DEL-")
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
-
-    f_lifted_option_args = frozenset({LiftedAtom(opt_arg_pred,
-                                                 lifted_option_args)})
     new_lifted_add_effects = utils.wrap_atom_predicates_lifted(
         lifted_add_effects, "ADD-")
     f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
@@ -213,7 +223,5 @@ def _unify(
         lifted_delete_effects, "DEL-")
     f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
     return utils.unify(
-        f_ground_option_args | f_new_ground_add_effects | \
-            f_new_ground_delete_effects,
-        f_lifted_option_args | f_new_lifted_add_effects | \
-            f_new_lifted_delete_effects)
+        f_new_ground_add_effects | f_new_ground_delete_effects,
+        f_new_lifted_add_effects | f_new_lifted_delete_effects)
