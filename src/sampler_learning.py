@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Callable, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    ObjToVarSub, Transition, Object, Array, State, Segment, _Option
+    Object, Array, State, _Option, Partition
 from predicators.src import utils
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_sampler(partitions: List[Tuple[Segment, ObjToVarSub]],
+def learn_sampler(partitions: List[Partition],
                   nsrt_name: str,
                   variables: Sequence[Variable],
                   preconditions: Set[LiftedAtom],
@@ -73,7 +73,7 @@ def learn_sampler(partitions: List[Tuple[Segment, ObjToVarSub]],
 
 
 def _create_sampler_data(
-        partitions: List[Tuple[Segment, ObjToVarSub]],
+        partitions: List[Partition],
         variables: Sequence[Variable],
         preconditions: Set[LiftedAtom],
         add_effects: Set[LiftedAtom],
