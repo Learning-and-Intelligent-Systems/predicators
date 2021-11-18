@@ -370,6 +370,10 @@ class ParameterizedOption:
         assert isinstance(other, ParameterizedOption)
         return self.name == other.name
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name < other.name
+
     def __hash__(self) -> int:
         return self._hash
 
@@ -542,6 +546,10 @@ class _GroundOperator:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, _GroundOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundOperator)
+        return str(self) < str(other)
 
     def sample_option(self, state: State, rng: np.random.Generator) -> _Option:
         """Sample an _Option for this ground operator, by invoking

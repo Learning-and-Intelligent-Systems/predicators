@@ -468,7 +468,7 @@ def get_applicable_operators(ground_operators: Collection[_GroundOperator],
                                  _GroundOperator]:
     """Iterate over operators whose preconditions are satisfied.
     """
-    for operator in ground_operators:
+    for operator in sorted(ground_operators):
         applicable = operator.preconditions.issubset(atoms)
         if applicable:
             yield operator
