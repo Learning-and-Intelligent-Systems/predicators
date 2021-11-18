@@ -459,10 +459,40 @@ class PlayroomEnv(BlocksEnv):
             return True
         return False
 
-    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _is_valid_loc(action: Action) -> bool:
+        x, y, _, _, _ = action.arr
+        return (0 <= x <= 30 and 0 <= y <= 30) or \
+               (30 <= x <= 110 and 10 <= y <= 20) or \
+               (110 <= x <= 140 and 0 <= y <= 30)
+
+    @staticmethod
+    def _robot_is_facing_table(action: Action) -> bool:
+        x, y, _, rotation, _ = action.arr
+        cls = PlayroomEnv
+        table_x = (cls.table_x_lb+cls.table_x_ub)/2
+        table_y = (cls.table_y_lb+cls.table_y_ub)/2
+        theta = np.arctan2(table_y-y, table_x-x)
+        if np.pi*3/4 >= theta >= np.pi/4:  # N
+            if 1.5 >= rotation >= 0.5:
+                return True
+        elif np.pi/4 >= theta >= -np.pi/4:  # E
+            if 0.5 >= rotation >= -0.5:
+                return True
+        elif -np.pi/4 >= theta >= -np.pi*3/4:  # S
+            if -0.5 >= rotation >= -1.5:
+                return True
+        else:  # W
+            if rotation >= 1.5 or rotation <= -1.5:
+                return True
+        return False
+
+    @staticmethod
+    def _On_holds(state: State, objects: Sequence[Object]) -> bool:
         block1, block2 = objects
-        if state.get(block1, "held") >= self.held_tol or \
-           state.get(block2, "held") >= self.held_tol:
+        cls = PlayroomEnv
+        if state.get(block1, "held") >= cls.held_tol or \
+           state.get(block2, "held") >= cls.held_tol:
             return False
         x1 = state.get(block1, "pose_x")
         y1 = state.get(block1, "pose_y")
@@ -471,45 +501,53 @@ class PlayroomEnv(BlocksEnv):
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
         return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.playroom_block_size],
-                           atol=self.pick_tol)
+                           atol=cls.pick_tol)
 
-    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+    @staticmethod
+    def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
-        desired_z = self.table_height + CFG.playroom_block_size * 0.5
-        return (state.get(block, "held") < self.held_tol) and \
-            (desired_z-self.pick_tol < z < desired_z+self.pick_tol)
+        cls = PlayroomEnv
+        desired_z = cls.table_height + CFG.playroom_block_size * 0.5
+        return (state.get(block, "held") < cls.held_tol) and \
+            (desired_z-cls.pick_tol < z < desired_z+cls.pick_tol)
 
     # To pull in when I add all the predicates
-    # def _NextToTable_holds(self, state: State, objects: Sequence[Object]
+    # @staticmethod
+    # def _NextToTable_holds(state: State, objects: Sequence[Object]
     #                        ) -> bool:
     #     # for now this also includes all table coords
     #     robot, = objects
     #     x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-    #     return (self.table_x_lb-self.table_tol < x
-    #             < self.table_x_ub+self.table_tol) and \
-    #            (self.table_y_lb-self.table_tol < y
-    #             < self.table_y_ub+self.table_tol)
+    #     cls = PlayroomEnv
+    #     return (cls.table_x_lb-cls.table_tol < x
+    #             < cls.table_x_ub+cls.table_tol) and \
+    #            (cls.table_y_lb-cls.table_tol < y
+    #             < cls.table_y_ub+cls.table_tol)
 
-    def _NextToDoor_holds(self, state: State, objects: Sequence[Object]
+    @staticmethod
+    def _NextToDoor_holds(state: State, objects: Sequence[Object]
                           ) -> bool:
         robot, door = objects
         x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
         door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
-        return (door_x-self.door_tol < x < door_x+self.door_tol) \
-                and (door_y-self.door_r-self.door_tol < y
-                     < door_y+self.door_r+self.door_tol)
+        cls = PlayroomEnv
+        return (door_x-cls.door_tol < x < door_x+cls.door_tol) \
+                and (door_y-cls.door_r-cls.door_tol < y
+                     < door_y+cls.door_r+cls.door_tol)
 
     # To pull in when I add all the predicates
-    # def _NextToDial_holds(self, state: State, objects: Sequence[Object]
+    # @staticmethod
+    # def _NextToDial_holds(state: State, objects: Sequence[Object]
     #                       ) -> bool:
     #     robot, dial = objects
     #     x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
     #     dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-    #     return (dial_x-self.dial_r-self.dial_tol < x
-    #             < dial_x+self.dial_r+self.dial_tol) and \
-    #            (dial_y-self.dial_r-self.dial_tol < y
-    #             < dial_y+self.dial_r+self.dial_tol)
+    #     cls = PlayroomEnv
+    #     return (dial_x-cls.dial_r-cls.dial_tol < x
+    #             < dial_x+cls.dial_r+cls.dial_tol) and \
+    #            (dial_y-cls.dial_r-cls.dial_tol < y
+    #             < dial_y+cls.dial_r+cls.dial_tol)
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
@@ -545,25 +583,6 @@ class PlayroomEnv(BlocksEnv):
         arr = np.array([x, y, z, rotation, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-
-    def _robot_is_facing_table(self, action: Action) -> bool:
-        x, y, _, rotation, _ = action.arr
-        table_x = (self.table_x_lb+self.table_x_ub)/2
-        table_y = (self.table_y_lb+self.table_y_ub)/2
-        theta = np.arctan2(table_y-y, table_x-x)
-        if np.pi*3/4 >= theta >= np.pi/4:  # N
-            if 1.5 >= rotation >= 0.5:
-                return True
-        elif np.pi/4 >= theta >= -np.pi/4:  # E
-            if 0.5 >= rotation >= -0.5:
-                return True
-        elif -np.pi/4 >= theta >= -np.pi*3/4:  # S
-            if -0.5 >= rotation >= -1.5:
-                return True
-        else:  # W
-            if rotation >= 1.5 or rotation <= -1.5:
-                return True
-        return False
 
     def _robot_is_facing_dial(self, state: State, action: Action) -> bool:
         x, y, _, rotation, _ = action.arr
@@ -610,10 +629,3 @@ class PlayroomEnv(BlocksEnv):
                 if state.get(door, "open") < 0.5:
                     return False
         return True
-
-    @staticmethod
-    def _is_valid_loc(action: Action) -> bool:
-        x, y, _, _, _ = action.arr
-        return (0 <= x <= 30 and 0 <= y <= 30) or \
-               (30 <= x <= 110 and 10 <= y <= 20) or \
-               (110 <= x <= 140 and 0 <= y <= 30)
