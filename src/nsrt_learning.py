@@ -3,10 +3,13 @@
 
 import functools
 from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet, DefaultDict, Dict
+from typing import Set, Tuple, List, Sequence, FrozenSet, DefaultDict, Dict, \
+    Callable
+import numpy as np
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, Transition, Object, ActionTrajectory, Segment
+    ObjToVarSub, Transition, Object, ActionTrajectory, Segment, DefaultOption, \
+    State, Array, _Option
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_sampler
@@ -23,20 +26,35 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     segments = [seg for traj in dataset
                 for seg in segment_trajectory(traj, predicates)]
 
-    # Learn strips operators. t
-    strips_ops = learn_strips_operators(segments)
+    # Learn strips operators.
+    strips_ops, partitions = learn_strips_operators(segments)
+    assert len(strips_ops) == len(partitions)
 
     # Learn options, or if known, just look them up.
     # The order of the options corresponds to the strips_ops.
     # Each item is a (ParameterizedOption, Sequence[Variable])
     # with the latter holding the option_vars.
-    options = learn_options(strips_ops, segments)
-    import ipdb; ipdb.set_trace()
+    options = learn_options(strips_ops, partitions)
     assert len(options) == len(strips_ops)
+
+    # Now that options are learned, we can update the segments to include
+    # which option is being executed within each segment.
+    new_partitions = []
+    for partition, (param_option, opt_vars) in zip(partitions, options):
+        new_partition = []
+        for (segment, sub) in partition:
+            option = _find_option_for_segment(segment, param_option, opt_vars)
+            traj, old_option, before, after = segment
+            assert old_option == DefaultOption
+            new_segment = (traj, option, before, after)
+            new_partition.append((new_segment, sub))
+        new_partitions.append(new_partition)
+    assert len(partitions) == len(new_partitions)
+    partitions = new_partitions
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
-    samplers = learn_samplers(strips_ops, options, segments,
+    samplers = learn_samplers(strips_ops, partitions, options,
                               do_sampler_learning)
     assert len(samplers) == len(strips_ops)
 
@@ -56,8 +74,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
 
 def segment_trajectory(trajectory: ActionTrajectory,
-                       predicates: Set[Predicate]
-                       ) -> List[Segment]:
+                       predicates: Set[Predicate]) -> List[Segment]:
     """Segment an action trajectory according to abstract state changes.
     """
     segments = []
@@ -71,8 +88,10 @@ def segment_trajectory(trajectory: ActionTrajectory,
         if all_atoms[t] != all_atoms[t+1]:
             # Include the final state as both the end of this segment
             # and the start of the next segment.
+            # Include the default option here; replaced during option learning. 
             current_segment_traj[0].append(states[t+1])
-            segment = (current_segment_traj, all_atoms[t], all_atoms[t+1])
+            segment = (current_segment_traj, DefaultOption,
+                       all_atoms[t], all_atoms[t+1])
             segments.append(segment)
             current_segment_traj = ([states[t+1]], [])
     # Don't include the last current segment because it didn't result in
@@ -81,7 +100,7 @@ def segment_trajectory(trajectory: ActionTrajectory,
 
 
 def learn_strips_operators(segments: List[Segment]
-        ) -> Dict[STRIPSOperator, List[Tuple[Segment, ObjToVarSub]]]:
+        ) -> Tuple[List[STRIPSOperator], List[Tuple[Segment, ObjToVarSub]]]:
     """Learn operators given the segmented transitions.
     """
     # Partition the segments according to common effects.
@@ -90,7 +109,7 @@ def learn_strips_operators(segments: List[Segment]
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[Tuple[Segment, ObjToVarSub]] = []
     for segment in segments:
-        _, before, after = segment
+        _, _, before, after = segment
         seg_add_effects = after - before
         seg_delete_effects = before - after
         for i in range(len(partitions)):
@@ -131,37 +150,37 @@ def learn_strips_operators(segments: List[Segment]
     preconds = [_learn_preconditions(p, s) for p, s in zip(params, partitions)]
 
     # Finalize the operators.
-    op_to_partition = {}
+    ops = []
     for i in range(len(params)):
         name = f"Operator{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
                             delete_effects[i])
         print("Learned STRIPSOperator:")
         print(op)
-        op_to_partition[op] = partitions[i]
+        ops.append(op)
 
-    return op_to_partition
+    return ops, partitions
 
 
 def learn_options(
-    strips_ops: Dict[STRIPSOperator, List[Tuple[Segment, ObjToVarSub]]],
-    segments: List[Segment]
+    strips_ops: List[STRIPSOperator],
+    partitions: List[Tuple[Segment, ObjToVarSub]],
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
     """Learn options for segments, or just look them up if they're given.
     """
     if not CFG.do_option_learning:
-        return _extract_options_from_data(strips_ops, segments)
+        return _extract_options_from_data(strips_ops, partitions)
     raise NotImplementedError("Coming soon...")
 
 
 def _extract_options_from_data(
-    strips_ops: Dict[STRIPSOperator, List[Tuple[Segment, ObjToVarSub]]],
-    segments: List[Segment]
+    strips_ops: List[STRIPSOperator],
+    partitions: List[Tuple[Segment, ObjToVarSub]],
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
     """Look up the options from the data.
     """
     option_specs = []
-    for op, partition in strips_ops.items():
+    for op, partition in zip(strips_ops, partitions):
         for i, (segment, sub) in enumerate(partition):
             segment_actions = segment[0][1]
             option = segment_actions[0].get_option()
@@ -180,46 +199,50 @@ def _extract_options_from_data(
     return option_specs
 
 
-def learn_nsrts_for_option(option: ParameterizedOption,
-                               transitions: List[Transition],
-                               do_sampler_learning: bool,
-                               ) -> List[NSRT]:
-    """Given an option and data for it, learn NSRTs.
+def _find_option_for_segment(segment: Segment,
+                             param_option: ParameterizedOption,
+                             opt_vars: Sequence[Variable]) -> _Option:
+    """Figure out which option was executed within the segment.
+
+    At this point, we know which ParameterizedOption was used in the segment,
+    and we know the option_vars, but we don't know what parameters were used.
     """
-    # Partition the data by lifted effects
-    option_vars, add_effects, delete_effects, \
-        partitioned_transitions = _partition_transitions(transitions)
+    assert not CFG.do_option_learning, "TODO"
+    segment_actions = segment[0][1]
+    for i, act in enumerate(segment_actions):
+        if i == 0:
+            option = act.get_option()
+            assert option.parent == param_option
+            assert [o.type for o in option.objects] == \
+                   [v.type for v in opt_vars]
+        else:
+            assert option == act.get_option()
+    return option
 
-    nsrts = []
-    for i, part_transitions in enumerate(partitioned_transitions):
-        if len(part_transitions) < CFG.min_data_for_nsrt:
-            continue
-        if not add_effects[i] and not delete_effects[i]:
-            # Don't learn any NSRTs for empty effects, since they're
-            # not useful for planning or predicate invention.
-            continue
-        # Learn preconditions
-        variables, preconditions = \
-            _learn_preconditions(option_vars[i], add_effects[i],
-                                 delete_effects[i], part_transitions)
-        name = f"{option.name}{i}"
-        strips_operator = STRIPSOperator(
-            name, variables, preconditions, add_effects[i], delete_effects[i])
-        # Learn sampler
+
+def learn_samplers(
+    strips_ops: List[STRIPSOperator],
+    partitions: List[Tuple[Segment, ObjToVarSub]],
+    options: List[Tuple[ParameterizedOption, List[Variable]]],
+    do_sampler_learning: bool
+    ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
+    """Learn all samplers for each operator's option parameters.
+    """
+    samplers = []
+    for i, op in enumerate(strips_ops):
         sampler = learn_sampler(
-            partitioned_transitions, name, variables, preconditions,
-            add_effects[i], delete_effects[i], option, i, do_sampler_learning)
-        # Construct NSRT object
-        nsrts.append(strips_operator.make_nsrt(option, option_vars[i], sampler))
-
-    return nsrts
+            partitions, op.name, op.parameters, op.preconditions,
+            op.add_effects, op.delete_effects, options[i][0], i,
+            do_sampler_learning)
+        samplers.append(sampler)
+    return samplers
 
 
 def  _learn_preconditions(params: Sequence[Variable],
                           segments: List[Tuple[Segment, ObjToVarSub]]
                           ) -> Set[LiftedAtom]:
     for i, (segment, sub) in enumerate(segments):
-        _, atoms, _ = segment
+        _, _, atoms, _ = segment
         objects = set(sub.keys())
         atoms = {atom for atom in atoms if
                  all(o in objects for o in atom.objects)}
