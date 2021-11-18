@@ -55,9 +55,15 @@ class _BehaviorOptionGlue:
             # change on the behavior option side. I'm trying not
             # to modify anything in that file for now.
             assert len(igo) == 1
-            self._option = self._controller_fn(self._env, igo[0], p, rng=self._rng)
-            assert self._option is not None
+            # TODO: Currently, this will infinitely sample parameters until an option 
+            # can be found. We probably want to time out and jump back to the task level
+            # at some point!
+            while self._option is None:
+                # Try to instantiate an option by sampling continuous parameters
+                # TODO: 
+                self._option = self._controller_fn(self._env, igo[0], p, rng=self._rng)
         action, self._has_terminated = self._option(s, self._env)
+
         return Action(action)
 
     def has_terminated(self, s: State, o: Sequence[Object],
@@ -99,10 +105,10 @@ class BehaviorEnv(BaseEnv):
         # We can remove this after we're confident in it
         loaded_state = self._current_ig_state_to_state()
         
-        # assert loaded_state.allclose(state)
-        if not loaded_state.allclose(state):
-            import ipdb; ipdb.set_trace()
-        
+        assert loaded_state.allclose(state)
+        # if not loaded_state.allclose(state):
+        #     import ipdb; ipdb.set_trace()
+
         a = action.arr
 
         # # TEMPORARY TESTING
@@ -237,7 +243,7 @@ class BehaviorEnv(BaseEnv):
         # name, controller_fn, param_dim, arity
         controllers = [
             ("NavigateTo", navigate_to_obj_pos, 2, 1, (-2.4, 2.4)),
-            ("Grasp", grasp_obj_at_pos, 5, 1, (-1.0, 1.0)),
+            ("Grasp", grasp_obj_at_pos, 5, 1, (-np.pi, np.pi)),
             ("PlaceOnTop", place_ontop_obj_pos, 7, 1, (-1.0, 1.0)),
         ]
 

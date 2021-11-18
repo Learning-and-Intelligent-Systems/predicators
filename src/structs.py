@@ -168,6 +168,7 @@ class State:
             return False
         for obj in self.data:
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
+                # import ipdb; ipdb.set_trace()
                 return False
         return True
 
