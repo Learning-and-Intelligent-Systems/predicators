@@ -432,7 +432,7 @@ class STRIPSOperator:
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
 
-    def make_operator(
+    def make_nsrt(
             self, option: ParameterizedOption, option_vars: Sequence[Variable],
             sampler: Callable[[State, np.random.Generator, Sequence[Object]],
                               Array] = field(repr=False)) -> NSRT:
