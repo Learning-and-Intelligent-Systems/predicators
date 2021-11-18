@@ -177,6 +177,43 @@ def option_to_trajectory(
     return states, actions
 
 
+class OptionPlanExhausted(Exception):
+    """An exception for an option plan running out of options.
+    """
+
+
+def option_plan_to_policy(plan: Sequence[_Option]
+                          ) -> Callable[[State], Action]:
+    """Create a policy that executes the options in order.
+
+    The logic for this is somewhat complicated because we want:
+    * If an option's termination and initiation conditions are
+      always true, we want the option to execute for one step.
+    * After the first step that the option is executed, it
+      should terminate as soon as it sees a state that is
+      terminal; it should not take one more action after.
+    """
+    queue = list(plan)  # Don't modify plan, just in case
+    initialized = False  # Special case first step
+    def _policy(state: State) -> Action:
+        nonlocal initialized
+        # On the very first state, check initiation condition, and
+        # take the action no matter what.
+        if not initialized:
+            if not queue:
+                raise OptionPlanExhausted()
+            assert queue[0].initiable(state), "Unsound option plan"
+            initialized = True
+        elif queue[0].terminal(state):
+            queue.pop(0)
+            if not queue:
+                raise OptionPlanExhausted()
+            assert queue[0].initiable(state), "Unsound option plan"
+        return queue[0].policy(state)
+    return _policy
+
+
+
 def action_to_option_trajectory(act_traj: ActionTrajectory
                                 ) -> OptionTrajectory:
     """Create an option trajectory from an action trajectory.
