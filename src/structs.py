@@ -473,6 +473,9 @@ class STRIPSOperator:
 class NSRT:
     """Struct defining an NSRT, which contains the components of a
     STRIPS operator, a parameterized option, and a sampler function.
+
+    "NSRT" stands for "Neuro-Symbolic Relational Transition Model".
+    Paper: https://arxiv.org/abs/2105.14074
     """
     name: str
     parameters: Sequence[Variable]
