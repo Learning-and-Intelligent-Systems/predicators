@@ -1,19 +1,19 @@
-"""Tests for operator learning.
+"""Tests for NSRT learning.
 """
 
 import time
 from gym.spaces import Box
 import numpy as np
-from predicators.src.operator_learning import learn_operators_from_data
+from predicators.src.nsrt_learning import learn_nsrts_from_data
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LiftedAtom
+    ParameterizedOption
 from predicators.src import utils
 
 
-def test_operator_learning_specific_operators():
-    """Tests with a specific desired set of operators.
+def test_nsrt_learning_specific_nsrts():
+    """Tests with a specific desired set of NSRTs.
     """
-    utils.update_config({"min_data_for_operator": 0, "seed": 123,
+    utils.update_config({"min_data_for_nsrt": 0, "seed": 123,
                          "classifier_max_itr_sampler": 1000,
                          "regressor_max_itr": 1000})
     cup_type = Type("cup_type", ["feat1"])
@@ -39,10 +39,10 @@ def test_operator_learning_specific_operators():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [([state1, next_state1], [action1])]
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 1
-    op = ops.pop()
-    assert str(op) == """dummy0:
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 1
+    nsrt = nsrts.pop()
+    assert str(nsrt) == """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
@@ -51,7 +51,7 @@ def test_operator_learning_specific_operators():
     Option Variables: []"""
     # Test the learned samplers
     for _ in range(10):
-        assert abs(op.ground([cup0, cup1, cup2]).sample_option(
+        assert abs(nsrt.ground([cup0, cup1, cup2]).sample_option(
             state1, np.random.default_rng(123)).params - 0.2) < 0.01
     # The following test was used to manually check that unify caches correctly.
     pred0 = Predicate("Pred0", [cup_type],
@@ -71,10 +71,10 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 1
-    op = ops.pop()
-    assert str(op) == """dummy0:
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 1
+    nsrt = nsrts.pop()
+    assert str(nsrt) == """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
@@ -107,8 +107,8 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 2
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 2
     expected = {"dummy0": """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type, ?x2:cup_type)]
@@ -122,16 +122,16 @@ def test_operator_learning_specific_operators():
     Delete Effects: [Pred0(?x2:cup_type, ?x3:cup_type)]
     Option: ParameterizedOption(name='dummy', types=[])
     Option Variables: []"""}
-    for op in ops:
-        assert str(op) == expected[op.name]
+    for nsrt in nsrts:
+        assert str(nsrt) == expected[nsrt.name]
         # Test the learned samplers
-        if op.name == "dummy0":
+        if nsrt.name == "dummy0":
             for _ in range(10):
-                assert abs(op.ground([cup0, cup1, cup2]).sample_option(
+                assert abs(nsrt.ground([cup0, cup1, cup2]).sample_option(
                     state1, np.random.default_rng(123)).params - 0.3) < 0.01
-        if op.name == "dummy1":
+        if nsrt.name == "dummy1":
             for _ in range(10):
-                assert abs(op.ground([cup2, cup3, cup4, cup5]).sample_option(
+                assert abs(nsrt.ground([cup2, cup3, cup4, cup5]).sample_option(
                     state2, np.random.default_rng(123)).params - 0.7) < 0.01
     pred0 = Predicate("Pred0", [cup_type, cup_type],
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
@@ -146,8 +146,8 @@ def test_operator_learning_specific_operators():
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [([state1, next_state1], [action1]),
                ([state2, next_state2], [action2])]
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 2
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 2
     expected = {"dummy0": """dummy0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
     Preconditions: []
@@ -161,49 +161,49 @@ def test_operator_learning_specific_operators():
     Delete Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Option: ParameterizedOption(name='dummy', types=[])
     Option Variables: []"""}
-    for op in ops:
-        assert str(op) == expected[op.name]
+    for nsrt in nsrts:
+        assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
-    utils.update_config({"min_data_for_operator": 3})
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 0
+    utils.update_config({"min_data_for_nsrt": 3})
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 0
     # Test sampler giving out-of-bounds outputs
-    utils.update_config({"min_data_for_operator": 0, "seed": 123,
+    utils.update_config({"min_data_for_nsrt": 0, "seed": 123,
                          "classifier_max_itr_sampler": 1,
                          "regressor_max_itr": 1})
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 2
-    for op in ops:
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 2
+    for nsrt in nsrts:
         for _ in range(10):
             assert option1.parent.params_space.contains(
-                op.ground([cup0, cup1]).sample_option(
+                nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # Test max_rejection_sampling_tries = 0
     utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=True)
-    assert len(ops) == 2
-    for op in ops:
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    assert len(nsrts) == 2
+    for nsrt in nsrts:
         for _ in range(10):
             assert option1.parent.params_space.contains(
-                op.ground([cup0, cup1]).sample_option(
+                nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # Test do_sampler_learning = False
     utils.update_config({"seed": 123, "classifier_max_itr_sampler": 100000,
                          "regressor_max_itr": 100000})
     start_time = time.time()
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=False)
     assert time.time()-start_time < 0.1  # should be lightning fast
-    assert len(ops) == 2
-    for op in ops:
+    assert len(nsrts) == 2
+    for nsrt in nsrts:
         for _ in range(10):
             # Will just return random parameters
             assert option1.parent.params_space.contains(
-                op.ground([cup0, cup1]).sample_option(
+                nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
     # The following test checks edge cases of unification with respect to
     # the split between effects and option variables. This is similar to
     # the tests above, but with options instead of delete effects.
-    # This also tests the case where an operator parameter appears in
+    # This also tests the case where an NSRT parameter appears in
     # an option variable alone, rather than in effects or preconds.
     # The case is basically this:
     # Add set 1: P(x, y)
@@ -239,5 +239,5 @@ def test_operator_learning_specific_operators():
     next_state4 = State({cup4: [0.8], cup5: [0.1], cup2: [0.5], cup3: [0.5]})
     dataset = [([state3, next_state3], [action3]),
                ([state4, next_state4], [action4])]
-    ops = learn_operators_from_data(dataset, preds, do_sampler_learning=False)
-    assert len(ops) == 2
+    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=False)
+    assert len(nsrts) == 2
