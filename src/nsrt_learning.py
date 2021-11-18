@@ -31,6 +31,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     # Each item is a (ParameterizedOption, Sequence[Variable])
     # with the latter holding the option_vars.
     options = learn_options(strips_ops, segments)
+    import ipdb; ipdb.set_trace()
     assert len(options) == len(strips_ops)
 
     # Learn samplers.
@@ -139,9 +140,44 @@ def learn_strips_operators(segments: List[Segment]
         print(op)
         op_to_partition[op] = partitions[i]
 
-    import ipdb; ipdb.set_trace()
-
     return op_to_partition
+
+
+def learn_options(
+    strips_ops: Dict[STRIPSOperator, List[Tuple[Segment, ObjToVarSub]]],
+    segments: List[Segment]
+    ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
+    """Learn options for segments, or just look them up if they're given.
+    """
+    if not CFG.do_option_learning:
+        return _extract_options_from_data(strips_ops, segments)
+    raise NotImplementedError("Coming soon...")
+
+
+def _extract_options_from_data(
+    strips_ops: Dict[STRIPSOperator, List[Tuple[Segment, ObjToVarSub]]],
+    segments: List[Segment]
+    ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
+    """Look up the options from the data.
+    """
+    option_specs = []
+    for op, partition in strips_ops.items():
+        for i, (segment, sub) in enumerate(partition):
+            segment_actions = segment[0][1]
+            option = segment_actions[0].get_option()
+            if i == 0:
+                param_option = option.parent
+                option_vars = [sub[o] for o in option.objects]
+            else:
+                assert param_option == option.parent
+                assert option_vars == [sub[o] for o in option.objects]
+            # Make sure the option is consistent within a trajectory.
+            for a in segment_actions:
+                option_a = a.get_option()
+                assert param_option == option_a.parent
+                assert option_vars == [sub[o] for o in option_a.objects]
+        option_specs.append((param_option, option_vars))
+    return option_specs
 
 
 def learn_nsrts_for_option(option: ParameterizedOption,
