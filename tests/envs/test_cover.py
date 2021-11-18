@@ -266,3 +266,8 @@ def test_cover_multistep_options():
     final_atoms = utils.abstract(states[-1], env.predicates)
     assert Covers([block0, target0]) in final_atoms
     assert Covers([block1, target1]) in final_atoms
+    # Test moving into a forbidden zone
+    state = task.init
+    for _ in range(10):
+        act = Action(np.array([0., -0.05, 0], dtype=np.float32))
+        state = env.simulate(state, act)
