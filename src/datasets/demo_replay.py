@@ -43,13 +43,18 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         traj_idx = rng.choice(len(demo_dataset), p=weights)
         traj_states = demo_dataset[traj_idx][0]
         # Sample a state
-        state = traj_states[rng.choice(len(traj_states))]
-        # Sample an NSRT
+        # We don't allow sampling the final state in the trajectory here,
+        # because there's no guarantee that an initiable option exists
+        # from that state
+        state = traj_states[rng.choice(len(traj_states)-1)]
+        # Sample a random option that is initiable
         nsrts = ground_nsrts[traj_idx]
         assert len(nsrts) > 0
-        sampled_nsrt = nsrts[rng.choice(len(nsrts))]
-        # Sample a random option
-        option = sampled_nsrt.sample_option(state, rng)
+        while True:
+            sampled_nsrt = nsrts[rng.choice(len(nsrts))]
+            option = sampled_nsrt.sample_option(state, rng)
+            if option.initiable(state):
+                break
         # Execute the option
         try:
             replay_traj = utils.option_to_trajectory(
@@ -58,7 +63,7 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
         except EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
-        if not CFG.include_options_in_offline_data:
+        if CFG.do_option_learning:
             for act in replay_traj[1]:
                 act.unset_option()
         replay_dataset.append(replay_traj)
