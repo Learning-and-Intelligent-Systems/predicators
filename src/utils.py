@@ -804,8 +804,8 @@ def flush_cache() -> None:
     """
     gc.collect()
     wrappers = [
-        a for a in gc.get_objects() 
-        if isinstance(a, functools._lru_cache_wrapper)]
+        a for a in gc.get_objects()
+        if isinstance(a, functools._lru_cache_wrapper)]  # pylint: disable=protected-access
 
     for wrapper in wrappers:
         wrapper.cache_clear()
