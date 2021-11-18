@@ -97,7 +97,7 @@ def segment_trajectory(trajectory: ActionTrajectory,
     return segments
 
 
-def learn_strips_operators(segments: List[Segment]
+def learn_strips_operators(segments: Sequence[Segment]
         ) -> Tuple[List[STRIPSOperator], List[Partition]]:
     """Learn operators given the segmented transitions.
     """
