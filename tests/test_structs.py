@@ -389,8 +389,8 @@ def test_nsrts():
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
                  delete_effects, parameterized_option, [], sampler)
     ground_nsrt4 = nsrt4.ground([cup, plate])
-    assert ground_nsrt4 > ground_nsrt2
-    assert ground_nsrt2 < ground_nsrt4
+    assert ground_nsrt4 < ground_nsrt2
+    assert ground_nsrt2 > ground_nsrt4
     state = test_state()
     ground_nsrt.sample_option(state, np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
