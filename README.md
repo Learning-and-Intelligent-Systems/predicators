@@ -1,5 +1,18 @@
 # predicators
 
+## Installation
+### User
+1. (probably) pip install
+
+### Developer
+```
+git clone https://github.com/Learning-and-Intelligent-Systems/predicators.git
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python -
+cd PGMax
+poetry shell
+poetry install
+```
+
 Instructions for running code:
 * This repository uses Python versions 3.8+.
 * Run `pip install -r requirements.txt` to install dependencies.
