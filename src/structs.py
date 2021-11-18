@@ -593,6 +593,14 @@ class _GroundNSRT:
         assert isinstance(other, _GroundNSRT)
         return str(self) == str(other)
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundNSRT)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundNSRT)
+        return str(self) > str(other)
+
     def sample_option(self, state: State, rng: np.random.Generator) -> _Option:
         """Sample an _Option for this ground NSRT, by invoking
         the contained sampler. On the Option that is returned, one can call,

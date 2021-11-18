@@ -505,7 +505,7 @@ def get_applicable_nsrts(ground_nsrts: Collection[_GroundNSRT],
                              _GroundNSRT]:
     """Iterate over NSRTs whose preconditions are satisfied.
     """
-    for nsrt in ground_nsrts:
+    for nsrt in sorted(ground_nsrts):
         applicable = nsrt.preconditions.issubset(atoms)
         if applicable:
             yield nsrt
