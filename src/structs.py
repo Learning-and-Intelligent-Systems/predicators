@@ -423,8 +423,56 @@ DefaultOption.parent.params_space.seed(0)  # for reproducibility
 
 
 @dataclass(frozen=True, repr=False, eq=False)
+class STRIPSOperator:
+    """Struct defining a symbolic operator (as in STRIPS). Lifted!
+    """
+    name: str
+    parameters: Sequence[Variable]
+    preconditions: Set[LiftedAtom]
+    add_effects: Set[LiftedAtom]
+    delete_effects: Set[LiftedAtom]
+
+    def make_operator(
+            self, option: ParameterizedOption, option_vars: Sequence[Variable],
+            sampler: Callable[[State, np.random.Generator, Sequence[Object]],
+                              Array] = field(repr=False)) -> Operator:
+        """Make an Operator object out of this STRIPSOperator object,
+        given the necessary additional fields.
+        """
+        return Operator(self.name, self.parameters, self.preconditions,
+                        self.add_effects, self.delete_effects, option,
+                        option_vars, sampler)
+
+    @cached_property
+    def _str(self) -> str:
+        return f"""STRIPS-{self.name}:
+    Parameters: {self.parameters}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}"""
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) == str(other)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
 class Operator:
-    """Struct defining an operator (as in STRIPS). Lifted!
+    """Struct defining an operator, which contains the components of a
+    STRIPS operator, a parameterized option, and a sampler function.
     """
     name: str
     parameters: Sequence[Variable]
