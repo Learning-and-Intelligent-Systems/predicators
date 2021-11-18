@@ -62,7 +62,7 @@ def test_nsrt_learning_approach():
 def test_iterative_invention_approach():
     """Tests for IterativeInventionApproach class.
     """
-    # _test_approach(env_name="blocks", approach_name="iterative_invention",
-    #                excluded_predicates="Holding")
-    # _test_approach(env_name="cover", approach_name="iterative_invention",
-    #                excluded_predicates="Holding", try_solving=False)
+    _test_approach(env_name="blocks", approach_name="iterative_invention",
+                   excluded_predicates="Holding")
+    _test_approach(env_name="cover", approach_name="iterative_invention",
+                   excluded_predicates="Holding", try_solving=False)
