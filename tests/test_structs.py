@@ -6,7 +6,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    Operator, _GroundOperator, Action
+    Operator, _GroundOperator, Action, STRIPSOperator
 from predicators.src import utils
 
 
@@ -320,7 +320,7 @@ def test_option():
 
 
 def test_operators():
-    """Tests for Operator and _GroundOperator classes.
+    """Tests for STRIPSOperator and Operator and _GroundOperator classes.
     """
     # Operator
     cup_type = Type("cup_type", ["feat1"])
@@ -342,6 +342,20 @@ def test_operators():
         del rng  # unused
         del objs  # unused
         return params_space.sample()
+    # STRIPSOperator
+    strips_operator = STRIPSOperator("PickOperator", parameters, preconditions,
+                                     add_effects, delete_effects)
+    assert str(strips_operator) == repr(strips_operator) == \
+        """STRIPS-PickOperator:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]"""
+    assert isinstance(hash(strips_operator), int)
+    strips_operator2 = STRIPSOperator("PickOperator", parameters, preconditions,
+                                      add_effects, delete_effects)
+    assert strips_operator == strips_operator2
+    # Operator
     operator = Operator("PickOperator", parameters, preconditions, add_effects,
                         delete_effects, parameterized_option, [], sampler)
     assert str(operator) == repr(operator) == """PickOperator:
