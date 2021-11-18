@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Callable, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    ObjToVarSub, Transition, Object, Array, State, _Option
+    ObjToVarSub, Transition, Object, Array, State, Segment, _Option
 from predicators.src import utils
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+def learn_sampler(partitions: List[Tuple[Segment, ObjToVarSub]],
                   nsrt_name: str,
                   variables: Sequence[Variable],
                   preconditions: Set[LiftedAtom],
@@ -31,7 +31,7 @@ def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     print(f"\nLearning sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
-        transitions, variables, preconditions, add_effects, delete_effects,
+        partitions, variables, preconditions, add_effects, delete_effects,
         param_option, partition_idx)
 
     # Fit classifier to data
@@ -73,7 +73,7 @@ def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
 
 
 def _create_sampler_data(
-        transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+        partitions: List[Tuple[Segment, ObjToVarSub]],
         variables: Sequence[Variable],
         preconditions: Set[LiftedAtom],
         add_effects: Set[LiftedAtom],
@@ -85,10 +85,14 @@ def _create_sampler_data(
     """
     positive_data = []
     negative_data = []
-    for idx, part_transitions in enumerate(transitions):
-        for ((state, _, _, option, _, trans_add_effects, trans_delete_effects),
-             obj_to_var) in part_transitions:
-            assert option.parent == param_option
+    for idx, partition in enumerate(partitions):
+        for (segment, obj_to_var) in partition:
+            traj, option, before, after = segment
+            state = traj[0][0]
+            trans_add_effects = after - before
+            trans_delete_effects = before - after
+            if option.parent != param_option:
+                continue
             var_types = [var.type for var in variables]
             objects = list(state)
             for grounding in utils.get_object_combinations(
@@ -120,7 +124,7 @@ def _create_sampler_data(
                 negative_data.append((state, sub, option))
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
           f"negative examples")
-    assert len(positive_data) == len(transitions[partition_idx])
+    assert len(positive_data) == len(partitions[partition_idx])
     return positive_data, negative_data
 
 

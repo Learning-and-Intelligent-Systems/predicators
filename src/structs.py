@@ -647,7 +647,7 @@ OptionTrajectory = Tuple[List[State], List[_Option]]
 Dataset = List[ActionTrajectory]
 GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 # The ground atom sets are the "before" and "after" abstract states.
-Segment = Tuple[ActionTrajectory, Set[GroundAtom], Set[GroundAtom]]
+Segment = Tuple[ActionTrajectory, _Option, Set[GroundAtom], Set[GroundAtom]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
