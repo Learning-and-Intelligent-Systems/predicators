@@ -144,6 +144,16 @@ def learn_strips_operators(segments: List[Segment]
     assert len(params) == len(add_effects) == \
            len(delete_effects) == len(partitions)
 
+    # Prune partitions with not enough data.
+    kept_idxs = []
+    for idx, partition in enumerate(partitions):
+        if len(partition) >= CFG.min_data_for_nsrt:
+            kept_idxs.append(idx)
+    params = [params[i] for i in kept_idxs]
+    add_effects = [add_effects[i] for i in kept_idxs]
+    delete_effects = [delete_effects[i] for i in kept_idxs]
+    partitions = [partitions[i] for i in kept_idxs]
+
     # Learn preconditions.
     preconds = [_learn_preconditions(p) for p in partitions]
 
