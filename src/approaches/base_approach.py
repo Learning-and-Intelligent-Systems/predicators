@@ -1,5 +1,4 @@
-"""Base class for an approach, which can learn operators, predicates,
-and/or options.
+"""Base class for an approach.
 """
 
 import abc
