@@ -281,6 +281,14 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 
 # Grasp #
 
+# Sampler for grasp continuous params
+def grasp_obj_param_sampler(rng):
+    x_offset = (rng.random() * 0.4) - 0.2
+    y_offset = (rng.random() * 0.4) - 0.2
+    z_offset = (rng.random() * 0.4) - 0.2
+    z_rot = (rng.random() * 2 * np.pi) - np.pi
+    return np.array([x_offset, y_offset, z_offset, z_rot])
+
 # Get low level actions from hand-movement plan
 def get_delta_low_level_hand_action(env, old_pos, old_orn, new_pos, new_orn):
     # First, convert the supplied orientations to quaternions

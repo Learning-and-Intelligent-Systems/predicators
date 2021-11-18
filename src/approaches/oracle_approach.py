@@ -14,7 +14,8 @@ from predicators.src.envs import get_env_instance
 from predicators.src.structs import Operator, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.envs.behavior_options import navigate_to_param_sampler
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
+    grasp_obj_param_sampler
 
 
 class OracleApproach(TAMPApproach):
@@ -295,15 +296,13 @@ def _get_behavior_gt_ops() -> Set[Operator]:
                 targ_next_to = _get_lifted_atom("nextto",
                     [target_obj, agent_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
-                ontop = _get_lifted_atom("ontop", [target_obj, surf_obj])
-                preconditions = {handempty, targ_next_to, ontop}
+                preconditions = {handempty, targ_next_to}
                 add_effects = {targ_holding}
-                delete_effects = {handempty, ontop}
+                delete_effects = {handempty}
                 operator = Operator(f"{option.name}-{next(op_name_count)}",
                                     parameters, preconditions, add_effects,
                                     delete_effects, option, option_vars,
-                                    # TODO: create sampler
-                                    lambda s, r, o: np.zeros((0,)))
+                                    lambda s, r, o: grasp_obj_param_sampler(r))
                 operators.add(operator)
 
         elif base_option_name == "PlaceOnTop":

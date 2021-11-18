@@ -123,6 +123,7 @@ def _run_search(task: Task,
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, run low-level search.
             metrics["num_skeletons_optimized"] += 1
+            print(f"Number of Skeletons Optimized: {metrics['num_skeletons_optimized']}")
             plan = _run_low_level_search(
                 task, option_model, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
