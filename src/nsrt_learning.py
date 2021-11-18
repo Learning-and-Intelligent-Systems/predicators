@@ -1,10 +1,10 @@
-"""Algorithms for learning the various components of Operator objects.
+"""Algorithms for learning the various components of NSRT objects.
 """
 
 import functools
 from collections import defaultdict
 from typing import Set, Tuple, List, Sequence, FrozenSet, DefaultDict
-from predicators.src.structs import Dataset, STRIPSOperator, Operator, \
+from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
     ObjToVarSub, Transition, Object
 from predicators.src import utils
@@ -12,28 +12,28 @@ from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_sampler
 
 
-def learn_operators_from_data(dataset: Dataset, predicates: Set[Predicate],
-                              do_sampler_learning: bool) -> Set[Operator]:
-    """Learn operators from the given dataset of transitions.
+def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
+                          do_sampler_learning: bool) -> Set[NSRT]:
+    """Learn NSRTs from the given dataset of transitions.
     States are abstracted using the given set of predicates.
     """
-    print(f"\nLearning operators on {len(dataset)} trajectories...")
+    print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
     transitions_by_option = generate_transitions(dataset, predicates)
 
-    operators = []
+    nsrts = []
     for param_option in transitions_by_option:
         option_transitions = transitions_by_option[param_option]
-        option_ops = learn_operators_for_option(
+        option_nsrts = learn_nsrts_for_option(
             param_option, option_transitions, do_sampler_learning)
-        operators.extend(option_ops)
+        nsrts.extend(option_nsrts)
 
-    print("\nLearned operators:")
-    for operator in operators:
-        print(operator)
+    print("\nLearned NSRTs:")
+    for nsrt in nsrts:
+        print(nsrt)
     print()
 
-    return set(operators)
+    return set(nsrts)
 
 
 def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
@@ -58,41 +58,41 @@ def generate_transitions(dataset: Dataset, predicates: Set[Predicate]
     return transitions_by_option
 
 
-def learn_operators_for_option(option: ParameterizedOption,
+def learn_nsrts_for_option(option: ParameterizedOption,
                                transitions: List[Transition],
                                do_sampler_learning: bool,
-                               ) -> List[Operator]:
-    """Given an option and data for it, learn operators.
+                               ) -> List[NSRT]:
+    """Given an option and data for it, learn NSRTs.
     """
     # Partition the data by lifted effects
     option_vars, add_effects, delete_effects, \
         partitioned_transitions = _partition_transitions(transitions)
 
-    operators = []
+    nsrts = []
     for i, part_transitions in enumerate(partitioned_transitions):
-        if len(part_transitions) < CFG.min_data_for_operator:
+        if len(part_transitions) < CFG.min_data_for_nsrt:
             continue
         if not add_effects[i] and not delete_effects[i]:
-            # Don't learn any operators for empty effects, since they're
+            # Don't learn any NSRTs for empty effects, since they're
             # not useful for planning or predicate invention.
             continue
         # Learn preconditions
         variables, preconditions = \
             _learn_preconditions(option_vars[i], add_effects[i],
                                  delete_effects[i], part_transitions)
-        operator_name = f"{option.name}{i}"
+        name = f"{option.name}{i}"
         strips_operator = STRIPSOperator(
-            operator_name, variables, preconditions,
+            name, variables, preconditions,
             add_effects[i], delete_effects[i])
         # Learn sampler
         sampler = learn_sampler(
-            partitioned_transitions, operator_name, variables, preconditions,
+            partitioned_transitions, name, variables, preconditions,
             add_effects[i], delete_effects[i], option, i, do_sampler_learning)
-        # Construct Operator object
-        operators.append(strips_operator.make_operator(
+        # Construct NSRT object
+        nsrts.append(strips_operator.make_operator(
             option, option_vars[i], sampler))
 
-    return operators
+    return nsrts
 
 
 def _partition_transitions(

@@ -1,4 +1,4 @@
-"""Code for learning the samplers within Operator objects.
+"""Code for learning the samplers within NSRTs.
 """
 
 from dataclasses import dataclass
@@ -12,7 +12,7 @@ from predicators.src.settings import CFG
 
 
 def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
-                  operator_name: str,
+                  nsrt_name: str,
                   variables: Sequence[Variable],
                   preconditions: Set[LiftedAtom],
                   add_effects: Set[LiftedAtom],
@@ -28,7 +28,7 @@ def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     """
     if not do_sampler_learning or param_option.params_space.shape == (0,):
         return _RandomSampler(param_option).sampler
-    print(f"\nLearning sampler for operator {operator_name}")
+    print(f"\nLearning sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
         transitions, variables, preconditions, add_effects, delete_effects,
@@ -137,7 +137,7 @@ class _LearnedSampler:
     def sampler(self, state: State, rng: np.random.Generator,
                 objects: Sequence[Object]) -> Array:
         """The sampler corresponding to the given models. May be used
-        as the _sampler field in an Operator.
+        as the _sampler field in an NSRT.
         """
         x_lst : List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))

@@ -435,13 +435,13 @@ class STRIPSOperator:
     def make_operator(
             self, option: ParameterizedOption, option_vars: Sequence[Variable],
             sampler: Callable[[State, np.random.Generator, Sequence[Object]],
-                              Array] = field(repr=False)) -> Operator:
-        """Make an Operator object out of this STRIPSOperator object,
+                              Array] = field(repr=False)) -> NSRT:
+        """Make an NSRT out of this STRIPSOperator object,
         given the necessary additional fields.
         """
-        return Operator(self.name, self.parameters, self.preconditions,
-                        self.add_effects, self.delete_effects, option,
-                        option_vars, sampler)
+        return NSRT(self.name, self.parameters, self.preconditions,
+                    self.add_effects, self.delete_effects, option,
+                    option_vars, sampler)
 
     @cached_property
     def _str(self) -> str:
@@ -470,8 +470,8 @@ class STRIPSOperator:
 
 
 @dataclass(frozen=True, repr=False, eq=False)
-class Operator:
-    """Struct defining an operator, which contains the components of a
+class NSRT:
+    """Struct defining an NSRT, which contains the components of a
     STRIPS operator, a parameterized option, and a sampler function.
     """
     name: str
@@ -481,7 +481,7 @@ class Operator:
     delete_effects: Set[LiftedAtom]
     option: ParameterizedOption
     # A subset of parameters corresponding to the (lifted) arguments of the
-    # option that this operator contains.
+    # option that this NSRT contains.
     option_vars: Sequence[Variable]
     # A sampler maps a state, RNG, and objects to option parameters.
     _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
@@ -511,11 +511,11 @@ class Operator:
         return self._hash
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, Operator)
+        assert isinstance(other, NSRT)
         return str(self) == str(other)
 
-    def ground(self, objects: Sequence[Object]) -> _GroundOperator:
-        """Ground into a _GroundOperator, given objects.
+    def ground(self, objects: Sequence[Object]) -> _GroundNSRT:
+        """Ground into a _GroundNSRT, given objects.
         """
         assert len(objects) == len(self.parameters)
         assert all(o.is_instance(p.type) for o, p
@@ -525,11 +525,11 @@ class Operator:
         add_effects = {atom.ground(sub) for atom in self.add_effects}
         delete_effects = {atom.ground(sub) for atom in self.delete_effects}
         option_objs = [sub[v] for v in self.option_vars]
-        return _GroundOperator(self, objects, preconditions, add_effects,
-                               delete_effects, self.option, option_objs,
-                               self._sampler)
+        return _GroundNSRT(self, objects, preconditions, add_effects,
+                           delete_effects, self.option, option_objs,
+                           self._sampler)
 
-    def filter_predicates(self, kept: Collection[Predicate]) -> Operator:
+    def filter_predicates(self, kept: Collection[Predicate]) -> NSRT:
         """Keep only the given predicates in the preconditions,
         add effects, and delete effects. Note that the parameters must
         stay the same for the sake of the sampler input arguments.
@@ -537,17 +537,17 @@ class Operator:
         preconditions = {a for a in self.preconditions if a.predicate in kept}
         add_effects = {a for a in self.add_effects if a.predicate in kept}
         delete_effects = {a for a in self.delete_effects if a.predicate in kept}
-        return Operator(self.name, self.parameters,
-                        preconditions, add_effects, delete_effects,
-                        self.option, self.option_vars, self._sampler)
+        return NSRT(self.name, self.parameters,
+                    preconditions, add_effects, delete_effects,
+                    self.option, self.option_vars, self._sampler)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
-class _GroundOperator:
-    """A ground operator is an operator + objects. Should not be instantiated
+class _GroundNSRT:
+    """A ground NSRT is an NSRT + objects. Should not be instantiated
     externally.
     """
-    operator: Operator
+    nsrt: NSRT
     objects: Sequence[Object]
     preconditions: Set[GroundAtom]
     add_effects: Set[GroundAtom]
@@ -573,9 +573,9 @@ class _GroundOperator:
 
     @property
     def name(self) -> str:
-        """Name of this operator.
+        """Name of this ground NSRT.
         """
-        return self.operator.name
+        return self.nsrt.name
 
     def __str__(self) -> str:
         return self._str
@@ -587,11 +587,11 @@ class _GroundOperator:
         return self._hash
 
     def __eq__(self, other: object) -> bool:
-        assert isinstance(other, _GroundOperator)
+        assert isinstance(other, _GroundNSRT)
         return str(self) == str(other)
 
     def sample_option(self, state: State, rng: np.random.Generator) -> _Option:
-        """Sample an _Option for this ground operator, by invoking
+        """Sample an _Option for this ground NSRT, by invoking
         the contained sampler. On the Option that is returned, one can call,
         e.g., policy(state).
         """

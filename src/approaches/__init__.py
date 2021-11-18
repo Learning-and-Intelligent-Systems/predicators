@@ -13,8 +13,8 @@ from predicators.src.approaches.tamp_approach import TAMPApproach
 from predicators.src.approaches.trivial_learning_approach import \
     TrivialLearningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.approaches.operator_learning_approach import \
-    OperatorLearningApproach
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.approaches.iterative_invention_approach import \
@@ -30,7 +30,7 @@ __all__ = [
     "RandomOptionsApproach",
     "TAMPApproach",
     "TrivialLearningApproach",
-    "OperatorLearningApproach",
+    "NSRTLearningApproach",
     "InteractiveLearningApproach",
     "IterativeInventionApproach",
     "ApproachTimeout",
@@ -63,10 +63,10 @@ def create_approach(name: str,
         return TrivialLearningApproach(simulator, initial_predicates,
                                        initial_options, types, action_space,
                                        train_tasks)
-    if name == "operator_learning":
-        return OperatorLearningApproach(simulator, initial_predicates,
-                                        initial_options, types, action_space,
-                                        train_tasks)
+    if name == "nsrt_learning":
+        return NSRTLearningApproach(simulator, initial_predicates,
+                                    initial_options, types, action_space,
+                                    train_tasks)
     if name == "interactive_learning":
         return InteractiveLearningApproach(simulator, initial_predicates,
                                            initial_options, types, action_space,

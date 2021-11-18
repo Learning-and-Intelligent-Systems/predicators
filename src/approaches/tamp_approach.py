@@ -7,7 +7,7 @@ from typing import Callable, Set, List
 from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
-from predicators.src.structs import State, Action, Task, Operator, \
+from predicators.src.structs import State, Action, Task, NSRT, \
     Predicate, ParameterizedOption, Type
 from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
@@ -32,7 +32,7 @@ class TAMPApproach(BaseApproach):
         self._num_calls += 1
         seed = self._seed+self._num_calls  # ensure random over successive calls
         plan, metrics = sesame_plan(task, self._option_model,
-                                    self._get_current_operators(),
+                                    self._get_current_nsrts(),
                                     self._get_current_predicates(),
                                     timeout, seed)
         for metric in ["num_skeletons_optimized",
@@ -51,8 +51,8 @@ class TAMPApproach(BaseApproach):
         return _policy
 
     @abc.abstractmethod
-    def _get_current_operators(self) -> Set[Operator]:
-        """Get the current set of operators.
+    def _get_current_nsrts(self) -> Set[NSRT]:
+        """Get the current set of NSRTs.
         """
         raise NotImplementedError("Override me!")
 

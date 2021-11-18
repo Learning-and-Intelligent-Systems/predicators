@@ -12,7 +12,7 @@ from predicators.src import utils
 def test_create_sampler_data():
     """Tests for _create_sampler_data().
     """
-    utils.update_config({"min_data_for_operator": 0, "seed": 123})
+    utils.update_config({"min_data_for_nsrt": 0, "seed": 123})
     # Create two partitions
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
