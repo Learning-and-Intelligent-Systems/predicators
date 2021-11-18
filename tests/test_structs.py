@@ -342,22 +342,22 @@ def test_nsrts():
         del objs  # unused
         return params_space.sample()
     # STRIPSOperator
-    strips_operator = STRIPSOperator("PickOperator", parameters, preconditions,
+    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects)
     assert str(strips_operator) == repr(strips_operator) == \
-        """STRIPS-PickOperator:
+        """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]"""
     assert isinstance(hash(strips_operator), int)
-    strips_operator2 = STRIPSOperator("PickOperator", parameters, preconditions,
+    strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects)
     assert strips_operator == strips_operator2
     # NSRT
-    nsrt = NSRT("PickNSRT", parameters, preconditions, add_effects,
+    nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                 delete_effects, parameterized_option, [], sampler)
-    assert str(nsrt) == repr(nsrt) == """PickNSRT:
+    assert str(nsrt) == repr(nsrt) == """Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
@@ -365,15 +365,17 @@ def test_nsrts():
     Option: ParameterizedOption(name='Pick', types=[])
     Option Variables: []"""
     assert isinstance(hash(nsrt), int)
-    nsrt2 = NSRT("PickNSRT", parameters, preconditions, add_effects,
+    nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
                  delete_effects, parameterized_option, [], sampler)
     assert nsrt == nsrt2
+    nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
+    assert nsrt == nsrt3
     # _GroundNSRT
     cup = cup_type("cup")
     plate = plate_type("plate")
     ground_nsrt = nsrt.ground([cup, plate])
     assert isinstance(ground_nsrt, _GroundNSRT)
-    assert str(ground_nsrt) == repr(ground_nsrt) == """PickNSRT:
+    assert str(ground_nsrt) == repr(ground_nsrt) == """Pick:
     Parameters: [cup:cup_type, plate:plate_type]
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]

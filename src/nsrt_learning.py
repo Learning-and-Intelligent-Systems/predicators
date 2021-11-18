@@ -88,8 +88,7 @@ def learn_nsrts_for_option(option: ParameterizedOption,
             partitioned_transitions, name, variables, preconditions,
             add_effects[i], delete_effects[i], option, i, do_sampler_learning)
         # Construct NSRT object
-        nsrts.append(strips_operator.make_operator(
-            option, option_vars[i], sampler))
+        nsrts.append(strips_operator.make_nsrt(option, option_vars[i], sampler))
 
     return nsrts
 
