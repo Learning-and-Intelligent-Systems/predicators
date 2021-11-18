@@ -239,7 +239,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
     operators = set()
     op_name_count = itertools.count()
 
-    for option in env.options:
+    for option in sorted(env.options):
         split_name = option.name.split("-")
         base_option_name = split_name[0]
         option_arg_type_names = split_name[1:]
@@ -264,7 +264,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             operators.add(operator)
 
             # Navigate to while nextto something
-            for origin_obj_type in env.types:
+            for origin_obj_type in sorted(env.types):
                 origin_obj = Variable("?origin", origin_obj_type)
                 origin_next_to = _get_lifted_atom("nextto",
                     [origin_obj, agent_obj])
@@ -288,7 +288,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             target_obj = Variable("?targ", target_obj_type)
 
             # Pick from ontop something
-            for surf_obj_type in env.types:
+            for surf_obj_type in sorted(env.types):
                 surf_obj = Variable("?surf", surf_obj_type)
                 parameters = [target_obj, agent_obj, surf_obj]
                 option_vars = [target_obj]
@@ -312,7 +312,7 @@ def _get_behavior_gt_ops() -> Set[Operator]:
             surf_obj = Variable("?surf", surf_obj_type)
 
             # We need to place the object we're holding!
-            for held_obj_types in env.types:
+            for held_obj_types in sorted(env.types):
                 held_obj = Variable("?held", held_obj_types)
                 parameters = [held_obj, agent_obj, surf_obj]
                 option_vars = [held_obj, surf_obj]
