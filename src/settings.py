@@ -56,12 +56,12 @@ class GlobalSettings:
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
 
-    # operator learning parameters
-    min_data_for_operator = 3
+    # NSRT learning parameters
+    min_data_for_nsrt = 3
     max_rejection_sampling_tries = 100
 
     # sampler learning parameters
-    do_sampler_learning = True
+    do_sampler_learning = True  # if False, uses random samplers
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr_sampler = 10000
@@ -147,7 +147,7 @@ class GlobalSettings:
             # options in the offline dataset.
             include_options_in_offline_data=defaultdict(bool, {
                 "trivial_learning": True,
-                "operator_learning": True,
+                "nsrt_learning": True,
                 "interactive_learning": True,
                 "iterative_invention": True,
             })[args["approach"]],
@@ -155,7 +155,7 @@ class GlobalSettings:
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
                 "trivial_learning": "demo",
-                "operator_learning": "demo+replay",
+                "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
             })[args["approach"]],
@@ -164,7 +164,7 @@ class GlobalSettings:
             # used for planning.
             offline_data_planning_timeout=defaultdict(int, {
                 "trivial_learning": 500,
-                "operator_learning": 500,
+                "nsrt_learning": 500,
                 "interactive_learning": 500,
                 "iterative_invention": 500,
             })[args["approach"]],
@@ -173,7 +173,7 @@ class GlobalSettings:
             # when the data generation method is data+replays.
             offline_data_num_replays=defaultdict(int, {
                 "trivial_learning": 10,
-                "operator_learning": 10,
+                "nsrt_learning": 10,
                 "interactive_learning": 10,
                 "iterative_invention": 500,
             })[args["approach"]],

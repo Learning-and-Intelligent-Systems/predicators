@@ -1,56 +1,56 @@
-"""A TAMP approach that uses hand-specified operators.
+"""A TAMP approach that uses hand-specified NSRTs.
 
 The approach is aware of the initial predicates and options.
 Predicates that are not in the initial predicates are excluded from
-the ground truth operators. If an operator's option is not included,
-that operator will not be generated at all.
+the ground truth NSRTs. If an NSRT's option is not included,
+that NSRT will not be generated at all.
 """
 
 from typing import List, Sequence, Set
 import numpy as np
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
-from predicators.src.structs import Operator, Predicate, State, \
+from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
 
 
 class OracleApproach(TAMPApproach):
-    """A TAMP approach that uses hand-specified operators.
+    """A TAMP approach that uses hand-specified NSRTs.
     """
     @property
     def is_learning_based(self) -> bool:
         return False
 
-    def _get_current_operators(self) -> Set[Operator]:
-        return get_gt_ops(self._initial_predicates, self._initial_options)
+    def _get_current_nsrts(self) -> Set[NSRT]:
+        return get_gt_nsrts(self._initial_predicates, self._initial_options)
 
 
-def get_gt_ops(predicates: Set[Predicate],
-               options: Set[ParameterizedOption]) -> Set[Operator]:
-    """Create ground truth operators for an env.
+def get_gt_nsrts(predicates: Set[Predicate],
+                 options: Set[ParameterizedOption]) -> Set[NSRT]:
+    """Create ground truth NSRTs for an env.
     """
     if CFG.env in ("cover", "cover_hierarchical_types"):
-        ops = _get_cover_gt_ops(options_are_typed=False)
+        nsrts = _get_cover_gt_nsrts(options_are_typed=False)
     elif CFG.env == "cover_typed_options":
-        ops = _get_cover_gt_ops(options_are_typed=True)
+        nsrts = _get_cover_gt_nsrts(options_are_typed=True)
     elif CFG.env == "cover_multistep_options":
-        ops = _get_cover_gt_ops(options_are_typed=True,
-                                place_sampler_relative=True)
+        nsrts = _get_cover_gt_nsrts(options_are_typed=True,
+                                    place_sampler_relative=True)
     elif CFG.env == "cluttered_table":
-        ops = _get_cluttered_table_gt_ops()
+        nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "blocks":
-        ops = _get_blocks_gt_ops()
+        nsrts = _get_blocks_gt_nsrts()
     else:
-        raise NotImplementedError("Ground truth operators not implemented")
+        raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates/options
-    final_ops = set()
-    for op in ops:
-        if op.option not in options:
+    final_nsrts = set()
+    for nsrt in nsrts:
+        if nsrt.option not in options:
             continue
-        op = op.filter_predicates(predicates)
-        final_ops.add(op)
-    return final_ops
+        nsrt = nsrt.filter_predicates(predicates)
+        final_nsrts.add(nsrt)
+    return final_nsrts
 
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
@@ -86,9 +86,9 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_ops(options_are_typed: bool,
-                      place_sampler_relative: bool = False) -> Set[Operator]:
-    """Create ground truth operators for CoverEnv.
+def _get_cover_gt_nsrts(options_are_typed: bool,
+                        place_sampler_relative: bool = False) -> Set[NSRT]:
+    """Create ground truth NSRTs for CoverEnv.
     """
     block_type, target_type = _get_types_by_names(CFG.env, ["block", "target"])
 
@@ -101,7 +101,7 @@ def _get_cover_gt_ops(options_are_typed: bool,
     else:
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
 
-    operators = set()
+    nsrts = set()
 
     # Pick
     block = Variable("?block", block_type)
@@ -129,10 +129,10 @@ def _get_cover_gt_ops(options_are_typed: bool,
             ub = float(state.get(b, "pose") + state.get(b, "width")/2)
             ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
-    pick_operator = Operator("Pick", parameters, preconditions,
-                             add_effects, delete_effects, option,
-                             option_vars, pick_sampler)
-    operators.add(pick_operator)
+    pick_nsrt = NSRT("Pick", parameters, preconditions,
+                     add_effects, delete_effects, option,
+                     option_vars, pick_sampler)
+    nsrts.add(pick_nsrt)
 
     # Place
     target = Variable("?target", target_type)
@@ -163,16 +163,16 @@ def _get_cover_gt_ops(options_are_typed: bool,
             ub = float(state.get(t, "pose") + state.get(t, "width")/10)
             ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
-    place_operator = Operator("Place", parameters, preconditions,
-                              add_effects, delete_effects, option,
-                              option_vars, place_sampler)
-    operators.add(place_operator)
+    place_nsrt = NSRT("Place", parameters, preconditions,
+                      add_effects, delete_effects, option,
+                      option_vars, place_sampler)
+    nsrts.add(place_nsrt)
 
-    return operators
+    return nsrts
 
 
-def _get_cluttered_table_gt_ops() -> Set[Operator]:
-    """Create ground truth operators for ClutteredTableEnv.
+def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for ClutteredTableEnv.
     """
     can_type, = _get_types_by_names("cluttered_table", ["can"])
 
@@ -181,7 +181,7 @@ def _get_cluttered_table_gt_ops() -> Set[Operator]:
 
     Grasp, Dump = _get_options_by_names("cluttered_table", ["Grasp", "Dump"])
 
-    operators = set()
+    nsrts = set()
 
     # Grasp
     can = Variable("?can", can_type)
@@ -199,10 +199,10 @@ def _get_cluttered_table_gt_ops() -> Set[Operator]:
         end_y = state.get(can, "pose_y")
         start_x, start_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
         return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
-    grasp_operator = Operator("Grasp", parameters, preconditions,
-                              add_effects, delete_effects, option,
-                              option_vars, grasp_sampler)
-    operators.add(grasp_operator)
+    grasp_nsrt = NSRT("Grasp", parameters, preconditions,
+                      add_effects, delete_effects, option,
+                      option_vars, grasp_sampler)
+    nsrts.add(grasp_nsrt)
 
     # Dump
     can = Variable("?can", can_type)
@@ -212,16 +212,16 @@ def _get_cluttered_table_gt_ops() -> Set[Operator]:
     preconditions = {LiftedAtom(Holding, [can])}
     add_effects = {LiftedAtom(HandEmpty, [])}
     delete_effects = {LiftedAtom(Holding, [can])}
-    dump_operator = Operator("Dump", parameters, preconditions, add_effects,
-                             delete_effects, option, option_vars,
-                             lambda s, r, o: np.array([], dtype=np.float32))
-    operators.add(dump_operator)
+    dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
+                     delete_effects, option, option_vars,
+                     lambda s, r, o: np.array([], dtype=np.float32))
+    nsrts.add(dump_nsrt)
 
-    return operators
+    return nsrts
 
 
-def _get_blocks_gt_ops() -> Set[Operator]:
-    """Create ground truth operators for BlocksEnv.
+def _get_blocks_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for BlocksEnv.
     """
     block_type, robot_type = _get_types_by_names("blocks", ["block", "robot"])
 
@@ -231,7 +231,7 @@ def _get_blocks_gt_ops() -> Set[Operator]:
     Pick, Stack, PutOnTable = _get_options_by_names(
         "blocks", ["Pick", "Stack", "PutOnTable"])
 
-    operators = set()
+    nsrts = set()
 
     # PickFromTable
     block = Variable("?block", block_type)
@@ -250,10 +250,10 @@ def _get_blocks_gt_ops() -> Set[Operator]:
                      objs: Sequence[Object]) -> Array:
         del state, rng, objs  # unused
         return np.zeros(3, dtype=np.float32)
-    pickfromtable_operator = Operator(
+    pickfromtable_nsrt = NSRT(
         "PickFromTable", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, pick_sampler)
-    operators.add(pickfromtable_operator)
+    nsrts.add(pickfromtable_nsrt)
 
     # Unstack
     block = Variable("?block", block_type)
@@ -270,10 +270,10 @@ def _get_blocks_gt_ops() -> Set[Operator]:
     delete_effects = {LiftedAtom(On, [block, otherblock]),
                       LiftedAtom(Clear, [block]),
                       LiftedAtom(GripperOpen, [robot])}
-    unstack_operator = Operator(
+    unstack_nsrt = NSRT(
         "Unstack", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, pick_sampler)
-    operators.add(unstack_operator)
+    nsrts.add(unstack_nsrt)
 
     # Stack
     block = Variable("?block", block_type)
@@ -293,10 +293,10 @@ def _get_blocks_gt_ops() -> Set[Operator]:
                       objs: Sequence[Object]) -> Array:
         del state, rng, objs  # unused
         return np.array([0, 0, CFG.blocks_block_size], dtype=np.float32)
-    stack_operator = Operator(
+    stack_nsrt = NSRT(
         "Stack", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, stack_sampler)
-    operators.add(stack_operator)
+    nsrts.add(stack_nsrt)
 
     # PutOnTable
     block = Variable("?block", block_type)
@@ -315,9 +315,9 @@ def _get_blocks_gt_ops() -> Set[Operator]:
         x = rng.uniform()
         y = rng.uniform()
         return np.array([x, y], dtype=np.float32)
-    putontable_operator = Operator(
+    putontable_nsrt = NSRT(
         "PutOnTable", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, putontable_sampler)
-    operators.add(putontable_operator)
+    nsrts.add(putontable_nsrt)
 
-    return operators
+    return nsrts
