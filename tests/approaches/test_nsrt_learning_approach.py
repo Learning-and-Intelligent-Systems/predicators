@@ -54,6 +54,8 @@ def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class.
     """
     _test_approach(env_name="cover", approach_name="nsrt_learning")
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning")
 
 
 def test_iterative_invention_approach():
