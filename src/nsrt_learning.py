@@ -176,10 +176,9 @@ def learn_options(
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
     """Learn options for segments, or just look them up if they're given.
     """
-    if not CFG.do_option_learning:
-        del strips_ops  # unused
-        return _extract_options_from_data(partitions)
-    raise NotImplementedError("Coming soon...")
+    assert not CFG.do_option_learning, "TODO"
+    del strips_ops  # unused
+    return _extract_options_from_data(partitions)
 
 
 def _extract_options_from_data(
