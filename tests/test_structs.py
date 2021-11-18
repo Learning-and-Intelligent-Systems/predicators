@@ -386,8 +386,8 @@ def test_nsrts():
     ground_nsrt2 = nsrt2.ground([cup, plate])
     assert ground_nsrt == ground_nsrt2
     # Test less than comparison for grounded options
-    assert not ground_nsrt < ground_nsrt2
-    assert not ground_nsrt2 < ground_nsrt
+    assert not (ground_nsrt < ground_nsrt2) and not (ground_nsrt > ground_nsrt2)
+    assert not ground_nsrt2 < ground_nsrt and not (ground_nsrt > ground_nsrt2)
     state = test_state()
     ground_nsrt.sample_option(state, np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
