@@ -12,7 +12,6 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, Transition, NSRT, LiftedAtom, \
     Array
 from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
-from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src.settings import CFG
 
 

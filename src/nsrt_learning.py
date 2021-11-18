@@ -2,14 +2,12 @@
 """
 
 import functools
-from collections import defaultdict
-from typing import Set, Tuple, List, Sequence, FrozenSet, DefaultDict, Dict, \
-    Callable
+from typing import Set, Tuple, List, Sequence, FrozenSet, Callable
 import numpy as np
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, Transition, Object, ActionTrajectory, Segment, DefaultOption, \
-    State, Array, _Option
+    ObjToVarSub, Object, ActionTrajectory, Segment, DefaultOption, \
+    State, Array, _Option, Partition
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_sampler
@@ -81,14 +79,14 @@ def segment_trajectory(trajectory: ActionTrajectory,
     states, actions = trajectory
     assert len(states) == len(actions) + 1
     all_atoms = [utils.abstract(s, predicates) for s in states]
-    current_segment_traj = ([states[0]], [])
+    current_segment_traj : ActionTrajectory = ([states[0]], [])
     for t in range(len(actions)):
         current_segment_traj[0].append(states[t])
         current_segment_traj[1].append(actions[t])
         if all_atoms[t] != all_atoms[t+1]:
             # Include the final state as both the end of this segment
             # and the start of the next segment.
-            # Include the default option here; replaced during option learning. 
+            # Include the default option here; replaced during option learning.
             current_segment_traj[0].append(states[t+1])
             segment = (current_segment_traj, DefaultOption,
                        all_atoms[t], all_atoms[t+1])
@@ -100,14 +98,14 @@ def segment_trajectory(trajectory: ActionTrajectory,
 
 
 def learn_strips_operators(segments: List[Segment]
-        ) -> Tuple[List[STRIPSOperator], List[Tuple[Segment, ObjToVarSub]]]:
+        ) -> Tuple[List[STRIPSOperator], List[Partition]]:
     """Learn operators given the segmented transitions.
     """
     # Partition the segments according to common effects.
     params: List[Sequence[Variable]] = []
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
-    partitions: List[Tuple[Segment, ObjToVarSub]] = []
+    partitions: List[Partition] = []
     for segment in segments:
         _, _, before, after = segment
         seg_add_effects = after - before
@@ -147,7 +145,7 @@ def learn_strips_operators(segments: List[Segment]
            len(delete_effects) == len(partitions)
 
     # Learn preconditions.
-    preconds = [_learn_preconditions(p, s) for p, s in zip(params, partitions)]
+    preconds = [_learn_preconditions(p) for p in partitions]
 
     # Finalize the operators.
     ops = []
@@ -164,23 +162,23 @@ def learn_strips_operators(segments: List[Segment]
 
 def learn_options(
     strips_ops: List[STRIPSOperator],
-    partitions: List[Tuple[Segment, ObjToVarSub]],
+    partitions: List[Partition],
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
     """Learn options for segments, or just look them up if they're given.
     """
     if not CFG.do_option_learning:
-        return _extract_options_from_data(strips_ops, partitions)
+        del strips_ops  # unused
+        return _extract_options_from_data(partitions)
     raise NotImplementedError("Coming soon...")
 
 
 def _extract_options_from_data(
-    strips_ops: List[STRIPSOperator],
-    partitions: List[Tuple[Segment, ObjToVarSub]],
+    partitions: List[Partition],
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
     """Look up the options from the data.
     """
     option_specs = []
-    for op, partition in zip(strips_ops, partitions):
+    for partition in partitions:
         for i, (segment, sub) in enumerate(partition):
             segment_actions = segment[0][1]
             option = segment_actions[0].get_option()
@@ -222,7 +220,7 @@ def _find_option_for_segment(segment: Segment,
 
 def learn_samplers(
     strips_ops: List[STRIPSOperator],
-    partitions: List[Tuple[Segment, ObjToVarSub]],
+    partitions: List[Partition],
     options: List[Tuple[ParameterizedOption, List[Variable]]],
     do_sampler_learning: bool
     ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
@@ -238,8 +236,7 @@ def learn_samplers(
     return samplers
 
 
-def  _learn_preconditions(params: Sequence[Variable],
-                          segments: List[Tuple[Segment, ObjToVarSub]]
+def  _learn_preconditions(segments: List[Tuple[Segment, ObjToVarSub]]
                           ) -> Set[LiftedAtom]:
     for i, (segment, sub) in enumerate(segments):
         _, _, atoms, _ = segment
