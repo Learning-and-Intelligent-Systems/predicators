@@ -419,6 +419,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Note: there is a change here -- the parameter space is now
         # relative to the target. In the parent env, the parameter
         # space is absolute, and the state of the target is not used.
+        # We made this change because we want to learn options whose
+        # parameters correspond to changes in the low-level states
+        # of the objects involved in the option's effects.
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type],
             params_space=Box(-0.1, 0.1, (1,)),
