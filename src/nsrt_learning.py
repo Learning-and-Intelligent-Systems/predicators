@@ -82,8 +82,7 @@ def learn_nsrts_for_option(option: ParameterizedOption,
                                  delete_effects[i], part_transitions)
         name = f"{option.name}{i}"
         strips_operator = STRIPSOperator(
-            name, variables, preconditions,
-            add_effects[i], delete_effects[i])
+            name, variables, preconditions, add_effects[i], delete_effects[i])
         # Learn sampler
         sampler = learn_sampler(
             partitioned_transitions, name, variables, preconditions,

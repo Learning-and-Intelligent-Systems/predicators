@@ -384,7 +384,7 @@ def test_nsrts():
     ground_nsrt2 = nsrt2.ground([cup, plate])
     assert ground_nsrt == ground_nsrt2
     state = test_state()
-    ground_nsrt.sample_nsrttion(state, np.random.default_rng(123))
+    ground_nsrt.sample_option(state, np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
     assert len(filtered_nsrt.parameters) == 2
     assert len(filtered_nsrt.preconditions) == 0

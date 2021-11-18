@@ -23,14 +23,14 @@ def create_demo_replay_data(env: BaseEnv) -> Dataset:
     weights = np.array([len(traj) for traj in demo_dataset])
     weights = weights / sum(weights)
     # Ground all NSRTs once per trajectory
-    nsrts = get_gt_nsrts(env.predicates, env.options)
+    all_nsrts = get_gt_nsrts(env.predicates, env.options)
     ground_nsrts = []
     for (ss, _) in demo_dataset:
         objects = sorted(ss[0])
         # Assumes objects should be the same within a traj
         assert all(set(objects) == set(s) for s in ss)
         ground_nsrts_traj: List[_GroundNSRT] = []
-        for nsrt in nsrts:
+        for nsrt in all_nsrts:
             these_ground_nsrts = utils.all_ground_nsrts(nsrt, objects)
             ground_nsrts_traj.extend(these_ground_nsrts)
         ground_nsrts.append(ground_nsrts_traj)
