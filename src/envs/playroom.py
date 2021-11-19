@@ -9,7 +9,6 @@ from matplotlib import patches
 from predicators.src.envs import BlocksEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, Image, Array
-from predicators.src.settings import CFG
 from predicators.src import utils
 
 
@@ -17,6 +16,7 @@ class PlayroomEnv(BlocksEnv):
     """Boring room vs. playroom domain.
     """
     # Parameters that aren't important enough to need to clog up settings.py
+    block_size = 0.5
     x_lb = 0.0
     y_lb = 0.0
     x_ub = 140.0
@@ -34,7 +34,9 @@ class PlayroomEnv(BlocksEnv):
     dial_tol = 1.0
     dial_button_tol = 0.4
     pick_tol = 0.4
-    assert pick_tol < CFG.playroom_block_size
+    assert pick_tol < block_size
+    num_blocks_train = [3]
+    num_blocks_test = [3]
 
     def __init__(self) -> None:
         super().__init__()
@@ -111,10 +113,10 @@ class PlayroomEnv(BlocksEnv):
             and (self.table_y_lb < y < self.table_y_ub) \
             and self._robot_is_facing_table(action):
             if fingers < 0.5:
-                return self._transition_pick(state, action)
-            if z < self.table_height + CFG.playroom_block_size:
-                return self._transition_putontable(state, action)
-            return self._transition_stack(state, action)
+                return self._transition_pick(state, x, y, z, fingers)
+            if z < self.table_height + self.block_size:
+                return self._transition_putontable(state, x, y, z, fingers)
+            return self._transition_stack(state, x, y, z, fingers)
         # Interact with some door
         if any(self._NextToDoor_holds(state, (self._robot, door))
                for door in self._doors):
@@ -139,92 +141,6 @@ class PlayroomEnv(BlocksEnv):
             return self._transition_dial(state)
 
         return state.copy()
-
-    def _transition_pick(self, state: State, action: Action) -> State:
-        next_state = state.copy()
-        # Can only pick if fingers are open
-        if state.get(self._robot, "fingers") < self.open_fingers:
-            return next_state
-        x, y, z, _, fingers = action.arr
-        block = self._get_block_at_xyz(state, x, y, z)
-        if block is None:  # no block at this pose
-            return next_state
-        # Can only pick if object is clear
-        if state.get(block, "clear") < self.clear_tol:
-            return next_state
-        # Execute pick
-        next_state.set(block, "pose_x", x)
-        next_state.set(block, "pose_y", y)
-        next_state.set(block, "pose_z", z+self.lift_amt)
-        next_state.set(block, "held", 1.0)
-        next_state.set(block, "clear", 0.0)
-        next_state.set(self._robot, "fingers", fingers)
-        # Update clear bit of block below, if there is one
-        cur_x = state.get(block, "pose_x")
-        cur_y = state.get(block, "pose_y")
-        cur_z = state.get(block, "pose_z")
-        poss_below_block = self._get_highest_block_below(
-            state, cur_x, cur_y, cur_z)
-        assert poss_below_block != block
-        if poss_below_block is not None:
-            next_state.set(poss_below_block, "clear", 1.0)
-        return next_state
-
-    def _transition_putontable(self, state: State, action: Action) -> State:
-        next_state = state.copy()
-        # Can only putontable if fingers are closed
-        if state.get(self._robot, "fingers") >= self.open_fingers:
-            return next_state
-        block = self._get_held_block(state)
-        assert block is not None
-        x, y, z, _, fingers = action.arr
-        # Check that table surface is clear at this pose
-        poses = [[state.get(b, "pose_x"),
-                  state.get(b, "pose_y"),
-                  state.get(b, "pose_z")] for b in state
-                 if b.is_instance(self._block_type)]
-        existing_xys = {(float(p[0]), float(p[1])) for p in poses}
-        if not self._table_xy_is_clear(x, y, existing_xys):
-            return next_state
-        # Execute putontable
-        next_state.set(block, "pose_x", x)
-        next_state.set(block, "pose_y", y)
-        next_state.set(block, "pose_z", z)
-        next_state.set(block, "held", 0.0)
-        next_state.set(block, "clear", 1.0)
-        next_state.set(self._robot, "fingers", fingers)
-        return next_state
-
-    def _transition_stack(self, state: State, action: Action) -> State:
-        next_state = state.copy()
-        # Can only stack if fingers are closed
-        if state.get(self._robot, "fingers") >= self.open_fingers:
-            return next_state
-        # Check that both blocks exist
-        block = self._get_held_block(state)
-        assert block is not None
-        x, y, z, _, fingers = action.arr
-        other_block = self._get_highest_block_below(state, x, y, z)
-        if other_block is None:  # no block to stack onto
-            return next_state
-        # Can't stack onto yourself!
-        if block == other_block:
-            return next_state
-        # Need block we're stacking onto to be clear
-        if state.get(other_block, "clear") < self.clear_tol:
-            return next_state
-        # Execute stack by snapping into place
-        cur_x = state.get(other_block, "pose_x")
-        cur_y = state.get(other_block, "pose_y")
-        cur_z = state.get(other_block, "pose_z")
-        next_state.set(block, "pose_x", cur_x)
-        next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z+CFG.playroom_block_size)
-        next_state.set(block, "held", 0.0)
-        next_state.set(block, "clear", 1.0)
-        next_state.set(other_block, "clear", 0.0)
-        next_state.set(self._robot, "fingers", fingers)
-        return next_state
 
     def _transition_move(self, state: State, action: Action) -> State:
         x, y, _, rotation, _ = action.arr
@@ -251,16 +167,6 @@ class PlayroomEnv(BlocksEnv):
         else:
             next_state.set(self._dial, "level", 0.0)
         return next_state
-
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                    possible_num_blocks=CFG.playroom_num_blocks_train,
-                    rng=self._train_rng)
-
-    def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                    possible_num_blocks=CFG.playroom_num_blocks_test,
-                    rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -296,7 +202,7 @@ class PlayroomEnv(BlocksEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        r = CFG.playroom_block_size * 0.5  # block radius
+        r = self.block_size * 0.5  # block radius
 
         fig, ax = plt.subplots(1, 1, figsize=(20, 8))
         ax.set_xlabel("x", fontsize=24)
@@ -422,7 +328,7 @@ class PlayroomEnv(BlocksEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + CFG.playroom_block_size * (0.5 + pile_j)
+            z = self.table_height + self.block_size * (0.5 + pile_j)
             max_j = max(j for i, j in block_to_pile_idx.values() if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
@@ -442,22 +348,12 @@ class PlayroomEnv(BlocksEnv):
     def _sample_initial_pile_xy(self, rng: np.random.Generator,
                                 existing_xys: Set[Tuple[float, float]]
                                 ) -> Tuple[float, float]:
+        # Differs from blocks because lower and upper bounds are set by table
         while True:
             x = rng.uniform(self.table_x_lb, self.table_x_ub)
             y = rng.uniform(self.table_y_lb, self.table_y_ub)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
-
-    @staticmethod
-    def _table_xy_is_clear(x: float, y: float,
-                           existing_xys: Set[Tuple[float, float]]) -> bool:
-        if all(abs(x-other_x) > 2*CFG.playroom_block_size
-               for other_x, _ in existing_xys):
-            return True
-        if all(abs(y-other_y) > 2*CFG.playroom_block_size
-               for _, other_y in existing_xys):
-            return True
-        return False
 
     @staticmethod
     def _is_valid_loc(x: float, y: float) -> bool:
@@ -485,31 +381,6 @@ class PlayroomEnv(BlocksEnv):
             if rotation >= 1.5 or rotation <= -1.5:
                 return True
         return False
-
-    @staticmethod
-    def _On_holds(state: State, objects: Sequence[Object]) -> bool:
-        block1, block2 = objects
-        cls = PlayroomEnv
-        if state.get(block1, "held") >= cls.held_tol or \
-           state.get(block2, "held") >= cls.held_tol:
-            return False
-        x1 = state.get(block1, "pose_x")
-        y1 = state.get(block1, "pose_y")
-        z1 = state.get(block1, "pose_z")
-        x2 = state.get(block2, "pose_x")
-        y2 = state.get(block2, "pose_y")
-        z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.playroom_block_size],
-                           atol=cls.pick_tol)
-
-    @staticmethod
-    def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool:
-        block, = objects
-        z = state.get(block, "pose_z")
-        cls = PlayroomEnv
-        desired_z = cls.table_height + CFG.playroom_block_size * 0.5
-        return (state.get(block, "held") < cls.held_tol) and \
-            (desired_z-cls.pick_tol < z < desired_z+cls.pick_tol)
 
     # To pull in when I add all the predicates
     # @staticmethod
@@ -550,6 +421,7 @@ class PlayroomEnv(BlocksEnv):
 
     def _Pick_policy(self, state: State, objects: Sequence[Object],
                      params: Array) -> Action:
+        # Differs from blocks because need robot rotation
         robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -561,6 +433,7 @@ class PlayroomEnv(BlocksEnv):
 
     def _Stack_policy(self, state: State, objects: Sequence[Object],
                       params: Array) -> Action:
+        # Differs from blocks because need robot rotation
         robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -572,12 +445,13 @@ class PlayroomEnv(BlocksEnv):
 
     def _PutOnTable_policy(self, state: State, objects: Sequence[Object],
                            params: Array) -> Action:
+        # Differs from blocks because need robot rotation, table bounds
         robot, = objects
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params
         x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
         y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
-        z = self.table_height + 0.5*CFG.playroom_block_size
+        z = self.table_height + 0.5*self.block_size
         rotation = state.get(robot, "rotation")
         arr = np.array([x, y, z, rotation, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)

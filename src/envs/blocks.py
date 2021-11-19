@@ -22,6 +22,7 @@ class BlocksEnv(BaseEnv):
     """
     # Parameters that aren't important enough to need to clog up settings.py
     table_height = 0.2
+    block_size = 0.1
     x_lb = 1.3
     x_ub = 1.4
     y_lb = 0.15
@@ -30,8 +31,10 @@ class BlocksEnv(BaseEnv):
     clear_tol = 0.5
     open_fingers = 0.8
     pick_tol = 0.08
-    assert pick_tol < CFG.blocks_block_size
+    assert pick_tol < block_size
     lift_amt = 1.0
+    num_blocks_train = [3, 4]
+    num_blocks_test = [5, 6]
 
     def __init__(self) -> None:
         super().__init__()
@@ -80,23 +83,20 @@ class BlocksEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        _, _, z, fingers = action.arr
+        x, y, z, fingers = action.arr
         # Infer which transition function to follow
         if fingers < 0.5:
-            transition_fn = self._transition_pick
-        elif z < self.table_height + CFG.blocks_block_size:
-            transition_fn = self._transition_putontable
-        else:
-            transition_fn = self._transition_stack
-        next_state = transition_fn(state, action)
-        return next_state
+            return self._transition_pick(state, x, y, z, fingers)
+        if z < self.table_height + self.block_size:
+            return self._transition_putontable(state, x, y, z, fingers)
+        return self._transition_stack(state, x, y, z, fingers)
 
-    def _transition_pick(self, state: State, action: Action) -> State:
+    def _transition_pick(self, state: State, x: float, y: float, z: float,
+                         fingers: float) -> State:
         next_state = state.copy()
         # Can only pick if fingers are open
         if state.get(self._robot, "fingers") < self.open_fingers:
             return next_state
-        x, y, z, fingers = action.arr
         block = self._get_block_at_xyz(state, x, y, z)
         if block is None:  # no block at this pose
             return next_state
@@ -121,14 +121,14 @@ class BlocksEnv(BaseEnv):
             next_state.set(poss_below_block, "clear", 1.0)
         return next_state
 
-    def _transition_putontable(self, state: State, action: Action) -> State:
+    def _transition_putontable(self, state: State, x: float, y: float,
+                               z: float, fingers: float) -> State:
         next_state = state.copy()
         # Can only putontable if fingers are closed
         if state.get(self._robot, "fingers") >= self.open_fingers:
             return next_state
         block = self._get_held_block(state)
         assert block is not None
-        x, y, z, fingers = action.arr
         # Check that table surface is clear at this pose
         poses = [[state.get(b, "pose_x"),
                   state.get(b, "pose_y"),
@@ -146,7 +146,8 @@ class BlocksEnv(BaseEnv):
         next_state.set(self._robot, "fingers", fingers)
         return next_state
 
-    def _transition_stack(self, state: State, action: Action) -> State:
+    def _transition_stack(self, state: State, x: float, y: float, z: float,
+                          fingers: float) -> State:
         next_state = state.copy()
         # Can only stack if fingers are closed
         if state.get(self._robot, "fingers") >= self.open_fingers:
@@ -154,7 +155,6 @@ class BlocksEnv(BaseEnv):
         # Check that both blocks exist
         block = self._get_held_block(state)
         assert block is not None
-        x, y, z, fingers = action.arr
         other_block = self._get_highest_block_below(state, x, y, z)
         if other_block is None:  # no block to stack onto
             return next_state
@@ -170,7 +170,7 @@ class BlocksEnv(BaseEnv):
         cur_z = state.get(other_block, "pose_z")
         next_state.set(block, "pose_x", cur_x)
         next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z+CFG.blocks_block_size)
+        next_state.set(block, "pose_z", cur_z+self.block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(block, "clear", 1.0)
         next_state.set(other_block, "clear", 0.0)
@@ -179,12 +179,12 @@ class BlocksEnv(BaseEnv):
 
     def get_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               possible_num_blocks=CFG.blocks_num_blocks_train,
+                               possible_num_blocks=self.num_blocks_train,
                                rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               possible_num_blocks=CFG.blocks_num_blocks_test,
+                               possible_num_blocks=self.num_blocks_test,
                                rng=self._test_rng)
 
     @property
@@ -213,7 +213,7 @@ class BlocksEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        r = CFG.blocks_block_size * 0.5  # block radius
+        r = self.block_size * 0.5  # block radius
 
         width_ratio = max(1./5, min(5.,  # prevent from being too extreme
             (self.y_ub - self.y_lb) / (self.x_ub - self.x_lb)))
@@ -304,7 +304,7 @@ class BlocksEnv(BaseEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + CFG.blocks_block_size * (0.5 + pile_j)
+            z = self.table_height + self.block_size * (0.5 + pile_j)
             max_j = max(j for i, j in block_to_pile_idx.values() if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
@@ -339,23 +339,20 @@ class BlocksEnv(BaseEnv):
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 
-    @staticmethod
-    def _table_xy_is_clear(x: float, y: float,
+    def _table_xy_is_clear(self, x: float, y: float,
                            existing_xys: Set[Tuple[float, float]]) -> bool:
-        if all(abs(x-other_x) > 2*CFG.blocks_block_size
+        if all(abs(x-other_x) > 2*self.block_size
                for other_x, _ in existing_xys):
             return True
-        if all(abs(y-other_y) > 2*CFG.blocks_block_size
+        if all(abs(y-other_y) > 2*self.block_size
                for _, other_y in existing_xys):
             return True
         return False
 
-    @staticmethod
-    def _On_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block1, block2 = objects
-        cls = BlocksEnv
-        if state.get(block1, "held") >= cls.held_tol or \
-           state.get(block2, "held") >= cls.held_tol:
+        if state.get(block1, "held") >= self.held_tol or \
+           state.get(block2, "held") >= self.held_tol:
             return False
         x1 = state.get(block1, "pose_x")
         y1 = state.get(block1, "pose_y")
@@ -363,17 +360,15 @@ class BlocksEnv(BaseEnv):
         x2 = state.get(block2, "pose_x")
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
-        return np.allclose([x1, y1, z1], [x2, y2, z2+CFG.blocks_block_size],
-                           atol=cls.pick_tol)
+        return np.allclose([x1, y1, z1], [x2, y2, z2+self.block_size],
+                           atol=self.pick_tol)
 
-    @staticmethod
-    def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
         z = state.get(block, "pose_z")
-        cls = BlocksEnv
-        desired_z = cls.table_height + CFG.blocks_block_size * 0.5
-        return (state.get(block, "held") < cls.held_tol) and \
-            (desired_z-cls.pick_tol < z < desired_z+cls.pick_tol)
+        desired_z = self.table_height + self.block_size * 0.5
+        return (state.get(block, "held") < self.held_tol) and \
+            (desired_z-self.pick_tol < z < desired_z+self.pick_tol)
 
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -440,7 +435,7 @@ class BlocksEnv(BaseEnv):
         x_norm, y_norm = params
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
         y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
-        z = self.table_height + 0.5*CFG.blocks_block_size
+        z = self.table_height + 0.5*self.block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
