@@ -63,10 +63,10 @@ class _BehaviorParameterizedOption(ParameterizedOption):
         # can be found. We probably want to time out and jump back to the task level
         # at some point!
         while True:
-            # Generate a new rng using a seed created by self._rng
-            option_params_rng = self._rng.integers(-923, 923)
+            self._rng.random() # generate a random sample to move the state of the generator?
             controller = self._controller_fn(self._env, igo[0], params,
                                              rng=self._rng)
+            
             if controller:
                 break
 
