@@ -5,7 +5,7 @@ import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, ActionTrajectory, Segment, Partition
+    ObjToVarSub, ActionTrajectory, Segment, Partition, Object
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -102,10 +102,11 @@ def learn_strips_operators(segments: Sequence[Segment]
             # Note that both add and delete effects must unify.
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
-            suc, sub = _unify(frozenset(segment.add_effects),
-                              frozenset(segment.delete_effects),
-                              frozenset(part_add_effects),
-                              frozenset(part_delete_effects))
+            suc, sub = unify_effects_and_options(
+                frozenset(segment.add_effects),
+                frozenset(part_add_effects),
+                frozenset(segment.delete_effects),
+                frozenset(part_delete_effects))
             if suc:
                 # Add to this partition
                 assert set(sub.values()) == set(params[i])
@@ -231,22 +232,32 @@ def  _learn_preconditions(segments: List[Tuple[Segment, ObjToVarSub]]
 
 
 @functools.lru_cache(maxsize=None)
-def _unify(
+def unify_effects_and_options(
         ground_add_effects: FrozenSet[GroundAtom],
-        ground_delete_effects: FrozenSet[GroundAtom],
         lifted_add_effects: FrozenSet[LiftedAtom],
+        ground_delete_effects: FrozenSet[GroundAtom],
         lifted_delete_effects: FrozenSet[LiftedAtom],
+        ground_option_args: Tuple[Object, ...] = tuple(),
+        lifted_option_args: Tuple[Variable, ...] = tuple()
 ) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles add and delete effects.
-    Changes predicate names so that all are treated differently by
-    utils.unify().
+    """Wrapper around utils.unify() that handles option arguments, add effects,
+    and delete effects. Changes predicate names so that all are treated
+    differently by utils.unify().
     """
+    opt_arg_pred = Predicate("OPT-ARGS",
+                             [a.type for a in ground_option_args],
+                             _classifier=lambda s, o: False)  # dummy
+    f_ground_option_args = frozenset({GroundAtom(opt_arg_pred,
+                                                 ground_option_args)})
     new_ground_add_effects = utils.wrap_atom_predicates_ground(
         ground_add_effects, "ADD-")
     f_new_ground_add_effects = frozenset(new_ground_add_effects)
     new_ground_delete_effects = utils.wrap_atom_predicates_ground(
         ground_delete_effects, "DEL-")
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
+
+    f_lifted_option_args = frozenset({LiftedAtom(opt_arg_pred,
+                                                 lifted_option_args)})
     new_lifted_add_effects = utils.wrap_atom_predicates_lifted(
         lifted_add_effects, "ADD-")
     f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
@@ -254,5 +265,7 @@ def _unify(
         lifted_delete_effects, "DEL-")
     f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
     return utils.unify(
-        f_new_ground_add_effects | f_new_ground_delete_effects,
-        f_new_lifted_add_effects | f_new_lifted_delete_effects)
+        f_ground_option_args | f_new_ground_add_effects | \
+            f_new_ground_delete_effects,
+        f_lifted_option_args | f_new_lifted_add_effects | \
+            f_new_lifted_delete_effects)
