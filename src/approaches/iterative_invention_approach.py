@@ -38,15 +38,19 @@ class IterativeInventionApproach(NSRTLearningApproach):
         predicates = self._get_current_predicates()
         segments = [seg for traj in dataset
                     for seg in segment_trajectory(traj, predicates)]
-        # If options are known, annotate the segments correctly.
-        if not CFG.do_option_learning:
-            new_segments = []
-            for segment in segments:
-                traj, _, before, after = segment
-                option = traj[1][0].get_option()
-                new_segment = (traj, option, before, after)
-                new_segments.append(new_segment)
-            segments = new_segments
+        # Note that segmenting does not assume that options are known; it uses
+        # the predicates only. So after segmenting, we will add the correct
+        # options to the segments, because here we are assuming that options
+        # are known.
+        assert not CFG.do_option_learning, \
+            "Iterative invention assumes that options are given."
+        new_segments = []
+        for segment in segments:
+            traj, _, before, after = segment
+            option = traj[1][0].get_option()
+            new_segment = (traj, option, before, after)
+            new_segments.append(new_segment)
+        segments = new_segments
         while True:
             print(f"\n\nInvention iteration {self._num_inventions}")
             # Invent predicates one at a time (iteratively).

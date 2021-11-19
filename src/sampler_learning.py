@@ -5,10 +5,28 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Callable, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, Partition
+    Object, Array, State, _Option, Partition, STRIPSOperator
 from predicators.src import utils
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
+
+
+def learn_samplers(
+    strips_ops: List[STRIPSOperator],
+    partitions: List[Partition],
+    options: List[Tuple[ParameterizedOption, List[Variable]]],
+    do_sampler_learning: bool
+    ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
+    """Learn all samplers for each operator's option parameters.
+    """
+    samplers = []
+    for i, op in enumerate(strips_ops):
+        sampler = learn_sampler(
+            partitions, op.name, op.parameters, op.preconditions,
+            op.add_effects, op.delete_effects, options[i][0], i,
+            do_sampler_learning)
+        samplers.append(sampler)
+    return samplers
 
 
 def learn_sampler(partitions: List[Partition],
