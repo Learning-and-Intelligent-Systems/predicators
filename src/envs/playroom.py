@@ -99,7 +99,7 @@ class PlayroomEnv(BlocksEnv):
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
         # Update robot position
-        if not self._is_valid_loc(action):
+        if not self._is_valid_loc(x, y):
             return state.copy()
         if self._robot_can_move(state, action):
             state = self._transition_move(state, action)
@@ -376,7 +376,7 @@ class PlayroomEnv(BlocksEnv):
                                edgecolor='black', facecolor='yellow')
         ax.add_patch(robby)
         rotation = state.get(self._robot, "rotation")
-        dx, dy = np.cos(rotation*np.pi), np.sin(rotation*np.pi)
+        dx, dy = np.cos(rotation*np.pi/2), np.sin(rotation*np.pi/2)
         robot_arrow = patches.Arrow(robot_x, robot_y, dx, dy,
             edgecolor='black', facecolor='black', width=0.5)
         ax.add_patch(robot_arrow)
@@ -460,8 +460,7 @@ class PlayroomEnv(BlocksEnv):
         return False
 
     @staticmethod
-    def _is_valid_loc(action: Action) -> bool:
-        x, y, _, _, _ = action.arr
+    def _is_valid_loc(x: float, y: float) -> bool:
         return (0 <= x <= 30 and 0 <= y <= 30) or \
                (30 <= x <= 110 and 10 <= y <= 20) or \
                (110 <= x <= 140 and 0 <= y <= 30)
