@@ -4,7 +4,8 @@
 import time
 from gym.spaces import Box
 import numpy as np
-from predicators.src.nsrt_learning import learn_nsrts_from_data
+from predicators.src.nsrt_learning import learn_nsrts_from_data, \
+    unify_effects_and_options
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption
 from predicators.src import utils
@@ -200,3 +201,43 @@ def test_nsrt_learning_specific_nsrts():
             assert option1.parent.params_space.contains(
                 nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
+
+
+def test_unify_effects_and_options():
+    """Tests for unify_effects_and_options().
+    """
+    # The following test checks edge cases of unification with respect to
+    # the split between effects and option variables.
+    # The case is basically this:
+    # Add set 1: P(a, b)
+    # Option 1: A(b, c)
+    # Add set 2: P(w, x)
+    # Option 2: A(y, z)
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    w = cup_type("?w")
+    x = cup_type("?x")
+    y = cup_type("?y")
+    z = cup_type("?z")
+    pred0 = Predicate("Pred0", [cup_type, cup_type], lambda s, o: False)
+    # Option0(cup0, cup1)
+    ground_option_args = (cup0, cup1)
+    # Pred0(cup1, cup2) true
+    ground_add_effects = frozenset({pred0([cup1, cup2])})
+    ground_delete_effects = frozenset()
+    # Option0(w, x)
+    lifted_option_args = (w, x)
+    # Pred0(y, z) True
+    lifted_add_effects = frozenset({pred0([y, z])})
+    lifted_delete_effects = frozenset()
+    suc, sub = unify_effects_and_options(
+        ground_add_effects,
+        lifted_add_effects,
+        ground_delete_effects,
+        lifted_delete_effects,
+        ground_option_args,
+        lifted_option_args)
+    assert not suc
+    assert not sub
