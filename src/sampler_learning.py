@@ -105,10 +105,11 @@ def _create_sampler_data(
     negative_data = []
     for idx, partition in enumerate(partitions):
         for (segment, obj_to_var) in partition:
-            traj, option, before, after = segment
-            state = traj[0][0]
-            trans_add_effects = after - before
-            trans_delete_effects = before - after
+            assert segment.has_option()
+            option = segment.get_option()
+            state = segment.states[0]
+            trans_add_effects = segment.add_effects
+            trans_delete_effects = segment.delete_effects
             if option.parent != param_option:
                 continue
             var_types = [var.type for var in variables]

@@ -44,13 +44,9 @@ class IterativeInventionApproach(NSRTLearningApproach):
         # are known.
         assert not CFG.do_option_learning, \
             "Iterative invention assumes that options are given."
-        new_segments = []
         for segment in segments:
-            traj, _, before, after = segment
-            option = traj[1][0].get_option()
-            new_segment = (traj, option, before, after)
-            new_segments.append(new_segment)
-        segments = new_segments
+            assert not segment.has_option()
+            segment.set_option_from_trajectory()
         while True:
             print(f"\n\nInvention iteration {self._num_inventions}")
             # Invent predicates one at a time (iteratively).
@@ -67,9 +63,10 @@ class IterativeInventionApproach(NSRTLearningApproach):
             # Add the new predicate and its negation to all the transitions.
             new_preds = {new_predicate, neg_new_predicate}
             for segment in segments:
-                before_state, after_state = segment[0][0][0], segment[0][0][-1]
-                segment[2].update(utils.abstract(before_state, new_preds))
-                segment[3].update(utils.abstract(after_state, new_preds))
+                segment.init_atoms.update(
+                    utils.abstract(segment.states[0], new_preds))
+                segment.final_atoms.update(
+                    utils.abstract(segment.states[-1], new_preds))
         # Finally, learn NSRTs via superclass, using all the predicates.
         self._learn_nsrts(dataset)
 
@@ -109,16 +106,15 @@ class IterativeInventionApproach(NSRTLearningApproach):
         lifteds = frozenset(op_pre | op_add_effs | op_del_effs)
         # Extract the option for this partition. It may be DefaultOption if
         # we're learning options.
-        param_option = partitions[partition_idx][0][0][1].parent
+        param_option = partitions[partition_idx][0][0].get_option().parent
         # Organize segments by the set of objects that are in each one.
         segments_by_objects = defaultdict(list)
         for partition in partitions:
             for (segment, _) in partition:
                 # Exclude if options don't match.
-                if segment[1].parent != param_option:
+                if segment.get_option().parent != param_option:
                     continue
-                state = segment[0][0][0]
-                objects = frozenset(state)
+                objects = frozenset(segment.states[0])
                 segments_by_objects[objects].append(segment)
         del partitions
         # Figure out which transitions the op makes wrong predictions on.
@@ -129,17 +125,13 @@ class IterativeInventionApproach(NSRTLearningApproach):
             data[params] = {"pos": [], "neg": []}
         for objects in segments_by_objects:
             for grounding, sub in utils.get_all_groundings(lifteds, objects):
-                for (traj, _, before, after) in segments_by_objects[objects]:
-                    state = traj[0][0]
-                    atoms = before
-                    add_effs = after - before
-                    del_effs = before - after
+                for segment in segments_by_objects[objects]:
                     trans_atoms = utils.wrap_atom_predicates_ground(
-                        atoms, "PRE-")
+                        segment.init_atoms, "PRE-")
                     trans_add_effs = utils.wrap_atom_predicates_ground(
-                        add_effs, "ADD-")
+                        segment.add_effects, "ADD-")
                     trans_del_effs = utils.wrap_atom_predicates_ground(
-                        del_effs, "DEL-")
+                        segment.delete_effects, "DEL-")
                     # Check whether the grounding holds for the atoms.
                     # If not, continue.
                     pre_grounding = {atom for atom in grounding if
@@ -155,6 +147,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
                                              op_add_effs}
                     grounding_delete_effects = {atom.ground(sub) for atom in
                                                 op_del_effs}
+                    state = segment.states[0]
                     for params, params_data in data.items():
                         predicate_objects = [sub[v] for v in params]
                         vec = state.vec(predicate_objects)
