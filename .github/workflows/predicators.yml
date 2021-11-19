@@ -3,7 +3,7 @@ name: predicators
 on: [push]
 
 jobs:
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,7 +55,7 @@ jobs:
           poetry run pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
           
 
-  typecheck:
+  static-type-checking:
     runs-on: ubuntu-latest
     strategy:
       matrix:
