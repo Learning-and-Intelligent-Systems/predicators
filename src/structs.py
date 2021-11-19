@@ -693,18 +693,18 @@ class Segment:
         return self.init_atoms - self.final_atoms
 
     def has_option(self) -> bool:
-        """Whether this action has a non-default option attached.
+        """Whether this segment has a non-default option attached.
         """
         return self._option is not DefaultOption
 
     def get_option(self) -> _Option:
-        """Get the option that produced this action.
+        """Get the option that produced this segment.
         """
         assert self.has_option()
         return self._option
 
     def set_option(self, option: _Option) -> None:
-        """Set the option that produced this action.
+        """Set the option that produced this segment.
         """
         self._option = option
 
@@ -735,25 +735,30 @@ class Partition:
     def __len__(self) -> int:
         return len(self.members)
 
-    @property
+    @cached_property
+    def _exemplar(self) -> Tuple[Segment, ObjToVarSub]:
+        assert len(self.members) > 0, "Partition is empty."
+        return self.members[0]
+
+    @cached_property
     def add_effects(self) -> Set[LiftedAtom]:
         """Get the lifted add effects for this partition.
         """
-        seg, sub = self._get_exemplar()
+        seg, sub = self._exemplar
         return {a.lift(sub) for a in seg.add_effects}
 
-    @property
+    @cached_property
     def delete_effects(self) -> Set[LiftedAtom]:
         """Get the lifted delete effects for this partition.
         """
-        seg, sub = self._get_exemplar()
+        seg, sub = self._exemplar
         return {a.lift(sub) for a in seg.delete_effects}
 
-    @property
+    @cached_property
     def option_spec(self) -> Tuple[ParameterizedOption, List[Variable]]:
         """Get the parameterized option and option vars for this partition.
         """
-        seg, sub = self._get_exemplar()
+        seg, sub = self._exemplar
         assert seg.has_option()
         option = seg.get_option()
         option_args = [sub[o] for o in option.objects]
@@ -778,10 +783,6 @@ class Partition:
                 assert option_args == part_option_args
         # Add to members.
         self.members.append(member)
-
-    def _get_exemplar(self) -> Tuple[Segment, ObjToVarSub]:
-        assert len(self.members) > 0, "Partition is empty."
-        return self.members[0]
 
 
 # Convenience higher-order types useful throughout the code

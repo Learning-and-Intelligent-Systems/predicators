@@ -30,15 +30,15 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     # The order of the options corresponds to the strips_ops.
     # Each item is a (ParameterizedOption, Sequence[Variable])
     # with the latter holding the option_vars.
-    option_specs = learn_options(strips_ops, partitions)
+    option_specs = learn_option_specs(strips_ops, partitions)
     assert len(option_specs) == len(strips_ops)
 
     # Now that options are learned, we can update the segments to include
     # which option is being executed within each segment.
-    for partition, (param_option, opt_vars) in zip(partitions, option_specs):
+    for partition, option_spec in zip(partitions, option_specs):
         for (segment, _) in partition:
             # Modifies segment in place.
-            _find_option_for_segment(segment, param_option, opt_vars)
+            _update_segment_from_option_specs(segment, option_spec)
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
@@ -158,7 +158,7 @@ def learn_strips_operators(segments: Sequence[Segment]
     return ops, partitions
 
 
-def learn_options(
+def learn_option_specs(
     strips_ops: List[STRIPSOperator],
     partitions: List[Partition],
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
@@ -193,9 +193,8 @@ def _extract_options_from_data(
     return option_specs
 
 
-def _find_option_for_segment(segment: Segment,
-                             param_option: ParameterizedOption,
-                             opt_vars: Sequence[Variable]) -> None:
+def _update_segment_from_option_specs(segment: Segment,
+        option_spec: Tuple[ParameterizedOption, Sequence[Variable]]) -> None:
     """Figure out which option was executed within the segment.
 
     At this point, we know which ParameterizedOption was used in the segment,
@@ -207,6 +206,7 @@ def _find_option_for_segment(segment: Segment,
     assert not segment.has_option()
     segment.set_option_from_trajectory()
     option = segment.get_option()
+    param_option, opt_vars = option_spec
     assert option.parent == param_option
     assert [o.type for o in option.objects] == \
            [v.type for v in opt_vars]

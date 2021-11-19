@@ -21,7 +21,7 @@ def learn_samplers(
     """
     samplers = []
     for i, op in enumerate(strips_ops):
-        sampler = learn_sampler(
+        sampler = _learn_sampler(
             partitions, op.name, op.parameters, op.preconditions,
             op.add_effects, op.delete_effects, options[i][0], i,
             do_sampler_learning)
@@ -29,14 +29,14 @@ def learn_samplers(
     return samplers
 
 
-def learn_sampler(partitions: List[Partition],
-                  nsrt_name: str,
-                  variables: Sequence[Variable],
-                  preconditions: Set[LiftedAtom],
-                  add_effects: Set[LiftedAtom],
-                  delete_effects: Set[LiftedAtom],
-                  param_option: ParameterizedOption,
-                  partition_idx: int, do_sampler_learning: bool) -> Callable[[
+def _learn_sampler(partitions: List[Partition],
+                   nsrt_name: str,
+                   variables: Sequence[Variable],
+                   preconditions: Set[LiftedAtom],
+                   add_effects: Set[LiftedAtom],
+                   delete_effects: Set[LiftedAtom],
+                   param_option: ParameterizedOption,
+                   partition_idx: int, do_sampler_learning: bool) -> Callable[[
                       State, np.random.Generator, Sequence[Object]], Array]:
     """Learn a sampler given data. Transitions are partitioned, so
     that they can be used for generating negative data. Integer partition_idx
