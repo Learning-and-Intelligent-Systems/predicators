@@ -11,14 +11,6 @@ jobs:
         poetry-version: [1.1.8]
     steps:
       #----------------------------------------------
-      #       cancel any pending actions
-      #----------------------------------------------
-      - name: Cancel previous
-        uses: styfle/cancel-workflow-action@0.8.0
-        with:
-          access_token: ${{ github.token }}
-        if: ${{github.ref != 'refs/head/master'}}
-      #----------------------------------------------
       #       check-out repo and set-up python
       #----------------------------------------------
       - name: Check out repository
@@ -65,15 +57,11 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+        poetry-version: [1.1.8]
     steps:
-      #----------------------------------------------
-      #       cancel any pending actions
-      #----------------------------------------------
-      - name: Cancel previous
-        uses: styfle/cancel-workflow-action@0.8.0
-        with:
-          access_token: ${{ github.token }}
-        if: ${{github.ref != 'refs/head/master'}}
       #----------------------------------------------
       #       check-out repo and set-up python
       #----------------------------------------------
@@ -120,14 +108,11 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-      #----------------------------------------------
-      #       cancel any pending actions
-      #----------------------------------------------
-      - name: Cancel previous
-        uses: styfle/cancel-workflow-action@0.8.0
-        with:
-          access_token: ${{ github.token }}
-        if: ${{github.ref != 'refs/head/master'}}
+    strategy:
+      matrix:
+        python-version: [3.8]
+        poetry-version: [1.1.8]
+    steps:
       #----------------------------------------------
       #       check-out repo and set-up python
       #----------------------------------------------
