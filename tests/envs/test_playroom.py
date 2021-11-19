@@ -8,7 +8,7 @@ from predicators.src.structs import Action, State
 
 
 def test_playroom():
-    """Tests for PlayroomEnv class: properties and rendering.
+    """Tests for PlayroomEnv class: properties.
     """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
@@ -310,3 +310,5 @@ def test_playroom_action_sequence_video():
         utils.save_video(outfile, video)  # pragma: no cover
     # Render a state where we're grasping
     env.render(states[1], task)
+    # Render end state with open and closed doors
+    env.render(states[-1], task)

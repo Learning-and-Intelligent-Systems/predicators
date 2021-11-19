@@ -24,16 +24,6 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
 
-    # blocks env parameters
-    blocks_num_blocks_train = [3, 4]
-    blocks_num_blocks_test = [5, 6]
-    blocks_block_size = 0.1
-
-    # playroom env parameters
-    playroom_num_blocks_train = [3]
-    playroom_num_blocks_test = [3]
-    playroom_block_size = 0.5
-
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples", "configs",
