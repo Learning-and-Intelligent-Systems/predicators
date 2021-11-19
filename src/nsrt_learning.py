@@ -110,7 +110,7 @@ def learn_strips_operators(segments: Sequence[Segment]
             if suc:
                 # Add to this partition
                 assert set(sub.values()) == set(params[i])
-                partitions[i].append((segment, sub))
+                partitions[i].add((segment, sub))
                 break
         # Otherwise, create a new group
         else:
@@ -126,7 +126,7 @@ def learn_strips_operators(segments: Sequence[Segment]
                                 in segment.add_effects})
             delete_effects.append({atom.lift(sub) for atom
                                    in segment.delete_effects})
-            new_partition = [(segment, sub)]
+            new_partition = Partition([(segment, sub)])
             partitions.append(new_partition)
 
     assert len(params) == len(add_effects) == \
@@ -212,9 +212,8 @@ def _find_option_for_segment(segment: Segment,
            [v.type for v in opt_vars]
 
 
-def  _learn_preconditions(segments: List[Tuple[Segment, ObjToVarSub]]
-                          ) -> Set[LiftedAtom]:
-    for i, (segment, sub) in enumerate(segments):
+def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:
+    for i, (segment, sub) in enumerate(partition):
         atoms = segment.init_atoms
         objects = set(sub.keys())
         atoms = {atom for atom in atoms if
