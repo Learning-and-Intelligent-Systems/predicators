@@ -4,7 +4,7 @@
 import numpy as np
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
-from predicators.src.structs import Action
+from predicators.src.structs import Action, State
 
 
 def test_playroom():
@@ -295,3 +295,33 @@ def test_playroom_options():
         [0, 0, 0], dtype=np.float32)).policy(state)
     PutOnTable.ground([robot], np.array(
         [0.5, 0.5], dtype=np.float32)).policy(state)
+
+def test_playroom_action_sequence_video():
+    utils.update_config({"env": "playroom"})
+    env = PlayroomEnv()
+    env.seed(123)
+    # Run through a specific plan of low-level actions.
+    task = env.get_train_tasks()[0]
+    action_arrs = [
+        # Move down hallway from left to right and open all doors
+        np.array([29.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([49.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([59.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([79.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([99.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([109.8, 15, 1, 0, 1]).astype(np.float32),
+        # Shut playroom door
+        np.array([110.2, 15, 1, 2, 1]).astype(np.float32),
+        # Turn dial on
+        np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
+    ]
+    make_video = True  # Can toggle to true for debugging
+    def policy(s: State) -> Action:
+        del s  # unused
+        return Action(action_arrs.pop(0))
+    (_, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
