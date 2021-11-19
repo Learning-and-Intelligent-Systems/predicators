@@ -720,6 +720,70 @@ class Segment:
         assert self.has_option()
 
 
+@dataclass(eq=False)
+class Partition:
+    """A partition stores a collection of segments that will ultimately be
+    covered by the same NSRT. For each segment, the partition also stores an
+    ObjToVarSub, under which the ParameterizedOption and effects for all
+    segments in the partition are equivalent.
+    """
+    members: List[Tuple[Segment, ObjToVarSub]]
+
+    def __iter__(self) -> Iterator[Tuple[Segment, ObjToVarSub]]:
+        return iter(self.members)
+
+    def __len__(self) -> int:
+        return len(self.members)
+
+    @property
+    def add_effects(self) -> Set[LiftedAtom]:
+        """Get the lifted add effects for this partition.
+        """
+        seg, sub = self._get_exemplar()
+        return {a.lift(sub) for a in seg.add_effects}
+
+    @property
+    def delete_effects(self) -> Set[LiftedAtom]:
+        """Get the lifted delete effects for this partition.
+        """
+        seg, sub = self._get_exemplar()
+        return {a.lift(sub) for a in seg.delete_effects}
+
+    @property
+    def option_spec(self) -> Tuple[ParameterizedOption, List[Variable]]:
+        """Get the parameterized option and option vars for this partition.
+        """
+        seg, sub = self._get_exemplar()
+        assert seg.has_option()
+        option = seg.get_option()
+        option_args = [sub[o] for o in option.objects]
+        return (option.parent, option_args)
+
+    def add(self, member: Tuple[Segment, ObjToVarSub]) -> None:
+        """Add a new member.
+        """
+        seg, sub = member
+        # Check for consistency.
+        if len(self.members) > 0:
+            # The effects should match.
+            lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
+            lifted_delete_effects = {a.lift(sub) for a in seg.delete_effects}
+            assert lifted_add_effects == self.add_effects
+            assert lifted_delete_effects == self.delete_effects
+            if seg.has_option():
+                option = seg.get_option()
+                part_param_option, part_option_args = self.option_spec
+                assert option.parent == part_param_option
+                option_args = [sub[o] for o in option.objects]
+                assert option_args == part_option_args
+        # Add to members.
+        self.members.append(member)
+
+    def _get_exemplar(self) -> Tuple[Segment, ObjToVarSub]:
+        assert len(self.members) > 0, "Partition is empty."
+        return self.members[0]
+
+
 # Convenience higher-order types useful throughout the code
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
@@ -733,5 +797,4 @@ ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Transition = Tuple[State, State, Set[GroundAtom], _Option,
                    Set[GroundAtom], Set[GroundAtom], Set[GroundAtom]]
-Partition = List[Tuple[Segment, ObjToVarSub]]
 Metrics = DefaultDict[str, float]

@@ -104,9 +104,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
         op_del_effs = utils.wrap_atom_predicates_lifted(
             op.delete_effects, "DEL-")
         lifteds = frozenset(op_pre | op_add_effs | op_del_effs)
-        # Extract the option for this partition. It may be DefaultOption if
-        # we're learning options.
-        param_option = partitions[partition_idx][0][0].get_option().parent
+        # Extract the option for this partition.
+        param_option, _ = partitions[partition_idx].option_spec
         # Organize segments by the set of objects that are in each one.
         segments_by_objects = defaultdict(list)
         for partition in partitions:
