@@ -18,7 +18,12 @@ from igibson.metrics.task import TaskMetric
 from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
 from igibson.objects.articulated_object import URDFObject
 from igibson.utils.behavior_robot_planning_utils import plan_base_motion_br, plan_hand_motion_br
-from igibson.object_states.utils import continuous_param_kinematics
+from igibson.utils import sampling_utils
+from igibson.external.pybullet_tools.utils import (
+    get_aabb,
+    get_aabb_center,
+    get_aabb_extent,
+)
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
     # "hit_to_plane_threshold": 0.1,  # TODO: Tune this parameter.
@@ -157,7 +162,6 @@ def navigate_to_param_sampler(rng):
     yaw = rng.random() * (2 * np.pi) - np.pi
     return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
 
-
 def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
     """
     Parameterized controller for navigation.
@@ -204,6 +208,8 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 
     if valid_position is not None:
         p.restoreState(state)
+        p.removeState(state)
+        state = p.saveState()
         obstacles = get_body_ids(env)
         if env.robots[0].parts["right_hand"].object_in_hand is not None:
             obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
@@ -216,8 +222,11 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
             rng=rng
         )
 
+        p.restoreState(state)
+
+        import ipdb; ipdb.set_trace()
+
         if plan is not None:
-            p.restoreState(state)
 
             def navigateToOption(state, env):
 
@@ -260,6 +269,9 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
                     plan.pop(0)
 
                     return low_level_action, done_bit
+
+            p.restoreState(state)
+            p.removeState(state)
 
             return navigateToOption
 
@@ -383,7 +395,6 @@ def grasp_obj_at_pos(env, obj, grasp_offset_and_z_rot, rng=np.random.default_rng
                         rng=rng
                     )
                     p.restoreState(state)
-                    p.removeState(state)
 
                     # NOTE: This below line is *VERY* important after the pybullet state is restored. The hands keep an internal track of their state, and if we don't reset their internal state to mirror the 
                     # actual pybullet state, the hand will think its elsewhere and update incorrectly accordingly
@@ -442,6 +453,9 @@ def grasp_obj_at_pos(env, obj, grasp_offset_and_z_rot, rng=np.random.default_rng
 
                             return ret_action, done_bit
 
+                        p.restoreState(state)
+                        p.removeState(state)
+
                         return graspObjectOption
 
                     else:
@@ -467,9 +481,9 @@ def grasp_obj_at_pos(env, obj, grasp_offset_and_z_rot, rng=np.random.default_rng
 
 # Place Ontop #
 
-def place_obj_plan(env, original_state, target_pos, target_orn, rng=np.random.default_rng(23)):
+def place_obj_plan(env, obj, original_state, place_rel_pos, rng=np.random.default_rng(23)):
     obj_in_hand = env.scene.get_objects()[env.robots[0].parts["right_hand"].object_in_hand]
-    x, y, z = target_pos
+    x, y, z = np.add(place_rel_pos, obj.get_position())
     hand_x, hand_y, hand_z = env.robots[0].parts["right_hand"].get_position()
 
     minx = min(x, hand_x) - 1
@@ -499,24 +513,46 @@ def place_obj_plan(env, original_state, target_pos, target_orn, rng=np.random.de
 
     return plan
 
-def place_ontop_obj_pos(env, obj, place_pos_and_quat, rng=np.random.default_rng(23)):
+def place_ontop_obj_pos_sampler(env, obj, return_orn=False, rng=np.random.default_rng(23)):
+    # Sample Params #
+    objA = env.scene.get_objects()[env.robots[0].parts["right_hand"].object_in_hand]
+    objB = obj
+    params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
+    aabb = get_aabb(objA.get_body_id())
+    aabb_center, aabb_extent = get_aabb_center(aabb), get_aabb_extent(aabb)
+
+    sampling_results = sampling_utils.sample_cuboid_on_object( # Non rng???
+        objB,
+        num_samples=1,
+        cuboid_dimensions=aabb_extent,
+        axis_probabilities=[0, 0, 1],
+        refuse_downwards=True,
+        **params
+        )
+
+    if sampling_results[0] is None:
+        return None
+
+    rnd_params = np.subtract(sampling_results[0][0], obj.get_position())
+
+    if return_orn:
+        return rnd_params, sampling_results[0][2]
+
+    return rnd_params
+
+
+def place_ontop_obj_pos(env, obj, place_rel_pos, place_orn=None, option_model=False, rng=np.random.default_rng(23)):
     plan = np.zeros((17,1))
     obj_in_hand = env.scene.get_objects()[env.robots[0].parts["right_hand"].object_in_hand]
     if obj_in_hand is not None and obj_in_hand != obj:
-        
+        print("PRIMITIVE:attempt to place {} ontop {}".format(obj_in_hand.name, obj.name))
+
         if isinstance(obj, URDFObject):
             if np.linalg.norm(np.array(obj.get_position()) - np.array(env.robots[0].get_position())) < 2:
+                original_orientation = env.robots[0].get_orientation()
                 state = p.saveState()
-                result = continuous_param_kinematics(
-                    "onTop",
-                    obj_in_hand,
-                    obj,
-                    True,
-                    place_pos_and_quat,
-                    use_ray_casting_method=True,
-                    max_trials=100,
-                    skip_falling=True,
-                )
+
+                # To check if object fits on place location
                 p.restoreState(state)
 
                 # NOTE: This below line is *VERY* important after the pybullet state is restored. The hands keep an internal track of their state, and if we don't reset their internal state to mirror the 
@@ -524,10 +560,9 @@ def place_ontop_obj_pos(env, obj, place_pos_and_quat, rng=np.random.default_rng(
                 env.robots[0].parts["right_hand"].set_position(env.robots[0].parts["right_hand"].get_position())
                 env.robots[0].parts["left_hand"].set_position(env.robots[0].parts["left_hand"].get_position())
 
-                if result:
-                    #pos = obj_in_hand.get_position()
-                    #orn = obj_in_hand.get_orientation()
-                    plan = place_obj_plan(env, state, place_pos_and_quat[0:3], place_pos_and_quat[3:7], rng=rng)
+                
+                if not option_model:
+                    plan = place_obj_plan(env, obj, state, place_rel_pos, rng=rng)
                     if plan is None:
                         return None
                     reversed_plan = [rev_elem for rev_elem in reversed(plan[:])]
@@ -538,10 +573,12 @@ def place_ontop_obj_pos(env, obj, place_pos_and_quat, rng=np.random.default_rng(
                         "PRIMITIVE: place {} ontop {} success".format(obj_in_hand.name, obj.name)
                     )
 
+                    # TODO: Include the error-correcting closed-loop execution actions in here.
                     def placeOntopObjectOption(state, env):
                         nonlocal plan
                         nonlocal plan_executed_forwards
                         nonlocal tried_opening_gripper
+
                         done_bit = False
 
                         atol_xy = 0.1
@@ -550,7 +587,6 @@ def place_ontop_obj_pos(env, obj, place_pos_and_quat, rng=np.random.default_rng(
                         
                         # 1. Get current position and orientation
                         current_pos, current_orn_quat = p.multiplyTransforms(env.robots[0].parts["right_hand"].parent.parts["body"].new_pos, env.robots[0].parts["right_hand"].parent.parts["body"].new_orn, env.robots[0].parts["right_hand"].local_pos, env.robots[0].parts["right_hand"].local_orn)
-                        #current_pos = list(env.robots[0].parts["right_hand"].get_position())
                         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
                         expected_pos = np.array(plan[0][0:3])
@@ -643,17 +679,20 @@ def place_ontop_obj_pos(env, obj, place_pos_and_quat, rng=np.random.default_rng(
                                 return low_level_action, done_bit
 
                             ###
-
-                    return placeOntopObjectOption
-
                 else:
-                    p.removeState(state)
-                    print(
-                        "PRIMITIVE: place {} ontop {} fail, sampling fail".format(
-                            obj_in_hand.name, obj.name
-                        )
-                    )
-                    return None
+                    def placeOntopObjectOptionModel(init_state, env):
+                        target_pos = place_rel_pos
+                        target_orn = place_orn
+                        env.robots[0].parts["right_hand"].force_release_obj()
+                        obj_in_hand.set_position_orientation(target_pos, target_orn)
+
+                        final_state = env.get_state()
+                        return final_state, True
+
+                if option_model:
+                    return placeOntopObjectOptionModel
+                else:
+                    return placeOntopObjectOption
 
             else:
                 print(
@@ -769,6 +808,6 @@ if __name__ == "__main__":
             _, _, _, _ = env.step(action)
         successfully_navigated_to_notebook = True
     else:
-        print(f"Sadness - the navigateTo option with parameters {params_list[2][0:2]} failed to execute.")
+        print(f"Sadness - the placeOnTop option with parameters {params_list[2][0:2]} failed to execute.")
 
     env.close()
