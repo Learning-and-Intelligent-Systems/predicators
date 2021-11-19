@@ -376,8 +376,7 @@ class BlocksEnv(BaseEnv):
             (desired_z-cls.pick_tol < z < desired_z+cls.pick_tol)
 
     @staticmethod
-    def _GripperOpen_holds(state: State, objects: Sequence[Object]
-                           ) -> bool:
+    def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(robot, "fingers") >= BlocksEnv.open_fingers
 
