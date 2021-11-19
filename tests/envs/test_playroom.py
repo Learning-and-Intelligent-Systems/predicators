@@ -23,8 +23,6 @@ def test_playroom():
     assert {pred.name for pred in env.goal_predicates} == {"On", "OnTable"}
     assert len(env.options) == 3
     assert len(env.types) == 4
-    block_type = [t for t in env.types if t.name == "block"][0]
-    robot_type = [t for t in env.types if t.name == "robot"][0]
     assert env.action_space.shape == (5,)
     assert abs(env.action_space.low[0]-PlayroomEnv.x_lb) < 1e-3
     assert abs(env.action_space.high[0]-PlayroomEnv.x_ub) < 1e-3
@@ -33,25 +31,6 @@ def test_playroom():
     assert abs(env.action_space.low[2]) < 1e-3
     assert abs(env.action_space.low[3]+2) < 1e-3
     assert abs(env.action_space.high[3]-2) < 1e-3
-    for i, task in enumerate(env.get_test_tasks()):
-        state = task.init
-        robot = None
-        for item in state:
-            if item.type == robot_type:
-                robot = item
-                continue
-            if item.type == block_type:
-                assert not (state.get(item, "held") and
-                            state.get(item, "clear"))
-        assert robot is not None
-        if i == 0:
-            # Open a door to test rendering
-            act = Action(np.array([29.8, 15, 1, 0, 1]).astype(np.float32))
-            state = env.simulate(state, act)
-            # Force initial pick to test rendering with holding
-            act = Action(np.array([16.6, 19, 1.45, -1, 0]).astype(np.float32))
-            state = env.simulate(state, act)
-            env.render(state, task)
 
 def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op.
@@ -273,7 +252,7 @@ def test_playroom_simulate_doors_and_dial():
             assert np.all(state[o] == next_state[o])
 
 def test_playroom_options():
-    """Tests predicate option policies.
+    """Tests for predicate option policies.
     """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
@@ -297,12 +276,17 @@ def test_playroom_options():
         [0.5, 0.5], dtype=np.float32)).policy(state)
 
 def test_playroom_action_sequence_video():
+    """Test to sanity check rendering.
+    """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     # Run through a specific plan of low-level actions.
     task = env.get_train_tasks()[0]
+    print(task.init)
     action_arrs = [
+        # Pick up a block
+        np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32),
         # Move down hallway from left to right and open all doors
         np.array([29.8, 15, 1, 0, 1]).astype(np.float32),
         np.array([49.8, 15, 1, 0, 1]).astype(np.float32),
@@ -315,13 +299,15 @@ def test_playroom_action_sequence_video():
         # Turn dial on
         np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
     ]
-    make_video = True  # Can toggle to true for debugging
+    make_video = False  # Can toggle to true for debugging
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
-    (_, _), video, _ = utils.run_policy_on_task(
+    (states, _), video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, env.predicates,
         len(action_arrs), make_video, env.render)
     if make_video:
         outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
+    # Render a state where we're grasping
+    env.render(states[1], task)
