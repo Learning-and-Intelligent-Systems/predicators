@@ -57,35 +57,35 @@ jobs:
         run: poetry install --no-interaction
     
     
-    job2:
-      runs-on: ubuntu-latest
-      needs: job1
-      steps:
-        #----------------------------------------------
-        #                 Run pytest
-        #----------------------------------------------
-        - name: Pytest
-          run: |
-            poetry run pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
-  
-    job3:
-      runs-on: ubuntu-latest
-      needs: job1
-      steps:
-        #----------------------------------------------
-        #            Run mypy typechecking
-        #----------------------------------------------
-        - name: Mypy
-          run: |
-            poetry run mypy . --config-file mypy.ini
-  
-    job4:
-      runs-on: ubuntu-latest
-      needs: job1
-      steps:
-        #----------------------------------------------
-        #              Run pylint linting
-        #----------------------------------------------
-        - name: Pylint
-          run: |
-            poetry run pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
+  job2:
+    runs-on: ubuntu-latest
+    needs: job1
+    steps:
+      #----------------------------------------------
+      #                 Run pytest
+      #----------------------------------------------
+      - name: Pytest
+        run: |
+          poetry run pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
+
+  job3:
+    runs-on: ubuntu-latest
+    needs: job1
+    steps:
+      #----------------------------------------------
+      #            Run mypy typechecking
+      #----------------------------------------------
+      - name: Mypy
+        run: |
+          poetry run mypy . --config-file mypy.ini
+
+  job4:
+    runs-on: ubuntu-latest
+    needs: job1
+    steps:
+      #----------------------------------------------
+      #              Run pylint linting
+      #----------------------------------------------
+      - name: Pylint
+        run: |
+          poetry run pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
