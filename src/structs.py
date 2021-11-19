@@ -649,6 +649,77 @@ class Action:
         assert not self.has_option()
 
 
+@dataclass(eq=False)
+class Segment:
+    """A segment represents a state-action trajectory that is the result of
+    executing one option. The segment stores the abstract state (ground atoms)
+    that held immediately before the option started executing, and the abstract
+    state (ground atoms) that held immediately after.
+
+    Segments are used during learning, when we don't necessarily know the option
+    associated with the trajectory yet.
+    """
+    trajectory: ActionTrajectory
+    init_atoms: Set[GroundAtom]
+    final_atoms: Set[GroundAtom]
+    _option: _Option = field(repr=False, default=DefaultOption)
+
+    @property
+    def states(self) -> List[State]:
+        """States in the trajectory.
+        """
+        return self.trajectory[0]
+
+    @property
+    def actions(self) -> List[Action]:
+        """Actions in the trajectory.
+        """
+        return self.trajectory[1]
+
+    @property
+    def add_effects(self) -> Set[GroundAtom]:
+        """Atoms in the final atoms but not the init atoms.
+
+        Do not cache; init and final atoms can change.
+        """
+        return self.final_atoms - self.init_atoms
+
+    @property
+    def delete_effects(self) -> Set[GroundAtom]:
+        """Atoms in the init atoms but not the final atoms.
+
+        Do not cache; init and final atoms can change.
+        """
+        return self.init_atoms - self.final_atoms
+
+    def has_option(self) -> bool:
+        """Whether this action has a non-default option attached.
+        """
+        return self._option is not DefaultOption
+
+    def get_option(self) -> _Option:
+        """Get the option that produced this action.
+        """
+        assert self.has_option()
+        return self._option
+
+    def set_option(self, option: _Option) -> None:
+        """Set the option that produced this action.
+        """
+        self._option = option
+
+    def set_option_from_trajectory(self) -> None:
+        """Look up the option from the trajectory. Make sure consistent.
+        """
+        for i, act in enumerate(self.trajectory[1]):
+            if i == 0:
+                option = act.get_option()
+            else:
+                assert option == act.get_option()
+        self.set_option(option)
+        assert self.has_option()
+
+
 # Convenience higher-order types useful throughout the code
 ActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
@@ -662,6 +733,5 @@ ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Transition = Tuple[State, State, Set[GroundAtom], _Option,
                    Set[GroundAtom], Set[GroundAtom], Set[GroundAtom]]
-Segment = Tuple[ActionTrajectory, _Option, Set[GroundAtom], Set[GroundAtom]]
 Partition = List[Tuple[Segment, ObjToVarSub]]
 Metrics = DefaultDict[str, float]

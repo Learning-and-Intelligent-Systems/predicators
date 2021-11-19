@@ -5,7 +5,7 @@ import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, ActionTrajectory, Segment, DefaultOption, _Option, Partition
+    ObjToVarSub, ActionTrajectory, Segment, Partition
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -35,18 +35,10 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
     # Now that options are learned, we can update the segments to include
     # which option is being executed within each segment.
-    new_partitions = []
     for partition, (param_option, opt_vars) in zip(partitions, option_specs):
-        new_partition = []
-        for (segment, sub) in partition:
-            option = _find_option_for_segment(segment, param_option, opt_vars)
-            traj, old_option, before, after = segment
-            assert old_option == DefaultOption
-            new_segment = (traj, option, before, after)
-            new_partition.append((new_segment, sub))
-        new_partitions.append(new_partition)
-    assert len(partitions) == len(new_partitions)
-    partitions = new_partitions
+        for (segment, _) in partition:
+            # Modifies segment in place.
+            _find_option_for_segment(segment, param_option, opt_vars)
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
@@ -86,8 +78,8 @@ def segment_trajectory(trajectory: ActionTrajectory,
             # and the start of the next segment.
             # Include the default option here; replaced during option learning.
             current_segment_traj[0].append(states[t+1])
-            segment = (current_segment_traj, DefaultOption,
-                       all_atoms[t], all_atoms[t+1])
+            segment = Segment(current_segment_traj,
+                              all_atoms[t], all_atoms[t+1])
             segments.append(segment)
             current_segment_traj = ([states[t+1]], [])
     # Don't include the last current segment because it didn't result in
@@ -105,16 +97,13 @@ def learn_strips_operators(segments: Sequence[Segment]
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[Partition] = []
     for segment in segments:
-        _, _, before, after = segment
-        seg_add_effects = after - before
-        seg_delete_effects = before - after
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects.
             # Note that both add and delete effects must unify.
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
-            suc, sub = _unify(frozenset(seg_add_effects),
-                              frozenset(seg_delete_effects),
+            suc, sub = _unify(frozenset(segment.add_effects),
+                              frozenset(segment.delete_effects),
                               frozenset(part_add_effects),
                               frozenset(part_delete_effects))
             if suc:
@@ -125,17 +114,17 @@ def learn_strips_operators(segments: Sequence[Segment]
         # Otherwise, create a new group
         else:
             # Get new lifted effects
-            objects = {o for atom in seg_add_effects |
-                       seg_delete_effects for o in atom.objects}
+            objects = {o for atom in segment.add_effects |
+                       segment.delete_effects for o in atom.objects}
             objects_lst = sorted(objects)
             variables = [Variable(f"?x{i}", o.type)
                          for i, o in enumerate(objects_lst)]
             sub = dict(zip(objects_lst, variables))
             params.append(variables)
             add_effects.append({atom.lift(sub) for atom
-                                in seg_add_effects})
+                                in segment.add_effects})
             delete_effects.append({atom.lift(sub) for atom
-                                   in seg_delete_effects})
+                                   in segment.delete_effects})
             new_partition = [(segment, sub)]
             partitions.append(new_partition)
 
@@ -187,8 +176,7 @@ def _extract_options_from_data(
     option_specs = []
     for partition in partitions:
         for i, (segment, sub) in enumerate(partition):
-            segment_actions = segment[0][1]
-            option = segment_actions[0].get_option()
+            option = segment.actions[0].get_option()
             if i == 0:
                 param_option = option.parent
                 option_vars = [sub[o] for o in option.objects]
@@ -196,7 +184,7 @@ def _extract_options_from_data(
                 assert param_option == option.parent
                 assert option_vars == [sub[o] for o in option.objects]
             # Make sure the option is consistent within a trajectory.
-            for a in segment_actions:
+            for a in segment.actions:
                 option_a = a.get_option()
                 assert param_option == option_a.parent
                 assert option_vars == [sub[o] for o in option_a.objects]
@@ -206,29 +194,27 @@ def _extract_options_from_data(
 
 def _find_option_for_segment(segment: Segment,
                              param_option: ParameterizedOption,
-                             opt_vars: Sequence[Variable]) -> _Option:
+                             opt_vars: Sequence[Variable]) -> None:
     """Figure out which option was executed within the segment.
 
     At this point, we know which ParameterizedOption was used in the segment,
     and we know the option_vars, but we don't know what parameters were used.
+
+    Modifies segment in place.
     """
     assert not CFG.do_option_learning, "TODO: implement option learning."
-    segment_actions = segment[0][1]
-    for i, act in enumerate(segment_actions):
-        if i == 0:
-            option = act.get_option()
-            assert option.parent == param_option
-            assert [o.type for o in option.objects] == \
-                   [v.type for v in opt_vars]
-        else:
-            assert option == act.get_option()
-    return option
+    assert not segment.has_option()
+    segment.set_option_from_trajectory()
+    option = segment.get_option()
+    assert option.parent == param_option
+    assert [o.type for o in option.objects] == \
+           [v.type for v in opt_vars]
 
 
 def  _learn_preconditions(segments: List[Tuple[Segment, ObjToVarSub]]
                           ) -> Set[LiftedAtom]:
     for i, (segment, sub) in enumerate(segments):
-        _, _, atoms, _ = segment
+        atoms = segment.init_atoms
         objects = set(sub.keys())
         atoms = {atom for atom in atoms if
                  all(o in objects for o in atom.objects)}
