@@ -9,7 +9,8 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Array, STRIPSOperator, Partition, Segment
+    Type, Task, Action, Dataset, Array, STRIPSOperator, Partition, Segment, \
+    LiftedAtom, GroundAtom
 from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
@@ -97,13 +98,18 @@ class IterativeInventionApproach(NSRTLearningApproach):
             # We can't learn 0-arity predicates since the vectorized
             # states would be empty, i.e. the X matrix has no features.
             return None
+        param_option, option_vars = partitions[partition_idx].option_spec
+        opt_arg_pred = Predicate("OPT-ARGS", param_option.types,
+                                 _classifier=lambda s, o: False)  # dummy
+        lifted_opt_atom = LiftedAtom(opt_arg_pred, option_vars)
         op_pre = utils.wrap_atom_predicates_lifted(
             op.preconditions, "PRE-")
         op_add_effs = utils.wrap_atom_predicates_lifted(
             op.add_effects, "ADD-")
         op_del_effs = utils.wrap_atom_predicates_lifted(
             op.delete_effects, "DEL-")
-        lifteds = frozenset(op_pre | op_add_effs | op_del_effs)
+        lifteds = frozenset(op_pre | op_add_effs | op_del_effs |
+                            {lifted_opt_atom})
         # Extract the option for this partition.
         param_option, _ = partitions[partition_idx].option_spec
         # Organize segments by the set of objects that are in each one.
@@ -125,17 +131,21 @@ class IterativeInventionApproach(NSRTLearningApproach):
         for objects in segments_by_objects:
             for grounding, sub in utils.get_all_groundings(lifteds, objects):
                 for segment in segments_by_objects[objects]:
+                    option = segment.get_option()
+                    ground_opt_atom = GroundAtom(opt_arg_pred, option.objects)
                     trans_atoms = utils.wrap_atom_predicates_ground(
                         segment.init_atoms, "PRE-")
                     trans_add_effs = utils.wrap_atom_predicates_ground(
                         segment.add_effects, "ADD-")
                     trans_del_effs = utils.wrap_atom_predicates_ground(
                         segment.delete_effects, "DEL-")
-                    # Check whether the grounding holds for the atoms.
+                    # Check whether the grounding holds for the atoms & option.
                     # If not, continue.
-                    pre_grounding = {atom for atom in grounding if
-                                     atom.predicate.name.startswith("PRE-")}
-                    if not pre_grounding.issubset(trans_atoms):
+                    pre_opt_grounding = {atom for atom in grounding if
+                                         atom.predicate.name == "OPT-ARGS" or
+                                         atom.predicate.name.startswith("PRE-")}
+                    if not pre_opt_grounding.issubset(
+                        trans_atoms | {ground_opt_atom}):
                         continue
                     # Since we made it past the above check, we know that the
                     # preconditions of the operator can be bound to this
