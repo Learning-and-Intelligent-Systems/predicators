@@ -2,15 +2,13 @@
 """
 
 import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet, Callable
-import numpy as np
+from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, Object, ActionTrajectory, Segment, DefaultOption, \
-    State, Array, _Option, Partition
+    ObjToVarSub, ActionTrajectory, Segment, DefaultOption, _Option, Partition
 from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.sampler_learning import learn_sampler
+from predicators.src.sampler_learning import learn_samplers
 
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
@@ -32,13 +30,13 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     # The order of the options corresponds to the strips_ops.
     # Each item is a (ParameterizedOption, Sequence[Variable])
     # with the latter holding the option_vars.
-    options = learn_options(strips_ops, partitions)
-    assert len(options) == len(strips_ops)
+    option_specs = learn_options(strips_ops, partitions)
+    assert len(option_specs) == len(strips_ops)
 
     # Now that options are learned, we can update the segments to include
     # which option is being executed within each segment.
     new_partitions = []
-    for partition, (param_option, opt_vars) in zip(partitions, options):
+    for partition, (param_option, opt_vars) in zip(partitions, option_specs):
         new_partition = []
         for (segment, sub) in partition:
             option = _find_option_for_segment(segment, param_option, opt_vars)
@@ -52,13 +50,13 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
-    samplers = learn_samplers(strips_ops, partitions, options,
+    samplers = learn_samplers(strips_ops, partitions, option_specs,
                               do_sampler_learning)
     assert len(samplers) == len(strips_ops)
 
     # Create final NSRTs.
     nsrts = []
-    for op, option_spec, sampler in zip(strips_ops, options, samplers):
+    for op, option_spec, sampler in zip(strips_ops, option_specs, samplers):
         param_option, option_vars = option_spec
         nsrt = op.make_nsrt(param_option, option_vars, sampler)
         nsrts.append(nsrt)
@@ -176,7 +174,7 @@ def learn_options(
     ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
     """Learn options for segments, or just look them up if they're given.
     """
-    assert not CFG.do_option_learning, "TODO"
+    assert not CFG.do_option_learning, "TODO: implement option learning."
     del strips_ops  # unused
     return _extract_options_from_data(partitions)
 
@@ -214,7 +212,7 @@ def _find_option_for_segment(segment: Segment,
     At this point, we know which ParameterizedOption was used in the segment,
     and we know the option_vars, but we don't know what parameters were used.
     """
-    assert not CFG.do_option_learning, "TODO"
+    assert not CFG.do_option_learning, "TODO: implement option learning."
     segment_actions = segment[0][1]
     for i, act in enumerate(segment_actions):
         if i == 0:
@@ -225,24 +223,6 @@ def _find_option_for_segment(segment: Segment,
         else:
             assert option == act.get_option()
     return option
-
-
-def learn_samplers(
-    strips_ops: List[STRIPSOperator],
-    partitions: List[Partition],
-    options: List[Tuple[ParameterizedOption, List[Variable]]],
-    do_sampler_learning: bool
-    ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
-    """Learn all samplers for each operator's option parameters.
-    """
-    samplers = []
-    for i, op in enumerate(strips_ops):
-        sampler = learn_sampler(
-            partitions, op.name, op.parameters, op.preconditions,
-            op.add_effects, op.delete_effects, options[i][0], i,
-            do_sampler_learning)
-        samplers.append(sampler)
-    return samplers
 
 
 def  _learn_preconditions(segments: List[Tuple[Segment, ObjToVarSub]]
