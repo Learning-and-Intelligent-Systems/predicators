@@ -59,9 +59,11 @@ class _BehaviorOptionGlue:
             # can be found. We probably want to time out and jump back to the task level
             # at some point!
             while self._option is None:
-                # Try to instantiate an option by sampling continuous parameters
-                # TODO: 
+                # Generate a new rng using a seed created by self._rng
+                option_params_rng = self._rng.integers(-923,923)
                 self._option = self._controller_fn(self._env, igo[0], p, rng=self._rng)
+                # Try to instantiate an option by sampling continuous parameters
+                # self._option = self._controller_fn(self._env, igo[0], p, rng=np.random.default_rng(option_params_rng))
         action, self._has_terminated = self._option(s, self._env)
 
         return Action(action)
@@ -102,6 +104,7 @@ class BehaviorEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
         load_internal_states(self._env.simulator, state.simulator_state)
+        assert save_internal_states(self._env.simulator) == state.simulator_state
         # We can remove this after we're confident in it
         loaded_state = self._current_ig_state_to_state()
         
