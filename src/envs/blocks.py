@@ -389,8 +389,9 @@ class BlocksEnv(BaseEnv):
         block, = objects
         return state.get(block, "clear") >= BlocksEnv.clear_tol
 
-    def _Pick_policy(self, state: State, objects: Sequence[Object],
-                     params: Array) -> Action:
+    def _Pick_policy(self, state: State, memory: Dict,
+                     objects: Sequence[Object], params: Array) -> Action:
+        del memory  # unused
         _, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -400,19 +401,20 @@ class BlocksEnv(BaseEnv):
         return Action(arr)
 
     @staticmethod
-    def _Pick_initiable(state: State, objects: Sequence[Object],
+    def _Pick_initiable(state: State, memory: Dict, objects: Sequence[Object],
                         params: Array) -> bool:
-        del state, objects, params  # unused
+        del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _Pick_terminal(state: State, objects: Sequence[Object],
+    def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-        del state, objects, params  # unused
+        del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
-    def _Stack_policy(self, state: State, objects: Sequence[Object],
-                      params: Array) -> Action:
+    def _Stack_policy(self, state: State, memory: Dict,
+                      objects: Sequence[Object], params: Array) -> Action:
+        del memory  # unused
         _, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -422,20 +424,20 @@ class BlocksEnv(BaseEnv):
         return Action(arr)
 
     @staticmethod
-    def _Stack_initiable(state: State, objects: Sequence[Object],
+    def _Stack_initiable(state: State, memory: Dict, objects: Sequence[Object],
                          params: Array) -> bool:
-        del state, objects, params  # unused
+        del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _Stack_terminal(state: State, objects: Sequence[Object],
+    def _Stack_terminal(state: State, memory: Dict, objects: Sequence[Object],
                         params: Array) -> bool:
-        del state, objects, params  # unused
+        del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
-    def _PutOnTable_policy(self, state: State, objects: Sequence[Object],
-                           params: Array) -> Action:
-        del state, objects  # unused
+    def _PutOnTable_policy(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+        del state, memory, objects  # unused
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params
         x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
@@ -446,15 +448,15 @@ class BlocksEnv(BaseEnv):
         return Action(arr)
 
     @staticmethod
-    def _PutOnTable_initiable(state: State, objects: Sequence[Object],
-                              params: Array) -> bool:
-        del state, objects, params  # unused
+    def _PutOnTable_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object], params: Array) -> bool:
+        del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _PutOnTable_terminal(state: State, objects: Sequence[Object],
-                             params: Array) -> bool:
-        del state, objects, params  # unused
+    def _PutOnTable_terminal(state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> bool:
+        del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
     def _get_held_block(self, state: State) -> Optional[Object]:
