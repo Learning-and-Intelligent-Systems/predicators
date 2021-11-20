@@ -87,7 +87,7 @@ def test_sesame_plan_uninitiable_option():
     env = CoverEnv()
     env.seed(123)
     option_model = create_option_model(CFG.option_model_name, env.simulate)
-    initiable = lambda s, o, p: False
+    initiable = lambda s, m, o, p: False
     nsrts = get_gt_nsrts(env.predicates, env.options)
     old_option = next(iter(env.options))
     new_option = ParameterizedOption(
