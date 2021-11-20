@@ -53,10 +53,13 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
-    max_rejection_sampling_tries = 100
+
+    # option learning parameters
+    do_option_learning = False  # if False, uses ground truth options
 
     # sampler learning parameters
     do_sampler_learning = True  # if False, uses random samplers
+    max_rejection_sampling_tries = 100
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr_sampler = 10000
@@ -140,15 +143,6 @@ class GlobalSettings:
                 "cluttered_table": "default",
                 "blocks": "default",
             })[args["env"]],
-
-            # For learning-based approaches, whether to include ground truth
-            # options in the offline dataset.
-            include_options_in_offline_data=defaultdict(bool, {
-                "trivial_learning": True,
-                "nsrt_learning": True,
-                "interactive_learning": True,
-                "iterative_invention": True,
-            })[args["approach"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
