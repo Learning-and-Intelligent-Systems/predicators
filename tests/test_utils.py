@@ -26,11 +26,11 @@ def test_option_to_trajectory():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(p)
-    def _initiable(_1, _2, p):
+    def _initiable(_1, _2, _3, p):
         return p > 0.25
-    def _terminal(s, _1, _2):
+    def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)
@@ -64,11 +64,11 @@ def test_action_to_option_trajectory():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(p)
-    def _initiable(_1, _2, p):
+    def _initiable(_1, _2, _3, p):
         return p > 0.25
-    def _terminal(s, _1, _2):
+    def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)
@@ -117,11 +117,11 @@ def test_option_plan_to_policy():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(p)
-    def _initiable(_1, _2, p):
+    def _initiable(_1, _2, _3, p):
         return p > 0.25
-    def _terminal(s, _1, _2):
+    def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)
@@ -527,8 +527,8 @@ def test_nsrt_methods():
     delete_effects = {not_on([cup_var, plate1_var])}
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption(
-        "Pick", [cup_type], params_space, lambda s, o, p: 2*p,
-        lambda s, o, p: True, lambda s, o, p: True)
+        "Pick", [cup_type], params_space, lambda s, m, o, p: 2*p,
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
     nsrt = NSRT("PickNSRT", parameters, preconditions, add_effects,
                 delete_effects, parameterized_option, [parameters[0]],
                 _sampler=None)

@@ -257,15 +257,15 @@ def test_option():
     obj1 = type2("obj1")
     state = test_state()
     params_space = Box(-10, 10, (2,))
-    def _policy(s, o, p):
-        del s, o  # unused
+    def _policy(s, m, o, p):
+        del s, m, o  # unused
         return Action(p*2)
-    def _initiable(s, o, p):
-        del o  # unused
+    def _initiable(s, m, o, p):
+        del m, o  # unused
         obj = list(s)[0]
         return p[0] < s[obj][0]
-    def _terminal(s, o, p):
-        del o  # unused
+    def _terminal(s, m, o, p):
+        del m, o  # unused
         obj = list(s)[0]
         return p[1] > s[obj][2]
     parameterized_option = ParameterizedOption(
@@ -319,6 +319,74 @@ def test_option():
         "params=array([ 5., -5.], dtype=float32))")
 
 
+def test_option_memory_incorrect():
+    """Tests for doing option memory the WRONG way. Ensures
+    that it fails in the way we'd expect.
+    """
+    def _make_option():
+        value = 0.0
+        def _policy(s, m, o, p):
+            del s, o  # unused
+            del m  # the correct way of doing memory is unused here
+            nonlocal value
+            value += p[0]  # add the param to value
+            return Action(p)
+        return ParameterizedOption(
+            "Dummy", [], Box(0, 1, (1,)), _policy, lambda s, m, o, p: True,
+            lambda s, m, o, p: value > 1.0)  # terminate when value > 1.0
+    param_opt = _make_option()
+    opt1 = param_opt.ground([], [0.7])
+    opt2 = param_opt.ground([], [0.4])
+    state = State({})
+    assert abs(opt1.policy(state).arr[0]-0.7) < 1e-6
+    assert abs(opt2.policy(state).arr[0]-0.4) < 1e-6
+    # Since memory is shared between the two ground options, both will be
+    # terminal now, since they'll share a value of 1.1 -- this is BAD, but
+    # we include this test as an example of what NOT to do.
+    assert opt1.terminal(state)
+    assert opt2.terminal(state)
+
+
+def test_option_memory_correct():
+    """Tests for doing option memory the RIGHT way. Uses the memory dict.
+    """
+    def _make_option():
+        def _initiable(s, m, o, p):
+            del s, o, p  # unused
+            m["value"] = 0.0  # initialize value
+            return True
+        def _policy(s, m, o, p):
+            del s, o  # unused
+            assert "value" in m, "Call initiable() first!"
+            m["value"] += p[0]  # add the param to value
+            return Action(p)
+        return ParameterizedOption(
+            "Dummy", [], Box(0, 1, (1,)), _policy, _initiable,
+            lambda s, m, o, p: m["value"] > 1.0)  # terminate when value > 1.0
+    param_opt = _make_option()
+    opt1 = param_opt.ground([], [0.7])
+    opt2 = param_opt.ground([], [0.4])
+    state = State({})
+    assert opt1.initiable(state)
+    assert opt2.initiable(state)
+    assert abs(opt1.policy(state).arr[0]-0.7) < 1e-6
+    assert abs(opt2.policy(state).arr[0]-0.4) < 1e-6
+    # Since memory is NOT shared between the two ground options, neither
+    # will be terminal now.
+    assert not opt1.terminal(state)
+    assert not opt2.terminal(state)
+    # Now make opt1 terminal.
+    assert abs(opt1.policy(state).arr[0]-0.7) < 1e-6
+    assert opt1.terminal(state)
+    assert not opt2.terminal(state)
+    # opt2 is not quite terminal yet...value is 0.8
+    opt2.policy(state)
+    assert not opt2.terminal(state)
+    # Make opt2 terminal.
+    opt2.policy(state)
+    assert opt2.terminal(state)
+
+
 def test_nsrts():
     """Tests for STRIPSOperator and NSRT and _GroundNSRT classes.
     """
@@ -334,30 +402,30 @@ def test_nsrts():
     delete_effects = {not_on([cup_var, plate_var])}
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption(
-        "Pick", [], params_space, lambda s, o, p: 2*p, lambda s, o, p: True,
-        lambda s, o, p: True)
+        "Pick", [], params_space, lambda s, m, o, p: 2*p,
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
     def sampler(s, rng, objs):
         del s  # unused
         del rng  # unused
         del objs  # unused
         return params_space.sample()
     # STRIPSOperator
-    strips_operator = STRIPSOperator("PickOperator", parameters, preconditions,
+    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
                                      add_effects, delete_effects)
     assert str(strips_operator) == repr(strips_operator) == \
-        """STRIPS-PickOperator:
+        """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]"""
     assert isinstance(hash(strips_operator), int)
-    strips_operator2 = STRIPSOperator("PickOperator", parameters, preconditions,
+    strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects)
     assert strips_operator == strips_operator2
     # NSRT
-    nsrt = NSRT("PickNSRT", parameters, preconditions, add_effects,
+    nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                 delete_effects, parameterized_option, [], sampler)
-    assert str(nsrt) == repr(nsrt) == """PickNSRT:
+    assert str(nsrt) == repr(nsrt) == """Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
@@ -365,15 +433,17 @@ def test_nsrts():
     Option: ParameterizedOption(name='Pick', types=[])
     Option Variables: []"""
     assert isinstance(hash(nsrt), int)
-    nsrt2 = NSRT("PickNSRT", parameters, preconditions, add_effects,
+    nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
                  delete_effects, parameterized_option, [], sampler)
     assert nsrt == nsrt2
+    nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
+    assert nsrt == nsrt3
     # _GroundNSRT
     cup = cup_type("cup")
     plate = plate_type("plate")
     ground_nsrt = nsrt.ground([cup, plate])
     assert isinstance(ground_nsrt, _GroundNSRT)
-    assert str(ground_nsrt) == repr(ground_nsrt) == """PickNSRT:
+    assert str(ground_nsrt) == repr(ground_nsrt) == """Pick:
     Parameters: [cup:cup_type, plate:plate_type]
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
@@ -383,6 +453,12 @@ def test_nsrts():
     assert isinstance(hash(ground_nsrt), int)
     ground_nsrt2 = nsrt2.ground([cup, plate])
     assert ground_nsrt == ground_nsrt2
+    # Test less than comparison for grounded options
+    nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
+                 delete_effects, parameterized_option, [], sampler)
+    ground_nsrt4 = nsrt4.ground([cup, plate])
+    assert ground_nsrt4 < ground_nsrt2
+    assert ground_nsrt2 > ground_nsrt4
     state = test_state()
     ground_nsrt.sample_option(state, np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
@@ -422,11 +498,11 @@ def test_action():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(p)
-    def _initiable(_1, _2, p):
+    def _initiable(_1, _2, _3, p):
         return p > 0.25
-    def _terminal(s, _1, _2):
+    def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)

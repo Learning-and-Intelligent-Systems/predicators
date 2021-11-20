@@ -263,21 +263,21 @@ class CoverEnv(BaseEnv):
         return state.get(block, "grasp") != -1
 
     @staticmethod
-    def _PickPlace_policy(state: State, objects: Sequence[Object],
+    def _PickPlace_policy(state: State, memory: Dict, objects: Sequence[Object],
                           params: Array) -> Action:
-        del state, objects  # unused
+        del state, memory, objects  # unused
         return Action(params)  # action is simply the parameter
 
     @staticmethod
-    def _PickPlace_initiable(state: State, objects: Sequence[Object],
-                             params: Array) -> bool:
-        del state, objects, params  # unused
+    def _PickPlace_initiable(state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> bool:
+        del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _PickPlace_terminal(state: State, objects: Sequence[Object],
-                            params: Array) -> bool:
-        del state, objects, params  # unused
+    def _PickPlace_terminal(state: State,  memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+        del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
     def _any_intersection(self, pose: float, width: float,
@@ -318,7 +318,9 @@ class CoverEnvTypedOptions(CoverEnv):
         return {self._Pick, self._Place}
 
     @staticmethod
-    def _Pick_policy(s: State, o: Sequence[Object], p: Array) -> Action:
+    def _Pick_policy(s: State, m: Dict, o: Sequence[Object], p: Array
+                     ) -> Action:
+        del m  # unused
         # The pick parameter is a RELATIVE position, so we need to
         # add the pose of the object.
         pick_pose = s.get(o[0], "pose") + p[0]
@@ -601,15 +603,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0])
         return State(data)
 
-    def _Pick_initiable(self, s: State, o: Sequence[Object],
+    def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
         # Pick is initiable if the hand is empty.
-        del o  # unused
-        del p  # unused
+        del m, o, p  # unused
         return self._HandEmpty_holds(s, [])
 
-    def _Pick_policy(self, s: State, o: Sequence[Object],  # type: ignore
-                     p: Array) -> Action:
+    def _Pick_policy(self, s: State, m: Dict,  # type: ignore
+                     o: Sequence[Object], p: Array) -> Action:
+        del m  # unused
         # The object is the one we want to pick.
         assert len(o) == 1
         obj = o[0]
@@ -641,21 +643,22 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
         return Action(np.array([0., delta_y, 0.], dtype=np.float32))
 
-    def _Pick_terminal(self, s: State, o: Sequence[Object], p: Array) -> bool:
+    def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
+                       p: Array) -> bool:
         # Pick is done when we're holding the desired object.
-        del p  # unused
+        del m, p  # unused
         return self._Holding_holds(s, o)
 
-    def _Place_initiable(self, s: State, o: Sequence[Object],
+    def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
         # Place is initiable if we're holding something.
         # Also may want to eventually check that the target is clear.
-        del o  # unused
-        del p  # unused
+        del m, o, p  # unused
         return not self._HandEmpty_holds(s, [])
 
-    def _Place_policy(self, s: State, o: Sequence[Object],
+    def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
                       p: Array) -> Action:
+        del m  # unused
         # The object is the one we want to place at.
         assert len(o) == 1
         obj = o[0]
@@ -687,11 +690,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
         return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
 
-    def _Place_terminal(self, s: State, o: Sequence[Object],
+    def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
         # Place is done when the hand is empty.
-        del o  # unused
-        del p  # unused
+        del m, o, p  # unused
         return self._HandEmpty_holds(s, [])
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
