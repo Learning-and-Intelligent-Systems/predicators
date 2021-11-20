@@ -229,27 +229,27 @@ class ClutteredTableEnv(BaseEnv):
         return state.get(can, "is_grasped") > 0.5
 
     @staticmethod
-    def _Grasp_policy(state: State, objects: Sequence[Object],
+    def _Grasp_policy(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> Action:
-        del state, objects  # unused
+        del state, memory, objects  # unused
         return Action(params)  # action is simply the parameter
 
     @staticmethod
-    def _Dump_policy(state: State, objects: Sequence[Object],
+    def _Dump_policy(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> Action:
-        del state, objects, params  # unused
+        del state, memory, objects, params  # unused
         return Action(np.zeros(4, dtype=np.float32))  # no parameter for dumping
 
     @staticmethod
-    def _GraspDump_initiable(state: State, objects: Sequence[Object],
-                             params: Array) -> bool:
-        del state, objects, params  # unused
+    def _GraspDump_initiable(state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> bool:
+        del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _GraspDump_terminal(state: State, objects: Sequence[Object],
-                            params: Array) -> bool:
-        del state, objects, params  # unused
+    def _GraspDump_terminal(state: State, memory: Dict,
+                            objects: Sequence[Object], params: Array) -> bool:
+        del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
     @staticmethod

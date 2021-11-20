@@ -21,8 +21,8 @@ def test_create_sampler_data():
                       lambda s, o: s[o[0]][0] > 0.5)
     predicates = {pred0}
     option = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1,)), lambda s, o, p: Action(p),
-        lambda s, o, p: False, lambda s, o, p: False).ground(
+        "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
             [], np.array([0.3]))
 
     # Transition 1: adds pred0(cup0)
