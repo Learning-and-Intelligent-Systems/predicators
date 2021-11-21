@@ -182,32 +182,38 @@ def _run_low_level_search(
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, rng_sampler)
         plan[cur_idx] = option
-        try:
-            next_state = option_model.get_next_state(state, option)
-            discovered_failures[cur_idx] = None  # no failure occurred
-        except EnvironmentFailure as e:
-            can_continue_on = False
-            discovered_failures[cur_idx] = _DiscoveredFailure(
-                e, nsrt)  # remember only the most recent failure
-        if not discovered_failures[cur_idx]:
-            traj[cur_idx+1] = next_state
-            cur_idx += 1
-            # Check atoms again expected atoms_sequence constraint.
-            assert len(traj) == len(atoms_sequence)
-            atoms = utils.abstract(traj[cur_idx], predicates)
-            if atoms == {atom for atom in atoms_sequence[cur_idx]
-                         if atom.predicate.name != _NOT_CAUSES_FAILURE}:
-                can_continue_on = True
-                if cur_idx == len(skeleton):  # success!
-                    result = plan
-                    return result
-            else:
+        if option.initiable(state):
+            try:
+                next_state = option_model.get_next_state(state, option)
+                discovered_failures[cur_idx] = None  # no failure occurred
+            except EnvironmentFailure as e:
                 can_continue_on = False
+                discovered_failures[cur_idx] = _DiscoveredFailure(
+                    e, nsrt)  # remember only the most recent failure
+            if not discovered_failures[cur_idx]:
+                traj[cur_idx+1] = next_state
+                cur_idx += 1
+                # Check atoms against expected atoms_sequence constraint.
+                assert len(traj) == len(atoms_sequence)
+                atoms = utils.abstract(traj[cur_idx], predicates)
+                if atoms == {atom for atom in atoms_sequence[cur_idx]
+                             if atom.predicate.name != _NOT_CAUSES_FAILURE}:
+                    can_continue_on = True
+                    if cur_idx == len(skeleton):  # success!
+                        result = plan
+                        return result
+                else:
+                    can_continue_on = False
+            else:
+                cur_idx += 1  # it's about to be decremented again
         else:
+            # If the option is not initiable, need to resample / backtrack.
+            can_continue_on = False
             cur_idx += 1  # it's about to be decremented again
         if not can_continue_on:
             # Go back to re-do the step we just did. If necessary, backtrack.
             cur_idx -= 1
+            assert cur_idx >= 0
             while num_tries[cur_idx] == CFG.max_samples_per_step:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DefaultOption

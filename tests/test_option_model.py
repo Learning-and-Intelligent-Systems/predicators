@@ -26,15 +26,15 @@ def test_default_option_model():
         next_state.set(obj, "feat3", next_state.get(obj, "feat3")+action.arr[1])
         return next_state
     params_space = Box(-10, 10, (2,))
-    def _policy(s, o, p):
-        del s, o  # unused
+    def _policy(s, m, o, p):
+        del s, m, o  # unused
         return Action(p*2)
-    def _initiable(s, o, p):
-        del o, p  # unused
+    def _initiable(s, m, o, p):
+        del m, o, p  # unused
         obj = list(s)[0]
         return s[obj][0] < 10 or s[obj][0] > 60
-    def _terminal(s, o, p):
-        del o, p  # unused
+    def _terminal(s, m, o, p):
+        del m, o, p  # unused
         obj = list(s)[0]
         return s[obj][0] > 50
     parameterized_option = ParameterizedOption(
