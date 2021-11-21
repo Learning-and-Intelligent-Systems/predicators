@@ -5,7 +5,7 @@ from gym.spaces import Box
 import numpy as np
 from predicators.src.sampler_learning import _create_sampler_data
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LiftedAtom
+    ParameterizedOption, LiftedAtom, Segment
 from predicators.src import utils
 
 
@@ -32,10 +32,9 @@ def test_create_sampler_data():
     next_state = State({cup0: [0.9]})
     atoms = utils.abstract(state, predicates)
     next_atoms = utils.abstract(next_state, predicates)
-    add_effects = next_atoms - atoms
-    delete_effects = atoms - next_atoms
-    transition1 = (state, next_state, atoms, option, next_atoms,
-                   add_effects, delete_effects)
+    segment1 = Segment(([state, next_state], [action]), atoms, next_atoms,
+                       option)
+    obj_to_var1 = {cup0: var_cup0}
 
     # Transition 2: does nothing
     state = State({cup0: [0.4]})
@@ -44,13 +43,11 @@ def test_create_sampler_data():
     next_state = state
     atoms = utils.abstract(state, predicates)
     next_atoms = utils.abstract(next_state, predicates)
-    add_effects = next_atoms - atoms
-    delete_effects = atoms - next_atoms
-    transition2 = (state, next_state, atoms, option, next_atoms,
-                   add_effects, delete_effects)
+    segment2 = Segment(([state, next_state], [action]), atoms, next_atoms,
+                       option)
+    obj_to_var2 = {cup0: var_cup0}
 
-    transitions = [[(transition1, {cup0: var_cup0})],
-                   [(transition2, {})]]
+    partitions = [[(segment1, obj_to_var1)], [(segment2, obj_to_var2)]]
     variables = [var_cup0]
     preconditions = set()
     add_effects = {LiftedAtom(pred0, [var_cup0])}
@@ -59,7 +56,7 @@ def test_create_sampler_data():
     partition_idx = 0
 
     positive_examples, negative_examples = _create_sampler_data(
-        transitions, variables, preconditions, add_effects,
+        partitions, variables, preconditions, add_effects,
         delete_effects, param_option, partition_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 1
@@ -78,7 +75,7 @@ def test_create_sampler_data():
     add_effects = set()
     partition_idx = 1
     positive_examples, negative_examples = _create_sampler_data(
-        transitions, variables, preconditions, add_effects,
+        partitions, variables, preconditions, add_effects,
         delete_effects, param_option, partition_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 0
