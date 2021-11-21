@@ -39,7 +39,7 @@ def create_env(name: str) -> BaseEnv:
     if name == "blocks":
         return BlocksEnv()
     if name == "playroom":
-        return PlayroomEnv()  # pragma: no cover
+        return PlayroomEnv()
     if name == "behavior":
         return BehaviorEnv()  # pragma: no cover
     raise NotImplementedError(f"Unknown env: {name}")

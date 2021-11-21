@@ -2,13 +2,21 @@
 """
 
 import numpy as np
+import pytest
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
-from predicators.src.structs import Action, State
+from predicators.src.structs import Action, State, Object
 
+class _DummyPlayroomEnv(PlayroomEnv):
+    """Boring room vs. playroom domain.
+    """
+    def get_door_next_to(self, state: State) -> Object:
+        """Finds the door that the robot is next to.
+        """
+        return super()._get_door_next_to(state)
 
 def test_playroom():
-    """Tests for PlayroomEnv class: properties.
+    """Tests for PlayroomEnv class: properties and rendering.
     """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
@@ -31,12 +39,43 @@ def test_playroom():
     assert abs(env.action_space.low[2]) < 1e-3
     assert abs(env.action_space.low[3]+2) < 1e-3
     assert abs(env.action_space.high[3]-2) < 1e-3
+    # Run through a specific plan of low-level actions.
+    task = env.get_train_tasks()[0]
+    action_arrs = [
+        # Pick up a block
+        np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32),
+        # Move down hallway from left to right and open all doors
+        np.array([29.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([49.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([59.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([79.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([99.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([109.8, 15, 1, 0, 1]).astype(np.float32),
+        # Shut playroom door
+        np.array([110.2, 15, 1, 2, 1]).astype(np.float32),
+        # Turn dial on
+        np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
+    ]
+    make_video = False  # Can toggle to true for debugging
+    def policy(s: State) -> Action:
+        del s  # unused
+        return Action(action_arrs.pop(0))
+    (states, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    # Render a state where we're grasping
+    env.render(states[1], task)
+    # Render end state with open and closed doors
+    env.render(states[-1], task)
 
 def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op.
     """
     utils.update_config({"env": "playroom"})
-    env = PlayroomEnv()
+    env = _DummyPlayroomEnv()
     env.seed(123)
     On = [o for o in env.predicates if o.name == "On"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
@@ -54,6 +93,9 @@ def test_playroom_failure_cases():
             robot = item
             break
     assert robot is not None
+    # Check robot is not next to any door
+    with pytest.raises(RuntimeError):
+        env.get_door_next_to(state)
     # block1 is on block0 is on the table, block2 is on the table
     assert OnTable([block0]) in atoms
     assert OnTable([block1]) not in atoms
@@ -274,41 +316,3 @@ def test_playroom_options():
         [0, 0, 0], dtype=np.float32)).policy(state)
     PutOnTable.ground([robot], np.array(
         [0.5, 0.5], dtype=np.float32)).policy(state)
-
-def test_playroom_action_sequence_video():
-    """Test to sanity check rendering.
-    """
-    utils.update_config({"env": "playroom"})
-    env = PlayroomEnv()
-    env.seed(123)
-    # Run through a specific plan of low-level actions.
-    task = env.get_train_tasks()[0]
-    action_arrs = [
-        # Pick up a block
-        np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32),
-        # Move down hallway from left to right and open all doors
-        np.array([29.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([49.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([59.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([79.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([99.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([109.8, 15, 1, 0, 1]).astype(np.float32),
-        # Shut playroom door
-        np.array([110.2, 15, 1, 2, 1]).astype(np.float32),
-        # Turn dial on
-        np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
-    ]
-    make_video = False  # Can toggle to true for debugging
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-    (states, _), video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates,
-        len(action_arrs), make_video, env.render)
-    if make_video:
-        outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
-    # Render a state where we're grasping
-    env.render(states[1], task)
-    # Render end state with open and closed doors
-    env.render(states[-1], task)
