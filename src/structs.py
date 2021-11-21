@@ -661,7 +661,7 @@ class Segment:
     Segments are used during learning, when we don't necessarily know the option
     associated with the trajectory yet.
     """
-    trajectory: ActionTrajectory
+    trajectory: StateActionTrajectory
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DefaultOption)
@@ -788,9 +788,9 @@ class Partition:
 
 
 # Convenience higher-order types useful throughout the code
-ActionTrajectory = Tuple[List[State], List[Action]]
+StateActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
-Dataset = List[ActionTrajectory]
+Dataset = List[StateActionTrajectory]
 GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
