@@ -3,7 +3,7 @@
 
 import time
 import numpy as np
-from predicators.src.models import NeuralGaussianRegressor, MLPClassifier
+from predicators.src.torch_models import NeuralGaussianRegressor, MLPClassifier
 from predicators.src.settings import CFG
 from predicators.src import utils
 
