@@ -419,9 +419,10 @@ class PlayroomEnv(BlocksEnv):
     #            (dial_y-cls.dial_r-cls.dial_tol < y
     #             < dial_y+cls.dial_r+cls.dial_tol)
 
-    def _Pick_policy(self, state: State, objects: Sequence[Object],
-                     params: Array) -> Action:
+    def _Pick_policy(self, state: State, memory: Dict,
+                     objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation
+        del memory  # unused
         robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -431,9 +432,10 @@ class PlayroomEnv(BlocksEnv):
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
-    def _Stack_policy(self, state: State, objects: Sequence[Object],
-                      params: Array) -> Action:
+    def _Stack_policy(self, state: State, memory: Dict,
+                      objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation
+        del memory  # unused
         robot, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
@@ -443,9 +445,10 @@ class PlayroomEnv(BlocksEnv):
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
-    def _PutOnTable_policy(self, state: State, objects: Sequence[Object],
-                           params: Array) -> Action:
+    def _PutOnTable_policy(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation, table bounds
+        del memory  # unused
         robot, = objects
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params
