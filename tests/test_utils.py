@@ -50,8 +50,8 @@ def test_option_to_trajectory():
     assert len(actions) == len(states)-1 == 10
 
 
-def test_action_to_option_trajectory():
-    """Tests for action_to_option_trajectory.
+def test_state_action_to_option_trajectory():
+    """Tests for state_action_to_option_trajectory.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
@@ -74,24 +74,24 @@ def test_action_to_option_trajectory():
         "Move", [], params_space, _policy, _initiable, _terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    act_traj = utils.option_to_trajectory(
+    sa_traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
-    opt_traj = utils.action_to_option_trajectory(act_traj)
+    opt_traj = utils.state_action_to_option_trajectory(sa_traj)
     assert len(opt_traj) == 2
     assert repr(opt_traj[1][0]) == (
         "_Option(name='Move', objects=[], "
         "params=array([0.5], dtype=float32))")
-    state_only_traj = (act_traj[0][:1], [])
-    opt_traj = utils.action_to_option_trajectory(state_only_traj)
+    state_only_traj = (sa_traj[0][:1], [])
+    opt_traj = utils.state_action_to_option_trajectory(state_only_traj)
     assert len(opt_traj[0]) == 1
     assert len(opt_traj[1]) == 0
     params = [0.6]
     other_option = parameterized_option.ground([], params)
-    other_act_traj = utils.option_to_trajectory(
-        act_traj[0][-1], _simulator, other_option, max_num_steps=100)
-    states = act_traj[0] + other_act_traj[0]
-    actions = act_traj[1] + other_act_traj[1]
-    opt_traj = utils.action_to_option_trajectory((states, actions))
+    other_sa_traj = utils.option_to_trajectory(
+        sa_traj[0][-1], _simulator, other_option, max_num_steps=100)
+    states = sa_traj[0] + other_sa_traj[0]
+    actions = sa_traj[1] + other_sa_traj[1]
+    opt_traj = utils.state_action_to_option_trajectory((states, actions))
     assert len(opt_traj) == 2
     assert len(opt_traj[1]) == 2
     assert repr(opt_traj[1][0]) == (
