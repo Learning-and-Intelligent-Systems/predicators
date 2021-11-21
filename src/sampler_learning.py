@@ -7,7 +7,7 @@ import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, _Option, Partition, STRIPSOperator
 from predicators.src import utils
-from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
+from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 

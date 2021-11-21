@@ -11,7 +11,8 @@ from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Array, STRIPSOperator, Partition, Segment, \
     LiftedAtom, GroundAtom
-from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
+from predicators.src.torch_models import LearnedPredicateClassifier, \
+    MLPClassifier
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.settings import CFG
