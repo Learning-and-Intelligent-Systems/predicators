@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import argparse
 import functools
+import gc
 import itertools
 import os
 from collections import defaultdict
@@ -796,3 +797,15 @@ def print_args(args: argparse.Namespace) -> None:
     print(f"Approach: {args.approach}")
     print(f"Timeout: {args.timeout}")
     print()
+
+
+def flush_cache() -> None:
+    """Clear all lru caches.
+    """
+    gc.collect()
+    wrappers = [
+        a for a in gc.get_objects()
+        if isinstance(a, functools._lru_cache_wrapper)]  # pylint: disable=protected-access
+
+    for wrapper in wrappers:
+        wrapper.cache_clear()
