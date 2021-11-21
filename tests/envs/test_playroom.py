@@ -5,15 +5,7 @@ import numpy as np
 import pytest
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
-from predicators.src.structs import Action, State, Object
-
-class _DummyPlayroomEnv(PlayroomEnv):
-    """Boring room vs. playroom domain.
-    """
-    def get_door_next_to(self, state: State) -> Object:
-        """Finds the door that the robot is next to.
-        """
-        return super()._get_door_next_to(state)
+from predicators.src.structs import Action, State
 
 def test_playroom():
     """Tests for PlayroomEnv class: properties and rendering.
@@ -44,7 +36,7 @@ def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op.
     """
     utils.update_config({"env": "playroom"})
-    env = _DummyPlayroomEnv()
+    env = PlayroomEnv()
     env.seed(123)
     On = [o for o in env.predicates if o.name == "On"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
@@ -64,7 +56,7 @@ def test_playroom_failure_cases():
     assert robot is not None
     # Check robot is not next to any door
     with pytest.raises(RuntimeError):
-        env.get_door_next_to(state)
+        env._get_door_next_to(state)  # pylint: disable=protected-access
     # block1 is on block0 is on the table, block2 is on the table
     assert OnTable([block0]) in atoms
     assert OnTable([block1]) not in atoms
