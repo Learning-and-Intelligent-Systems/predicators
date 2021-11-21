@@ -10,12 +10,12 @@ The scope of this codebase extends far beyond the scope of the paper linked abov
 
 In `src/`, the environments are defined in the `envs/` directory, and the approaches (both learning-based and not) are defined in the `approaches/` directory. The core NSRT learning loop happens in `src/nsrt_learning.py`, which has the following steps:
 * Segment data based on changes in predicates.
-* Learn the symbolic operator portions of the NSRTs (parameters, preconditions, and effects).
+* Learn how many NSRTs we need, along with the symbolic operator components of each (parameters, preconditions, and effects).
 * Learn options and annotate data with them.
 * Learn samplers.
 * Finalize the NSRTs.
 
-Methods for predicate learning are implemented as approaches (e.g., `src/approaches/iterative_invention_approach.py), and may interface with the core structure of `src/nsrt_learning.py` in various ways.
+Methods for predicate learning are implemented as approaches (e.g., `src/approaches/iterative_invention_approach.py`), and may interface with the core structure of `src/nsrt_learning.py` in various ways.
 
 A simple implementation of search-then-sample task and motion planning is provided in `src/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
 
