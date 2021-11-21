@@ -6,7 +6,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    STRIPSOperator, NSRT, _GroundNSRT, Action
+    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition
 from predicators.src import utils
 
 
@@ -519,3 +519,94 @@ def test_action():
         assert not act.has_option()
     act = Action([0.5])
     assert not act.has_option()
+
+
+def test_segment():
+    """Tests for Segment class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj = (states, actions)
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    parameterized_option = ParameterizedOption(
+        "Move", [], Box(0, 1, (1,)),
+        lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True)
+    params = [0.5]
+    option = parameterized_option.ground([], params)
+    action0.set_option(option)
+    action1.set_option(option)
+    # First create segment without the option.
+    segment = Segment(traj, init_atoms, final_atoms)
+    assert len(segment.states) == len(states)
+    assert all(ss.allclose(s) for ss, s in zip(segment.states, states))
+    assert len(segment.actions) == len(actions)
+    assert all(np.allclose(sa.arr, a.arr) \
+               for sa, a in zip(segment.actions, actions))
+    assert segment.init_atoms == init_atoms
+    assert segment.final_atoms == final_atoms
+    assert segment.add_effects == {not_on([cup, plate])}
+    assert segment.delete_effects == {on([cup, plate])}
+    assert not segment.has_option()
+    segment.set_option_from_trajectory()
+    assert segment.has_option()
+    assert segment.get_option() == option
+
+
+def test_partition():
+    """Tests for Partition class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj = (states, actions)
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    parameterized_option = ParameterizedOption(
+        "Move", [], Box(0, 1, (1,)),
+        lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True)
+    params = [0.5]
+    option = parameterized_option.ground([], params)
+    segment1 = Segment(traj, init_atoms, final_atoms, option)
+    objtovar = {cup: cup_var, plate: plate_var}
+    segment2 = Segment(traj, init_atoms, final_atoms, option)
+    segment3 = Segment(traj, init_atoms, set(), option)
+    partition = Partition([(segment1, objtovar)])
+    assert partition.add_effects == {not_on([cup_var, plate_var])}
+    assert partition.delete_effects == {on([cup_var, plate_var])}
+    assert partition.option_spec == (parameterized_option, [])
+    assert len(partition) == 1
+    assert len(list(partition)) == 1
+    partition.add((segment2, objtovar))
+    assert len(partition) == 2
+    with pytest.raises(AssertionError):
+        # Effects don't match.
+        partition.add((segment3, objtovar))
+    

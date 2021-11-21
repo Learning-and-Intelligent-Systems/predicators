@@ -5,20 +5,38 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Callable, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    ObjToVarSub, Transition, Object, Array, State, _Option
+    Object, Array, State, _Option, Partition, STRIPSOperator
 from predicators.src import utils
 from predicators.src.models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
-                  nsrt_name: str,
-                  variables: Sequence[Variable],
-                  preconditions: Set[LiftedAtom],
-                  add_effects: Set[LiftedAtom],
-                  delete_effects: Set[LiftedAtom],
-                  param_option: ParameterizedOption,
-                  partition_idx: int, do_sampler_learning: bool) -> Callable[[
+def learn_samplers(
+    strips_ops: List[STRIPSOperator],
+    partitions: List[Partition],
+    options: List[Tuple[ParameterizedOption, List[Variable]]],
+    do_sampler_learning: bool
+    ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
+    """Learn all samplers for each operator's option parameters.
+    """
+    samplers = []
+    for i, op in enumerate(strips_ops):
+        sampler = _learn_sampler(
+            partitions, op.name, op.parameters, op.preconditions,
+            op.add_effects, op.delete_effects, options[i][0], i,
+            do_sampler_learning)
+        samplers.append(sampler)
+    return samplers
+
+
+def _learn_sampler(partitions: List[Partition],
+                   nsrt_name: str,
+                   variables: Sequence[Variable],
+                   preconditions: Set[LiftedAtom],
+                   add_effects: Set[LiftedAtom],
+                   delete_effects: Set[LiftedAtom],
+                   param_option: ParameterizedOption,
+                   partition_idx: int, do_sampler_learning: bool) -> Callable[[
                       State, np.random.Generator, Sequence[Object]], Array]:
     """Learn a sampler given data. Transitions are partitioned, so
     that they can be used for generating negative data. Integer partition_idx
@@ -31,7 +49,7 @@ def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
     print(f"\nLearning sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
-        transitions, variables, preconditions, add_effects, delete_effects,
+        partitions, variables, preconditions, add_effects, delete_effects,
         param_option, partition_idx)
 
     # Fit classifier to data
@@ -73,7 +91,7 @@ def learn_sampler(transitions: List[List[Tuple[Transition, ObjToVarSub]]],
 
 
 def _create_sampler_data(
-        transitions: List[List[Tuple[Transition, ObjToVarSub]]],
+        partitions: List[Partition],
         variables: Sequence[Variable],
         preconditions: Set[LiftedAtom],
         add_effects: Set[LiftedAtom],
@@ -85,10 +103,15 @@ def _create_sampler_data(
     """
     positive_data = []
     negative_data = []
-    for idx, part_transitions in enumerate(transitions):
-        for ((state, _, _, option, _, trans_add_effects, trans_delete_effects),
-             obj_to_var) in part_transitions:
-            assert option.parent == param_option
+    for idx, partition in enumerate(partitions):
+        for (segment, obj_to_var) in partition:
+            assert segment.has_option()
+            option = segment.get_option()
+            state = segment.states[0]
+            trans_add_effects = segment.add_effects
+            trans_delete_effects = segment.delete_effects
+            if option.parent != param_option:
+                continue
             var_types = [var.type for var in variables]
             objects = list(state)
             for grounding in utils.get_object_combinations(
@@ -120,7 +143,7 @@ def _create_sampler_data(
                 negative_data.append((state, sub, option))
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
           f"negative examples")
-    assert len(positive_data) == len(transitions[partition_idx])
+    assert len(positive_data) == len(partitions[partition_idx])
     return positive_data, negative_data
 
 
