@@ -5,7 +5,7 @@ import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, ActionTrajectory, Segment, Partition, Object
+    ObjToVarSub, StateActionTrajectory, Segment, Partition, Object
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -61,7 +61,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     return set(nsrts)
 
 
-def segment_trajectory(trajectory: ActionTrajectory,
+def segment_trajectory(trajectory: StateActionTrajectory,
                        predicates: Set[Predicate]) -> List[Segment]:
     """Segment an action trajectory according to abstract state changes.
     """
@@ -69,7 +69,7 @@ def segment_trajectory(trajectory: ActionTrajectory,
     states, actions = trajectory
     assert len(states) == len(actions) + 1
     all_atoms = [utils.abstract(s, predicates) for s in states]
-    current_segment_traj : ActionTrajectory = ([states[0]], [])
+    current_segment_traj : StateActionTrajectory = ([states[0]], [])
     for t in range(len(actions)):
         current_segment_traj[0].append(states[t])
         current_segment_traj[1].append(actions[t])
