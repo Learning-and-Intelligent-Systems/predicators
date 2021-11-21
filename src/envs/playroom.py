@@ -485,7 +485,7 @@ class PlayroomEnv(BlocksEnv):
             if self._NextToDoor_holds(state, (self._robot, door)):
                 return door
         # usage should ensure this is never reached
-        raise RuntimeError("Robot not next to any door")  # pragma: no cover
+        raise RuntimeError("Robot not next to any door")
 
     def _robot_is_facing_door(self, state: State, action: Action, door: Object
                               ) -> bool:
