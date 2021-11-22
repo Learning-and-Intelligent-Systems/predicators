@@ -5,7 +5,7 @@ the candidates proposed from a grammar.
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
-    Any
+    Any, FrozenSet
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -87,9 +87,36 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
+        # Perform a greedy search over predicate sets.
+        # Successively consider small predicate sets.
+        def _get_successors(s: FrozenSet[Predicate]
+                            ) -> Iterator[FrozenSet[Predicate]]:
+            for predicate in sorted(s):  # sorting for determinism
+                yield frozenset(s - {predicate})  # frozenset for hashing
 
-        # TODO
-        kept_predicates = candidates
+        # The heuristic is where the action happens...
+        def _heuristic(s: FrozenSet[Predicate]) -> float:
+            # Relearn operators with the current predicates.
+            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, s)
+            segments = [seg for traj in pruned_atom_data
+                        for seg in segment_trajectory(traj)]
+            strips_ops, _ = learn_strips_operators(segments)
+            # Score based on how well the operators fit the data.
+            import ipdb; ipdb.set_trace()
+            # Also add a size penalty.
+
+        # There are no goal states for this search; run until exhausted.
+        def _check_goal(s : FrozenSet[Predicate]) -> bool:
+            return False
+
+        # Start the search with all of the candidates.
+        init = frozenset(candidates)
+
+        # Greedy best first search.
+        path, _ = utils.run_gbfs(
+            init, _get_successors, _heuristic, _check_goal,
+            max_expansions=CFG.grammar_search_max_expansions)
+        kept_predicates = path[-1]
 
         print(f"Selected {len(kept_predicates)} predicates out of "
               f"{len(candidates)} candidates:")
