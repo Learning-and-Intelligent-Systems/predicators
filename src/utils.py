@@ -546,18 +546,6 @@ def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
     return sorted(ground_atoms)
 
 
-def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
-                               ) -> List[GroundAtomTrajectory]:
-    """Apply all predicates to all trajectories in the dataset.
-    """
-    ground_atom_dataset = []
-    for states, actions in dataset:
-        assert len(states) == len(actions) + 1
-        atoms = [abstract(s, predicates) for s in states]
-        ground_atom_dataset.append((states, actions, atoms))
-    return ground_atom_dataset
-
-
 def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given NSRTs.
