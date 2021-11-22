@@ -8,10 +8,63 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom
+    Predicate, NSRT, Action, GroundAtom, DefaultOption
 from predicators.src.settings import CFG
 from predicators.src import utils
 
+def test_intersects():
+    """Tests for intersects().
+    """
+    p1, p2 = (2, 5), (7, 6)
+    p3, p4 = (2.5, 7.1), (7.4, 5.3)
+    assert utils.intersects(p1, p2, p3, p4)
+
+    p1, p2 = (1, 3), (5, 3)
+    p3, p4 = (3, 7), (3, 2)
+    assert utils.intersects(p1, p2, p3, p4)
+
+    p1, p2 = (2, 5), (7, 6)
+    p3, p4 = (2, 6), (7, 7)
+    assert not utils.intersects(p1, p2, p3, p4)
+
+    p1, p2 = (1, 1), (3, 3)
+    p3, p4 = (2, 2), (4, 4)
+    assert not utils.intersects(p1, p2, p3, p4)
+
+    p1, p2 = (1, 1), (3, 3)
+    p3, p4 = (1, 1), (6.7, 7.4)
+    assert not utils.intersects(p1, p2, p3, p4)
+
+def test_overlap():
+    """Tests for overlap().
+    """
+    l1, r1 = (1, 7), (3, 1)
+    l2, r2 = (2, 10), (7, 3)
+    assert utils.overlap(l1, r1, l2, r2)
+
+    l1, r1 = (1, 7), (3, 1)
+    l2, r2 = (1, 8), (6, 1)
+    assert utils.overlap(l1, r1, l2, r2)
+
+    l1, r1 = (1, 7), (5, 1)
+    l2, r2 = (2, 4), (4, 2)
+    assert utils.overlap(l1, r1, l2, r2)
+
+    l1, r1 = (1, 4), (5, 1)
+    l2, r2 = (2, 5), (4, 3)
+    assert utils.overlap(l1, r1, l2, r2)
+
+    l1, r1 = (1, 7), (3, 1)
+    l2, r2 = (3, 5), (5, 3)
+    assert not utils.overlap(l1, r1, l2, r2)
+
+    l1, r1 = (1, 4), (3, 1)
+    l2, r2 = (5, 8), (7, 6)
+    assert not utils.overlap(l1, r1, l2, r2)
+
+    l1, r1 = (1, 4), (6, 1)
+    l2, r2 = (2, 7), (5, 5)
+    assert not utils.overlap(l1, r1, l2, r2)
 
 def test_option_to_trajectory():
     """Tests for option_to_trajectory().
@@ -580,6 +633,36 @@ def test_ground_atom_methods():
     assert utils.all_ground_predicates(not_on, objects) == not_on_ground
     assert utils.all_possible_ground_atoms(state, {on, not_on}) == ground_atoms
     assert not utils.abstract(state, {on, not_on})
+
+
+def test_create_ground_atom_dataset():
+    """Tests for create_ground_atom_dataset().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type],
+                   lambda s, o: s.get(o[0], "feat1") > s.get(o[1], "feat1"))
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    states = [
+        State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]}),
+        State({cup1: [1.1], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
+    ]
+    actions = [DefaultOption]
+    dataset = [(states, actions)]
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
+    assert len(ground_atom_dataset) == 1
+    assert len(ground_atom_dataset[0]) == 3
+    assert len(ground_atom_dataset[0][0]) == len(states)
+    assert all(gs.allclose(s) for gs, s in \
+               zip(ground_atom_dataset[0][0], states))
+    assert len(ground_atom_dataset[0][1]) == len(actions)
+    assert all(ga == a for ga, a in zip(ground_atom_dataset[0][1], actions))
+    assert len(ground_atom_dataset[0][2]) == len(states) == 2
+    assert ground_atom_dataset[0][2][0] == set()
+    assert ground_atom_dataset[0][2][1] == {GroundAtom(on, [cup1, plate1])}
 
 
 def test_static_nsrt_filtering():

@@ -185,7 +185,6 @@ def test_cover_multistep_options():
         np.array([0., -0.05, 0.], dtype=np.float32),
         np.array([0., -0.05, 0.], dtype=np.float32),
         np.array([0., -0.05, 0.], dtype=np.float32),
-        np.array([0., -0.05, 0.], dtype=np.float32),
         np.array([0., -0.045, 0.1], dtype=np.float32),
         # Move up to a safe height
         np.array([0., 0.05, 0.1], dtype=np.float32),
@@ -198,6 +197,10 @@ def test_cover_multistep_options():
         # Move to above target
         np.array([-0.05, 0., 0.1], dtype=np.float32),
         np.array([-0.05, 0., 0.1], dtype=np.float32),
+        np.array([+0.05, 0., 0.1], dtype=np.float32),
+        np.array([+0.05, 0., 0.1], dtype=np.float32),
+        np.array([-0.05, 0., 0.1], dtype=np.float32),
+        np.array([-0.05, 0., 0.1], dtype=np.float32),
         np.array([-0.05, 0., 0.1], dtype=np.float32),
         np.array([-0.05, 0., 0.1], dtype=np.float32),
         np.array([-0.05, 0., 0.1], dtype=np.float32),
@@ -208,12 +211,11 @@ def test_cover_multistep_options():
         np.array([0., -0.05, 0.1], dtype=np.float32),
         np.array([0., -0.05, 0.1], dtype=np.float32),
         np.array([0., -0.05, 0.1], dtype=np.float32),
-        np.array([0., -0.05, 0.1], dtype=np.float32),
-        np.array([0., -0.05, 0.1], dtype=np.float32),
+        np.array([0., -0.04, 0.1], dtype=np.float32),
         # Ungrasp
         np.array([0., 0., -0.1], dtype=np.float32),
     ]
-    make_video = False  # Can toggle to true for debugging
+    make_video = True  # Can toggle to true for debugging
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
@@ -238,6 +240,7 @@ def test_cover_multistep_options():
     final_atoms = utils.abstract(states[-1], env.predicates)
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
+
     # Run through a specific plan of options.
     pick_option = [o for o in env.options if o.name == "Pick"][0]
     place_option = [o for o in env.options if o.name == "Place"][0]
@@ -271,3 +274,179 @@ def test_cover_multistep_options():
     for _ in range(10):
         act = Action(np.array([0., -0.05, 0], dtype=np.float32))
         state = env.simulate(state, act)
+
+    # Check collision of the robot with a block.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.06, 0.0], dtype=np.float32),
+    ]
+    make_video = False
+    (states, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_robot_collision1.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in states[0] if r.name=="robby"][0]
+    assert np.array_equal(states[-1][robot], states[-2][robot])
+
+    # Check collision of the robot with the floor.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.1, 0], dtype=np.float32),
+        np.array([0., -0.1, 0], dtype=np.float32),
+        np.array([0., -0.1, 0], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.1, 0], dtype=np.float32),
+    ]
+    make_video = False
+    (states, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_robot_collision2.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in states[0] if r.name=="robby"][0]
+    assert np.array_equal(states[-1][robot], states[-2][robot])
+
+    # Check collision of held block with a block via overlap.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+    ]
+    make_video = False
+    (states, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_block_collision1.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in states[0] if r.name=="robby"][0]
+    assert np.array_equal(states[-1][robot], states[-2][robot])
+
+    # Check collision of held block with a block via translation intersection.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.08, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.05, 0.1], dtype=np.float32),
+        np.array([0.1, 0.1, 0.1], dtype=np.float32),
+    ]
+    make_video = False
+    (states, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_block_collision2.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in states[0] if r.name=="robby"][0]
+    assert np.array_equal(states[-1][robot], states[-2][robot])
+
+    # Check collision of held block with the floor.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.08, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.05, 0.1], dtype=np.float32),
+        np.array([0., -0.07, 0.1], dtype=np.float32),
+    ]
+    make_video = False
+    (states, _), video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, env.predicates,
+        len(action_arrs), make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_actions_block_collision3.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in states[0] if r.name=="robby"][0]
+    assert np.array_equal(states[-1][robot], states[-2][robot])
