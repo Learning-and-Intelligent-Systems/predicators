@@ -428,7 +428,7 @@ def test_nsrts():
     plate = plate_type("plate")
     ground_op = strips_operator.ground((cup, plate))
     assert isinstance(ground_op, _GroundSTRIPSOperator)
-    assert str(ground_op) == repr(ground_op) == """Pick:
+    assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-Pick:
     Parameters: [cup:cup_type, plate:plate_type]
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]

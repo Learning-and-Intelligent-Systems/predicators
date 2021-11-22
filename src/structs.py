@@ -451,6 +451,7 @@ class STRIPSOperator:
 
         Insist that objects are tuple for hashing in cache.
         """
+        assert isinstance(objects, tuple)
         assert len(objects) == len(self.parameters)
         assert all(o.is_instance(p.type) for o, p
                    in zip(objects, self.parameters))
@@ -499,7 +500,7 @@ class _GroundSTRIPSOperator:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        return f"""GroundSTRIPS-{self.name}:
     Parameters: {self.objects}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
