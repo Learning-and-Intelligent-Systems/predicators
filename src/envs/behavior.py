@@ -2,10 +2,11 @@
 """
 # pylint:disable=import-error
 
+from dataclasses import dataclass, field
 import functools
 import itertools
 import os
-from typing import List, Set, Optional, Dict, Callable, Sequence
+from typing import List, Set, Optional, Dict, Callable, Sequence, Any
 import numpy as np
 try:
     import bddl
@@ -19,16 +20,70 @@ try:
         save_internal_states, load_internal_states
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
+    from predicators.src.envs.behavior_options import navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-except ModuleNotFoundError:
+except ModuleNotFoundError as e:
+    print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array, _Option
 from predicators.src.settings import CFG
 
+
+@dataclass(frozen=True, eq=False)
+class _BehaviorParameterizedOption(ParameterizedOption):
+    """Implementing a new class because ParameterizedOptions are not suited
+    for when our options need to have memory.
+    """
+    _env: behavior_env.BehaviorEnv
+    _controller_fn: Any  # TODO correct type
+    _object_to_ig_object: Callable[[Object], "ArticulatedObject"]
+    _rng: np.random.Generator
+
+    def ground(self, objects: Sequence[Object], params: Array) -> _Option:
+        """Ground into an Option, given objects and parameter values.
+        """
+        # This part is the same as the parent class...
+        assert len(objects) == len(self.types)
+        for obj, t in zip(objects, self.types):
+            assert obj.is_instance(t)
+        params = np.array(params, dtype=self.params_space.dtype)
+        assert self.params_space.contains(params)
+
+        # This part is different.
+        igo = [self._object_to_ig_object(i) for i in objects]
+        # TODO: remove this assumption. Will require a small
+        # change on the behavior option side. I'm trying not
+        # to modify anything in that file for now.
+        assert len(igo) == 1
+        # TODO: Currently, this will infinitely sample parameters until an option 
+        # can be found. We probably want to time out and jump back to the task level
+        # at some point!
+        while True:
+            self._rng.random() # generate a random sample to move the state of the generator?
+            controller = self._controller_fn(self._env, igo[0], params,
+                                             rng=self._rng)
+            
+            if controller:
+                break
+
+        has_terminated = False
+
+        def _policy(s: State) -> Action:
+            nonlocal has_terminated
+            assert not has_terminated
+            action_arr, has_terminated = controller(s, self._env)
+            return Action(action_arr)
+
+        return _Option(self.name,
+                       _policy,
+                       initiable=lambda s: True,
+                       terminal=lambda s: has_terminated,
+                       parent=self,
+                       objects=objects, params=params)
 
 
 class BehaviorEnv(BaseEnv):
@@ -39,12 +94,14 @@ class BehaviorEnv(BaseEnv):
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path,
                                    CFG.behavior_config_file)
+        self._rng = np.random.default_rng(0)
         self._env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
             action_timestep=CFG.behavior_action_timestep,
             physics_timestep=CFG.behavior_physics_timestep,
             action_filter="mobile_manipulation",
+            rng=self._rng
         )
         self._env.robots[0].initial_z_offset = 0.7
 
@@ -55,10 +112,30 @@ class BehaviorEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
         load_internal_states(self._env.simulator, state.simulator_state)
+        assert save_internal_states(self._env.simulator) == state.simulator_state
         # We can remove this after we're confident in it
         loaded_state = self._current_ig_state_to_state()
+        
         assert loaded_state.allclose(state)
+        # if not loaded_state.allclose(state):
+        #     import ipdb; ipdb.set_trace()
+
         a = action.arr
+
+        # # TEMPORARY TESTING
+        # if not hasattr(self, "_temp_option"):
+        #     obj = sorted(state)[2]
+        #     print("ATTEMPTING TO NAVIGATE TO ", obj)
+        #     options = sorted(self.options, key=lambda o: o.name)
+        #     nav = options[1]
+        #     assert nav.name == 'NavigateTo-book.n.02'
+        #     self._temp_option = nav.ground([obj], np.array([-0.6, 0.6]))
+        #     print("CREATED OPTION:", self._temp_option)
+        # action = self._temp_option.policy(state)
+        # a = action.arr
+        # print("STEPPING ACTION:", a)
+        # # END TEMPORARY TESTING
+
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
         return next_state
@@ -174,7 +251,39 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return set()
+        # name, controller_fn, param_dim, arity
+        controllers = [
+            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-2.4, 2.4)),
+            ("Grasp", grasp_obj_at_pos, 5, 1, (-np.pi, np.pi)),
+            ("PlaceOnTop", place_ontop_obj_pos, 7, 1, (-1.0, 1.0)),
+        ]
+
+        options : Set[ParameterizedOption] = set()
+
+        # Hack to deal with inheritance...
+        dummy_policy = lambda s, o, p: Action(np.zeros(0))  # Not used
+        dummy_initiable = lambda s, o, p: True  # Not used
+        dummy_terminal = lambda s, o, p: True  # Not used
+
+        for name, controller_fn, param_dim, num_args, parameter_limits in controllers:
+            # Create a different option for each type combo
+            for types in itertools.product(self.types, repeat=num_args):
+                option_name = self._create_type_combo_name(name, types)
+                option = _BehaviorParameterizedOption(option_name,
+                    types=list(types),
+                    params_space=Box(parameter_limits[0], parameter_limits[1],
+                                     (param_dim,)),
+                    _policy=dummy_policy,
+                    _initiable=dummy_initiable,
+                    _terminal=dummy_terminal,
+                    _env=self._env,
+                    _object_to_ig_object=self._object_to_ig_object,
+                    _controller_fn=controller_fn,
+                    _rng=self._rng,
+                )
+                options.add(option)
+
+        return options
 
     @property
     def action_space(self) -> Box:
