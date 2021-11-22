@@ -19,7 +19,7 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory
+    ObjToVarSub, VarToObjSub
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
