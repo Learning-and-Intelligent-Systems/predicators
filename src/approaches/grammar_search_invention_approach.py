@@ -55,7 +55,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Generate a large candidate set of predicates.
         candidates = self._generate_candidate_predicates()
         # Apply the candidate predicates to the data.
-        atom_dataset = utils.create_ground_atom_dataset(dataset, candidates)
+        atom_dataset = utils.create_ground_atom_dataset(dataset,
+            candidates | self._initial_predicates)
         # Select a subset of the candidates to keep.
         self._learned_predicates = self._select_predicates_to_keep(candidates,
             atom_dataset)
@@ -100,7 +101,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
             # Relearn operators with the current predicates.
-            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset, s)
+            kept_preds = s | self._initial_predicates
+            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
+                                                               kept_preds)
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
             strips_ops, _ = learn_strips_operators(segments)
@@ -112,7 +115,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Lower is better.
             return CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-                CFG.grammar_search_size * (-op_size)
+                CFG.grammar_search_size_weight * (-op_size)
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
