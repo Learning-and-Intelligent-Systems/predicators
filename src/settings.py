@@ -24,11 +24,6 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
 
-    # blocks env parameters
-    blocks_num_blocks_train = [3, 4]
-    blocks_num_blocks_test = [5, 6]
-    blocks_block_size = 0.1
-
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples", "configs",
@@ -56,12 +51,15 @@ class GlobalSettings:
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
 
-    # operator learning parameters
-    min_data_for_operator = 3
-    max_rejection_sampling_tries = 100
+    # NSRT learning parameters
+    min_data_for_nsrt = 3
+
+    # option learning parameters
+    do_option_learning = False  # if False, uses ground truth options
 
     # sampler learning parameters
-    do_sampler_learning = True
+    do_sampler_learning = True  # if False, uses random samplers
+    max_rejection_sampling_tries = 100
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
     classifier_max_itr_sampler = 10000
@@ -104,8 +102,10 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
+                "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
 
@@ -114,8 +114,10 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
+                "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
 
@@ -125,8 +127,10 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
+                "cover_multistep_options": 100,
                 "cluttered_table": 25,
                 "blocks": 25,
+                "playroom": 25,
                 "behavior": 100,
             })[args["env"]],
 
@@ -135,24 +139,15 @@ class GlobalSettings:
                 "cover": "default",
                 "cover_typed_options": "default",
                 "cover_hierarchical_types": "default",
+                "cover_multistep_options": "default",
                 "cluttered_table": "default",
                 "blocks": "default",
             })[args["env"]],
 
-            # For learning-based approaches, whether to include ground truth
-            # options in the offline dataset.
-            include_options_in_offline_data=defaultdict(bool, {
-                "trivial_learning": True,
-                "operator_learning": True,
-                "interactive_learning": True,
-                "iterative_invention": True,
-                "bfg": True,
-            })[args["approach"]],
-
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
                 "trivial_learning": "demo",
-                "operator_learning": "demo+replay",
+                "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
                 "bfg": "demo+replay",
@@ -162,7 +157,7 @@ class GlobalSettings:
             # used for planning.
             offline_data_planning_timeout=defaultdict(int, {
                 "trivial_learning": 500,
-                "operator_learning": 500,
+                "nsrt_learning": 500,
                 "interactive_learning": 500,
                 "iterative_invention": 500,
                 "bfg": 500,
@@ -172,7 +167,7 @@ class GlobalSettings:
             # when the data generation method is data+replays.
             offline_data_num_replays=defaultdict(int, {
                 "trivial_learning": 10,
-                "operator_learning": 10,
+                "nsrt_learning": 10,
                 "interactive_learning": 10,
                 "iterative_invention": 500,
                 "bfg": 500,

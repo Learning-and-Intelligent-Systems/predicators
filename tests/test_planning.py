@@ -3,12 +3,12 @@
 
 import pytest
 from predicators.src.approaches import OracleApproach
-from predicators.src.approaches.oracle_approach import get_gt_ops
+from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
 from predicators.src.planning import sesame_plan
 from predicators.src import utils
-from predicators.src.structs import Task
+from predicators.src.structs import Task, NSRT, ParameterizedOption
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
 
@@ -18,11 +18,10 @@ def test_sesame_plan():
     """
     utils.update_config({"env": "cover"})
     env = CoverEnv()
-    operators = get_gt_ops(env.predicates, env.options)
+    nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_train_tasks()[0]
     option_model = create_option_model(CFG.option_model_name, env.simulate)
-    plan = sesame_plan(task, option_model, operators,
-                       env.predicates, 1, 123)
+    plan = sesame_plan(task, option_model, nsrts, env.predicates, 1, 123)
     assert len(plan) == 2
 
 
@@ -65,15 +64,44 @@ def test_sesame_plan_failures():
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.max_samples_per_step = old_max_samples_per_step
-    operators = get_gt_ops(env.predicates, env.options)
-    operators = {op for op in operators if op.name == "Place"}
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, should fail fast.
-        sesame_plan(task, option_model, operators,
+        sesame_plan(task, option_model, nsrts,
                     env.predicates, timeout=500, seed=123)
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
-        sesame_plan(task, option_model, operators,
+        sesame_plan(task, option_model, nsrts,
                     env.predicates, timeout=500, seed=123,
                     check_dr_reachable=False)
+
+
+def test_sesame_plan_uninitiable_option():
+    """Tests planning in the presence of an option whose initiation set
+    is nontrivial.
+    """
+    # pylint: disable=protected-access
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    env.seed(123)
+    option_model = create_option_model(CFG.option_model_name, env.simulate)
+    initiable = lambda s, m, o, p: False
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    old_option = next(iter(env.options))
+    new_option = ParameterizedOption(
+        old_option.name, old_option.types, old_option.params_space,
+        old_option._policy, initiable, old_option._terminal)
+    new_nsrts = set()
+    for nsrt in nsrts:
+        new_nsrts.add(NSRT(
+            nsrt.name+"UNINITIABLE", nsrt.parameters, nsrt.preconditions,
+            nsrt.add_effects, nsrt.delete_effects, new_option,
+            nsrt.option_vars, nsrt._sampler))
+    task = env.get_train_tasks()[0]
+    with pytest.raises(ApproachFailure) as e:
+        # Planning should reach max_skeletons_optimized
+        sesame_plan(task, option_model, new_nsrts,
+                    env.predicates, timeout=500, seed=123)
+    assert "Planning reached max_skeletons_optimized!" in str(e.value)
