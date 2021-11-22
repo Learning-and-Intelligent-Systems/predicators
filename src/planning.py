@@ -11,8 +11,8 @@ from typing import Collection, Callable, List, Set, Optional, Tuple, Dict
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.structs import State, Task, Operator, Predicate, \
-    GroundAtom, _GroundOperator, DefaultOption, DefaultState, _Option, \
+from predicators.src.structs import State, Task, NSRT, Predicate, \
+    GroundAtom, _GroundNSRT, DefaultOption, DefaultState, _Option, \
     PyperplanFacts, Metrics
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
@@ -27,7 +27,7 @@ class _Node:
     """A node for the search over skeletons.
     """
     atoms: Collection[GroundAtom]
-    skeleton: List[_GroundOperator]
+    skeleton: List[_GroundNSRT]
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
     pyperplan_facts: PyperplanFacts = field(
@@ -39,7 +39,7 @@ class _Node:
 
 def sesame_plan(task: Task,
                 option_model: _OptionModel,
-                operators: Set[Operator],
+                nsrts: Set[NSRT],
                 initial_predicates: Set[Predicate],
                 timeout: float, seed: int,
                 check_dr_reachable: bool = True
@@ -48,34 +48,32 @@ def sesame_plan(task: Task,
     of metrics for this run of the planner. Uses the SeSamE strategy:
     SEarch-and-SAMple planning, then Execution.
     """
-    op_preds, _ = utils.extract_preds_and_types(operators)
+    nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
-    predicates = initial_predicates | set(op_preds.values())
+    predicates = initial_predicates | set(nsrt_preds.values())
     atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
-    ground_operators = []
-    for op in operators:
-        for ground_op in utils.all_ground_operators(op, objects):
-            ground_operators.append(ground_op)
-    ground_operators = utils.filter_static_operators(
-        ground_operators, atoms)
+    ground_nsrts = []
+    for nsrt in nsrts:
+        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+            ground_nsrts.append(ground_nsrt)
+    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
     # Keep restarting the A* search while we get new discovered failures.
     start_time = time.time()
     metrics: Metrics = defaultdict(float)
     while True:
         if check_dr_reachable and \
-           not utils.is_dr_reachable(ground_operators, atoms, task.goal):
+           not utils.is_dr_reachable(ground_nsrts, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
             plan = _run_search(
-                task, option_model, ground_operators, atoms, predicates,
+                task, option_model, ground_nsrts, atoms, predicates,
                 timeout-(time.time()-start_time), new_seed, metrics)
             break  # planning succeeded, break out of loop
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
-            _update_operators_with_failure(
-                e.discovered_failure, ground_operators)
+            _update_nsrts_with_failure(e.discovered_failure, ground_nsrts)
     print(f"Planning succeeded! Found plan of length {len(plan)} after trying "
           f"{int(metrics['num_skeletons_optimized'])} skeletons, discovering "
           f"{int(metrics['num_failures_discovered'])} failures")
@@ -85,12 +83,12 @@ def sesame_plan(task: Task,
 
 def _run_search(task: Task,
                 option_model: _OptionModel,
-                ground_operators: List[_GroundOperator],
+                ground_nsrts: List[_GroundNSRT],
                 init_atoms: Collection[GroundAtom],
                 predicates: Set[Predicate],
                 timeout: float, seed: int,
                 metrics: Metrics) -> List[_Option]:
-    """A* search over skeletons (sequences of ground operators).
+    """A* search over skeletons (sequences of ground NSRTs).
     """
     start_time = time.time()
     queue: List[Tuple[float, float, _Node]] = []
@@ -100,8 +98,8 @@ def _run_search(task: Task,
     rng_sampler = np.random.default_rng(seed)
     # Set up stuff for pyperplan heuristic.
     relaxed_operators = frozenset({utils.RelaxedOperator(
-        op.name, utils.atoms_to_tuples(op.preconditions),
-        utils.atoms_to_tuples(op.add_effects)) for op in ground_operators})
+        nsrt.name, utils.atoms_to_tuples(nsrt.preconditions),
+        utils.atoms_to_tuples(nsrt.add_effects)) for nsrt in ground_nsrts})
     heuristic_cache: Dict[PyperplanFacts, float] = {}
     heuristic: Callable[[PyperplanFacts], float] = utils.HAddHeuristic(
         utils.atoms_to_tuples(init_atoms),
@@ -136,13 +134,11 @@ def _run_search(task: Task,
                 return plan
         else:
             # Generate successors.
-            for operator in utils.get_applicable_operators(
-                    ground_operators, node.atoms):
-                child_atoms = utils.apply_operator(
-                    operator, set(node.atoms))
+            for nsrt in utils.get_applicable_nsrts(ground_nsrts, node.atoms):
+                child_atoms = utils.apply_nsrt(nsrt, set(node.atoms))
                 child_node = _Node(
                     atoms=child_atoms,
-                    skeleton=node.skeleton+[operator],
+                    skeleton=node.skeleton+[nsrt],
                     atoms_sequence=node.atoms_sequence+[child_atoms],
                     parent=node)
                 if child_node.pyperplan_facts not in heuristic_cache:
@@ -164,7 +160,7 @@ def _run_search(task: Task,
 def _run_low_level_search(
         task: Task,
         option_model: _OptionModel,
-        skeleton: List[_GroundOperator],
+        skeleton: List[_GroundNSRT],
         atoms_sequence: List[Collection[GroundAtom]],
         rng_sampler: np.random.Generator,
         predicates: Set[Predicate],
@@ -189,10 +185,10 @@ def _run_low_level_search(
         # see at what step the backtracking search is getting stuck.
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
-        operator = skeleton[cur_idx]
-        # Ground the operator's ParameterizedOption into an _Option.
-        # This invokes the operator's sampler.
-        option = operator.sample_option(state, rng_sampler)
+        nsrt = skeleton[cur_idx]
+        # Ground the NSRT's ParameterizedOption into an _Option.
+        # This invokes the NSRT's sampler.
+        option = nsrt.sample_option(state, rng_sampler)
         plan[cur_idx] = option
         try:
             next_state = option_model.get_next_state(state, option)
@@ -200,7 +196,7 @@ def _run_low_level_search(
         except EnvironmentFailure as e:
             can_continue_on = False
             discovered_failures[cur_idx] = _DiscoveredFailure(
-                e, operator)  # remember only the most recent failure
+                e, nsrt)  # remember only the most recent failure
         if not discovered_failures[cur_idx]:
             traj[cur_idx+1] = next_state
             cur_idx += 1
@@ -239,31 +235,31 @@ def _run_low_level_search(
     return []
 
 
-def _update_operators_with_failure(
+def _update_nsrts_with_failure(
         discovered_failure: _DiscoveredFailure,
-        ground_operators: Collection[_GroundOperator]) -> None:
-    """Update the given set of ground_operators based on the given
+        ground_nsrts: Collection[_GroundNSRT]) -> None:
+    """Update the given set of ground_nsrts based on the given
     DiscoveredFailure.
     """
     for obj in discovered_failure.env_failure.offending_objects:
         atom = GroundAtom(Predicate(_NOT_CAUSES_FAILURE, [obj.type],
                                     _classifier=lambda s, o: False), [obj])
-        # Update the preconditions of the failing operator.
-        discovered_failure.failing_operator.preconditions.add(atom)
-        # Update the effects of all operators that use this object.
-        for op in ground_operators:
-            if obj in op.objects:
-                op.add_effects.add(atom)
+        # Update the preconditions of the failing NSRT.
+        discovered_failure.failing_nsrt.preconditions.add(atom)
+        # Update the effects of all nsrts that use this object.
+        for nsrt in ground_nsrts:
+            if obj in nsrt.objects:
+                nsrt.add_effects.add(atom)
 
 
 @dataclass(frozen=True, eq=False)
 class _DiscoveredFailure:
     """Container class for holding information related to a low-level
     discovery of a failure which must be propagated up to the main
-    search function, in order to restart A* search with new operators.
+    search function, in order to restart A* search with new NSRTs.
     """
     env_failure: EnvironmentFailure
-    failing_operator: _GroundOperator
+    failing_nsrt: _GroundNSRT
 
 
 class _DiscoveredFailureException(Exception):

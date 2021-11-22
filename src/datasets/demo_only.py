@@ -21,7 +21,7 @@ def create_demo_data(env: BaseEnv) -> Dataset:
             task, timeout=CFG.offline_data_planning_timeout)
         trajectory, _, solved = utils.run_policy_on_task(policy, task,
             env.simulate, env.predicates, CFG.max_num_steps_check_policy)
-        if not CFG.include_options_in_offline_data:
+        if CFG.do_option_learning:
             for act in trajectory[1]:
                 act.unset_option()
         assert solved, "Oracle failed on training task."

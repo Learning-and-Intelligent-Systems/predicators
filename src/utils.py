@@ -16,7 +16,7 @@ import matplotlib
 import numpy as np
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, Operator, _GroundOperator, Action, Task, ActionTrajectory, \
+    Object, Type, NSRT, _GroundNSRT, Action, Task, ActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
     ObjToVarSub, VarToObjSub
 from predicators.src.settings import CFG, GlobalSettings
@@ -186,6 +186,43 @@ def option_to_trajectory(
     
     assert len(states) == len(actions)+1
     return states, actions
+
+
+class OptionPlanExhausted(Exception):
+    """An exception for an option plan running out of options.
+    """
+
+
+def option_plan_to_policy(plan: Sequence[_Option]
+                          ) -> Callable[[State], Action]:
+    """Create a policy that executes the options in order.
+
+    The logic for this is somewhat complicated because we want:
+    * If an option's termination and initiation conditions are
+      always true, we want the option to execute for one step.
+    * After the first step that the option is executed, it
+      should terminate as soon as it sees a state that is
+      terminal; it should not take one more action after.
+    """
+    queue = list(plan)  # Don't modify plan, just in case
+    initialized = False  # Special case first step
+    def _policy(state: State) -> Action:
+        nonlocal initialized
+        # On the very first state, check initiation condition, and
+        # take the action no matter what.
+        if not initialized:
+            if not queue:
+                raise OptionPlanExhausted()
+            assert queue[0].initiable(state), "Unsound option plan"
+            initialized = True
+        elif queue[0].terminal(state):
+            queue.pop(0)
+            if not queue:
+                raise OptionPlanExhausted()
+            assert queue[0].initiable(state), "Unsound option plan"
+        return queue[0].policy(state)
+    return _policy
+
 
 
 def action_to_option_trajectory(act_traj: ActionTrajectory
@@ -381,18 +418,18 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     return atoms
 
 
-def all_ground_operators(
-        op: Operator, objects: Collection[Object]) -> Set[_GroundOperator]:
-    """Get all possible groundings of the given operator with the given objects.
+def all_ground_nsrts(
+        nsrt: NSRT, objects: Collection[Object]) -> Set[_GroundNSRT]:
+    """Get all possible groundings of the given NSRT with the given objects.
 
-    NOTE: Duplicate arguments in ground operators are ALLOWED.
+    NOTE: Duplicate arguments in ground NSRTs are ALLOWED.
     """
-    types = [p.type for p in op.parameters]
-    ground_operators = set()
+    types = [p.type for p in nsrt.parameters]
+    ground_nsrts = set()
     for choice in get_object_combinations(objects, types,
                                           allow_duplicates=True):
-        ground_operators.add(op.ground(choice))
-    return ground_operators
+        ground_nsrts.add(nsrt.ground(choice))
+    return ground_nsrts
 
 
 def all_ground_predicates(pred: Predicate,
@@ -419,54 +456,54 @@ def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
     return sorted(ground_atoms)
 
 
-def extract_preds_and_types(operators: Collection[Operator]) -> Tuple[
+def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
-    """Extract the predicates and types used in the given operators.
+    """Extract the predicates and types used in the given NSRTs.
     """
     preds = {}
     types = {}
-    for op in operators:
-        for atom in op.preconditions | op.add_effects | op.delete_effects:
+    for nsrt in nsrts:
+        for atom in nsrt.preconditions | nsrt.add_effects | nsrt.delete_effects:
             for var_type in atom.predicate.types:
                 types[var_type.name] = var_type
             preds[atom.predicate.name] = atom.predicate
     return preds, types
 
 
-def filter_static_operators(ground_operators: Collection[_GroundOperator],
-                            atoms: Collection[GroundAtom]) -> List[
-                                _GroundOperator]:
-    """Filter out ground operators that don't satisfy static facts.
+def filter_static_nsrts(ground_nsrts: Collection[_GroundNSRT],
+                        atoms: Collection[GroundAtom]) -> List[
+                            _GroundNSRT]:
+    """Filter out ground NSRTs that don't satisfy static facts.
     """
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
-        # This predicate is not static if it appears in any operator's effects.
-        if any(any(atom.predicate == pred for atom in op.add_effects) or
-               any(atom.predicate == pred for atom in op.delete_effects)
-               for op in ground_operators):
+        # This predicate is not static if it appears in any NSRT's effects.
+        if any(any(atom.predicate == pred for atom in nsrt.add_effects) or
+               any(atom.predicate == pred for atom in nsrt.delete_effects)
+               for nsrt in ground_nsrts):
             continue
         static_preds.add(pred)
     static_facts = {atom for atom in atoms if atom.predicate in static_preds}
     # Perform filtering.
-    ground_operators = [op for op in ground_operators
-                        if not any(atom.predicate in static_preds
-                                   and atom not in static_facts
-                                   for atom in op.preconditions)]
-    return ground_operators
+    ground_nsrts = [nsrt for nsrt in ground_nsrts
+                    if not any(atom.predicate in static_preds
+                               and atom not in static_facts
+                               for atom in nsrt.preconditions)]
+    return ground_nsrts
 
 
-def is_dr_reachable(ground_operators: Collection[_GroundOperator],
+def is_dr_reachable(ground_nsrts: Collection[_GroundNSRT],
                     atoms: Collection[GroundAtom],
                     goal: Set[GroundAtom]) -> bool:
     """Quickly check whether the given goal is reachable from the given atoms
-    under the given operators, using a delete relaxation (dr).
+    under the given NSRTs, using a delete relaxation (dr).
     """
     reachables = set(atoms)
     while True:
         fixed_point_reached = True
-        for op in ground_operators:
-            if op.preconditions.issubset(reachables):
-                for new_reachable_atom in op.add_effects-reachables:
+        for nsrt in ground_nsrts:
+            if nsrt.preconditions.issubset(reachables):
+                for new_reachable_atom in nsrt.add_effects-reachables:
                     fixed_point_reached = False
                     reachables.add(new_reachable_atom)
         if fixed_point_reached:
@@ -474,25 +511,25 @@ def is_dr_reachable(ground_operators: Collection[_GroundOperator],
     return goal.issubset(reachables)
 
 
-def get_applicable_operators(ground_operators: Collection[_GroundOperator],
-                             atoms: Collection[GroundAtom]) -> Iterator[
-                                 _GroundOperator]:
-    """Iterate over operators whose preconditions are satisfied.
+def get_applicable_nsrts(ground_nsrts: Collection[_GroundNSRT],
+                         atoms: Collection[GroundAtom]) -> Iterator[
+                             _GroundNSRT]:
+    """Iterate over NSRTs whose preconditions are satisfied.
     """
-    for operator in sorted(ground_operators):
-        applicable = operator.preconditions.issubset(atoms)
+    for nsrt in sorted(ground_nsrts):
+        applicable = nsrt.preconditions.issubset(atoms)
         if applicable:
-            yield operator
+            yield nsrt
 
 
-def apply_operator(operator: _GroundOperator,
-                   atoms: Set[GroundAtom]) -> Collection[GroundAtom]:
-    """Get a next set of atoms given a current set and a ground operator.
+def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
+               ) -> Collection[GroundAtom]:
+    """Get a next set of atoms given a current set and a ground NSRT.
     """
     new_atoms = atoms.copy()
-    for atom in operator.add_effects:
+    for atom in nsrt.add_effects:
         new_atoms.add(atom)
-    for atom in operator.delete_effects:
+    for atom in nsrt.delete_effects:
         new_atoms.discard(atom)
     return new_atoms
 
