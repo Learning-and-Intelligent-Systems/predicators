@@ -46,7 +46,7 @@ def test_base_approach():
         return ns
     action_space = Box(0, 0.5, (1,))
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(np.clip(p, a_min=None, a_max=0.45))
     predicates = {pred1, pred2}
     types = {cup_type, plate_type}

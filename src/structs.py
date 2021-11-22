@@ -347,22 +347,22 @@ class ParameterizedOption:
     name: str
     types: Sequence[Type]
     params_space: Box = field(repr=False)
-    # A policy maps a state, objects, and parameters to an action.
+    # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    _policy: Callable[[State, Sequence[Object], Array], Action] = field(
+    _policy: Callable[[State, Dict, Sequence[Object], Array], Action] = field(
         repr=False)
-    # An initiation classifier maps a state, objects, and parameters to a
-    # bool, which is True iff the option can start now. The objects' types
-    # will match those in self.types. The parameters will be contained
-    # in params_space.
-    _initiable: Callable[[State, Sequence[Object], Array], bool] = field(
+    # An initiation classifier maps a state, memory dict, objects, and
+    # parameters to a bool, which is True iff the option can start
+    # now. The objects' types will match those in self.types. The
+    # parameters will be contained in params_space.
+    _initiable: Callable[[State, Dict, Sequence[Object], Array], bool] = field(
         repr=False)
-    # A termination condition maps a state, objects, and parameters to a
-    # bool, which is True iff the option should terminate now. The objects'
-    # types will match those in self.types. The parameters will be contained
-    # in params_space.
-    _terminal: Callable[[State, Sequence[Object], Array], bool] = field(
+    # A termination condition maps a state, memory dict, objects, and
+    # parameters to a bool, which is True iff the option should
+    # terminate now. The objects' types will match those in
+    # self.types. The parameters will be contained in params_space.
+    _terminal: Callable[[State, Dict, Sequence[Object], Array], bool] = field(
         repr=False)
 
     @cached_property
@@ -388,11 +388,12 @@ class ParameterizedOption:
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
-        return _Option(self.name,
-                       lambda s: self._policy(s, objects, params),
-                       initiable=lambda s: self._initiable(s, objects, params),
-                       terminal=lambda s: self._terminal(s, objects, params),
-                       parent=self, objects=objects, params=params)
+        memory: Dict = {}  # each option has its own memory dict
+        return _Option(
+            self.name, lambda s: self._policy(s, memory, objects, params),
+            initiable=lambda s: self._initiable(s, memory, objects, params),
+            terminal=lambda s: self._terminal(s, memory, objects, params),
+            parent=self, objects=objects, params=params)
 
 
 @dataclass(frozen=True, eq=False)
@@ -425,8 +426,9 @@ class _Option:
         return action
 
 DefaultOption: _Option = ParameterizedOption(
-    "", [], Box(0, 1, (1,)), lambda s, o, p: Action(np.array([0.0])),
-    lambda s, o, p: False, lambda s, o, p: False).ground([], np.array([0.0]))
+    "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
+    lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        [], np.array([0.0]))
 DefaultOption.parent.params_space.seed(0)  # for reproducibility
 
 
@@ -657,10 +659,146 @@ class Action:
         assert not self.has_option()
 
 
+@dataclass(eq=False)
+class Segment:
+    """A segment represents a state-action trajectory that is the result of
+    executing one option. The segment stores the abstract state (ground atoms)
+    that held immediately before the option started executing, and the abstract
+    state (ground atoms) that held immediately after.
+
+    Segments are used during learning, when we don't necessarily know the option
+    associated with the trajectory yet.
+    """
+    trajectory: StateActionTrajectory
+    init_atoms: Set[GroundAtom]
+    final_atoms: Set[GroundAtom]
+    _option: _Option = field(repr=False, default=DefaultOption)
+
+    @property
+    def states(self) -> List[State]:
+        """States in the trajectory.
+        """
+        return self.trajectory[0]
+
+    @property
+    def actions(self) -> List[Action]:
+        """Actions in the trajectory.
+        """
+        return self.trajectory[1]
+
+    @property
+    def add_effects(self) -> Set[GroundAtom]:
+        """Atoms in the final atoms but not the init atoms.
+
+        Do not cache; init and final atoms can change.
+        """
+        return self.final_atoms - self.init_atoms
+
+    @property
+    def delete_effects(self) -> Set[GroundAtom]:
+        """Atoms in the init atoms but not the final atoms.
+
+        Do not cache; init and final atoms can change.
+        """
+        return self.init_atoms - self.final_atoms
+
+    def has_option(self) -> bool:
+        """Whether this segment has a non-default option attached.
+        """
+        return self._option is not DefaultOption
+
+    def get_option(self) -> _Option:
+        """Get the option that produced this segment.
+        """
+        assert self.has_option()
+        return self._option
+
+    def set_option(self, option: _Option) -> None:
+        """Set the option that produced this segment.
+        """
+        self._option = option
+
+    def set_option_from_trajectory(self) -> None:
+        """Look up the option from the trajectory. Make sure consistent.
+        """
+        for i, act in enumerate(self.trajectory[1]):
+            if i == 0:
+                option = act.get_option()
+            else:
+                assert option == act.get_option()
+        self.set_option(option)
+        assert self.has_option()
+
+
+@dataclass(eq=False)
+class Partition:
+    """A partition stores a collection of segments that will ultimately be
+    covered by the same NSRT. For each segment, the partition also stores an
+    ObjToVarSub, under which the ParameterizedOption and effects for all
+    segments in the partition are equivalent.
+    """
+    members: List[Tuple[Segment, ObjToVarSub]]
+
+    def __iter__(self) -> Iterator[Tuple[Segment, ObjToVarSub]]:
+        return iter(self.members)
+
+    def __len__(self) -> int:
+        return len(self.members)
+
+    @cached_property
+    def _exemplar(self) -> Tuple[Segment, ObjToVarSub]:
+        assert len(self.members) > 0, "Partition is empty."
+        return self.members[0]
+
+    @cached_property
+    def add_effects(self) -> Set[LiftedAtom]:
+        """Get the lifted add effects for this partition.
+        """
+        seg, sub = self._exemplar
+        return {a.lift(sub) for a in seg.add_effects}
+
+    @cached_property
+    def delete_effects(self) -> Set[LiftedAtom]:
+        """Get the lifted delete effects for this partition.
+        """
+        seg, sub = self._exemplar
+        return {a.lift(sub) for a in seg.delete_effects}
+
+    @cached_property
+    def option_spec(self) -> Tuple[ParameterizedOption, List[Variable]]:
+        """Get the parameterized option and option vars for this partition.
+        """
+        seg, sub = self._exemplar
+        assert seg.has_option()
+        option = seg.get_option()
+        option_args = [sub[o] for o in option.objects]
+        return (option.parent, option_args)
+
+    def add(self, member: Tuple[Segment, ObjToVarSub]) -> None:
+        """Add a new member.
+        """
+        seg, sub = member
+        # Check for consistency.
+        if len(self.members) > 0:
+            # The effects should match.
+            lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
+            lifted_delete_effects = {a.lift(sub) for a in seg.delete_effects}
+            assert lifted_add_effects == self.add_effects
+            assert lifted_delete_effects == self.delete_effects
+            if seg.has_option():
+                option = seg.get_option()
+                part_param_option, part_option_args = self.option_spec
+                assert option.parent == part_param_option
+                option_args = [sub[o] for o in option.objects]
+                assert option_args == part_option_args
+        # Add to members.
+        self.members.append(member)
+
+
 # Convenience higher-order types useful throughout the code
-ActionTrajectory = Tuple[List[State], List[Action]]
+StateActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
-Dataset = List[ActionTrajectory]
+Dataset = List[StateActionTrajectory]
 GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]

@@ -21,11 +21,11 @@ def test_random_options_approach():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(p)
-    def _initiable(_1, _2, p):
+    def _initiable(_1, _2, _3, p):
         return p > 0.25
-    def _terminal(s, _1, _2):
+    def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)
@@ -57,7 +57,8 @@ def test_random_options_approach():
     assert solved
     # Test what happens when there's no initializable option.
     parameterized_option2 = ParameterizedOption(
-        "Move", [], params_space, _policy, lambda _1, _2, _3: False, _terminal)
+        "Move", [], params_space, _policy, lambda _1, _2, _3, _4: False,
+        _terminal)
     approach = RandomOptionsApproach(
         _simulator, {Solved}, {parameterized_option2}, {cup_type},
         params_space, [])
@@ -68,7 +69,8 @@ def test_random_options_approach():
     assert not act.has_option()  # should have fallen back to random action
     # Test what happens when the option is always terminal.
     parameterized_option3 = ParameterizedOption(
-        "Move", [], params_space, _policy, _initiable, lambda _1, _2, _3: True)
+        "Move", [], params_space, _policy, _initiable,
+        lambda _1, _2, _3, _4: True)
     approach = RandomOptionsApproach(
         _simulator, {Solved}, {parameterized_option3}, {cup_type},
         params_space, [])

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import argparse
 import functools
+import gc
 import itertools
 import os
 from collections import defaultdict
@@ -16,7 +17,7 @@ import matplotlib
 import numpy as np
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, NSRT, _GroundNSRT, Action, Task, ActionTrajectory, \
+    Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
     ObjToVarSub, VarToObjSub
 from predicators.src.settings import CFG, GlobalSettings
@@ -107,7 +108,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        make_video: bool = False,
                        render: Optional[
                            Callable[[State, Task, Action], List[Image]]] = None,
-                       ) -> Tuple[ActionTrajectory, Video, bool]:
+                       ) -> Tuple[StateActionTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
     whether the goal was satisfied at the end.
@@ -157,7 +158,7 @@ def option_to_trajectory(
         init: State,
         simulator: Callable[[State, Action], State],
         option: _Option,
-        max_num_steps: int) -> ActionTrajectory:
+        max_num_steps: int) -> StateActionTrajectory:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -224,12 +225,11 @@ def option_plan_to_policy(plan: Sequence[_Option]
     return _policy
 
 
-
-def action_to_option_trajectory(act_traj: ActionTrajectory
-                                ) -> OptionTrajectory:
-    """Create an option trajectory from an action trajectory.
+def state_action_to_option_trajectory(trajectory: StateActionTrajectory
+                                      ) -> OptionTrajectory:
+    """Create an option trajectory from a state-action trajectory.
     """
-    states, actions = act_traj
+    states, actions = trajectory
     assert len(states) > 0
     new_states = [states[0]]
     if len(actions) == 0:
@@ -807,3 +807,15 @@ def print_args(args: argparse.Namespace) -> None:
     print(f"Approach: {args.approach}")
     print(f"Timeout: {args.timeout}")
     print()
+
+
+def flush_cache() -> None:
+    """Clear all lru caches.
+    """
+    gc.collect()
+    wrappers = [
+        a for a in gc.get_objects()
+        if isinstance(a, functools._lru_cache_wrapper)]  # pylint: disable=protected-access
+
+    for wrapper in wrappers:
+        wrapper.cache_clear()

@@ -6,7 +6,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    STRIPSOperator, NSRT, _GroundNSRT, Action
+    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition
 from predicators.src import utils
 
 
@@ -257,15 +257,15 @@ def test_option():
     obj1 = type2("obj1")
     state = test_state()
     params_space = Box(-10, 10, (2,))
-    def _policy(s, o, p):
-        del s, o  # unused
+    def _policy(s, m, o, p):
+        del s, m, o  # unused
         return Action(p*2)
-    def _initiable(s, o, p):
-        del o  # unused
+    def _initiable(s, m, o, p):
+        del m, o  # unused
         obj = list(s)[0]
         return p[0] < s[obj][0]
-    def _terminal(s, o, p):
-        del o  # unused
+    def _terminal(s, m, o, p):
+        del m, o  # unused
         obj = list(s)[0]
         return p[1] > s[obj][2]
     parameterized_option = ParameterizedOption(
@@ -319,6 +319,74 @@ def test_option():
         "params=array([ 5., -5.], dtype=float32))")
 
 
+def test_option_memory_incorrect():
+    """Tests for doing option memory the WRONG way. Ensures
+    that it fails in the way we'd expect.
+    """
+    def _make_option():
+        value = 0.0
+        def _policy(s, m, o, p):
+            del s, o  # unused
+            del m  # the correct way of doing memory is unused here
+            nonlocal value
+            value += p[0]  # add the param to value
+            return Action(p)
+        return ParameterizedOption(
+            "Dummy", [], Box(0, 1, (1,)), _policy, lambda s, m, o, p: True,
+            lambda s, m, o, p: value > 1.0)  # terminate when value > 1.0
+    param_opt = _make_option()
+    opt1 = param_opt.ground([], [0.7])
+    opt2 = param_opt.ground([], [0.4])
+    state = State({})
+    assert abs(opt1.policy(state).arr[0]-0.7) < 1e-6
+    assert abs(opt2.policy(state).arr[0]-0.4) < 1e-6
+    # Since memory is shared between the two ground options, both will be
+    # terminal now, since they'll share a value of 1.1 -- this is BAD, but
+    # we include this test as an example of what NOT to do.
+    assert opt1.terminal(state)
+    assert opt2.terminal(state)
+
+
+def test_option_memory_correct():
+    """Tests for doing option memory the RIGHT way. Uses the memory dict.
+    """
+    def _make_option():
+        def _initiable(s, m, o, p):
+            del s, o, p  # unused
+            m["value"] = 0.0  # initialize value
+            return True
+        def _policy(s, m, o, p):
+            del s, o  # unused
+            assert "value" in m, "Call initiable() first!"
+            m["value"] += p[0]  # add the param to value
+            return Action(p)
+        return ParameterizedOption(
+            "Dummy", [], Box(0, 1, (1,)), _policy, _initiable,
+            lambda s, m, o, p: m["value"] > 1.0)  # terminate when value > 1.0
+    param_opt = _make_option()
+    opt1 = param_opt.ground([], [0.7])
+    opt2 = param_opt.ground([], [0.4])
+    state = State({})
+    assert opt1.initiable(state)
+    assert opt2.initiable(state)
+    assert abs(opt1.policy(state).arr[0]-0.7) < 1e-6
+    assert abs(opt2.policy(state).arr[0]-0.4) < 1e-6
+    # Since memory is NOT shared between the two ground options, neither
+    # will be terminal now.
+    assert not opt1.terminal(state)
+    assert not opt2.terminal(state)
+    # Now make opt1 terminal.
+    assert abs(opt1.policy(state).arr[0]-0.7) < 1e-6
+    assert opt1.terminal(state)
+    assert not opt2.terminal(state)
+    # opt2 is not quite terminal yet...value is 0.8
+    opt2.policy(state)
+    assert not opt2.terminal(state)
+    # Make opt2 terminal.
+    opt2.policy(state)
+    assert opt2.terminal(state)
+
+
 def test_nsrts():
     """Tests for STRIPSOperator and NSRT and _GroundNSRT classes.
     """
@@ -334,8 +402,8 @@ def test_nsrts():
     delete_effects = {not_on([cup_var, plate_var])}
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption(
-        "Pick", [], params_space, lambda s, o, p: 2*p, lambda s, o, p: True,
-        lambda s, o, p: True)
+        "Pick", [], params_space, lambda s, m, o, p: 2*p,
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
     def sampler(s, rng, objs):
         del s  # unused
         del rng  # unused
@@ -430,11 +498,11 @@ def test_action():
         ns[cup][0] += a.arr.item()
         return ns
     params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, p):
+    def _policy(_1, _2, _3, p):
         return Action(p)
-    def _initiable(_1, _2, p):
+    def _initiable(_1, _2, _3, p):
         return p > 0.25
-    def _terminal(s, _1, _2):
+    def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
     parameterized_option = ParameterizedOption(
         "Move", [], params_space, _policy, _initiable, _terminal)
@@ -451,3 +519,94 @@ def test_action():
         assert not act.has_option()
     act = Action([0.5])
     assert not act.has_option()
+
+
+def test_segment():
+    """Tests for Segment class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj = (states, actions)
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    parameterized_option = ParameterizedOption(
+        "Move", [], Box(0, 1, (1,)),
+        lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True)
+    params = [0.5]
+    option = parameterized_option.ground([], params)
+    action0.set_option(option)
+    action1.set_option(option)
+    # First create segment without the option.
+    segment = Segment(traj, init_atoms, final_atoms)
+    assert len(segment.states) == len(states)
+    assert all(ss.allclose(s) for ss, s in zip(segment.states, states))
+    assert len(segment.actions) == len(actions)
+    assert all(np.allclose(sa.arr, a.arr) \
+               for sa, a in zip(segment.actions, actions))
+    assert segment.init_atoms == init_atoms
+    assert segment.final_atoms == final_atoms
+    assert segment.add_effects == {not_on([cup, plate])}
+    assert segment.delete_effects == {on([cup, plate])}
+    assert not segment.has_option()
+    segment.set_option_from_trajectory()
+    assert segment.has_option()
+    assert segment.get_option() == option
+
+
+def test_partition():
+    """Tests for Partition class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj = (states, actions)
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    parameterized_option = ParameterizedOption(
+        "Move", [], Box(0, 1, (1,)),
+        lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True)
+    params = [0.5]
+    option = parameterized_option.ground([], params)
+    segment1 = Segment(traj, init_atoms, final_atoms, option)
+    objtovar = {cup: cup_var, plate: plate_var}
+    segment2 = Segment(traj, init_atoms, final_atoms, option)
+    segment3 = Segment(traj, init_atoms, set(), option)
+    partition = Partition([(segment1, objtovar)])
+    assert partition.add_effects == {not_on([cup_var, plate_var])}
+    assert partition.delete_effects == {on([cup_var, plate_var])}
+    assert partition.option_spec == (parameterized_option, [])
+    assert len(partition) == 1
+    assert len(list(partition)) == 1
+    partition.add((segment2, objtovar))
+    assert len(partition) == 2
+    with pytest.raises(AssertionError):
+        # Effects don't match.
+        partition.add((segment3, objtovar))
+    
