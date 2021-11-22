@@ -150,7 +150,7 @@ class GlobalSettings:
                 "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
-                "bfg": "demo+replay",
+                "grammar_search_invention": "demo+replay",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
@@ -160,7 +160,7 @@ class GlobalSettings:
                 "nsrt_learning": 500,
                 "interactive_learning": 500,
                 "iterative_invention": 500,
-                "bfg": 500,
+                "grammar_search_invention": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
@@ -170,7 +170,7 @@ class GlobalSettings:
                 "nsrt_learning": 10,
                 "interactive_learning": 10,
                 "iterative_invention": 500,
-                "bfg": 500,
+                "grammar_search_invention": 500,
             })[args["approach"]],
         )
 
