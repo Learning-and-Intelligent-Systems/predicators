@@ -456,8 +456,8 @@ def _run_heuristic_search(
     If no goal is found, returns the node with the best priority.
     """
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
-    frontier = set()
-    explored = set()
+    state_to_best_path_cost: Dict[_S, float] = \
+        defaultdict(lambda : float("inf"))
 
     root_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
         initial_state, 0, 0)
@@ -466,32 +466,33 @@ def _run_heuristic_search(
     best_node_priority = root_priority
     tiebreak = itertools.count()
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
-    frontier.add(initial_state)
     num_expansions = 0
 
     while len(queue) > 0 and num_expansions < max_expansions:
         _, _, node = hq.heappop(queue)
+        # If we already found a better path here, don't bother.
+        if state_to_best_path_cost[node.state] < node.cumulative_cost:
+            continue
         # If the goal holds, return.
         if check_goal(node.state):
             return _finish_plan(node)
-        # Add node state to explored set.
-        explored.add(node.state)
         num_expansions += 1
         # Generate successors.
         for action, child_state, cost in get_successors(node.state):
-            # If the state is already in explored or frontier, don't bother.
-            if child_state in frontier | explored:
+            child_path_cost = node.cumulative_cost + cost
+            # If we already found a better path to child, don't bother.
+            if state_to_best_path_cost[child_state] <= child_path_cost:
                 continue
-            # Add new node
+            # Add new node.
             child_node = _HeuristicSearchNode(
                 state=child_state,
                 edge_cost=cost,
-                cumulative_cost=node.cumulative_cost+cost,
+                cumulative_cost=child_path_cost,
                 parent=node,
                 action=action)
             priority = get_priority(child_node)
             hq.heappush(queue, (priority, next(tiebreak), child_node))
-            frontier.add(child_state)
+            state_to_best_path_cost[child_state] = child_path_cost
             if priority < best_node_priority:
                 best_node_priority = priority
                 best_node = child_node
@@ -512,6 +513,7 @@ def _finish_plan(node: _HeuristicSearchNode[_S, _A]
         rev_action_sequence.append(action)
         rev_state_sequence.append(node.state)
         node = node.parent
+    rev_state_sequence.append(node.state)
 
     return rev_state_sequence[::-1], rev_action_sequence[::-1]
 
