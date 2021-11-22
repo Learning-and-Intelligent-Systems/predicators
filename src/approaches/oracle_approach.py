@@ -10,7 +10,7 @@ from typing import List, Sequence, Set
 import itertools
 import numpy as np
 from predicators.src.approaches import TAMPApproach
-from predicators.src.envs import create_env
+from predicators.src.envs import create_env, BlocksEnv
 from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
@@ -295,7 +295,7 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     def stack_sampler(state: State, rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
         del state, rng, objs  # unused
-        return np.array([0, 0, CFG.blocks_block_size], dtype=np.float32)
+        return np.array([0, 0, BlocksEnv.block_size], dtype=np.float32)
     stack_nsrt = NSRT(
         "Stack", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, stack_sampler)

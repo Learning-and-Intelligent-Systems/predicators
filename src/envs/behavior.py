@@ -1,6 +1,6 @@
 """Behavior (iGibson) environment.
 """
-# pylint:disable=import-error
+# pylint: disable=import-error
 
 from dataclasses import dataclass, field
 import functools

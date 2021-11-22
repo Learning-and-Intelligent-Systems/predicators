@@ -8,7 +8,7 @@ from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
 from predicators.src.planning import sesame_plan
 from predicators.src import utils
-from predicators.src.structs import Task
+from predicators.src.structs import Task, NSRT, ParameterizedOption
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
 
@@ -76,3 +76,32 @@ def test_sesame_plan_failures():
         sesame_plan(task, option_model, nsrts,
                     env.predicates, timeout=500, seed=123,
                     check_dr_reachable=False)
+
+
+def test_sesame_plan_uninitiable_option():
+    """Tests planning in the presence of an option whose initiation set
+    is nontrivial.
+    """
+    # pylint: disable=protected-access
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    env.seed(123)
+    option_model = create_option_model(CFG.option_model_name, env.simulate)
+    initiable = lambda s, m, o, p: False
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    old_option = next(iter(env.options))
+    new_option = ParameterizedOption(
+        old_option.name, old_option.types, old_option.params_space,
+        old_option._policy, initiable, old_option._terminal)
+    new_nsrts = set()
+    for nsrt in nsrts:
+        new_nsrts.add(NSRT(
+            nsrt.name+"UNINITIABLE", nsrt.parameters, nsrt.preconditions,
+            nsrt.add_effects, nsrt.delete_effects, new_option,
+            nsrt.option_vars, nsrt._sampler))
+    task = env.get_train_tasks()[0]
+    with pytest.raises(ApproachFailure) as e:
+        # Planning should reach max_skeletons_optimized
+        sesame_plan(task, option_model, new_nsrts,
+                    env.predicates, timeout=500, seed=123)
+    assert "Planning reached max_skeletons_optimized!" in str(e.value)
