@@ -12,11 +12,9 @@ from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, Transition, LiftedAtom, \
-    Array, Object
+    Array, Object, GroundAtomTrajectory
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
-from predicators.src.operator_learning import generate_transitions, \
-    learn_operators_for_option
 from predicators.src.settings import CFG
 
 
@@ -54,13 +52,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a large candidate set of predicates.
         candidates = self._generate_candidate_predicates()
-        # Apply the candidate predicates to the data. Here we will store a dict
-        # from predicate to dataset index to 
-        atom_dataset = apply_predicates_to_dataset(dataset, candidates)
+        # Apply the candidate predicates to the data.
+        atom_dataset = utils.create_ground_atom_dataset(dataset, candidates)
         # Select a subset of the candidates to keep.
         self._learned_predicates = self._select_predicates_to_keep(candidates,
-            transitions_by_option)
-        # Finally, learn NSRTs via superclass, using all the predicates.
+            atom_dataset)
+        # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset)
 
     def _generate_candidate_predicates(self) -> Set[Predicate]:
@@ -88,28 +85,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return candidates
 
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
-            transitions_by_option: DefaultDict[
-                ParameterizedOption, List[Transition]]) -> Set[Predicate]:
-        # Standardize transitions so that they are effectively propositional,
-        # and so that they are associated with a unique identifier.
-        standard_transitions = self._standardize_transitions(candidates,
-            transitions_by_option)
-
-        # TODO: what to do about options?
-
-        # Set up MaxSAT problem based on bisimulation objective.
-        formulas = []
-
-        # Formula 1: defines the meaning of D1(s, t).
-        for i, s in enumerate(standard_transitions[:-1]):
-            for t in standard_transitions[i+1:]:
-                d1_s_t = f"D1({s.id}, {t.id})"
-                # Find features that are different in s vs t
-                all_selected_atoms = []
-                for atom in (s.atoms - t.atoms) | (t.atoms - s.atoms):
-                    selected_atom = f"selected({atom})"
-                    all_selected_atoms.append(selected_atom)
-
+                                   atom_dataset: List[GroundAtomTrajectory]
+                                   ) -> Set[Predicate]:
 
         # TODO
         kept_predicates = candidates
