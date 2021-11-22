@@ -6,7 +6,8 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition
+    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition, \
+    _GroundSTRIPSOperator
 from predicators.src import utils
 
 
@@ -388,7 +389,7 @@ def test_option_memory_correct():
 
 
 def test_nsrts():
-    """Tests for STRIPSOperator and NSRT and _GroundNSRT classes.
+    """Tests for STRIPSOperator, _GroundSTRIPSOperator, NSRT and _GroundNSRT.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -422,6 +423,19 @@ def test_nsrts():
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects)
     assert strips_operator == strips_operator2
+    # _GroundSTRIPSOperator
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    ground_op = strips_operator.ground((cup, plate))
+    assert isinstance(ground_op, _GroundSTRIPSOperator)
+    assert str(ground_op) == repr(ground_op) == """Pick:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
+    Add Effects: [On(cup:cup_type, plate:plate_type)]
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]"""
+    ground_op2 = strips_operator2.ground((cup, plate))
+    assert ground_op == ground_op2
+    assert hash(ground_op) == hash(ground_op2)
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                 delete_effects, parameterized_option, [], sampler)
@@ -439,8 +453,6 @@ def test_nsrts():
     nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
     assert nsrt == nsrt3
     # _GroundNSRT
-    cup = cup_type("cup")
-    plate = plate_type("plate")
     ground_nsrt = nsrt.ground([cup, plate])
     assert isinstance(ground_nsrt, _GroundNSRT)
     assert str(ground_nsrt) == repr(ground_nsrt) == """Pick:
