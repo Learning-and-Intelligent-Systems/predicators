@@ -75,4 +75,4 @@ def create_approach(name: str,
         return IterativeInventionApproach(simulator, initial_predicates,
                                           initial_options, types, action_space,
                                           train_tasks)
-    raise NotImplementedError(f"Unknown env: {name}")
+    raise NotImplementedError(f"Unknown approach: {name}")

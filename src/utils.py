@@ -164,15 +164,26 @@ def option_to_trajectory(
     """
     actions = []
     assert option.initiable(init)
+    print(f"Starting to Execute Option {option}")
     state = init
     states = [state]
-    for _ in range(max_num_steps):
-        act = option.policy(state)
+    for i in range(max_num_steps):
+        try:
+            act = option.policy(state)
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
         actions.append(act)
-        state = simulator(state, act)
+        try:
+            state = simulator(state, act)
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
         states.append(state)
         if option.terminal(state):
             break
+    
+    if i == max_num_steps - 1:
+        print(f"Terminating execution of Option {option} because it reached the max. step limit!")
+    
     assert len(states) == len(actions)+1
     return states, actions
 

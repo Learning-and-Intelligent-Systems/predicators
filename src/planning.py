@@ -115,11 +115,18 @@ def _run_search(task: Task,
             CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
+
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
+        # print(node.skeleton)
         if task.goal.issubset(node.atoms):
+            
+            # for p in node.skeleton:
+            #     print(p)
+
             # If this skeleton satisfies the goal, run low-level search.
             metrics["num_skeletons_optimized"] += 1
+            print(f"Number of Skeletons Optimized: {metrics['num_skeletons_optimized']}")
             plan = _run_low_level_search(
                 task, option_model, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
@@ -143,6 +150,7 @@ def _run_search(task: Task,
                 hq.heappush(queue, (priority,
                                     rng_prio.uniform(),
                                     child_node))
+            
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
     assert time.time()-start_time > timeout

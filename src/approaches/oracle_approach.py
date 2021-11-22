@@ -7,12 +7,15 @@ that NSRT will not be generated at all.
 """
 
 from typing import List, Sequence, Set
+import itertools
 import numpy as np
 from predicators.src.approaches import TAMPApproach
 from predicators.src.envs import create_env
 from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
+    grasp_obj_param_sampler
 
 
 class OracleApproach(TAMPApproach):
@@ -57,7 +60,7 @@ def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
     """Helper for loading types, predicates, and options by name.
     """
-    env = create_env(env_name)
+    env = get_env_instance(env_name)
     name_to_env_obj = {}
     for o in getattr(env, env_attr):
         name_to_env_obj[o.name] = o

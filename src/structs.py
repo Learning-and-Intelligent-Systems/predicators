@@ -167,7 +167,11 @@ class State:
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
+            # if "book.n.02_4" in str(obj):
+            #     print(self.data[obj])
+            #     print()
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
+                # import ipdb; ipdb.set_trace()
                 return False
         return True
 
@@ -369,6 +373,10 @@ class ParameterizedOption:
         assert isinstance(other, ParameterizedOption)
         return self.name == other.name
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name < other.name
+
     def __hash__(self) -> int:
         return self._hash
 
@@ -568,7 +576,7 @@ class _GroundNSRT:
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Option: {self.option}
-    Option Objects: {self.option_objs}"""
+    Option Objects: {self.option_objs}\n"""
 
     @cached_property
     def _hash(self) -> int:

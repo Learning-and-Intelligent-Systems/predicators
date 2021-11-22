@@ -13,12 +13,16 @@ __all__ = [
     "EnvironmentFailure",
     "CoverEnv",
     "CoverEnvTypedOptions",
+    "BehaviorEnv",
     "CoverEnvHierarchicalTypes",
     "CoverMultistepOptions",
     "ClutteredTableEnv",
     "BlocksEnv",
     "BehaviorEnv",
 ]
+
+
+_MOST_RECENT_ENV_INSTANCE = {}
 
 
 def create_env(name: str) -> BaseEnv:
