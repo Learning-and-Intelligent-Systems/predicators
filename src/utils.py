@@ -19,7 +19,7 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub
+    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -486,6 +486,18 @@ def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
     for pred in preds:
         ground_atoms |= all_ground_predicates(pred, objects)
     return sorted(ground_atoms)
+
+
+def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
+                               ) -> List[GroundAtomTrajectory]:
+    """Apply all predicates to all trajectories in the dataset.
+    """
+    ground_atom_dataset = []
+    for states, actions in dataset:
+        assert len(states) == len(actions) + 1
+        atoms = [abstract(s, predicates) for s in states]
+        ground_atom_dataset.append((states, actions, atoms))
+    return ground_atom_dataset
 
 
 def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[

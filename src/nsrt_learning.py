@@ -5,7 +5,8 @@ import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, StateActionTrajectory, Segment, Partition, Object
+    ObjToVarSub, StateActionTrajectory, Segment, Partition, Object, \
+    GroundAtomTrajectory
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -18,9 +19,12 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     """
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
+    # Apply predicates to dataset.
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
+
     # Segment transitions based on changes in predicates.
-    segments = [seg for traj in dataset
-                for seg in segment_trajectory(traj, predicates)]
+    segments = [seg for traj in ground_atom_dataset
+                for seg in segment_trajectory(traj)]
 
     # Learn strips operators.
     strips_ops, partitions = learn_strips_operators(segments)
@@ -61,14 +65,12 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     return set(nsrts)
 
 
-def segment_trajectory(trajectory: StateActionTrajectory,
-                       predicates: Set[Predicate]) -> List[Segment]:
-    """Segment an action trajectory according to abstract state changes.
+def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
+    """Segment a ground atom trajectory according to abstract state changes.
     """
     segments = []
-    states, actions = trajectory
-    assert len(states) == len(actions) + 1
-    all_atoms = [utils.abstract(s, predicates) for s in states]
+    states, actions, all_atoms = trajectory
+    assert len(states) == len(actions) + 1 == len(all_atoms)
     current_segment_traj : StateActionTrajectory = ([states[0]], [])
     for t in range(len(actions)):
         current_segment_traj[0].append(states[t])
