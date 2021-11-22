@@ -5,11 +5,13 @@ the candidates proposed from a grammar.
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
-    Any, FrozenSet
+    Any, FrozenSet, Iterator
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
+from predicators.src.nsrt_learning import segment_trajectory, \
+    learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, Transition, LiftedAtom, \
     Array, Object, GroundAtomTrajectory
@@ -114,7 +116,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # Greedy best first search.
         path, _ = utils.run_gbfs(
-            init, _get_successors, _heuristic, _check_goal,
+            init, _check_goal, _get_successors, _heuristic,
             max_expansions=CFG.grammar_search_max_expansions)
         kept_predicates = path[-1]
 

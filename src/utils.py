@@ -559,6 +559,20 @@ def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
     return ground_atom_dataset
 
 
+def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
+                              kept_predicates: Set[Predicate]
+                              ) -> List[GroundAtomTrajectory]:
+    """Create a new ground atom dataset by keeping only some predicates.
+    """
+    new_ground_atom_dataset = []
+    for states, actions, atoms in ground_atom_dataset:
+        assert len(states) == len(actions) + 1 == len(atoms)
+        kept_atoms = [{a for a in sa if a.predicate in kept_predicates}
+                      for sa in atoms]
+        new_ground_atom_dataset.append((states, actions, kept_atoms))
+    return new_ground_atom_dataset
+
+
 def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given NSRTs.
