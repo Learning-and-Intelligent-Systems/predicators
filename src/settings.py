@@ -87,6 +87,9 @@ class GlobalSettings:
     interactive_ask_strategy_threshold = 0.0
     interactive_ask_strategy_pct = 20.0
 
+    # grammar search invention parameters
+    grammar_search_max_expansions = 1000
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
