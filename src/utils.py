@@ -395,7 +395,7 @@ _A = TypeVar('_A')  # action in heuristic search
 class _HeuristicSearchNode(Generic[_S, _A]):
     state: _S
     edge_cost: float
-    cumulative_cost: float 
+    cumulative_cost: float
     parent: Optional[_HeuristicSearchNode[_S, _A]] = None
     action: Optional[_A] = None
 
