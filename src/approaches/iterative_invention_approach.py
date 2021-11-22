@@ -38,8 +38,12 @@ class IterativeInventionApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Use the current predicates to segment dataset.
         predicates = self._get_current_predicates()
-        segments = [seg for traj in dataset
-                    for seg in segment_trajectory(traj, predicates)]
+        # Apply predicates to dataset.
+        ground_atom_dataset = utils.create_ground_atom_dataset(dataset,
+                                                               predicates)
+        # Segment transitions based on changes in predicates.
+        segments = [seg for traj in ground_atom_dataset
+                    for seg in segment_trajectory(traj)]
         # Note that segmenting does not assume that options are known; it uses
         # the predicates only. So after segmenting, we will add the correct
         # options to the segments, because here we are assuming that options

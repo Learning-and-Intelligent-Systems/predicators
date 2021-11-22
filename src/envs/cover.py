@@ -350,38 +350,35 @@ class CoverEnvHierarchicalTypes(CoverEnv):
 
 
 class CoverMultistepOptions(CoverEnvTypedOptions):
-    """Cover domain with a lower level action space.
-
-    Useful for using and learning multistep options.
+    """Cover domain with a lower level action space. Useful for using and
+    learning multistep options.
 
     The action space is (dx, dy, dgrip). The last dimension
-    controls the gripper "magnet" or "vacuum".
+    controls the gripper "magnet" or "vacuum". The state space is updated to
+    track x, y, grip.
 
-    The state space also needs to change to track x, y, grip.
-
-    The notion of allowed hand regions needs to be adjusted.
-    We will allow the gripper to move anywhere, except when
-    the y dimension is less than a certain threshold, then
-    the x dimension will still need to be within a hand region.
-
-    Currently simulate disallows dropping blocks except when
-    over a target region. We should fix this to allow dropping
-    blocks anywhere. Also, would be good to check collisions.
+    The robot can move anywhere as long as it, and the block it may be holding,
+    does not collide with another block. Picking up a block is allowed when the
+    robot gripper is empty, when the robot is in the allowable hand region, and
+    when the robot is sufficiently close to the block in the y-direction.
+    Placing is allowed anywhere. Collisions are handled in simulate().
     """
-    hand_region_height = 0.1
     grasp_height_tol = 1e-2
-    grasp_thresh = 0.
-    initial_block_y = 0.05
+    grasp_thresh = 0.0
+    initial_block_y = 0.1
     block_height = 0.1
-    target_height = 0.1
+    target_height = 0.1  # Only for rendering purposes.
+    placing_height = 0.1  # A block's base must be below this to be placed.
     initial_robot_y = 0.4
+    collision_threshold = 1e-5
 
     def __init__(self) -> None:
         super().__init__()
         # Need to now include y and gripper info in state.
         # Removing "pose" because that's ambiguous.
         # Also adding height to blocks.
-        # The y position will correspond to the top of the block.
+        # The y position corresponds to the top of the block.
+        # The x position corresponds to the center of the block.
         self._block_type = Type(
             "block", ["is_block", "is_target", "width", "x",
                       "grasp", "y", "height"])
@@ -421,9 +418,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Note: there is a change here -- the parameter space is now
         # relative to the target. In the parent env, the parameter
         # space is absolute, and the state of the target is not used.
-        # We made this change because we want to learn options whose
-        # parameters correspond to changes in the low-level states
-        # of the objects involved in the option's effects.
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type],
             params_space=Box(-0.1, 0.1, (1,)),
@@ -444,67 +438,118 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Since the action space is lower level, we need to write
         # a lower level simulate function.
         assert self.action_space.contains(action.arr)
+
+        # Get data needed to collision check the trajectory.
         dx, dy, dgrip = action.arr
         next_state = state.copy()
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         grip = state.get(self._robot, "grip")
-        # Update robot state based on action.
+        held_block = None
+        for block in self._blocks:
+            if state.get(block, "grasp") != -1:
+                assert held_block is None
+                held_block = block
+                hx, hy = state.get(held_block, "x"), \
+                           state.get(held_block, "y")
+                hw, hh = state.get(held_block, "width"), \
+                         state.get(held_block, "height")
+
+        # Ensure neither the gripper nor the possible held block go below the
+        # y-axis.
+        if y + dy < 0 - self.collision_threshold:
+            return state.copy()
+        if held_block is not None:
+            if hy - hh + dy < 0 - self.collision_threshold:
+                return state.copy()
+
+        # Ensure neither the gripper nor the possible held block collide with
+        # another block during the trajectory defined by dx, dy.
+        p1 = (x, y)
+        p2 = (x + dx, y + dy)
+        for block in self._blocks:
+            bx, by = state.get(block, "x"), state.get(block, "y")
+            bw, bh = state.get(block, "width"), state.get(block, "height")
+            ct = self.collision_threshold
+            # These segments defines a slightly smaller rectangle to prevent
+            # floating point arithmetic making us declare a false positive.
+            segments = [
+                ((bx-bw/2+ct, by-ct), (bx+bw/2-ct, by-ct)),  # top
+                ((bx+bw/2-ct, by-ct), (bx+bw/2-ct, by-bh)),  # right
+                ((bx-bw/2+ct, by-ct), (bx-bw/2+ct, by-bh))  # left
+            ]
+            # Check if the robot collides with a block.
+            if held_block is not None and block == held_block:
+                continue
+            if any(utils.intersects(p1, p2, p3, p4) for p3, p4 in segments):
+                return state.copy()
+            # Check if the held_block collides with a block.
+            # For each of the four vertices of our held block, construct the
+            # line segment from its old location to its new location, and check
+            # if this line segment intersects any segment of the block. Also
+            # check if the blocks overlap.
+            if held_block is None:
+                continue
+            # Check translations.
+            vertices = [(hx-hw/2, hy), (hx+hw/2, hy), \
+                        (hx-hw/2, hy-hh), (hx+hw/2, hy-hh)]
+            translations = [((vx, vy), (vx+dx, vy+dy)) \
+                            for vx, vy in vertices]
+            if any(utils.intersects(p1, p2, p3, p4) \
+                for p1, p2 in translations for p3, p4 in segments):
+                return state.copy()
+            # Check overlap
+            l1, r1 = (hx-hw/2+dx, hy+dy), (hx+hw/2+dx, hy-hh+dy)
+            l2, r2 = (bx-bw/2, by), (bx+bw/2, by-bh)
+            if utils.overlap(l1, r1, l2, r2):
+                return state.copy()
+
+        # No collisions; update robot and possible held block state based on
+        # action.
         x += dx
         y += dy
         grip = dgrip  # desired grip; set directly
         next_state.set(self._robot, "x", x)
         next_state.set(self._robot, "y", y)
         next_state.set(self._robot, "grip", grip)
-        # If y is below a threshold, then we need to be in hand region.
-        if y < self.hand_region_height:
-            hand_regions = self._get_hand_regions(state)
-            # If we're not in any hand region, no-op.
-            if not any(hand_lb <= x <= hand_rb
-                       for hand_lb, hand_rb in hand_regions):
-                return state.copy()
-        # Identify which block we're holding and which block we're above.
-        held_block = None
+        if held_block is not None:
+            hx = hx + dx
+            hy = hy + dy
+            next_state.set(held_block, "x", hx)
+            next_state.set(held_block, "y", hy)
+
+        # Check if we are above a block.
         above_block = None
         for block in self._blocks:
-            if state.get(block, "grasp") != -1:
-                assert held_block is None
-                held_block = block
             block_x_lb = state.get(block, "x") - state.get(block, "width")/2
             block_x_ub = state.get(block, "x") + state.get(block, "width")/2
-            block_y_lb = state.get(block, "y") - self.grasp_height_tol
-            block_y_ub = state.get(block, "y") + self.grasp_height_tol
             if state.get(block, "grasp") == -1 and \
-               block_x_lb <= x <= block_x_ub and \
-               block_y_lb <= y <= block_y_ub:
+               block_x_lb <= x <= block_x_ub:
                 assert above_block is None
                 above_block = block
-        # If we're not holding anything and we're above a block, grasp it.
-        # The grasped block's pose stays the same.
+
+        # If we're not holding anything and we're close enough to a block, grasp
+        # it if the gripper is on and we are in the allowed grasping region.
         # Note: unlike parent env, we also need to check the grip.
         if held_block is None and above_block is not None and \
-           grip > self.grasp_thresh:
-            grasp = x - state.get(above_block, "x")
-            next_state.set(above_block, "grasp", grasp)
-        # If we are holding something, place it.
-        # Disallow placing on another block or in free space.
+            grip > self.grasp_thresh and any(hand_lb <= x <= hand_rb for
+            hand_lb, hand_rb in self._get_hand_regions(state)):
+            by = state.get(above_block, "y")
+            by_ub = by + self.grasp_height_tol
+            by_lb = by - self.grasp_height_tol
+            if by_lb <= y <= by_ub:
+                next_state.set(above_block, "grasp", 1)
+
+        # If we are holding anything and we're not above a block, place it if
+        # the gripper is off and we are low enough. Placing anywhere is allowed
+        # and possible overlaps with other blocks is handled by the
+        # collision checker.
         # Note: unlike parent env, we also need to check the grip.
-        # Also unlike parent env, we disallow placing except when
-        # below the hand_region_height.
         if held_block is not None and above_block is None and \
-            grip < self.grasp_thresh and y < self.hand_region_height:
-            new_x = x - state.get(held_block, "grasp")
-            if not self._any_intersection(
-                    new_x, state.get(held_block, "width"), state.data,
-                    block_only=True) and \
-                any(state.get(targ, "x") - state.get(targ, "width")/2
-                    <= x <=
-                    state.get(targ, "x") + state.get(targ, "width")/2
-                    for targ in self._targets):
-                next_state.set(held_block, "x", new_x)
-                # Always apply gravity immediately when dropping
-                next_state.set(held_block, "y", self.initial_block_y)
-                next_state.set(held_block, "grasp", -1)
+            grip < self.grasp_thresh and (hy-hh) < self.placing_height:
+            next_state.set(held_block, "y", self.initial_block_y)
+            next_state.set(held_block, "grasp", -1)
+
         return next_state
 
     def render(self, state: State, task: Task,
@@ -514,7 +559,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
         # Draw main line
-        plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
+        plt.plot([-0.2, 1.2], [-0.001, -0.001], color="black", linewidth=0.4)
         # Draw hand regions
         hand_regions = self._get_hand_regions(state)
         for i, (hand_lb, hand_rb) in enumerate(hand_regions):
@@ -528,28 +573,29 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         plt.scatter(state.get(self._robot, "x"),
                     state.get(self._robot, "y"),
                     color="r", s=100, alpha=1., zorder=10, label="Hand")
-        lw = 3
+        plt.plot([state.get(self._robot, "x"), state.get(self._robot, "x")],
+                 [1, state.get(self._robot, "y")], color="r", alpha=1.,
+                 zorder=10, label=None)
+
+        lw = 2
         cs = ["blue", "purple", "green", "yellow"]
         block_alpha = 0.75
         targ_alpha = 0.25
+
         # Draw blocks
         for i, block in enumerate(self._blocks):
             c = cs[i]
+            bx, by = state.get(block, "x"), state.get(block, "y")
+            bw = state.get(block, "width")
+            bh = state.get(block, "height")
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
-                bx = state.get(self._robot, "x") - state.get(block, "grasp")
-                by = state.get(self._robot, "y")
                 suffix = " (grasped)"
             else:
                 lcolor = "gray"
-                bx = state.get(block, "x")
-                by = state.get(block, "y")
                 suffix = ""
             rect = plt.Rectangle(
-                (bx - state.get(block, "width")/2.,
-                 by - state.get(block, "height")),
-                state.get(block, "width"),
-                state.get(block, "height"),
+                (bx - bw/2., by-bh), bw, bh,
                 linewidth=lw, edgecolor=lcolor, facecolor=c,
                 alpha=block_alpha, label=f"block{i}"+suffix)
             ax.add_patch(rect)
@@ -557,18 +603,17 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         for i, targ in enumerate(self._targets):
             c = cs[i]
             rect = plt.Rectangle(
-                (state.get(targ, "x")-state.get(targ, "width")/2.,
-                 -self.target_height/2.),
+                (state.get(targ, "x")-state.get(targ, "width")/2., 0.0),
                 state.get(targ, "width"),
                 self.target_height,
-                linewidth=lw,
+                linewidth=0,
                 edgecolor=lcolor,
                 facecolor=c, alpha=targ_alpha, label=f"target{i}")
             ax.add_patch(rect)
         grip = state.get(self._robot, "grip")
         plt.title(f"Grip: {grip:.3f}")
         plt.xlim(-0.2, 1.2)
-        plt.ylim(-0.25, 0.5)
+        plt.ylim(-0.25, 1)
         plt.legend()
         plt.tight_layout()
         img = utils.fig2data(fig)
@@ -670,7 +715,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         x = s.get(self._robot, "x")
         at_desired_x = abs(desired_x - x) < 1e-5
         y = s.get(self._robot, "y")
-        desired_y = self.initial_block_y
+        desired_y = self.block_height + 1e-2
         at_desired_y = abs(desired_y - y) < 1e-5
         # If we're already above the object and prepared to place,
         # then execute the place (turn down the magnet).
@@ -692,8 +737,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
-        # Place is done when the hand is empty.
         del m, o, p  # unused
+        # Place is done when the hand is empty.
         return self._HandEmpty_holds(s, [])
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
@@ -711,11 +756,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     @staticmethod
     def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
-        # Overriding because of the change from "pose" to "x".
+        # Overriding because of the change from "pose" to "x" and because
+        # block's x-position is updated in every step of simulate and not just
+        # at the end of a place() operation so we cannot allow the predicate to
+        # hold when the block is in the air.
         block, target = objects
         block_pose = state.get(block, "x")
         block_width = state.get(block, "width")
         target_pose = state.get(target, "x")
         target_width = state.get(target, "width")
+        by, bh = state.get(block, "y"), state.get(block, "height")
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
-               (block_pose+block_width/2 >= target_pose+target_width/2)
+               (block_pose+block_width/2 >= target_pose+target_width/2) and \
+               (by - bh == 0)
