@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
     Tuple, Any, cast, FrozenSet, DefaultDict, Optional
 import numpy as np
@@ -445,6 +445,23 @@ class STRIPSOperator:
                     self.add_effects, self.delete_effects, option,
                     option_vars, sampler)
 
+    @lru_cache(maxsize=None)
+    def ground(self, objects: Tuple[Object]) -> _GroundSTRIPSOperator:
+        """Ground into a _GroundSTRIPSOperator, given objects.
+
+        Insist that objects are tuple for hashing in cache.
+        """
+        assert isinstance(objects, tuple)
+        assert len(objects) == len(self.parameters)
+        assert all(o.is_instance(p.type) for o, p
+                   in zip(objects, self.parameters))
+        sub = dict(zip(self.parameters, objects))
+        preconditions = {atom.ground(sub) for atom in self.preconditions}
+        add_effects = {atom.ground(sub) for atom in self.add_effects}
+        delete_effects = {atom.ground(sub) for atom in self.delete_effects}
+        return _GroundSTRIPSOperator(self, list(objects), preconditions,
+                                     add_effects, delete_effects)
+
     @cached_property
     def _str(self) -> str:
         return f"""STRIPS-{self.name}:
@@ -468,6 +485,48 @@ class STRIPSOperator:
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, STRIPSOperator)
+        return str(self) == str(other)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class _GroundSTRIPSOperator:
+    """A STRIPSOperator + objects. Should not be instantiated externally.
+    """
+    operator: STRIPSOperator
+    objects: Sequence[Object]
+    preconditions: Set[GroundAtom]
+    add_effects: Set[GroundAtom]
+    delete_effects: Set[GroundAtom]
+
+    @cached_property
+    def _str(self) -> str:
+        return f"""GroundSTRIPS-{self.name}:
+    Parameters: {self.objects}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}"""
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    @property
+    def name(self) -> str:
+        """Name of this ground STRIPSOperator.
+        """
+        return self.operator.name
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
         return str(self) == str(other)
 
 
@@ -798,6 +857,4 @@ Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
-Transition = Tuple[State, State, Set[GroundAtom], _Option,
-                   Set[GroundAtom], Set[GroundAtom], Set[GroundAtom]]
 Metrics = DefaultDict[str, float]
