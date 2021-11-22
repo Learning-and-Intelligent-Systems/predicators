@@ -5,7 +5,7 @@ the candidates proposed from a grammar.
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
-    Any, FrozenSet, Iterator
+    Any, FrozenSet, Iterator, Tuple
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -14,7 +14,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, Transition, LiftedAtom, \
-    Array, Object, GroundAtomTrajectory
+    Array, Object, GroundAtomTrajectory, STRIPSOperator
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.settings import CFG
@@ -92,9 +92,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Perform a greedy search over predicate sets.
         # Successively consider small predicate sets.
         def _get_successors(s: FrozenSet[Predicate]
-                            ) -> Iterator[FrozenSet[Predicate]]:
+                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
             for predicate in sorted(s):  # sorting for determinism
-                yield frozenset(s - {predicate})  # frozenset for hashing
+                # Actions not needed. Frozensets for hashing.
+                yield (None, frozenset(s - {predicate}), 1.)
 
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
@@ -104,11 +105,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                         for seg in segment_trajectory(traj)]
             strips_ops, _ = learn_strips_operators(segments)
             # Score based on how well the operators fit the data.
-            import ipdb; ipdb.set_trace()
+            num_true_positives, num_false_positives = \
+                self._count_positives_for_ops(strips_ops, pruned_atom_data)
             # Also add a size penalty.
+            op_size = self._get_operators_size(strips_ops)
+            # Lower is better.
+            return CFG.grammar_search_false_pos_weight * num_false_positives + \
+                CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
+                CFG.grammar_search_size * (-op_size)
 
         # There are no goal states for this search; run until exhausted.
-        def _check_goal(s : FrozenSet[Predicate]) -> bool:
+        def _check_goal(s: FrozenSet[Predicate]) -> bool:
             return False
 
         # Start the search with all of the candidates.
@@ -125,4 +132,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         for pred in kept_predicates:
             print(pred)
 
-        return kept_predicates
+        return set(kept_predicates)
+
+    def _count_positives_for_ops(self, strips_ops: List[STRIPSOperator],
+                                 pruned_atom_data: List[GroundAtomTrajectory]
+                                 ) -> Tuple[int, int]:
+        """Returns num true positives, num false positives.
+        """
+        import ipdb; ipdb.set_trace()
+
+    def _get_operators_size(self, strips_ops: List[STRIPSOperator]) -> int:
+        import ipdb; ipdb.set_trace()
