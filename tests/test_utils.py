@@ -592,7 +592,6 @@ def test_create_ground_atom_dataset():
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
-    objects = {cup1, cup2, plate1, plate2}
     states = [
         State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]}),
         State({cup1: [1.1], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
