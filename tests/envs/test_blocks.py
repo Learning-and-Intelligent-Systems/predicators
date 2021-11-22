@@ -4,7 +4,6 @@
 import numpy as np
 from predicators.src.envs import BlocksEnv
 from predicators.src import utils
-from predicators.src.settings import CFG
 
 
 def test_blocks():
@@ -107,16 +106,16 @@ def test_blocks_failure_cases():
     assert state.allclose(next_state)
     # Cannot stack onto non-clear block
     act = Stack.ground([robot, block1], np.array(
-        [0, 0, CFG.blocks_block_size], dtype=np.float32)).policy(state)
+        [0, 0, BlocksEnv.block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto no block
     act = Stack.ground([robot, block1], np.array(
-        [0, -1, CFG.blocks_block_size], dtype=np.float32)).policy(state)
+        [0, -1, BlocksEnv.block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto yourself
     act = Stack.ground([robot, block0], np.array(
-        [0, 0, CFG.blocks_block_size], dtype=np.float32)).policy(state)
+        [0, 0, BlocksEnv.block_size], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)

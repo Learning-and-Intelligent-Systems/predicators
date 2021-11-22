@@ -5,16 +5,17 @@ from typing import Set, Callable, List, Collection
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
-from predicators.src.approaches import OperatorLearningApproach, \
+from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory
-from predicators.src.models import LearnedPredicateClassifier, MLPClassifier
+from predicators.src.torch_models import LearnedPredicateClassifier, \
+    MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG
 
 
-class InteractiveLearningApproach(OperatorLearningApproach):
+class InteractiveLearningApproach(NSRTLearningApproach):
     """An approach that learns predicates from a teacher.
     """
     def __init__(self, simulator: Callable[[State, Action], State],
@@ -47,8 +48,8 @@ class InteractiveLearningApproach(OperatorLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._load_dataset(dataset)
-        # Learn predicates and operators
-        self._relearn_predicates_and_operators()
+        # Learn predicates and NSRTs
+        self._relearn_predicates_and_nsrts()
         # Active learning
         new_trajectories: Dataset = []
         for i in range(1, CFG.interactive_num_episodes+1):
@@ -92,14 +93,14 @@ class InteractiveLearningApproach(OperatorLearningApproach):
                     if self._ask_teacher(s, random_atom):
                         self._dataset.append(([s], [], [{random_atom}]))
                     # Still need to implement a way to use negative examples
-                # Relearn predicates and operators
-                self._relearn_predicates_and_operators()
+                # Relearn predicates and NSRTs
+                self._relearn_predicates_and_nsrts()
                 # Reset trajectories list
                 new_trajectories = []
 
 
-    def _relearn_predicates_and_operators(self) -> None:
-        """Learns predicates and operators in a semi-supervised fashion.
+    def _relearn_predicates_and_nsrts(self) -> None:
+        """Learns predicates and NSRTs in a semi-supervised fashion.
         """
         print("\nStarting semi-supervised learning...")
         # Learn predicates
@@ -150,14 +151,13 @@ class InteractiveLearningApproach(OperatorLearningApproach):
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
-        # Learn operators via superclass
+        # Learn NSRTs via superclass
         # Reconstruct Dataset
         dataset: Dataset = [(s, a) for (s, a, _) in self._dataset]
-        self._learn_operators(dataset)
+        self._learn_nsrts(dataset)
 
 
-    def _get_states_to_ask(self,
-                          trajectories: Dataset) -> List[State]:
+    def _get_states_to_ask(self, trajectories: Dataset) -> List[State]:
         """Gets set of states to ask about, according to ask_strategy.
         """
         new_states = []

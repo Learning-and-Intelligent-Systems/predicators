@@ -1,4 +1,4 @@
-"""Test cases for the operator learning approach.
+"""Test cases for the NSRT learning approach.
 """
 
 from predicators.src.envs import create_env
@@ -12,6 +12,7 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                    try_solving=True):
     """Integration test for the given approach.
     """
+    utils.flush_cache()  # Some extremely nasty bugs arise without this.
     utils.update_config({"env": env_name, "approach": approach_name,
                          "timeout": 10, "max_samples_per_step": 10,
                          "seed": 12345, "regressor_max_itr": 200,
@@ -41,7 +42,7 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
         approach.solve(task, timeout=CFG.timeout)
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
-    # Now test loading operators & predicates.
+    # Now test loading NSRTs & predicates.
     approach2 = create_approach(approach_name,
         env.simulate, preds, env.options, env.types,
         env.action_space, env.get_train_tasks())
@@ -50,10 +51,12 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
         approach2.solve(task, timeout=CFG.timeout)
 
 
-def test_operator_learning_approach():
-    """Tests for OperatorLearningApproach class.
+def test_nsrt_learning_approach():
+    """Tests for NSRTLearningApproach class.
     """
-    _test_approach(env_name="cover", approach_name="operator_learning")
+    _test_approach(env_name="cover", approach_name="nsrt_learning")
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning")
 
 
 def test_iterative_invention_approach():

@@ -10,12 +10,17 @@ from predicators.src import utils
 def test_demo_dataset():
     """Test demo-only dataset creation with Covers env.
     """
-    # Test that data does not contain options since approach is random_actions
+    # Test that data does not contain options since do_option_learning is True
+    utils.update_config({
+        "env": "cover",
+        "approach": "random_actions",
+    })
     utils.update_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
+        "do_option_learning": True,
         "seed": 123,
         "num_train_tasks": 7,
     })
@@ -28,10 +33,13 @@ def test_demo_dataset():
     for _, actions in dataset:
         for action in actions:
             assert not action.has_option()
-    # Test that data contains options since approach is trivial_learning
+    # Test that data contains options since do_option_learning is False
     utils.update_config({
         "env": "cover",
-        "approach": "trivial_learning",
+        "approach": "random_actions",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 500,
+        "do_option_learning": False,
         "seed": 123,
         "num_train_tasks": 7,
     })
@@ -54,12 +62,14 @@ def test_demo_dataset():
 def test_demo_replay_dataset():
     """Test demo+replay dataset creation with Covers env.
     """
+    # Test that data contains options since do_option_learning is False
     utils.update_config({
         "env": "cover",
-        "approach": "trivial_learning",
+        "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
+        "do_option_learning": False,
         "seed": 123,
         "num_train_tasks": 5,
     })
@@ -72,13 +82,14 @@ def test_demo_replay_dataset():
     for _, actions in dataset:
         for action in actions:
             assert action.has_option()
-    # Test that data does not contain options since approach is random_actions
+    # Test that data does not contain options since do_option_learning is True
     utils.update_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
+        "do_option_learning": True,
         "seed": 123,
         "num_train_tasks": 5,
     })
