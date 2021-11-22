@@ -89,6 +89,9 @@ class GlobalSettings:
 
     # grammar search invention parameters
     grammar_search_max_expansions = 1000
+    grammar_search_true_pos_weight = 10
+    grammar_search_false_pos_weight = 1
+    grammar_search_size_weight = 1e-2
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

@@ -560,7 +560,7 @@ def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
 
 
 def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
-                              kept_predicates: Set[Predicate]
+                              kept_predicates: Collection[Predicate]
                               ) -> List[GroundAtomTrajectory]:
     """Create a new ground atom dataset by keeping only some predicates.
     """
