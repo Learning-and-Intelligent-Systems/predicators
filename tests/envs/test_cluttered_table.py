@@ -59,6 +59,6 @@ def test_cluttered_table():
         pose_y = state.get(can, "pose_y")
         act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
         next_state = env.simulate(state, act)  # grasp while already grasping
-        assert all(np.all(next_state[can] == state[can]) for can in state)
+        assert state.allclose(next_state)
         if i == 0:
             env.render(state, task, act)

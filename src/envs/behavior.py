@@ -211,7 +211,7 @@ class BehaviorEnv(BaseEnv):
             # We will create one predicate for every combination of types.
             # Ideally, we would filter out implausible type combinations
             # per predicate, but this should happen automatically when we
-            # go to collect data and do operator learning.
+            # go to collect data and do NSRT learning.
             arity = self._bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
                 pred_name = self._create_type_combo_name(bddl_name, type_combo)
