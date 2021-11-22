@@ -10,7 +10,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
 import heapq as hq
 import imageio
 import matplotlib
@@ -19,7 +19,7 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub
+    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -386,6 +386,107 @@ def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
                                          for r in range(start, len(seq)+1))
 
 
+_S = TypeVar('_S', bound=Hashable)  # state in heuristic search
+_A = TypeVar('_A')  # action in heuristic search
+
+
+@dataclass(frozen=True)
+class _HeuristicSearchNode(Generic[_S, _A]):
+    state: _S
+    edge_cost: float
+    cumulative_cost: float
+    parent: Optional[_HeuristicSearchNode[_S, _A]] = None
+    action: Optional[_A] = None
+
+
+def _run_heuristic_search(
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
+    max_expansions: int = 1000
+    ) -> Tuple[List[_S], List[_A]]:
+    """A generic heuristic search implementation.
+
+    Depending on get_priority, can implement A*, GBFS, or UCS.
+
+    If no goal is found, returns the node with the best priority.
+    """
+    queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
+    frontier = set()
+    explored = set()
+
+    root_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
+        initial_state, 0, 0)
+    root_priority = get_priority(root_node)
+    best_node = root_node
+    best_node_priority = root_priority
+    tiebreak = itertools.count()
+    hq.heappush(queue, (root_priority, next(tiebreak), root_node))
+    frontier.add(initial_state)
+    num_expansions = 0
+
+    while len(queue) > 0 and num_expansions < max_expansions:
+        _, _, node = hq.heappop(queue)
+        # If the goal holds, return.
+        if check_goal(node.state):
+            return _finish_plan(node)
+        # Add node state to explored set.
+        explored.add(node.state)
+        num_expansions += 1
+        # Generate successors.
+        for action, child_state, cost in get_successors(node.state):
+            # If the state is already in explored or frontier, don't bother.
+            if child_state in frontier | explored:
+                continue
+            # Add new node
+            child_node = _HeuristicSearchNode(
+                state=child_state,
+                edge_cost=cost,
+                cumulative_cost=node.cumulative_cost+cost,
+                parent=node,
+                action=action)
+            priority = get_priority(child_node)
+            hq.heappush(queue, (priority, next(tiebreak), child_node))
+            frontier.add(child_state)
+            if priority < best_node_priority:
+                best_node_priority = priority
+                best_node = child_node
+
+    # Did not find path to goal; return best path seen.
+    return _finish_plan(best_node)
+
+
+def _finish_plan(node: _HeuristicSearchNode[_S, _A]
+                 ) -> Tuple[List[_S], List[_A]]:
+    """Helper for _run_heuristic_search.
+    """
+    rev_state_sequence: List[_S] = []
+    rev_action_sequence: List[_A] = []
+
+    while node.parent is not None:
+        action = cast(_A, node.action)
+        rev_action_sequence.append(action)
+        rev_state_sequence.append(node.state)
+        node = node.parent
+
+    return rev_state_sequence[::-1], rev_action_sequence[::-1]
+
+
+def run_gbfs(
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float],
+    max_expansions: int = 1000
+    ) -> Tuple[List[_S], List[_A]]:
+    """Greedy best-first search.
+    """
+    get_priority = lambda n: heuristic(n.state)
+    return _run_heuristic_search(initial_state, check_goal, get_successors,
+        get_priority, max_expansions)
+
+
 def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
@@ -443,6 +544,18 @@ def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
     for pred in preds:
         ground_atoms |= all_ground_predicates(pred, objects)
     return sorted(ground_atoms)
+
+
+def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
+                               ) -> List[GroundAtomTrajectory]:
+    """Apply all predicates to all trajectories in the dataset.
+    """
+    ground_atom_dataset = []
+    for states, actions in dataset:
+        assert len(states) == len(actions) + 1
+        atoms = [abstract(s, predicates) for s in states]
+        ground_atom_dataset.append((states, actions, atoms))
+    return ground_atom_dataset
 
 
 def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
