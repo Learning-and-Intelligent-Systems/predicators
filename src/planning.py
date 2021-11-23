@@ -191,6 +191,7 @@ def _run_low_level_search(
         option = nsrt.sample_option(state, rng_sampler)
         plan[cur_idx] = option
         if option.initiable(state):
+            import ipdb; ipdb.set_trace()
             try:
                 next_state = option_model.get_next_state(state, option)
                 discovered_failures[cur_idx] = None  # no failure occurred

@@ -168,6 +168,7 @@ def option_to_trajectory(
     print(f"Starting to Execute Option {option}")
     state = init
     states = [state]
+    # import ipdb; ipdb.set_trace()
     for i in range(max_num_steps):
         try:
             act = option.policy(state)
@@ -183,6 +184,7 @@ def option_to_trajectory(
         print(f"Terminating execution of Option {option} because it reached the max. step limit!")
     
     assert len(states) == len(actions)+1
+    # import ipdb; ipdb.set_trace()
     return states, actions
 
 

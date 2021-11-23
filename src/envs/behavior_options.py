@@ -226,6 +226,8 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 
         if plan is not None:
 
+            # import ipdb; ipdb.set_trace()
+
             def navigateToOption(state, env):
 
                 atol_xy = 1e-2
@@ -243,7 +245,6 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
                 if not np.allclose(current_pos, expected_pos, atol=atol_xy) or not np.allclose(current_orn, expected_orn, atol=atol_theta):
                     # 2.a take a corrective action 
                     if len(plan) <= 1:
-                        print("Plan of Length Zero")
                         done_bit = True
                         return np.zeros(17), done_bit
                     low_level_action = get_delta_low_level_base_action(env, original_orientation, np.array(current_pos + [current_orn]), np.array(plan[0]))
@@ -271,6 +272,8 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
             p.restoreState(state)
             p.removeState(state)
 
+            # import ipdb; ipdb.set_trace()
+
             return navigateToOption
 
         else:
@@ -281,8 +284,10 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
         
     else:
         print("Position commanded is in collision or blocked!")
+        # import ipdb; ipdb.set_trace()
         p.restoreState(state)
         p.removeState(state)
+        # import ipdb; ipdb.set_trace()
         print(f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} fail")
         return None
 
