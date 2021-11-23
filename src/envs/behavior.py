@@ -32,58 +32,33 @@ from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array, _Option
 from predicators.src.settings import CFG
 
+def make_behavior_option(name, types, params_space, env, controller_fn, object_to_ig_object, rng):
+    def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        assert "has_terminated" in memory
+        assert "controller" in memory and memory["controller"] is not None  # must call initiable() first, and it must return True
+        assert not memory["has_terminated"]
+        action_arr, memory["has_terminated"] = memory["controller"](state, env)
+        return Action(action_arr)
 
-@dataclass(frozen=True, eq=False)
-class _BehaviorParameterizedOption(ParameterizedOption):
-    """Implementing a new class because ParameterizedOptions are not suited
-    for when our options need to have memory.
-    """
-    _env: behavior_env.BehaviorEnv
-    _controller_fn: Any  # TODO correct type
-    _object_to_ig_object: Callable[[Object], "ArticulatedObject"]
-    _rng: np.random.Generator
-
-    def ground(self, objects: Sequence[Object], params: Array) -> _Option:
-        """Ground into an Option, given objects and parameter values.
-        """
-        # This part is the same as the parent class...
-        assert len(objects) == len(self.types)
-        for obj, t in zip(objects, self.types):
-            assert obj.is_instance(t)
-        params = np.array(params, dtype=self.params_space.dtype)
-        assert self.params_space.contains(params)
-
-        # This part is different.
-        igo = [self._object_to_ig_object(i) for i in objects]
-        # TODO: remove this assumption. Will require a small
-        # change on the behavior option side. I'm trying not
-        # to modify anything in that file for now.
+    def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> bool:
+        # This logic is copied from your BehaviorParameterizedOption, was it a bug in there?
+        igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        # TODO: Currently, this will infinitely sample parameters until an option 
-        # can be found. We probably want to time out and jump back to the task level
-        # at some point!
-        while True:
-            self._rng.random() # generate a random sample to move the state of the generator?
-            controller = self._controller_fn(self._env, igo[0], params,
-                                             rng=self._rng)
-            
-            if controller:
-                break
+        controller = controller_fn(env, igo[0], params, rng=rng)
+        memory["controller"] = controller
+        memory["has_terminated"] = False
+        return controller is not None
 
-        has_terminated = False
+    def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        assert "has_terminated" in memory
+        return memory["has_terminated"]
 
-        def _policy(s: State) -> Action:
-            nonlocal has_terminated
-            assert not has_terminated
-            action_arr, has_terminated = controller(s, self._env)
-            return Action(action_arr)
-
-        return _Option(self.name,
-                       _policy,
-                       initiable=lambda s: True,
-                       terminal=lambda s: has_terminated,
-                       parent=self,
-                       objects=objects, params=params)
+    return ParameterizedOption(
+        name, types=types, params_space=params_space,
+        _policy=_policy, _initiable=_initiable, _terminal=_terminal)
 
 
 class BehaviorEnv(BaseEnv):
@@ -269,17 +244,14 @@ class BehaviorEnv(BaseEnv):
             # Create a different option for each type combo
             for types in itertools.product(self.types, repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
-                option = _BehaviorParameterizedOption(option_name,
+                option = make_behavior_option(option_name,
                     types=list(types),
                     params_space=Box(parameter_limits[0], parameter_limits[1],
                                      (param_dim,)),
-                    _policy=dummy_policy,
-                    _initiable=dummy_initiable,
-                    _terminal=dummy_terminal,
-                    _env=self._env,
-                    _object_to_ig_object=self._object_to_ig_object,
-                    _controller_fn=controller_fn,
-                    _rng=self._rng,
+                    env=self._env,
+                    controller_fn=controller_fn,
+                    object_to_ig_object=self._object_to_ig_object,
+                    rng=self._rng,
                 )
                 options.add(option)
 
