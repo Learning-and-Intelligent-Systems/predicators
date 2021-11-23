@@ -980,7 +980,7 @@ def test_run_gbfs():
     initial_state = (0, 0)
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
         _grid_check_goal_fn, _grid_successor_fn, _grid_heuristic_fn)
-    assert state_sequence == [(1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
                               (4, 2), (4, 3), (4, 4)]
     assert action_sequence == ['down', 'down', 'down', 'down',
                                'right', 'right', 'right', 'right']
@@ -988,7 +988,7 @@ def test_run_gbfs():
     # Same, but actually reaching the goal is impossible.
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
         lambda s: False, _grid_successor_fn, _grid_heuristic_fn)
-    assert state_sequence == [(1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
                               (4, 2), (4, 3), (4, 4)]
     assert action_sequence == ['down', 'down', 'down', 'down',
                                'right', 'right', 'right', 'right']
