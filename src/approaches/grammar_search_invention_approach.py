@@ -99,8 +99,13 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         for c in _halving_constant_generator():
             for t in sorted(self.types):
                 for f in t.feature_names:
-                    # Scale the constant by the feature range.
                     lb, ub = feature_ranges[t][f]
+                    # Optimization: if lb == ub, there is no variation
+                    # among this feature, so there's no point in trying to
+                    # learn a classifier with it. So, skip the feature.
+                    if lb == ub:
+                        continue
+                    # Scale the constant by the feature range.
                     k = (c + lb) / (ub - lb)
                     for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
                         classifier = _SingleAttributeCompareClassifier(
@@ -111,7 +116,22 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
-        import ipdb; ipdb.set_trace()
+        feature_ranges = {}
+        for (states, _) in self.dataset:
+            for state in states:
+                for obj in state:
+                    if obj.type not in feature_ranges:
+                        feature_ranges[obj.type] = {}
+                        for f in obj.type.feature_names:
+                            v = state.get(obj, f)
+                            feature_ranges[obj.type][f] = (v, v)
+                    else:
+                        for f in obj.type.feature_names:
+                            mn, mx = feature_ranges[obj.type][f]
+                            v = state.get(obj, f)
+                            feature_ranges[obj.type][f] = (min(mn, v),
+                                                           max(mx, v))
+        return feature_ranges
 
 
 def _create_grammar(grammar_name: str, types: Set[Type], dataset: Dataset
