@@ -126,7 +126,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
-        feature_ranges = {}
+        feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
         for (states, _) in self.dataset:
             for state in states:
                 for obj in state:
@@ -148,7 +148,7 @@ def _create_grammar(grammar_name: str, types: Set[Type], dataset: Dataset
                     ) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(types, dataset)
-    elif grammar_name == "single_feat_ineqs":
+    if grammar_name == "single_feat_ineqs":
         return _SingleFeatureInequalitiesPredicateGrammar(types, dataset)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
@@ -197,7 +197,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Helper function for the below.
         @lru_cache(maxsize=None)
         def _learn_strips_ops_for_predicates(s: FrozenSet[Predicate]
-                ) -> Tuple[Set[STRIPSOperator], List[GroundAtomTrajectory]]:
+                ) -> Tuple[List[STRIPSOperator], List[GroundAtomTrajectory]]:
             kept_preds = s | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
                                                                kept_preds)
