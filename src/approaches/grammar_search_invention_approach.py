@@ -21,6 +21,9 @@ class _PredicateGrammar:
     """A grammar for generating predicate candidates.
     """
     types: Set[Type]
+    # The predicate grammar may use the dataset to determine appropriate
+    # ranges for feature value bounds, for example.
+    dataset: Dataset
 
     def generate(self, max_num: int) -> Set[Predicate]:
         """Generate candidate predicates from the grammar.
@@ -111,11 +114,12 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         import ipdb; ipdb.set_trace()
 
 
-def _create_grammar(grammar_name: str, types: Set[Type]) -> _PredicateGrammar:
+def _create_grammar(grammar_name: str, types: Set[Type], dataset: Dataset
+                    ) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
-        return _HoldingDummyPredicateGrammar(types)
+        return _HoldingDummyPredicateGrammar(types, dataset)
     elif grammar_name == "single_feat_ineqs":
-        return _SingleFeatureInequalitiesPredicateGrammar(types)
+        return _SingleFeatureInequalitiesPredicateGrammar(types, dataset)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -133,15 +137,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                          types, action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
-        self._grammar = _create_grammar(CFG.grammar_search_grammar_name, types)
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
-        candidates = self._grammar.generate(
-            max_num=CFG.grammar_search_max_predicates)
+        grammar = _create_grammar(CFG.grammar_search_grammar_name, self._types,
+                                  dataset)
+        candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         # Apply the candidate predicates to the data.
         atom_dataset = utils.create_ground_atom_dataset(dataset,
             candidates | self._initial_predicates)
