@@ -557,9 +557,9 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
 def all_ground_operators(operator: STRIPSOperator,
                          objects: Collection[Object]
                          ) -> Set[_GroundSTRIPSOperator]:
-    """Get all possible groundings of the given NSRT with the given objects.
+    """Get all possible groundings of the given operator with the given objects.
 
-    NOTE: Duplicate arguments in ground NSRTs are ALLOWED.
+    NOTE: Duplicate arguments in ground operators are ALLOWED.
     """
     types = [p.type for p in operator.parameters]
     ground_operators = set()
