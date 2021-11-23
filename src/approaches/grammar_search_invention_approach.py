@@ -2,21 +2,16 @@
 the candidates proposed from a grammar.
 """
 
-from collections import defaultdict
 from dataclasses import dataclass
-from typing import Set, Callable, List, Optional, DefaultDict, Dict, Sequence, \
-    Any, FrozenSet, Iterator, Tuple
-import numpy as np
+from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, LiftedAtom, Array, Object, \
+    Type, Task, Action, Dataset, Object, \
     GroundAtomTrajectory, STRIPSOperator
-from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPClassifier
 from predicators.src.settings import CFG
 
 
@@ -65,7 +60,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
     def _generate_candidate_predicates(self) -> Set[Predicate]:
         # TODO
-        # Testing: python src/main.py --env cover --approach grammar_search_invention --seed 0 --excluded_predicates Holding
+        # To test this draft code:
+        # python src/main.py --env cover --approach grammar_search_invention --seed 0 --excluded_predicates Holding
 
         candidates = set()
 
@@ -109,9 +105,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             strips_ops, _ = learn_strips_operators(segments)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
-                self._count_positives_for_ops(strips_ops, pruned_atom_data)
+                _count_positives_for_ops(strips_ops, pruned_atom_data)
             # Also add a size penalty.
-            op_size = self._get_operators_size(strips_ops)
+            op_size = _get_operators_size(strips_ops)
             # Lower is better.
             return CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
@@ -119,6 +115,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
+            del s  # unused
             return False
 
         # Start the search with all of the candidates.
@@ -137,34 +134,34 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         return set(kept_predicates)
 
-    def _count_positives_for_ops(self, strips_ops: List[STRIPSOperator],
-                                 pruned_atom_data: List[GroundAtomTrajectory]
-                                 ) -> Tuple[int, int]:
-        """Returns num true positives, num false positives.
-        """
-        num_true_positives = 0
-        num_false_positives = 0
-        for (states, _, atom_sequence) in pruned_atom_data:
-            if len(atom_sequence) == 0:
-                continue
-            objects = set(states[0])
-            ground_ops = [o for op in strips_ops
-                          for o in utils.all_ground_operators(op, objects)]
-            for s, ns in zip(atom_sequence[1:], atom_sequence[:-1]):
-                for ground_op in ground_ops:
-                    if not ground_op.preconditions.issubset(s):
-                        continue
-                    if ground_op.add_effects == ns - s and \
-                       ground_op.delete_effects == s - ns:
-                        num_true_positives += 1
-                    else:
-                        num_false_positives += 1
-        return num_true_positives, num_false_positives
 
-    def _get_operators_size(self, strips_ops: List[STRIPSOperator]) -> int:
-        size = 0
-        for op in strips_ops:
-            size += len(op.parameters) + len(op.preconditions) + \
-                    len(op.add_effects) + len(op.delete_effects)
-        return size
+def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
+                             pruned_atom_data: List[GroundAtomTrajectory]
+                             ) -> Tuple[int, int]:
+    """Returns num true positives, num false positives.
+    """
+    num_true_positives = 0
+    num_false_positives = 0
+    for (states, _, atom_sequence) in pruned_atom_data:
+        if len(atom_sequence) == 0:
+            continue
+        objects = set(states[0])
+        ground_ops = [o for op in strips_ops
+                      for o in utils.all_ground_operators(op, objects)]
+        for s, ns in zip(atom_sequence[1:], atom_sequence[:-1]):
+            for ground_op in ground_ops:
+                if not ground_op.preconditions.issubset(s):
+                    continue
+                if ground_op.add_effects == ns - s and \
+                   ground_op.delete_effects == s - ns:
+                    num_true_positives += 1
+                else:
+                    num_false_positives += 1
+    return num_true_positives, num_false_positives
 
+def _get_operators_size(strips_ops: List[STRIPSOperator]) -> int:
+    size = 0
+    for op in strips_ops:
+        size += len(op.parameters) + len(op.preconditions) + \
+                len(op.add_effects) + len(op.delete_effects)
+    return size
