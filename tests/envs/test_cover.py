@@ -215,7 +215,7 @@ def test_cover_multistep_options():
         # Ungrasp
         np.array([0., 0., -0.1], dtype=np.float32),
     ]
-    make_video = True  # Can toggle to true for debugging
+    make_video = False  # Can toggle to true for debugging
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
