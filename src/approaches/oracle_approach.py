@@ -15,8 +15,8 @@ from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
 from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
-    grasp_obj_param_sampler
-
+    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs import get_env_instance
 
 class OracleApproach(TAMPApproach):
     """A TAMP approach that uses hand-specified NSRTs.
@@ -44,6 +44,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "blocks":
         nsrts = _get_blocks_gt_nsrts()
+    elif CFG.env == "behavior":
+        nsrts = _get_behavior_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates/options
@@ -60,7 +62,7 @@ def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
     """Helper for loading types, predicates, and options by name.
     """
-    env = get_env_instance(env_name)
+    env = create_env(env_name)
     name_to_env_obj = {}
     for o in getattr(env, env_attr):
         name_to_env_obj[o.name] = o
@@ -322,5 +324,122 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         "PutOnTable", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, putontable_sampler)
     nsrts.add(putontable_nsrt)
+
+    return nsrts
+
+
+def _get_behavior_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth nsrts for BehaviorEnv.
+    """
+    env = get_env_instance("behavior")
+
+    type_name_to_type = {t.name : t for t in env.types}
+    pred_name_to_pred = {p.name : p for p in env.predicates}
+
+    def _get_lifted_atom(base_pred_name, objects):
+        type_names = "-".join(o.type.name for o in objects)
+        pred_name = f"{base_pred_name}-{type_names}"
+        pred = pred_name_to_pred[pred_name]
+        return LiftedAtom(pred, objects)
+
+    agent_type = type_name_to_type["agent.n.01"]
+    agent_obj = Variable("?agent", agent_type)
+
+    nsrts = set()
+    op_name_count = itertools.count()
+
+    for option in env.options:
+        split_name = option.name.split("-")
+        base_option_name = split_name[0]
+        option_arg_type_names = split_name[1:]
+
+        if base_option_name == "NavigateTo":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+
+            # Navigate to from nextto nothing
+            nextto_nothing = _get_lifted_atom("nextto-nothing", [agent_obj])
+            parameters = [target_obj, agent_obj]
+            option_vars = [target_obj]
+            preconditions = {nextto_nothing}
+            add_effects = {_get_lifted_atom("nextto", [target_obj, agent_obj])}
+            delete_effects = {nextto_nothing}
+            nsrt = NSRT(f"{option.name}-{next(op_name_count)}",
+                                parameters, preconditions, add_effects,
+                                delete_effects, option, option_vars,
+                                lambda s, r, o: navigate_to_param_sampler(r))
+            nsrts.add(nsrt)
+
+            # Navigate to while nextto something
+            for origin_obj_type in sorted(env.types):
+                origin_obj = Variable("?origin", origin_obj_type)
+                origin_next_to = _get_lifted_atom("nextto",
+                    [origin_obj, agent_obj])
+                targ_next_to = _get_lifted_atom("nextto",
+                    [target_obj, agent_obj])
+                parameters = [origin_obj, agent_obj, target_obj]
+                option_vars = [target_obj]
+                preconditions = {origin_next_to}
+                add_effects = {targ_next_to}
+                delete_effects = {origin_next_to}
+                nsrt = NSRT(f"{option.name}-{next(op_name_count)}",
+                                    parameters, preconditions, add_effects,
+                                    delete_effects, option, option_vars,
+                                    lambda s, r, o: navigate_to_param_sampler(r))
+                nsrts.add(nsrt)
+
+        elif base_option_name == "Grasp":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+
+            # Pick from ontop something
+            for surf_obj_type in sorted(env.types):
+                surf_obj = Variable("?surf", surf_obj_type)
+                parameters = [target_obj, agent_obj, surf_obj]
+                option_vars = [target_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                targ_next_to = _get_lifted_atom("nextto",
+                    [target_obj, agent_obj])
+                targ_holding = _get_lifted_atom("holding", [target_obj])
+                preconditions = {handempty, targ_next_to}
+                add_effects = {targ_holding}
+                delete_effects = {handempty}
+                nsrt = NSRT(f"{option.name}-{next(op_name_count)}",
+                                    parameters, preconditions, add_effects,
+                                    delete_effects, option, option_vars,
+                                    lambda s, r, o: grasp_obj_param_sampler(r))
+                nsrts.add(nsrt)
+
+        elif base_option_name == "PlaceOnTop":
+            assert len(option_arg_type_names) == 1
+            surf_obj_type_name = option_arg_type_names[0]
+            surf_obj_type = type_name_to_type[surf_obj_type_name]
+            surf_obj = Variable("?surf", surf_obj_type)
+
+            # We need to place the object we're holding!
+            for held_obj_types in sorted(env.types):
+                held_obj = Variable("?held", held_obj_types)
+                parameters = [held_obj, agent_obj, surf_obj]
+                option_vars = [held_obj, surf_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                held_holding = _get_lifted_atom("holding", [held_obj])
+                surf_next_to = _get_lifted_atom("nextto", [surf_obj, agent_obj])
+                ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
+                preconditions = {held_holding, surf_next_to}
+                add_effects = {ontop, handempty}
+                delete_effects = {held_holding}
+                nsrt = NSRT(f"{option.name}-{next(op_name_count)}",
+                                    parameters, preconditions, add_effects,
+                                    delete_effects, option, option_vars,
+                                    lambda s, r, o: place_ontop_obj_pos_sampler(env, o, rng=r))
+                nsrts.add(nsrt)
+        
+        else:
+            raise ValueError(
+                f"Unexpected base option name: {base_option_name}")
 
     return nsrts
