@@ -992,3 +992,22 @@ def test_run_gbfs():
                               (4, 2), (4, 3), (4, 4)]
     assert action_sequence == ['down', 'down', 'down', 'down',
                                'right', 'right', 'right', 'right']
+
+    # Test with an infinite branching factor.
+    def _inf_grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
+        # Change all costs to 1.
+        for (a, ns, cost) in _grid_successor_fn(state):
+            yield (a, ns, 1.)
+        # Yield unnecessary and costly noops.
+        i = 0
+        while True:
+            action = f"noop{i}"
+            yield (action, state, 100.)
+            i += 1
+    state_sequence, action_sequence = utils.run_gbfs(initial_state,
+        _grid_check_goal_fn, _inf_grid_successor_fn, _grid_heuristic_fn,
+        lazy_expansion=True)
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+                              (4, 2), (4, 3), (4, 4)]
+    assert action_sequence == ['down', 'down', 'down', 'down',
+                               'right', 'right', 'right', 'right']
