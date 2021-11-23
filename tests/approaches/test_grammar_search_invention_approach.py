@@ -15,12 +15,13 @@ def test_predicate_grammar():
     """
     env = CoverEnv()
     types = env.types
-    base_grammar = _PredicateGrammar(types)
+    dataset = []
+    base_grammar = _PredicateGrammar(types, dataset)
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
     with pytest.raises(NotImplementedError):
-        _create_grammar("not a real grammar name", types)
-    holding_dummy_grammar = _create_grammar("holding_dummy", types)
+        _create_grammar("not a real grammar name", types, dataset)
+    holding_dummy_grammar = _create_grammar("holding_dummy", types, dataset)
     assert len(holding_dummy_grammar.generate(max_num=1)) == 1
     assert len(holding_dummy_grammar.generate(max_num=3)) == 2
 
