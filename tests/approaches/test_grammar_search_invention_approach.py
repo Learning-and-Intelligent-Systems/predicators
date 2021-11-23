@@ -3,14 +3,11 @@
 
 import pytest
 import numpy as np
-from predicators.tests.approaches.test_nsrt_learning_approach import \
-    _test_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateGrammar, _count_positives_for_ops, _create_grammar
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
-from predicators.src import utils
 
 
 def test_predicate_grammar():
@@ -64,11 +61,3 @@ def test_count_positives_for_ops():
     num_true, num_false = _count_positives_for_ops(strips_ops, pruned_atom_data)
     assert num_true == 1
     assert num_false == 1
-
-
-def test_grammar_search_invention_approach():
-    """Tests for GrammarSearchInventionApproach class.
-    """
-    utils.update_config({"grammar_search_grammar_name": "holding_dummy"})
-    _test_approach(env_name="cover", approach_name="grammar_search_invention",
-                   excluded_predicates="Holding", try_solving=False)
