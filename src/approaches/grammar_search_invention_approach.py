@@ -112,7 +112,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
         # Perform a greedy search over predicate sets.
-        # Successively consider small predicate sets.
+        # Successively consider smaller predicate sets.
         def _get_successors(s: FrozenSet[Predicate]
                 ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
             for predicate in sorted(s):  # sorting for determinism
