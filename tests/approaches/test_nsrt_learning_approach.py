@@ -66,11 +66,3 @@ def test_iterative_invention_approach():
                    excluded_predicates="Holding")
     _test_approach(env_name="cover", approach_name="iterative_invention",
                    excluded_predicates="Holding", try_solving=False)
-
-
-def test_grammar_search_invention_approach():
-    """Tests for GrammarSearchInventionApproach class.
-    """
-    utils.update_config({"grammar_search_grammar_name": "holding_dummy"})
-    _test_approach(env_name="cover", approach_name="grammar_search_invention",
-                   excluded_predicates="Holding", try_solving=False)
