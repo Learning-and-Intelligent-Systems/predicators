@@ -641,6 +641,17 @@ def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
     return new_ground_atom_dataset
 
 
+def get_predicates_in_strips_operator(strips_ops: Collection[STRIPSOperator]
+                                      ) -> Set[Predicate]:
+    """Extract all predicates in the given STRIPSOperators.
+    """
+    predicates = set()
+    for op in strips_ops:
+        for atom in op.preconditions | op.add_effects | op.delete_effects:
+            predicates.add(atom.predicate)
+    return predicates
+
+
 def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given NSRTs.
