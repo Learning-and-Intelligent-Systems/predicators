@@ -224,8 +224,6 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 
         p.restoreState(state)
 
-        import ipdb; ipdb.set_trace()
-
         if plan is not None:
 
             def navigateToOption(state, env):
