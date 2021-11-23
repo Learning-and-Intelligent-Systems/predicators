@@ -19,7 +19,8 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory
+    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    _GroundSTRIPSOperator
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -551,6 +552,21 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
             if pred.holds(state, choice):
                 atoms.add(GroundAtom(pred, choice))
     return atoms
+
+
+def all_ground_operators(operator: STRIPSOperator,
+                         objects: Collection[Object]
+                         ) -> Set[_GroundSTRIPSOperator]:
+    """Get all possible groundings of the given NSRT with the given objects.
+
+    NOTE: Duplicate arguments in ground NSRTs are ALLOWED.
+    """
+    types = [p.type for p in operator.parameters]
+    ground_operators = set()
+    for choice in get_object_combinations(objects, types,
+                                          allow_duplicates=True):
+        ground_operators.add(operator.ground(tuple(choice)))
+    return ground_operators
 
 
 def all_ground_nsrts(

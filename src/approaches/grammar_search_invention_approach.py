@@ -13,8 +13,8 @@ from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, Transition, LiftedAtom, \
-    Array, Object, GroundAtomTrajectory, STRIPSOperator
+    Type, Task, Action, Dataset, GroundAtom, LiftedAtom, Array, Object, \
+    GroundAtomTrajectory, STRIPSOperator
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.settings import CFG
@@ -115,7 +115,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Lower is better.
             return CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-                CFG.grammar_search_size_weight * (-op_size)
+                CFG.grammar_search_size_weight * (op_size)
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
@@ -142,7 +142,29 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                  ) -> Tuple[int, int]:
         """Returns num true positives, num false positives.
         """
-        import ipdb; ipdb.set_trace()
+        num_true_positives = 0
+        num_false_positives = 0
+        for (states, _, atom_sequence) in pruned_atom_data:
+            if len(atom_sequence) == 0:
+                continue
+            objects = set(states[0])
+            ground_ops = [o for op in strips_ops
+                          for o in utils.all_ground_operators(op, objects)]
+            for s, ns in zip(atom_sequence[1:], atom_sequence[:-1]):
+                for ground_op in ground_ops:
+                    if not ground_op.preconditions.issubset(s):
+                        continue
+                    if ground_op.add_effects == ns - s and \
+                       ground_op.delete_effects == s - ns:
+                        num_true_positives += 1
+                    else:
+                        num_false_positives += 1
+        return num_true_positives, num_false_positives
 
     def _get_operators_size(self, strips_ops: List[STRIPSOperator]) -> int:
-        import ipdb; ipdb.set_trace()
+        size = 0
+        for op in strips_ops:
+            size += len(op.parameters) + len(op.preconditions) + \
+                    len(op.add_effects) + len(op.delete_effects)
+        return size
+
