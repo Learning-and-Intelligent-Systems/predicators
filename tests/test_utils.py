@@ -996,14 +996,15 @@ def test_run_gbfs():
     # Test with an infinite branching factor.
     def _inf_grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
         # Change all costs to 1.
-        for (a, ns, cost) in _grid_successor_fn(state):
+        for (a, ns, _) in _grid_successor_fn(state):
             yield (a, ns, 1.)
         # Yield unnecessary and costly noops.
-        i = 0
-        while True:
-            action = f"noop{i}"
-            yield (action, state, 100.)
-            i += 1
+        # These lines should not be covered, and that's the point!
+        i = 0  # pragma: no cover
+        while True:  # pragma: no cover
+            action = f"noop{i}"  # pragma: no cover
+            yield (action, state, 100.)  # pragma: no cover
+            i += 1  # pragma: no cover
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
         _grid_check_goal_fn, _inf_grid_successor_fn, _grid_heuristic_fn,
         lazy_expansion=True)
