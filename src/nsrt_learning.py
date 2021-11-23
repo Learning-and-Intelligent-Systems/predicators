@@ -89,7 +89,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def learn_strips_operators(segments: Sequence[Segment]
+def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         ) -> Tuple[List[STRIPSOperator], List[Partition]]:
     """Learn operators given the segmented transitions.
     """
@@ -153,8 +153,9 @@ def learn_strips_operators(segments: Sequence[Segment]
         name = f"Operator{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
                             delete_effects[i])
-        print("Learned STRIPSOperator:")
-        print(op)
+        if verbose:
+            print("Learned STRIPSOperator:")
+            print(op)
         ops.append(op)
 
     return ops, partitions
