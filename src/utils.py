@@ -447,7 +447,8 @@ def _run_heuristic_search(
     check_goal: Callable[[_S], bool],
     get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
     get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
-    max_expansions: int = 1000
+    max_expansions: int = 1000,
+    lazy_expansion: bool = False
     ) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
 
@@ -496,6 +497,12 @@ def _run_heuristic_search(
             if priority < best_node_priority:
                 best_node_priority = priority
                 best_node = child_node
+                # Optimization: if we've found a better child, immediately
+                # explore the child without expanding the rest of the children.
+                # Accomplish this by putting the parent node back on the queue.
+                if lazy_expansion:
+                    hq.heappush(queue, (priority, next(tiebreak), node))
+                    break
 
     # Did not find path to goal; return best path seen.
     return _finish_plan(best_node)
@@ -523,13 +530,14 @@ def run_gbfs(
     check_goal: Callable[[_S], bool],
     get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
     heuristic: Callable[[_S], float],
-    max_expansions: int = 1000
+    max_expansions: int = 1000,
+    lazy_expansion: bool = False
     ) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search.
     """
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
-        get_priority, max_expansions)
+        get_priority, max_expansions, lazy_expansion)
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
