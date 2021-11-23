@@ -232,7 +232,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Greedy best first search.
         path, _ = utils.run_gbfs(
             init, _check_goal, _get_successors, _heuristic,
-            max_expansions=CFG.grammar_search_max_expansions)
+            max_expansions=CFG.grammar_search_max_expansions,
+            lazy_expansion=True)
         kept_predicates = path[-1]
 
         print(f"Selected {len(kept_predicates)} predicates out of "
