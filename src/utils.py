@@ -453,7 +453,7 @@ def _run_heuristic_search(
 
     Depending on get_priority, can implement A*, GBFS, or UCS.
 
-    If no goal is found, returns the node with the best priority.
+    If no goal is found, returns the state with the best priority.
     """
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
