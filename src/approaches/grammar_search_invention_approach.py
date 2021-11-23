@@ -20,9 +20,17 @@ class _PredicateGrammar:
     """
     types: Set[Type]
 
-    def generate(self) -> Iterator[Predicate]:
+    def generate(self, max_num: int) -> Set[Predicate]:
         """Generate candidate predicates from the grammar.
         """
+        candidates = set()
+        for i, candidate in enumerate(self._generate()):
+            if i >= max_num:
+                break
+            candidates.add(candidate)
+        return candidates
+
+    def _generate(self) -> Iterator[Predicate]:
         raise NotImplementedError("Override me!")
 
 
@@ -47,7 +55,7 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         python src/main.py --env cover --approach grammar_search_invention \
             --seed 0 --excluded_predicates Holding
     """
-    def generate(self) -> Iterator[Predicate]:
+    def _generate(self) -> Iterator[Predicate]:
         # A necessary predicate
         name = "InventedHolding"
         block_type = [t for t in self.types if t.name == "block"][0]
@@ -66,7 +74,7 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
 def _create_grammar(grammar_name: str, types: Set[Type]) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(types)
-    raise ValueError(f"Unknown grammar name: {grammar_name}.")
+    raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
 class GrammarSearchInventionApproach(NSRTLearningApproach):
@@ -90,7 +98,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
-        candidates = self._generate_candidate_predicates()
+        candidates = self._grammar.generate(
+            max_num=CFG.grammar_search_max_predicates)
         # Apply the candidate predicates to the data.
         atom_dataset = utils.create_ground_atom_dataset(dataset,
             candidates | self._initial_predicates)
@@ -99,14 +108,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             atom_dataset)
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset)
-
-    def _generate_candidate_predicates(self) -> Set[Predicate]:
-        candidates = set()
-        for i, candidate in enumerate(self._grammar.generate()):
-            if i >= CFG.grammar_search_max_predicates:
-                break
-            candidates.add(candidate)
-        return candidates
 
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
                                    atom_dataset: List[GroundAtomTrajectory]
@@ -183,6 +184,7 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
                 else:
                     num_false_positives += 1
     return num_true_positives, num_false_positives
+
 
 def _get_operators_size(strips_ops: List[STRIPSOperator]) -> int:
     size = 0
