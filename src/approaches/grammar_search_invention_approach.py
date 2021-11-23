@@ -4,6 +4,7 @@ the candidates proposed from a grammar.
 
 from dataclasses import dataclass
 import itertools
+from functools import lru_cache
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
@@ -193,24 +194,36 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
-        # Perform a greedy search over predicate sets.
-        # Successively consider smaller predicate sets.
-        def _get_successors(s: FrozenSet[Predicate]
-                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-            for predicate in sorted(s):  # sorting for determinism
-                # Actions not needed. Frozensets for hashing.
-                yield (None, frozenset(s - {predicate}), 1.)
-
-        # The heuristic is where the action happens...
-        def _heuristic(s: FrozenSet[Predicate]) -> float:
-            print("Scoring predicates:", s)
-            # Relearn operators with the current predicates.
+        # Helper function for the below.
+        @lru_cache(maxsize=None)
+        def _learn_strips_ops_for_predicates(s: FrozenSet[Predicate]
+                ) -> Tuple[Set[STRIPSOperator], List[GroundAtomTrajectory]]:
             kept_preds = s | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
                                                                kept_preds)
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
             strips_ops, _ = learn_strips_operators(segments, verbose=False)
+            return strips_ops, pruned_atom_data
+
+        # Perform a greedy search over predicate sets.
+        # Successively consider smaller predicate sets.
+        def _get_successors(s: FrozenSet[Predicate]
+                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+            # Optimization: immediately remove any predicates that don't
+            # appear in the operators learned with s.
+            # TODO: does this make sense?
+            ops, _ = _learn_strips_ops_for_predicates(s)
+            reduced_s = s & utils.get_predicates_in_strips_operator(ops)
+            for predicate in sorted(reduced_s):  # sorting for determinism
+                # Actions not needed. Frozensets for hashing.
+                yield (None, frozenset(reduced_s - {predicate}), 1.)
+
+        # The heuristic is where the action happens...
+        def _heuristic(s: FrozenSet[Predicate]) -> float:
+            print("Scoring predicates:", s)
+            # Relearn operators with the current predicates.
+            strips_ops, pruned_atom_data = _learn_strips_ops_for_predicates(s)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
                 _count_positives_for_ops(strips_ops, pruned_atom_data)
