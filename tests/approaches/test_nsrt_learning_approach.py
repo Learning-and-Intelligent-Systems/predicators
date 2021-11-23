@@ -73,6 +73,13 @@ def test_grammar_search_invention_approach():
 
     Keeping this here because we can't import test files in github checks.
     """
-    utils.update_config({"grammar_search_grammar_name": "holding_dummy"})
+    utils.update_config({
+        "grammar_search_grammar_name": "holding_dummy",
+        "grammar_search_max_expansions": 1000,
+        "grammar_search_true_pos_weight": 10,
+        "grammar_search_false_pos_weight": 1,
+        "grammar_search_size_weight": 1e-2,
+        "grammar_search_max_predicates": 1000,
+    })
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False)
