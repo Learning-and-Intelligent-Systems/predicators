@@ -3,7 +3,9 @@ the candidates proposed from a grammar.
 """
 
 from dataclasses import dataclass
-from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple
+from operator import ge, le
+from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
+    Dict
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
@@ -35,16 +37,22 @@ class _PredicateGrammar:
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _SingleAttributeGEClassifier:
-    """Check whether a single attribute value on an object is >= some value.
+class _SingleAttributeCompareClassifier:
+    """Compare a single feature value with a constant value.
     """
     object_index: int
     attribute_name: str
-    value: float
+    constant: float
+    compare: Callable[[float, float], bool]
+    compare_str: str
 
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         obj = o[self.object_index]
-        return s.get(obj, self.attribute_name) >= self.value
+        return self.compare(s.get(obj, self.attribute_name), self.constant)
+
+    def __str__(self) -> str:
+        return f"<?x{self.object_index}.{self.attribute_name}" + \
+               f"{self.compare_str}{self.constant}>"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -57,23 +65,57 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
     """
     def _generate(self) -> Iterator[Predicate]:
         # A necessary predicate
-        name = "InventedHolding"
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
-        classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
+        classifier = _SingleAttributeCompareClassifier(0, "grasp", -0.9,
+                                                       ge, ">=")
+        name = str(classifier)
         yield Predicate(name, types, classifier)
 
         # An unnecessary predicate (because it's redundant)
-        name = "InventedDummy"
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
-        classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
+        classifier = _SingleAttributeCompareClassifier(0, "is_block", 0.5,
+                                                       ge, ">=")
+        name = str(classifier)
         yield Predicate(name, types, classifier)
+
+
+def _halving_constant_generator() -> Iterator[float]:
+    import ipdb; ipdb.set_trace()
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
+    """Generates features of the form "?x.feature >= c" or "?x.feature <= c".
+    """
+    def _generate(self) -> Iterator[Predicate]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        for c in _halving_constant_generator():
+            for t in sorted(self.types):
+                for f in t.feature_names:
+                    # Scale the constant by the feature range.
+                    lb, ub = feature_ranges[t][f]
+                    k = (c + lb) / (ub - lb)
+                    for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
+                        classifier = _SingleAttributeCompareClassifier(
+                            0, f, k, comp, comp_str)
+                        name = str(classifier)
+                        types = [t]
+                        yield Predicate(name, types, classifier)
+
+
+    def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
+        import ipdb; ipdb.set_trace()
 
 
 def _create_grammar(grammar_name: str, types: Set[Type]) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(types)
+    elif grammar_name == "single_feat_ineqs":
+        return _SingleFeatureInequalitiesPredicateGrammar(types)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
