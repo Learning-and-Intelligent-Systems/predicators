@@ -173,7 +173,7 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
         objects = set(states[0])
         ground_ops = [o for op in strips_ops
                       for o in utils.all_ground_operators(op, objects)]
-        for s, ns in zip(atom_sequence[1:], atom_sequence[:-1]):
+        for s, ns in zip(atom_sequence[:-1], atom_sequence[1:]):
             for ground_op in ground_ops:
                 if not ground_op.preconditions.issubset(s):
                     continue
