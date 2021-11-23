@@ -167,11 +167,8 @@ class State:
         if not sorted(self.data) == sorted(other.data):
             return False
         for obj in self.data:
-            # if "book.n.02_4" in str(obj):
-            #     print(self.data[obj])
-            #     print()
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
-                # import ipdb; ipdb.set_trace()
+                import ipdb; ipdb.set_trace()
                 return False
         return True
 

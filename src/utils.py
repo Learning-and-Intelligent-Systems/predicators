@@ -174,10 +174,7 @@ def option_to_trajectory(
         except AssertionError:
             import ipdb; ipdb.set_trace()
         actions.append(act)
-        try:
-            state = simulator(state, act)
-        except AssertionError:
-            import ipdb; ipdb.set_trace()
+        state = simulator(state, act)
         states.append(state)
         if option.terminal(state):
             break
