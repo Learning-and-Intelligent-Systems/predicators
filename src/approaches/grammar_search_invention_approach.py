@@ -143,7 +143,7 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
     num_true_positives = 0
     num_false_positives = 0
     for (states, _, atom_sequence) in pruned_atom_data:
-        if len(atom_sequence) == 0:
+        if len(atom_sequence) <= 1:
             continue
         objects = set(states[0])
         ground_ops = [o for op in strips_ops
