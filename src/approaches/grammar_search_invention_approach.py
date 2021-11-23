@@ -10,9 +10,20 @@ from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Object, \
-    GroundAtomTrajectory, STRIPSOperator
+    Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator
 from predicators.src.settings import CFG
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _PredicateGrammar:
+    """A grammar for generating predicate candidates.
+    """
+    types: Set[Type]
+
+    def generate(self) -> Iterator[Predicate]:
+        """Generate candidate predicates from the grammar.
+        """
+        raise NotImplementedError("Override me!")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -26,6 +37,36 @@ class _SingleAttributeGEClassifier:
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         obj = o[self.object_index]
         return s.get(obj, self.attribute_name) >= self.value
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HoldingDummyPredicateGrammar(_PredicateGrammar):
+    """A hardcoded cover-specific grammar.
+
+    Good for testing with:
+        python src/main.py --env cover --approach grammar_search_invention \
+            --seed 0 --excluded_predicates Holding
+    """
+    def generate(self) -> Iterator[Predicate]:
+        # A necessary predicate
+        name = "InventedHolding"
+        block_type = [t for t in self.types if t.name == "block"][0]
+        types = [block_type]
+        classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
+        yield Predicate(name, types, classifier)
+
+        # An unnecessary predicate (because it's redundant)
+        name = "InventedDummy"
+        block_type = [t for t in self.types if t.name == "block"][0]
+        types = [block_type]
+        classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
+        yield Predicate(name, types, classifier)
+
+
+def _create_grammar(grammar_name: str, types: Set[Type]) -> _PredicateGrammar:
+    if grammar_name == "holding_dummy":
+        return _HoldingDummyPredicateGrammar(types)
+    raise ValueError(f"Unknown grammar name: {grammar_name}.")
 
 
 class GrammarSearchInventionApproach(NSRTLearningApproach):
@@ -42,12 +83,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                          types, action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
+        self._grammar = _create_grammar(CFG.grammar_search_grammar_name, types)
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # Generate a large candidate set of predicates.
+        # Generate a candidate set of predicates.
         candidates = self._generate_candidate_predicates()
         # Apply the candidate predicates to the data.
         atom_dataset = utils.create_ground_atom_dataset(dataset,
@@ -59,28 +101,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         self._learn_nsrts(dataset)
 
     def _generate_candidate_predicates(self) -> Set[Predicate]:
-        # TODO
-        # To test this draft code:
-        # python src/main.py --env cover --approach grammar_search_invention --seed 0 --excluded_predicates Holding
-
         candidates = set()
-
-        # A necessary predicate
-        name = "InventedHolding"
-        block_type = [t for t in self._types if t.name == "block"][0]
-        types = [block_type]
-        classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
-        predicate = Predicate(name, types, classifier)
-        candidates.add(predicate)
-
-        # An unnecessary predicate (because it's redundant)
-        name = "InventedDummy"
-        block_type = [t for t in self._types if t.name == "block"][0]
-        types = [block_type]
-        classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
-        predicate = Predicate(name, types, classifier)
-        candidates.add(predicate)
-
+        for i, candidate in enumerate(self._grammar.generate()):
+            if i >= CFG.grammar_search_max_predicates:
+                break
+            candidates.add(candidate)
         return candidates
 
     def _select_predicates_to_keep(self, candidates: Set[Predicate],
