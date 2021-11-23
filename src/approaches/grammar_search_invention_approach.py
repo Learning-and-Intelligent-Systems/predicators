@@ -3,6 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from dataclasses import dataclass
+import itertools
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
@@ -55,7 +56,7 @@ class _SingleAttributeCompareClassifier:
 
     def __str__(self) -> str:
         return f"<?x{self.object_index}.{self.attribute_name}" + \
-               f"{self.compare_str}{self.constant}>"
+               f"{self.compare_str}{self.constant:.3}>"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -84,8 +85,14 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         yield Predicate(name, types, classifier)
 
 
-def _halving_constant_generator() -> Iterator[float]:
-    import ipdb; ipdb.set_trace()
+def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
+    mid = (hi + lo) / 2.
+    yield mid
+    left_gen = _halving_constant_generator(lo, mid)
+    right_gen = _halving_constant_generator(mid, hi)
+    while True:
+        yield next(left_gen)
+        yield next(right_gen)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -96,7 +103,9 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        for c in _halving_constant_generator():
+        constant_generator = itertools.chain([0., 1.],
+            _halving_constant_generator(0., 1.))
+        for c in constant_generator:
             for t in sorted(self.types):
                 for f in t.feature_names:
                     lb, ub = feature_ranges[t][f]
@@ -165,13 +174,19 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Generate a candidate set of predicates.
         grammar = _create_grammar(CFG.grammar_search_grammar_name, self._types,
                                   dataset)
+        print("Generating candidate predicates...")
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
+        print(f"Done: created {len(candidates)} candidates.")
         # Apply the candidate predicates to the data.
+        print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(dataset,
             candidates | self._initial_predicates)
+        print("Done.")
         # Select a subset of the candidates to keep.
+        print("Selecting a subset...")
         self._learned_predicates = self._select_predicates_to_keep(candidates,
             atom_dataset)
+        print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset)
 
@@ -188,13 +203,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
+            print("Scoring predicates:", s)
             # Relearn operators with the current predicates.
             kept_preds = s | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
                                                                kept_preds)
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
-            strips_ops, _ = learn_strips_operators(segments)
+            strips_ops, _ = learn_strips_operators(segments, verbose=False)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
                 _count_positives_for_ops(strips_ops, pruned_atom_data)

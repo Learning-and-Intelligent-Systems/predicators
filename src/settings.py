@@ -94,7 +94,7 @@ class GlobalSettings:
     grammar_search_size_weight = 1e-2
     # grammar_search_grammar_name = "holding_dummy"
     grammar_search_grammar_name = "single_feat_ineqs"
-    grammar_search_max_predicates = 1000
+    grammar_search_max_predicates = 100
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
