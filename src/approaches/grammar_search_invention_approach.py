@@ -161,12 +161,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     with the candidates proposed from a grammar.
     """
     def __init__(self, simulator: Callable[[State, Action], State],
-                 all_predicates: Set[Predicate],
+                 initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
                  action_space: Box,
                  train_tasks: List[Task]) -> None:
-        super().__init__(simulator, all_predicates, initial_options,
+        super().__init__(simulator, initial_predicates, initial_options,
                          types, action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
