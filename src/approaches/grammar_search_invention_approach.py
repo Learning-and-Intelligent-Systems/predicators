@@ -247,6 +247,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
             # Start the search with all of the candidates.
             init = frozenset(candidates)
+
+            lazy_expansion = True
         else:
             assert CFG.grammar_search_direction == "smalltolarge"
             # Successively consider larger predicate sets.
@@ -259,11 +261,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Start the search with no candidates.
             init = frozenset()
 
+            lazy_expansion = False
+
         # Greedy best first search.
         path, _ = utils.run_gbfs(
             init, _check_goal, _get_successors, _heuristic,
-            max_expansions=CFG.grammar_search_max_expansions,
-            lazy_expansion=True)
+            max_evals=CFG.grammar_search_max_evals,
+            lazy_expansion=lazy_expansion)
         kept_predicates = path[-1]
 
         print(f"Selected {len(kept_predicates)} predicates out of "
