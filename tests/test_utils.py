@@ -1086,4 +1086,3 @@ def test_run_gbfs():
         lazy_expansion=True, max_evals=3)
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
-
