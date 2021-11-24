@@ -65,7 +65,7 @@ class _SingleAttributeCompareClassifier:
         return self.compare(s.get(obj, self.attribute_name), self.constant)
 
     def __str__(self) -> str:
-        return f"<?x{self.object_index}.{self.attribute_name}" + \
+        return f"<{self.object_index}.{self.attribute_name}" + \
                f"{self.compare_str}{self.constant:.3}>"
 
 
