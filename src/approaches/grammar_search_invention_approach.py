@@ -4,7 +4,7 @@ the candidates proposed from a grammar.
 
 from dataclasses import dataclass
 import itertools
-from functools import cached_property, lru_cache
+from functools import cached_property
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
@@ -65,8 +65,8 @@ class _SingleAttributeCompareClassifier:
         return self.compare(s.get(obj, self.attribute_name), self.constant)
 
     def __str__(self) -> str:
-        return f"<{self.object_index}.{self.attribute_name}" + \
-               f"{self.compare_str}{self.constant:.3}>"
+        return f"({self.object_index}.{self.attribute_name}" + \
+               f"{self.compare_str}{self.constant:.3})"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -197,23 +197,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
-        # Helper function for the below.
-        @lru_cache(maxsize=None)
-        def _learn_strips_ops_for_predicates(s: FrozenSet[Predicate]
-                ) -> Tuple[List[STRIPSOperator], List[GroundAtomTrajectory]]:
+        # Perform a greedy search over predicate sets.
+
+        # The heuristic is where the action happens...
+        def _heuristic(s: FrozenSet[Predicate]) -> float:
+            print("Scoring predicates:", s)
+            # Relearn operators with the current predicates.
             kept_preds = s | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
                                                                kept_preds)
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
             strips_ops, _ = learn_strips_operators(segments, verbose=False)
-            return strips_ops, pruned_atom_data
-
-        # The heuristic is where the action happens...
-        def _heuristic(s: FrozenSet[Predicate]) -> float:
-            print("Scoring predicates:", s)
-            # Relearn operators with the current predicates.
-            strips_ops, pruned_atom_data = _learn_strips_ops_for_predicates(s)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
                 _count_positives_for_ops(strips_ops, pruned_atom_data)
@@ -236,19 +231,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Successively consider smaller predicate sets.
             def _get_successors(s: FrozenSet[Predicate]
                     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-                # Optimization: immediately remove any predicates that don't
-                # appear in the operators learned with s.
-                # TODO: does this make sense?
-                ops, _ = _learn_strips_ops_for_predicates(s)
-                reduced_s = s & utils.get_predicates_in_strips_operator(ops)
-                for predicate in sorted(reduced_s):  # sorting for determinism
+                for predicate in sorted(s):  # sorting for determinism
                     # Actions not needed. Frozensets for hashing.
-                    yield (None, frozenset(reduced_s - {predicate}), 1.)
+                    yield (None, frozenset(s - {predicate}), 1.)
 
             # Start the search with all of the candidates.
             init = frozenset(candidates)
-
-            lazy_expansion = True
         else:
             assert CFG.grammar_search_direction == "smalltolarge"
             # Successively consider larger predicate sets.
@@ -261,13 +249,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Start the search with no candidates.
             init = frozenset()
 
-            lazy_expansion = False
-
         # Greedy best first search.
         path, _ = utils.run_gbfs(
             init, _check_goal, _get_successors, _heuristic,
-            max_evals=CFG.grammar_search_max_evals,
-            lazy_expansion=lazy_expansion)
+            max_evals=CFG.grammar_search_max_evals)
         kept_predicates = path[-1]
 
         print(f"Selected {len(kept_predicates)} predicates out of "
