@@ -3,6 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple
 from gym.spaces import Box
 from predicators.src import utils
@@ -18,10 +19,16 @@ from predicators.src.settings import CFG
 class _PredicateGrammar:
     """A grammar for generating predicate candidates.
     """
-    types: Set[Type]
-    # The predicate grammar may use the dataset to determine appropriate
-    # ranges for feature value bounds, for example.
     dataset: Dataset
+
+    @cached_property
+    def types(self) -> Set[Type]:
+        """Infer types from the dataset.
+        """
+        types: Set[Type] = set()
+        for (states, _) in self.dataset:
+            types.update(o.type for o in states[0])
+        return types
 
     def generate(self, max_num: int) -> Set[Predicate]:
         """Generate candidate predicates from the grammar.
@@ -74,10 +81,9 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         yield Predicate(name, types, classifier)
 
 
-def _create_grammar(grammar_name: str, types: Set[Type], dataset: Dataset
-                    ) -> _PredicateGrammar:
+def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
-        return _HoldingDummyPredicateGrammar(types, dataset)
+        return _HoldingDummyPredicateGrammar(dataset)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -101,8 +107,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
-        grammar = _create_grammar(CFG.grammar_search_grammar_name, self._types,
-                                  dataset)
+        grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         # Apply the candidate predicates to the data.
         atom_dataset = utils.create_ground_atom_dataset(dataset,
