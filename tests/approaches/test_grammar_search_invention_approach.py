@@ -4,7 +4,8 @@
 import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredicateGrammar, _count_positives_for_ops, _create_grammar
+    _PredicateGrammar, _count_positives_for_ops, _create_grammar, \
+    _halving_constant_generator
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
@@ -67,3 +68,12 @@ def test_count_positives_for_ops():
     num_true, num_false = _count_positives_for_ops(strips_ops, pruned_atom_data)
     assert num_true == 1
     assert num_false == 1
+
+
+def test_halving_constant_generator():
+    """Tests for _halving_constant_generator().
+    """
+    expected_sequence = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
+    generator = _halving_constant_generator(0., 1.)
+    for i, x in zip(range(len(expected_sequence)), generator):
+        assert abs(expected_sequence[i] - x) < 1e-6
