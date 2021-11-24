@@ -1080,3 +1080,10 @@ def test_run_gbfs():
                               (4, 2), (4, 3), (4, 4)]
     assert action_sequence == ['down', 'down', 'down', 'down',
                                'right', 'right', 'right', 'right']
+    # Test limit on max evals.
+    state_sequence, action_sequence = utils.run_gbfs(initial_state,
+        _grid_check_goal_fn, _inf_grid_successor_fn, _grid_heuristic_fn,
+        lazy_expansion=True, max_evals=3)
+    assert state_sequence == [(0, 0), (1, 0)]
+    assert action_sequence == ['down']
+

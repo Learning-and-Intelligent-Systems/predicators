@@ -131,7 +131,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
         # Perform a greedy search over predicate sets.
-        
+
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
             print("Scoring predicates:", s)
