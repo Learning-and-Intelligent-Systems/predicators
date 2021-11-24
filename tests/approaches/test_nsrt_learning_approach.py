@@ -75,7 +75,7 @@ def test_grammar_search_invention_approach():
     """
     utils.update_config({
         "grammar_search_grammar_name": "holding_dummy",
-        "grammar_search_max_expansions": 1000,
+        "grammar_search_max_evals": 1000,
         "grammar_search_true_pos_weight": 10,
         "grammar_search_false_pos_weight": 1,
         "grammar_search_size_weight": 1e-2,
