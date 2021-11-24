@@ -87,6 +87,15 @@ class GlobalSettings:
     interactive_ask_strategy_threshold = 0.0
     interactive_ask_strategy_pct = 20.0
 
+    # grammar search invention parameters
+    grammar_search_max_expansions = 1000
+    grammar_search_true_pos_weight = 10
+    grammar_search_false_pos_weight = 1
+    grammar_search_size_weight = 1e-2
+    grammar_search_pred_complexity_weight = 1
+    grammar_search_grammar_name = "holding_dummy"
+    grammar_search_max_predicates = 1000
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
@@ -150,6 +159,7 @@ class GlobalSettings:
                 "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
+                "grammar_search_invention": "demo+replay",
             })[args["approach"]],
 
             # For learning-based approaches, the data collection timeout
@@ -159,6 +169,7 @@ class GlobalSettings:
                 "nsrt_learning": 500,
                 "interactive_learning": 500,
                 "iterative_invention": 500,
+                "grammar_search_invention": 500,
             })[args["approach"]],
 
             # For learning-based approaches, the number of replays used
@@ -168,6 +179,7 @@ class GlobalSettings:
                 "nsrt_learning": 10,
                 "interactive_learning": 10,
                 "iterative_invention": 500,
+                "grammar_search_invention": 500,
             })[args["approach"]],
         )
 

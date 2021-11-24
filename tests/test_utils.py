@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DefaultOption
+    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -605,6 +605,74 @@ def test_nsrt_methods():
     preds, types = utils.extract_preds_and_types({nsrt})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
+
+
+def test_all_ground_operators():
+    """Tests for all_ground_operators().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate1_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate1")
+    parameters = [cup_var, plate1_var, plate2_var]
+    preconditions = {not_on([cup_var, plate1_var])}
+    add_effects = {on([cup_var, plate1_var])}
+    delete_effects = {not_on([cup_var, plate1_var])}
+    op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
+                        delete_effects)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = utils.all_ground_operators(op, objects)
+    assert len(ground_ops) == 8
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate1, plate1] in all_obj
+    assert [cup1, plate2, plate1] in all_obj
+    assert [cup2, plate1, plate1] in all_obj
+    assert [cup2, plate2, plate1] in all_obj
+    assert [cup1, plate1, plate2] in all_obj
+    assert [cup1, plate2, plate2] in all_obj
+    assert [cup2, plate1, plate2] in all_obj
+    assert [cup2, plate2, plate2] in all_obj
+    preds, types = utils.extract_preds_and_types({op})
+    assert preds == {"NotOn": not_on, "On": on}
+    assert types == {"plate_type": plate_type, "cup_type": cup_type}
+
+
+def test_prune_ground_atom_dataset():
+    """Tests for prune_ground_atom_dataset().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: False)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: False)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    state = State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
+    on_ground = {GroundAtom(on, [cup1, plate1]),
+                 GroundAtom(on, [cup2, plate2])}
+    not_on_ground = {GroundAtom(not_on, [cup1, plate2]),
+                     GroundAtom(not_on, [cup2, plate1])}
+    all_atoms = on_ground | not_on_ground
+    ground_atom_dataset = [([state], [], [all_atoms])]
+    pruned_dataset1 = utils.prune_ground_atom_dataset(ground_atom_dataset, {on})
+    assert pruned_dataset1[0][2][0] == on_ground
+    pruned_dataset2 = utils.prune_ground_atom_dataset(ground_atom_dataset,
+                                                      {not_on})
+    assert pruned_dataset2[0][2][0] == not_on_ground
+    pruned_dataset3 = utils.prune_ground_atom_dataset(ground_atom_dataset,
+                                                      {on, not_on})
+    assert pruned_dataset3[0][2][0] == all_atoms
+    pruned_dataset4 = utils.prune_ground_atom_dataset(ground_atom_dataset,
+                                                      set())
+    assert pruned_dataset4[0][2][0] == set()
 
 
 def test_ground_atom_methods():
