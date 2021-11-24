@@ -4,7 +4,7 @@ the candidates proposed from a grammar.
 
 from dataclasses import dataclass
 import itertools
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
@@ -22,22 +22,31 @@ from predicators.src.settings import CFG
 class _PredicateGrammar:
     """A grammar for generating predicate candidates.
     """
-    types: Set[Type]
-    # The predicate grammar may use the dataset to determine appropriate
-    # ranges for feature value bounds, for example.
     dataset: Dataset
 
-    def generate(self, max_num: int) -> Set[Predicate]:
-        """Generate candidate predicates from the grammar.
+    @cached_property
+    def types(self) -> Set[Type]:
+        """Infer types from the dataset.
         """
-        candidates = set()
-        for i, candidate in enumerate(self._generate()):
+        types: Set[Type] = set()
+        for (states, _) in self.dataset:
+            types.update(o.type for o in states[0])
+        return types
+
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
+        """Generate candidate predicates from the grammar.
+
+        The dict values are costs, e.g., negative log prior probability for the
+        predicate in a PCFG.
+        """
+        candidates = {}
+        for i, (candidate, cost) in enumerate(self._generate()):
             if i >= max_num:
                 break
-            candidates.add(candidate)
+            candidates[candidate] = cost
         return candidates
 
-    def _generate(self) -> Iterator[Predicate]:
+    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         raise NotImplementedError("Override me!")
 
 
@@ -68,22 +77,18 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         python src/main.py --env cover --approach grammar_search_invention \
             --seed 0 --excluded_predicates Holding
     """
-    def _generate(self) -> Iterator[Predicate]:
+    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         # A necessary predicate
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
         classifier = _SingleAttributeCompareClassifier(0, "grasp", -0.9,
                                                        ge, ">=")
-        name = str(classifier)
-        yield Predicate(name, types, classifier)
+        yield (Predicate(str(classifier), types, classifier), 1.)
 
         # An unnecessary predicate (because it's redundant)
-        block_type = [t for t in self.types if t.name == "block"][0]
-        types = [block_type]
         classifier = _SingleAttributeCompareClassifier(0, "is_block", 0.5,
                                                        ge, ">=")
-        name = str(classifier)
-        yield Predicate(name, types, classifier)
+        yield (Predicate(str(classifier), types, classifier), 1.)
 
 
 def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
@@ -100,7 +105,7 @@ def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
 class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
     """Generates features of the form "?x.feature >= c" or "?x.feature <= c".
     """
-    def _generate(self) -> Iterator[Predicate]:
+    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
@@ -122,7 +127,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                             0, f, k, comp, comp_str)
                         name = str(classifier)
                         types = [t]
-                        yield Predicate(name, types, classifier)
+                        yield (Predicate(name, types, classifier), 1.)
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -144,12 +149,11 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         return feature_ranges
 
 
-def _create_grammar(grammar_name: str, types: Set[Type], dataset: Dataset
-                    ) -> _PredicateGrammar:
+def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
-        return _HoldingDummyPredicateGrammar(types, dataset)
+        return _HoldingDummyPredicateGrammar(dataset)
     if grammar_name == "single_feat_ineqs":
-        return _SingleFeatureInequalitiesPredicateGrammar(types, dataset)
+        return _SingleFeatureInequalitiesPredicateGrammar(dataset)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -173,15 +177,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
-        grammar = _create_grammar(CFG.grammar_search_grammar_name, self._types,
-                                  dataset)
         print("Generating candidate predicates...")
+        grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates.")
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(dataset,
-            candidates | self._initial_predicates)
+            set(candidates) | self._initial_predicates)
         print("Done.")
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
@@ -191,7 +194,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset)
 
-    def _select_predicates_to_keep(self, candidates: Set[Predicate],
+    def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
         # Helper function for the below.
@@ -229,10 +232,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 _count_positives_for_ops(strips_ops, pruned_atom_data)
             # Also add a size penalty.
             op_size = _get_operators_size(strips_ops)
+            # Also add a penalty based on predicate complexity.
+            pred_complexity = sum(candidates[p] for p in s)
             # Lower is better.
             return CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-                CFG.grammar_search_size_weight * (op_size)
+                CFG.grammar_search_size_weight * op_size + \
+                CFG.grammar_search_pred_complexity_weight * pred_complexity
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
@@ -265,19 +271,20 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
     num_true_positives = 0
     num_false_positives = 0
     for (states, _, atom_sequence) in pruned_atom_data:
-        if len(atom_sequence) <= 1:
-            continue
         objects = set(states[0])
-        for strips_op in strips_ops:
-            for ground_op in utils.all_ground_operators(strips_op, objects):
-                for s, ns in zip(atom_sequence[:-1], atom_sequence[1:]):
-                    if not ground_op.preconditions.issubset(s):
-                        continue
-                    if ground_op.add_effects == ns - s and \
-                       ground_op.delete_effects == s - ns:
-                        num_true_positives += 1
-                    else:
-                        num_false_positives += 1
+        ground_ops = [o for op in strips_ops
+                      for o in utils.all_ground_operators(op, objects)]
+        for i in range(len(atom_sequence)-1):
+            s = atom_sequence[i]
+            ns = atom_sequence[i+1]
+            for ground_op in ground_ops:
+                if not ground_op.preconditions.issubset(s):
+                    continue
+                if ground_op.add_effects == ns - s and \
+                   ground_op.delete_effects == s - ns:
+                    num_true_positives += 1
+                else:
+                    num_false_positives += 1
     return num_true_positives, num_false_positives
 
 
