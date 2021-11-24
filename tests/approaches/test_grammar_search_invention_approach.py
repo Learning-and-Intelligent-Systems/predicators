@@ -8,20 +8,25 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
+from predicators.src import utils
 
 
 def test_predicate_grammar():
     """Tests for _PredicateGrammar class.
     """
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
-    types = env.types
-    dataset = []
-    base_grammar = _PredicateGrammar(types, dataset)
+    train_task = env.get_train_tasks()[0]
+    state = train_task.init
+    dataset = [([state], [])]
+    base_grammar = _PredicateGrammar(dataset)
+    assert base_grammar.types == env.types
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
     with pytest.raises(NotImplementedError):
-        _create_grammar("not a real grammar name", types, dataset)
-    holding_dummy_grammar = _create_grammar("holding_dummy", types, dataset)
+        _create_grammar("not a real grammar name", dataset)
+    env = CoverEnv()
+    holding_dummy_grammar = _create_grammar("holding_dummy", dataset)
     assert len(holding_dummy_grammar.generate(max_num=1)) == 1
     assert len(holding_dummy_grammar.generate(max_num=3)) == 2
 
