@@ -448,7 +448,8 @@ def _run_heuristic_search(
     check_goal: Callable[[_S], bool],
     get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
     get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
-    max_expansions: int = 1000,
+    max_expansions: int = 10000000,
+    max_evals: int = 10000000,
     lazy_expansion: bool = False
     ) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
@@ -469,8 +470,10 @@ def _run_heuristic_search(
     tiebreak = itertools.count()
     hq.heappush(queue, (root_priority, next(tiebreak), root_node))
     num_expansions = 0
+    num_evals = 1
 
-    while len(queue) > 0 and num_expansions < max_expansions:
+    while len(queue) > 0 and num_expansions < max_expansions and \
+        num_evals < max_evals:
         _, _, node = hq.heappop(queue)
         # If we already found a better path here, don't bother.
         if state_to_best_path_cost[node.state] < node.cumulative_cost:
@@ -493,6 +496,9 @@ def _run_heuristic_search(
                 parent=node,
                 action=action)
             priority = get_priority(child_node)
+            num_evals += 1
+            if num_evals >= max_evals:
+                break
             hq.heappush(queue, (priority, next(tiebreak), child_node))
             state_to_best_path_cost[child_state] = child_path_cost
             if priority < best_node_priority:
@@ -531,14 +537,15 @@ def run_gbfs(
     check_goal: Callable[[_S], bool],
     get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
     heuristic: Callable[[_S], float],
-    max_expansions: int = 1000,
+    max_expansions: int = 10000000,
+    max_evals: int = 10000000,
     lazy_expansion: bool = False
     ) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search.
     """
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
-        get_priority, max_expansions, lazy_expansion)
+        get_priority, max_expansions, max_evals, lazy_expansion)
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
