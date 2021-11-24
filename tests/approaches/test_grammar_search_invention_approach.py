@@ -19,7 +19,11 @@ def test_predicate_grammar():
     env = CoverEnv()
     train_task = env.get_train_tasks()[0]
     state = train_task.init
-    dataset = [([state], [])]
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    dataset = [([state, other_state], [np.zeros(1, dtype=np.float32)])]
     base_grammar = _PredicateGrammar(dataset)
     assert base_grammar.types == env.types
     with pytest.raises(NotImplementedError):
@@ -30,6 +34,13 @@ def test_predicate_grammar():
     holding_dummy_grammar = _create_grammar("holding_dummy", dataset)
     assert len(holding_dummy_grammar.generate(max_num=1)) == 1
     assert len(holding_dummy_grammar.generate(max_num=3)) == 2
+    single_ineq_grammar = _create_grammar("single_feat_ineqs", dataset)
+    assert len(single_ineq_grammar.generate(max_num=1)) == 1
+    feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
+    assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
+    candidates = single_ineq_grammar.generate(max_num=4)
+    assert str(sorted(candidates)) == \
+        "[(0.pose<=0.847), (0.pose>=0.847), (0.width<=2.33), (0.width>=2.33)]"
 
 
 def test_count_positives_for_ops():

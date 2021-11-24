@@ -117,7 +117,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                     # Optimization: if lb == ub, there is no variation
                     # among this feature, so there's no point in trying to
                     # learn a classifier with it. So, skip the feature.
-                    if lb == ub:
+                    if abs(lb - ub) < 1e-6:
                         continue
                     # Scale the constant by the feature range.
                     k = (c + lb) / (ub - lb)
