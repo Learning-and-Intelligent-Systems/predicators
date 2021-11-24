@@ -16,8 +16,6 @@ try:
     from igibson.objects.articulated_object import URDFObject
     from igibson.object_states.on_floor import RoomFloor
     from igibson.robots.behavior_robot import BRBody
-    from igibson.utils.checkpoint_utils import \
-        save_internal_states, load_internal_states
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate, ObjectStateBinaryPredicate
     from predicators.src.envs.behavior_options import navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
@@ -86,14 +84,10 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        load_internal_states(self._env.simulator, state.simulator_state)
-        assert save_internal_states(self._env.simulator) == state.simulator_state
+        self._env.task.reset_scene(state.simulator_state)
         # We can remove this after we're confident in it
         loaded_state = self._current_ig_state_to_state()
-        
         assert loaded_state.allclose(state)
-        # if not loaded_state.allclose(state):
-        #     import ipdb; ipdb.set_trace()
 
         a = action.arr
 
@@ -309,7 +303,7 @@ class BehaviorEnv(BaseEnv):
                 ig_obj.get_orientation(),
             ])
             state_data[obj] = obj_state
-        simulator_state = save_internal_states(self._env.simulator)
+        simulator_state = self._env.task.save_scene()
         return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(self, bddl_predicate: "bddl.AtomicFormula",
