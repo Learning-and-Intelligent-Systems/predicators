@@ -102,7 +102,7 @@ def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
-    """Generates features of the form "?x.feature >= c" or "?x.feature <= c".
+    """Generates features of the form "0.feature >= c" or "0.feature <= c".
     """
     def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
