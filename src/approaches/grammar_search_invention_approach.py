@@ -209,19 +209,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             strips_ops, _ = learn_strips_operators(segments, verbose=False)
             return strips_ops, pruned_atom_data
 
-        # Perform a greedy search over predicate sets.
-        # Successively consider smaller predicate sets.
-        def _get_successors(s: FrozenSet[Predicate]
-                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-            # Optimization: immediately remove any predicates that don't
-            # appear in the operators learned with s.
-            # TODO: does this make sense?
-            ops, _ = _learn_strips_ops_for_predicates(s)
-            reduced_s = s & utils.get_predicates_in_strips_operator(ops)
-            for predicate in sorted(reduced_s):  # sorting for determinism
-                # Actions not needed. Frozensets for hashing.
-                yield (None, frozenset(reduced_s - {predicate}), 1.)
-
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
             print("Scoring predicates:", s)
@@ -245,8 +232,32 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             del s  # unused
             return False
 
-        # Start the search with all of the candidates.
-        init = frozenset(candidates)
+        if CFG.grammar_search_direction == "largetosmall":
+            # Successively consider smaller predicate sets.
+            def _get_successors(s: FrozenSet[Predicate]
+                    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+                # Optimization: immediately remove any predicates that don't
+                # appear in the operators learned with s.
+                # TODO: does this make sense?
+                ops, _ = _learn_strips_ops_for_predicates(s)
+                reduced_s = s & utils.get_predicates_in_strips_operator(ops)
+                for predicate in sorted(reduced_s):  # sorting for determinism
+                    # Actions not needed. Frozensets for hashing.
+                    yield (None, frozenset(reduced_s - {predicate}), 1.)
+
+            # Start the search with all of the candidates.
+            init = frozenset(candidates)
+        else:
+            assert CFG.grammar_search_direction == "smalltolarge"
+            # Successively consider larger predicate sets.
+            def _get_successors(s: FrozenSet[Predicate]
+                    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+                for predicate in sorted(set(candidates) - s):  # determinism
+                    # Actions not needed. Frozensets for hashing.
+                    yield (None, frozenset(s | {predicate}), 1.)
+
+            # Start the search with no candidates.
+            init = frozenset()
 
         # Greedy best first search.
         path, _ = utils.run_gbfs(

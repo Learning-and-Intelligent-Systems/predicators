@@ -80,6 +80,10 @@ def test_grammar_search_invention_approach():
         "grammar_search_false_pos_weight": 1,
         "grammar_search_size_weight": 1e-2,
         "grammar_search_max_predicates": 1000,
+        "grammar_search_direction": "largetosmall"
     })
+    _test_approach(env_name="cover", approach_name="grammar_search_invention",
+                   excluded_predicates="Holding", try_solving=False)
+    utils.update_config({"grammar_search_direction": "smalltolarge"})
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False)
