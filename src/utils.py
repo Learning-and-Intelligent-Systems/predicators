@@ -19,7 +19,8 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory
+    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    _GroundSTRIPSOperator
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -561,6 +562,21 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     return atoms
 
 
+def all_ground_operators(operator: STRIPSOperator,
+                         objects: Collection[Object]
+                         ) -> Set[_GroundSTRIPSOperator]:
+    """Get all possible groundings of the given operator with the given objects.
+
+    NOTE: Duplicate arguments in ground operators are ALLOWED.
+    """
+    types = [p.type for p in operator.parameters]
+    ground_operators = set()
+    for choice in get_object_combinations(objects, types,
+                                          allow_duplicates=True):
+        ground_operators.add(operator.ground(tuple(choice)))
+    return ground_operators
+
+
 def all_ground_nsrts(
         nsrt: NSRT, objects: Collection[Object]) -> Set[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects.
@@ -609,6 +625,20 @@ def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
         atoms = [abstract(s, predicates) for s in states]
         ground_atom_dataset.append((states, actions, atoms))
     return ground_atom_dataset
+
+
+def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
+                              kept_predicates: Collection[Predicate]
+                              ) -> List[GroundAtomTrajectory]:
+    """Create a new ground atom dataset by keeping only some predicates.
+    """
+    new_ground_atom_dataset = []
+    for states, actions, atoms in ground_atom_dataset:
+        assert len(states) == len(actions) + 1 == len(atoms)
+        kept_atoms = [{a for a in sa if a.predicate in kept_predicates}
+                      for sa in atoms]
+        new_ground_atom_dataset.append((states, actions, kept_atoms))
+    return new_ground_atom_dataset
 
 
 def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[

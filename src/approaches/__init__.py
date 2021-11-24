@@ -19,6 +19,8 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.approaches.iterative_invention_approach import \
     IterativeInventionApproach
+from predicators.src.approaches.grammar_search_invention_approach import \
+    GrammarSearchInventionApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
 
@@ -33,6 +35,7 @@ __all__ = [
     "NSRTLearningApproach",
     "InteractiveLearningApproach",
     "IterativeInventionApproach",
+    "GrammarSearchInventionApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -75,4 +78,8 @@ def create_approach(name: str,
         return IterativeInventionApproach(simulator, initial_predicates,
                                           initial_options, types, action_space,
                                           train_tasks)
+    if name == "grammar_search_invention":
+        return GrammarSearchInventionApproach(simulator, initial_predicates,
+                                              initial_options, types,
+                                              action_space, train_tasks)
     raise NotImplementedError(f"Unknown env: {name}")
