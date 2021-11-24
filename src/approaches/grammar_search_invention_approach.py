@@ -166,6 +166,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
                 for predicate in sorted(s):  # sorting for determinism
                     # Actions not needed. Frozensets for hashing.
+                    # The cost of 1. is irrelevant because we're doing GBFS
+                    # and not A* (because we don't care about the path).
                     yield (None, frozenset(s - {predicate}), 1.)
 
             # Start the search with all of the candidates.
@@ -177,6 +179,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
                 for predicate in sorted(set(candidates) - s):  # determinism
                     # Actions not needed. Frozensets for hashing.
+                    # The cost of 1. is irrelevant because we're doing GBFS
+                    # and not A* (because we don't care about the path).
                     yield (None, frozenset(s | {predicate}), 1.)
 
             # Start the search with no candidates.
