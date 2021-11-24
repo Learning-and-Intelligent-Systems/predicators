@@ -4,7 +4,8 @@ the candidates proposed from a grammar.
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple
+from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
+    Dict
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
@@ -30,17 +31,20 @@ class _PredicateGrammar:
             types.update(o.type for o in states[0])
         return types
 
-    def generate(self, max_num: int) -> Set[Predicate]:
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
         """Generate candidate predicates from the grammar.
+
+        The dict values are costs, e.g., negative log prior probability for the
+        predicate in a PCFG.
         """
-        candidates = set()
-        for i, candidate in enumerate(self._generate()):
+        candidates = {}
+        for i, (candidate, cost) in enumerate(self._generate()):
             if i >= max_num:
                 break
-            candidates.add(candidate)
+            candidates[candidate] = cost
         return candidates
 
-    def _generate(self) -> Iterator[Predicate]:
+    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         raise NotImplementedError("Override me!")
 
 
@@ -65,20 +69,20 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         python src/main.py --env cover --approach grammar_search_invention \
             --seed 0 --excluded_predicates Holding
     """
-    def _generate(self) -> Iterator[Predicate]:
+    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         # A necessary predicate
         name = "InventedHolding"
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
         classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
-        yield Predicate(name, types, classifier)
+        yield (Predicate(name, types, classifier), 1.)
 
         # An unnecessary predicate (because it's redundant)
         name = "InventedDummy"
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
         classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
-        yield Predicate(name, types, classifier)
+        yield (Predicate(name, types, classifier), 1.)
 
 
 def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
@@ -111,14 +115,14 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         # Apply the candidate predicates to the data.
         atom_dataset = utils.create_ground_atom_dataset(dataset,
-            candidates | self._initial_predicates)
+            set(candidates) | self._initial_predicates)
         # Select a subset of the candidates to keep.
         self._learned_predicates = self._select_predicates_to_keep(candidates,
             atom_dataset)
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset)
 
-    def _select_predicates_to_keep(self, candidates: Set[Predicate],
+    def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
         # Perform a greedy search over predicate sets.
@@ -143,10 +147,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 _count_positives_for_ops(strips_ops, pruned_atom_data)
             # Also add a size penalty.
             op_size = _get_operators_size(strips_ops)
+            # Also add a penalty based on predicate complexity.
+            pred_complexity = sum(candidates[p] for p in s)
             # Lower is better.
             return CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-                CFG.grammar_search_size_weight * (op_size)
+                CFG.grammar_search_size_weight * op_size + \
+                CFG.grammar_search_pred_complexity_weight * pred_complexity
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
