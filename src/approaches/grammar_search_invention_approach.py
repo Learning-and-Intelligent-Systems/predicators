@@ -126,12 +126,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
         # Perform a greedy search over predicate sets.
-        # Successively consider smaller predicate sets.
-        def _get_successors(s: FrozenSet[Predicate]
-                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-            for predicate in sorted(s):  # sorting for determinism
-                # Actions not needed. Frozensets for hashing.
-                yield (None, frozenset(s - {predicate}), 1.)
 
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
@@ -160,8 +154,27 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             del s  # unused
             return False
 
-        # Start the search with all of the candidates.
-        init = frozenset(candidates)
+        if CFG.grammar_search_direction == "largetosmall":
+            # Successively consider smaller predicate sets.
+            def _get_successors(s: FrozenSet[Predicate]
+                    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+                for predicate in sorted(s):  # sorting for determinism
+                    # Actions not needed. Frozensets for hashing.
+                    yield (None, frozenset(s - {predicate}), 1.)
+
+            # Start the search with all of the candidates.
+            init = frozenset(candidates)
+        else:
+            assert CFG.grammar_search_direction == "smalltolarge"
+            # Successively consider larger predicate sets.
+            def _get_successors(s: FrozenSet[Predicate]
+                    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+                for predicate in sorted(set(candidates) - s):  # determinism
+                    # Actions not needed. Frozensets for hashing.
+                    yield (None, frozenset(s | {predicate}), 1.)
+
+            # Start the search with no candidates.
+            init = frozenset()
 
         # Greedy best first search.
         path, _ = utils.run_gbfs(

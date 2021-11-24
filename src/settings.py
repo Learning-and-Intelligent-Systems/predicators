@@ -88,6 +88,8 @@ class GlobalSettings:
     interactive_ask_strategy_pct = 20.0
 
     # grammar search invention parameters
+    # grammar_search_direction = "largetosmall"
+    grammar_search_direction = "smalltolarge"
     grammar_search_max_expansions = 1000
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
