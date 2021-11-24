@@ -89,6 +89,8 @@ class GlobalSettings:
 
     # grammar search invention parameters
     grammar_search_max_expansions = 50
+    # grammar_search_direction = "largetosmall"
+    grammar_search_direction = "smalltolarge"
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_size_weight = 1e-2
