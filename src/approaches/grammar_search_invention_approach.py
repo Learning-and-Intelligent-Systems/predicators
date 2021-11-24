@@ -3,9 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from dataclasses import dataclass
-import itertools
-from functools import cached_property, lru_cache
-from operator import ge, le
+from functools import cached_property
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
 from gym.spaces import Box
@@ -51,109 +49,44 @@ class _PredicateGrammar:
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _SingleAttributeCompareClassifier:
-    """Compare a single feature value with a constant value.
+class _SingleAttributeGEClassifier:
+    """Check whether a single attribute value on an object is >= some value.
     """
     object_index: int
     attribute_name: str
-    constant: float
-    compare: Callable[[float, float], bool]
-    compare_str: str
+    value: float
 
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         obj = o[self.object_index]
-        return self.compare(s.get(obj, self.attribute_name), self.constant)
-
-    def __str__(self) -> str:
-        return f"<{self.object_index}.{self.attribute_name}" + \
-               f"{self.compare_str}{self.constant:.3}>"
+        return s.get(obj, self.attribute_name) >= self.value
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _HoldingDummyPredicateGrammar(_PredicateGrammar):
     """A hardcoded cover-specific grammar.
-
     Good for testing with:
         python src/main.py --env cover --approach grammar_search_invention \
             --seed 0 --excluded_predicates Holding
     """
     def _generate(self) -> Iterator[Tuple[Predicate, float]]:
         # A necessary predicate
+        name = "InventedHolding"
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
-        classifier = _SingleAttributeCompareClassifier(0, "grasp", -0.9,
-                                                       ge, ">=")
-        yield (Predicate(str(classifier), types, classifier), 1.)
+        classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
+        yield (Predicate(name, types, classifier), 1.)
 
         # An unnecessary predicate (because it's redundant)
-        classifier = _SingleAttributeCompareClassifier(0, "is_block", 0.5,
-                                                       ge, ">=")
-        yield (Predicate(str(classifier), types, classifier), 1.)
-
-
-def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
-    mid = (hi + lo) / 2.
-    yield mid
-    left_gen = _halving_constant_generator(lo, mid)
-    right_gen = _halving_constant_generator(mid, hi)
-    while True:
-        yield next(left_gen)
-        yield next(right_gen)
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
-    """Generates features of the form "?x.feature >= c" or "?x.feature <= c".
-    """
-    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
-        # Get ranges of feature values from data.
-        feature_ranges = self._get_feature_ranges()
-        # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        constant_generator = itertools.chain([0., 1.],
-            _halving_constant_generator(0., 1.))
-        for c in constant_generator:
-            for t in sorted(self.types):
-                for f in t.feature_names:
-                    lb, ub = feature_ranges[t][f]
-                    # Optimization: if lb == ub, there is no variation
-                    # among this feature, so there's no point in trying to
-                    # learn a classifier with it. So, skip the feature.
-                    if lb == ub:
-                        continue
-                    # Scale the constant by the feature range.
-                    k = (c + lb) / (ub - lb)
-                    for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
-                        classifier = _SingleAttributeCompareClassifier(
-                            0, f, k, comp, comp_str)
-                        name = str(classifier)
-                        types = [t]
-                        yield (Predicate(name, types, classifier), 1.)
-
-
-    def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
-        feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
-        for (states, _) in self.dataset:
-            for state in states:
-                for obj in state:
-                    if obj.type not in feature_ranges:
-                        feature_ranges[obj.type] = {}
-                        for f in obj.type.feature_names:
-                            v = state.get(obj, f)
-                            feature_ranges[obj.type][f] = (v, v)
-                    else:
-                        for f in obj.type.feature_names:
-                            mn, mx = feature_ranges[obj.type][f]
-                            v = state.get(obj, f)
-                            feature_ranges[obj.type][f] = (min(mn, v),
-                                                           max(mx, v))
-        return feature_ranges
+        name = "InventedDummy"
+        block_type = [t for t in self.types if t.name == "block"][0]
+        types = [block_type]
+        classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
+        yield (Predicate(name, types, classifier), 1.)
 
 
 def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(dataset)
-    if grammar_name == "single_feat_ineqs":
-        return _SingleFeatureInequalitiesPredicateGrammar(dataset)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -197,23 +130,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
-        # Helper function for the below.
-        @lru_cache(maxsize=None)
-        def _learn_strips_ops_for_predicates(s: FrozenSet[Predicate]
-                ) -> Tuple[List[STRIPSOperator], List[GroundAtomTrajectory]]:
+        # Perform a greedy search over predicate sets.
+        
+        # The heuristic is where the action happens...
+        def _heuristic(s: FrozenSet[Predicate]) -> float:
+            print("Scoring predicates:", s)
+            # Relearn operators with the current predicates.
             kept_preds = s | self._initial_predicates
             pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
                                                                kept_preds)
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
             strips_ops, _ = learn_strips_operators(segments, verbose=False)
-            return strips_ops, pruned_atom_data
-
-        # The heuristic is where the action happens...
-        def _heuristic(s: FrozenSet[Predicate]) -> float:
-            print("Scoring predicates:", s)
-            # Relearn operators with the current predicates.
-            strips_ops, pruned_atom_data = _learn_strips_ops_for_predicates(s)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
                 _count_positives_for_ops(strips_ops, pruned_atom_data)
@@ -236,19 +164,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Successively consider smaller predicate sets.
             def _get_successors(s: FrozenSet[Predicate]
                     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-                # Optimization: immediately remove any predicates that don't
-                # appear in the operators learned with s.
-                # TODO: does this make sense?
-                ops, _ = _learn_strips_ops_for_predicates(s)
-                reduced_s = s & utils.get_predicates_in_strips_operator(ops)
-                for predicate in sorted(reduced_s):  # sorting for determinism
+                for predicate in sorted(s):  # sorting for determinism
                     # Actions not needed. Frozensets for hashing.
-                    yield (None, frozenset(reduced_s - {predicate}), 1.)
+                    yield (None, frozenset(s - {predicate}), 1.)
 
             # Start the search with all of the candidates.
             init = frozenset(candidates)
-
-            lazy_expansion = True
         else:
             assert CFG.grammar_search_direction == "smalltolarge"
             # Successively consider larger predicate sets.
@@ -261,13 +182,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             # Start the search with no candidates.
             init = frozenset()
 
-            lazy_expansion = False
-
         # Greedy best first search.
         path, _ = utils.run_gbfs(
             init, _check_goal, _get_successors, _heuristic,
-            max_evals=CFG.grammar_search_max_evals,
-            lazy_expansion=lazy_expansion)
+            max_evals=CFG.grammar_search_max_evals)
         kept_predicates = path[-1]
 
         print(f"Selected {len(kept_predicates)} predicates out of "
