@@ -156,7 +156,6 @@ def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
-
 class GrammarSearchInventionApproach(NSRTLearningApproach):
     """An approach that invents predicates by searching over candidate sets,
     with the candidates proposed from a grammar.
