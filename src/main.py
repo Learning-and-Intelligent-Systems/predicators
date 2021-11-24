@@ -15,6 +15,10 @@ To exclude predicates:
     python src/main.py --env cover --approach oracle --seed 0 \
          --excluded_predicates Holding
 
+To run grammar search predicate invention (example):
+    python src/main.py --env blocks --approach grammar_search_invention \
+        --seed 0 --excluded_predicates Holding,Clear,GripperOpen
+
 """
 
 import time
