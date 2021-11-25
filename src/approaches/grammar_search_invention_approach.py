@@ -22,7 +22,7 @@ from predicators.src.settings import CFG
 #                          Programmatic classifiers                            #
 ################################################################################
 
-class _ProgrammaticClassifier:
+class _ProgrammaticClassifier(abc.ABC):
     """A classifier implemented an arbitrary program.
     """
     @abc.abstractmethod
@@ -38,7 +38,7 @@ class _ProgrammaticClassifier:
         raise NotImplementedError("Override me!")
 
 
-class _ZeroaryClassifier(_ProgrammaticClassifier):
+class _NullaryClassifier(_ProgrammaticClassifier):
     """A classifier on zero objects.
     """
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
@@ -81,7 +81,7 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _ForallClassifier(_ZeroaryClassifier):
+class _ForallClassifier(_NullaryClassifier):
     """Apply a predicate to all objects.
     """
     body: Predicate

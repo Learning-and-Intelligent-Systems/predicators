@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateGrammar, _count_positives_for_ops, _create_grammar, \
-    _halving_constant_generator
+    _halving_constant_generator, _ForallClassifier
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
