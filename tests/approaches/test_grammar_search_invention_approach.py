@@ -88,3 +88,20 @@ def test_halving_constant_generator():
     generator = _halving_constant_generator(0., 1.)
     for i, x in zip(range(len(expected_sequence)), generator):
         assert abs(expected_sequence[i] - x) < 1e-6
+
+
+def test_forall_classifier():
+    """Tests for _ForallClassifier().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    pred = Predicate("Pred", [cup_type],
+        lambda s, o: s.get(o[0], "feat1") > 0.5)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    state0 = State({cup1: [0.], cup2: [0.]})
+    state1 = State({cup1: [0.], cup2: [1.]})
+    state2 = State({cup1: [1.], cup2: [1.]})
+    classifier = _ForallClassifier(pred)
+    assert not classifier(state0, [])
+    assert not classifier(state1, [])
+    assert classifier(state2, [])
