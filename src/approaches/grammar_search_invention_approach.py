@@ -3,7 +3,9 @@ the candidates proposed from a grammar.
 """
 
 from dataclasses import dataclass
+import itertools
 from functools import cached_property
+from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
 from gym.spaces import Box
@@ -33,7 +35,6 @@ class _PredicateGrammar:
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         """Generate candidate predicates from the grammar.
-
         The dict values are costs, e.g., negative log prior probability for the
         predicate in a PCFG.
         """
@@ -49,44 +50,115 @@ class _PredicateGrammar:
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _SingleAttributeGEClassifier:
-    """Check whether a single attribute value on an object is >= some value.
+class _SingleAttributeCompareClassifier:
+    """Compare a single feature value with a constant value.
     """
     object_index: int
     attribute_name: str
-    value: float
+    constant: float
+    compare: Callable[[float, float], bool]
+    compare_str: str
 
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
         obj = o[self.object_index]
-        return s.get(obj, self.attribute_name) >= self.value
+        return self.compare(s.get(obj, self.attribute_name), self.constant)
+
+    def __str__(self) -> str:
+        return f"({self.object_index}.{self.attribute_name}" + \
+               f"{self.compare_str}{self.constant:.3})"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _HoldingDummyPredicateGrammar(_PredicateGrammar):
     """A hardcoded cover-specific grammar.
+
     Good for testing with:
         python src/main.py --env cover --approach grammar_search_invention \
             --seed 0 --excluded_predicates Holding
     """
     def _generate(self) -> Iterator[Tuple[Predicate, float]]:
-        # A necessary predicate
-        name = "InventedHolding"
+        # A necessary predicate.
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
-        classifier = _SingleAttributeGEClassifier(0, "grasp", -0.9)
-        yield (Predicate(name, types, classifier), 1.)
+        classifier = _SingleAttributeCompareClassifier(0, "grasp", -0.9,
+                                                       ge, ">=")
+        # The name of the predicate is derived from the classifier.
+        # In this case, the name will be (0.grasp>=-0.9). The "0" at the
+        # beginning indicates that the classifier is indexing into the
+        # first object argument and looking at its grasp feature. For
+        # example, (0.grasp>=-0.9)(block1) would look be a function of
+        # state.get(block1, "grasp").
+        yield (Predicate(str(classifier), types, classifier), 1.)
 
-        # An unnecessary predicate (because it's redundant)
-        name = "InventedDummy"
-        block_type = [t for t in self.types if t.name == "block"][0]
-        types = [block_type]
-        classifier = _SingleAttributeGEClassifier(0, "is_block", 0.5)
-        yield (Predicate(name, types, classifier), 1.)
+        # An unnecessary predicate (because it's redundant).
+        classifier = _SingleAttributeCompareClassifier(0, "is_block", 0.5,
+                                                       ge, ">=")
+        yield (Predicate(str(classifier), types, classifier), 1.)
+
+
+def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
+    mid = (hi + lo) / 2.
+    yield mid
+    left_gen = _halving_constant_generator(lo, mid)
+    right_gen = _halving_constant_generator(mid, hi)
+    for l, r in zip(left_gen, right_gen):
+        yield l
+        yield r
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
+    """Generates features of the form "0.feature >= c" or "0.feature <= c".
+    """
+    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Get ranges of feature values from data.
+        feature_ranges = self._get_feature_ranges()
+        # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        constant_generator = itertools.chain([0., 1.],
+            _halving_constant_generator(0., 1.))
+        for c in constant_generator:
+            for t in sorted(self.types):
+                for f in t.feature_names:
+                    lb, ub = feature_ranges[t][f]
+                    # Optimization: if lb == ub, there is no variation
+                    # among this feature, so there's no point in trying to
+                    # learn a classifier with it. So, skip the feature.
+                    if abs(lb - ub) < 1e-6:
+                        continue
+                    # Scale the constant by the feature range.
+                    k = (c + lb) / (ub - lb)
+                    for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
+                        classifier = _SingleAttributeCompareClassifier(
+                            0, f, k, comp, comp_str)
+                        name = str(classifier)
+                        types = [t]
+                        yield (Predicate(name, types, classifier), 1.)
+
+
+    def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
+        feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
+        for (states, _) in self.dataset:
+            for state in states:
+                for obj in state:
+                    if obj.type not in feature_ranges:
+                        feature_ranges[obj.type] = {}
+                        for f in obj.type.feature_names:
+                            v = state.get(obj, f)
+                            feature_ranges[obj.type][f] = (v, v)
+                    else:
+                        for f in obj.type.feature_names:
+                            mn, mx = feature_ranges[obj.type][f]
+                            v = state.get(obj, f)
+                            feature_ranges[obj.type][f] = (min(mn, v),
+                                                           max(mx, v))
+        return feature_ranges
 
 
 def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(dataset)
+    if grammar_name == "single_feat_ineqs":
+        return _SingleFeatureInequalitiesPredicateGrammar(dataset)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -95,12 +167,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     with the candidates proposed from a grammar.
     """
     def __init__(self, simulator: Callable[[State, Action], State],
-                 all_predicates: Set[Predicate],
+                 initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
                  action_space: Box,
                  train_tasks: List[Task]) -> None:
-        super().__init__(simulator, all_predicates, initial_options,
+        super().__init__(simulator, initial_predicates, initial_options,
                          types, action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
