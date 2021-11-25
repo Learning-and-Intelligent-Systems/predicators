@@ -2,6 +2,7 @@
 the candidates proposed from a grammar.
 """
 
+import abc
 from dataclasses import dataclass
 import itertools
 from functools import cached_property
@@ -17,6 +18,91 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator
 from predicators.src.settings import CFG
 
+
+################################################################################
+#                          Programmatic classifiers                            #
+################################################################################
+
+class _ProgrammaticClassifier:
+    """A classifier implemented an arbitrary program.
+    """
+    @abc.abstractmethod
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        """All programmatic classifiers are functions of state and objects.
+
+        The objects are the predicate arguments.
+        """
+        raise NotImplementedError("Override me!")
+
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        raise NotImplementedError("Override me!")
+
+
+class _ZeroaryClassifier(_ProgrammaticClassifier):
+    """A classifier on zero objects.
+    """
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        assert len(o) == 0
+        return self._classify_state(s)
+
+    @abc.abstractmethod
+    def _classify_state(self, s: State) -> bool:
+        raise NotImplementedError("Override me!")
+
+
+class _UnaryClassifier(_ProgrammaticClassifier):
+    """A classifier on one object.
+    """
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        assert len(o) == 1
+        return self._classify_object(s, o[0])
+
+    @abc.abstractmethod
+    def _classify_object(self, s: State, obj: Object) -> bool:
+        raise NotImplementedError("Override me!")
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _SingleAttributeCompareClassifier(_UnaryClassifier):
+    """Compare a single feature value with a constant value.
+    """
+    object_index: int
+    attribute_name: str
+    constant: float
+    compare: Callable[[float, float], bool]
+    compare_str: str
+
+    def _classify_object(self, s: State, obj: Object) -> bool:
+        return self.compare(s.get(obj, self.attribute_name), self.constant)
+
+    def __str__(self) -> str:
+        return f"({self.object_index}.{self.attribute_name}" + \
+               f"{self.compare_str}{self.constant:.3})"
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ForallClassifier(_ZeroaryClassifier):
+    """Apply a predicate to all objects.
+    """
+    body: Predicate
+
+    def _classify_state(self, s: State) -> bool:
+        for o in utils.get_object_combinations(set(s), self.body.types,
+                                               allow_duplicates=False):
+            if not self.body.holds(s, o):
+                return False
+        return True
+
+    def __str__(self) -> str:
+        types = self.body.types
+        type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types))
+        return f"A[{type_sig}].({str(self.body)})"
+
+
+################################################################################
+#                             Predicate grammars                               #
+################################################################################
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _PredicateGrammar:
@@ -39,33 +125,16 @@ class _PredicateGrammar:
         predicate in a PCFG.
         """
         candidates = {}
-        for i, (candidate, cost) in enumerate(self._generate()):
+        for i, (candidate, cost) in enumerate(self.enumerate()):
             if i >= max_num:
                 break
             candidates[candidate] = cost
         return candidates
 
-    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        """Iterate over candidate predicates from less to more cost.
+        """
         raise NotImplementedError("Override me!")
-
-
-@dataclass(frozen=True, eq=False, repr=False)
-class _SingleAttributeCompareClassifier:
-    """Compare a single feature value with a constant value.
-    """
-    object_index: int
-    attribute_name: str
-    constant: float
-    compare: Callable[[float, float], bool]
-    compare_str: str
-
-    def __call__(self, s: State, o: Sequence[Object]) -> bool:
-        obj = o[self.object_index]
-        return self.compare(s.get(obj, self.attribute_name), self.constant)
-
-    def __str__(self) -> str:
-        return f"({self.object_index}.{self.attribute_name}" + \
-               f"{self.compare_str}{self.constant:.3})"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -76,7 +145,7 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         python src/main.py --env cover --approach grammar_search_invention \
             --seed 0 --excluded_predicates Holding
     """
-    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # A necessary predicate.
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
@@ -110,7 +179,7 @@ def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
 class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
     """Generates features of the form "0.feature >= c" or "0.feature <= c".
     """
-    def _generate(self) -> Iterator[Tuple[Predicate, float]]:
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
@@ -154,13 +223,33 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         return feature_ranges
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class _ForallPredicateGrammarWrapper(_PredicateGrammar):
+    """For each x generated by the base grammar, also generates forall(x).
+    """
+    base_grammar: _PredicateGrammar
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            yield (predicate, cost)
+            classifier = _ForallClassifier(predicate)
+            yield (Predicate(str(classifier), [], classifier), cost)
+
+
 def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(dataset)
     if grammar_name == "single_feat_ineqs":
         return _SingleFeatureInequalitiesPredicateGrammar(dataset)
+    if grammar_name == "forall_single_feat_ineqs":
+        base = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        return _ForallPredicateGrammarWrapper(dataset, base)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
+
+################################################################################
+#                                 Approach                                     #
+################################################################################
 
 class GrammarSearchInventionApproach(NSRTLearningApproach):
     """An approach that invents predicates by searching over candidate sets,
