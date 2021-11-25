@@ -40,7 +40,7 @@ def test_predicate_grammar():
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
     candidates = single_ineq_grammar.generate(max_num=4)
     assert str(sorted(candidates)) == \
-        "[(0.pose<=0.847), (0.pose>=0.847), (0.width<=2.33), (0.width>=2.33)]"
+        "[(0.pose<=2.33), (0.pose>=2.33), (0.width<=19.0), (0.width>=19.0)]"
 
 
 def test_count_positives_for_ops():
