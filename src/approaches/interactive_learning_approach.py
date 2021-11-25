@@ -19,22 +19,24 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     """An approach that learns predicates from a teacher.
     """
     def __init__(self, simulator: Callable[[State, Action], State],
-                 all_predicates: Set[Predicate],
+                 initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
                  action_space: Box,
                  train_tasks: List[Task]) -> None:
+        # Predicates should not be ablated
+        assert not CFG.excluded_predicates
         # Only the teacher is allowed to know about the initial predicates
-        self._known_predicates = {p for p in all_predicates
+        self._known_predicates = {p for p in initial_predicates
                                   if p.name in CFG.interactive_known_predicates}
-        predicates_to_learn = all_predicates - self._known_predicates
-        self._teacher = _Teacher(all_predicates, predicates_to_learn)
+        predicates_to_learn = initial_predicates - self._known_predicates
+        self._teacher = _Teacher(initial_predicates, predicates_to_learn)
         # All seen data
         self._dataset: List[GroundAtomTrajectory] = []
         # No cheating!
         self._predicates_to_learn = {strip_predicate(p)
                                      for p in predicates_to_learn}
-        del all_predicates
+        del initial_predicates
         del predicates_to_learn
         super().__init__(simulator, self._predicates_to_learn, initial_options,
                          types, action_space, train_tasks)
@@ -192,9 +194,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 class _Teacher:
     """Answers queries about GroundAtoms in States.
     """
-    def __init__(self, all_predicates: Set[Predicate],
+    def __init__(self, initial_predicates: Set[Predicate],
                  predicates_to_learn: Set[Predicate]) -> None:
-        self._name_to_predicate = {p.name : p for p in all_predicates}
+        self._name_to_predicate = {p.name : p for p in initial_predicates}
         self._predicates_to_learn = predicates_to_learn
         self._has_generated_data = False
 

@@ -4,7 +4,8 @@
 import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredicateGrammar, _count_positives_for_ops, _create_grammar
+    _PredicateGrammar, _count_positives_for_ops, _create_grammar, \
+    _halving_constant_generator
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
@@ -18,7 +19,11 @@ def test_predicate_grammar():
     env = CoverEnv()
     train_task = env.get_train_tasks()[0]
     state = train_task.init
-    dataset = [([state], [])]
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    dataset = [([state, other_state], [np.zeros(1, dtype=np.float32)])]
     base_grammar = _PredicateGrammar(dataset)
     assert base_grammar.types == env.types
     with pytest.raises(NotImplementedError):
@@ -29,6 +34,13 @@ def test_predicate_grammar():
     holding_dummy_grammar = _create_grammar("holding_dummy", dataset)
     assert len(holding_dummy_grammar.generate(max_num=1)) == 1
     assert len(holding_dummy_grammar.generate(max_num=3)) == 2
+    single_ineq_grammar = _create_grammar("single_feat_ineqs", dataset)
+    assert len(single_ineq_grammar.generate(max_num=1)) == 1
+    feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
+    assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
+    candidates = single_ineq_grammar.generate(max_num=4)
+    assert str(sorted(candidates)) == \
+        "[(0.pose<=0.847), (0.pose>=0.847), (0.width<=2.33), (0.width>=2.33)]"
 
 
 def test_count_positives_for_ops():
@@ -67,3 +79,12 @@ def test_count_positives_for_ops():
     num_true, num_false = _count_positives_for_ops(strips_ops, pruned_atom_data)
     assert num_true == 1
     assert num_false == 1
+
+
+def test_halving_constant_generator():
+    """Tests for _halving_constant_generator().
+    """
+    expected_sequence = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
+    generator = _halving_constant_generator(0., 1.)
+    for i, x in zip(range(len(expected_sequence)), generator):
+        assert abs(expected_sequence[i] - x) < 1e-6
