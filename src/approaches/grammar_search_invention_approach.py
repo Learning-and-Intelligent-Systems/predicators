@@ -4,7 +4,6 @@ the candidates proposed from a grammar.
 
 import abc
 from dataclasses import dataclass
-import itertools
 from functools import cached_property
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
@@ -183,8 +182,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # 0., 1., 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        constant_generator = itertools.chain([0., 1.],
-            _halving_constant_generator(0., 1.))
+        constant_generator = _halving_constant_generator(0., 1.)
         for c in constant_generator:
             for t in sorted(self.types):
                 for f in t.feature_names:
