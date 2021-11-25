@@ -230,8 +230,9 @@ def _update_segment_from_option_specs(segment: Segment,
     Modifies segment in place.
     """
     assert not CFG.do_option_learning, "TODO: implement option learning."
-    if not segment.has_option():
-        segment.set_option_from_trajectory()
+    # Note: after option learning is implement, use:
+    #   segment.set_option_from_trajectory()
+    assert segment.has_option()
     option = segment.get_option()
     param_option, opt_vars = option_spec
     assert option.parent == param_option
