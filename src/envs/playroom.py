@@ -26,6 +26,7 @@ class PlayroomEnv(BlocksEnv):
     table_y_lb = 10.0
     table_x_ub = 20.0
     table_y_ub = 20.0
+    door_open = 0.5
     door_r = 5.0  # half of width
     door_button_z = 1.0  # relative to ground
     door_tol = 1.0
@@ -48,7 +49,6 @@ class PlayroomEnv(BlocksEnv):
         self._door_type = Type("door", ["pose_x", "pose_y", "open"])
         self._dial_type = Type("dial", ["pose_x", "pose_y", "level"])
         # Predicates
-        # Still need to add new predicates
         self._On = Predicate(
             "On", [self._block_type, self._block_type], self._On_holds)
         self._OnTable = Predicate(
@@ -59,6 +59,22 @@ class PlayroomEnv(BlocksEnv):
             "Holding", [self._block_type], self._Holding_holds)
         self._Clear = Predicate(
             "Clear", [self._block_type], self._Clear_holds)
+        self._NextToTable = Predicate(
+            "NextToTable", [self._robot_type], self._NextToTable_holds)
+        self._NextToDoor = Predicate(
+            "NextToDoor", [self._robot_type, self._door_type],
+            self._NextToDoor_holds)
+        self._NextToDial = Predicate(
+            "NextToDial", [self._robot_type, self._dial_type],
+            self._NextToDial_holds)
+        self._DoorOpen = Predicate(
+            "DoorOpen", [self._door_type], self._DoorOpen_holds)
+        self._DoorClosed = Predicate(
+            "DoorClosed", [self._door_type], self._DoorClosed_holds)
+        self._LightOn = Predicate(
+            "LightOn", [self._dial_type], self._LightOn_holds)
+        self._LightOff = Predicate(
+            "LightOff", [self._dial_type], self._LightOff_holds)
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
@@ -154,7 +170,7 @@ class PlayroomEnv(BlocksEnv):
         # opens/closes a door that the robot is next to and facing
         assert door.type == self._door_type
         next_state = state.copy()
-        if state.get(door, "open") < 0.5:
+        if state.get(door, "open") < self.door_open:
             next_state.set(door, "open", 1.0)
         else:
             next_state.set(door, "open", 0.0)
@@ -170,14 +186,15 @@ class PlayroomEnv(BlocksEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        # To update later
         return {self._On, self._OnTable, self._GripperOpen, self._Holding,
-                self._Clear}
+                self._Clear, self._NextToTable, self._NextToDoor,
+                self._NextToDial, self._DoorOpen, self._DoorClosed,
+                self._LightOn, self._LightOff}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        # To update later
-        return {self._On, self._OnTable}
+        # ??
+        return self.predicates()
 
     @property
     def types(self) -> Set[Type]:
@@ -228,7 +245,7 @@ class PlayroomEnv(BlocksEnv):
         for door in self._doors:
             x = state.get(door, "pose_x")
             y = state.get(door, "pose_y")
-            if state.get(door, "open") < 0.5:  # door closed
+            if state.get(door, "open") < self.door_open:
                 door = patches.Rectangle(
                         (x-1.0, y-5.0), 1, 10, zorder=1, linewidth=1,
                         edgecolor='black', facecolor='brown')
@@ -382,22 +399,19 @@ class PlayroomEnv(BlocksEnv):
                 return True
         return False
 
-    # To pull in when I add all the predicates
-    # @staticmethod
-    # def _NextToTable_holds(state: State, objects: Sequence[Object]
-    #                        ) -> bool:
-    #     # for now this also includes all table coords
-    #     robot, = objects
-    #     x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-    #     cls = PlayroomEnv
-    #     return (cls.table_x_lb-cls.table_tol < x
-    #             < cls.table_x_ub+cls.table_tol) and \
-    #            (cls.table_y_lb-cls.table_tol < y
-    #             < cls.table_y_ub+cls.table_tol)
+    @staticmethod
+    def _NextToTable_holds(state: State, objects: Sequence[Object]) -> bool:
+        # Being "in" the table also counts as next to table
+        robot, = objects
+        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
+        cls = PlayroomEnv
+        return (cls.table_x_lb-cls.table_tol < x
+                < cls.table_x_ub+cls.table_tol) and \
+               (cls.table_y_lb-cls.table_tol < y
+                < cls.table_y_ub+cls.table_tol)
 
     @staticmethod
-    def _NextToDoor_holds(state: State, objects: Sequence[Object]
-                          ) -> bool:
+    def _NextToDoor_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, door = objects
         x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
         door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
@@ -406,18 +420,34 @@ class PlayroomEnv(BlocksEnv):
                 and (door_y-cls.door_r-cls.door_tol < y
                      < door_y+cls.door_r+cls.door_tol)
 
-    # To pull in when I add all the predicates
-    # @staticmethod
-    # def _NextToDial_holds(state: State, objects: Sequence[Object]
-    #                       ) -> bool:
-    #     robot, dial = objects
-    #     x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-    #     dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-    #     cls = PlayroomEnv
-    #     return (dial_x-cls.dial_r-cls.dial_tol < x
-    #             < dial_x+cls.dial_r+cls.dial_tol) and \
-    #            (dial_y-cls.dial_r-cls.dial_tol < y
-    #             < dial_y+cls.dial_r+cls.dial_tol)
+    @staticmethod
+    def _NextToDial_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, dial = objects
+        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
+        dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
+        cls = PlayroomEnv
+        return (dial_x-cls.dial_r-cls.dial_tol < x
+                < dial_x+cls.dial_r+cls.dial_tol) and \
+               (dial_y-cls.dial_r-cls.dial_tol < y
+                < dial_y+cls.dial_r+cls.dial_tol)
+
+    @staticmethod
+    def _DoorOpen_holds(state: State, objects: Sequence[Object]) -> bool:
+        door, = objects
+        return state.get(door, "open") >= PlayroomEnv.door_open
+    
+    @staticmethod
+    def _DoorClosed_holds(state: State, objects: Sequence[Object]) -> bool:
+        return not PlayroomEnv._DoorClosed_holds(state, objects)
+
+    @staticmethod
+    def _LightOn_holds(state: State, objects: Sequence[Object]) -> bool:
+        dial, = objects
+        return state.get(dial, "level") >= PlayroomEnv.dial_on
+
+    @staticmethod
+    def _LightOff_holds(state: State, objects: Sequence[Object]) -> bool:
+        return not PlayroomEnv._LightOn_holds(state, objects)
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
