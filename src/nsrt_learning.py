@@ -77,10 +77,15 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     for t in range(len(actions)):
         current_segment_traj[0].append(states[t])
         current_segment_traj[1].append(actions[t])
-        atom_switch = all_atoms[t] != all_atoms[t+1]
-        option_switch = (actions[t].has_option() and t < len(actions) - 1 and \
-            actions[t].get_option() != actions[t+1].get_option())
-        if atom_switch or option_switch:
+        switch = all_atoms[t] != all_atoms[t+1]
+        if actions[t].has_option() and t < len(actions) - 1:
+            option_t = actions[t].get_option()
+            option_t1 = actions[t+1].get_option()
+            option_t_spec = (option_t.parent, option_t.objects)
+            option_t1_spec = (option_t1.parent, option_t1.objects)
+            if option_t_spec != option_t1_spec:
+                switch = True
+        if switch:
             # Include the final state as both the end of this segment
             # and the start of the next segment.
             # Include the default option here; replaced during option learning.
