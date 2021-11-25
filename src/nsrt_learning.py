@@ -67,6 +67,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     """Segment a ground atom trajectory according to abstract state changes.
+
+    If options are available, also use them to segment.
     """
     segments = []
     states, actions, all_atoms = trajectory
@@ -75,13 +77,20 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     for t in range(len(actions)):
         current_segment_traj[0].append(states[t])
         current_segment_traj[1].append(actions[t])
-        if all_atoms[t] != all_atoms[t+1]:
+        atom_switch = all_atoms[t] != all_atoms[t+1]
+        option_switch = (actions[t].has_option() and t < len(actions) - 1 and \
+            actions[t].get_option() != actions[t+1].get_option())
+        if atom_switch or option_switch:
             # Include the final state as both the end of this segment
             # and the start of the next segment.
             # Include the default option here; replaced during option learning.
             current_segment_traj[0].append(states[t+1])
-            segment = Segment(current_segment_traj,
-                              all_atoms[t], all_atoms[t+1])
+            if actions[t].has_option():
+                segment = Segment(current_segment_traj, all_atoms[t],
+                                  all_atoms[t+1], actions[t].get_option())
+            else:
+                segment = Segment(current_segment_traj,
+                                  all_atoms[t], all_atoms[t+1])
             segments.append(segment)
             current_segment_traj = ([states[t+1]], [])
     # Don't include the last current segment because it didn't result in
@@ -95,20 +104,28 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     """
     # Partition the segments according to common effects.
     params: List[Sequence[Variable]] = []
+    option_vars: List[Tuple[Variable, ...]] = []
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[Partition] = []
     for segment in segments:
+        if segment.has_option():
+            segment_option_objs = tuple(segment.get_option().objects)
+        else:
+            segment_option_objs = tuple()
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects.
             # Note that both add and delete effects must unify.
+            part_option_vars = option_vars[i]
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
             suc, sub = unify_effects_and_options(
                 frozenset(segment.add_effects),
                 frozenset(part_add_effects),
                 frozenset(segment.delete_effects),
-                frozenset(part_delete_effects))
+                frozenset(part_delete_effects),
+                segment_option_objs,
+                part_option_vars)
             if suc:
                 # Add to this partition
                 assert set(sub.values()) == set(params[i])
@@ -118,18 +135,25 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         else:
             # Get new lifted effects
             objects = {o for atom in segment.add_effects |
-                       segment.delete_effects for o in atom.objects}
+                       segment.delete_effects for o in atom.objects} | \
+                      set(segment_option_objs)
             objects_lst = sorted(objects)
             variables = [Variable(f"?x{i}", o.type)
                          for i, o in enumerate(objects_lst)]
             sub = dict(zip(objects_lst, variables))
             params.append(variables)
+            option_vars.append(tuple(sub[o] for o in segment_option_objs))
             add_effects.append({atom.lift(sub) for atom
                                 in segment.add_effects})
             delete_effects.append({atom.lift(sub) for atom
                                    in segment.delete_effects})
             new_partition = Partition([(segment, sub)])
             partitions.append(new_partition)
+
+    # We don't need option vars anymore; we'll recover them later.
+    # The only reason to include them is to make sure that params
+    # include the option vars when options are available.
+    del option_vars
 
     assert len(params) == len(add_effects) == \
            len(delete_effects) == len(partitions)
@@ -206,8 +230,9 @@ def _update_segment_from_option_specs(segment: Segment,
     Modifies segment in place.
     """
     assert not CFG.do_option_learning, "TODO: implement option learning."
-    assert not segment.has_option()
-    segment.set_option_from_trajectory()
+    # Note: after option learning is implement, use:
+    #   segment.set_option_from_trajectory()
+    assert segment.has_option()
     option = segment.get_option()
     param_option, opt_vars = option_spec
     assert option.parent == param_option

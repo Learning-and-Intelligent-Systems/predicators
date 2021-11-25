@@ -44,15 +44,10 @@ class IterativeInventionApproach(NSRTLearningApproach):
         # Segment transitions based on changes in predicates.
         segments = [seg for traj in ground_atom_dataset
                     for seg in segment_trajectory(traj)]
-        # Note that segmenting does not assume that options are known; it uses
-        # the predicates only. So after segmenting, we will add the correct
-        # options to the segments, because here we are assuming that options
-        # are known.
         assert not CFG.do_option_learning, \
             "Iterative invention assumes that options are given."
         for segment in segments:
-            assert not segment.has_option()
-            segment.set_option_from_trajectory()
+            assert segment.has_option()
         while True:
             print(f"\n\nInvention iteration {self._num_inventions}")
             # Invent predicates one at a time (iteratively).
