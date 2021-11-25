@@ -77,14 +77,20 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
             --seed 0 --excluded_predicates Holding
     """
     def _generate(self) -> Iterator[Tuple[Predicate, float]]:
-        # A necessary predicate
+        # A necessary predicate.
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
         classifier = _SingleAttributeCompareClassifier(0, "grasp", -0.9,
                                                        ge, ">=")
+        # The name of the predicate is derived from the classifier.
+        # In this case, the name will be (0.grasp>=-0.9). The "0" at the
+        # beginning indicates that the classifier is indexing into the
+        # first object argument and looking at its grasp feature. For
+        # example, (0.grasp>=-0.9)(block1) would look be a function of
+        # state.get(block1, "grasp").
         yield (Predicate(str(classifier), types, classifier), 1.)
 
-        # An unnecessary predicate (because it's redundant)
+        # An unnecessary predicate (because it's redundant).
         classifier = _SingleAttributeCompareClassifier(0, "is_block", 0.5,
                                                        ge, ">=")
         yield (Predicate(str(classifier), types, classifier), 1.)
