@@ -90,6 +90,11 @@ def test_grammar_search_invention_approach():
     utils.update_config({"grammar_search_grammar_name": "single_feat_ineqs"})
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False)
+    utils.update_config({
+        "grammar_search_grammar_name": "forall_single_feat_ineqs"
+    })
+    _test_approach(env_name="cover", approach_name="grammar_search_invention",
+                   excluded_predicates="Holding", try_solving=False)
     # Test that the pipeline doesn't crash when no predicates are learned
     # involving a certain option argument (robot in this case).
     utils.update_config({"grammar_search_max_predicates": 0})
