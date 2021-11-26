@@ -73,6 +73,10 @@ def make_behavior_option(
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
         if memory.get("controller") is None:
+            # We want to reset the state of the environmenet to the state in the init state
+            # so that our options can run RRT/plan from here as intended!
+            if state.simulator_state is not None:
+                env.task.reset_scene(state.simulator_state)
             controller = controller_fn(env, igo[0], params, rng=rng)
             memory["controller"] = controller
             memory["has_terminated"] = False

@@ -212,6 +212,7 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
     # try to place the agent near the object, and rotate it to the object
     valid_position = None  # ((x,y,z),(roll, pitch, yaw))
     original_orientation = env.robots[0].get_orientation()
+    
     state = p.saveState()
 
     def sample_fn(env, rng):
