@@ -39,10 +39,16 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
     # Now that options are learned, we can update the segments to include
     # which option is being executed within each segment.
-    for partition, option_spec in zip(partitions, option_specs):
-        for (segment, _) in partition:
-            # Modifies segment in place.
-            _update_segment_from_option_specs(segment, option_spec)
+    # If not option learning, the segments will already have the options
+    # after segmentation, so this step can be skipped.
+    assert not CFG.do_option_learning
+    # Uncomment this and _update_segment_from_option_specs for option learning.
+    # Also, change the assertion above to "if CFG.do_option_learning:" and
+    # indent the following lines.
+    # for partition, option_spec in zip(partitions, option_specs):
+    #     for (segment, _) in partition:
+    #         # Modifies segment in place.
+    #         _update_segment_from_option_specs(segment, option_spec)
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
@@ -78,7 +84,26 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         current_segment_traj[0].append(states[t])
         current_segment_traj[1].append(actions[t])
         switch = all_atoms[t] != all_atoms[t+1]
+        # Segment based on option specs if we are assuming that options are
+        # known. If we do not do this, it can lead to a bug where an option
+        # has object arguments that do not appear in the strips operator
+        # parameters. Note also that we are segmenting based on option specs,
+        # rather than option changes. This distinction is subtle but important.
+        # For example, in Cover, there is just one parameterized option, which
+        # is PickPlace() with no object arguments. If we segmented based on
+        # option changes, then segmentation would break up trajectories into
+        # picks and places. Then, when operator learning, it would appear
+        # that no predicates are necessary to distinguish between picking
+        # and placing, since the option changes and segmention have already
+        # made the distinction. But we want operator learning to use predicates
+        # like Holding, Handempty, etc., because when doing symbolic planning,
+        # we only have predicates, and not the continuous parameters that would
+        # be used to distinguish between a PickPlace that is a pick vs a place.
         if actions[t].has_option() and t < len(actions) - 1:
+            # We don't care about the last option in the traj because there's
+            # no next option after it, so we could never possibly want to
+            # segment due to that option. But we still need to check atoms here,
+            # because the length of atoms is one longer.
             option_t = actions[t].get_option()
             option_t1 = actions[t+1].get_option()
             option_t_spec = (option_t.parent, option_t.objects)
@@ -88,12 +113,13 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         if switch:
             # Include the final state as both the end of this segment
             # and the start of the next segment.
-            # Include the default option here; replaced during option learning.
             current_segment_traj[0].append(states[t+1])
             if actions[t].has_option():
                 segment = Segment(current_segment_traj, all_atoms[t],
                                   all_atoms[t+1], actions[t].get_option())
             else:
+                # If option learning, include the default option here; replaced
+                # during option learning.
                 segment = Segment(current_segment_traj,
                                   all_atoms[t], all_atoms[t+1])
             segments.append(segment)
@@ -155,9 +181,9 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             new_partition = Partition([(segment, sub)])
             partitions.append(new_partition)
 
-    # We don't need option vars anymore; we'll recover them later.
-    # The only reason to include them is to make sure that params
-    # include the option vars when options are available.
+    # We don't need option vars anymore; we'll recover them later in
+    # `learn_option_specs`. The only reason to include them is to make sure
+    # that params include the option vars when options are available.
     del option_vars
 
     assert len(params) == len(add_effects) == \
@@ -225,24 +251,16 @@ def _extract_options_from_data(
     return option_specs
 
 
-def _update_segment_from_option_specs(segment: Segment,
-        option_spec: Tuple[ParameterizedOption, Sequence[Variable]]) -> None:
-    """Figure out which option was executed within the segment.
+# def _update_segment_from_option_specs(segment: Segment,
+#         option_spec: Tuple[ParameterizedOption, Sequence[Variable]]) -> None:
+#     """Figure out which option was executed within the segment.
 
-    At this point, we know which ParameterizedOption was used in the segment,
-    and we know the option_vars, but we don't know what parameters were used.
+#     At this point, we know which ParameterizedOption was used in the segment,
+#     and we know the option_vars, but we don't know what parameters were used.
 
-    Modifies segment in place.
-    """
-    assert not CFG.do_option_learning, "TODO: implement option learning."
-    # Note: after option learning is implement, use:
-    #   segment.set_option_from_trajectory()
-    assert segment.has_option()
-    option = segment.get_option()
-    param_option, opt_vars = option_spec
-    assert option.parent == param_option
-    assert [o.type for o in option.objects] == \
-           [v.type for v in opt_vars]
+#     Modifies segment in place.
+#     """
+#     raise NotImplementedError("Implement me!")
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:
@@ -269,8 +287,8 @@ def unify_effects_and_options(
         lifted_add_effects: FrozenSet[LiftedAtom],
         ground_delete_effects: FrozenSet[GroundAtom],
         lifted_delete_effects: FrozenSet[LiftedAtom],
-        ground_option_args: Tuple[Object, ...] = tuple(),
-        lifted_option_args: Tuple[Variable, ...] = tuple()
+        ground_option_args: Tuple[Object, ...],
+        lifted_option_args: Tuple[Variable, ...],
 ) -> Tuple[bool, ObjToVarSub]:
     """Wrapper around utils.unify() that handles option arguments, add effects,
     and delete effects. Changes predicate names so that all are treated
