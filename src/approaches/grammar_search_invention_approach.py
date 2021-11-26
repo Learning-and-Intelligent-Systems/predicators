@@ -23,7 +23,7 @@ from predicators.src.settings import CFG
 ################################################################################
 
 class _ProgrammaticClassifier(abc.ABC):
-    """A classifier implemented an arbitrary program.
+    """A classifier implemented as an arbitrary program.
     """
     @abc.abstractmethod
     def __call__(self, s: State, o: Sequence[Object]) -> bool:
