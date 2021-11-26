@@ -206,7 +206,9 @@ def option_to_trajectory(
     action sequence), where the state sequence includes init.
     """
     actions = []
+    
     assert option.initiable(init)
+    
     print(f"Starting to Execute Option {option}")
     state = init
     states = [state]

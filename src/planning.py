@@ -272,7 +272,6 @@ def _run_low_level_search(
                         return result
                 else:
                     can_continue_on = False
-                # import ipdb; ipdb.set_trace()
             else:
                 cur_idx += 1  # it's about to be decremented again
         else:

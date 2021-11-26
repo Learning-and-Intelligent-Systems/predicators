@@ -70,13 +70,15 @@ def make_behavior_option(
     def _initiable(
         state: State, memory: Dict, objects: Sequence[Object], params: Array
     ) -> bool:
-        # This logic is copied from your BehaviorParameterizedOption, was it a bug in there?
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        controller = controller_fn(env, igo[0], params, rng=rng)
-        memory["controller"] = controller
-        memory["has_terminated"] = False
-        return controller is not None
+        if memory.get("controller") is None:
+            controller = controller_fn(env, igo[0], params, rng=rng)
+            memory["controller"] = controller
+            memory["has_terminated"] = False
+            return controller is not None
+        else:
+            return True
 
     def _terminal(
         state: State, memory: Dict, objects: Sequence[Object], params: Array
@@ -248,10 +250,6 @@ class BehaviorEnv(BaseEnv):
 
         options: Set[ParameterizedOption] = set()
 
-        # Hack to deal with inheritance...
-        dummy_policy = lambda s, o, p: Action(np.zeros(0))  # Not used
-        dummy_initiable = lambda s, o, p: True  # Not used
-        dummy_terminal = lambda s, o, p: True  # Not used
 
         for (
             name,
