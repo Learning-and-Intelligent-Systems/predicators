@@ -88,7 +88,7 @@ class _ForallClassifier(_NullaryClassifier):
 
     def _classify_state(self, s: State) -> bool:
         for o in utils.get_object_combinations(set(s), self.body.types,
-                                               allow_duplicates=False):
+                                               allow_duplicates=True):
             if not self.body.holds(s, o):
                 return False
         return True
