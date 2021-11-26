@@ -94,7 +94,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         # option changes, then segmentation would break up trajectories into
         # picks and places. Then, when operator learning, it would appear
         # that no predicates are necessary to distinguish between picking
-        # and placing, since the option changes and segmention have already
+        # and placing, since the option changes and segmentation have already
         # made the distinction. But we want operator learning to use predicates
         # like Holding, Handempty, etc., because when doing symbolic planning,
         # we only have predicates, and not the continuous parameters that would
@@ -103,7 +103,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             # We don't care about the last option in the traj because there's
             # no next option after it, so we could never possibly want to
             # segment due to that option. But we still need to check atoms here,
-            # because the length of atoms is one longer.
+            # because the length of all_atoms is one longer.
             option_t = actions[t].get_option()
             option_t1 = actions[t+1].get_option()
             option_t_spec = (option_t.parent, option_t.objects)
