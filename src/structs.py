@@ -808,8 +808,9 @@ class Partition:
         return {a.lift(sub) for a in seg.delete_effects}
 
     @cached_property
-    def option_spec(self) -> Tuple[ParameterizedOption, List[Variable]]:
-        """Get the parameterized option and option vars for this partition.
+    def option_spec(self) -> OptionSpec:
+        """Get a tuple of (the parameterized option, the option vars)
+        for this partition. This tuple is called an option spec.
         """
         seg, sub = self._exemplar
         assert seg.has_option()
@@ -841,6 +842,7 @@ class Partition:
 # Convenience higher-order types useful throughout the code
 StateActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
+OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 Dataset = List[StateActionTrajectory]
 GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
