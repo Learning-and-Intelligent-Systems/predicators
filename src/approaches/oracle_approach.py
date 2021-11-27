@@ -176,8 +176,8 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
     """
     can_type, = _get_types_by_names("cluttered_table", ["can"])
 
-    HandEmpty, Holding = _get_predicates_by_names(
-        "cluttered_table", ["HandEmpty", "Holding"])
+    HandEmpty, Holding, Untrashed = _get_predicates_by_names(
+        "cluttered_table", ["HandEmpty", "Holding", "Untrashed"])
 
     Grasp, Dump = _get_options_by_names("cluttered_table", ["Grasp", "Dump"])
 
@@ -188,7 +188,7 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
     parameters = [can]
     option_vars = [can]
     option = Grasp
-    preconditions = {LiftedAtom(HandEmpty, [])}
+    preconditions = {LiftedAtom(HandEmpty, []), LiftedAtom(Untrashed, [can])}
     add_effects = {LiftedAtom(Holding, [can])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
     def grasp_sampler(state: State, rng: np.random.Generator,
@@ -209,9 +209,9 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
     parameters = [can]
     option_vars = []
     option = Dump
-    preconditions = {LiftedAtom(Holding, [can])}
+    preconditions = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
     add_effects = {LiftedAtom(HandEmpty, [])}
-    delete_effects = {LiftedAtom(Holding, [can])}
+    delete_effects = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
     dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
                      delete_effects, option, option_vars,
                      lambda s, r, o: np.array([], dtype=np.float32))

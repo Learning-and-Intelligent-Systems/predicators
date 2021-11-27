@@ -67,17 +67,19 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
     """Compare a single feature value with a constant value.
     """
     object_index: int
+    object_type: Type
     attribute_name: str
     constant: float
     compare: Callable[[float, float], bool]
     compare_str: str
 
     def _classify_object(self, s: State, obj: Object) -> bool:
+        assert obj.type == self.object_type
         return self.compare(s.get(obj, self.attribute_name), self.constant)
 
     def __str__(self) -> str:
-        return f"({self.object_index}.{self.attribute_name}" + \
-               f"{self.compare_str}{self.constant:.3})"
+        return (f"(({self.object_index}:{self.object_type.name})."
+                f"{self.attribute_name}{self.compare_str}{self.constant:.3})")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -96,7 +98,8 @@ class _ForallClassifier(_NullaryClassifier):
     def __str__(self) -> str:
         types = self.body.types
         type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types))
-        return f"A[{type_sig}].({str(self.body)})"
+        objs = ",".join(str(i) for i in range(len(types)))
+        return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
 
 
 ################################################################################
@@ -148,8 +151,8 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         # A necessary predicate.
         block_type = [t for t in self.types if t.name == "block"][0]
         types = [block_type]
-        classifier = _SingleAttributeCompareClassifier(0, "grasp", -0.9,
-                                                       ge, ">=")
+        classifier = _SingleAttributeCompareClassifier(
+            0, block_type, "grasp", -0.9, ge, ">=")
         # The name of the predicate is derived from the classifier.
         # In this case, the name will be (0.grasp>=-0.9). The "0" at the
         # beginning indicates that the classifier is indexing into the
@@ -159,8 +162,8 @@ class _HoldingDummyPredicateGrammar(_PredicateGrammar):
         yield (Predicate(str(classifier), types, classifier), 1.)
 
         # An unnecessary predicate (because it's redundant).
-        classifier = _SingleAttributeCompareClassifier(0, "is_block", 0.5,
-                                                       ge, ">=")
+        classifier = _SingleAttributeCompareClassifier(
+            0, block_type, "is_block", 0.5, ge, ">=")
         yield (Predicate(str(classifier), types, classifier), 1.)
 
 
@@ -196,7 +199,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                     k = (c + lb) / (ub - lb)
                     for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
                         classifier = _SingleAttributeCompareClassifier(
-                            0, f, k, comp, comp_str)
+                            0, t, f, k, comp, comp_str)
                         name = str(classifier)
                         types = [t]
                         yield (Predicate(name, types, classifier), 1.)
