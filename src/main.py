@@ -1,6 +1,9 @@
 """Main entry point for running approaches in environments.
 
-Example usage:
+Example usage with learning NSRTs:
+    python src/main.py --env cover --approach nsrt_learning --seed 0
+
+Example usage with oracle NSRTs:
     python src/main.py --env cover --approach oracle --seed 0
 
 To make videos:

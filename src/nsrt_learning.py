@@ -79,7 +79,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     segments = []
     states, actions, all_atoms = trajectory
     assert len(states) == len(actions) + 1 == len(all_atoms)
-    current_segment_traj : StateActionTrajectory = ([states[0]], [])
+    current_segment_traj : StateActionTrajectory = ([], [])
     for t in range(len(actions)):
         current_segment_traj[0].append(states[t])
         current_segment_traj[1].append(actions[t])
@@ -111,8 +111,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             if option_t_spec != option_t1_spec:
                 switch = True
         if switch:
-            # Include the final state as both the end of this segment
-            # and the start of the next segment.
+            # Include the final state as the end of this segment.
             current_segment_traj[0].append(states[t+1])
             if actions[t].has_option():
                 segment = Segment(current_segment_traj, all_atoms[t],
@@ -123,7 +122,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 segment = Segment(current_segment_traj,
                                   all_atoms[t], all_atoms[t+1])
             segments.append(segment)
-            current_segment_traj = ([states[t+1]], [])
+            current_segment_traj = ([], [])
     # Don't include the last current segment because it didn't result in
     # an abstract state change. (E.g., the option may not be terminating.)
     return segments
