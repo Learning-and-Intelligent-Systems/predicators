@@ -725,6 +725,9 @@ class Segment:
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DefaultOption)
 
+    def __post_init__(self):
+        assert len(self.states) == len(self.actions) + 1
+
     @property
     def states(self) -> List[State]:
         """States in the trajectory.
@@ -768,17 +771,6 @@ class Segment:
         """Set the option that produced this segment.
         """
         self._option = option
-
-    def set_option_from_trajectory(self) -> None:
-        """Look up the option from the trajectory. Make sure consistent.
-        """
-        for i, act in enumerate(self.trajectory[1]):
-            if i == 0:
-                option = act.get_option()
-            else:
-                assert option == act.get_option()
-        self.set_option(option)
-        assert self.has_option()
 
 
 @dataclass(eq=False)
