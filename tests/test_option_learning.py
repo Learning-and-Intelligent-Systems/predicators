@@ -1,16 +1,12 @@
 """Tests for option learning.
 """
 
-import time
-from gym.spaces import Box
 import numpy as np
 from predicators.src.envs import create_env
 from predicators.src.datasets.demo_replay import create_demo_replay_data
-from predicators.src.nsrt_learning import learn_nsrts_from_data, \
-    unify_effects_and_options, segment_trajectory, learn_strips_operators
+from predicators.src.nsrt_learning import segment_trajectory, \
+    learn_strips_operators
 from predicators.src.option_learning import create_option_learner
-from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption
 from predicators.src import utils
 
 
@@ -52,6 +48,11 @@ def test_known_options_option_learner():
             option_learner.update_segment_from_option_spec(segment, spec)
             assert segment.has_option()
             assert segment.get_option() == option
+    # Reset configuration.
+    utils.update_config({"env": "cover",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "do_option_learning": False})
 
 
 def test_oracle_option_learner_cover():
@@ -95,6 +96,11 @@ def test_oracle_option_learner_cover():
             # In cover env, param == action array.
             assert option.parent == PickPlace
             assert np.allclose(option.params, segment.actions[0].arr)
+    # Reset configuration.
+    utils.update_config({"env": "cover",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "do_option_learning": False})
 
 
 def test_oracle_option_learner_blocks():
@@ -145,3 +151,8 @@ def test_oracle_option_learner_blocks():
             option = segment.get_option()
             assert option.parent in (Pick, Stack, PutOnTable)
             assert [obj.type for obj in option.objects] == option.parent.types
+    # Reset configuration.
+    utils.update_config({"env": "blocks",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "do_option_learning": False})
