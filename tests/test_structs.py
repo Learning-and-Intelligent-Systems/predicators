@@ -573,7 +573,7 @@ def test_segment():
     assert segment.add_effects == {not_on([cup, plate])}
     assert segment.delete_effects == {on([cup, plate])}
     assert not segment.has_option()
-    segment.set_option_from_trajectory()
+    segment.set_option(option)
     assert segment.has_option()
     assert segment.get_option() == option
 
@@ -621,4 +621,3 @@ def test_partition():
     with pytest.raises(AssertionError):
         # Effects don't match.
         partition.add((segment3, objtovar))
-    
