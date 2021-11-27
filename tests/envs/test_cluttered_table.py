@@ -21,8 +21,8 @@ def test_cluttered_table():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    # Predicates should be {HandEmpty, Holding}.
-    assert len(env.predicates) == 2
+    # Predicates should be {HandEmpty, Holding, Untrashed}.
+    assert len(env.predicates) == 3
     # Goal predicates should be {Holding}.
     assert {pred.name for pred in env.goal_predicates} == {"Holding"}
     # Options should be {Grasp, Dump}.
