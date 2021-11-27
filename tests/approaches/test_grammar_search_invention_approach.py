@@ -40,7 +40,8 @@ def test_predicate_grammar():
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
     candidates = single_ineq_grammar.generate(max_num=4)
     assert str(sorted(candidates)) == \
-        "[(0.pose<=2.33), (0.pose>=2.33), (0.width<=19.0), (0.width>=19.0)]"
+        ("[((0:block).pose<=2.33), ((0:block).pose>=2.33), "
+         "((0:block).width<=19.0), ((0:block).width>=19.0)]")
 
 
 def test_count_positives_for_ops():
@@ -105,3 +106,4 @@ def test_forall_classifier():
     assert not classifier(state0, [])
     assert not classifier(state1, [])
     assert classifier(state2, [])
+    assert str(classifier) == "Forall[0:cup_type].[Pred(0)]"
