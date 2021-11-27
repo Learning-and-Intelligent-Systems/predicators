@@ -61,7 +61,8 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
             partitions: List[Partition]) -> List[OptionSpec]:
-        # Look up the option specs from the data.
+        # Since we're not actually doing option learning, the data already
+        # contains the options. So, we just extract option specs from the data.
         option_specs = []
         for partition in partitions:
             param_option = None
