@@ -9,7 +9,6 @@ from predicators.src.structs import STRIPSOperator, OptionSpec, Partition, \
     Segment
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -100,13 +99,15 @@ class _OracleOptionLearner(_OptionLearnerBase):
             self, strips_ops: List[STRIPSOperator],
             partitions: List[Partition]) -> List[OptionSpec]:
         env = create_env(CFG.env)
+        option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
             assert len(strips_ops) == 2
             PickPlace = [option for option in env.options
                          if option.name == "PickPlace"][0]
             # Both strips operators use the same PickPlace option,
             # which has no parameters.
-            option_specs = [(PickPlace, []), (PickPlace, [])]
+            for _ in strips_ops:
+                option_specs.append((PickPlace, []))
         elif CFG.env == "blocks":
             assert len(strips_ops) == 4
             Pick = [option for option in env.options
@@ -115,7 +116,6 @@ class _OracleOptionLearner(_OptionLearnerBase):
                      if option.name == "Stack"][0]
             PutOnTable = [option for option in env.options
                           if option.name == "PutOnTable"][0]
-            option_specs = []
             for op in strips_ops:
                 if {atom.predicate.name for atom in op.preconditions} in \
                    ({"GripperOpen", "Clear", "OnTable"},
