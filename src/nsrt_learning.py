@@ -4,12 +4,12 @@
 import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
-    GroundAtom, ParameterizedOption, LiftedAtom, Variable, Predicate, \
-    ObjToVarSub, StateActionTrajectory, Segment, Partition, Object, \
-    GroundAtomTrajectory
+    GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
+    StateActionTrajectory, Segment, Partition, Object, GroundAtomTrajectory
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
+from predicators.src.option_learning import create_option_learner
 
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
@@ -30,25 +30,19 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     strips_ops, partitions = learn_strips_operators(segments)
     assert len(strips_ops) == len(partitions)
 
-    # Learn options, or if known, just look them up.
-    # The order of the options corresponds to the strips_ops.
-    # Each item is a (ParameterizedOption, Sequence[Variable])
-    # with the latter holding the option_vars.
-    option_specs = learn_option_specs(strips_ops, partitions)
+    # Learn option specs, or if known, just look them up. The order of
+    # the options corresponds to the strips_ops. Each spec is a
+    # (ParameterizedOption, Sequence[Variable]) tuple with the latter
+    # holding the option_vars. After learning the specs, update the
+    # segments to include which option is being executed within each
+    # segment, so that sampler learning can utilize this.
+    option_learner = create_option_learner()
+    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
     assert len(option_specs) == len(strips_ops)
-
-    # Now that options are learned, we can update the segments to include
-    # which option is being executed within each segment.
-    # If not option learning, the segments will already have the options
-    # after segmentation, so this step can be skipped.
-    assert not CFG.do_option_learning
-    # Uncomment this and _update_segment_from_option_specs for option learning.
-    # Also, change the assertion above to "if CFG.do_option_learning:" and
-    # indent the following lines.
-    # for partition, option_spec in zip(partitions, option_specs):
-    #     for (segment, _) in partition:
-    #         # Modifies segment in place.
-    #         _update_segment_from_option_specs(segment, option_spec)
+    for partition, spec in zip(partitions, option_specs):
+        for (segment, _) in partition:
+            # Modifies segment in-place.
+            option_learner.update_segment_from_option_spec(segment, spec)
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
@@ -145,7 +139,8 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             segment_option_objs = tuple()
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects.
-            # Note that both add and delete effects must unify.
+            # Note that both add and delete effects must unify,
+            # and also the objects that are arguments to the options.
             part_option_vars = option_vars[i]
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
@@ -157,13 +152,13 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                 segment_option_objs,
                 part_option_vars)
             if suc:
-                # Add to this partition
+                # Add to this partition.
                 assert set(sub.values()) == set(params[i])
                 partitions[i].add((segment, sub))
                 break
-        # Otherwise, create a new group
+        # Otherwise, create a new group.
         else:
-            # Get new lifted effects
+            # Get new lifted effects.
             objects = {o for atom in segment.add_effects |
                        segment.delete_effects for o in atom.objects} | \
                       set(segment_option_objs)
@@ -180,9 +175,9 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             new_partition = Partition([(segment, sub)])
             partitions.append(new_partition)
 
-    # We don't need option vars anymore; we'll recover them later in
-    # `learn_option_specs`. The only reason to include them is to make sure
-    # that params include the option vars when options are available.
+    # We don't need option_vars anymore; we'll recover them later when we call
+    # `learn_option_specs`. The only reason to include them here is to make sure
+    # that params include the option_vars when options are available.
     del option_vars
 
     assert len(params) == len(add_effects) == \
@@ -213,53 +208,6 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         ops.append(op)
 
     return ops, partitions
-
-
-def learn_option_specs(
-    strips_ops: List[STRIPSOperator],
-    partitions: List[Partition],
-    ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
-    """Learn options for segments, or just look them up if they're given.
-    """
-    assert not CFG.do_option_learning, "TODO: implement option learning."
-    del strips_ops  # unused
-    return _extract_options_from_data(partitions)
-
-
-def _extract_options_from_data(
-    partitions: List[Partition],
-    ) -> List[Tuple[ParameterizedOption, List[Variable]]]:
-    """Look up the options from the data.
-    """
-    option_specs = []
-    for partition in partitions:
-        for i, (segment, sub) in enumerate(partition):
-            option = segment.actions[0].get_option()
-            if i == 0:
-                param_option = option.parent
-                option_vars = [sub[o] for o in option.objects]
-            else:
-                assert param_option == option.parent
-                assert option_vars == [sub[o] for o in option.objects]
-            # Make sure the option is consistent within a trajectory.
-            for a in segment.actions:
-                option_a = a.get_option()
-                assert param_option == option_a.parent
-                assert option_vars == [sub[o] for o in option_a.objects]
-        option_specs.append((param_option, option_vars))
-    return option_specs
-
-
-# def _update_segment_from_option_specs(segment: Segment,
-#         option_spec: Tuple[ParameterizedOption, Sequence[Variable]]) -> None:
-#     """Figure out which option was executed within the segment.
-
-#     At this point, we know which ParameterizedOption was used in the segment,
-#     and we know the option_vars, but we don't know what parameters were used.
-
-#     Modifies segment in place.
-#     """
-#     raise NotImplementedError("Implement me!")
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:

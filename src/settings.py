@@ -56,6 +56,7 @@ class GlobalSettings:
 
     # option learning parameters
     do_option_learning = False  # if False, uses ground truth options
+    option_learner = "oracle"  # only used if do_option_learning is True
 
     # sampler learning parameters
     do_sampler_learning = True  # if False, uses random samplers
