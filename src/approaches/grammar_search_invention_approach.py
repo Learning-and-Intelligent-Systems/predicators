@@ -98,7 +98,8 @@ class _ForallClassifier(_NullaryClassifier):
     def __str__(self) -> str:
         types = self.body.types
         type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types))
-        return f"Forall[{type_sig}].({str(self.body)})"
+        objs = ",".join(str(i) for i in range(len(types)))
+        return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
 
 
 ################################################################################
