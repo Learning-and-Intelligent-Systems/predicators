@@ -106,4 +106,4 @@ def test_forall_classifier():
     assert not classifier(state0, [])
     assert not classifier(state1, [])
     assert classifier(state2, [])
-    assert str(classifier) == "Forall[0:cup_type].(Pred)"
+    assert str(classifier) == "Forall[0:cup_type].[Pred(0)]"
