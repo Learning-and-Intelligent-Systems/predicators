@@ -99,46 +99,57 @@ class _OracleOptionLearner(_OptionLearnerBase):
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
             partitions: List[Partition]) -> List[OptionSpec]:
-        ### THIS HAS ONLY BEEN TESTED FOR THE COVER AND BLOCKS ENVIRONMENTS!!!
         env = create_env(CFG.env)
-        gt_nsrts = get_gt_nsrts(env.predicates, env.options)
-        option_specs = []
-        for op in strips_ops:
-            matching_nsrt = None
-            for nsrt in gt_nsrts:
-                # Make the assumption that the lengths of the operator
-                # components are sufficient to uniquely identify the
-                # corresponding ground truth NSRT. The asserts will
-                # trigger in the case that this assumption is violated.
-                if len(op.parameters) == len(nsrt.parameters) and \
-                   len(op.preconditions) == len(nsrt.preconditions) and \
-                   len(op.add_effects) == len(nsrt.add_effects) and \
-                   len(op.delete_effects) == len(nsrt.delete_effects):
-                    assert matching_nsrt is None
-                    matching_nsrt = nsrt
-            assert matching_nsrt is not None
-            option_vars = []
-            for var in matching_nsrt.option_vars:
-                # Find the variable in the strips operator's parameters
-                # that matches the type of this var. Assert it's unique.
-                op_vars = [param for param in op.parameters
-                           if param.type == var.type]
-                if len(op_vars) != 1:
-                    # Special case with non-uniqueness: the Stack and
-                    # Unstack operators for the blocks environment
-                    # have two arguments of type block, but only one
-                    # of them is in the option parameters for the Pick
-                    # and Stack options. So, we need to hand-code the
-                    # correct block to use in the option parameters.
-                    assert len(op_vars) == 2
-                    assert CFG.env == "blocks"
-                    assert matching_nsrt.name in ("Stack", "Unstack")
-                    clear_atoms = [atom for atom in op.preconditions
-                                   if atom.predicate.name == "Clear"]
-                    assert len(clear_atoms) == 1
-                    op_vars = clear_atoms[0].variables
-                option_vars.append(op_vars[0])
-            option_specs.append((matching_nsrt.option, option_vars))
+        if CFG.env == "cover":
+            assert len(strips_ops) == 2
+            PickPlace = [option for option in env.options
+                         if option.name == "PickPlace"][0]
+            # Both strips operators use the same PickPlace option,
+            # which has no parameters.
+            option_specs = [(PickPlace, []), (PickPlace, [])]
+        elif CFG.env == "blocks":
+            assert len(strips_ops) == 4
+            Pick = [option for option in env.options
+                    if option.name == "Pick"][0]
+            Stack = [option for option in env.options
+                     if option.name == "Stack"][0]
+            PutOnTable = [option for option in env.options
+                          if option.name == "PutOnTable"][0]
+            option_specs = []
+            for op in strips_ops:
+                if {atom.predicate.name for atom in op.preconditions} in \
+                   ({"GripperOpen", "Clear", "OnTable"},
+                    {"GripperOpen", "Clear", "On"}):
+                    # PickFromTable or Unstack operators
+                    gripper_open_atom = [
+                        atom for atom in op.preconditions
+                        if atom.predicate.name == "GripperOpen"][0]
+                    robot = gripper_open_atom.variables[0]
+                    clear_atom = [
+                        atom for atom in op.preconditions
+                        if atom.predicate.name == "Clear"][0]
+                    block = clear_atom.variables[0]
+                    option_specs.append((Pick, [robot, block]))
+                elif {atom.predicate.name for atom in op.preconditions} == \
+                     {"Clear", "Holding"}:
+                    # Stack operator
+                    gripper_open_atom = [
+                        atom for atom in op.add_effects
+                        if atom.predicate.name == "GripperOpen"][0]
+                    robot = gripper_open_atom.variables[0]
+                    clear_atom = [
+                        atom for atom in op.preconditions
+                        if atom.predicate.name == "Clear"][0]
+                    otherblock = clear_atom.variables[0]
+                    option_specs.append((Stack, [robot, otherblock]))
+                elif {atom.predicate.name for atom in op.preconditions} == \
+                     {"Holding"}:
+                    # PutOnTable operator
+                    gripper_open_atom = [
+                        atom for atom in op.add_effects
+                        if atom.predicate.name == "GripperOpen"][0]
+                    robot = gripper_open_atom.variables[0]
+                    option_specs.append((PutOnTable, [robot]))
         return option_specs
 
     def update_segment_from_option_spec(
