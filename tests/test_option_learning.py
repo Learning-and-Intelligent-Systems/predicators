@@ -1,6 +1,7 @@
 """Tests for option learning.
 """
 
+import pytest
 import numpy as np
 from predicators.src.envs import create_env
 from predicators.src.datasets.demo_replay import create_demo_replay_data
@@ -151,6 +152,27 @@ def test_oracle_option_learner_blocks():
             option = segment.get_option()
             assert option.parent in (Pick, Stack, PutOnTable)
             assert [obj.type for obj in option.objects] == option.parent.types
+    # Reset configuration.
+    utils.update_config({"env": "blocks",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "do_option_learning": False})
+
+
+def test_create_option_learner():
+    """Tests for create_option_learner().
+    """
+    utils.update_config({"env": "not a real env",
+                         "approach": "nsrt_learning",
+                         "seed": 123})
+    utils.update_config({"env": "blocks",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "num_train_tasks": 3,
+                         "do_option_learning": True,
+                         "option_learner": "not a real option learner"})
+    with pytest.raises(NotImplementedError):
+        create_option_learner()
     # Reset configuration.
     utils.update_config({"env": "blocks",
                          "approach": "nsrt_learning",
