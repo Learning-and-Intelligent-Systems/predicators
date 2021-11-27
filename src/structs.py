@@ -725,7 +725,7 @@ class Segment:
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DefaultOption)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
 
     @property
