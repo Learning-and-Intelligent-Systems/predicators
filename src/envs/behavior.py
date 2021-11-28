@@ -364,7 +364,11 @@ class BehaviorEnv(BaseEnv):
                 other_ig_obj = self._object_to_ig_object(o[1])
                 bddl_partial_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
                 bddl_partial_ground_atom.initialize(self._env.simulator)
+                # print((ig_obj.name, ig_obj.get_body_id(), other_ig_obj.name, other_ig_obj.get_body_id()))
+                # if ig_obj.name == 'BRBody_1' and other_ig_obj.name == 'hardback_4' and 'next_to' in str(bddl_partial_ground_atom):
+                #     import ipdb; ipdb.set_trace()
                 return bddl_partial_ground_atom.get_value(other_ig_obj)
+                
             raise ValueError("BDDL predicate has unexpected arity.")
 
         return _classifier

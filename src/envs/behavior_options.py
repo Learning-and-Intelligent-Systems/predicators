@@ -1,8 +1,5 @@
 """Hardcoded options for BehaviorEnv.
 """
-import argparse
-import os
-import parser
 import numpy as np
 import pybullet as p
 from matplotlib import pyplot as plt
@@ -30,6 +27,7 @@ from igibson.external.pybullet_tools.utils import (
     get_aabb_center,
     get_aabb_extent,
 )
+from igibson.object_states.aabb import AABB
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
     # "hit_to_plane_threshold": 0.1,  # TODO: Tune this parameter.
@@ -189,9 +187,22 @@ def get_delta_low_level_base_action(
 # Navigate To #
 
 
-def navigate_to_param_sampler(rng):
-    distance_to_try = [0.6, 0.9, 1.2, 1.5]
-    distance = rng.choice(distance_to_try)
+def navigate_to_param_sampler(rng, objects):
+    # Our sampler needs to return samples such that 
+    # the norm of the sample is not > 1/6th of the 
+    # avg length of the bounding boxes of the object
+    # and robot (this is how BEHAVIOR defines 'nearness')
+    assert len(objects) == 2
+    obj_to_get_near = objects[0]
+    robot = objects[1]
+    obj_aabb = obj_to_get_near.states[AABB].get_value()
+    robot_aabb = robot.states[AABB].get_value()
+    obj_lower, obj_upper = obj_aabb
+    robot_lower, robot_upper = robot_aabb
+    obj_dims = obj_upper - obj_lower
+    robot_dims = robot_upper - robot_lower
+    closeness_limit = np.mean(obj_dims + robot_dims)/6.0
+    distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
     return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
 

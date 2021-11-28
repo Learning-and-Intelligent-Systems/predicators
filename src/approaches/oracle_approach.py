@@ -482,7 +482,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 delete_effects,
                 option,
                 option_vars,
-                lambda s, r, o: navigate_to_param_sampler(r),
+                lambda s, r, o: navigate_to_param_sampler(r, [env._object_to_ig_object(o_i) for o_i in o]),
             )
             nsrts.add(nsrt)
 
@@ -508,7 +508,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                     delete_effects,
                     option,
                     option_vars,
-                    lambda s, r, o: navigate_to_param_sampler(r),
+                    lambda s, r, o: navigate_to_param_sampler(r, [env._object_to_ig_object(o_i) for o_i in o]),
                 )
                 nsrts.add(nsrt)
 
