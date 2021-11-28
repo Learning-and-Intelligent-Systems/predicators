@@ -116,6 +116,7 @@ class GlobalSettings:
                 "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "painting": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -128,6 +129,7 @@ class GlobalSettings:
                 "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "painting": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -141,6 +143,7 @@ class GlobalSettings:
                 "cover_multistep_options": 100,
                 "cluttered_table": 25,
                 "blocks": 25,
+                "painting": 100,
                 "playroom": 25,
                 "behavior": 100,
             })[args["env"]],
@@ -153,6 +156,7 @@ class GlobalSettings:
                 "cover_multistep_options": "default",
                 "cluttered_table": "default",
                 "blocks": "default",
+                "painting": "default",
             })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
