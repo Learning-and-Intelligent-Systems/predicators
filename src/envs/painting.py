@@ -52,7 +52,7 @@ class PaintingEnv(BaseEnv):
         self._obj_type = Type("obj", ["pose_x", "pose_y", "pose_z", "color",
                                       "wetness", "dirtiness", "held"])
         self._box_type = Type("box", ["color"])
-        self._lid_type = Type("lid", ["open"])
+        self._lid_type = Type("lid", ["is_open"])
         self._shelf_type = Type("shelf", ["color"])
         self._robot_type = Type("robot", ["gripper_rot", "fingers"])
         # Predicates
@@ -158,10 +158,14 @@ class PaintingEnv(BaseEnv):
         raise NotImplementedError
 
     def get_train_tasks(self) -> List[Task]:
-        raise NotImplementedError
+        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                               num_objs_lst=self.num_objs_train,
+                               rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
-        raise NotImplementedError
+        return self._get_tasks(num_tasks=CFG.num_test_tasks,
+                               num_objs_lst=self.num_objs_test,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -202,6 +206,65 @@ class PaintingEnv(BaseEnv):
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
         raise NotImplementedError  # TODO
+
+    def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
+                   rng: np.random.Generator) -> List[Task]:
+        tasks = []
+        for i in range(num_tasks):
+            num_objs = num_objs_lst[i % len(num_objs_lst)]
+            data = {}
+            # Initialize robot
+            data[self._robot] = np.array([0.5, 1.0])  # fingers start off open
+            # Sample distinct colors for shelf and box
+            color1 = rng.uniform(0.2, 0.4)
+            color2 = rng.uniform(0.6, 1.0)
+            if rng.choice(2):
+                box_color, shelf_color = color1, color2
+            else:
+                shelf_color, box_color = color1, color2
+            # Create box, lid, and shelf objects
+            lid_is_open = int(rng.uniform() > 0.7)
+            data[self._box] = np.array([box_color], dtype=np.float32)
+            data[self._lid] = np.array([lid_is_open], dtype=np.float32)
+            data[self._shelf] = np.array([shelf_color], dtype=np.float32)
+            # Create moveable objects
+            obj_poses: List[Tuple[float, float, float]] = []
+            goal = set()
+            for j in range(num_objs):
+                obj = Object(f"obj{j}", self._obj_type)
+                pose = self._sample_initial_object_pose(obj_poses, rng)
+                obj_poses.append(pose)
+                # Start out wet and clean, dry and dirty, or dry and clean
+                choice = rng.choice(3)
+                if choice == 0:
+                    wetness = 0.0
+                    dirtiness = rng.uniform(0.5, 1.)
+                elif choice == 1:
+                    wetness = rng.uniform(0.5, 1.)
+                    dirtiness = 0.0
+                else:
+                    wetness = 0.0
+                    dirtiness = 0.0
+                data[obj] = np.array([pose[0], pose[1], pose[2], 0.0, wetness,
+                                      dirtiness, 0.0], dtype=np.float32)
+                if j == num_objs-1:  # last object should go into the box
+                    goal.add(GroundAtom(self._InBox, [obj, self._box]))
+                    goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
+                else:
+                    goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
+                    goal.add(GroundAtom(self._IsShelfColor, [obj, self._shelf]))
+            tasks.append(Task(State(data), goal))
+        return tasks
+
+    def _sample_initial_object_pose(
+            self, existing_poses: List[Tuple[float, float, float]],
+            rng: np.random.Generator) -> Tuple[float, float, float]:
+        existing_ys = [p[1] for p in existing_poses]
+        while True:
+            this_y = rng.uniform(self.table_lb, self.table_ub)
+            if all(abs(this_y-other_y) > 3.5*self.obj_radius
+                   for other_y in existing_ys):
+                return (self.obj_x, this_y, self.table_height+self.obj_height/2)
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
@@ -305,7 +368,7 @@ class PaintingEnv(BaseEnv):
         rot = state.get(robot, "gripper_rot")
         if rot < self.top_grasp_thresh:
             return False
-        return self._Holding_holds(state, obj)
+        return self._Holding_holds(state, [obj])
 
     def _HoldingSide_holds(self, state: State, objects: Sequence[Object]
                            ) -> bool:
@@ -313,7 +376,7 @@ class PaintingEnv(BaseEnv):
         rot = state.get(robot, "gripper_rot")
         if rot > self.side_grasp_thresh:
             return False
-        return self._Holding_holds(state, obj)
+        return self._Holding_holds(state, [obj])
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -325,7 +388,7 @@ class PaintingEnv(BaseEnv):
 
     def _IsDry_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
-        return not self._IsWet_holds(state, obj)
+        return not self._IsWet_holds(state, [obj])
 
     def _IsDirty_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -333,11 +396,11 @@ class PaintingEnv(BaseEnv):
 
     def _IsClean_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
-        return not self._IsDirty_holds(state, obj)
+        return not self._IsDirty_holds(state, [obj])
 
     def _get_held_object(self, state: State) -> Optional[Object]:
         for obj in state:
-            if obj.var_type != self._obj_type:
+            if obj.type != self._obj_type:
                 continue
             if state.get(obj, "held") >= self.held_tol:
                 return obj
