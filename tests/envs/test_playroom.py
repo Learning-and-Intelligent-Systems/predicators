@@ -8,7 +8,7 @@ from predicators.src import utils
 from predicators.src.structs import Action, State
 
 def test_playroom():
-    """Tests for PlayroomEnv class: properties and rendering.
+    """Tests for PlayroomEnv class properties.
     """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
@@ -290,7 +290,7 @@ def test_playroom_action_sequence_video():
     task = env.get_train_tasks()[0]
     action_arrs = [
         # Pick up a block
-        np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32),
+        np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
         # Move down hallway from left to right and open all doors
         np.array([29.8, 15, 3, 0, 1]).astype(np.float32),
         np.array([49.8, 15, 3, 0, 1]).astype(np.float32),
@@ -303,7 +303,7 @@ def test_playroom_action_sequence_video():
         # Turn dial on
         np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
     ]
-    make_video = True  # Can toggle to true for debugging
+    make_video = False  # Can toggle to true for debugging
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
