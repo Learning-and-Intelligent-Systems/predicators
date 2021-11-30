@@ -401,6 +401,8 @@ class PaintingEnv(BaseEnv):
         dx, dy, dz, rot = params
         arr = np.array([obj_x + dx, obj_y + dy, obj_z + dz, rot,
                         1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        # The addition of dx, dy, and dz could cause the action to go
+        # out of bounds, so we clip it back into the bounds for safety.
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -436,7 +438,6 @@ class PaintingEnv(BaseEnv):
         del state, memory, objects  # unused
         x, y, z = params
         arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _OpenLid_policy(self, state: State, memory: Dict,
