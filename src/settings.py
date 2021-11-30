@@ -157,7 +157,6 @@ class GlobalSettings:
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
-                "trivial_learning": "demo",
                 "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
@@ -167,7 +166,6 @@ class GlobalSettings:
             # For learning-based approaches, the data collection timeout
             # used for planning.
             offline_data_planning_timeout=defaultdict(int, {
-                "trivial_learning": 500,
                 "nsrt_learning": 500,
                 "interactive_learning": 500,
                 "iterative_invention": 500,
@@ -177,7 +175,6 @@ class GlobalSettings:
             # For learning-based approaches, the number of replays used
             # when the data generation method is data+replays.
             offline_data_num_replays=defaultdict(int, {
-                "trivial_learning": 10,
                 "nsrt_learning": 10,
                 "interactive_learning": 10,
                 "iterative_invention": 500,
