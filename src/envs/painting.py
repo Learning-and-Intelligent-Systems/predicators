@@ -97,36 +97,32 @@ class PaintingEnv(BaseEnv):
                 np.array([-1.0, -1.0, -1.0, 0.0], dtype=np.float32),
                 np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32)),
             _policy=self._Pick_policy,
-            # to initiate, must be holding nothing
-            _initiable=lambda s, m, o, p: self._get_held_object(s) is None,
-            _terminal=lambda s, m, o, p: True)  # always 1 timestep
+            _initiable=self._handempty_initiable,
+            _terminal=self._onestep_terminal)
         self._Wash = ParameterizedOption(
             # variables: [robot]
             # params: [water level]
             "Wash", types=[self._robot_type],
             params_space=Box(0, 1, (1,)),
             _policy=self._Wash_policy,
-            # to initiate, must be holding an object
-            _initiable=lambda s, m, o, p: self._get_held_object(s) is not None,
-            _terminal=lambda s, m, o, p: True)  # always 1 timestep
+            _initiable=self._holding_initiable,
+            _terminal=self._onestep_terminal)
         self._Dry = ParameterizedOption(
             # variables: [robot]
             # params: [heat level]
             "Dry", types=[self._robot_type],
             params_space=Box(0, 1, (1,)),
             _policy=self._Dry_policy,
-            # to initiate, must be holding an object
-            _initiable=lambda s, m, o, p: self._get_held_object(s) is not None,
-            _terminal=lambda s, m, o, p: True)  # always 1 timestep
+            _initiable=self._holding_initiable,
+            _terminal=self._onestep_terminal)
         self._Paint = ParameterizedOption(
             # variables: [robot]
             # params: [new color]
             "Paint", types=[self._robot_type],
             params_space=Box(0, 1, (1,)),
             _policy=self._Paint_policy,
-            # to initiate, must be holding an object
-            _initiable=lambda s, m, o, p: self._get_held_object(s) is not None,
-            _terminal=lambda s, m, o, p: True)  # always 1 timestep
+            _initiable=self._holding_initiable,
+            _terminal=self._onestep_terminal)
         self._Place = ParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
@@ -137,18 +133,16 @@ class PaintingEnv(BaseEnv):
                 np.array([self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2],
                          dtype=np.float32)),
             _policy=self._Place_policy,
-            # to initiate, must be holding an object
-            _initiable=lambda s, m, o, p: self._get_held_object(s) is not None,
-            _terminal=lambda s, m, o, p: True)  # always 1 timestep
+            _initiable=self._holding_initiable,
+            _terminal=self._onestep_terminal)
         self._OpenLid = ParameterizedOption(
             # variables: [robot, lid]
             # params: []
             "OpenLid", types=[self._robot_type, self._lid_type],
             params_space=Box(0, 1, (0,)),  # no parameters
             _policy=self._OpenLid_policy,
-            # to initiate, must be holding nothing
-            _initiable=lambda s, m, o, p: self._get_held_object(s) is None,
-            _terminal=lambda s, m, o, p: True)  # always 1 timestep
+            _initiable=self._handempty_initiable,
+            _terminal=self._onestep_terminal)
         # Objects
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
@@ -433,12 +427,32 @@ class PaintingEnv(BaseEnv):
                        dtype=np.float32)
         return Action(arr)
 
-    def _Place_policy(self, state: State, memory: Dict,
+    @staticmethod
+    def _Place_policy(state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
         x, y, z = params
         arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
+
+    def _holding_initiable(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> bool:
+        # An initiation function for an option that requires holding an object.
+        del memory, objects, params  # unused
+        return self._get_held_object(state) is not None
+
+    def _handempty_initiable(self, state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> bool:
+        # An initiation function for an option that requires holding nothing.
+        del memory, objects, params  # unused
+        return self._get_held_object(state) is None
+
+    @staticmethod
+    def _onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
+                          params: Array) -> bool:
+         # A termination function for an option that only lasts 1 timestep.
+        del state, memory, objects, params  # unused
+        return True  # always 1 timestep
 
     def _OpenLid_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
