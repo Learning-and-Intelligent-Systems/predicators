@@ -79,14 +79,14 @@ def test_learn_strips_operators():
     known_option_segments, unknown_option_segments = test_segment_trajectory()
     known_option_ops, _ = learn_strips_operators(known_option_segments)
     assert len(known_option_ops) == 1
-    assert str((known_option_ops[0])) == """STRIPS-Operator0:
+    assert str((known_option_ops[0])) == """STRIPS-Op0:
     Parameters: [?x0:cup_type]
     Preconditions: []
     Add Effects: []
     Delete Effects: []"""
     unknown_option_ops, _ = learn_strips_operators(unknown_option_segments)
     assert len(unknown_option_ops) == 1
-    assert str(unknown_option_ops[0]) == """STRIPS-Operator0:
+    assert str(unknown_option_ops[0]) == """STRIPS-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
@@ -125,7 +125,7 @@ def test_nsrt_learning_specific_nsrts():
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
-    assert str(nsrt) == """Operator0:
+    assert str(nsrt) == """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
@@ -157,7 +157,7 @@ def test_nsrt_learning_specific_nsrts():
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
-    assert str(nsrt) == """Operator0:
+    assert str(nsrt) == """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
     Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
@@ -192,13 +192,13 @@ def test_nsrt_learning_specific_nsrts():
                ([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 2
-    expected = {"Operator0": """Operator0:
+    expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type, ?x2:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type, ?x2:cup_type)]
     Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []""", "Operator1": """Operator1:
+    Option Variables: []""", "Op1": """NSRT-Op1:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type, ?x3:cup_type]
     Preconditions: [Pred0(?x2:cup_type, ?x3:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
@@ -208,11 +208,11 @@ def test_nsrt_learning_specific_nsrts():
     for nsrt in nsrts:
         assert str(nsrt) == expected[nsrt.name]
         # Test the learned samplers
-        if nsrt.name == "Operator0":
+        if nsrt.name == "Op0":
             for _ in range(10):
                 assert abs(nsrt.ground([cup0, cup1, cup2]).sample_option(
                     state1, np.random.default_rng(123)).params - 0.3) < 0.01
-        if nsrt.name == "Operator1":
+        if nsrt.name == "Op1":
             for _ in range(10):
                 assert abs(nsrt.ground([cup2, cup3, cup4, cup5]).sample_option(
                     state2, np.random.default_rng(123)).params - 0.7) < 0.01
@@ -231,13 +231,13 @@ def test_nsrt_learning_specific_nsrts():
                ([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 2
-    expected = {"Operator0": """Operator0:
+    expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
     Preconditions: []
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: []
     Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []""", "Operator1": """Operator1:
+    Option Variables: []""", "Op1": """NSRT-Op1:
     Parameters: [?x0:cup_type, ?x1:cup_type]
     Preconditions: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Add Effects: []

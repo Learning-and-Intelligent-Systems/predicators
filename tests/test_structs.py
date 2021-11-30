@@ -439,7 +439,7 @@ def test_nsrts():
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                 delete_effects, parameterized_option, [], sampler)
-    assert str(nsrt) == repr(nsrt) == """Pick:
+    assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
@@ -455,7 +455,7 @@ def test_nsrts():
     # _GroundNSRT
     ground_nsrt = nsrt.ground([cup, plate])
     assert isinstance(ground_nsrt, _GroundNSRT)
-    assert str(ground_nsrt) == repr(ground_nsrt) == """Pick:
+    assert str(ground_nsrt) == repr(ground_nsrt) == """GroundNSRT-Pick:
     Parameters: [cup:cup_type, plate:plate_type]
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
@@ -468,6 +468,8 @@ def test_nsrts():
     # Test less than comparison for grounded options
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
                  delete_effects, parameterized_option, [], sampler)
+    assert nsrt2 > nsrt4
+    assert nsrt4 < nsrt2
     ground_nsrt4 = nsrt4.ground([cup, plate])
     assert ground_nsrt4 < ground_nsrt2
     assert ground_nsrt2 > ground_nsrt4

@@ -58,7 +58,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
         nsrts.append(nsrt)
 
     print("\nLearned NSRTs:")
-    for nsrt in nsrts:
+    for nsrt in sorted(nsrts):
         print(nsrt)
     print()
 
@@ -199,7 +199,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     # Finalize the operators.
     ops = []
     for i in range(len(params)):
-        name = f"Operator{i}"
+        name = f"Op{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
                             delete_effects[i])
         if verbose:
