@@ -155,7 +155,37 @@ class PaintingEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
-        raise NotImplementedError
+        arr = action.arr
+        # Infer which transition function to follow
+        wash_affinity = 0 if arr[5] > 0.5 else abs(arr[5] - 0.5)
+        dry_affinity = 0 if arr[6] > 0.5 else abs(arr[6] - 0.5)
+        paint_affinity = min(
+            abs(arr[7] - state.get(self._box, "color")),
+            abs(arr[7] - state.get(self._shelf, "color")))
+        affinities = [
+            (abs(1 - arr[4]), self._transition_pick),
+            (wash_affinity, self._transition_wash),
+            (dry_affinity, self._transition_dry),
+            (paint_affinity, self._transition_paint),
+            (abs(-1 - arr[4]), self._transition_place),
+        ]
+        _, transition_fn = min(affinities)
+        return transition_fn(state, action)
+
+    def _transition_pick(self, state: State, action: Action) -> State:
+        import ipdb; ipdb.set_trace()
+
+    def _transition_wash(self, state: State, action: Action) -> State:
+        import ipdb; ipdb.set_trace()
+
+    def _transition_dry(self, state: State, action: Action) -> State:
+        import ipdb; ipdb.set_trace()
+
+    def _transition_paint(self, state: State, action: Action) -> State:
+        import ipdb; ipdb.set_trace()
+
+    def _transition_place(self, state: State, action: Action) -> State:
+        import ipdb; ipdb.set_trace()
 
     def get_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
