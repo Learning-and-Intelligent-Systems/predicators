@@ -106,8 +106,7 @@ class PlayroomEnv(BlocksEnv):
             # params: [x, y, rotation]
             "Move", types=[self._robot_type],
             params_space=Box(low=np.array([self.x_lb, self.y_lb, -1.0]),
-                             high=np.array([self.x_ub, self.y_ub, 1.0]),
-                             dtype=np.float32),
+                             high=np.array([self.x_ub, self.y_ub, 1.0])),
             _policy=self._Move_policy,
             _initiable=self._Move_initiable,
             _terminal=self._Move_terminal)
@@ -116,8 +115,7 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "OpenDoor", types=[self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0]),
-                             dtype=np.float32),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._OpenDoor_policy,
             _initiable=self._OpenDoor_initiable,
             _terminal=self._OpenDoor_terminal)
@@ -126,8 +124,7 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "CloseDoor", types=[self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0]),
-                             dtype=np.float32),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._CloseDoor_policy,
             _initiable=self._CloseDoor_initiable,
             _terminal=self._CloseDoor_terminal)
@@ -136,8 +133,7 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "TurnOnDial", types=[self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0]),
-                             dtype=np.float32),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._TurnOnDial_policy,
             _initiable=self._TurnOnDial_initiable,
             _terminal=self._TurnOnDial_terminal)
@@ -146,8 +142,7 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "TurnOffDial", types=[self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                             high=np.array([5.0, 5.0, 5.0, 1.0]),
-                             dtype=np.float32),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._TurnOffDial_policy,
             _initiable=self._TurnOffDial_initiable,
             _terminal=self._TurnOffDial_terminal)
@@ -364,8 +359,7 @@ class PlayroomEnv(BlocksEnv):
 
     def _get_tasks(self, num_tasks: int, possible_num_blocks: List[int],
                    rng: np.random.Generator) -> List[Task]:
-        # Initial states vary by block placement, doors are each randomly
-        # chosen as open/closed, and light is randomly on/off.
+        # Initial states vary by block placement, and light is randomly on/off.
         # Goals involve goal piles and light different from the initial state.
         tasks = []
         for _ in range(num_tasks):
@@ -375,7 +369,7 @@ class PlayroomEnv(BlocksEnv):
             light_is_on = init_state.get(self._dial, "level") > 0.5
             atoms = utils.abstract(init_state, self.predicates)
             while True:  # repeat until goal is not satisfied
-                goal = self._sample_goal_from_piles(num_blocks, piles,
+                goal = self._sample_goal(num_blocks, piles,
                                                     light_is_on, rng)
                 if not goal.issubset(atoms):
                     break
@@ -406,18 +400,18 @@ class PlayroomEnv(BlocksEnv):
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
         # [pose_x, pose_y, rotation, fingers], fingers start off open
         data[self._robot] = np.array([5.0, 5.0, 0.0, 1.0])
-        # [pose_x, pose_y, open], all doors start off open/closed randomly
-        data[self._door1] = np.array([30.0, 15.0, rng.choice([0.0, 1.0])])
-        data[self._door2] = np.array([50.0, 15.0, rng.choice([0.0, 1.0])])
-        data[self._door3] = np.array([60.0, 15.0, rng.choice([0.0, 1.0])])
-        data[self._door4] = np.array([80.0, 15.0, rng.choice([0.0, 1.0])])
-        data[self._door5] = np.array([100.0, 15.0, rng.choice([0.0, 1.0])])
-        data[self._door6] = np.array([110.0, 15.0, rng.choice([0.0, 1.0])])
+        # [pose_x, pose_y, open], all doors start off closed
+        data[self._door1] = np.array([30.0, 15.0, 0.0])
+        data[self._door2] = np.array([50.0, 15.0, 0.0])
+        data[self._door3] = np.array([60.0, 15.0, 0.0])
+        data[self._door4] = np.array([80.0, 15.0, 0.0])
+        data[self._door5] = np.array([100.0, 15.0, 0.0])
+        data[self._door6] = np.array([110.0, 15.0, 0.0])
         # [pose_x, pose_y, level], light starts on/off randomly
         data[self._dial] = np.array([125.0, 15.0, rng.uniform(0.0, 1.0)])
         return State(data)
 
-    def _sample_goal_from_piles(self, num_blocks: int,
+    def _sample_goal(self, num_blocks: int,
                                 piles: List[List[Object]], light_is_on: bool,
                                 rng: np.random.Generator) -> Set[GroundAtom]:
         # Samples goal pile and light on/off that is different from initial
@@ -433,9 +427,9 @@ class PlayroomEnv(BlocksEnv):
             for block1, block2 in zip(pile[1:], pile[:-1]):
                 goal_atoms.add(GroundAtom(self._On, [block1, block2]))
         if light_is_on:
-            goal_atoms.add(GroundAtom(self._LightOff, self._dial))
+            goal_atoms.add(GroundAtom(self._LightOff, [self._dial]))
         else:
-            goal_atoms.add(GroundAtom(self._LightOn, self._dial))
+            goal_atoms.add(GroundAtom(self._LightOn, [self._dial]))
         return goal_atoms
 
     def _sample_initial_pile_xy(self, rng: np.random.Generator,
@@ -514,7 +508,7 @@ class PlayroomEnv(BlocksEnv):
     
     @staticmethod
     def _DoorClosed_holds(state: State, objects: Sequence[Object]) -> bool:
-        return not PlayroomEnv._DoorClosed_holds(state, objects)
+        return not PlayroomEnv._DoorOpen_holds(state, objects)
 
     @staticmethod
     def _LightOn_holds(state: State, objects: Sequence[Object]) -> bool:
