@@ -241,6 +241,12 @@ def unify_effects_and_options(
     and delete effects. Changes predicate names so that all are treated
     differently by utils.unify().
     """
+    if ([a.type for a in ground_option_args] !=
+        [a.type for a in lifted_option_args]):
+        # First, check if the option arguments match in number and type.
+        # If not, fail immediately.
+        return False, {}
+
     opt_arg_pred = Predicate("OPT-ARGS",
                              [a.type for a in ground_option_args],
                              _classifier=lambda s, o: False)  # dummy
