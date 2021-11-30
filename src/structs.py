@@ -190,9 +190,6 @@ class Predicate:
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
-        assert len(entities) == self.arity
-        for ent, pred_type in zip(entities, self.types):
-            assert ent.is_instance(pred_type)
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -247,6 +244,11 @@ class _Atom:
     """
     predicate: Predicate
     entities: Sequence[_TypedEntity]
+
+    def __post_init__(self):
+        assert len(self.entities) == self.predicate.arity
+        for ent, pred_type in zip(self.entities, self.predicate.types):
+            assert ent.is_instance(pred_type)
 
     @property
     def _str(self) -> str:
