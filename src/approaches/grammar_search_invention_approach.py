@@ -239,9 +239,23 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
         return _halving_constant_generator(0., 1.)
 
 
+@dataclass
 class OptimizableParameter(float):
     """A continuous parameter that can be optimized in a program classifier.
     """
+    value: float
+
+    def __str__(self) -> str:
+        return f"Opt({self.value})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __add__(self, other: float) -> float:
+        return self.value + other
+
+    def __mul__(self, other: float) -> float:
+        return self.value * other
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -313,6 +327,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                   dataset)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates.")
+        # Perform continuous optimization one time with all candidates.
+        # Note that this requires reapplying the candidates to the data,
+        # which could generally be slow. So we definitely would not want to
+        # do this in the inner loop of searching over predicate sets.
+        # cont_values = _collect_continuous_parameters(candidates)
+
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(dataset,
