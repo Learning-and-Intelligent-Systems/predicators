@@ -241,10 +241,10 @@ def unify_effects_and_options(
     and delete effects. Changes predicate names so that all are treated
     differently by utils.unify().
     """
-    opt_arg_pred = Predicate("OPT-ARGS",
-                             [a.type for a in ground_option_args],
-                             _classifier=lambda s, o: False)  # dummy
-    f_ground_option_args = frozenset({GroundAtom(opt_arg_pred,
+    ground_opt_arg_pred = Predicate("OPT-ARGS",
+                                    [a.type for a in ground_option_args],
+                                    _classifier=lambda s, o: False)  # dummy
+    f_ground_option_args = frozenset({GroundAtom(ground_opt_arg_pred,
                                                  ground_option_args)})
     new_ground_add_effects = utils.wrap_atom_predicates_ground(
         ground_add_effects, "ADD-")
@@ -253,7 +253,10 @@ def unify_effects_and_options(
         ground_delete_effects, "DEL-")
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
 
-    f_lifted_option_args = frozenset({LiftedAtom(opt_arg_pred,
+    lifted_opt_arg_pred = Predicate("OPT-ARGS",
+                                    [a.type for a in lifted_option_args],
+                                    _classifier=lambda s, o: False)  # dummy
+    f_lifted_option_args = frozenset({LiftedAtom(lifted_opt_arg_pred,
                                                  lifted_option_args)})
     new_lifted_add_effects = utils.wrap_atom_predicates_lifted(
         lifted_add_effects, "ADD-")
