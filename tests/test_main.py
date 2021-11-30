@@ -56,6 +56,13 @@ def test_main():
                 "--seed", "2348393", "--load"]
     with pytest.raises(FileNotFoundError):
         main()
+    # Try learning (with too low hyperparameters to actually work).
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "nsrt_learning", "--seed", "123",
+                "--classifier_max_itr_sampler", "10",
+                "--regressor_max_itr", "10",
+                "--timeout", "0.01"]
+    main()  # correct usage
     # Try predicate exclusion.
     sys.argv = ["dummy", "--env", "cover", "--approach",
                 "random_options", "--seed", "123",
