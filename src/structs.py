@@ -555,7 +555,7 @@ class NSRT:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        return f"""NSRT-{self.name}:
     Parameters: {self.parameters}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
@@ -579,6 +579,14 @@ class NSRT:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, NSRT)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, NSRT)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, NSRT)
+        return str(self) > str(other)
 
     def ground(self, objects: Sequence[Object]) -> _GroundNSRT:
         """Ground into a _GroundNSRT, given objects.
@@ -625,7 +633,7 @@ class _GroundNSRT:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        return f"""GroundNSRT-{self.name}:
     Parameters: {self.objects}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
