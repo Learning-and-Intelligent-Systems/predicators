@@ -208,11 +208,11 @@ def test_nsrt_learning_specific_nsrts():
     for nsrt in nsrts:
         assert str(nsrt) == expected[nsrt.name]
         # Test the learned samplers
-        if nsrt.name == "NSRT-Op0":
+        if nsrt.name == "Op0":
             for _ in range(10):
                 assert abs(nsrt.ground([cup0, cup1, cup2]).sample_option(
                     state1, np.random.default_rng(123)).params - 0.3) < 0.01
-        if nsrt.name == "NSRT-Op1":
+        if nsrt.name == "Op1":
             for _ in range(10):
                 assert abs(nsrt.ground([cup2, cup3, cup4, cup5]).sample_option(
                     state2, np.random.default_rng(123)).params - 0.7) < 0.01
