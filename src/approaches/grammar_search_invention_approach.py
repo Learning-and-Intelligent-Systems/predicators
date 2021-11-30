@@ -2,6 +2,7 @@
 the candidates proposed from a grammar.
 """
 
+from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from functools import cached_property
@@ -10,6 +11,7 @@ from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
 from gym.spaces import Box
 import numpy as np
+from scipy import optimize
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -22,6 +24,25 @@ from predicators.src.settings import CFG
 ################################################################################
 #                          Programmatic classifiers                            #
 ################################################################################
+
+@dataclass
+class OptimizableParameter:
+    """A continuous parameter that can be optimized in a program classifier.
+    """
+    value: float
+
+    def __str__(self) -> str:
+        return f"Opt({self.value})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __add__(self, other: float) -> float:
+        return self.value + other
+
+    def __mul__(self, other: float) -> float:
+        return self.value * other
+
 
 class _ProgrammaticClassifier(abc.ABC):
     """A classifier implemented as an arbitrary program.
@@ -37,6 +58,13 @@ class _ProgrammaticClassifier(abc.ABC):
     @abc.abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError("Override me!")
+
+    def get_optimizable_parameters(self) -> List[OptimizableParameter]:
+        """Collect all optimizable parameters in the classifier.
+
+        By default, the classifier has none.
+        """
+        return []
 
 
 class _NullaryClassifier(_ProgrammaticClassifier):
@@ -88,6 +116,15 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
         return (f"(({self.object_index}:{self.object_type.name})."
                 f"{self.attribute_name}{self.compare_str}{self._threshold:.3})")
 
+    def get_optimizable_parameters(self) -> List[OptimizableParameter]:
+        """Collect all optimizable parameters in the classifier.
+
+        By default, the classifier has none.
+        """
+        if isinstance(self.constant, OptimizableParameter):
+            return [self.constant]
+        return []
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ForallClassifier(_NullaryClassifier):
@@ -107,6 +144,9 @@ class _ForallClassifier(_NullaryClassifier):
         type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types))
         objs = ",".join(str(i) for i in range(len(types)))
         return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
+
+    def get_optimizable_parameters(self) -> List[OptimizableParameter]:
+        return self.body._classifier.get_optimizable_parameters()
 
 
 ################################################################################
@@ -196,7 +236,8 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
-        for c in self._constant_generator():
+        i = 0
+        while True:
             for t in sorted(self.types):
                 for f in t.feature_names:
                     lb, ub = feature_ranges[t][f]
@@ -208,12 +249,14 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                     # Scale the constant by the feature range.
                     shift = lb
                     scale = 1. / (ub - lb)
+                    constant = self._get_constant_for_iter(i)
                     for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
                         classifier = _SingleAttributeCompareClassifier(
-                            0, t, f, c, comp, comp_str, shift, scale)
+                            0, t, f, constant, comp, comp_str, shift, scale)
                         name = str(classifier)
                         types = [t]
                         yield (Predicate(name, types, classifier), 1.)
+            i += 1
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
         feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
@@ -233,29 +276,13 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                                                            max(mx, v))
         return feature_ranges
 
-    def _constant_generator(self)-> Iterator[float]:  # pylint: disable=no-self-use
+    def _get_constant_for_iter(self, it: int) -> float: # pylint: disable=no-self-use
         # Self not needed here, but is used by child classes.
-        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        return _halving_constant_generator(0., 1.)
-
-
-@dataclass
-class OptimizableParameter(float):
-    """A continuous parameter that can be optimized in a program classifier.
-    """
-    value: float
-
-    def __str__(self) -> str:
-        return f"Opt({self.value})"
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __add__(self, other: float) -> float:
-        return self.value + other
-
-    def __mul__(self, other: float) -> float:
-        return self.value * other
+        # This is obviously inefficient but it's fine because the numbers are
+        # very small.
+        for i, x in zip(range(it+1), _halving_constant_generator(0., 1.)):
+            if i == it:
+                return x
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -263,10 +290,10 @@ class _ContOptSingleFeatureInequalitiesPredicateGrammar(
         _SingleFeatureInequalitiesPredicateGrammar):
     """Single feature inequalities whose thresholds are continuously optimized.
     """
-    def _constant_generator(self)-> Iterator[float]:
-        while True:
-            # Sample a random initialization between 0 and 1.
-            yield OptimizableParameter(self._rng.uniform())
+    def _get_constant_for_iter(self, it: int)-> float:
+        del it  # unused
+        # Sample a random initialization between 0 and 1.
+        return OptimizableParameter(self._rng.uniform())
 
 
 
@@ -327,17 +354,56 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                   dataset)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates.")
+        
         # Perform continuous optimization one time with all candidates.
         # Note that this requires reapplying the candidates to the data,
         # which could generally be slow. So we definitely would not want to
         # do this in the inner loop of searching over predicate sets.
-        # cont_values = _collect_continuous_parameters(candidates)
 
-        # Apply the candidate predicates to the data.
-        print("Applying predicates to data...")
-        atom_dataset = utils.create_ground_atom_dataset(dataset,
-            set(candidates) | self._initial_predicates)
-        print("Done.")
+        # TODO: right now there is bad behavior where the continuous params
+        # in a predicate are the same when wrapped with a ForAll. This is
+        # annoying to fix.
+        cont_params = _collect_continuous_parameters(set(candidates.keys()))
+
+        if len(cont_params) == 0:
+            # Apply the candidate predicates to the data once.
+            print("Applying predicates to data...")
+            atom_dataset = utils.create_ground_atom_dataset(dataset,
+                set(candidates) | self._initial_predicates)
+            print("Done.")
+        else:
+            all_predicates = set(candidates)
+            # Set up score function for optimizer.
+            def _objective(x):
+                # Replace values in cont_params.
+                assert len(x) == len(cont_params)
+                for v, p in zip(x, cont_params):
+                    p.value = v
+                print(x)
+                # TODO: there is an issue here where the predicates are assumed
+                # frozen, and their hashes are also assumed frozen.
+                utils.flush_cache()  # UGH HORRIBLE
+
+                # TODO: there's another issue where we're using the name of the
+                # predicate to create the predicate name one time.
+                import ipdb; ipdb.set_trace()
+
+                # Apply the candidate predicates.
+                atom_dataset = utils.create_ground_atom_dataset(dataset,
+                    all_predicates | self._initial_predicates)
+                # Score.
+                score = self._score_predicate_set(candidates, atom_dataset, 
+                                                  all_predicates)
+                # Lower is better.
+                return score
+            # Set up initialization.
+            # x0 = [p.value for p in cont_params]
+            bounds = [(0., 1.) for _ in cont_params]
+            # Run optimization.
+            result = optimize.shgo(_objective, bounds)
+            import ipdb; ipdb.set_trace()
+
+
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = self._select_predicates_to_keep(candidates,
@@ -346,6 +412,30 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset)
 
+    def _score_predicate_set(self, candidates: Dict[Predicate, float],
+                             atom_dataset: List[GroundAtomTrajectory],
+                             s: FrozenSet[Predicate]) -> float:
+        print("Scoring predicates:", s)
+        # Relearn operators with the current predicates.
+        kept_preds = s | self._initial_predicates
+        pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
+                                                           kept_preds)
+        segments = [seg for traj in pruned_atom_data
+                    for seg in segment_trajectory(traj)]
+        strips_ops, _ = learn_strips_operators(segments, verbose=False)
+        # Score based on how well the operators fit the data.
+        num_true_positives, num_false_positives = \
+            _count_positives_for_ops(strips_ops, pruned_atom_data)
+        # Also add a size penalty.
+        op_size = _get_operators_size(strips_ops)
+        # Also add a penalty based on predicate complexity.
+        pred_complexity = sum(candidates[p] for p in s)
+        # Lower is better.
+        return CFG.grammar_search_false_pos_weight * num_false_positives + \
+            CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
+            CFG.grammar_search_size_weight * op_size + \
+            CFG.grammar_search_pred_complexity_weight * pred_complexity        
+
     def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
                                    atom_dataset: List[GroundAtomTrajectory]
                                    ) -> Set[Predicate]:
@@ -353,26 +443,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
         # The heuristic is where the action happens...
         def _heuristic(s: FrozenSet[Predicate]) -> float:
-            print("Scoring predicates:", s)
-            # Relearn operators with the current predicates.
-            kept_preds = s | self._initial_predicates
-            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
-                                                               kept_preds)
-            segments = [seg for traj in pruned_atom_data
-                        for seg in segment_trajectory(traj)]
-            strips_ops, _ = learn_strips_operators(segments, verbose=False)
-            # Score based on how well the operators fit the data.
-            num_true_positives, num_false_positives = \
-                _count_positives_for_ops(strips_ops, pruned_atom_data)
-            # Also add a size penalty.
-            op_size = _get_operators_size(strips_ops)
-            # Also add a penalty based on predicate complexity.
-            pred_complexity = sum(candidates[p] for p in s)
-            # Lower is better.
-            return CFG.grammar_search_false_pos_weight * num_false_positives + \
-                CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-                CFG.grammar_search_size_weight * op_size + \
-                CFG.grammar_search_pred_complexity_weight * pred_complexity
+            return self._score_predicate_set(candidates, atom_dataset, s)
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
@@ -450,3 +521,12 @@ def _get_operators_size(strips_ops: List[STRIPSOperator]) -> int:
         size += len(op.parameters) + len(op.preconditions) + \
                 len(op.add_effects) + len(op.delete_effects)
     return size
+
+
+def _collect_continuous_parameters(candidates: Set[Predicate]
+                                   ) -> List[OptimizableParameter]:
+    parameters = []
+    for candidate in sorted(candidates):
+        # TODO: maybe refactor classifiers and predicates...
+        parameters.extend(candidate._classifier.get_optimizable_parameters())
+    return parameters
