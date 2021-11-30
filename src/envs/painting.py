@@ -10,7 +10,7 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import pyplot as plt
 from matplotlib import patches
-from predicators.src.envs import BaseEnv
+from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
@@ -31,17 +31,19 @@ class PaintingEnv(BaseEnv):
     box_y = 0.5  # y coordinate
     box_lb = box_y - box_s/10
     box_ub = box_y + box_s/10
+    env_lb = min(table_lb, shelf_lb, box_lb)
+    env_ub = max(table_ub, shelf_ub, box_ub)
     obj_height = 0.13
     obj_radius = 0.03
     obj_x = 1.65
     obj_z = table_height + obj_height/2
-    pick_tol = 1e-1
+    pick_tol = 1e-2
     color_tol = 1e-2
     wetness_tol = 0.5
     dirtiness_tol = 0.5
     open_fingers = 0.8
-    top_grasp_thresh = 0.5 + 1e-5
-    side_grasp_thresh = 0.5 - 1e-5
+    top_grasp_thresh = 0.5 + 1e-2
+    side_grasp_thresh = 0.5 - 1e-2
     held_tol = 0.5
     num_objs_train = [3, 4]
     num_objs_test = [5, 6]
@@ -49,8 +51,8 @@ class PaintingEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._obj_type = Type("obj", ["pose_x", "pose_y", "pose_z", "color",
-                                      "wetness", "dirtiness", "held"])
+        self._obj_type = Type("obj", ["pose_x", "pose_y", "pose_z", "dirtiness",
+                                      "wetness", "color", "held"])
         self._box_type = Type("box", ["color"])
         self._lid_type = Type("lid", ["is_open"])
         self._shelf_type = Type("shelf", ["color"])
@@ -130,9 +132,9 @@ class PaintingEnv(BaseEnv):
             # params: [absolute x, absolute y, absolute z]
             "Place", types=[self._robot_type],
             params_space=Box(
-                np.array([self.obj_x - 1e-2, self.table_lb, self.obj_z - 1e-2],
+                np.array([self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2],
                          dtype=np.float32),
-                np.array([self.obj_x + 1e-2, self.table_ub, self.obj_z + 1e-2],
+                np.array([self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2],
                          dtype=np.float32)),
             _policy=self._Place_policy,
             # to initiate, must be holding an object
@@ -163,29 +165,120 @@ class PaintingEnv(BaseEnv):
             abs(arr[7] - state.get(self._box, "color")),
             abs(arr[7] - state.get(self._shelf, "color")))
         affinities = [
-            (abs(1 - arr[4]), self._transition_pick),
+            (abs(1 - arr[4]), self._transition_pick_or_openlid),
             (wash_affinity, self._transition_wash),
             (dry_affinity, self._transition_dry),
             (paint_affinity, self._transition_paint),
             (abs(-1 - arr[4]), self._transition_place),
         ]
-        _, transition_fn = min(affinities)
+        _, transition_fn = min(affinities, key=lambda item: item[0])
         return transition_fn(state, action)
 
-    def _transition_pick(self, state: State, action: Action) -> State:
-        import ipdb; ipdb.set_trace()
+    def _transition_pick_or_openlid(self, state: State, action: Action
+                                    ) -> State:
+        x, y, z, rot = action.arr[:4]
+        next_state = state.copy()
+        # Open lid
+        if self.box_lb < y < self.box_ub:
+            next_state.set(self._lid, "is_open", 1.0)
+            return next_state
+        held_obj = self._get_held_object(state)
+        # Cannot pick if already holding something
+        if held_obj is not None:
+            return next_state
+        # Cannot pick if pose not on table
+        if not self.table_lb < y < self.table_ub:
+            return next_state
+        # Check if some object is close enough to (x, y, z)
+        target_obj = self._get_object_at_xyz(state, x, y, z)
+        if target_obj is None:
+            return next_state
+        # Execute pick
+        next_state.set(self._robot, "gripper_rot", rot)
+        next_state.set(self._robot, "fingers", 0.0)
+        next_state.set(target_obj, "held", 1.0)
+        return next_state
 
     def _transition_wash(self, state: State, action: Action) -> State:
-        import ipdb; ipdb.set_trace()
+        target_wetness = action.arr[5]
+        next_state = state.copy()
+        held_obj = self._get_held_object(state)
+        # Can only wash if holding obj
+        if held_obj is None:
+            return next_state
+        # Execute wash
+        cur_dirtiness = state.get(held_obj, "dirtiness")
+        next_dirtiness = max(cur_dirtiness - target_wetness, 0.0)
+        next_state.set(held_obj, "wetness", target_wetness)
+        next_state.set(held_obj, "dirtiness", next_dirtiness)
+        return next_state
 
     def _transition_dry(self, state: State, action: Action) -> State:
-        import ipdb; ipdb.set_trace()
+        target_wetness = max(1.0 - action.arr[6], 0.0)
+        next_state = state.copy()
+        held_obj = self._get_held_object(state)
+        # Can only dry if holding obj
+        if held_obj is None:
+            return next_state
+        # Execute dry
+        next_state.set(held_obj, "wetness", target_wetness)
+        return next_state
 
     def _transition_paint(self, state: State, action: Action) -> State:
-        import ipdb; ipdb.set_trace()
+        color = action.arr[7]
+        next_state = state.copy()
+        # Can only paint if holding obj
+        held_obj = self._get_held_object(state)
+        if held_obj is None:
+            return next_state
+        # Can only paint if dry and clean
+        if state.get(held_obj, "dirtiness") > self.dirtiness_tol or \
+           state.get(held_obj, "wetness") > self.wetness_tol:
+            return next_state
+        # Execute paint
+        next_state.set(held_obj, "color", color)
+        return next_state
 
     def _transition_place(self, state: State, action: Action) -> State:
-        import ipdb; ipdb.set_trace()
+        # Action args are target pose for held obj
+        x, y, z = action.arr[:3]
+        next_state = state.copy()
+        # Can only place if holding obj
+        held_obj = self._get_held_object(state)
+        if held_obj is None:
+            return next_state
+        # Detect shelf vs box place
+        if self.shelf_lb < y < self.shelf_ub:
+            shelf_or_box = "shelf"
+        elif self.box_lb < y < self.box_ub:
+            shelf_or_box = "box"
+        else:
+            # Cannot place outside of shelf or box
+            return next_state
+        if shelf_or_box == "box" and state.get(self._lid, "is_open") < 0.5:
+            # Cannot place in box if lid is not open
+            raise EnvironmentFailure("box lid is closed", {self._lid})
+        # Detect top grasp vs side grasp
+        rot = state.get(self._robot, "gripper_rot")
+        if rot > self.top_grasp_thresh:
+            top_or_side = "top"
+        elif rot < self.side_grasp_thresh:
+            top_or_side = "side"
+        else:
+            # Cannot place in either shelf or box
+            return next_state
+        # Can only place in shelf if side grasping, box if top grasping
+        if (shelf_or_box, top_or_side) not in [("shelf", "side"),
+                                               ("box", "top")]:
+            return next_state
+        # Execute place
+        next_state.set(self._robot, "gripper_rot", 0.5)
+        next_state.set(self._robot, "fingers", 1.0)
+        next_state.set(held_obj, "pose_x", x)
+        next_state.set(held_obj, "pose_y", y)
+        next_state.set(held_obj, "pose_z", z)
+        next_state.set(held_obj, "held", 0.0)
+        return next_state
 
     def get_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
@@ -225,10 +318,10 @@ class PaintingEnv(BaseEnv):
         # [x, y, z, rot, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
         # while rot, water level, heat level, and color are in [0, 1].
-        lowers = np.array([self.obj_x - 1e-2, self.table_lb,
+        lowers = np.array([self.obj_x - 1e-2, self.env_lb,
                            self.obj_z - 1e-2, 0.0, -1.0, 0.0, 0.0, 0.0],
                           dtype=np.float32)
-        uppers = np.array([self.obj_x + 1e-2, self.table_ub,
+        uppers = np.array([self.obj_x + 1e-2, self.env_ub,
                            self.obj_z + 1e-2, 1.0, 1.0, 1.0, 1.0, 1.0],
                           dtype=np.float32)
         return Box(lowers, uppers)
@@ -275,8 +368,10 @@ class PaintingEnv(BaseEnv):
                 else:
                     wetness = 0.0
                     dirtiness = 0.0
-                data[obj] = np.array([pose[0], pose[1], pose[2], 0.0, wetness,
-                                      dirtiness, 0.0], dtype=np.float32)
+                color = 0.0
+                held = 0.0
+                data[obj] = np.array([pose[0], pose[1], pose[2], dirtiness,
+                                      wetness, color, held], dtype=np.float32)
                 if j == num_objs-1:  # last object should go into the box
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
@@ -309,39 +404,39 @@ class PaintingEnv(BaseEnv):
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
-    @staticmethod
-    def _Wash_policy(state: State, memory: Dict,
+    def _Wash_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
-        arr = np.zeros(8, dtype=np.float32)
         water_level, = params
-        arr[5] = water_level
+        arr = np.array([self.obj_x, self.table_lb, self.obj_z,
+                        0.0, 0.0, water_level, 0.0, 0.0],
+                       dtype=np.float32)
         return Action(arr)
 
-    @staticmethod
-    def _Dry_policy(state: State, memory: Dict,
+    def _Dry_policy(self, state: State, memory: Dict,
                     objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
-        arr = np.zeros(8, dtype=np.float32)
         heat_level, = params
-        arr[6] = heat_level
+        arr = np.array([self.obj_x, self.table_lb, self.obj_z,
+                        0.0, 0.0, 0.0, heat_level, 0.0],
+                       dtype=np.float32)
         return Action(arr)
 
-    @staticmethod
-    def _Paint_policy(state: State, memory: Dict,
+    def _Paint_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
-        arr = np.zeros(8, dtype=np.float32)
         new_color, = params
-        arr[7] = new_color
+        arr = np.array([self.obj_x, self.table_lb, self.obj_z,
+                        0.0, 0.0, 0.0, 0.0, new_color],
+                       dtype=np.float32)
         return Action(arr)
 
-    @staticmethod
-    def _Place_policy(state: State, memory: Dict,
+    def _Place_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
         x, y, z = params
         arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _OpenLid_policy(self, state: State, memory: Dict,
@@ -435,3 +530,17 @@ class PaintingEnv(BaseEnv):
             if state.get(obj, "held") >= self.held_tol:
                 return obj
         return None
+
+    def _get_object_at_xyz(self, state: State, x: float, y: float, z: float
+                           ) -> Optional[Object]:
+        target_obj = None
+        for obj in state:
+            if obj.type != self._obj_type:
+                continue
+            if np.allclose([x, y, z], [state.get(obj, "pose_x"),
+                                       state.get(obj, "pose_y"),
+                                       state.get(obj, "pose_z")],
+                           atol=self.pick_tol):
+                assert target_obj is None
+                target_obj = obj
+        return target_obj

@@ -39,7 +39,6 @@ class GlobalSettings:
 
     # SeSamE parameters
     propagate_failures = True
-    max_samples_per_step = 10
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
 
@@ -157,6 +156,18 @@ class GlobalSettings:
                 "cluttered_table": "default",
                 "blocks": "default",
                 "painting": "default",
+            })[args["env"]],
+
+            max_samples_per_step=defaultdict(int, {
+                "cover": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
+                "cover_multistep_options": 10,
+                "cluttered_table": 10,
+                "blocks": 10,
+                "painting": 1,
+                "playroom": 10,
+                "behavior": 10,
             })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.

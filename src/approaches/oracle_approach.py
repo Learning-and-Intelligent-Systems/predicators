@@ -522,12 +522,13 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [lid, robot]
     option_vars = [robot, lid]
     option = OpenLid
-    preconditions = set()
+    preconditions = {LiftedAtom(GripperOpen, [robot])}
     add_effects = set()
     delete_effects = set()
     def openlid_sampler(state: State, rng: np.random.Generator,
                         objs: Sequence[Object]) -> Array:
-        import ipdb; ipdb.set_trace()
+        del state, rng, objs  # unused
+        return np.array([], dtype=np.float32)
     openlid_nsrt = NSRT(
         "OpenLid", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, openlid_sampler)
