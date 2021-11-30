@@ -9,6 +9,7 @@ from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
 from gym.spaces import Box
+import numpy as np
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -72,14 +73,20 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
     constant: float
     compare: Callable[[float, float], bool]
     compare_str: str
+    shift: float = 0.
+    scale: float = 1.
+
+    @property
+    def _threshold(self) -> float:
+        return (self.constant + self.shift) * self.scale
 
     def _classify_object(self, s: State, obj: Object) -> bool:
         assert obj.type == self.object_type
-        return self.compare(s.get(obj, self.attribute_name), self.constant)
+        return self.compare(s.get(obj, self.attribute_name), self._threshold)
 
     def __str__(self) -> str:
         return (f"(({self.object_index}:{self.object_type.name})."
-                f"{self.attribute_name}{self.compare_str}{self.constant:.3})")
+                f"{self.attribute_name}{self.compare_str}{self._threshold:.3})")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -110,6 +117,7 @@ class _ForallClassifier(_NullaryClassifier):
 class _PredicateGrammar:
     """A grammar for generating predicate candidates.
     """
+    seed: int
     dataset: Dataset
 
     @cached_property
@@ -120,6 +128,10 @@ class _PredicateGrammar:
         for (states, _) in self.dataset:
             types.update(o.type for o in states[0])
         return types
+
+    @cached_property
+    def _rng(self) -> np.random.Generator:
+        return np.random.default_rng(self.seed)
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         """Generate candidate predicates from the grammar.
@@ -184,9 +196,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
-        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        constant_generator = _halving_constant_generator(0., 1.)
-        for c in constant_generator:
+        for c in self._constant_generator():
             for t in sorted(self.types):
                 for f in t.feature_names:
                     lb, ub = feature_ranges[t][f]
@@ -196,14 +206,14 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                     if abs(lb - ub) < 1e-6:
                         continue
                     # Scale the constant by the feature range.
-                    k = (c + lb) / (ub - lb)
+                    shift = lb
+                    scale = 1. / (ub - lb)
                     for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
                         classifier = _SingleAttributeCompareClassifier(
-                            0, t, f, k, comp, comp_str)
+                            0, t, f, c, comp, comp_str, shift, scale)
                         name = str(classifier)
                         types = [t]
                         yield (Predicate(name, types, classifier), 1.)
-
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
         feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
@@ -223,6 +233,28 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                                                            max(mx, v))
         return feature_ranges
 
+    def _constant_generator(self)-> Iterator[float]:  # pylint: disable=no-self-use
+        # Self not needed here, but is used by child classes.
+        # 0.5, 0.25, 0.75, 0.125, 0.375, ...
+        return _halving_constant_generator(0., 1.)
+
+
+class OptimizableParameter(float):
+    """A continuous parameter that can be optimized in a program classifier.
+    """
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ContOptSingleFeatureInequalitiesPredicateGrammar(
+        _SingleFeatureInequalitiesPredicateGrammar):
+    """Single feature inequalities whose thresholds are continuously optimized.
+    """
+    def _constant_generator(self)-> Iterator[float]:
+        while True:
+            # Sample a random initialization between 0 and 1.
+            yield OptimizableParameter(self._rng.uniform())
+
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ForallPredicateGrammarWrapper(_PredicateGrammar):
@@ -237,14 +269,18 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
             yield (Predicate(str(classifier), [], classifier), cost)
 
 
-def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
+def _create_grammar(seed: int, grammar_name: str, dataset: Dataset
+                    ) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
-        return _HoldingDummyPredicateGrammar(dataset)
+        return _HoldingDummyPredicateGrammar(seed, dataset)
     if grammar_name == "single_feat_ineqs":
-        return _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        return _SingleFeatureInequalitiesPredicateGrammar(seed, dataset)
     if grammar_name == "forall_single_feat_ineqs":
-        base = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-        return _ForallPredicateGrammarWrapper(dataset, base)
+        base = _SingleFeatureInequalitiesPredicateGrammar(seed, dataset)
+        return _ForallPredicateGrammarWrapper(seed, dataset, base)
+    if grammar_name == "contopt_forall_single_feat_ineqs":
+        base = _ContOptSingleFeatureInequalitiesPredicateGrammar(seed, dataset)
+        return _ForallPredicateGrammarWrapper(seed, dataset, base)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -273,7 +309,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset)
+        grammar = _create_grammar(CFG.seed, CFG.grammar_search_grammar_name,
+                                  dataset)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates.")
         # Apply the candidate predicates to the data.
