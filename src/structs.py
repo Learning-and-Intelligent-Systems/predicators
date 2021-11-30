@@ -245,7 +245,7 @@ class _Atom:
     predicate: Predicate
     entities: Sequence[_TypedEntity]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert len(self.entities) == self.predicate.arity
         for ent, pred_type in zip(self.entities, self.predicate.types):
             assert ent.is_instance(pred_type)
