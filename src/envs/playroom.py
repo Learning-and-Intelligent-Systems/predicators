@@ -505,7 +505,7 @@ class PlayroomEnv(BlocksEnv):
     def _DoorOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "open") >= PlayroomEnv.door_open
-    
+
     @staticmethod
     def _DoorClosed_holds(state: State, objects: Sequence[Object]) -> bool:
         return not PlayroomEnv._DoorOpen_holds(state, objects)
