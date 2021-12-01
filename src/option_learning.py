@@ -62,6 +62,10 @@ class _SimpleOptionLearner(_OptionLearnerBase):
     of other objects would differ across different instiantiations of the env.
     """
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.segment_to_grounding = {}
+
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
             partitions: List[Partition]) -> List[OptionSpec]:
@@ -72,6 +76,7 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             X_regressor: List[List[Array]] = []
             Y_regressor = []
             op = strips_ops[idx]
+            print(f"\nLearning option for NSRT {op.name}")
             param_ub, param_lb = [], []
             types = []
             variables = []
@@ -88,6 +93,17 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                                 for o in objects]
                     param_lb = [[np.inf]*len(segment.states[0][o]) \
                                 for o in objects]
+                param = []
+                for j, o in enumerate(objects):
+                    object_param = segment.states[0][o] - segment.states[-1][o]
+                    for k in range(len(object_param)):
+                        if object_param[k] > param_ub[j][k]:
+                            param_ub[j][k] = object_param[k]
+                        if object_param[k] < param_lb[j][k]:
+                            param_lb[j][k] = object_param[k]
+                    param.extend(object_param)
+                self.segment_to_grounding[segment] = (objects, param)
+
                 variables = [Variable(f"?x{i}", o.type) \
                              for i, o in enumerate(objects)]
 
@@ -100,12 +116,7 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                     X_regressor.append([np.array(1.0)])
                     for o in objects:
                         X_regressor[-1].extend(s[o])
-                    for j, o in enumerate(objects):
-                        param = s[o]-s_prime[o]
-                        for k in range(len(param)):
-                            param_ub[j][k] = max(param_ub[j][k], param[k])
-                            param_lb[j][k] = min(param_ub[j][k], param[k])
-                        X_regressor[-1].extend(param)
+                    X_regressor[-1].extend(param)
                     Y_regressor.append(segment.actions[i].arr)
 
             X_arr_regressor = np.array(X_regressor)
@@ -114,40 +125,49 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this partition.
-            name = str(i)
+            name = str(idx)
             high = np.array([dim for o in param_ub for dim in o])
             low = np.array([dim for o in param_lb for dim in o])
             params_space = Box(low, high, dtype=np.float32)
-            def _initiable(s: State, m: Dict, o: Sequence[Object],
-                           p: Array) -> bool:
-                del m, p  # unused
-                grounded_op = op.ground(o)
+            def _initiable(s_: State, m: Dict, o_: Sequence[Object],
+                           p_: Array) -> bool:
+                del m, p_  # unused
+                print("Objects: ", o_)
+                print("Operator parameters: ", op.parameters)
+                grounded_op = op.ground(tuple(o_))
                 preconditions = grounded_op.preconditions
-                return all(pre.predicate.holds(s, o) for pre in preconditions)
-            def _terminal(s: State, m: Dict, o: Sequence[Object],
-                           p: Array) -> bool:
-                del m, p  # unused
-                grounded_op - op.ground(o)
+                return all(pre.predicate.holds(s_, o_) for pre in preconditions)
+            def _terminal(s_: State, m: Dict, o_: Sequence[Object],
+                           p_: Array) -> bool:
+                del m, p_  # unused
+                grounded_op = op.ground(tuple(o_))
                 effects = grounded_op.add_effects | grounded_op.delete_effects
-                return all(eff.predicate.holds(s, o) for eff in effects)
-            def _policy(s: State, m: Dict, o: Sequence[Object],
-                           p: Array) -> bool:
+                return all(eff.predicate.holds(s_, o_) for eff in effects)
+            def _policy(s_: State, m: Dict, o_: Sequence[Object],
+                           p_: Array) -> bool:
+                del m  # unused
                 x_lst : List[Any] = [1.0]  # start with bias term
-                for obj in o:
-                    x_list.extend(state[obj])
-                x_lst.extend(p)
+                for obj in o_:
+                    x_list.extend(s_[obj])
+                x_lst.extend(p_)
                 x = np.array(x_lst)
                 action = regressor.predict_sample(x, np.random.default_rng())
                 return np.array(action)
-            option = ParameterizedOption(name, types, params_space, \
-                                         _policy, _initiable, _terminal)
+            option = ParameterizedOption(name=name, types=types, \
+                                         params_space=params_space, \
+                                         _policy=_policy, \
+                                         _initiable=_initiable, \
+                                         _terminal=_terminal)
             option_specs.append((option, variables))
 
         return option_specs
 
     def update_segment_from_option_spec(
             self, segment: Segment, option_spec: OptionSpec) -> None:
-        pass
+            objects, params = self.segment_to_grounding[segment]
+            param_opt, opt_vars = option_spec
+            option = param_opt.ground(objects, params)
+            segment.set_option(option)
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where

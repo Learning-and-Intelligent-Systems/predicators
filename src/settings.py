@@ -55,7 +55,7 @@ class GlobalSettings:
     min_data_for_nsrt = 3
 
     # option learning parameters
-    do_option_learning = False  # if False, uses ground truth options
+    do_option_learning = True  # if False, uses ground truth options
     option_learner = "simple"  # only used if do_option_learning is True
 
     # sampler learning parameters
