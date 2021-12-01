@@ -203,9 +203,9 @@ class MLPClassifier(nn.Module):
             keep_idxs = pos_idxs + keep_neg_idxs
             X_lst = [X[i] for i in keep_idxs]
             y_lst = [y[i] for i in keep_idxs]
-            print(f"Reduced dataset size from {old_len} to {len(y)}")
             X = np.array(X_lst)
             y = np.array(y_lst)
+            print(f"Reduced dataset size from {old_len} to {len(y)}")
         self._fit(X, y)
 
     def forward(self, inputs: Array) -> Tensor:
