@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 import abc
-from typing import List
+from typing import List, Callable
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Partition, \
-    Segment, Variable, ParameterizedOption
+    Segment, Variable, ParameterizedOption, Action
+from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
 from predicators.src.torch_models import NeuralGaussianRegressor
@@ -129,30 +130,9 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             high = np.array([dim for o in param_ub for dim in o])
             low = np.array([dim for o in param_lb for dim in o])
             params_space = Box(low, high, dtype=np.float32)
-            def _initiable(s_: State, m: Dict, o_: Sequence[Object],
-                           p_: Array) -> bool:
-                del m, p_  # unused
-                print("Objects: ", o_)
-                print("Operator parameters: ", op.parameters)
-                grounded_op = op.ground(tuple(o_))
-                preconditions = grounded_op.preconditions
-                return all(pre.predicate.holds(s_, o_) for pre in preconditions)
-            def _terminal(s_: State, m: Dict, o_: Sequence[Object],
-                           p_: Array) -> bool:
-                del m, p_  # unused
-                grounded_op = op.ground(tuple(o_))
-                effects = grounded_op.add_effects | grounded_op.delete_effects
-                return all(eff.predicate.holds(s_, o_) for eff in effects)
-            def _policy(s_: State, m: Dict, o_: Sequence[Object],
-                           p_: Array) -> bool:
-                del m  # unused
-                x_lst : List[Any] = [1.0]  # start with bias term
-                for obj in o_:
-                    x_list.extend(s_[obj])
-                x_lst.extend(p_)
-                x = np.array(x_lst)
-                action = regressor.predict_sample(x, np.random.default_rng())
-                return np.array(action)
+            _initiable = _create_initiable_from_op(op)
+            _terminal = _create_terminal_from_op(op)
+            _policy = _create_policy_from_regressor(regressor)
             option = ParameterizedOption(name=name, types=types, \
                                          params_space=params_space, \
                                          _policy=_policy, \
@@ -168,6 +148,48 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             param_opt, opt_vars = option_spec
             option = param_opt.ground(objects, params)
             segment.set_option(option)
+
+
+def _create_initiable_from_op(op
+    ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
+    preds = {a.predicate for a in op.preconditions}
+    def _initiable(s_: State, m: Dict, o_: Sequence[Object],
+                   p_: Array) -> bool:
+        del m, p_  # unused
+        grounded_op = op.ground(tuple(o_))
+        preconditions = grounded_op.preconditions
+        abs_state = utils.abstract(s_, preds)
+        return preconditions.issubset(abs_state)
+    return _initiable
+
+
+def _create_terminal_from_op(op: STRIPSOperator
+    ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
+    preds = {a.predicate for a in op.add_effects | op.delete_effects}
+    def _terminal(s_: State, m: Dict, o_: Sequence[Object],
+                  p_: Array) -> bool:
+        del m, p_  # unused
+        grounded_op = op.ground(tuple(o_))
+        abs_state = utils.abstract(s_, preds)
+        return grounded_op.add_effects.issubset(abs_state) and \
+            not (grounded_op.delete_effects & abs_state)
+    return _terminal
+
+
+def _create_policy_from_regressor(regressor: NeuralGaussianRegressor
+    ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+    def _policy(s_: State, m: Dict, o_: Sequence[Object],
+                p_: Array) -> bool:
+        del m  # unused
+        x_lst : List[Any] = [1.0]  # start with bias term
+        for obj in o_:
+            x_lst.extend(s_[obj])
+        x_lst.extend(p_)
+        x = np.array(x_lst)
+        action = regressor.predict_sample(x, np.random.default_rng())
+        return Action(np.array(action, dtype=np.float32))
+    return _policy
+
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
