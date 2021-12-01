@@ -6,10 +6,11 @@ import abc
 from typing import List
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Partition, \
-    Segment
+    Segment, Variable, ParameterizedOption
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
-
+from predicators.src.torch_models import NeuralGaussianRegressor
+from gym.spaces import Box
 
 def create_option_learner() -> _OptionLearnerBase:
     """Create an option learner given its name.
@@ -18,10 +19,11 @@ def create_option_learner() -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
+    if CFG.option_learner == "simple":
+        return _SimpleOptionLearner()
     raise NotImplementedError(f"Unknown option learner: {CFG.option_learner}")
 
-
-class _OptionLearnerBase:
+class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options.
@@ -52,10 +54,104 @@ class _OptionLearnerBase:
         """
         raise NotImplementedError("Override me!")
 
+class _SimpleOptionLearner(_OptionLearnerBase):
+    """The option learner that learns options from fixed-length input vectors.
+    That is, the the input data only includes objects whose state changes from
+    the first state in the segment to the last state in the segment. The input
+    data does not include data from other objects in the scene, where the number
+    of other objects would differ across different instiantiations of the env.
+    """
+
+    def learn_option_specs(
+            self, strips_ops: List[STRIPSOperator],
+            partitions: List[Partition]) -> List[OptionSpec]:
+
+        option_specs = []
+
+        for idx, p in enumerate(partitions):
+            X_regressor: List[List[Array]] = []
+            Y_regressor = []
+            op = strips_ops[idx]
+            param_ub, param_lb = [], []
+            types = []
+            variables = []
+
+            # Get objects involved in effects and sort them.
+            for segment, _ in p:
+                objects = sorted({o for atom in segment.add_effects | \
+                                 segment.delete_effects for o in atom.objects})
+                types = [o.type for o in objects]
+                # Keep track of max and min for each dimension of parameters
+                # that come from each object.
+                if len(param_ub) == 0:
+                    param_ub = [[-np.inf]*len(segment.states[0][o]) \
+                                for o in objects]
+                    param_lb = [[np.inf]*len(segment.states[0][o]) \
+                                for o in objects]
+                variables = [Variable(f"?x{i}", o.type) \
+                             for i, o in enumerate(objects)]
+
+                # Construct input. Input is a bias, state features of objects
+                # involved in effects, and the delta of each low-level feature
+                # of each object involved in effects between the first and last
+                # state of the segment.
+                for i in range(len(segment.states) - 1):
+                    s, s_prime = segment.states[i], segment.states[i+1]
+                    X_regressor.append([np.array(1.0)])
+                    for o in objects:
+                        X_regressor[-1].extend(s[o])
+                    for j, o in enumerate(objects):
+                        param = s[o]-s_prime[o]
+                        for k in range(len(param)):
+                            param_ub[j][k] = max(param_ub[j][k], param[k])
+                            param_lb[j][k] = min(param_ub[j][k], param[k])
+                        X_regressor[-1].extend(param)
+                    Y_regressor.append(segment.actions[i].arr)
+
+            X_arr_regressor = np.array(X_regressor)
+            Y_arr_regressor = np.array(Y_regressor).reshape((-1, 1))
+            regressor = NeuralGaussianRegressor()
+            regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+            # Construct the ParameterizedOption for this partition.
+            name = str(i)
+            high = np.array([dim for o in param_ub for dim in o])
+            low = np.array([dim for o in param_lb for dim in o])
+            params_space = Box(low, high, dtype=np.float32)
+            def _initiable(s: State, m: Dict, o: Sequence[Object],
+                           p: Array) -> bool:
+                del m, p  # unused
+                grounded_op = op.ground(o)
+                preconditions = grounded_op.preconditions
+                return all(pre.predicate.holds(s, o) for pre in preconditions)
+            def _terminal(s: State, m: Dict, o: Sequence[Object],
+                           p: Array) -> bool:
+                del m, p  # unused
+                grounded_op - op.ground(o)
+                effects = grounded_op.add_effects | grounded_op.delete_effects
+                return all(eff.predicate.holds(s, o) for eff in effects)
+            def _policy(s: State, m: Dict, o: Sequence[Object],
+                           p: Array) -> bool:
+                x_lst : List[Any] = [1.0]  # start with bias term
+                for obj in o:
+                    x_list.extend(state[obj])
+                x_lst.extend(p)
+                x = np.array(x_lst)
+                action = regressor.predict_sample(x, np.random.default_rng())
+                return np.array(action)
+            option = ParameterizedOption(name, types, params_space, \
+                                         _policy, _initiable, _terminal)
+            option_specs.append((option, variables))
+
+        return option_specs
+
+    def update_segment_from_option_spec(
+            self, segment: Segment, option_spec: OptionSpec) -> None:
+        pass
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
-    CFG.do_option_learning is True.
+    CFG.do_option_learning is False.
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],

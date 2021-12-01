@@ -103,7 +103,6 @@ def test_oracle_option_learner_cover():
                          "seed": 123,
                          "do_option_learning": False})
 
-
 def test_oracle_option_learner_blocks():
     """Tests for _OracleOptionLearner for the blocks environment.
     """
@@ -158,6 +157,53 @@ def test_oracle_option_learner_blocks():
                          "seed": 123,
                          "do_option_learning": False})
 
+def test_simple_option_learner_cover():
+    """Tests for _SimpleOptionLearner for the cover environment.
+    """
+    env = create_env("cover")
+    # We need to call update_config twice because the first call sets
+    # some variables whose values we can then change in the second call.
+    utils.update_config({"env": "cover",
+                         "approach": "nsrt_learning",
+                         "seed": 123})
+    utils.update_config({"env": "cover",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "num_train_tasks": 3,
+                         "do_option_learning": True,
+                         "option_learner": "simple"})
+    dataset = create_demo_replay_data(env)
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        dataset, env.predicates)
+    for _, actions, _ in ground_atom_dataset:
+        for act in actions:
+            assert not act.has_option()
+    segments = [seg for traj in ground_atom_dataset
+                for seg in segment_trajectory(traj)]
+    strips_ops, partitions = learn_strips_operators(segments)
+    assert len(strips_ops) == len(partitions) == 2
+    option_learner = create_option_learner()
+    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
+    print(option_specs)
+    # assert len(option_specs) == len(strips_ops) == 2
+    # assert len(env.options) == 1
+    # PickPlace = next(iter(env.options))
+    # assert option_specs == [(PickPlace, []), (PickPlace, [])]
+    # for partition, spec in zip(partitions, option_specs):
+    #     for (segment, _) in partition:
+    #         assert not segment.has_option()
+    #         # This call should add an option to the segment.
+    #         option_learner.update_segment_from_option_spec(segment, spec)
+    #         assert segment.has_option()
+    #         option = segment.get_option()
+    #         # In cover env, param == action array.
+    #         assert option.parent == PickPlace
+    #         assert np.allclose(option.params, segment.actions[0].arr)
+    # Reset configuration.
+    utils.update_config({"env": "cover",
+                         "approach": "nsrt_learning",
+                         "seed": 123,
+                         "do_option_learning": False})
 
 def test_create_option_learner():
     """Tests for create_option_learner().
