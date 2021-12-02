@@ -1,8 +1,7 @@
 """Painting domain, which allows for two different grasps on an object
 (side or top). Side grasping allows for placing into the shelf, and top
-grasping allows for placing into the box. The box has a lid which
-may need to be opened; this lid is NOT modeled by any of the given
-predicates, but could be modeled by a learned predicate.
+grasping allows for placing into the box. The box has a lid which may
+need to be opened; this lid is NOT modeled by any of the given predicates.
 """
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional
@@ -177,9 +176,6 @@ class PaintingEnv(BaseEnv):
         # Cannot pick if already holding something
         if held_obj is not None:
             return next_state
-        # Cannot pick if pose not on table
-        if not self.table_lb < y < self.table_ub:
-            return next_state
         # Check if some object is close enough to (x, y, z)
         target_obj = self._get_object_at_xyz(state, x, y, z)
         if target_obj is None:
@@ -256,7 +252,7 @@ class PaintingEnv(BaseEnv):
         elif rot < self.side_grasp_thresh:
             top_or_side = "side"
         else:
-            # Cannot place in either shelf or box
+            # Cannot place in either shelf or box, bad gripper_rot
             return next_state
         # Can only place in shelf if side grasping, box if top grasping
         if (shelf_or_box, top_or_side) not in [("shelf", "side"),
