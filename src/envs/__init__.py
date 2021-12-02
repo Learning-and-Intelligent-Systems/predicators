@@ -7,6 +7,7 @@ from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "CoverMultistepOptions",
     "ClutteredTableEnv",
     "BlocksEnv",
+    "PaintingEnv",
     "PlayroomEnv",
     "BehaviorEnv",
 ]
@@ -38,6 +40,8 @@ def create_env(name: str) -> BaseEnv:
         return ClutteredTableEnv()
     if name == "blocks":
         return BlocksEnv()
+    if name == "painting":
+        return PaintingEnv()
     if name == "playroom":
         return PlayroomEnv()
     if name == "behavior":
