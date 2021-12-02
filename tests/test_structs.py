@@ -147,6 +147,21 @@ def test_state():
                     obj4: [8, 9, 10],
                     obj9: [11, 12, 13]})
     assert not state.allclose(state2)  # obj2 is extra
+    # Test pretty_str
+    assert state2.pretty_str() == """################# STATE ################
+type: type1      feat1    feat2
+-------------  -------  -------
+obj3                 1      122
+obj7                 3        4
+
+type: type2      feat3    feat4    feat5
+-------------  -------  -------  -------
+obj1                 5        6        7
+obj2                 5        6        7
+obj4                 8        9       10
+obj9                11       12       13
+########################################
+"""
     # Test including simulator_state
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"

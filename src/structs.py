@@ -9,6 +9,7 @@ from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
+from tabulate import tabulate
 
 
 @dataclass(frozen=True, order=True)
@@ -170,6 +171,25 @@ class State:
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
                 return False
         return True
+
+    def pretty_str(self) -> str:
+        """Display the state in a nice human-readable format.
+        """
+        type_to_table : Dict[Type, List[List[str]]] = {}
+        for obj in self:
+            if obj.type not in type_to_table:
+                type_to_table[obj.type] = []
+            type_to_table[obj.type].append([obj.name] + \
+                                            list(map(str, self[obj])))
+        table_strs = []
+        for t in sorted(type_to_table):
+            headers = ["type: " + t.name] + list(t.feature_names)
+            table_strs.append(tabulate(type_to_table[t], headers=headers))
+        ll = max(len(line) for table in table_strs
+                 for line in table.split("\n"))
+        prefix = "#" * (ll//2 - 3) + " STATE " + "#" * (ll - ll//2 - 4) + "\n"
+        suffix = "\n" + "#" * ll+ "\n"
+        return prefix + "\n\n".join(table_strs) + suffix
 
 
 DefaultState = State({})
