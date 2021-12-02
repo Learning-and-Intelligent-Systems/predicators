@@ -6,3 +6,4 @@ imageio
 imageio-ffmpeg
 torch
 scipy
+tabulate
