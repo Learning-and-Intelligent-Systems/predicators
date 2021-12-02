@@ -175,7 +175,7 @@ class State:
     def pretty_str(self) -> str:
         """Display the state in a nice human-readable format.
         """
-        type_to_table = {}
+        type_to_table : Dict[Type, List[List[str]]] = {}
         for obj in self:
             if obj.type not in type_to_table:
                 type_to_table[obj.type] = []
@@ -183,7 +183,7 @@ class State:
                                             list(map(str, self[obj])))
         table_strs = []
         for t in sorted(type_to_table):
-            headers = ["type: " + t.name] + t.feature_names
+            headers = ["type: " + t.name] + list(t.feature_names)
             table_strs.append(tabulate(type_to_table[t], headers=headers))
         ll = max(len(line) for table in table_strs
                  for line in table.split("\n"))
