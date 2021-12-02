@@ -112,7 +112,7 @@ def test_painting_failure_cases():
         dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    # Perform valid pick
+    # Perform valid pick with gripper_rot = 0.5
     act = Pick.ground([robot, obj0], np.array(
         [0, 0, 0, 0.5], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
@@ -135,6 +135,21 @@ def test_painting_failure_cases():
         dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     # Cannot place because gripper_rot is 0.5
+    act = Place.ground([robot], np.array(
+        [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
+        dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
+    # Reset state
+    state = task.init
+    # Perform valid pick with gripper_rot = 1 (top grasp)
+    act = Pick.ground([robot, obj0], np.array(
+        [0, 0, 0, 1], dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert not state.allclose(next_state)
+    # Change the state
+    state = next_state
+    # Cannot place in shelf because gripper_rot is 1
     act = Place.ground([robot], np.array(
         [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
         dtype=np.float32)).policy(state)
