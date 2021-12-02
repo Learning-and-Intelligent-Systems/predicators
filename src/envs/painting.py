@@ -94,8 +94,8 @@ class PaintingEnv(BaseEnv):
             # params: [delta x, delta y, delta z, grasp rotation]
             "Pick", types=[self._robot_type, self._obj_type],
             params_space=Box(
-                np.array([-1.0, -1.0, -1.0, 0.0], dtype=np.float32),
-                np.array([1.0, 1.0, 1.0, 1.0], dtype=np.float32)),
+                np.array([-1.0, -1.0, -1.0, -0.01], dtype=np.float32),
+                np.array([1.0, 1.0, 1.0, 1.01], dtype=np.float32)),
             _policy=self._Pick_policy,
             _initiable=self._handempty_initiable,
             _terminal=self._onestep_terminal)
@@ -103,7 +103,7 @@ class PaintingEnv(BaseEnv):
             # variables: [robot]
             # params: [water level]
             "Wash", types=[self._robot_type],
-            params_space=Box(0, 1, (1,)),
+            params_space=Box(-0.01, 1.01, (1,)),
             _policy=self._Wash_policy,
             _initiable=self._holding_initiable,
             _terminal=self._onestep_terminal)
@@ -111,7 +111,7 @@ class PaintingEnv(BaseEnv):
             # variables: [robot]
             # params: [heat level]
             "Dry", types=[self._robot_type],
-            params_space=Box(0, 1, (1,)),
+            params_space=Box(-0.01, 1.01, (1,)),
             _policy=self._Dry_policy,
             _initiable=self._holding_initiable,
             _terminal=self._onestep_terminal)
@@ -119,7 +119,7 @@ class PaintingEnv(BaseEnv):
             # variables: [robot]
             # params: [new color]
             "Paint", types=[self._robot_type],
-            params_space=Box(0, 1, (1,)),
+            params_space=Box(-0.01, 1.01, (1,)),
             _policy=self._Paint_policy,
             _initiable=self._holding_initiable,
             _terminal=self._onestep_terminal)
@@ -139,7 +139,7 @@ class PaintingEnv(BaseEnv):
             # variables: [robot, lid]
             # params: []
             "OpenLid", types=[self._robot_type, self._lid_type],
-            params_space=Box(0, 1, (0,)),  # no parameters
+            params_space=Box(-0.01, 1.01, (0,)),  # no parameters
             _policy=self._OpenLid_policy,
             _initiable=self._handempty_initiable,
             _terminal=self._onestep_terminal)
@@ -404,6 +404,7 @@ class PaintingEnv(BaseEnv):
                      objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
         water_level, = params
+        water_level = min(max(water_level, 0.0), 1.0)
         arr = np.array([self.obj_x, self.table_lb, self.obj_z,
                         0.0, 0.0, water_level, 0.0, 0.0],
                        dtype=np.float32)
@@ -413,6 +414,7 @@ class PaintingEnv(BaseEnv):
                     objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
         heat_level, = params
+        heat_level = min(max(heat_level, 0.0), 1.0)
         arr = np.array([self.obj_x, self.table_lb, self.obj_z,
                         0.0, 0.0, 0.0, heat_level, 0.0],
                        dtype=np.float32)
@@ -422,6 +424,7 @@ class PaintingEnv(BaseEnv):
                       objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
         new_color, = params
+        new_color = min(max(new_color, 0.0), 1.0)
         arr = np.array([self.obj_x, self.table_lb, self.obj_z,
                         0.0, 0.0, 0.0, 0.0, new_color],
                        dtype=np.float32)

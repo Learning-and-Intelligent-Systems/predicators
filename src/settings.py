@@ -47,6 +47,13 @@ class GlobalSettings:
     video_dir = "videos"
     video_fps = 2
 
+    # dataset parameters
+    offline_data_planning_timeout = 500  # for learning-based approaches, the
+                                         # data collection timeout for planning
+    offline_data_num_replays = 500  # for learning-based approaches, the
+                                    # number of replays used when the data
+                                    # generation method is data+replays
+
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
 
@@ -176,24 +183,6 @@ class GlobalSettings:
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
                 "grammar_search_invention": "demo+replay",
-            })[args["approach"]],
-
-            # For learning-based approaches, the data collection timeout
-            # used for planning.
-            offline_data_planning_timeout=defaultdict(int, {
-                "nsrt_learning": 500,
-                "interactive_learning": 500,
-                "iterative_invention": 500,
-                "grammar_search_invention": 500,
-            })[args["approach"]],
-
-            # For learning-based approaches, the number of replays used
-            # when the data generation method is data+replays.
-            offline_data_num_replays=defaultdict(int, {
-                "nsrt_learning": 10,
-                "interactive_learning": 10,
-                "iterative_invention": 500,
-                "grammar_search_invention": 500,
             })[args["approach"]],
         )
 
