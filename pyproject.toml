@@ -15,6 +15,7 @@ imageio = "^2.11.0"
 imageio-ffmpeg = "^0.4.5"
 torch = "^1.10.0"
 scipy = "^1.7.2"
+tabulate = "^0.8.9"
 
 [tool.poetry.dev-dependencies]
 pytest-cov = ">=2.12.1"
