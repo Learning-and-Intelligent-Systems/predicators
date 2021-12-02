@@ -55,7 +55,7 @@ class _OptionLearnerBase:
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
-    CFG.do_option_learning is True.
+    CFG.do_option_learning is False.
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
