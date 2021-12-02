@@ -8,13 +8,10 @@ predicates, but could be modeled by a learned predicate.
 from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
 from gym.spaces import Box
-from matplotlib import pyplot as plt
-from matplotlib import patches
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
-from predicators.src import utils
 
 
 class PaintingEnv(BaseEnv):
@@ -322,7 +319,7 @@ class PaintingEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        raise NotImplementedError  # TODO
+        raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:

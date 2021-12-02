@@ -101,10 +101,10 @@ class _OracleOptionLearner(_OptionLearnerBase):
         env = create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
-            assert len(strips_ops) == 2
+            assert len(strips_ops) == 3
             PickPlace = [option for option in env.options
                          if option.name == "PickPlace"][0]
-            # Both strips operators use the same PickPlace option,
+            # All strips operators use the same PickPlace option,
             # which has no parameters.
             for _ in strips_ops:
                 option_specs.append((PickPlace, []))
