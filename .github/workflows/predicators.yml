@@ -16,8 +16,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
     - run: |
-      pip install -r requirements.txt
-      pip install pytest-cov
+        pip install -r requirements.txt
+        pip install pytest-cov
     - name: Pytest
       run: |
         pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
