@@ -331,6 +331,19 @@ def test_unify_effects_and_options():
     # The following test is for an edge case where everything is identical
     # except for the name of the parameterized option. We do not want to
     # unify in this case.
+    # First, a unify that should succeed.
+    suc, sub = unify_effects_and_options(
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        param_option0,
+        param_option0,
+        (cup0, cup1),
+        (cup0, cup1))
+    assert suc
+    assert sub == {cup0: cup0, cup1: cup1}
+    # Now, a unify that should fail because of different parameterized options.
     param_option1 = ParameterizedOption(
         "dummy1", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
         lambda s, m, o, p: False, lambda s, m, o, p: False)

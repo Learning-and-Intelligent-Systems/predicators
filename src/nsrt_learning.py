@@ -129,8 +129,8 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     """
     # Partition the segments according to common effects.
     params: List[Sequence[Variable]] = []
-    option_vars: List[Tuple[Variable, ...]] = []
     parameterized_options: List[ParameterizedOption] = []
+    option_vars: List[Tuple[Variable, ...]] = []
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[Partition] = []
@@ -253,6 +253,9 @@ def unify_effects_and_options(
     differently by utils.unify().
     """
     # Can't unify if the parameterized options are different.
+    # Note, of course, we could directly check this in the loop above. But we
+    # want to keep all the unification logic in one place, even if it's trivial
+    # in this case.
     if ground_param_option != lifted_param_option:
         return False, {}
     ground_opt_arg_pred = Predicate("OPT-ARGS",
