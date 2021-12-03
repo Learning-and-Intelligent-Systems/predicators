@@ -292,8 +292,7 @@ def test_playroom_options():
     CloseDoor = [o for o in env.options if o.name == "CloseDoor"][0]
     TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
     TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
-    option_sequence = [
-        Move.ground([robot], [2.0, 30.0, 0.0]),
+    plan = [
         Move.ground([robot], [2.0, 30.0, 0.0]),
         Pick.ground([block1], [0.0, 0.0, 0.0, 0.35]),
         PutOnTable.ground([], [0.1, 0.5, 0.0]),  # put block1 on table
@@ -309,19 +308,11 @@ def test_playroom_options():
         TurnOffDial.ground([dial], [0.0, 0.0, 0.0, 0.0]),
         TurnOnDial.ground([dial], [-0.2, 0.0, 0.0, 0.0])
     ]
-    assert option_sequence[0].initiable(state)
+    assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    def option_policy(s: State) -> Action:
-        current_option = option_sequence[0]
-        if current_option.terminal(s):
-            option_sequence.pop(0)
-            assert len(option_sequence) > 0
-            current_option = option_sequence[0]
-            assert current_option.initiable(s)
-        return current_option.policy(s)
     (states, _), video, _ = utils.run_policy_on_task(
-        option_policy, task, env.simulate, env.predicates,
-        14, make_video, env.render)
+        utils.option_plan_to_policy(plan), task, env.simulate,
+        env.predicates, 14, make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
