@@ -26,11 +26,11 @@ class PlayroomEnv(BlocksEnv):
     table_y_lb = 10.0
     table_x_ub = 20.0
     table_y_ub = 20.0
-    door_open = 0.5
+    door_open_thresh = 0.5
     door_r = 5.0  # half of width
     door_button_z = 3.0
     door_tol = 0.5
-    dial_on = 0.5
+    dial_on_thresh = 0.5
     dial_r = 3.0
     dial_button_z = 1.0
     dial_tol = 0.5
@@ -116,36 +116,36 @@ class PlayroomEnv(BlocksEnv):
             "OpenDoor", types=[self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._OpenDoor_policy,
-            _initiable=self._OpenDoor_initiable,
-            _terminal=self._OpenDoor_terminal)
+            _policy=self._ToggleDoor_policy,
+            _initiable=self._ToggleDoor_initiable,
+            _terminal=self._ToggleDoor_terminal)
         self._CloseDoor = ParameterizedOption(
             # variables: [door]
             # params: [dx, dy, dz, rotation]
             "CloseDoor", types=[self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._CloseDoor_policy,
-            _initiable=self._CloseDoor_initiable,
-            _terminal=self._CloseDoor_terminal)
+            _policy=self._ToggleDoor_policy,
+            _initiable=self._ToggleDoor_initiable,
+            _terminal=self._ToggleDoor_terminal)
         self._TurnOnDial = ParameterizedOption(
             # variables: [dial]
             # params: [dx, dy, dz, rotation]
             "TurnOnDial", types=[self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._TurnOnDial_policy,
-            _initiable=self._TurnOnDial_initiable,
-            _terminal=self._TurnOnDial_terminal)
+            _policy=self._ToggleDial_policy,
+            _initiable=self._ToggleDial_initiable,
+            _terminal=self._ToggleDial_terminal)
         self._TurnOffDial = ParameterizedOption(
             # variables: [dial]
             # params: [dx, dy, dz, rotation]
             "TurnOffDial", types=[self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._TurnOffDial_policy,
-            _initiable=self._TurnOffDial_initiable,
-            _terminal=self._TurnOffDial_terminal)
+            _policy=self._ToggleDial_policy,
+            _initiable=self._ToggleDial_initiable,
+            _terminal=self._ToggleDial_terminal)
         # Objects
         self._robot = Object("robby", self._robot_type)
         self._door1 = Object("door1", self._door_type)
@@ -217,7 +217,7 @@ class PlayroomEnv(BlocksEnv):
         # opens/closes a door that the robot is next to and facing
         assert door.type == self._door_type
         next_state = state.copy()
-        if state.get(door, "open") < self.door_open:
+        if state.get(door, "open") < self.door_open_thresh:
             next_state.set(door, "open", 1.0)
         else:
             next_state.set(door, "open", 0.0)
@@ -225,7 +225,7 @@ class PlayroomEnv(BlocksEnv):
 
     def _transition_dial(self, state: State) -> State:
         next_state = state.copy()
-        if state.get(self._dial, "level") < self.dial_on:
+        if state.get(self._dial, "level") < self.dial_on_thresh:
             next_state.set(self._dial, "level", 1.0)
         else:
             next_state.set(self._dial, "level", 0.0)
@@ -292,7 +292,7 @@ class PlayroomEnv(BlocksEnv):
         for door in self._doors:
             x = state.get(door, "pose_x")
             y = state.get(door, "pose_y")
-            if state.get(door, "open") < self.door_open:
+            if state.get(door, "open") < self.door_open_thresh:
                 door = patches.Rectangle(
                         (x-1.0, y-5.0), 1, 10, zorder=1, linewidth=1,
                         edgecolor='black', facecolor='brown')
@@ -504,7 +504,7 @@ class PlayroomEnv(BlocksEnv):
     @staticmethod
     def _DoorOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         door, = objects
-        return state.get(door, "open") >= PlayroomEnv.door_open
+        return state.get(door, "open") >= PlayroomEnv.door_open_thresh
 
     @staticmethod
     def _DoorClosed_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -513,7 +513,7 @@ class PlayroomEnv(BlocksEnv):
     @staticmethod
     def _LightOn_holds(state: State, objects: Sequence[Object]) -> bool:
         dial, = objects
-        return state.get(dial, "level") >= PlayroomEnv.dial_on
+        return state.get(dial, "level") >= PlayroomEnv.dial_on_thresh
 
     @staticmethod
     def _LightOff_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -581,7 +581,7 @@ class PlayroomEnv(BlocksEnv):
         del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
-    def _OpenDoor_policy(self, state: State, memory: Dict,
+    def _ToggleDoor_policy(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         door, = objects
@@ -593,41 +593,18 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     @staticmethod
-    def _OpenDoor_initiable(state: State, memory: Dict,
+    def _ToggleDoor_initiable(state: State, memory: Dict,
                             objects: Sequence[Object], params: Array) -> bool:
         del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _OpenDoor_terminal(state: State, memory: Dict,
+    def _ToggleDoor_terminal(state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
         del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
-    def _CloseDoor_policy(self, state: State, memory: Dict,
-                          objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        door, = objects
-        door_pose = np.array([state.get(door, "pose_x"),
-                              state.get(door, "pose_y"),
-                              self.door_button_z])
-        arr = np.r_[door_pose+params[:-1], params[-1], 1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    @staticmethod
-    def _CloseDoor_initiable(state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _CloseDoor_terminal(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
-
-    def _TurnOnDial_policy(self, state: State, memory: Dict,
+    def _ToggleDial_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         dial, = objects
@@ -639,42 +616,16 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     @staticmethod
-    def _TurnOnDial_initiable(state: State, memory: Dict,
+    def _ToggleDial_initiable(state: State, memory: Dict,
                               objects: Sequence[Object], params: Array
                               ) -> bool:
         del state, memory, objects, params  # unused
         return True  # can be run from anywhere
 
     @staticmethod
-    def _TurnOnDial_terminal(state: State, memory: Dict,
+    def _ToggleDial_terminal(state: State, memory: Dict,
                              objects: Sequence[Object], params: Array
                              ) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
-
-    def _TurnOffDial_policy(self, state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array
-                            ) -> Action:
-        del memory  # unused
-        dial, = objects
-        dial_pose = np.array([state.get(dial, "pose_x"),
-                              state.get(dial, "pose_y"),
-                              self.dial_button_z])
-        arr = np.r_[dial_pose+params[:-1], params[-1], 1.0].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    @staticmethod
-    def _TurnOffDial_initiable(state: State, memory: Dict,
-                               objects: Sequence[Object], params: Array
-                               ) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _TurnOffDial_terminal(state: State, memory: Dict,
-                              objects: Sequence[Object], params: Array
-                              ) -> bool:
         del state, memory, objects, params  # unused
         return True  # always 1 timestep
 
