@@ -304,6 +304,9 @@ def test_unify_effects_and_options():
     y = cup_type("?y")
     z = cup_type("?z")
     pred0 = Predicate("Pred0", [cup_type, cup_type], lambda s, o: False)
+    param_option0 = ParameterizedOption(
+        "dummy0", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False)
     # Option0(cup0, cup1)
     ground_option_args = (cup0, cup1)
     # Pred0(cup1, cup2) true
@@ -319,7 +322,26 @@ def test_unify_effects_and_options():
         lifted_add_effects,
         ground_delete_effects,
         lifted_delete_effects,
+        param_option0,
+        param_option0,
         ground_option_args,
         lifted_option_args)
+    assert not suc
+    assert not sub
+    # The following test is for an edge case where everything is identical
+    # except for the name of the parameterized option. We do not want to
+    # unify in this case.
+    param_option1 = ParameterizedOption(
+        "dummy1", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False)
+    suc, sub = unify_effects_and_options(
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        param_option0,
+        param_option1,
+        (cup0, cup1),
+        (cup0, cup1))
     assert not suc
     assert not sub
