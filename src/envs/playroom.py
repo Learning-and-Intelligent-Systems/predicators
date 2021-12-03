@@ -269,7 +269,8 @@ class PlayroomEnv(BlocksEnv):
                action: Optional[Action] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
-        fig, ax = plt.subplots(1, 1, figsize=(20, 8))
+        fig = plt.figure(figsize=(20, 16))
+        ax = plt.subplot(211)
         ax.set_xlabel("x", fontsize=24)
         ax.set_ylabel("y", fontsize=24)
         ax.set_xlim((self.x_lb - 5, self.x_ub + 5))
@@ -351,6 +352,42 @@ class PlayroomEnv(BlocksEnv):
         robot_arrow = patches.Arrow(robot_x, robot_y, dx, dy,
             edgecolor='black', facecolor='black', width=0.5)
         ax.add_patch(robot_arrow)
+
+        # Concatenate with table view of blocks
+        xz_ax, yz_ax = plt.subplot(223), plt.subplot(224)
+        xz_ax.set_xlabel("x", fontsize=24)
+        xz_ax.set_ylabel("z", fontsize=24)
+        xz_ax.set_xlim((self.table_x_lb - 2*r, self.table_x_ub + 2*r))
+        xz_ax.set_ylim((self.table_height, r * 16 + 0.1))
+        yz_ax.set_xlabel("y", fontsize=24)
+        yz_ax.set_ylabel("z", fontsize=24)
+        yz_ax.set_xlim((self.table_y_lb - 2*r, self.table_y_ub + 2*r))
+        yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
+
+        colors = ["red", "blue", "green", "orange", "purple", "yellow",
+                  "brown", "cyan"]
+        blocks = [o for o in state if o.is_instance(self._block_type)]
+        held = "None"
+        for i, block in enumerate(sorted(blocks)):
+            x = state.get(block, "pose_x")
+            y = state.get(block, "pose_y")
+            z = state.get(block, "pose_z")
+            c = colors[i % len(colors)]  # block color
+            if state.get(block, "held") > self.held_tol:
+                assert held == "None"
+                held = f"{block.name} ({c})"
+
+            # xz axis
+            xz_rect = patches.Rectangle(
+                (x - r, z - r), 2*r, 2*r, zorder=-y,
+                linewidth=1, edgecolor='black', facecolor=c)
+            xz_ax.add_patch(xz_rect)
+
+            # yz axis
+            yz_rect = patches.Rectangle(
+                (y - r, z - r), 2*r, 2*r, zorder=-x,
+                linewidth=1, edgecolor='black', facecolor=c)
+            yz_ax.add_patch(yz_rect)
 
         plt.suptitle(f"Held: {held}, Fingers: {fingers}", fontsize=36)
         plt.tight_layout()
