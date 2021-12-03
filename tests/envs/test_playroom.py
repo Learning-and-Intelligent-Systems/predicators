@@ -263,10 +263,17 @@ def test_playroom_options():
     env = PlayroomEnv()
     env.seed(123)
     robot_type = [t for t in env.types if t.name == "robot"][0]
+    block_type = [t for t in env.types if t.name == "block"][0]
     door_type = [t for t in env.types if t.name == "door"][0]
     dial_type = [t for t in env.types if t.name == "dial"][0]
-    LightOff = [p for p in env.predicates if p.name == "LightOff"][0]
+    On = [p for p in env.predicates if p.name == "On"][0]
+    OnTable = [p for p in env.predicates if p.name == "OnTable"][0]
+    Clear = [p for p in env.predicates if p.name == "Clear"][0]
+    LightOn = [p for p in env.predicates if p.name == "LightOn"][0]
     robot = robot_type("robby")
+    block0 = block_type("block0")
+    block1 = block_type("block1")
+    block2 = block_type("block2")
     door1 = door_type("door1")
     door2 = door_type("door2")
     door3 = door_type("door3")
@@ -276,9 +283,10 @@ def test_playroom_options():
     dial = dial_type("dial")
     task = env.get_train_tasks()[0]
     state = task.init
-    print("START STATE:", state)
-    
     # Run through a specific plan of options.
+    Pick = [o for o in env.options if o.name == "Pick"][0]
+    Stack = [o for o in env.options if o.name == "Stack"][0]
+    PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
     Move = [o for o in env.options if o.name == "Move"][0]
     OpenDoor = [o for o in env.options if o.name == "OpenDoor"][0]
     CloseDoor = [o for o in env.options if o.name == "CloseDoor"][0]
@@ -286,13 +294,18 @@ def test_playroom_options():
     TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
     option_sequence = [
         Move.ground([robot], [2.0, 30.0, 0.0]),
-        OpenDoor.ground([door1], [0.0, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door2], [0.0, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door3], [0.0, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door4], [0.0, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door5], [0.0, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door6], [0.0, 0.0, 0.0, 0.0]),
-        CloseDoor.ground([door6], [0.0, 0.0, 0.0, 1.0]),
+        Move.ground([robot], [2.0, 30.0, 0.0]),
+        Pick.ground([block1], [0.0, 0.0, 0.0, 0.35]),
+        PutOnTable.ground([], [0.1, 0.5, 0.0]),  # put block1 on table
+        Pick.ground([block2], [0.0, 0.0, 0.0, -0.15]),
+        Stack.ground([block1], [0.0, 0.0, 1.0, 0.0]),  # stack block2 on block1
+        OpenDoor.ground([door1], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door2], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door3], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door4], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door5], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door6], [-0.2, 0.0, 0.0, 0.0]),
+        CloseDoor.ground([door6], [0.2, 0.0, 0.0, 1.0]),
         TurnOffDial.ground([dial], [0.0, 0.0, 0.0, 0.0]),
         TurnOnDial.ground([dial], [-0.2, 0.0, 0.0, 0.0])
     ]
@@ -308,12 +321,17 @@ def test_playroom_options():
         return current_option.policy(s)
     (states, _), video, _ = utils.run_policy_on_task(
         option_policy, task, env.simulate, env.predicates,
-        20, make_video, env.render)
+        14, make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
     final_atoms = utils.abstract(states[-1], env.predicates)
-    assert LightOff([dial]) in final_atoms
+    assert LightOn([dial]) in final_atoms
+    assert OnTable([block1]) in final_atoms
+    assert On([block2, block1]) in final_atoms
+    assert Clear([block0]) in final_atoms
+    assert Clear([block1]) not in final_atoms
+    assert Clear([block2]) in final_atoms
 
 def test_playroom_action_sequence_video():
     """Test to sanity check rendering.
