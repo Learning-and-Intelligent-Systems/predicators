@@ -5,7 +5,8 @@ import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    StateActionTrajectory, Segment, Partition, Object, GroundAtomTrajectory
+    StateActionTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
+    DefaultOption, ParameterizedOption
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -129,18 +130,23 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     # Partition the segments according to common effects.
     params: List[Sequence[Variable]] = []
     option_vars: List[Tuple[Variable, ...]] = []
+    parameterized_options: List[ParameterizedOption] = []
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[Partition] = []
     for segment in segments:
         if segment.has_option():
-            segment_option_objs = tuple(segment.get_option().objects)
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
         else:
+            segment_param_option = DefaultOption.parent
             segment_option_objs = tuple()
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects.
             # Note that both add and delete effects must unify,
             # and also the objects that are arguments to the options.
+            part_param_option = parameterized_options[i]
             part_option_vars = option_vars[i]
             part_add_effects = add_effects[i]
             part_delete_effects = delete_effects[i]
@@ -149,6 +155,8 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                 frozenset(part_add_effects),
                 frozenset(segment.delete_effects),
                 frozenset(part_delete_effects),
+                segment_param_option,
+                part_param_option,
                 segment_option_objs,
                 part_option_vars)
             if suc:
@@ -167,6 +175,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                          for i, o in enumerate(objects_lst)]
             sub = dict(zip(objects_lst, variables))
             params.append(variables)
+            parameterized_options.append(segment_param_option)
             option_vars.append(tuple(sub[o] for o in segment_option_objs))
             add_effects.append({atom.lift(sub) for atom
                                 in segment.add_effects})
@@ -234,13 +243,18 @@ def unify_effects_and_options(
         lifted_add_effects: FrozenSet[LiftedAtom],
         ground_delete_effects: FrozenSet[GroundAtom],
         lifted_delete_effects: FrozenSet[LiftedAtom],
-        ground_option_args: Tuple[Object, ...],
-        lifted_option_args: Tuple[Variable, ...],
+        ground_param_option: ParameterizedOption,
+        lifted_param_option: ParameterizedOption,
+        ground_option_args: Tuple[Object,...],
+        lifted_option_args: Tuple[Variable,...]
 ) -> Tuple[bool, ObjToVarSub]:
     """Wrapper around utils.unify() that handles option arguments, add effects,
     and delete effects. Changes predicate names so that all are treated
     differently by utils.unify().
     """
+    # Can't unify if the parameterized options are different.
+    if ground_param_option != lifted_param_option:
+        return False, {}
     ground_opt_arg_pred = Predicate("OPT-ARGS",
                                     [a.type for a in ground_option_args],
                                     _classifier=lambda s, o: False)  # dummy
