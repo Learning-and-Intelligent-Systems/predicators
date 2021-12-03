@@ -9,6 +9,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
+from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src import utils
 
 
@@ -76,8 +77,10 @@ def test_count_positives_for_ops():
         # Test false positive.
         (states, actions, [{not_on([cup, plate])}, set()]),
     ]
+    segments = [seg for traj in pruned_atom_data
+                for seg in segment_trajectory(traj)]
 
-    num_true, num_false = _count_positives_for_ops(strips_ops, pruned_atom_data)
+    num_true, num_false = _count_positives_for_ops(strips_ops, segments)
     assert num_true == 1
     assert num_false == 1
 
