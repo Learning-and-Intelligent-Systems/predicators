@@ -245,8 +245,8 @@ def unify_effects_and_options(
         lifted_delete_effects: FrozenSet[LiftedAtom],
         ground_param_option: ParameterizedOption,
         lifted_param_option: ParameterizedOption,
-        ground_option_args: Tuple[Object,...],
-        lifted_option_args: Tuple[Variable,...]
+        ground_option_args: Tuple[Object, ...],
+        lifted_option_args: Tuple[Variable, ...]
 ) -> Tuple[bool, ObjToVarSub]:
     """Wrapper around utils.unify() that handles option arguments, add effects,
     and delete effects. Changes predicate names so that all are treated
