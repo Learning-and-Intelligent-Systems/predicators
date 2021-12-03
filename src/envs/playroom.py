@@ -78,26 +78,27 @@ class PlayroomEnv(BlocksEnv):
             "LightOff", [self._dial_type], self._LightOff_holds)
         # Options
         self._Pick = ParameterizedOption(
-            # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z]
-            "Pick", types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (3,)),
+            # variables: [object to pick]
+            # params: [delta x, delta y, delta z, rotation]
+            "Pick", types=[self._block_type],
+            params_space=Box(-1, 1, (4,)),
             _policy=self._Pick_policy,
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
         self._Stack = ParameterizedOption(
-            # variables: [robot, object on which to stack currently-held-object]
-            # params: [delta x, delta y, delta z]
-            "Stack", types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (3,)),
+            # variables: [object on which to stack currently-held-object]
+            # params: [delta x, delta y, delta z, rotation]
+            "Stack", types=[self._block_type],
+            params_space=Box(-1, 1, (4,)),
             _policy=self._Stack_policy,
             _initiable=self._Stack_initiable,
             _terminal=self._Stack_terminal)
         self._PutOnTable = ParameterizedOption(
-            # variables: [robot]
-            # params: [x, y] (normalized coordinates on the table surface)
-            "PutOnTable", types=[self._robot_type],
-            params_space=Box(0, 1, (2,)),
+            # variables: none
+            # params: [x, y, rotation] (normalized coordinates on the table surface)
+            "PutOnTable", types=[],
+            params_space=Box(low=np.array([0.0, 0.0, -1.0]),
+                             high=np.array([1.0, 1.0, 1.0])),
             _policy=self._PutOnTable_policy,
             _initiable=self._PutOnTable_initiable,
             _terminal=self._PutOnTable_terminal)
@@ -523,12 +524,11 @@ class PlayroomEnv(BlocksEnv):
                      objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation
         del memory  # unused
-        robot, block = objects
+        block, = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
-        rotation = state.get(robot, "rotation")
-        arr = np.r_[block_pose+params, rotation, 0.0].astype(np.float32)
+        arr = np.r_[block_pose+params[:-1], params[-1], 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -536,27 +536,24 @@ class PlayroomEnv(BlocksEnv):
                       objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation
         del memory  # unused
-        robot, block = objects
+        block, = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
-        rotation = state.get(robot, "rotation")
-        arr = np.r_[block_pose+params, rotation, 1.0].astype(np.float32)
+        arr = np.r_[block_pose+params[:-1], params[-1], 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _PutOnTable_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation, table bounds
-        del memory  # unused
-        robot, = objects
+        del state, memory, objects  # unused
         # Un-normalize parameters to actual table coordinates
-        x_norm, y_norm = params
+        x_norm, y_norm = params[:-1]
         x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
         y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
         z = self.table_height + 0.5*self.block_size
-        rotation = state.get(robot, "rotation")
-        arr = np.array([x, y, z, rotation, 1.0], dtype=np.float32)
+        arr = np.array([x, y, z, params[-1], 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
