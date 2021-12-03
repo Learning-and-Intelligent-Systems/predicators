@@ -26,6 +26,8 @@ class ClutteredTableEnv(BaseEnv):
             "HandEmpty", [], self._HandEmpty_holds)
         self._Holding = Predicate(
             "Holding", [self._can_type], self._Holding_holds)
+        self._Untrashed = Predicate(
+            "Untrashed", [self._can_type], self._Untrashed_holds)
         # Options
         self._Grasp = ParameterizedOption(
             "Grasp", [self._can_type], params_space=Box(0, 1, (4,)),
@@ -115,7 +117,7 @@ class ClutteredTableEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._HandEmpty, self._Holding}
+        return {self._HandEmpty, self._Holding, self._Untrashed}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -227,6 +229,11 @@ class ClutteredTableEnv(BaseEnv):
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         can, = objects
         return state.get(can, "is_grasped") > 0.5
+
+    @staticmethod
+    def _Untrashed_holds(state: State, objects: Sequence[Object]) -> bool:
+        can, = objects
+        return state.get(can, "is_trashed") < 0.5
 
     @staticmethod
     def _Grasp_policy(state: State, memory: Dict, objects: Sequence[Object],

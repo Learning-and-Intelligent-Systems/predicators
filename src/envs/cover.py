@@ -408,7 +408,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         for i in range(CFG.cover_num_targets):
             self._targets.append(Object(f"target{i}", self._target_type))
         self._robot = Object("robby", self._robot_type)
-        # Override the original options to make them multi-step
+        # Override the original options to make them multi-step.
         self._Pick = ParameterizedOption(
             "Pick", types=[self._block_type],
             params_space=Box(-0.1, 0.1, (1,)),

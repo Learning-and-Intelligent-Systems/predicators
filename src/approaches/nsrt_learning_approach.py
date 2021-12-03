@@ -54,6 +54,6 @@ class NSRTLearningApproach(TAMPApproach):
         with open(f"{save_path}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
         print("\n\nLoaded NSRTs:")
-        for nsrt in self._nsrts:
+        for nsrt in sorted(self._nsrts):
             print(nsrt)
         print()

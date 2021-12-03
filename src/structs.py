@@ -9,6 +9,7 @@ from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
+from tabulate import tabulate
 
 
 @dataclass(frozen=True, order=True)
@@ -171,6 +172,25 @@ class State:
                 return False
         return True
 
+    def pretty_str(self) -> str:
+        """Display the state in a nice human-readable format.
+        """
+        type_to_table : Dict[Type, List[List[str]]] = {}
+        for obj in self:
+            if obj.type not in type_to_table:
+                type_to_table[obj.type] = []
+            type_to_table[obj.type].append([obj.name] + \
+                                            list(map(str, self[obj])))
+        table_strs = []
+        for t in sorted(type_to_table):
+            headers = ["type: " + t.name] + list(t.feature_names)
+            table_strs.append(tabulate(type_to_table[t], headers=headers))
+        ll = max(len(line) for table in table_strs
+                 for line in table.split("\n"))
+        prefix = "#" * (ll//2 - 3) + " STATE " + "#" * (ll - ll//2 - 4) + "\n"
+        suffix = "\n" + "#" * ll+ "\n"
+        return prefix + "\n\n".join(table_strs) + suffix
+
 
 DefaultState = State({})
 
@@ -190,9 +210,6 @@ class Predicate:
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
-        assert len(entities) == self.arity
-        for ent, pred_type in zip(entities, self.types):
-            assert ent.is_instance(pred_type)
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -247,6 +264,11 @@ class _Atom:
     """
     predicate: Predicate
     entities: Sequence[_TypedEntity]
+
+    def __post_init__(self) -> None:
+        assert len(self.entities) == self.predicate.arity
+        for ent, pred_type in zip(self.entities, self.predicate.types):
+            assert ent.is_instance(pred_type)
 
     @property
     def _str(self) -> str:
@@ -553,7 +575,7 @@ class NSRT:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        return f"""NSRT-{self.name}:
     Parameters: {self.parameters}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
@@ -577,6 +599,14 @@ class NSRT:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, NSRT)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, NSRT)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, NSRT)
+        return str(self) > str(other)
 
     def ground(self, objects: Sequence[Object]) -> _GroundNSRT:
         """Ground into a _GroundNSRT, given objects.
@@ -623,7 +653,7 @@ class _GroundNSRT:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        return f"""GroundNSRT-{self.name}:
     Parameters: {self.objects}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
@@ -725,6 +755,9 @@ class Segment:
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DefaultOption)
 
+    def __post_init__(self) -> None:
+        assert len(self.states) == len(self.actions) + 1
+
     @property
     def states(self) -> List[State]:
         """States in the trajectory.
@@ -769,17 +802,6 @@ class Segment:
         """
         self._option = option
 
-    def set_option_from_trajectory(self) -> None:
-        """Look up the option from the trajectory. Make sure consistent.
-        """
-        for i, act in enumerate(self.trajectory[1]):
-            if i == 0:
-                option = act.get_option()
-            else:
-                assert option == act.get_option()
-        self.set_option(option)
-        assert self.has_option()
-
 
 @dataclass(eq=False)
 class Partition:
@@ -816,8 +838,9 @@ class Partition:
         return {a.lift(sub) for a in seg.delete_effects}
 
     @cached_property
-    def option_spec(self) -> Tuple[ParameterizedOption, List[Variable]]:
-        """Get the parameterized option and option vars for this partition.
+    def option_spec(self) -> OptionSpec:
+        """Get a tuple of (the parameterized option, the option vars)
+        for this partition. This tuple is called an option spec.
         """
         seg, sub = self._exemplar
         assert seg.has_option()
@@ -849,6 +872,7 @@ class Partition:
 # Convenience higher-order types useful throughout the code
 StateActionTrajectory = Tuple[List[State], List[Action]]
 OptionTrajectory = Tuple[List[State], List[_Option]]
+OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 Dataset = List[StateActionTrajectory]
 GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]

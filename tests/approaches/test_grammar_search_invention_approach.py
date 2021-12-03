@@ -5,7 +5,7 @@ import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateGrammar, _count_positives_for_ops, _create_grammar, \
-    _halving_constant_generator
+    _halving_constant_generator, _ForallClassifier
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
@@ -40,7 +40,8 @@ def test_predicate_grammar():
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
     candidates = single_ineq_grammar.generate(max_num=4)
     assert str(sorted(candidates)) == \
-        "[(0.pose<=0.847), (0.pose>=0.847), (0.width<=2.33), (0.width>=2.33)]"
+        ("[((0:block).pose<=2.33), ((0:block).pose>=2.33), "
+         "((0:block).width<=19.0), ((0:block).width>=19.0)]")
 
 
 def test_count_positives_for_ops():
@@ -88,3 +89,21 @@ def test_halving_constant_generator():
     generator = _halving_constant_generator(0., 1.)
     for i, x in zip(range(len(expected_sequence)), generator):
         assert abs(expected_sequence[i] - x) < 1e-6
+
+
+def test_forall_classifier():
+    """Tests for _ForallClassifier().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    pred = Predicate("Pred", [cup_type],
+        lambda s, o: s.get(o[0], "feat1") > 0.5)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    state0 = State({cup1: [0.], cup2: [0.]})
+    state1 = State({cup1: [0.], cup2: [1.]})
+    state2 = State({cup1: [1.], cup2: [1.]})
+    classifier = _ForallClassifier(pred)
+    assert not classifier(state0, [])
+    assert not classifier(state1, [])
+    assert classifier(state2, [])
+    assert str(classifier) == "Forall[0:cup_type].[Pred(0)]"

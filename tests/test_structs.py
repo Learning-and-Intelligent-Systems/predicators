@@ -147,6 +147,21 @@ def test_state():
                     obj4: [8, 9, 10],
                     obj9: [11, 12, 13]})
     assert not state.allclose(state2)  # obj2 is extra
+    # Test pretty_str
+    assert state2.pretty_str() == """################# STATE ################
+type: type1      feat1    feat2
+-------------  -------  -------
+obj3                 1      122
+obj7                 3        4
+
+type: type2      feat3    feat4    feat5
+-------------  -------  -------  -------
+obj1                 5        6        7
+obj2                 5        6        7
+obj4                 8        9       10
+obj9                11       12       13
+########################################
+"""
     # Test including simulator_state
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"
@@ -439,7 +454,7 @@ def test_nsrts():
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                 delete_effects, parameterized_option, [], sampler)
-    assert str(nsrt) == repr(nsrt) == """Pick:
+    assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
@@ -455,7 +470,7 @@ def test_nsrts():
     # _GroundNSRT
     ground_nsrt = nsrt.ground([cup, plate])
     assert isinstance(ground_nsrt, _GroundNSRT)
-    assert str(ground_nsrt) == repr(ground_nsrt) == """Pick:
+    assert str(ground_nsrt) == repr(ground_nsrt) == """GroundNSRT-Pick:
     Parameters: [cup:cup_type, plate:plate_type]
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
@@ -468,6 +483,8 @@ def test_nsrts():
     # Test less than comparison for grounded options
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
                  delete_effects, parameterized_option, [], sampler)
+    assert nsrt2 > nsrt4
+    assert nsrt4 < nsrt2
     ground_nsrt4 = nsrt4.ground([cup, plate])
     assert ground_nsrt4 < ground_nsrt2
     assert ground_nsrt2 > ground_nsrt4
@@ -573,7 +590,7 @@ def test_segment():
     assert segment.add_effects == {not_on([cup, plate])}
     assert segment.delete_effects == {on([cup, plate])}
     assert not segment.has_option()
-    segment.set_option_from_trajectory()
+    segment.set_option(option)
     assert segment.has_option()
     assert segment.get_option() == option
 
@@ -621,4 +638,3 @@ def test_partition():
     with pytest.raises(AssertionError):
         # Effects don't match.
         partition.add((segment3, objtovar))
-    
