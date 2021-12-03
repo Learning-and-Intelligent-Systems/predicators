@@ -14,7 +14,8 @@ from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator
+    Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
+    Segment
 from predicators.src.settings import CFG
 
 
@@ -306,7 +307,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             strips_ops, _ = learn_strips_operators(segments, verbose=False)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
-                _count_positives_for_ops(strips_ops, pruned_atom_data)
+                _count_positives_for_ops(strips_ops, segments)
             # Also add a size penalty.
             op_size = _get_operators_size(strips_ops)
             # Also add a penalty based on predicate complexity.
@@ -363,27 +364,27 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 
 def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
-                             pruned_atom_data: List[GroundAtomTrajectory]
+                             segments: List[Segment]
                              ) -> Tuple[int, int]:
     """Returns num true positives, num false positives.
     """
     num_true_positives = 0
     num_false_positives = 0
-    for (states, _, atom_sequence) in pruned_atom_data:
-        objects = set(states[0])
+    for segment in segments:
+        objects = set(segment.states[0])
         ground_ops = [o for op in strips_ops
                       for o in utils.all_ground_operators(op, objects)]
-        for i in range(len(atom_sequence)-1):
-            s = atom_sequence[i]
-            ns = atom_sequence[i+1]
-            for ground_op in ground_ops:
-                if not ground_op.preconditions.issubset(s):
-                    continue
-                if ground_op.add_effects == ns - s and \
-                   ground_op.delete_effects == s - ns:
-                    num_true_positives += 1
-                else:
-                    num_false_positives += 1
+        covered_by_some_op = False
+        for ground_op in ground_ops:
+            if not ground_op.preconditions.issubset(segment.init_atoms):
+                continue
+            if ground_op.add_effects == segment.add_effects and \
+               ground_op.delete_effects == segment.delete_effects:
+                covered_by_some_op = True
+            else:
+                num_false_positives += 1
+        if covered_by_some_op:
+            num_true_positives += 1
     return num_true_positives, num_false_positives
 
 
