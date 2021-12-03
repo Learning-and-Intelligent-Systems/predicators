@@ -39,7 +39,6 @@ class GlobalSettings:
 
     # SeSamE parameters
     propagate_failures = True
-    max_samples_per_step = 10
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
 
@@ -47,6 +46,13 @@ class GlobalSettings:
     save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
+
+    # dataset parameters
+    offline_data_planning_timeout = 500  # for learning-based approaches, the
+                                         # data collection timeout for planning
+    offline_data_num_replays = 500  # for learning-based approaches, the
+                                    # number of replays used when the data
+                                    # generation method is data+replays
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
@@ -56,6 +62,7 @@ class GlobalSettings:
 
     # option learning parameters
     do_option_learning = False  # if False, uses ground truth options
+    option_learner = "oracle"  # only used if do_option_learning is True
 
     # sampler learning parameters
     do_sampler_learning = True  # if False, uses random samplers
@@ -94,7 +101,7 @@ class GlobalSettings:
     grammar_search_false_pos_weight = 1
     grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
-    grammar_search_grammar_name = "single_feat_ineqs"
+    grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
 
     @staticmethod
@@ -115,6 +122,7 @@ class GlobalSettings:
                 "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "painting": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -127,6 +135,7 @@ class GlobalSettings:
                 "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
+                "painting": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -140,6 +149,7 @@ class GlobalSettings:
                 "cover_multistep_options": 100,
                 "cluttered_table": 25,
                 "blocks": 25,
+                "painting": 100,
                 "playroom": 25,
                 "behavior": 100,
             })[args["env"]],
@@ -152,35 +162,27 @@ class GlobalSettings:
                 "cover_multistep_options": "default",
                 "cluttered_table": "default",
                 "blocks": "default",
+                "painting": "default",
+            })[args["env"]],
+
+            max_samples_per_step=defaultdict(int, {
+                "cover": 10,
+                "cover_typed_options": 10,
+                "cover_hierarchical_types": 10,
+                "cover_multistep_options": 10,
+                "cluttered_table": 10,
+                "blocks": 10,
+                "painting": 1,
+                "playroom": 10,
+                "behavior": 10,
             })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
-                "trivial_learning": "demo",
                 "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
                 "iterative_invention": "demo+replay",
                 "grammar_search_invention": "demo+replay",
-            })[args["approach"]],
-
-            # For learning-based approaches, the data collection timeout
-            # used for planning.
-            offline_data_planning_timeout=defaultdict(int, {
-                "trivial_learning": 500,
-                "nsrt_learning": 500,
-                "interactive_learning": 500,
-                "iterative_invention": 500,
-                "grammar_search_invention": 500,
-            })[args["approach"]],
-
-            # For learning-based approaches, the number of replays used
-            # when the data generation method is data+replays.
-            offline_data_num_replays=defaultdict(int, {
-                "trivial_learning": 10,
-                "nsrt_learning": 10,
-                "interactive_learning": 10,
-                "iterative_invention": 500,
-                "grammar_search_invention": 500,
             })[args["approach"]],
         )
 
