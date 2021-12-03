@@ -95,7 +95,7 @@ class PlayroomEnv(BlocksEnv):
             _terminal=self._Stack_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: none
-            # params: [x, y, rotation] (normalized coordinates on the table surface)
+            # params: [x, y, rotation] (normalized coords on table surface)
             "PutOnTable", types=[],
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
