@@ -2,6 +2,7 @@
 """
 
 import functools
+import itertools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
@@ -202,6 +203,10 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     delete_effects = [delete_effects[i] for i in kept_idxs]
     partitions = [partitions[i] for i in kept_idxs]
 
+    # Add ForallNot predicates to partitions.
+    for p in partitions:
+        _add_forallnots(p)
+
     # Learn preconditions.
     preconds = [_learn_preconditions(p) for p in partitions]
 
@@ -217,6 +222,50 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         ops.append(op)
 
     return ops, partitions
+
+
+def _add_forallnots(partition: Partition) -> None:
+    # Create all possible ForallNot predicates using the predicates and
+    # variables in the partition.
+    predicates = set()
+    variables = set()
+    for i, (segment, sub) in enumerate(partition):
+        segment_predicates = {atom.predicate \
+            for atom in segment.init_atoms | segment.final_atoms}
+        predicates.update(segment_predicates)
+        segment_variables = set(sub.values())
+        if i == 0:
+            variables = segment_variables
+        assert variables == segment_variables
+    forallnot_predicates = set()
+    for predicate in predicates:
+        for num_free_indices in range(predicate.arity):
+            for free_indices in itertools.combinations(range(predicate.arity),
+                                                       num_free_indices):
+                forallnot_predicate = utils.create_forall_not_predicate(
+                    predicate, set(free_indices))
+                forallnot_predicates.add(forallnot_predicate)
+    # Abstract the segments in the partition. For the free variables,
+    # only instantiate the predicate for objects that appear in the
+    # segment's ObjToVarSub. This is an optimization that saves us
+    # from having to quantify over all objects in the state, and 
+    # this optimization is the reason that we add the forallnots here
+    # rather than as a preprocessing step to the whole learning pipeline.
+    for segment, sub in partition:
+        # Initially assume that all forallnot predicates appear in the
+        # segment; remove as we find counterexamples. This process is
+        # why we're specifically doing "forallnot" as opposed to "forall".
+        segment_forall_not_atoms = set()
+        for pred in forallnot_predicates:
+            # Get all possible groundings using the relevant objects.
+            segment_objects = set(sub.keys())
+            for choice in utils.get_object_combinations(segment_objects,
+                                                        pred.types):
+                segment_forall_not_atoms.add(GroundAtom(pred, choice))
+        import ipdb; ipdb.set_trace()
+
+
+
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:

@@ -347,6 +347,27 @@ def get_random_object_combination(
             for t in types]
 
 
+def create_forall_not_predicate(predicate: Predicate, free_indices: Set[int]
+                                ) -> Predicate:
+    """Return a version of the predicate that quantifies out all
+    variables except for the free indices, and negates the original.
+
+    For example, if predicate is On(?x, ?y), then
+      - create_forall_not_predicate(., set()) == ForAll ?x, ?y. not On(?x, ?y)
+      - create_forall_not_predicate(., {0}) == ForAll ?y. not On(?x, ?y)
+      - create_forall_not_predicate(., {1}) == ForAll ?x. not On(?x, ?y)
+    """
+    assert free_indices.issubset(set(range(predicate.arity)))
+    quantified_indices = set(range(predicate.arity)) - free_indices
+    free_types = [predicate.types[i] for i in free_indices]
+    quantified_types = [predicate.types[i] for i in free_indices]
+    index_str = ",".join(map(str, quantified_indices))
+    name = "FORALL-NOT-" + index_str + "-" + predicate.name
+    negated_predicate = predicate.get_negation()
+    classifier = functools.partial(negated_predicate.holds, quantified_types)
+    return Predicate(name, free_types, classifier)
+
+
 def find_substitution(super_atoms: Collection[GroundAtom],
                       sub_atoms: Collection[LiftedAtom],
                       allow_redundant: bool = False,
