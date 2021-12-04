@@ -28,6 +28,10 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
 
+    # Add Not and ForallNot predicates to segments.
+    for segment in segments:
+        _add_forallnots(segment, predicates)
+
     # Learn strips operators.
     strips_ops, partitions = learn_strips_operators(segments)
     assert len(strips_ops) == len(partitions)
@@ -205,11 +209,6 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     params = [params[i] for i in kept_idxs]
     partitions = [partitions[i] for i in kept_idxs]
 
-    # Add ForallNot predicates to partitions.
-    for i, p in enumerate(partitions):
-        _add_nots(p)
-        _add_forallnots(p)
-
     # Learn preconditions.
     preconds = [_learn_preconditions(p) for p in partitions]
 
@@ -228,111 +227,75 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
 
     return ops, partitions
 
-
-def _add_nots(partition: Partition) -> None:
-    # Create all possible Not predicates using the predicates and
-    # variables in the partition.
-    predicates = set()
-    variables = set()
-    for i, (segment, sub) in enumerate(partition):
-        segment_predicates = {atom.predicate \
-            for atom in segment.init_atoms | segment.final_atoms}
-        predicates.update(segment_predicates)
-        segment_variables = set(sub.values())
-        if i == 0:
-            variables = segment_variables
-        assert variables == segment_variables
-    # Abstract the segments in the partition.
-    for segment, sub in partition:
-        segment_objects = set(sub.keys())
-        for atom_set in [segment.init_atoms, segment.final_atoms]:
-            for predicate in predicates:
-                negated_predicate = predicate.get_negation()
-                all_ground_atoms = utils.all_ground_predicates(predicate,
-                                                               segment_objects)
-                for missing_atom in all_ground_atoms - atom_set:
-                    negated_atom = GroundAtom(negated_predicate,
-                                              missing_atom.objects)
-                    # Useful for debugging:
-                    # print("Adding", negated_atom)
-                    # print("to atom set", atom_set)
-                    atom_set.add(negated_atom)
-
-
-def _add_forallnots(partition: Partition) -> None:
-    # Create all possible ForallNot predicates using the predicates and
-    # variables in the partition.
-    predicates = set()
-    variables = set()
-    for i, (segment, sub) in enumerate(partition):
-        segment_predicates = {atom.predicate \
-            for atom in segment.init_atoms | segment.final_atoms}
-        predicates.update(segment_predicates)
-        segment_variables = set(sub.values())
-        if i == 0:
-            variables = segment_variables
-        assert variables == segment_variables
+def _add_forallnots(segment: Segment, predicates: Set[Predicate]) -> None:
+    # Create all possible ForallNot predicates.
+    objects = {o for atom in segment.add_effects |
+               segment.delete_effects for o in atom.objects}
+    if segment.has_option():
+        objects.update(segment.get_option().objects)
+    objects_lst = sorted(objects)
     forallnot_predicates = set()
     for predicate in predicates:
-        # TODO reconsider...
-        if "NOT-" in predicate.name:
-            continue
-        for num_free_indices in range(predicate.arity):
+        for num_free_indices in range(1, predicate.arity):
             for free_indices in itertools.combinations(range(predicate.arity),
                                                        num_free_indices):
-                set_free_indices = set(free_indices)
+                set_free_indices = frozenset(free_indices)
                 forallnot_predicate = utils.create_forall_not_predicate(
                     predicate, set_free_indices)
-                forallnot_predicates.add((predicate, forallnot_predicate))
-    # Abstract the segments in the partition. For the free variables,
+                forallnot_predicates.add((predicate, set_free_indices,
+                                          forallnot_predicate))
+    # Abstract the segment with the forallnots. For the free variables,
     # only instantiate the predicate for objects that appear in the
     # segment's ObjToVarSub. This is an optimization that saves us
-    # from needing to quantify over all objects in the state. Also note:
-    # this optimization is the reason that we add the forallnots here
-    # rather than as a preprocessing step to the whole learning pipeline.
-    for segment, sub in partition:
-        # Initially assume that all forallnot predicates appear in the
-        # segment; remove as we find counterexamples. This process is
-        # why we're specifically doing "forallnot" as opposed to "forall".
-        segment_forall_not_atoms = {}
-        for predicate, fan_predicate in forallnot_predicates:
-            # Get all possible groundings using the relevant objects.
-            segment_objects = set(sub.keys())
-            for choice in utils.get_object_combinations(segment_objects,
-                                                        fan_predicate.types):
-                forallnot_atom_id = (predicate, frozenset(enumerate(choice)))
-                forall_not_atom = GroundAtom(fan_predicate, choice)
-                segment_forall_not_atoms[forallnot_atom_id] = forall_not_atom
-        new_init_atoms = segment_forall_not_atoms.copy()
-        new_final_atoms = segment_forall_not_atoms.copy()
-        # Find counterexamples and remove forallnots accordingly.
-        for atom_set, new_atoms in [(segment.init_atoms, new_init_atoms),
-                                    (segment.final_atoms, new_final_atoms)]:
-            for atom in atom_set:
-                # Each atom can create a number of counterexamples.
-                # For example, IsBlock(block0) is a counterexample for
-                # FORALL-NOT-0-IsBlock(). More interestingly,
-                # Covers(block0, target0) is a counterexample for
-                # FORALL-NOT-0-Covers(target0), FORALL-NOT-1-Covers(block0),
-                # and FORALL-NOT-0,1-Covers(). In general, every
-                # subset of the atom arguments leads to one counterexample.
-                pred = atom.predicate
-                for k in range(pred.arity+1):
-                    for idxs in itertools.combinations(range(pred.arity), k):
-                        forallnot_atom_id = (pred,
-                            frozenset((i, atom.objects[i]) for i in idxs))
-                        if forallnot_atom_id in new_atoms:
-                            # Useful for debugging:
-                            # print("Removing", new_atoms[forallnot_atom_id])
-                            # print("from atom set", atom_set)
-                            # print("because of ", atom)
-                            del new_atoms[forallnot_atom_id]
-            # Update the atom set in place.
-            # Useful for debugging:
-            # print("Adding", set(new_atoms.values()))
-            # print("to atom set", atom_set)
-            # print("with relevant objects", segment_objects)
-            atom_set.update(new_atoms.values())
+    # from needing to quantify over all objects in the state.
+
+    # Initially assume that all forallnot predicates appear in the
+    # segment; remove as we find counterexamples. This process is
+    # why we're specifically doing "forallnot" as opposed to "forall".
+    segment_forall_not_atoms = {}
+    for predicate, set_free_indices, fan_predicate in forallnot_predicates:
+        # Get all possible groundings using the relevant objects.
+        for choice in utils.get_object_combinations(objects_lst,
+                                                    fan_predicate.types):
+            forallnot_atom_id = (predicate, set_free_indices, tuple(choice))
+            forall_not_atom = GroundAtom(fan_predicate, choice)
+            segment_forall_not_atoms[forallnot_atom_id] = forall_not_atom
+    new_init_atoms = segment_forall_not_atoms.copy()
+    new_final_atoms = segment_forall_not_atoms.copy()
+    # Find counterexamples and remove forallnots accordingly.
+    for atom_set, new_atoms, example_state in [
+        (segment.init_atoms, new_init_atoms, segment.states[0]),
+        (segment.final_atoms, new_final_atoms, segment.states[-1])]:
+        for atom in atom_set:
+            if not set(atom.objects) & set(objects_lst):
+                continue
+            # Covers(block0, target0) is a counterexample for
+            # FORALL-NOT-0-Covers(target0) and FORALL-NOT-1-Covers(block0),
+            pred = atom.predicate
+            for num_free_indices in range(1, pred.arity):
+                for free_indices in itertools.combinations(range(pred.arity),
+                                                           num_free_indices):
+                    set_free_indices = frozenset(free_indices)
+                    free_objs = tuple(o for i, o in enumerate(atom.objects)
+                                      if i in set_free_indices)
+                    forallnot_atom_id = (pred, set_free_indices, free_objs)
+                    if forallnot_atom_id in new_atoms:
+                        # Useful for debugging:
+                        # print("Removing", new_atoms[forallnot_atom_id])
+                        # print("from atom set", atom_set)
+                        # print("because of ", atom)
+                        del new_atoms[forallnot_atom_id]
+        # Update the atom set in place.
+        # Useful for debugging:
+        # print("Adding", set(new_atoms.values()))
+        # print("to atom set", atom_set)
+        # print("with relevant objects", objects_lst)
+
+        # If this becomes slow, we can remove it.
+        for new_atom in new_atoms.values():
+            assert new_atom.predicate.holds(example_state, new_atom.objects)
+
+        atom_set.update(new_atoms.values())
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:

@@ -203,11 +203,11 @@ def _run_low_level_search(
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
                 atoms = utils.abstract(traj[cur_idx], predicates)
-                if atoms == {atom for atom in atoms_sequence[cur_idx]
+                expected_atoms = {atom for atom in atoms_sequence[cur_idx]
                              if atom.predicate.name != _NOT_CAUSES_FAILURE and \
-                              # TODO justify or do better...
-                              "FORALL-NOT" not in atom.predicate.name
-                              }:
+                              # TODO see above
+                              "NOT-" not in atom.predicate.name}
+                if atoms == expected_atoms:
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan

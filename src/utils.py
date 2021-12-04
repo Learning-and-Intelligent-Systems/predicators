@@ -333,7 +333,9 @@ def get_random_object_combination(
             for t in types]
 
 
-def create_forall_not_predicate(predicate: Predicate, free_indices: Set[int]
+@functools.lru_cache(maxsize=None)
+def create_forall_not_predicate(predicate: Predicate,
+                                free_indices: FrozenSet[int]
                                 ) -> Predicate:
     """Return a version of the predicate that quantifies out all
     variables except for the free indices, and negates the original.
