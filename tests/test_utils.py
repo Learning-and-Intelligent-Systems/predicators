@@ -258,11 +258,11 @@ def test_abstract():
     assert len(wrapped) == len(lifted_atoms)
     for atom in wrapped:
         assert atom.predicate.name.startswith("TEST-PREFIX-L-")
-    assert len(atoms) == 3
+    assert len(atoms) == 4
     assert atoms == {pred1([cup, plate1]),
                      pred1([cup, plate2]),
-                     # predicates with duplicate arguments are filtered out
-                     pred2([cup, plate1, plate2])}
+                     pred2([cup, plate1, plate2]),
+                     pred2([cup, plate2, plate2])}
 
 
 def test_powerset():
@@ -417,9 +417,8 @@ def test_get_all_groundings():
         all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
     assert time.time()-start_time < 1, "Should be fast due to caching"
     # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # Pred2 adds on 3 options for plate_var2 (it can't be the same as
-    # plate_var1), bringing the total to 36.
-    assert len(all_groundings) == 36
+    # Pred2 adds on 4 options for plate_var2, bringing the total to 48.
+    assert len(all_groundings) == 48
     for grounding, sub in all_groundings:
         assert len(grounding) == len(lifted_atoms)
         assert len(sub) == 3  # three variables
@@ -431,9 +430,8 @@ def test_get_all_groundings():
         all_groundings = list(utils.get_all_groundings(lifted_atoms, objs))
     assert time.time()-start_time < 1, "Should be fast due to caching"
     # For pred1, there are 12 groundings (3 cups * 4 plates).
-    # Pred2 adds on 4*3 options (plate_var2 and plate_var3 can't be the same),
-    # bringing the total to 12*12.
-    assert len(all_groundings) == 12*12
+    # Pred2 adds on 4*4 options, bringing the total to 12*16.
+    assert len(all_groundings) == 12*16
     for grounding, sub in all_groundings:
         assert len(grounding) == len(lifted_atoms)
         assert len(sub) == 4  # four variables
