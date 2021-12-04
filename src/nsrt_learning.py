@@ -207,6 +207,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
 
     # Add ForallNot predicates to partitions.
     for i, p in enumerate(partitions):
+        _add_nots(p)
         _add_forallnots(p)
 
     # Learn preconditions.
@@ -228,6 +229,36 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     return ops, partitions
 
 
+def _add_nots(partition: Partition) -> None:
+    # Create all possible Not predicates using the predicates and
+    # variables in the partition.
+    predicates = set()
+    variables = set()
+    for i, (segment, sub) in enumerate(partition):
+        segment_predicates = {atom.predicate \
+            for atom in segment.init_atoms | segment.final_atoms}
+        predicates.update(segment_predicates)
+        segment_variables = set(sub.values())
+        if i == 0:
+            variables = segment_variables
+        assert variables == segment_variables
+    # Abstract the segments in the partition.
+    for segment, sub in partition:
+        segment_objects = set(sub.keys())
+        for atom_set in [segment.init_atoms, segment.final_atoms]:
+            for predicate in predicates:
+                negated_predicate = predicate.get_negation()
+                all_ground_atoms = utils.all_ground_predicates(predicate,
+                                                               segment_objects)
+                for missing_atom in all_ground_atoms - atom_set:
+                    negated_atom = GroundAtom(negated_predicate,
+                                              missing_atom.objects)
+                    # Useful for debugging:
+                    # print("Adding", negated_atom)
+                    # print("to atom set", atom_set)
+                    atom_set.add(negated_atom)
+
+
 def _add_forallnots(partition: Partition) -> None:
     # Create all possible ForallNot predicates using the predicates and
     # variables in the partition.
@@ -243,6 +274,9 @@ def _add_forallnots(partition: Partition) -> None:
         assert variables == segment_variables
     forallnot_predicates = set()
     for predicate in predicates:
+        # TODO reconsider...
+        if "NOT-" in predicate.name:
+            continue
         for num_free_indices in range(predicate.arity):
             for free_indices in itertools.combinations(range(predicate.arity),
                                                        num_free_indices):

@@ -165,8 +165,11 @@ def _run_low_level_search(
     plan: List[_Option] = [DefaultOption for _ in skeleton]
     traj: List[State] = [task.init]+[DefaultState for _ in skeleton]
 
-    # TODO: justify or do better...
-    predicates = {p for p in predicates if "FORALL-NOT" not in p.name}
+    # TODO: actually use negated and forall negated predicates here
+    predicates = {p for p in predicates if "NOT-" not in p.name}
+    atoms_sequence = [
+        {a for a in atoms if a.predicate in predicates}
+        for atoms in atoms_sequence]
 
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
