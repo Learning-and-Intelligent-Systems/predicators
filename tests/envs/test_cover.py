@@ -244,25 +244,17 @@ def test_cover_multistep_options():
     # Run through a specific plan of options.
     pick_option = [o for o in env.options if o.name == "Pick"][0]
     place_option = [o for o in env.options if o.name == "Place"][0]
-    option_sequence = [
+    plan = [
         pick_option.ground([block1], [0.0]),
         place_option.ground([target1], [0.0]),
         pick_option.ground([block0], [0.0]),
         place_option.ground([target0], [0.0]),
     ]
-    assert option_sequence[0].initiable(state)
+    assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    def option_policy(s: State) -> Action:
-        current_option = option_sequence[0]
-        if current_option.terminal(s):
-            option_sequence.pop(0)
-            assert len(option_sequence) > 0
-            current_option = option_sequence[0]
-            assert current_option.initiable(s)
-        return current_option.policy(s)
     (states, _), video, _ = utils.run_policy_on_task(
-        option_policy, task, env.simulate, env.predicates,
-        100, make_video, env.render)
+        utils.option_plan_to_policy(plan), task, env.simulate,
+        env.predicates, 100, make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_com.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover

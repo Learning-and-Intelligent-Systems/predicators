@@ -8,7 +8,7 @@ from predicators.src import utils
 from predicators.src.structs import Action, State
 
 def test_playroom():
-    """Tests for PlayroomEnv class: properties and rendering.
+    """Tests for PlayroomEnv class properties.
     """
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
@@ -19,9 +19,10 @@ def test_playroom():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 5
-    assert {pred.name for pred in env.goal_predicates} == {"On", "OnTable"}
-    assert len(env.options) == 3
+    assert len(env.predicates) == 12
+    assert {pred.name for pred in env.goal_predicates} == \
+        {"On", "OnTable", "LightOn", "LightOff"}
+    assert len(env.options) == 8
     assert len(env.types) == 4
     assert env.action_space.shape == (5,)
     assert abs(env.action_space.low[0]-PlayroomEnv.x_lb) < 1e-3
@@ -29,8 +30,9 @@ def test_playroom():
     assert abs(env.action_space.low[1]-PlayroomEnv.y_lb) < 1e-3
     assert abs(env.action_space.high[1]-PlayroomEnv.y_ub) < 1e-3
     assert abs(env.action_space.low[2]) < 1e-3
-    assert abs(env.action_space.low[3]+2) < 1e-3
-    assert abs(env.action_space.high[3]-2) < 1e-3
+    assert abs(env.action_space.high[2]-10) < 1e-3
+    assert abs(env.action_space.low[3]+1) < 1e-3
+    assert abs(env.action_space.high[3]-1) < 1e-3
 
 def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op.
@@ -63,36 +65,36 @@ def test_playroom_failure_cases():
     assert OnTable([block2]) in atoms
     assert On([block1, block0]) in atoms
     # Cannot pick while not facing table
-    act = Action(np.array([11.8, 18, 0.45, 1.7, 0]).astype(np.float32))
+    act = Action(np.array([11.8, 18, 0.45, 0.85, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # No block at this pose, pick fails
-    act = Action(np.array([19, 19, 0.45, -1.5, 0]).astype(np.float32))
+    act = Action(np.array([19, 19, 0.45, -0.75, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # Object not clear, pick fails
-    act = Action(np.array([12.2, 11.8, 0.45, 0.7, 0]).astype(np.float32))
+    act = Action(np.array([12.2, 11.8, 0.45, 0.35, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # Cannot putontable or stack without picking first
-    act = Action(np.array([12.2, 11.8, 5, 0.7, 0.7]).astype(np.float32))
+    act = Action(np.array([12.2, 11.8, 5, 0.35, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
-    act = Action(np.array([19, 14, 0.45, 1.9, 0.8]).astype(np.float32))
+    act = Action(np.array([19, 14, 0.45, 0.95, 0.8]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # Perform valid pick
-    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
+    act = Action(np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block2] != next_state[block2])
@@ -100,27 +102,27 @@ def test_playroom_failure_cases():
     atoms = utils.abstract(state, env.predicates)
     assert OnTable([block2]) not in atoms
     # Cannot pick twice in a row
-    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
+    act = Action(np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto non-clear block
-    act = Action(np.array([12.2, 11.8, 0.8, 0.7, 0.7]).astype(np.float32))
+    act = Action(np.array([12.2, 11.8, 0.8, 0.35, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # Cannot stack onto no block
-    act = Action(np.array([15, 16, 0.8, -1.0, 0.7]).astype(np.float32))
+    act = Action(np.array([15, 16, 0.8, -0.5, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # Cannot stack onto yourself
-    act = Action(np.array([11.8, 18, 1.5, -0.3, 0.7]).astype(np.float32))
+    act = Action(np.array([11.8, 18, 1.5, -0.15, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot put on table when not clear
-    act = Action(np.array([12.2, 11.8, 0.5, 0.7, 0.7]).astype(np.float32))
+    act = Action(np.array([12.2, 11.8, 0.5, 0.35, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
@@ -150,24 +152,24 @@ def test_playroom_simulate_blocks():
             break
     assert robot is not None
     # Perform valid pick of block 1
-    act = Action(np.array([12, 11.8, 0.95, 0.7, 0]).astype(np.float32))
+    act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block1] != next_state[block1])
     state = next_state
     # Perform valid put on table
-    act = Action(np.array([19, 14, 0.45, 1.9, 0.8]).astype(np.float32))
+    act = Action(np.array([19, 14, 0.45, 0.95, 0.8]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[block1] != next_state[block1])
     state = next_state
     # Perform valid pick of block 2
-    act = Action(np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32))
+    act = Action(np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[block2] != next_state[block2])
     state = next_state
     # Perform valid stack
-    act = Action(np.array([12.2, 11.8, 5, 0.7, 0.7]).astype(np.float32))
+    act = Action(np.array([12.2, 11.8, 5, 0.35, 0.7]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[block2] != next_state[block2])
     state = next_state
@@ -207,7 +209,7 @@ def test_playroom_simulate_doors_and_dial():
             assert np.all(state[o] == next_state[o])
     state = next_state
     # Open boring room door
-    act = Action(np.array([29.8, 15, 1, 0, 1]).astype(np.float32))
+    act = Action(np.array([29.8, 15, 3, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[door1] != next_state[door1])
@@ -216,23 +218,23 @@ def test_playroom_simulate_doors_and_dial():
     door_locs = [49.8, 59.8, 79.8, 99.8, 109.8]
     doors = [door2, door3, door4, door5, door6]
     for x, door in zip(door_locs, doors):
-        act = Action(np.array([x, 15, 1, 0, 1]).astype(np.float32))
+        act = Action(np.array([x, 15, 3, 0, 1]).astype(np.float32))
         next_state = env.simulate(state, act)
         assert np.any(state[door] != next_state[door])
         state = next_state
     # Shut door to playroom
-    act = Action(np.array([110.2, 15, 1, 2, 1]).astype(np.float32))
+    act = Action(np.array([110.2, 15, 3, 1, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[door6] != next_state[door6])
     state = next_state
     # Cannot go through closed door
-    act = Action(np.array([105, 15, 1, 2, 1]).astype(np.float32))
+    act = Action(np.array([105, 15, 3, 1, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
     # Turn dial on, facing S
-    act = Action(np.array([125, 15.1, 1, -1, 1]).astype(np.float32))
+    act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     assert np.any(state[dial] != next_state[dial])
     state = next_state
@@ -242,10 +244,10 @@ def test_playroom_simulate_doors_and_dial():
     assert np.any(state[dial] != next_state[dial])
     state = next_state
     # Turn dial on, facing N
-    act = Action(np.array([125, 14.9, 1, 1, 1]).astype(np.float32))
+    act = Action(np.array([125, 14.9, 1, 0.5, 1]).astype(np.float32))
     state = env.simulate(state, act)
     # Turn dial off, facing W
-    act = Action(np.array([125.1, 15, 1, 2, 1]).astype(np.float32))
+    act = Action(np.array([125.1, 15, 1, 1, 1]).astype(np.float32))
     state = env.simulate(state, act)
     # Can't toggle when not facing dial
     act = Action(np.array([125.1, 15, 1, 0, 1]).astype(np.float32))
@@ -260,23 +262,67 @@ def test_playroom_options():
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
+    robot_type = [t for t in env.types if t.name == "robot"][0]
+    block_type = [t for t in env.types if t.name == "block"][0]
+    door_type = [t for t in env.types if t.name == "door"][0]
+    dial_type = [t for t in env.types if t.name == "dial"][0]
+    On = [p for p in env.predicates if p.name == "On"][0]
+    OnTable = [p for p in env.predicates if p.name == "OnTable"][0]
+    Clear = [p for p in env.predicates if p.name == "Clear"][0]
+    LightOn = [p for p in env.predicates if p.name == "LightOn"][0]
+    robot = robot_type("robby")
+    block0 = block_type("block0")
+    block1 = block_type("block1")
+    block2 = block_type("block2")
+    door1 = door_type("door1")
+    door2 = door_type("door2")
+    door3 = door_type("door3")
+    door4 = door_type("door4")
+    door5 = door_type("door5")
+    door6 = door_type("door6")
+    dial = dial_type("dial")
+    task = env.get_train_tasks()[0]
+    state = task.init
+    # Run through a specific plan of options.
     Pick = [o for o in env.options if o.name == "Pick"][0]
     Stack = [o for o in env.options if o.name == "Stack"][0]
     PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
-    block_type = [t for t in env.types if t.name == "block"][0]
-    robot_type = [t for t in env.types if t.name == "robot"][0]
-    block0 = block_type("block0")
-    block1 = block_type("block1")
-    robot = robot_type("robby")
-    task = env.get_train_tasks()[0]
-    state = task.init
-    # Right now this is just for code coverage -- to add more later
-    Pick.ground([robot, block0], np.array(
-        [0, -1, 0], dtype=np.float32)).policy(state)
-    Stack.ground([robot, block1], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
-    PutOnTable.ground([robot], np.array(
-        [0.5, 0.5], dtype=np.float32)).policy(state)
+    Move = [o for o in env.options if o.name == "Move"][0]
+    OpenDoor = [o for o in env.options if o.name == "OpenDoor"][0]
+    CloseDoor = [o for o in env.options if o.name == "CloseDoor"][0]
+    TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
+    TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
+    plan = [
+        Move.ground([robot], [2.0, 30.0, 0.0]),
+        Pick.ground([block1], [0.0, 0.0, 0.0, 0.35]),
+        PutOnTable.ground([], [0.1, 0.5, 0.0]),  # put block1 on table
+        Pick.ground([block2], [0.0, 0.0, 0.0, -0.15]),
+        Stack.ground([block1], [0.0, 0.0, 1.0, 0.0]),  # stack block2 on block1
+        OpenDoor.ground([door1], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door2], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door3], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door4], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door5], [-0.2, 0.0, 0.0, 0.0]),
+        OpenDoor.ground([door6], [-0.2, 0.0, 0.0, 0.0]),
+        CloseDoor.ground([door6], [0.2, 0.0, 0.0, 1.0]),
+        TurnOffDial.ground([dial], [0.0, 0.0, 0.0, 0.0]),
+        TurnOnDial.ground([dial], [-0.2, 0.0, 0.0, 0.0])
+    ]
+    assert plan[0].initiable(state)
+    make_video = False  # Can toggle to true for debugging
+    (states, _), video, _ = utils.run_policy_on_task(
+        utils.option_plan_to_policy(plan), task, env.simulate,
+        env.predicates, 14, make_video, env.render)
+    if make_video:
+        outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    final_atoms = utils.abstract(states[-1], env.predicates)
+    assert LightOn([dial]) in final_atoms
+    assert OnTable([block1]) in final_atoms
+    assert On([block2, block1]) in final_atoms
+    assert Clear([block0]) in final_atoms
+    assert Clear([block1]) not in final_atoms
+    assert Clear([block2]) in final_atoms
 
 def test_playroom_action_sequence_video():
     """Test to sanity check rendering.
@@ -288,16 +334,16 @@ def test_playroom_action_sequence_video():
     task = env.get_train_tasks()[0]
     action_arrs = [
         # Pick up a block
-        np.array([11.8, 18, 0.45, -0.3, 0]).astype(np.float32),
+        np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
         # Move down hallway from left to right and open all doors
-        np.array([29.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([49.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([59.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([79.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([99.8, 15, 1, 0, 1]).astype(np.float32),
-        np.array([109.8, 15, 1, 0, 1]).astype(np.float32),
+        np.array([29.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([49.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([59.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([79.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([99.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([109.8, 15, 3, 0, 1]).astype(np.float32),
         # Shut playroom door
-        np.array([110.2, 15, 1, 2, 1]).astype(np.float32),
+        np.array([110.2, 15, 1, 1, 1]).astype(np.float32),
         # Turn dial on
         np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
     ]
