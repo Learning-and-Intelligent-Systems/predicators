@@ -138,8 +138,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
                 if i != self.free_variable_idx]
 
     def _classify_object(self, s: State, obj: Object) -> bool:
-        for o in utils.get_object_combinations(set(s), self._quantified_types,
-                                               allow_duplicates=True):
+        for o in utils.get_object_combinations(set(s), self._quantified_types):
             o_lst = list(o)
             o_lst.insert(self.free_variable_idx, obj)
             if not self.body.holds(s, o_lst):
