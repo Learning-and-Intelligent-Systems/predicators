@@ -296,28 +296,16 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
     types = [var.type for var in sorted_variables]
     # NOTE: We WON'T use a generator here because that breaks lru_cache.
     result = []
-    # Allow duplicate arguments here because this is across all atoms.
-    # We'll handle within-atom duplicates below.
-    for choice in get_object_combinations(
-            objects, types, allow_duplicates=True):
+    for choice in get_object_combinations(objects, types):
         sub: VarToObjSub = dict(zip(sorted_variables, choice))
-        ground_atoms = set()
-        do_filter = False
-        for atom in atoms:
-            sub_for_atom = [sub[v] for v in atom.variables]
-            if len(sub_for_atom) != len(set(sub_for_atom)):
-                # Any individual atom can't have duplicate arguments.
-                do_filter = True
-            ground_atoms.add(atom.ground(sub))
-        if do_filter:
-            continue
+        ground_atoms = {atom.ground(sub) for atom in atoms}
         result.append((frozenset(ground_atoms), sub))
     return result
 
 
 def get_object_combinations(
-        objects: Collection[Object], types: Sequence[Type],
-        allow_duplicates: bool) -> Iterator[List[Object]]:
+        objects: Collection[Object], types: Sequence[Type]
+        ) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence.
     """
     sorted_objects = sorted(objects)
@@ -329,8 +317,6 @@ def get_object_combinations(
                 this_choices.append(obj)
         choices.append(this_choices)
     for choice in itertools.product(*choices):
-        if not allow_duplicates and len(set(choice)) != len(choice):
-            continue
         yield list(choice)
 
 
@@ -583,8 +569,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """
     atoms = set()
     for pred in preds:
-        for choice in get_object_combinations(list(state), pred.types,
-                                              allow_duplicates=False):
+        for choice in get_object_combinations(list(state), pred.types):
             if pred.holds(state, choice):
                 atoms.add(GroundAtom(pred, choice))
     return atoms
@@ -594,13 +579,10 @@ def all_ground_operators(operator: STRIPSOperator,
                          objects: Collection[Object]
                          ) -> Set[_GroundSTRIPSOperator]:
     """Get all possible groundings of the given operator with the given objects.
-
-    NOTE: Duplicate arguments in ground operators are ALLOWED.
     """
     types = [p.type for p in operator.parameters]
     ground_operators = set()
-    for choice in get_object_combinations(objects, types,
-                                          allow_duplicates=True):
+    for choice in get_object_combinations(objects, types):
         ground_operators.add(operator.ground(tuple(choice)))
     return ground_operators
 
@@ -608,13 +590,10 @@ def all_ground_operators(operator: STRIPSOperator,
 def all_ground_nsrts(
         nsrt: NSRT, objects: Collection[Object]) -> Set[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects.
-
-    NOTE: Duplicate arguments in ground NSRTs are ALLOWED.
     """
     types = [p.type for p in nsrt.parameters]
     ground_nsrts = set()
-    for choice in get_object_combinations(objects, types,
-                                          allow_duplicates=True):
+    for choice in get_object_combinations(objects, types):
         ground_nsrts.add(nsrt.ground(choice))
     return ground_nsrts
 
@@ -627,8 +606,7 @@ def all_ground_predicates(pred: Predicate,
     NOTE: Duplicate arguments in predicates are DISALLOWED.
     """
     return {GroundAtom(pred, choice)
-            for choice in get_object_combinations(objects, pred.types,
-                                                  allow_duplicates=False)}
+            for choice in get_object_combinations(objects, pred.types)}
 
 
 def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
