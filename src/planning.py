@@ -164,6 +164,10 @@ def _run_low_level_search(
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DefaultOption for _ in skeleton]
     traj: List[State] = [task.init]+[DefaultState for _ in skeleton]
+
+    # TODO: justify or do better...
+    predicates = {p for p in predicates if "FORALL-NOT" not in p.name}
+
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
     discovered_failures: List[
@@ -197,7 +201,10 @@ def _run_low_level_search(
                 assert len(traj) == len(atoms_sequence)
                 atoms = utils.abstract(traj[cur_idx], predicates)
                 if atoms == {atom for atom in atoms_sequence[cur_idx]
-                             if atom.predicate.name != _NOT_CAUSES_FAILURE}:
+                             if atom.predicate.name != _NOT_CAUSES_FAILURE and \
+                              # TODO justify or do better...
+                              "FORALL-NOT" not in atom.predicate.name
+                              }:
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan
