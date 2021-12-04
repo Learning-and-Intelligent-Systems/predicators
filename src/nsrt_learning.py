@@ -110,13 +110,14 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             # Include the final state as the end of this segment.
             current_segment_traj[0].append(states[t+1])
             if actions[t].has_option():
-                segment = Segment(current_segment_traj, all_atoms[t],
-                                  all_atoms[t+1], actions[t].get_option())
+                segment = Segment(current_segment_traj, all_atoms[t].copy(),
+                                  all_atoms[t+1].copy(),
+                                  actions[t].get_option())
             else:
                 # If option learning, include the default option here; replaced
                 # during option learning.
                 segment = Segment(current_segment_traj,
-                                  all_atoms[t], all_atoms[t+1])
+                                  all_atoms[t].copy(), all_atoms[t+1].copy())
             segments.append(segment)
             current_segment_traj = ([], [])
     # Don't include the last current segment because it didn't result in
@@ -193,18 +194,19 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     assert len(params) == len(add_effects) == \
            len(delete_effects) == len(partitions)
 
+    # The effects are now stored in the partitions.
+    del add_effects, delete_effects
+
     # Prune partitions with not enough data.
     kept_idxs = []
     for idx, partition in enumerate(partitions):
         if len(partition) >= CFG.min_data_for_nsrt:
             kept_idxs.append(idx)
     params = [params[i] for i in kept_idxs]
-    add_effects = [add_effects[i] for i in kept_idxs]
-    delete_effects = [delete_effects[i] for i in kept_idxs]
     partitions = [partitions[i] for i in kept_idxs]
 
     # Add ForallNot predicates to partitions.
-    for p in partitions:
+    for i, p in enumerate(partitions):
         _add_forallnots(p)
 
     # Learn preconditions.
@@ -214,8 +216,10 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     ops = []
     for i in range(len(params)):
         name = f"Op{i}"
-        op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
-                            delete_effects[i])
+        partition = partitions[i]
+        op = STRIPSOperator(name, params[i], preconds[i],
+                            partition.add_effects,
+                            partition.delete_effects)
         if verbose:
             print("Learned STRIPSOperator:")
             print(op)
@@ -290,6 +294,10 @@ def _add_forallnots(partition: Partition) -> None:
                             # print("because of ", atom)
                             del new_atoms[forallnot_atom_id]
             # Update the atom set in place.
+            # Useful for debugging:
+            # print("Adding", set(new_atoms.values()))
+            # print("to atom set", atom_set)
+            # print("with relevant objects", segment_objects)
             atom_set.update(new_atoms.values())
 
 

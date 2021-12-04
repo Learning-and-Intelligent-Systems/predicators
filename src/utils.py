@@ -345,13 +345,34 @@ def create_forall_not_predicate(predicate: Predicate, free_indices: Set[int]
     """
     assert free_indices.issubset(set(range(predicate.arity)))
     quantified_indices = set(range(predicate.arity)) - free_indices
-    free_types = [predicate.types[i] for i in free_indices]
-    quantified_types = [predicate.types[i] for i in free_indices]
+    ordered_free_indices = sorted(free_indices)
+    ordered_quantified_indices = sorted(quantified_indices)
+    free_types = [predicate.types[i] for i in ordered_free_indices]
     index_str = ",".join(map(str, quantified_indices))
     name = "FORALL-NOT-" + index_str + "-" + predicate.name
-    negated_predicate = predicate.get_negation()
-    classifier = functools.partial(negated_predicate.holds, quantified_types)
+    classifier = functools.partial(_forall_not_classifier, predicate,
+                                   ordered_free_indices,
+                                   ordered_quantified_indices)
     return Predicate(name, free_types, classifier)
+
+
+def _forall_not_classifier(predicate: Predicate,
+                           ordered_free_indices: List[int],
+                           ordered_quantified_indices: List[int],
+                           state: State, objects: Sequence[Object]) -> bool:
+    """Helper for forallnot predicate creation.
+    """
+    assert len(objects) == len(ordered_free_indices)
+    quantified_types = [predicate.types[i] for i in ordered_quantified_indices]
+    idx_to_obj = dict(zip(ordered_free_indices, objects))
+    for choice in get_object_combinations(list(state), quantified_types):
+        choice_idx_to_obj = idx_to_obj.copy()
+        choice_idx_to_obj.update(dict(zip(ordered_quantified_indices, choice)))
+        assert set(choice_idx_to_obj.keys()) == set(range(predicate.arity))
+        choice_objs = [choice_idx_to_obj[i] for i in range(predicate.arity)]
+        if predicate.holds(state, choice_objs):
+            return False
+    return True
 
 
 def find_substitution(super_atoms: Collection[GroundAtom],

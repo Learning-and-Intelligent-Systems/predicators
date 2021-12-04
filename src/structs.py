@@ -823,14 +823,14 @@ class Partition:
         assert len(self.members) > 0, "Partition is empty."
         return self.members[0]
 
-    @cached_property
+    @property
     def add_effects(self) -> Set[LiftedAtom]:
         """Get the lifted add effects for this partition.
         """
         seg, sub = self._exemplar
         return {a.lift(sub) for a in seg.add_effects}
 
-    @cached_property
+    @property
     def delete_effects(self) -> Set[LiftedAtom]:
         """Get the lifted delete effects for this partition.
         """
