@@ -242,30 +242,55 @@ def _add_forallnots(partition: Partition) -> None:
         for num_free_indices in range(predicate.arity):
             for free_indices in itertools.combinations(range(predicate.arity),
                                                        num_free_indices):
+                set_free_indices = set(free_indices)
                 forallnot_predicate = utils.create_forall_not_predicate(
-                    predicate, set(free_indices))
-                forallnot_predicates.add(forallnot_predicate)
+                    predicate, set_free_indices)
+                forallnot_predicates.add((predicate, forallnot_predicate))
     # Abstract the segments in the partition. For the free variables,
     # only instantiate the predicate for objects that appear in the
     # segment's ObjToVarSub. This is an optimization that saves us
-    # from having to quantify over all objects in the state, and 
+    # from needing to quantify over all objects in the state. Also note:
     # this optimization is the reason that we add the forallnots here
     # rather than as a preprocessing step to the whole learning pipeline.
     for segment, sub in partition:
         # Initially assume that all forallnot predicates appear in the
         # segment; remove as we find counterexamples. This process is
         # why we're specifically doing "forallnot" as opposed to "forall".
-        segment_forall_not_atoms = set()
-        for pred in forallnot_predicates:
+        segment_forall_not_atoms = {}
+        for predicate, fan_predicate in forallnot_predicates:
             # Get all possible groundings using the relevant objects.
             segment_objects = set(sub.keys())
             for choice in utils.get_object_combinations(segment_objects,
-                                                        pred.types):
-                segment_forall_not_atoms.add(GroundAtom(pred, choice))
-        import ipdb; ipdb.set_trace()
-
-
-
+                                                        fan_predicate.types):
+                forallnot_atom_id = (predicate, frozenset(enumerate(choice)))
+                forall_not_atom = GroundAtom(fan_predicate, choice)
+                segment_forall_not_atoms[forallnot_atom_id] = forall_not_atom
+        new_init_atoms = segment_forall_not_atoms.copy()
+        new_final_atoms = segment_forall_not_atoms.copy()
+        # Find counterexamples and remove forallnots accordingly.
+        for atom_set, new_atoms in [(segment.init_atoms, new_init_atoms),
+                                    (segment.final_atoms, new_final_atoms)]:
+            for atom in atom_set:
+                # Each atom can create a number of counterexamples.
+                # For example, IsBlock(block0) is a counterexample for
+                # FORALL-NOT-0-IsBlock(). More interestingly,
+                # Covers(block0, target0) is a counterexample for
+                # FORALL-NOT-0-Covers(target0), FORALL-NOT-1-Covers(block0),
+                # and FORALL-NOT-0,1-Covers(). In general, every
+                # subset of the atom arguments leads to one counterexample.
+                pred = atom.predicate
+                for k in range(pred.arity+1):
+                    for idxs in itertools.combinations(range(pred.arity), k):
+                        forallnot_atom_id = (pred,
+                            frozenset((i, atom.objects[i]) for i in idxs))
+                        if forallnot_atom_id in new_atoms:
+                            # Useful for debugging:
+                            # print("Removing", new_atoms[forallnot_atom_id])
+                            # print("from atom set", atom_set)
+                            # print("because of ", atom)
+                            del new_atoms[forallnot_atom_id]
+            # Update the atom set in place.
+            atom_set.update(new_atoms.values())
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:
