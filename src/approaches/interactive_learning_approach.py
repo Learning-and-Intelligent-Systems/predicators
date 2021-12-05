@@ -126,8 +126,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     possible = [state.vec(choice)
                                 for choice in get_object_combinations(
                                                   list(state),
-                                                  pred.types,
-                                                  allow_duplicates=False)]
+                                                  pred.types)]
                     negatives = []
                     for ex in possible:
                         for pos in positive_examples:
