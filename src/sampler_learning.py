@@ -114,8 +114,7 @@ def _create_sampler_data(
                 continue
             var_types = [var.type for var in variables]
             objects = list(state)
-            for grounding in utils.get_object_combinations(
-                    objects, var_types, allow_duplicates=False):
+            for grounding in utils.get_object_combinations(objects, var_types):
                 # If we are currently at the partition that we're learning a
                 # sampler for, and this datapoint matches the actual grounding,
                 # add it to the positive data and continue.
