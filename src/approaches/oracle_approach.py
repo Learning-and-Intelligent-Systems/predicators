@@ -352,7 +352,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(GripperOpen, [robot]),
                      LiftedAtom(OnTable, [obj])}
     add_effects = {LiftedAtom(Holding, [obj]),
-                   LiftedAtom(HoldingTop, [obj, robot])}
+                   LiftedAtom(HoldingTop, [robot])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
     def pickfromtop_sampler(state: State, rng: np.random.Generator,
                             objs: Sequence[Object]) -> Array:
@@ -372,7 +372,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(GripperOpen, [robot]),
                      LiftedAtom(OnTable, [obj])}
     add_effects = {LiftedAtom(Holding, [obj]),
-                   LiftedAtom(HoldingSide, [obj, robot])}
+                   LiftedAtom(HoldingSide, [robot])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
     def pickfromside_sampler(state: State, rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
@@ -475,10 +475,11 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [obj, box, robot]
     option_vars = [robot]
     option = Place
-    preconditions = {LiftedAtom(HoldingTop, [obj, robot])}
+    preconditions = {LiftedAtom(Holding, [obj]),
+                     LiftedAtom(HoldingTop, [robot])}
     add_effects = {LiftedAtom(InBox, [obj, box]),
                    LiftedAtom(GripperOpen, [robot])}
-    delete_effects = {LiftedAtom(HoldingTop, [obj, robot]),
+    delete_effects = {LiftedAtom(HoldingTop, [robot]),
                       LiftedAtom(Holding, [obj]),
                       LiftedAtom(OnTable, [obj])}
     def placeinbox_sampler(state: State, rng: np.random.Generator,
@@ -499,10 +500,11 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [obj, shelf, robot]
     option_vars = [robot]
     option = Place
-    preconditions = {LiftedAtom(HoldingSide, [obj, robot])}
+    preconditions = {LiftedAtom(Holding, [obj]),
+                     LiftedAtom(HoldingSide, [robot])}
     add_effects = {LiftedAtom(InShelf, [obj, shelf]),
                    LiftedAtom(GripperOpen, [robot])}
-    delete_effects = {LiftedAtom(HoldingSide, [obj, robot]),
+    delete_effects = {LiftedAtom(HoldingSide, [robot]),
                       LiftedAtom(Holding, [obj]),
                       LiftedAtom(OnTable, [obj])}
     def placeinshelf_sampler(state: State, rng: np.random.Generator,
