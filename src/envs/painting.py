@@ -69,11 +69,9 @@ class PaintingEnv(BaseEnv):
         self._OnTable = Predicate(
             "OnTable", [self._obj_type], self._OnTable_holds)
         self._HoldingTop = Predicate(
-            "HoldingTop", [self._obj_type, self._robot_type],
-            self._HoldingTop_holds)
+            "HoldingTop", [self._robot_type], self._HoldingTop_holds)
         self._HoldingSide = Predicate(
-            "HoldingSide", [self._obj_type, self._robot_type],
-            self._HoldingSide_holds)
+            "HoldingSide", [self._robot_type], self._HoldingSide_holds)
         self._Holding = Predicate(
             "Holding", [self._obj_type], self._Holding_holds)
         self._IsWet = Predicate(
@@ -500,19 +498,15 @@ class PaintingEnv(BaseEnv):
 
     def _HoldingTop_holds(self, state: State, objects: Sequence[Object]
                           ) -> bool:
-        obj, robot = objects
+        robot, = objects
         rot = state.get(robot, "gripper_rot")
-        if rot < self.top_grasp_thresh:
-            return False
-        return self._Holding_holds(state, [obj])
+        return rot > self.top_grasp_thresh
 
     def _HoldingSide_holds(self, state: State, objects: Sequence[Object]
                            ) -> bool:
-        obj, robot = objects
+        robot, = objects
         rot = state.get(robot, "gripper_rot")
-        if rot > self.side_grasp_thresh:
-            return False
-        return self._Holding_holds(state, [obj])
+        return rot < self.side_grasp_thresh
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
