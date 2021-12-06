@@ -31,7 +31,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         predicates_to_learn = initial_predicates - self._known_predicates
         self._teacher = _Teacher(initial_predicates, predicates_to_learn)
         # All seen data
-        self._dataset: Dataset = []
         self._dataset_with_atoms: List[GroundAtomTrajectory] = []
         # No cheating!
         self._predicates_to_learn = {strip_predicate(p)
