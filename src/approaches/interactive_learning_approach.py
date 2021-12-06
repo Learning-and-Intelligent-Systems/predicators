@@ -22,8 +22,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task]) -> None:
+                 action_space: Box) -> None:
         # Predicates should not be ablated
         assert not CFG.excluded_predicates
         # Only the teacher is allowed to know about the initial predicates
@@ -39,7 +38,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         del initial_predicates
         del predicates_to_learn
         super().__init__(simulator, self._predicates_to_learn, initial_options,
-                         types, action_space, train_tasks)
+                         types, action_space)
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
@@ -48,7 +47,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Stores dataset and corresponding ground atom dataset."""
         self._dataset.extend(self._teacher.generate_data(dataset))
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset,
+                                   train_tasks: List[Task]) -> None:
         self._load_dataset(dataset)
         # Learn predicates and NSRTs
         self._relearn_predicates_and_nsrts()
@@ -57,8 +57,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         for i in range(1, CFG.interactive_num_episodes+1):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
-            index = self._rng.choice(len(self._train_tasks))
-            state = self._train_tasks[index].init
+            index = self._rng.choice(len(train_tasks))
+            state = train_tasks[index].init
             # Find policy for exploration
             task_list = glib_sample(state, self._get_current_predicates(),
                                     self._dataset)

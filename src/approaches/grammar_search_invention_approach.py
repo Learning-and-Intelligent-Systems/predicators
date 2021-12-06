@@ -260,17 +260,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task]) -> None:
+                 action_space: Box) -> None:
         super().__init__(simulator, initial_predicates, initial_options,
-                         types, action_space, train_tasks)
+                         types, action_space)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset,
+                                   train_tasks: List[Task]) -> None:
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
         grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset)
