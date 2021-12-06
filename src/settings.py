@@ -113,7 +113,7 @@ class GlobalSettings:
                 "cover": 10,
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
-                "cover_multistep_options": 10,
+                "cover_multistep_options": 100,
                 "cluttered_table": 50,
                 "blocks": 50,
                 "playroom": 50,

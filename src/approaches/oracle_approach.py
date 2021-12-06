@@ -90,7 +90,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
                         place_sampler_relative: bool = False) -> Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv.
     """
-    block_type, target_type = _get_types_by_names(CFG.env, ["block", "target"])
+    block_type, target_type, robot_type = _get_types_by_names(CFG.env, ["block", "target", "robot"])
 
     IsBlock, IsTarget, Covers, HandEmpty, Holding = \
         _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
@@ -105,7 +105,8 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
 
     # Pick
     block = Variable("?block", block_type)
-    parameters = [block]
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot]
     if options_are_typed:
         option_vars = [block]
         option = Pick
@@ -113,11 +114,11 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
         option_vars = []
         option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
-    add_effects = {LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(Holding, [block, robot])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
     def pick_sampler(state: State, rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        assert len(objs) == 1
+        # assert len(objs) == 1
         b = objs[0]
         assert b.is_instance(block_type)
         if options_are_typed:
@@ -136,7 +137,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
 
     # Place
     target = Variable("?target", target_type)
-    parameters = [block, target]
+    parameters = [block, target, robot]
     if options_are_typed:
         option_vars = [target]
         option = Place
@@ -145,13 +146,13 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
         option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]),
                      LiftedAtom(IsTarget, [target]),
-                     LiftedAtom(Holding, [block])}
+                     LiftedAtom(Holding, [block, robot])}
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
-    delete_effects = {LiftedAtom(Holding, [block])}
+    delete_effects = {LiftedAtom(Holding, [block, robot])}
     def place_sampler(state: State, rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
-        assert len(objs) == 2
+        # assert len(objs) == 2
         t = objs[1]
         assert t.is_instance(target_type)
         if place_sampler_relative:

@@ -51,6 +51,7 @@ class CoverEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
+        print("Action: ", action)
         assert self.action_space.contains(action.arr)
         pose = action.arr.item()
         next_state = state.copy()
@@ -386,7 +387,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._target_type = Type(
             "target", ["is_block", "is_target", "width", "x"])
         # Also removing "hand" because that's ambiguous.
-        self._robot_type = Type("robot", ["x", "y", "grip"])
+        self._robot_type = Type("robot", ["x", "y", "grip", "holding"])
         # Need to override predicate creation because the types are
         # now different (in terms of equality).
         self._IsBlock = Predicate(
@@ -398,7 +399,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._HandEmpty = Predicate(
             "HandEmpty", [], self._HandEmpty_holds)
         self._Holding = Predicate(
-            "Holding", [self._block_type], self._Holding_holds)
+            "Holding", [self._block_type, self._robot_type], self._Holding_holds)
         # Need to override object creation because the types are now
         # different (in terms of equality).
         self._blocks = []
@@ -437,6 +438,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
         # a lower level simulate function.
+        # print("ACTION IN SIMULATE: ", action)
         assert self.action_space.contains(action.arr)
 
         # Get data needed to collision check the trajectory.
@@ -539,6 +541,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             by_lb = by - self.grasp_height_tol
             if by_lb <= y <= by_ub:
                 next_state.set(above_block, "grasp", 1)
+                next_state.set(self._robot, "holding", 1)
 
         # If we are holding anything and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed
@@ -549,6 +552,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             grip < self.grasp_thresh and (hy-hh) < self.placing_height:
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
+            next_state.set(self._robot, "holding", -1)
 
         return next_state
 
@@ -645,7 +649,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])
         # [x, y, grip]
-        data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0])
+        data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0, -1])
         return State(data)
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -692,7 +696,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                        p: Array) -> bool:
         # Pick is done when we're holding the desired object.
         del m, p  # unused
-        return self._Holding_holds(s, o)
+        temp = [obj for obj in s if obj.is_instance(self._robot_type)]
+        objects = [o[0], temp[0]]
+        return self._Holding_holds(s, objects)
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
@@ -753,6 +759,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 (state.get(targ, "x")-state.get(targ, "width")/10,
                  state.get(targ, "x")+state.get(targ, "width")/10))
         return hand_regions
+
+    def _HandEmpty_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        assert not objects
+        for obj in state:
+            if obj.is_instance(self._block_type) and \
+               state.get(obj, "grasp") != -1:
+                return False
+        for obj in state:
+            if obj.is_instance(self._robot_type) and \
+                state.get(obj, "holding") != -1:
+                return False
+        return True
+
+    @staticmethod
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+        block, robot = objects
+        return state.get(block, "grasp") != -1 and state.get(robot, "holding") != 1
 
     @staticmethod
     def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:

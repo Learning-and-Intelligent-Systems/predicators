@@ -10,7 +10,7 @@ from predicators.src.structs import STRIPSOperator, OptionSpec, Partition, \
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
-from predicators.src.torch_models import NeuralGaussianRegressor
+from predicators.src.torch_models import NeuralGaussianRegressor, TemporaryMLP
 from gym.spaces import Box
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -81,21 +81,32 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             param_ub, param_lb = [], []
             types = []
             variables = []
-
+            # temp = [len(s.actions) for (s, _) in p]
+            # print("TEMP: ", temp)
+            # print("NUMBER OF data points: ", sum(a for a in temp))
             # Get objects involved in effects and sort them.
             for segment, _ in p:
                 objects = sorted({o for atom in segment.add_effects | \
                                  segment.delete_effects for o in atom.objects})
                 types = [o.type for o in objects]
+
+                param = []
+                all_objects = list(segment.states[0])
+                objects_that_changed = []
+                for o in all_objects:
+                    start = segment.states[0]
+                    end = segment.states[-1]
+                    if not np.array_equal(start[o], end[o]):
+                        objects_that_changed.append(o)
                 # Keep track of max and min for each dimension of parameters
                 # that come from each object.
                 if len(param_ub) == 0:
                     param_ub = [[-np.inf]*len(segment.states[0][o]) \
-                                for o in objects]
+                                for o in objects_that_changed]
                     param_lb = [[np.inf]*len(segment.states[0][o]) \
-                                for o in objects]
-                param = []
-                for j, o in enumerate(objects):
+                                for o in objects_that_changed]
+
+                for j, o in enumerate(objects_that_changed):
                     object_param = segment.states[0][o] - segment.states[-1][o]
                     for k in range(len(object_param)):
                         if object_param[k] > param_ub[j][k]:
@@ -121,18 +132,29 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                     Y_regressor.append(segment.actions[i].arr)
 
             X_arr_regressor = np.array(X_regressor)
-            Y_arr_regressor = np.array(Y_regressor).reshape((-1, 1))
-            regressor = NeuralGaussianRegressor()
+            Y_arr_regressor = np.array(Y_regressor)
+            print("X SHAPE: ", X_arr_regressor.shape)
+            print("Y SHAPE: ", Y_arr_regressor.shape)
+            regressor = TemporaryMLP()
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this partition.
             name = str(idx)
-            high = np.array([dim for o in param_ub for dim in o])
-            low = np.array([dim for o in param_lb for dim in o])
+            # high = np.array([dim for o in param_ub for dim in o])
+            # low = np.array([dim for o in param_lb for dim in o])
+            high = np.array([np.inf for o in param_ub for dim in o])
+            low = np.array([-np.inf for o in param_lb for dim in o])
             params_space = Box(low, high, dtype=np.float32)
-            _initiable = _create_initiable_from_op(op)
-            _terminal = _create_terminal_from_op(op)
-            _policy = _create_policy_from_regressor(regressor)
+            _initiable = self._create_initiable_from_op(op)
+            # _initiable = (lambda op:
+            #                 lambda s, m, o, p:
+            #                     (lambda preconditions: preconditions.issubset(
+            #                         utils.abstract(
+            #                         s, {a.predicate for a in preconditions})))
+            #                     (op.ground(tuple(o_)).preconditions))
+            #              (op)
+            _terminal = self._create_terminal_from_op(op)
+            _policy = self._create_policy_from_regressor(regressor)
             option = ParameterizedOption(name=name, types=types, \
                                          params_space=params_space, \
                                          _policy=_policy, \
@@ -149,46 +171,46 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             option = param_opt.ground(objects, params)
             segment.set_option(option)
 
+    @staticmethod
+    def _create_initiable_from_op(op
+        ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
+        preds = {a.predicate for a in op.preconditions}
+        def _initiable(s_: State, m: Dict, o_: Sequence[Object],
+                       p_: Array) -> bool:
+            del m, p_  # unused
+            grounded_op = op.ground(tuple(o_))
+            preconditions = grounded_op.preconditions
+            abs_state = utils.abstract(s_, preds)
+            return preconditions.issubset(abs_state)
+        return _initiable
 
-def _create_initiable_from_op(op
-    ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
-    preds = {a.predicate for a in op.preconditions}
-    def _initiable(s_: State, m: Dict, o_: Sequence[Object],
-                   p_: Array) -> bool:
-        del m, p_  # unused
-        grounded_op = op.ground(tuple(o_))
-        preconditions = grounded_op.preconditions
-        abs_state = utils.abstract(s_, preds)
-        return preconditions.issubset(abs_state)
-    return _initiable
+    @staticmethod
+    def _create_terminal_from_op(op: STRIPSOperator
+        ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
+        preds = {a.predicate for a in op.add_effects | op.delete_effects}
+        def _terminal(s_: State, m: Dict, o_: Sequence[Object],
+                      p_: Array) -> bool:
+            del m, p_  # unused
+            grounded_op = op.ground(tuple(o_))
+            abs_state = utils.abstract(s_, preds)
+            return grounded_op.add_effects.issubset(abs_state) and \
+                not (grounded_op.delete_effects & abs_state)
+        return _terminal
 
-
-def _create_terminal_from_op(op: STRIPSOperator
-    ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
-    preds = {a.predicate for a in op.add_effects | op.delete_effects}
-    def _terminal(s_: State, m: Dict, o_: Sequence[Object],
-                  p_: Array) -> bool:
-        del m, p_  # unused
-        grounded_op = op.ground(tuple(o_))
-        abs_state = utils.abstract(s_, preds)
-        return grounded_op.add_effects.issubset(abs_state) and \
-            not (grounded_op.delete_effects & abs_state)
-    return _terminal
-
-
-def _create_policy_from_regressor(regressor: NeuralGaussianRegressor
-    ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
-    def _policy(s_: State, m: Dict, o_: Sequence[Object],
-                p_: Array) -> bool:
-        del m  # unused
-        x_lst : List[Any] = [1.0]  # start with bias term
-        for obj in o_:
-            x_lst.extend(s_[obj])
-        x_lst.extend(p_)
-        x = np.array(x_lst)
-        action = regressor.predict_sample(x, np.random.default_rng())
-        return Action(np.array(action, dtype=np.float32))
-    return _policy
+    @staticmethod
+    def _create_policy_from_regressor(regressor: TemporaryMLP
+        ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+        def _policy(s_: State, m: Dict, o_: Sequence[Object],
+                    p_: Array) -> bool:
+            del m  # unused
+            x_lst : List[Any] = [1.0]  # start with bias term
+            for obj in o_:
+                x_lst.extend(s_[obj])
+            x_lst.extend(p_)
+            x = np.array(x_lst)
+            action = regressor(x)
+            return Action(np.array(action.detach(), dtype=np.float32))
+        return _policy
 
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
