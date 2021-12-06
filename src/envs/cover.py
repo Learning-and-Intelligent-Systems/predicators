@@ -124,8 +124,6 @@ class CoverEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        del task  # not used by this render function
-        del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
@@ -555,8 +553,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
         # Need to override rendering to account for new state features.
-        del task  # not used by this render function
-        del action  # not used by this render function
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.001, -0.001], color="black", linewidth=0.4)
