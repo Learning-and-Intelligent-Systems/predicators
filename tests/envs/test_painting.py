@@ -1,7 +1,6 @@
 """Test cases for the painting environment.
 """
 
-import pytest
 import numpy as np
 from predicators.src.envs import PaintingEnv
 from predicators.src import utils
@@ -55,10 +54,9 @@ def test_painting():
         assert box is not None
         assert shelf is not None
         assert lid is not None
-        if i == 0:
+        if i < 3:
             # Test rendering
-            with pytest.raises(NotImplementedError):
-                env.render(state, task)
+            env.render(state, task)
 
 def test_painting_failure_cases():
     """Tests for the cases where simulate() is a no-op.
@@ -149,9 +147,14 @@ def test_painting_failure_cases():
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
+    # Render with holding
+    env.render(state, task)
     # Cannot place in shelf because gripper_rot is 1
     act = Place.ground([robot], np.array(
         [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
         dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
+    # Render with a forced color of an object
+    state.set(obj0, "color", 0.6)
+    env.render(state, task)

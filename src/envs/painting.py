@@ -4,13 +4,16 @@ grasping allows for placing into the box. The box has a lid which may
 need to be opened; this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import patches
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 
 class PaintingEnv(BaseEnv):
@@ -313,7 +316,85 @@ class PaintingEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        raise NotImplementedError
+        fig, ax = plt.subplots(1, 1)
+        objs = [o for o in state if o.is_instance(self._obj_type)]
+        denom = (self.env_ub - self.env_lb)
+        # The factor of "2" here should actually be 0.5, but this
+        # makes the objects too small, so we'll let it be bigger.
+        # Don't be alarmed if objects seem to be intersecting in
+        # the resulting videos.
+        r = 2 * self.obj_radius / denom
+        h = 2 * self.obj_height / denom
+        z = (self.obj_z - self.env_lb) / denom
+        # Draw box
+        box_color = state.get(self._box, "color")
+        box_lower = (self.box_lb - self.obj_radius - self.env_lb) / denom
+        box_upper = (self.box_ub + self.obj_radius - self.env_lb) / denom
+        rect = plt.Rectangle(
+            (box_lower, z - h), box_upper - box_lower, 2 * h,
+            facecolor=[box_color, 0, 0], alpha=0.25)
+        ax.add_patch(rect)
+        # Draw box lid
+        if state.get(self._lid, "is_open") < 0.5:
+            plt.plot([box_lower, box_upper], [z + h, z + h],
+                     color=[box_color, 0, 0])
+        # Draw shelf
+        shelf_color = state.get(self._shelf, "color")
+        shelf_lower = (self.shelf_lb - self.obj_radius - self.env_lb) / denom
+        shelf_upper = (self.shelf_ub + self.obj_radius - self.env_lb) / denom
+        rect = plt.Rectangle(
+            (shelf_lower, z - h), shelf_upper - shelf_lower, 2 * h,
+            facecolor=[shelf_color, 0, 0], alpha=0.25)
+        ax.add_patch(rect)
+        # Draw objects
+        held_obj = self._get_held_object(state)
+        for obj in sorted(objs):
+            x = state.get(obj, "pose_x")
+            y = state.get(obj, "pose_y")
+            z = state.get(obj, "pose_z")
+            facecolor: Union[None, str, List[Any]] = None
+            if state.get(obj, "wetness") > self.wetness_tol and \
+               state.get(obj, "dirtiness") < self.dirtiness_tol:
+                # wet and clean
+                facecolor = "blue"
+            elif state.get(obj, "wetness") < self.wetness_tol and \
+                 state.get(obj, "dirtiness") > self.dirtiness_tol:
+                # dry and dirty
+                facecolor = "green"
+            elif state.get(obj, "wetness") < self.wetness_tol and \
+                 state.get(obj, "dirtiness") < self.dirtiness_tol:
+                # dry and clean
+                facecolor = "cyan"
+            obj_color = state.get(obj, "color")
+            if obj_color > 0:
+                facecolor = [obj_color, 0, 0]
+            if held_obj == obj:
+                assert state.get(self._robot, "fingers") < self.open_fingers
+                grip_rot = state.get(self._robot, "gripper_rot")
+                assert grip_rot < self.side_grasp_thresh or \
+                    grip_rot > self.top_grasp_thresh
+                edgecolor = ("yellow"
+                             if grip_rot < self.side_grasp_thresh
+                             else "orange")
+            else:
+                edgecolor = "gray"
+            # Normalize poses to [0, 1]
+            x = (x - self.env_lb) / denom
+            y = (y - self.env_lb) / denom
+            z = (z - self.env_lb) / denom
+            # Plot as rectangle
+            rect = patches.Rectangle(
+                (y - r, z - h), 2*r, 2*h, zorder=-x,
+                linewidth=1, edgecolor=edgecolor, facecolor=facecolor)
+            ax.add_patch(rect)
+        ax.set_xlim(-0.1, 1.1)
+        ax.set_ylim(0.6, 1.0)
+        plt.suptitle("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
+                     "yellow border = side grasp, orange border = top grasp",
+                     fontsize=12)
+        img = utils.fig2data(fig)
+        plt.close()
+        return [img]
 
     def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
