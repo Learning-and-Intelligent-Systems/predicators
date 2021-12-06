@@ -21,10 +21,9 @@ class NSRTLearningApproach(TAMPApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task]) -> None:
+                 action_space: Box) -> None:
         super().__init__(simulator, initial_predicates, initial_options, types,
-                         action_space, train_tasks)
+                         action_space)
         self._nsrts: Set[NSRT] = set()
 
     @property
@@ -35,7 +34,8 @@ class NSRTLearningApproach(TAMPApproach):
         assert self._nsrts, "NSRTs not learned"
         return self._nsrts
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset,
+                                   train_tasks: List[Task]) -> None:
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
