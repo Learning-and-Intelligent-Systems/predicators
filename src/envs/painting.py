@@ -273,14 +273,22 @@ class PaintingEnv(BaseEnv):
         return next_state
 
     def train_tasks_generator(self) -> Iterator[List[Task]]:
-        # First, yield tasks of just placing into the box.
-        yield self._get_tasks(num_tasks=CFG.num_train_tasks // 2,
-                              num_objs_lst=[1], rng=self._train_rng)
-        # Then, yield tasks of just placing into the shelf.
-        num_objs_lst = [num_obj-1 for num_obj in self.num_objs_train]
-        yield self._get_tasks(num_tasks=CFG.num_train_tasks // 2,
-                              num_objs_lst=num_objs_lst, rng=self._train_rng,
-                              use_box=False)
+        # Split num_train_tasks uniformly over the task families
+        num_tasks = CFG.num_train_tasks // len(CFG.painting_train_families)
+        for family_name in CFG.painting_train_families:
+            if family_name == "box_only":
+                yield self._get_tasks(num_tasks=num_tasks, num_objs_lst=[1],
+                                      rng=self._train_rng)
+            elif family_name == "shelf_only":
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=self.num_objs_train,
+                                      rng=self._train_rng, use_box=False)
+            elif family_name == "box_and_shelf":
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=self.num_objs_train,
+                                      rng=self._train_rng)
+            else:
+                raise Exception(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
