@@ -123,7 +123,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
     Examples:
         - ForAll ?x. On(?x, ?y)
         - Forall ?y. On(?x, ?y)
-        - ForAll ?z. Between(?x, ?z, ?y)
+        - ForAll ?x, ?y. Between(?x, ?z, ?y)
     """
     body: Predicate  # Must be arity 2 or greater.
     free_variable_idx: int
@@ -138,6 +138,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
                 if i != self.free_variable_idx]
 
     def _classify_object(self, s: State, obj: Object) -> bool:
+        assert obj.type == self.body.types[self.free_variable_idx]
         for o in utils.get_object_combinations(set(s), self._quantified_types):
             o_lst = list(o)
             o_lst.insert(self.free_variable_idx, obj)
@@ -367,11 +368,25 @@ def _create_grammar(grammar_name: str, dataset: Dataset,
         sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
         return _NegationPredicateGrammarWrapper(sfi_grammar)
     if grammar_name == "forall_single_feat_ineqs":
+        # We start with the given predicates because we want to allow
+        # negated and quantified versions of the given predicates, in
+        # addition to negated and quantified versions of new predicates.
         given_grammar = _GivenPredicateGrammar(given_predicates)
         sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        # This chained grammar has the effect of enumerating first the
+        # given predicates, then the single feature inequality ones.
         chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
+        # For each predicate enumerated by the chained grammar, we also
+        # enumerate the negation of that predicate.
         negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
+        # For each predicate enumerated, we also enumerate foralls for
+        # that predicate.
         forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
+        # Finally, we don't actually need to enumerate the given predicates
+        # because we already have them in the initial predicate set,
+        # so we just filter them out from actually being enumerated.
+        # But remember that we do want to enumerate their negations
+        # and foralls, which is why they're included originally.
         return _SkipGrammar(forall_grammar, given_predicates)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
