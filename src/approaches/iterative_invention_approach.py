@@ -29,7 +29,6 @@ class IterativeInventionApproach(NSRTLearningApproach):
         super().__init__(simulator, initial_predicates, initial_options,
                          types, action_space)
         self._learned_predicates: Set[Predicate] = set()
-        self._dataset: Dataset = []
         self._num_inventions = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
