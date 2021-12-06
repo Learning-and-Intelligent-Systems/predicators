@@ -29,6 +29,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
         super().__init__(simulator, initial_predicates, initial_options,
                          types, action_space)
         self._learned_predicates: Set[Predicate] = set()
+        self._dataset: Dataset = []
         self._num_inventions = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
@@ -36,11 +37,13 @@ class IterativeInventionApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset,
                                    train_tasks: List[Task]) -> None:
+        self._dataset.extend(dataset)
+        del dataset
         # Use the current predicates to segment dataset.
         predicates = self._get_current_predicates()
         # Apply predicates to dataset.
-        ground_atom_dataset = utils.create_ground_atom_dataset(dataset,
-                                                               predicates)
+        ground_atom_dataset = utils.create_ground_atom_dataset(
+            self._dataset, predicates)
         # Segment transitions based on changes in predicates.
         segments = [seg for traj in ground_atom_dataset
                     for seg in segment_trajectory(traj)]
@@ -69,7 +72,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 segment.final_atoms.update(
                     utils.abstract(segment.states[-1], new_preds))
         # Finally, learn NSRTs via superclass, using all the predicates.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts()
 
     def _invent_for_some_op(self, segments: Sequence[Segment]
                             ) -> Optional[Predicate]:
