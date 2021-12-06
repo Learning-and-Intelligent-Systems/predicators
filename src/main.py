@@ -68,11 +68,9 @@ def main() -> None:
             _run_testing(env, approach)
         else:
             # Iterate over the train_tasks lists coming from the generator.
-            # Add the data into one large dataset.
             dataset_idx = 0
-            dataset = []
             for train_tasks in env.train_tasks_generator():
-                dataset += create_dataset(env, train_tasks)
+                dataset = create_dataset(env, train_tasks)
                 print(f"\n\nDATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 approach.learn_from_offline_dataset(dataset, train_tasks)
