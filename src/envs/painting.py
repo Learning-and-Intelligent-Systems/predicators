@@ -326,27 +326,26 @@ class PaintingEnv(BaseEnv):
         r = 2 * self.obj_radius / denom
         h = 2 * self.obj_height / denom
         z = (self.obj_z - self.env_lb) / denom
-        # Draw bounds of box
+        # Draw box
         box_color = state.get(self._box, "color")
-        plt.plot([(self.box_lb - self.obj_radius - self.env_lb) / denom,
-                  (self.box_lb - self.obj_radius - self.env_lb) / denom],
-                 [z - h, z + h], color=[box_color, 0, 0])
-        plt.plot([(self.box_ub + self.obj_radius - self.env_lb) / denom,
-                  (self.box_ub + self.obj_radius - self.env_lb) / denom],
-                 [z - h, z + h], color=[box_color, 0, 0])
+        box_lower = (self.box_lb - self.obj_radius - self.env_lb) / denom
+        box_upper = (self.box_ub + self.obj_radius - self.env_lb) / denom
+        rect = plt.Rectangle(
+            (box_lower, z - h), box_upper - box_lower, 2 * h,
+            facecolor=[box_color, 0, 0], alpha=0.25)
+        ax.add_patch(rect)
         # Draw box lid
         if state.get(self._lid, "is_open") < 0.5:
-            plt.plot([(self.box_lb - self.obj_radius - self.env_lb) / denom,
-                      (self.box_ub + self.obj_radius - self.env_lb) / denom],
-                     [z + h, z + h], color=[box_color, 0, 0])
-        # Draw bounds of shelf
+            plt.plot([box_lower, box_upper], [z + h, z + h],
+                     color=[box_color, 0, 0])
+        # Draw shelf
         shelf_color = state.get(self._shelf, "color")
-        plt.plot([(self.shelf_lb - self.obj_radius - self.env_lb) / denom,
-                  (self.shelf_lb - self.obj_radius - self.env_lb) / denom],
-                 [z - h, z + h], color=[shelf_color, 0, 0])
-        plt.plot([(self.shelf_ub + self.obj_radius - self.env_lb) / denom,
-                  (self.shelf_ub + self.obj_radius - self.env_lb) / denom],
-                 [z - h, z + h], color=[shelf_color, 0, 0])
+        shelf_lower = (self.shelf_lb - self.obj_radius - self.env_lb) / denom
+        shelf_upper = (self.shelf_ub + self.obj_radius - self.env_lb) / denom
+        rect = plt.Rectangle(
+            (shelf_lower, z - h), shelf_upper - shelf_lower, 2 * h,
+            facecolor=[shelf_color, 0, 0], alpha=0.25)
+        ax.add_patch(rect)
         # Draw objects
         held_obj = self._get_held_object(state)
         for obj in sorted(objs):
