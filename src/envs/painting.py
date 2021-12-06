@@ -4,7 +4,7 @@ grasping allows for placing into the box. The box has a lid which may
 need to be opened; this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
@@ -319,6 +319,10 @@ class PaintingEnv(BaseEnv):
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)
+        # The factor of "2" here should actually be 0.5, but this
+        # makes the objects too small, so we'll let it be bigger.
+        # Don't be alarmed if objects seem to be intersecting in
+        # the resulting videos.
         r = 2 * self.obj_radius / denom
         h = 2 * self.obj_height / denom
         z = (self.obj_z - self.env_lb) / denom
@@ -349,7 +353,7 @@ class PaintingEnv(BaseEnv):
             x = state.get(obj, "pose_x")
             y = state.get(obj, "pose_y")
             z = state.get(obj, "pose_z")
-            facecolor = None
+            facecolor: Union[None, str, List[Any]] = None
             if state.get(obj, "wetness") > self.wetness_tol and \
                state.get(obj, "dirtiness") < self.dirtiness_tol:
                 # wet and clean
