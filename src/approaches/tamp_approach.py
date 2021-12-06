@@ -3,7 +3,7 @@ planning strategy: SEarch-and-SAMple planning, then Execution.
 """
 
 import abc
-from typing import Callable, Set, List
+from typing import Callable, Set
 from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan

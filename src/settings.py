@@ -24,6 +24,13 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
 
+    # painting env parameters
+    painting_train_families = [
+        "box_and_shelf",  # placing into both box and shelf
+        # "box_only",  # just placing into the box
+        # "shelf_only",  # just placing into the shelf
+    ]
+
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples", "configs",
