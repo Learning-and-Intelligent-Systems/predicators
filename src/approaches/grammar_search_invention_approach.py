@@ -5,6 +5,7 @@ the candidates proposed from a grammar.
 import abc
 from dataclasses import dataclass
 from functools import cached_property
+import itertools
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
@@ -84,6 +85,19 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _NegationClassifier(_ProgrammaticClassifier):
+    """Negate a given classifier.
+    """
+    body: Predicate
+
+    def __call__(self, s: State, o: Sequence[Object]) -> bool:
+        return not self.body.holds(s, o)
+
+    def __str__(self) -> str:
+        return f"NOT-{self.body}"
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _ForallClassifier(_NullaryClassifier):
     """Apply a predicate to all objects.
     """
@@ -102,6 +116,44 @@ class _ForallClassifier(_NullaryClassifier):
         return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class _UnaryFreeForallClassifier(_UnaryClassifier):
+    """Universally quantify all but one variable in a multi-arity predicate.
+
+    Examples:
+        - ForAll ?x. On(?x, ?y)
+        - Forall ?y. On(?x, ?y)
+        - ForAll ?x, ?y. Between(?x, ?z, ?y)
+    """
+    body: Predicate  # Must be arity 2 or greater.
+    free_variable_idx: int
+
+    def __post_init__(self) -> None:
+        assert self.body.arity >= 2
+        assert self.free_variable_idx < self.body.arity
+
+    @cached_property
+    def _quantified_types(self) -> List[Type]:
+        return [t for i, t in enumerate(self.body.types)
+                if i != self.free_variable_idx]
+
+    def _classify_object(self, s: State, obj: Object) -> bool:
+        assert obj.type == self.body.types[self.free_variable_idx]
+        for o in utils.get_object_combinations(set(s), self._quantified_types):
+            o_lst = list(o)
+            o_lst.insert(self.free_variable_idx, obj)
+            if not self.body.holds(s, o_lst):
+                return False
+        return True
+
+    def __str__(self) -> str:
+        types = self.body.types
+        type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types)
+                            if i != self.free_variable_idx)
+        objs = ",".join(str(i) for i in range(len(types)))
+        return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
+
+
 ################################################################################
 #                             Predicate grammars                               #
 ################################################################################
@@ -110,17 +162,6 @@ class _ForallClassifier(_NullaryClassifier):
 class _PredicateGrammar:
     """A grammar for generating predicate candidates.
     """
-    dataset: Dataset
-
-    @cached_property
-    def types(self) -> Set[Type]:
-        """Infer types from the dataset.
-        """
-        types: Set[Type] = set()
-        for (states, _) in self.dataset:
-            types.update(o.type for o in states[0])
-        return types
-
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         """Generate candidate predicates from the grammar.
         The dict values are costs, e.g., negative log prior probability for the
@@ -140,7 +181,28 @@ class _PredicateGrammar:
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HoldingDummyPredicateGrammar(_PredicateGrammar):
+class _DataBasedPredicateGrammar(_PredicateGrammar):
+    """A predicate grammar that uses a dataset.
+    """
+    dataset: Dataset
+
+    @cached_property
+    def types(self) -> Set[Type]:
+        """Infer types from the dataset.
+        """
+        types: Set[Type] = set()
+        for (states, _) in self.dataset:
+            types.update(o.type for o in states[0])
+        return types
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        """Iterate over candidate predicates from less to more cost.
+        """
+        raise NotImplementedError("Override me!")
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HoldingDummyPredicateGrammar(_DataBasedPredicateGrammar):
     """A hardcoded cover-specific grammar.
 
     Good for testing with:
@@ -178,7 +240,7 @@ def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
+class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     """Generates features of the form "0.feature >= c" or "0.feature <= c".
     """
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
@@ -197,12 +259,15 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
                         continue
                     # Scale the constant by the feature range.
                     k = (c + lb) / (ub - lb)
-                    for (comp, comp_str) in [(ge, ">="), (le, "<=")]:
-                        classifier = _SingleAttributeCompareClassifier(
-                            0, t, f, k, comp, comp_str)
-                        name = str(classifier)
-                        types = [t]
-                        yield (Predicate(name, types, classifier), 1.)
+                    # Only need one of (ge, le) because we can use negations
+                    # to get the other (modulo equality, which we shouldn't
+                    # rely on anyway because of precision issues).
+                    comp, comp_str = le, "<="
+                    classifier = _SingleAttributeCompareClassifier(
+                        0, t, f, k, comp, comp_str)
+                    name = str(classifier)
+                    types = [t]
+                    yield (Predicate(name, types, classifier), 1.)
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -225,6 +290,57 @@ class _SingleFeatureInequalitiesPredicateGrammar(_PredicateGrammar):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _GivenPredicateGrammar(_PredicateGrammar):
+    """Enumerates a given set of predicates.
+    """
+    given_predicates: Set[Predicate]
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for predicate in sorted(self.given_predicates):
+            yield (predicate, 1.0)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ChainPredicateGrammar(_PredicateGrammar):
+    """Chains together multiple predicate grammars in sequence.
+    """
+    base_grammars: Sequence[_PredicateGrammar]
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        return itertools.chain.from_iterable(
+            g.enumerate() for g in self.base_grammars)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _SkipGrammar(_PredicateGrammar):
+    """A grammar that omits given predicates from being enumerated.
+    """
+    base_grammar: _PredicateGrammar
+    omitted_predicates: Set[Predicate]
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if predicate in self.omitted_predicates:
+                continue
+            yield (predicate, cost)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _NegationPredicateGrammarWrapper(_PredicateGrammar):
+    """For each x generated by the base grammar, also generates not(x).
+    """
+    base_grammar: _PredicateGrammar
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            yield (predicate, cost)
+            classifier = _NegationClassifier(predicate)
+            negated_predicate = Predicate(str(classifier), predicate.types,
+                                          classifier)
+            yield (negated_predicate, cost)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _ForallPredicateGrammarWrapper(_PredicateGrammar):
     """For each x generated by the base grammar, also generates forall(x).
     """
@@ -235,16 +351,43 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
             yield (predicate, cost)
             classifier = _ForallClassifier(predicate)
             yield (Predicate(str(classifier), [], classifier), cost)
+            if predicate.arity >= 2:
+                for idx in range(predicate.arity):
+                    uff_classifier = _UnaryFreeForallClassifier(predicate, idx)
+                    uff_predicate = Predicate(str(uff_classifier),
+                                              [predicate.types[idx]],
+                                              uff_classifier)
+                    yield (uff_predicate, cost)
 
 
-def _create_grammar(grammar_name: str, dataset: Dataset) -> _PredicateGrammar:
+def _create_grammar(grammar_name: str, dataset: Dataset,
+                    given_predicates: Set[Predicate]) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
         return _HoldingDummyPredicateGrammar(dataset)
     if grammar_name == "single_feat_ineqs":
-        return _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        return _NegationPredicateGrammarWrapper(sfi_grammar)
     if grammar_name == "forall_single_feat_ineqs":
-        base = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-        return _ForallPredicateGrammarWrapper(dataset, base)
+        # We start with the given predicates because we want to allow
+        # negated and quantified versions of the given predicates, in
+        # addition to negated and quantified versions of new predicates.
+        given_grammar = _GivenPredicateGrammar(given_predicates)
+        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        # This chained grammar has the effect of enumerating first the
+        # given predicates, then the single feature inequality ones.
+        chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
+        # For each predicate enumerated by the chained grammar, we also
+        # enumerate the negation of that predicate.
+        negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
+        # For each predicate enumerated, we also enumerate foralls for
+        # that predicate.
+        forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
+        # Finally, we don't actually need to enumerate the given predicates
+        # because we already have them in the initial predicate set,
+        # so we just filter them out from actually being enumerated.
+        # But remember that we do want to enumerate their negations
+        # and foralls, which is why they're included originally.
+        return _SkipGrammar(forall_grammar, given_predicates)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -273,9 +416,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset)
+        grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset,
+                                  self._initial_predicates)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
-        print(f"Done: created {len(candidates)} candidates.")
+        print(f"Done: created {len(candidates)} candidates:")
+        for predicate in candidates:
+            print(predicate)
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(dataset,
@@ -311,6 +457,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             op_size = _get_operators_size(strips_ops)
             # Also add a penalty based on predicate complexity.
             pred_complexity = sum(candidates[p] for p in s)
+            # Useful for debugging:
+            # print("TP/FP/S/C:", num_true_positives, num_false_positives,
+            #       op_size, pred_complexity)
             # Lower is better.
             return CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
