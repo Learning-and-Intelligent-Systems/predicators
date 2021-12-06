@@ -16,7 +16,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    Segment
+    Partition
 from predicators.src.settings import CFG
 
 
@@ -449,10 +449,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                                                                kept_preds)
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
-            strips_ops, _ = learn_strips_operators(segments, verbose=False)
+            strips_ops, partitions = learn_strips_operators(segments,
+                                                            verbose=False)
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
-                _count_positives_for_ops(strips_ops, segments)
+                _count_positives_for_ops(strips_ops, partitions)
             # Also add a size penalty.
             op_size = _get_operators_size(strips_ops)
             # Also add a penalty based on predicate complexity.
@@ -462,8 +463,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 CFG.grammar_search_size_weight * op_size + \
                 CFG.grammar_search_pred_complexity_weight * pred_complexity
             # Useful for debugging:
-            # print("TP/FP/S/C/Tot:", num_true_positives, num_false_positives,
-                  # op_size, pred_complexity, tot)
+            print("TP/FP/S/C/Tot:", num_true_positives, num_false_positives,
+                  op_size, pred_complexity, tot)
             # Lower is better.
             return tot
 
@@ -513,27 +514,58 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 
 def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
-                             segments: List[Segment]
+                             partitions: List[Partition]
                              ) -> Tuple[int, int]:
     """Returns num true positives, num false positives.
     """
+    assert len(strips_ops) == len(partitions)
     num_true_positives = 0
     num_false_positives = 0
-    for segment in segments:
-        objects = set(segment.states[0])
-        ground_ops = [o for op in strips_ops
-                      for o in utils.all_ground_operators(op, objects)]
-        covered_by_some_op = False
-        for ground_op in ground_ops:
-            if not ground_op.preconditions.issubset(segment.init_atoms):
-                continue
-            if ground_op.add_effects == segment.add_effects and \
-               ground_op.delete_effects == segment.delete_effects:
-                covered_by_some_op = True
-            else:
-                num_false_positives += 1
-        if covered_by_some_op:
-            num_true_positives += 1
+    for partition in partitions:
+        for segment, _ in partition:
+            objects = set(segment.states[0])
+            segment_option = segment.get_option()
+            option_objects = segment_option.objects
+            covered_by_some_op = False
+            # Ground only the operators with a matching option spec.
+            for i, op in enumerate(strips_ops):
+                param_option_i, option_vars_i = partitions[i].option_spec
+                # If the parameterized options are different, not relevant.
+                if param_option_i != segment_option.parent:
+                    continue
+                assert len(option_vars_i) == len(option_objects)
+                option_var_to_obj = dict(zip(option_vars_i, option_objects))
+                # We want to get all ground operators whose corresponding
+                # substitution is consistent with the option vars for this
+                # segment. So, determine all of the operator variables
+                # that are not in the option vars, and consider all
+                # groundings of them.
+                types = [p.type for p in op.parameters
+                         if p not in option_vars_i]
+                for choice in utils.get_object_combinations(objects, types):
+                    # Complete the choice with the arguments that are
+                    # determined from the option vars.
+                    choice_lst = list(choice)
+                    choice_lst.reverse()
+                    completed_choice = []
+                    for p in op.parameters:
+                        if p in option_vars_i:
+                            completed_choice.append(option_var_to_obj[p])
+                        else:
+                            completed_choice.append(choice_lst.pop())
+                    assert not choice_lst
+                    ground_op = op.ground(tuple(completed_choice))
+                    # Check the ground_op against the segment.
+                    if not ground_op.preconditions.issubset(
+                        segment.init_atoms):
+                        continue
+                    if ground_op.add_effects == segment.add_effects and \
+                       ground_op.delete_effects == segment.delete_effects:
+                        covered_by_some_op = True
+                    else:
+                        num_false_positives += 1
+            if covered_by_some_op:
+                num_true_positives += 1
     return num_true_positives, num_false_positives
 
 
