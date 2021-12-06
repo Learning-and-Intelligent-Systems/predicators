@@ -457,14 +457,15 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             op_size = _get_operators_size(strips_ops)
             # Also add a penalty based on predicate complexity.
             pred_complexity = sum(candidates[p] for p in s)
-            # Useful for debugging:
-            # print("TP/FP/S/C:", num_true_positives, num_false_positives,
-            #       op_size, pred_complexity)
-            # Lower is better.
-            return CFG.grammar_search_false_pos_weight * num_false_positives + \
+            tot = CFG.grammar_search_false_pos_weight * num_false_positives + \
                 CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
                 CFG.grammar_search_size_weight * op_size + \
                 CFG.grammar_search_pred_complexity_weight * pred_complexity
+            # Useful for debugging:
+            # print("TP/FP/S/C/Tot:", num_true_positives, num_false_positives,
+                  # op_size, pred_complexity, tot)
+            # Lower is better.
+            return tot
 
         # There are no goal states for this search; run until exhausted.
         def _check_goal(s: FrozenSet[Predicate]) -> bool:
