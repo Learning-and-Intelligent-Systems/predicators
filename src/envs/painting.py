@@ -96,7 +96,7 @@ class PaintingEnv(BaseEnv):
                 np.array([1.0, 1.0, 1.0, 1.01], dtype=np.float32)),
             _policy=self._Pick_policy,
             _initiable=self._handempty_initiable,
-            _terminal=self._onestep_terminal)
+            _terminal=utils.onestep_terminal)
         self._Wash = ParameterizedOption(
             # variables: [robot]
             # params: [water level]
@@ -104,7 +104,7 @@ class PaintingEnv(BaseEnv):
             params_space=Box(-0.01, 1.01, (1,)),
             _policy=self._Wash_policy,
             _initiable=self._holding_initiable,
-            _terminal=self._onestep_terminal)
+            _terminal=utils.onestep_terminal)
         self._Dry = ParameterizedOption(
             # variables: [robot]
             # params: [heat level]
@@ -112,7 +112,7 @@ class PaintingEnv(BaseEnv):
             params_space=Box(-0.01, 1.01, (1,)),
             _policy=self._Dry_policy,
             _initiable=self._holding_initiable,
-            _terminal=self._onestep_terminal)
+            _terminal=utils.onestep_terminal)
         self._Paint = ParameterizedOption(
             # variables: [robot]
             # params: [new color]
@@ -120,7 +120,7 @@ class PaintingEnv(BaseEnv):
             params_space=Box(-0.01, 1.01, (1,)),
             _policy=self._Paint_policy,
             _initiable=self._holding_initiable,
-            _terminal=self._onestep_terminal)
+            _terminal=utils.onestep_terminal)
         self._Place = ParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
@@ -132,7 +132,7 @@ class PaintingEnv(BaseEnv):
                          dtype=np.float32)),
             _policy=self._Place_policy,
             _initiable=self._holding_initiable,
-            _terminal=self._onestep_terminal)
+            _terminal=utils.onestep_terminal)
         self._OpenLid = ParameterizedOption(
             # variables: [robot, lid]
             # params: []
@@ -140,7 +140,7 @@ class PaintingEnv(BaseEnv):
             params_space=Box(-0.01, 1.01, (0,)),  # no parameters
             _policy=self._OpenLid_policy,
             _initiable=self._handempty_initiable,
-            _terminal=self._onestep_terminal)
+            _terminal=utils.onestep_terminal)
         # Objects
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
@@ -539,13 +539,6 @@ class PaintingEnv(BaseEnv):
         # An initiation function for an option that requires holding nothing.
         del memory, objects, params  # unused
         return self._get_held_object(state) is None
-
-    @staticmethod
-    def _onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                          params: Array) -> bool:
-         # A termination function for an option that only lasts 1 timestep.
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     def _OpenLid_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
