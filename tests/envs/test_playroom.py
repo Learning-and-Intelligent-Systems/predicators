@@ -3,7 +3,6 @@
 
 import pytest
 import numpy as np
-import pytest
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
 from predicators.src.structs import Action, State
