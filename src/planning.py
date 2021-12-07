@@ -65,8 +65,9 @@ def sesame_plan(task: Task,
         # There is no point in using NSRTs with empty effects, and they can
         # slow down search significantly, so we exclude them. Note however
         # that we need to do this inside the while True here, because an NSRT
-        # that initially has empty effects may later have a not-failure effect.
-        nonempty_ground_nsrts = _filter_nsrts_with_empty_effects(ground_nsrts)
+        # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
+        nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
+                                 if nsrt.add_effects | nsrt.delete_effects]
         if check_dr_reachable and \
            not utils.is_dr_reachable(nonempty_ground_nsrts, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
@@ -236,13 +237,6 @@ def _run_low_level_search(
     # Should only get here if the skeleton was empty
     assert not skeleton
     return []
-
-
-def _filter_nsrts_with_empty_effects(nsrts: List[_GroundNSRT]
-                                     ) -> List[_GroundNSRT]:
-    """Select only NSRTs that have nonempty effects.
-    """
-    return [nsrt for nsrt in nsrts if nsrt.add_effects | nsrt.delete_effects]
 
 
 def _update_nsrts_with_failure(
