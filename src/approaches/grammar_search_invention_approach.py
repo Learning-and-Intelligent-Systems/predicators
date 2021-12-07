@@ -4,7 +4,6 @@ the candidates proposed from a grammar.
 
 import abc
 from dataclasses import dataclass
-from collections import defaultdict
 from functools import cached_property
 import itertools
 from operator import ge, le
@@ -371,20 +370,20 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 #     "Forall[1:shelf].[NOT-IsShelfColor(0,1)]",
 # ]
 
-@dataclass(frozen=True, eq=False, repr=False)
-class _DebugGrammar(_PredicateGrammar):
-    """A grammar that omits given predicates from being enumerated.
-    """
-    base_grammar: _PredicateGrammar
+# @dataclass(frozen=True, eq=False, repr=False)
+# class _DebugGrammar(_PredicateGrammar):
+#     """A grammar that omits given predicates from being enumerated.
+#     """
+#     base_grammar: _PredicateGrammar
 
-    def generate(self, max_num: int) -> Dict[Predicate, float]:
-        del max_num
-        return super().generate(len(_DEBUG_PREDICATE_STRS))
+#     def generate(self, max_num: int) -> Dict[Predicate, float]:
+#         del max_num
+#         return super().generate(len(_DEBUG_PREDICATE_STRS))
 
-    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        for (predicate, cost) in self.base_grammar.enumerate():
-            if str(predicate) in _DEBUG_PREDICATE_STRS:
-                yield (predicate, cost)
+#     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+#         for (predicate, cost) in self.base_grammar.enumerate():
+#             if str(predicate) in _DEBUG_PREDICATE_STRS:
+#                 yield (predicate, cost)
 
 ### End debugging ###
 
@@ -560,7 +559,7 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
     num_true_positives = 0
     num_false_positives = 0
     # Useful for debugging.
-    param_option_to_num_false_positives = defaultdict(int)
+    param_option_to_num_false_positives = {}
     for segment in segments:
         objects = set(segment.states[0])
         segment_option = segment.get_option()
@@ -602,7 +601,11 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
                    ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
                 else:
-                    param_option_to_num_false_positives[option_spec[0]] += 1
+                    param_option = option_spec[0]
+                    if param_option not in param_option_to_num_false_positives:
+                        param_option_to_num_false_positives[param_option] = 1
+                    else:
+                        param_option_to_num_false_positives[param_option] += 1
                     num_false_positives += 1
         if covered_by_some_op:
             num_true_positives += 1
