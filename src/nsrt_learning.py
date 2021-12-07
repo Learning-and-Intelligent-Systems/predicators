@@ -108,7 +108,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             # can safely segment without using any continuous info. Note that
             # excluding the final option from the data is highly problematic
             # when using demo+replay with the default 1 option per replay
-            # because all of the replay data would get excluded!
+            # because all of the replay data would get excluded (unless there
+            # were also a change in the symbolic states).
             else:
                 option_t = actions[t].get_option()
                 assert option_t.terminal(states[t])
