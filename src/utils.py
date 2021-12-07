@@ -308,11 +308,19 @@ def get_object_combinations(
         ) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence.
     """
-    sorted_objects = sorted(objects)
+    return _get_object_combinations(tuple(sorted(objects)), tuple(types))
+
+
+@functools.lru_cache(maxsize=None)
+def _get_object_combinations(
+        objects: Tuple[Object], types: Tuple[Type]
+        ) -> Iterator[List[Object]]:
+    """Helper for get_object_combinations that can be cached.
+    """
     choices = []
     for vt in types:
         this_choices = []
-        for obj in sorted_objects:
+        for obj in objects:
             if obj.is_instance(vt):
                 this_choices.append(obj)
         choices.append(this_choices)

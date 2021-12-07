@@ -851,20 +851,20 @@ class Partition:
     def add(self, member: Tuple[Segment, ObjToVarSub]) -> None:
         """Add a new member.
         """
-        seg, sub = member
-        # Check for consistency.
-        if len(self.members) > 0:
-            # The effects should match.
-            lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
-            lifted_delete_effects = {a.lift(sub) for a in seg.delete_effects}
-            assert lifted_add_effects == self.add_effects
-            assert lifted_delete_effects == self.delete_effects
-            if seg.has_option():
-                option = seg.get_option()
-                part_param_option, part_option_args = self.option_spec
-                assert option.parent == part_param_option
-                option_args = [sub[o] for o in option.objects]
-                assert option_args == part_option_args
+        # Uncomment for sanity checks.
+        # seg, sub = member
+        # if len(self.members) > 0:
+        #     # The effects should match.
+        #     lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
+        #     lifted_delete_effects = {a.lift(sub) for a in seg.delete_effects}
+        #     assert lifted_add_effects == self.add_effects
+        #     assert lifted_delete_effects == self.delete_effects
+        #     if seg.has_option():
+        #         option = seg.get_option()
+        #         part_param_option, part_option_args = self.option_spec
+        #         assert option.parent == part_param_option
+        #         option_args = [sub[o] for o in option.objects]
+        #         assert option_args == part_option_args
         # Add to members.
         self.members.append(member)
 
