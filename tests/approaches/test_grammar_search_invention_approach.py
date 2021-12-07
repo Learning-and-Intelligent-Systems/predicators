@@ -10,7 +10,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _UnaryFreeForallClassifier
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action
+    Action, ParameterizedOption, Box
 from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src import utils
 
@@ -70,11 +70,18 @@ def test_count_positives_for_ops():
                                      add_effects, delete_effects)
     cup = cup_type("cup")
     plate = plate_type("plate")
+    parameterized_option = ParameterizedOption(
+        "Dummy", [], Box(0, 1, (1,)),
+        lambda s, m, o, p: Action(np.array([0.0])),
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
+    option = parameterized_option.ground([], np.array([0.0]))
     state = State({cup: [0.5], plate: [1.0]})
     action = Action(np.zeros(1, dtype=np.float32))
+    action.set_option(option)
     states = [state, state]
     actions = [action]
-    strips_ops = {strips_operator}
+    strips_ops = [strips_operator]
+    option_specs = [(parameterized_option, [])]
     pruned_atom_data = [
         # Test empty sequence.
         ([state], [], [{on([cup, plate])}]),
@@ -88,7 +95,8 @@ def test_count_positives_for_ops():
     segments = [seg for traj in pruned_atom_data
                 for seg in segment_trajectory(traj)]
 
-    num_true, num_false = _count_positives_for_ops(strips_ops, segments)
+    num_true, num_false = _count_positives_for_ops(strips_ops, option_specs,
+                                                   segments)
     assert num_true == 1
     assert num_false == 1
 
