@@ -35,7 +35,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
     elif CFG.env == "cover_typed_options":
         nsrts = _get_cover_gt_nsrts(options_are_typed=True)
     elif CFG.env == "cover_multistep_options":
-        nsrts = _get_cover_gt_nsrts(options_are_typed=True, more_params=True,
+        nsrts = _get_cover_gt_nsrts(options_are_typed=True,
+                                    include_robot_in_holding=True,
                                     place_sampler_relative=True)
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -88,7 +89,8 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
+def _get_cover_gt_nsrts(options_are_typed: bool,
+                        include_robot_in_holding: bool = False,
                         place_sampler_relative: bool = False) -> Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv.
     """
@@ -109,7 +111,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
     # Pick
     block = Variable("?block", block_type)
     robot = Variable("?robot", robot_type)
-    parameters = [block, robot] if more_params else [block]
+    parameters = [block, robot] if include_robot_in_holding else [block]
     if options_are_typed:
         option_vars = [block]
         option = Pick
@@ -117,14 +119,14 @@ def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
         option_vars = []
         option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
-    if more_params:
+    if include_robot_in_holding:
         add_effects = {LiftedAtom(Holding, [block, robot])}
     else:
         add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
     def pick_sampler(state: State, rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        assert len(objs) == 2 if more_params else len(objs) == 1
+        assert len(objs) == 2 if include_robot_in_holding else len(objs) == 1
         b = objs[0]
         assert b.is_instance(block_type)
         if options_are_typed:
@@ -144,7 +146,8 @@ def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
 
     # Place
     target = Variable("?target", target_type)
-    parameters = [block, target, robot] if more_params else [block, target]
+    parameters = [block, target, robot] if include_robot_in_holding \
+        else [block, target]
     if options_are_typed:
         option_vars = [target]
         option = Place
@@ -154,7 +157,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
 
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
-    if more_params:
+    if include_robot_in_holding:
         preconditions = {LiftedAtom(IsBlock, [block]),
                      LiftedAtom(IsTarget, [target]),
                      LiftedAtom(Holding, [block, robot])}
@@ -166,7 +169,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
         delete_effects = {LiftedAtom(Holding, [block])}
     def place_sampler(state: State, rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
-        assert len(objs) == 3 if more_params else len(objs) == 2
+        assert len(objs) == 3 if include_robot_in_holding else len(objs) == 2
         t = objs[1]
         assert t.is_instance(target_type)
         if place_sampler_relative:
