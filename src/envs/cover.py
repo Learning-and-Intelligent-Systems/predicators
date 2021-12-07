@@ -2,7 +2,7 @@
 won't ever fail), but it still requires backtracking.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Iterator
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -93,13 +93,11 @@ class CoverEnv(BaseEnv):
                 next_state.set(held_block, "grasp", -1)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks,
-                               rng=self._train_rng)
+    def train_tasks_generator(self) -> Iterator[List[Task]]:
+        yield self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks,
-                               rng=self._test_rng)
+        return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:

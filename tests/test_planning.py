@@ -19,7 +19,7 @@ def test_sesame_plan():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
-    task = env.get_train_tasks()[0]
+    task = next(env.train_tasks_generator())[0]
     option_model = create_option_model(CFG.option_model_name, env.simulate)
     plan = sesame_plan(task, option_model, nsrts, env.predicates, 1, 123)
     assert len(plan) == 2
@@ -34,9 +34,9 @@ def test_sesame_plan_failures():
     option_model = create_option_model(CFG.option_model_name, env.simulate)
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
+        env.action_space)
     approach.seed(123)
-    task = env.get_train_tasks()[0]
+    task = next(env.train_tasks_generator())[0]
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
@@ -99,7 +99,7 @@ def test_sesame_plan_uninitiable_option():
             nsrt.name+"UNINITIABLE", nsrt.parameters, nsrt.preconditions,
             nsrt.add_effects, nsrt.delete_effects, new_option,
             nsrt.option_vars, nsrt._sampler))
-    task = env.get_train_tasks()[0]
+    task = next(env.train_tasks_generator())[0]
     with pytest.raises(ApproachFailure) as e:
         # Planning should reach max_skeletons_optimized
         sesame_plan(task, option_model, new_nsrts,

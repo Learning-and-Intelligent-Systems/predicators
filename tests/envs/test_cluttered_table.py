@@ -1,6 +1,7 @@
 """Test cases for the cluttered table environment.
 """
 
+import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import ClutteredTableEnv
@@ -15,9 +16,12 @@ def test_cluttered_table():
     utils.update_config({"env": "cluttered_table"})
     env = ClutteredTableEnv()
     env.seed(123)
-    for task in env.get_train_tasks():
+    train_tasks_gen = env.train_tasks_generator()
+    for task in next(train_tasks_gen):
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
+    with pytest.raises(StopIteration):
+        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])

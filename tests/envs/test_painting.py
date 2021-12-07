@@ -1,6 +1,7 @@
 """Test cases for the painting environment.
 """
 
+import pytest
 import numpy as np
 from predicators.src.envs import PaintingEnv
 from predicators.src import utils
@@ -9,12 +10,38 @@ from predicators.src import utils
 def test_painting():
     """Tests for PaintingEnv class.
     """
-    utils.update_config({"env": "painting"})
     env = PaintingEnv()
     env.seed(123)
-    for task in env.get_train_tasks():
+    utils.update_config({"env": "painting",
+                         "painting_train_families": ["not_a_real_family"]})
+    train_tasks_gen = env.train_tasks_generator()
+    with pytest.raises(ValueError):  # unrecognized task family
+        next(train_tasks_gen)
+    utils.update_config({"env": "painting",
+                         "painting_train_families": ["box_and_shelf"]})
+    train_tasks_gen = env.train_tasks_generator()
+    for task in next(train_tasks_gen):
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
+    with pytest.raises(StopIteration):
+        next(train_tasks_gen)
+    utils.update_config({"env": "painting",
+                         "painting_train_families": ["box_only", "shelf_only"]})
+    train_tasks_gen = env.train_tasks_generator()
+    for task in next(train_tasks_gen):
+        # box only
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+        for atom in task.goal:
+            assert atom.predicate.name != "InShelf"
+    for task in next(train_tasks_gen):
+        # shelf only
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+        for atom in task.goal:
+            assert atom.predicate.name != "InBox"
+    with pytest.raises(StopIteration):
+        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -63,7 +90,8 @@ def test_painting_failure_cases():
     """
     utils.update_config({"env": "painting",
                          "approach": "nsrt_learning",
-                         "seed": 123})
+                         "seed": 123,
+                         "painting_train_families": ["box_and_shelf"]})
     env = PaintingEnv()
     env.seed(123)
     Pick = [o for o in env.options if o.name == "Pick"][0]
@@ -71,14 +99,17 @@ def test_painting_failure_cases():
     Dry = [o for o in env.options if o.name == "Dry"][0]
     Paint = [o for o in env.options if o.name == "Paint"][0]
     Place = [o for o in env.options if o.name == "Place"][0]
+    OpenLid = [o for o in env.options if o.name == "OpenLid"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     obj_type = [t for t in env.types if t.name == "obj"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
+    lid_type = [t for t in env.types if t.name == "lid"][0]
     obj0 = obj_type("obj0")
     obj1 = obj_type("obj1")
     obj2 = obj_type("obj2")
     robot = robot_type("robot")
-    task = env.get_train_tasks()[0]
+    lid = lid_type("lid")
+    task = next(env.train_tasks_generator())[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     assert OnTable([obj0]) in atoms
@@ -158,3 +189,29 @@ def test_painting_failure_cases():
     # Render with a forced color of an object
     state.set(obj0, "color", 0.6)
     env.render(state, task)
+    # Open the box lid
+    act = OpenLid.ground([robot, lid], np.array(
+        [], dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    # Reset state
+    state = task.init
+    # Perform valid pick with gripper_rot = 0 (side grasp)
+    act = Pick.ground([robot, obj0], np.array(
+        [0, 0, 0, 0], dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert not state.allclose(next_state)
+    # Change the state
+    state = next_state
+    # Perform valid place into shelf
+    act = Place.ground([robot], np.array(
+        [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
+        dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert not state.allclose(next_state)
+    # Change the state
+    state = next_state
+    # Picking from shelf should fail
+    act = Pick.ground([robot, obj0], np.array(
+        [0, 0, 0, 0], dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)

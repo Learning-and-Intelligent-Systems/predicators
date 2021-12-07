@@ -95,6 +95,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         # we only have predicates, and not the continuous parameters that would
         # be used to distinguish between a PickPlace that is a pick vs a place.
         if actions[t].has_option():
+            # Check for a change in option specs.
             if t < len(actions) - 1:
                 option_t = actions[t].get_option()
                 option_t1 = actions[t+1].get_option()
@@ -102,10 +103,13 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 option_t1_spec = (option_t1.parent, option_t1.objects)
                 if option_t_spec != option_t1_spec:
                     switch = True
-            else:
-                # TODO: is this right?
-                option_t = actions[t].get_option()
-                assert option_t.terminal(states[t])
+            # Special case: if the final option terminates in the state, we
+            # can safely segment without using any continuous info. Note that
+            # excluding the final option from the data is highly problematic
+            # when using demo+replay with the default 1 option per replay
+            # because the replay data which causes no change in the symbolic
+            # state would get excluded.
+            elif actions[t].get_option().terminal(states[t]):
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
