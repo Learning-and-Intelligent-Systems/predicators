@@ -305,7 +305,7 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
 
 def get_object_combinations(
         objects: Collection[Object], types: Sequence[Type]
-        ) -> Iterator[List[Object]]:
+        ) -> List[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence.
     """
     return _get_object_combinations(tuple(sorted(objects)), tuple(types))
@@ -314,7 +314,7 @@ def get_object_combinations(
 @functools.lru_cache(maxsize=None)
 def _get_object_combinations(
         objects: Tuple[Object], types: Tuple[Type]
-        ) -> Iterator[List[Object]]:
+        ) -> List[List[Object]]:
     """Helper for get_object_combinations that can be cached.
     """
     choices = []
@@ -324,8 +324,10 @@ def _get_object_combinations(
             if obj.is_instance(vt):
                 this_choices.append(obj)
         choices.append(this_choices)
+    choices_lst = []
     for choice in itertools.product(*choices):
-        yield list(choice)
+        choices_lst.append(list(choice))
+    return choices_lst
 
 
 def get_random_object_combination(
