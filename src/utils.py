@@ -20,9 +20,26 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
     OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
     ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
-    _GroundSTRIPSOperator
+    _GroundSTRIPSOperator, Array
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
+
+
+def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> bool:
+    """An initiation function for an option that can always be run.
+    """
+    del state, memory, objects, params  # unused
+    return True
+
+
+def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> bool:
+    """A termination function for an option that only lasts 1 timestep.
+    """
+    del state, memory, objects, params  # unused
+    return True
+
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
                p3: Tuple[float, float], p4: Tuple[float, float]) -> bool:
@@ -54,6 +71,7 @@ def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
         return True
     return False
 
+
 def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
                l2: Tuple[float, float], r2: Tuple[float, float]) -> bool:
     """
@@ -67,6 +85,7 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
     if (r1[1] >= l2[1] or r2[1] >= l1[1]):  # one rect above the other
         return False
     return True
+
 
 @functools.lru_cache(maxsize=None)
 def unify(ground_atoms: FrozenSet[GroundAtom],
