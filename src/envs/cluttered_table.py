@@ -32,13 +32,13 @@ class ClutteredTableEnv(BaseEnv):
         self._Grasp = ParameterizedOption(
             "Grasp", [self._can_type], params_space=Box(0, 1, (4,)),
             _policy=self._Grasp_policy,
-            _initiable=self._always_initiable,
-            _terminal=self._onestep_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._Dump = ParameterizedOption(
             "Dump", [], params_space=Box(0, 1, (0,)),  # no parameter
             _policy=self._Dump_policy,
-            _initiable=self._always_initiable,
-            _terminal=self._onestep_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         # Objects
         self._cans = []
         for i in range(max(CFG.cluttered_table_num_cans_train,
