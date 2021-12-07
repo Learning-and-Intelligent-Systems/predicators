@@ -32,7 +32,7 @@ def test_segment_trajectory():
     # Tests with known options.
     param_option = ParameterizedOption(
         "dummy", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False)
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
     option0 = param_option.ground([cup0], np.array([0.2]))
     action0 = option0.policy(state0)
     # Even though the option changes, the option spec stays the same, so we do
@@ -46,12 +46,10 @@ def test_segment_trajectory():
                   [action0, action1, action2, action0],
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
     known_option_segments = segment_trajectory(trajectory)
-    # Note that there are only two segments because the final segment is never
-    # included in the result of segment_trajectory (because we don't know if
-    # the option finished executing or not).
-    assert len(known_option_segments) == 2
+    assert len(known_option_segments) == 3
     assert len(known_option_segments[0].actions) == 2
     assert len(known_option_segments[1].actions) == 1
+    assert len(known_option_segments[2].actions) == 1
     # Tests without known options.
     action0 = option0.policy(state0)
     action0.unset_option()
@@ -116,7 +114,7 @@ def test_nsrt_learning_specific_nsrts():
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     option1 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        lambda s, m, o, p: True, lambda s, m, o, p: True).ground(
             [], np.array([0.2]))
     action1 = option1.policy(state1)
     action1.set_option(option1)
@@ -175,7 +173,7 @@ def test_nsrt_learning_specific_nsrts():
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     option1 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        lambda s, m, o, p: True, lambda s, m, o, p: True).ground(
             [], np.array([0.3]))
     action1 = option1.policy(state1)
     action1.set_option(option1)
@@ -183,7 +181,7 @@ def test_nsrt_learning_specific_nsrts():
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        lambda s, m, o, p: True, lambda s, m, o, p: True).ground(
             [], np.array([0.7]))
     action2 = option2.policy(state2)
     action2.set_option(option2)
