@@ -5,16 +5,16 @@ from typing import List
 import numpy as np
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.envs import BaseEnv, EnvironmentFailure
-from predicators.src.structs import Dataset, _GroundNSRT
+from predicators.src.structs import Dataset, _GroundNSRT, Task
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-def create_demo_replay_data(env: BaseEnv) -> Dataset:
+def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos and replaying.
     """
-    demo_dataset = create_demo_data(env)
+    demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
     # all states into one list, is that we want to compute

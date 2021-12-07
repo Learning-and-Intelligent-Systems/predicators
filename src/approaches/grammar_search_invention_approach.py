@@ -403,37 +403,39 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task]) -> None:
+                 action_space: Box) -> None:
         super().__init__(simulator, initial_predicates, initial_options,
-                         types, action_space, train_tasks)
+                         types, action_space)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset,
+                                   train_tasks: List[Task]) -> None:
+        self._dataset.extend(dataset)
+        del dataset
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(CFG.grammar_search_grammar_name, dataset,
-                                  self._initial_predicates)
+        grammar = _create_grammar(CFG.grammar_search_grammar_name,
+                                  self._dataset, self._initial_predicates)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates:")
         for predicate in candidates:
             print(predicate)
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
-        atom_dataset = utils.create_ground_atom_dataset(dataset,
-            set(candidates) | self._initial_predicates)
+        atom_dataset = utils.create_ground_atom_dataset(
+            self._dataset, set(candidates) | self._initial_predicates)
         print("Done.")
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
-        self._learned_predicates = self._select_predicates_to_keep(candidates,
-            atom_dataset)
+        self._learned_predicates = self._select_predicates_to_keep(
+            candidates, atom_dataset)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts()
 
     def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
                                    atom_dataset: List[GroundAtomTrajectory]

@@ -26,9 +26,9 @@ To run grammar search predicate invention (example):
 
 import time
 from predicators.src.settings import CFG
-from predicators.src.envs import create_env, EnvironmentFailure
+from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
-    ApproachFailure
+    ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
 from predicators.src import utils
 
@@ -54,21 +54,33 @@ def main() -> None:
     else:
         preds = env.predicates
     approach = create_approach(CFG.approach, env.simulate, preds,
-                               env.options, env.types, env.action_space,
-                               env.get_train_tasks())
+                               env.options, env.types, env.action_space)
     env.seed(CFG.seed)
     approach.seed(CFG.seed)
     env.action_space.seed(CFG.seed)
     for option in env.options:
         option.params_space.seed(CFG.seed)
-    # If approach is learning-based, get training datasets
+    # If approach is learning-based, get training datasets and do learning,
+    # testing after each learning call. Otherwise, just do testing.
     if approach.is_learning_based:
         if CFG.load:
             approach.load()
+            _run_testing(env, approach)
         else:
-            dataset = create_dataset(env)
-            approach.learn_from_offline_dataset(dataset)
-    # Run approach
+            # Iterate over the train_tasks lists coming from the generator.
+            dataset_idx = 0
+            for train_tasks in env.train_tasks_generator():
+                dataset = create_dataset(env, train_tasks)
+                print(f"\n\nDATASET INDEX: {dataset_idx}")
+                dataset_idx += 1
+                approach.learn_from_offline_dataset(dataset, train_tasks)
+                _run_testing(env, approach)
+    else:
+        _run_testing(env, approach)
+    print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
+
+
+def _run_testing(env: BaseEnv, approach: BaseApproach) -> None:
     test_tasks = env.get_test_tasks()
     num_solved = 0
     approach.reset_metrics()
@@ -96,7 +108,6 @@ def main() -> None:
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
-    print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
     print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
     print(f"Approach metrics: {approach.metrics}")
 

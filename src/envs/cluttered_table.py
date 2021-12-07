@@ -2,7 +2,7 @@
 planner's ability to handle failures reported by the environment.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
+from typing import List, Set, Sequence, Dict, Optional, Iterator
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -107,13 +107,11 @@ class ClutteredTableEnv(BaseEnv):
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks,
-                               train_or_test="train")
+    def train_tasks_generator(self) -> Iterator[List[Task]]:
+        yield self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks,
-                               train_or_test="test")
+        return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
 
     @property
     def predicates(self) -> Set[Predicate]:
