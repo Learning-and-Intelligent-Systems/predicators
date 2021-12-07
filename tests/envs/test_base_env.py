@@ -21,7 +21,7 @@ def test_base_env():
     with pytest.raises(NotImplementedError):
         env.simulate(state, [1, 2])
     with pytest.raises(NotImplementedError):
-        env.get_train_tasks()
+        env.train_tasks_generator()
     with pytest.raises(NotImplementedError):
         env.get_test_tasks()
     with pytest.raises(NotImplementedError):

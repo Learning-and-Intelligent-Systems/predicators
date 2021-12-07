@@ -18,7 +18,7 @@ def test_predicate_grammar():
     """
     utils.update_config({"env": "cover"})
     env = CoverEnv()
-    train_task = env.get_train_tasks()[0]
+    train_task = next(env.train_tasks_generator())[0]
     state = train_task.init
     other_state = state.copy()
     robby = [o for o in state if o.type.name == "robot"][0]

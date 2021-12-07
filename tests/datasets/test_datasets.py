@@ -25,7 +25,8 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 7
     assert len(dataset[0]) == 2
     assert len(dataset[0][0]) == 3
@@ -44,7 +45,8 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 7
     assert len(dataset[0]) == 2
     assert len(dataset[0][0]) == 3
@@ -56,7 +58,7 @@ def test_demo_dataset():
         "offline_data_method": "not a real method",
     })
     with pytest.raises(NotImplementedError):
-        create_dataset(env)
+        create_dataset(env, train_tasks)
 
 
 def test_demo_replay_dataset():
@@ -74,7 +76,8 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 3
     assert len(dataset[-1]) == 2
     assert len(dataset[-1][0]) == 2
@@ -94,7 +97,8 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 3
     assert len(dataset[-1]) == 2
     assert len(dataset[-1][0]) == 2
@@ -113,7 +117,8 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = ClutteredTableEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert len(dataset[-1]) == 2
     assert len(dataset[-1][0]) == 2
     assert len(dataset[-1][1]) == 1

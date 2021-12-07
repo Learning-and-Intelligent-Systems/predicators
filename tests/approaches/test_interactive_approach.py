@@ -43,7 +43,8 @@ def test_create_teacher_dataset():
         "seed": 123,
     })
     env = CoverEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     teacher_dataset = create_teacher_dataset(env.predicates, dataset)
     assert len(teacher_dataset) == 10
 
@@ -79,10 +80,11 @@ def test_interactive_learning_approach():
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
-    approach.learn_from_offline_dataset(dataset)
+    approach.learn_from_offline_dataset(dataset, train_tasks)
     for task in env.get_test_tasks():
         try:
             approach.solve(task, timeout=CFG.timeout)
@@ -109,8 +111,9 @@ def test_interactive_learning_approach_ask_strategies():
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.load_dataset(dataset)
 
@@ -159,9 +162,10 @@ def test_interactive_learning_approach_no_ground_atoms():
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     # MLP training fails since there are 0 positive examples
     with pytest.raises(RuntimeError):
-        approach.learn_from_offline_dataset(dataset)
+        approach.learn_from_offline_dataset(dataset, train_tasks)
