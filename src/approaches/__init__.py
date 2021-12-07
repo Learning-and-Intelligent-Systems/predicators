@@ -43,36 +43,29 @@ def create_approach(name: str,
                     initial_predicates: Set[Predicate],
                     initial_options: Set[ParameterizedOption],
                     types: Set[Type],
-                    action_space: Box,
-                    train_tasks: List[Task]) -> BaseApproach:
+                    action_space: Box) -> BaseApproach:
     """Create an approach given its name.
     """
     if name == "oracle":
         return OracleApproach(simulator, initial_predicates,
-                              initial_options, types, action_space,
-                              train_tasks)
+                              initial_options, types, action_space)
     if name == "random_actions":
         return RandomActionsApproach(simulator, initial_predicates,
-                                     initial_options, types, action_space,
-                                     train_tasks)
+                                     initial_options, types, action_space)
     if name == "random_options":
         return RandomOptionsApproach(simulator, initial_predicates,
-                                     initial_options, types, action_space,
-                                     train_tasks)
+                                     initial_options, types, action_space)
     if name == "nsrt_learning":
         return NSRTLearningApproach(simulator, initial_predicates,
-                                    initial_options, types, action_space,
-                                    train_tasks)
+                                    initial_options, types, action_space)
     if name == "interactive_learning":
         return InteractiveLearningApproach(simulator, initial_predicates,
-                                           initial_options, types, action_space,
-                                           train_tasks)
+                                           initial_options, types, action_space)
     if name == "iterative_invention":
         return IterativeInventionApproach(simulator, initial_predicates,
-                                          initial_options, types, action_space,
-                                          train_tasks)
+                                          initial_options, types, action_space)
     if name == "grammar_search_invention":
         return GrammarSearchInventionApproach(simulator, initial_predicates,
                                               initial_options, types,
-                                              action_space, train_tasks)
+                                              action_space)
     raise NotImplementedError(f"Unknown env: {name}")

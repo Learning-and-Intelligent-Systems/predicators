@@ -25,7 +25,8 @@ def test_known_options_option_learner():
                          "seed": 123,
                          "num_train_tasks": 3,
                          "do_option_learning": False})
-    dataset = create_demo_replay_data(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
     for _, actions, _ in ground_atom_dataset:
@@ -71,7 +72,8 @@ def test_oracle_option_learner_cover():
                          "num_train_tasks": 3,
                          "do_option_learning": True,
                          "option_learner": "oracle"})
-    dataset = create_demo_replay_data(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
     for _, actions, _ in ground_atom_dataset:
@@ -119,7 +121,8 @@ def test_oracle_option_learner_blocks():
                          "num_train_tasks": 3,
                          "do_option_learning": True,
                          "option_learner": "oracle"})
-    dataset = create_demo_replay_data(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
     for _, actions, _ in ground_atom_dataset:

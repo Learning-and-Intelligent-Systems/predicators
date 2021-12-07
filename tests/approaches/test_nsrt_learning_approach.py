@@ -14,6 +14,8 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
     """
     utils.flush_cache()  # Some extremely nasty bugs arise without this.
     utils.update_config({"env": env_name, "approach": approach_name,
+                         "seed": 12345})
+    utils.update_config({"env": env_name, "approach": approach_name,
                          "timeout": 10, "max_samples_per_step": 10,
                          "seed": 12345, "regressor_max_itr": 200,
                          "classifier_max_itr_sampler": 200,
@@ -33,10 +35,11 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
         preds = env.predicates
     approach = create_approach(approach_name,
         env.simulate, preds, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
-    approach.learn_from_offline_dataset(dataset)
+    approach.learn_from_offline_dataset(dataset, train_tasks)
     task = env.get_test_tasks()[0]
     if try_solving:
         approach.solve(task, timeout=CFG.timeout)
@@ -45,7 +48,7 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
     # Now test loading NSRTs & predicates.
     approach2 = create_approach(approach_name,
         env.simulate, preds, env.options, env.types,
-        env.action_space, env.get_train_tasks())
+        env.action_space)
     approach2.load()
     if try_solving:
         approach2.solve(task, timeout=CFG.timeout)
