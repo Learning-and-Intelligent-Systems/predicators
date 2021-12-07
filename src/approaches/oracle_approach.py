@@ -124,7 +124,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
     delete_effects = {LiftedAtom(HandEmpty, [])}
     def pick_sampler(state: State, rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        assert len(objs) == 2 if more_params else len(obs) == 1
+        assert len(objs) == 2 if more_params else len(objs) == 1
         b = objs[0]
         assert b.is_instance(block_type)
         if options_are_typed:
