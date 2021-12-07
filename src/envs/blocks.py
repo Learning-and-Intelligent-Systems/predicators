@@ -59,24 +59,24 @@ class BlocksEnv(BaseEnv):
             "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Pick_policy,
-            _initiable=self._Pick_initiable,
-            _terminal=self._Pick_terminal)
+            _initiable=self._always_initiable,
+            _terminal=self._onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z]
             "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Stack_policy,
-            _initiable=self._Stack_initiable,
-            _terminal=self._Stack_terminal)
+            _initiable=self._always_initiable,
+            _terminal=self._onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable", types=[self._robot_type],
             params_space=Box(0, 1, (2,)),
             _policy=self._PutOnTable_policy,
-            _initiable=self._PutOnTable_initiable,
-            _terminal=self._PutOnTable_terminal)
+            _initiable=self._always_initiable,
+            _terminal=self._onestep_terminal)
         # Objects
         self._robot = Object("robby", self._robot_type)
 
@@ -389,18 +389,6 @@ class BlocksEnv(BaseEnv):
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
-    @staticmethod
-    def _Pick_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                        params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
-
     def _Stack_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
@@ -411,18 +399,6 @@ class BlocksEnv(BaseEnv):
         arr = np.r_[block_pose+params, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-
-    @staticmethod
-    def _Stack_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _Stack_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                        params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     def _PutOnTable_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
@@ -435,18 +411,6 @@ class BlocksEnv(BaseEnv):
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-
-    @staticmethod
-    def _PutOnTable_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _PutOnTable_terminal(state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     def _get_held_block(self, state: State) -> Optional[Object]:
         for block in state:

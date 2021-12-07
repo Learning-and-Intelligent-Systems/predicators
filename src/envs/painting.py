@@ -540,13 +540,6 @@ class PaintingEnv(BaseEnv):
         del memory, objects, params  # unused
         return self._get_held_object(state) is None
 
-    @staticmethod
-    def _onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                          params: Array) -> bool:
-         # A termination function for an option that only lasts 1 timestep.
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
-
     def _OpenLid_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects, params  # unused

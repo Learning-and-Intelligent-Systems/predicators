@@ -39,8 +39,8 @@ class CoverEnv(BaseEnv):
         self._PickPlace = ParameterizedOption(
             "PickPlace", types=[], params_space=Box(0, 1, (1,)),
             _policy=self._PickPlace_policy,
-            _initiable=self._PickPlace_initiable,
-            _terminal=self._PickPlace_terminal)
+            _initiable=self._always_initiable,
+            _terminal=self._onestep_terminal)
         # Objects
         self._blocks = []
         self._targets = []
@@ -263,18 +263,6 @@ class CoverEnv(BaseEnv):
                           params: Array) -> Action:
         del state, memory, objects  # unused
         return Action(params)  # action is simply the parameter
-
-    @staticmethod
-    def _PickPlace_initiable(state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _PickPlace_terminal(state: State,  memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     def _any_intersection(self, pose: float, width: float,
                           data: Dict[Object, Array],

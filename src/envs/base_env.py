@@ -2,11 +2,11 @@
 """
 
 import abc
-from typing import List, Set, Optional, Iterator
+from typing import List, Set, Optional, Iterator, Dict, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image, Object
+    ParameterizedOption, Type, Action, Image, Object, Array
 
 
 class BaseEnv:
@@ -89,6 +89,20 @@ class BaseEnv:
         # train/test tasks respectively.
         self._train_rng = np.random.default_rng(self._seed)
         self._test_rng = np.random.default_rng(self._seed)
+
+    @staticmethod
+    def _always_initiable(state: State, memory: Dict, objects: Sequence[Object],
+                          params: Array) -> bool:
+        # An initiation function for an option that can always be run.
+        del state, memory, objects, params  # unused
+        return True
+
+    @staticmethod
+    def _onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
+                          params: Array) -> bool:
+         # A termination function for an option that only lasts 1 timestep.
+        del state, memory, objects, params  # unused
+        return True
 
 
 class EnvironmentFailure(Exception):
