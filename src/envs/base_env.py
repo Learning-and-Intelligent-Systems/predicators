@@ -2,11 +2,11 @@
 """
 
 import abc
-from typing import List, Set, Optional, Iterator, Dict, Sequence
+from typing import List, Set, Optional, Iterator
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image, Object, Array
+    ParameterizedOption, Type, Action, Image, Object
 
 
 class BaseEnv:
