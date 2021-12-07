@@ -25,7 +25,8 @@ def test_known_options_option_learner():
                          "seed": 123,
                          "num_train_tasks": 3,
                          "do_option_learning": False})
-    dataset = create_demo_replay_data(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
     for _, actions, _ in ground_atom_dataset:
@@ -34,13 +35,13 @@ def test_known_options_option_learner():
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
     strips_ops, partitions = learn_strips_operators(segments)
-    assert len(strips_ops) == len(partitions) == 3
+    assert len(strips_ops) == len(partitions) == 4
     option_learner = create_option_learner()
     option_specs = option_learner.learn_option_specs(strips_ops, partitions)
-    assert len(option_specs) == len(strips_ops) == 3
+    assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 1
     PickPlace = next(iter(env.options))
-    assert option_specs == [(PickPlace, []), (PickPlace, []), (PickPlace, [])]
+    assert option_specs == [(PickPlace, []) for _ in range(4)]
     for partition, spec in zip(partitions, option_specs):
         for (segment, _) in partition:
             assert segment.has_option()
@@ -71,7 +72,8 @@ def test_oracle_option_learner_cover():
                          "num_train_tasks": 3,
                          "do_option_learning": True,
                          "option_learner": "oracle"})
-    dataset = create_demo_replay_data(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
     for _, actions, _ in ground_atom_dataset:
@@ -119,7 +121,8 @@ def test_oracle_option_learner_blocks():
                          "num_train_tasks": 3,
                          "do_option_learning": True,
                          "option_learner": "oracle"})
-    dataset = create_demo_replay_data(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
     for _, actions, _ in ground_atom_dataset:

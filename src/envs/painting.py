@@ -4,7 +4,8 @@ grasping allows for placing into the box. The box has a lid which may
 need to be opened; this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any, \
+    Iterator
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
@@ -177,6 +178,9 @@ class PaintingEnv(BaseEnv):
         # Cannot pick if already holding something
         if held_obj is not None:
             return next_state
+        # Cannot pick if object pose not on table
+        if not self.table_lb < y < self.table_ub:
+            return next_state
         # Check if some object is close enough to (x, y, z)
         target_obj = self._get_object_at_xyz(state, x, y, z)
         if target_obj is None:
@@ -268,10 +272,23 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=self.num_objs_train,
-                               rng=self._train_rng)
+    def train_tasks_generator(self) -> Iterator[List[Task]]:
+        # Split num_train_tasks uniformly over the task families
+        num_tasks = CFG.num_train_tasks // len(CFG.painting_train_families)
+        for family_name in CFG.painting_train_families:
+            if family_name == "box_only":
+                yield self._get_tasks(num_tasks=num_tasks, num_objs_lst=[1],
+                                      rng=self._train_rng)
+            elif family_name == "shelf_only":
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=self.num_objs_train,
+                                      rng=self._train_rng, use_box=False)
+            elif family_name == "box_and_shelf":
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=self.num_objs_train,
+                                      rng=self._train_rng)
+            else:
+                raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
@@ -397,7 +414,8 @@ class PaintingEnv(BaseEnv):
         return [img]
 
     def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
-                   rng: np.random.Generator) -> List[Task]:
+                   rng: np.random.Generator, use_box: bool = True
+                   ) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
@@ -438,7 +456,7 @@ class PaintingEnv(BaseEnv):
                 held = 0.0
                 data[obj] = np.array([pose[0], pose[1], pose[2], dirtiness,
                                       wetness, color, held], dtype=np.float32)
-                if j == num_objs-1:  # last object should go into the box
+                if use_box and j == num_objs-1:  # last object should go in box
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:

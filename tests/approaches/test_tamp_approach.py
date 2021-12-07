@@ -12,7 +12,7 @@ def test_tamp_approach():
     env = CoverEnv()
     approach = TAMPApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    for task in env.get_train_tasks():
+        env.action_space)
+    for task in next(env.train_tasks_generator()):
         with pytest.raises(NotImplementedError):
             approach.solve(task, timeout=500)
