@@ -167,7 +167,9 @@ class _PredicateGrammar:
         The dict values are costs, e.g., negative log prior probability for the
         predicate in a PCFG.
         """
-        candidates = {}
+        candidates: Dict[Predicate, float] = {}
+        if max_num == 0:
+            return candidates
         assert max_num > 0
         for candidate, cost in self.enumerate():
             candidates[candidate] = cost
