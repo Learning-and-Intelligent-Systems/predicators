@@ -13,6 +13,7 @@ def test_blocks():
     utils.update_config({"env": "blocks"})
     env = BlocksEnv()
     env.seed(123)
+    clear = env._block_is_clear  # pylint: disable=protected-access
     train_tasks_gen = env.train_tasks_generator()
     for task in next(train_tasks_gen):
         for obj in task.init:
@@ -42,13 +43,13 @@ def test_blocks():
             if item.type != block_type:
                 robot = item
                 continue
-            assert not (state.get(item, "held") and state.get(item, "clear"))
+            assert not (state.get(item, "held") and clear(item, state))
         assert robot is not None
         if i == 0:
             # Force initial pick to test rendering with holding
             Pick = [o for o in env.options if o.name == "Pick"][0]
             block = sorted([o for o in state if o.type.name == "block" and \
-                            state.get(o, 'clear') > env.clear_tol])[0]
+                            clear(o, state)])[0]
             act = Pick.ground([robot, block], np.zeros(3)).policy(state)
             state = env.simulate(state, act)
             env.render(state, task)

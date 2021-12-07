@@ -4,8 +4,10 @@
 import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredicateGrammar, _count_positives_for_ops, _create_grammar, \
-    _halving_constant_generator, _ForallClassifier
+    _PredicateGrammar, _DataBasedPredicateGrammar, \
+    _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
+    _create_grammar, _halving_constant_generator, _ForallClassifier, \
+    _UnaryFreeForallClassifier
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action
@@ -25,24 +27,30 @@ def test_predicate_grammar():
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
     dataset = [([state, other_state], [np.zeros(1, dtype=np.float32)])]
-    base_grammar = _PredicateGrammar(dataset)
-    assert base_grammar.types == env.types
+    base_grammar = _PredicateGrammar()
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
+    data_based_grammar = _DataBasedPredicateGrammar(dataset)
+    assert data_based_grammar.types == env.types
     with pytest.raises(NotImplementedError):
-        _create_grammar("not a real grammar name", dataset)
+        data_based_grammar.generate(max_num=1)
+    with pytest.raises(NotImplementedError):
+        _create_grammar("not a real grammar name", dataset, set())
     env = CoverEnv()
-    holding_dummy_grammar = _create_grammar("holding_dummy", dataset)
+    holding_dummy_grammar = _create_grammar("holding_dummy", dataset,
+                                            env.predicates)
     assert len(holding_dummy_grammar.generate(max_num=1)) == 1
     assert len(holding_dummy_grammar.generate(max_num=3)) == 2
-    single_ineq_grammar = _create_grammar("single_feat_ineqs", dataset)
+    single_ineq_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
     assert len(single_ineq_grammar.generate(max_num=1)) == 1
     feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
-    candidates = single_ineq_grammar.generate(max_num=4)
+    neg_sfi_grammar = _create_grammar("single_feat_ineqs", dataset,
+                                      env.predicates)
+    candidates = neg_sfi_grammar.generate(max_num=4)
     assert str(sorted(candidates)) == \
-        ("[((0:block).pose<=2.33), ((0:block).pose>=2.33), "
-         "((0:block).width<=19.0), ((0:block).width>=19.0)]")
+        ("[((0:block).pose<=2.33), ((0:block).width<=19.0), "
+         "NOT-((0:block).pose<=2.33), NOT-((0:block).width<=19.0)]")
 
 
 def test_count_positives_for_ops():
@@ -110,3 +118,20 @@ def test_forall_classifier():
     assert not classifier(state1, [])
     assert classifier(state2, [])
     assert str(classifier) == "Forall[0:cup_type].[Pred(0)]"
+
+
+def test_unary_free_forall_classifier():
+    """Tests for _UnaryFreeForallClassifier().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    cup0 = cup_type("cup0")
+    plate0 = plate_type("plate0")
+    state0 = State({cup0: [0.], plate0: [0.]})
+    classifier0 = _UnaryFreeForallClassifier(on, 0)
+    assert classifier0(state0, [cup0])
+    assert str(classifier0) == "Forall[1:plate_type].[On(0,1)]"
+    classifier1 = _UnaryFreeForallClassifier(on, 1)
+    assert classifier1(state0, [plate0])
+    assert str(classifier1) == "Forall[0:cup_type].[On(0,1)]"
