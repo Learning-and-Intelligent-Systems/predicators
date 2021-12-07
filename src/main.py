@@ -84,6 +84,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> None:
     test_tasks = env.get_test_tasks()
     num_solved = 0
     approach.reset_metrics()
+    start = time.time()
     for i, task in enumerate(test_tasks):
         print(end="", flush=True)
         try:
@@ -110,6 +111,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> None:
             utils.save_video(outfile, video)
     print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
     print(f"Approach metrics: {approach.metrics}")
+    print(f"Total test time: {time.time()-start:.5f} seconds")
 
 
 if __name__ == "__main__":  # pragma: no cover
