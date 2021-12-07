@@ -59,24 +59,24 @@ class BlocksEnv(BaseEnv):
             "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Pick_policy,
-            _initiable=self._always_initiable,
-            _terminal=self._onestep_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z]
             "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Stack_policy,
-            _initiable=self._always_initiable,
-            _terminal=self._onestep_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable", types=[self._robot_type],
             params_space=Box(0, 1, (2,)),
             _policy=self._PutOnTable_policy,
-            _initiable=self._always_initiable,
-            _terminal=self._onestep_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         # Objects
         self._robot = Object("robby", self._robot_type)
 

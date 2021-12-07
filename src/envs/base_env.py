@@ -90,20 +90,6 @@ class BaseEnv:
         self._train_rng = np.random.default_rng(self._seed)
         self._test_rng = np.random.default_rng(self._seed)
 
-    @staticmethod
-    def _always_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                          params: Array) -> bool:
-        # An initiation function for an option that can always be run.
-        del state, memory, objects, params  # unused
-        return True
-
-    @staticmethod
-    def _onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                          params: Array) -> bool:
-         # A termination function for an option that only lasts 1 timestep.
-        del state, memory, objects, params  # unused
-        return True
-
 
 class EnvironmentFailure(Exception):
     """Exception raised when any type of failure occurs in an environment.
