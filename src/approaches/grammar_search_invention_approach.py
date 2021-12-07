@@ -467,8 +467,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 CFG.grammar_search_size_weight * op_size + \
                 CFG.grammar_search_pred_complexity_weight * pred_complexity
             # Useful for debugging:
-            print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
-                  op_size, pred_complexity, total_score)
+            # print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
+                  # op_size, pred_complexity, total_score)
             # Lower is better.
             return total_score
 
