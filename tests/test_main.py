@@ -51,6 +51,10 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123", "--timeout", "0.001", "--num_test_tasks", "5"]
     main()
+    # Run actual main approach, but without sampler learning.
+    sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
+                "--seed", "123", "--do_sampler_learning", "0"]
+    main()
     # Try loading.
     sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
                 "--seed", "123", "--load"]
