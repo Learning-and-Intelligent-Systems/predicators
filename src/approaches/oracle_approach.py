@@ -35,7 +35,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
     elif CFG.env == "cover_typed_options":
         nsrts = _get_cover_gt_nsrts(options_are_typed=True)
     elif CFG.env == "cover_multistep_options":
-        nsrts = _get_cover_gt_nsrts(options_are_typed=True,
+        nsrts = _get_cover_gt_nsrts(options_are_typed=True, more_params=True,
                                     place_sampler_relative=True)
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -88,7 +88,7 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_nsrts(options_are_typed: bool,
+def _get_cover_gt_nsrts(options_are_typed: bool, more_params: bool = False,
                         place_sampler_relative: bool = False) -> Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv.
     """
@@ -109,7 +109,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     # Pick
     block = Variable("?block", block_type)
     robot = Variable("?robot", robot_type)
-    parameters = [block, robot]
+    parameters = [block, robot] if more_params else [block]
     if options_are_typed:
         option_vars = [block]
         option = Pick
@@ -117,11 +117,14 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
         option_vars = []
         option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
-    add_effects = {LiftedAtom(Holding, [block, robot])}
+    if more_params:
+        add_effects = {LiftedAtom(Holding, [block, robot])}
+    else:
+        add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
     def pick_sampler(state: State, rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        assert len(objs) == 2
+        assert len(objs) == 2 if more_params else len(obs) == 1
         b = objs[0]
         assert b.is_instance(block_type)
         if options_are_typed:
@@ -133,6 +136,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
             ub = float(state.get(b, "pose") + state.get(b, "width")/2)
             ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
+
     pick_nsrt = NSRT("Pick", parameters, preconditions,
                      add_effects, delete_effects, option,
                      option_vars, pick_sampler)
@@ -140,22 +144,29 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
 
     # Place
     target = Variable("?target", target_type)
-    parameters = [block, target, robot]
+    parameters = [block, target, robot] if more_params else [block, target]
     if options_are_typed:
         option_vars = [target]
         option = Place
     else:
         option_vars = []
         option = PickPlace
-    preconditions = {LiftedAtom(IsBlock, [block]),
-                     LiftedAtom(IsTarget, [target]),
-                     LiftedAtom(Holding, [block, robot])}
+
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
-    delete_effects = {LiftedAtom(Holding, [block, robot])}
+    if more_params:
+        preconditions = {LiftedAtom(IsBlock, [block]),
+                     LiftedAtom(IsTarget, [target]),
+                     LiftedAtom(Holding, [block, robot])}
+        delete_effects = {LiftedAtom(Holding, [block, robot])}
+    else:
+        preconditions = {LiftedAtom(IsBlock, [block]),
+                         LiftedAtom(IsTarget, [target]),
+                         LiftedAtom(Holding, [block])}
+        delete_effects = {LiftedAtom(Holding, [block])}
     def place_sampler(state: State, rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
-        assert len(objs) == 3
+        assert len(objs) == 3 if more_params else len(objs) == 2
         t = objs[1]
         assert t.is_instance(target_type)
         if place_sampler_relative:
