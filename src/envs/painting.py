@@ -288,7 +288,7 @@ class PaintingEnv(BaseEnv):
                                       num_objs_lst=self.num_objs_train,
                                       rng=self._train_rng)
             else:
-                raise Exception(f"Unrecognized task family: {family_name}")
+                raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,

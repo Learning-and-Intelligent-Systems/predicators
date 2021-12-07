@@ -53,9 +53,8 @@ def test_main():
     main()
     # Try loading.
     sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
-                "--seed", "2348393", "--load"]
-    with pytest.raises(FileNotFoundError):
-        main()
+                "--seed", "123", "--load"]
+    main()
     # Try learning (with too low hyperparameters to actually work).
     sys.argv = ["dummy", "--env", "cover", "--approach",
                 "nsrt_learning", "--seed", "123",
