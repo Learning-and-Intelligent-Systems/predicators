@@ -289,13 +289,13 @@ class CoverEnvTypedOptions(CoverEnv):
         self._Pick = ParameterizedOption(
             "Pick", types=[self._block_type], params_space=Box(-0.1, 0.1, (1,)),
             _policy=self._Pick_policy,
-            _initiable=self._PickPlace_initiable,
-            _terminal=self._PickPlace_terminal)
+            _initiable=self._always_initiable,
+            _terminal=self._onestep_terminal)
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type], params_space=Box(0, 1, (1,)),
             _policy=self._PickPlace_policy,  # use the parent class's policy
-            _initiable=self._PickPlace_initiable,
-            _terminal=self._PickPlace_terminal)
+            _initiable=self._always_initiable,
+            _terminal=self._onestep_terminal)
 
     @property
     def options(self) -> Set[ParameterizedOption]:
