@@ -103,16 +103,13 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 option_t1_spec = (option_t1.parent, option_t1.objects)
                 if option_t_spec != option_t1_spec:
                     switch = True
-            # Special case: assume that trajectory data never interrupts the
-            # final option (we will assert this). Under this assumption, we
+            # Special case: if the final option terminates in the state, we
             # can safely segment without using any continuous info. Note that
             # excluding the final option from the data is highly problematic
             # when using demo+replay with the default 1 option per replay
             # because the replay data which causes no change in the symbolic
             # state would get excluded.
-            else:
-                option_t = actions[t].get_option()
-                assert option_t.terminal(states[t])
+            elif actions[t].get_option().terminal(states[t]):
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
