@@ -4,6 +4,7 @@ the candidates proposed from a grammar.
 
 import abc
 from dataclasses import dataclass
+from collections import defaultdict
 from functools import cached_property
 import itertools
 from operator import ge, le
@@ -168,10 +169,11 @@ class _PredicateGrammar:
         predicate in a PCFG.
         """
         candidates = {}
-        for i, (candidate, cost) in enumerate(self.enumerate()):
-            if i >= max_num:
-                break
+        assert max_num > 0
+        for candidate, cost in self.enumerate():
             candidates[candidate] = cost
+            if len(candidates) == max_num:
+                break
         return candidates
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
@@ -360,6 +362,33 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                     yield (uff_predicate, cost)
 
 
+### Useful for debugging ###
+
+# Replace these strings with anything you want to exclusively enumerate.
+# _DEBUG_PREDICATE_STRS = [
+#     "Forall[1:box].[NOT-IsBoxColor(0,1)]",
+#     "Forall[0:obj,1:box].[NOT-InBox(0,1)]",
+#     "Forall[1:shelf].[NOT-IsShelfColor(0,1)]",
+# ]
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DebugGrammar(_PredicateGrammar):
+    """A grammar that omits given predicates from being enumerated.
+    """
+    base_grammar: _PredicateGrammar
+
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
+        del max_num
+        return super().generate(len(_DEBUG_PREDICATE_STRS))
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if str(predicate) in _DEBUG_PREDICATE_STRS:
+                yield (predicate, cost)
+
+### End debugging ###
+
+
 def _create_grammar(grammar_name: str, dataset: Dataset,
                     given_predicates: Set[Predicate]) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
@@ -387,7 +416,10 @@ def _create_grammar(grammar_name: str, dataset: Dataset,
         # so we just filter them out from actually being enumerated.
         # But remember that we do want to enumerate their negations
         # and foralls, which is why they're included originally.
-        return _SkipGrammar(forall_grammar, given_predicates)
+        skip_grammar = _SkipGrammar(forall_grammar, given_predicates)
+        return skip_grammar
+        # For debugging, uncomment this.
+        # return _DebugGrammar(skip_grammar)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -454,6 +486,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             strips_ops, partitions = learn_strips_operators(segments,
                                                             verbose=False)
             option_specs = [p.option_spec for p in partitions]
+
             # Score based on how well the operators fit the data.
             num_true_positives, num_false_positives = \
                 _count_positives_for_ops(strips_ops, option_specs, segments)
@@ -526,6 +559,8 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
     assert len(strips_ops) == len(option_specs)
     num_true_positives = 0
     num_false_positives = 0
+    # Useful for debugging.
+    param_option_to_num_false_positives = defaultdict(int)
     for segment in segments:
         objects = set(segment.states[0])
         segment_option = segment.get_option()
@@ -567,9 +602,12 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
                    ground_op.delete_effects == segment.delete_effects:
                     covered_by_some_op = True
                 else:
+                    param_option_to_num_false_positives[option_spec[0]] += 1
                     num_false_positives += 1
         if covered_by_some_op:
             num_true_positives += 1
+    # Useful for debugging.
+    # print("False positives per option:", param_option_to_num_false_positives)
     return num_true_positives, num_false_positives
 
 
