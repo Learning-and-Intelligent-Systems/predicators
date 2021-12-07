@@ -418,8 +418,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         del dataset
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(CFG.grammar_search_grammar_name, self._dataset,
-                                  self._initial_predicates)
+        grammar = _create_grammar(CFG.grammar_search_grammar_name,
+                                  self._dataset, self._initial_predicates)
         candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates:")
         for predicate in candidates:
