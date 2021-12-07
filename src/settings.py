@@ -170,6 +170,7 @@ class GlobalSettings:
                 "cluttered_table": "default",
                 "blocks": "default",
                 "painting": "default",
+                "playroom": "default"
             })[args["env"]],
 
             max_samples_per_step=defaultdict(int, {

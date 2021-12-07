@@ -78,25 +78,25 @@ class PlayroomEnv(BlocksEnv):
             "LightOff", [self._dial_type], self._LightOff_holds)
         # Options
         self._Pick = ParameterizedOption(
-            # variables: [object to pick]
+            # variables: [robot, object to pick]
             # params: [delta x, delta y, delta z, rotation]
-            "Pick", types=[self._block_type],
+            "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4,)),
             _policy=self._Pick_policy,
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
         self._Stack = ParameterizedOption(
-            # variables: [object on which to stack currently-held-object]
+            # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z, rotation]
-            "Stack", types=[self._block_type],
+            "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4,)),
             _policy=self._Stack_policy,
             _initiable=self._Stack_initiable,
             _terminal=self._Stack_terminal)
         self._PutOnTable = ParameterizedOption(
-            # variables: none
+            # variables: [robot]
             # params: [x, y, rotation] (normalized coords on table surface)
-            "PutOnTable", types=[],
+            "PutOnTable", types=[self._robot_type],
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
             _policy=self._PutOnTable_policy,
@@ -437,7 +437,7 @@ class PlayroomEnv(BlocksEnv):
             # [pose_x, pose_y, pose_z, held, clear]
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
         # [pose_x, pose_y, rotation, fingers], fingers start off open
-        data[self._robot] = np.array([5.0, 5.0, 0.0, 1.0])
+        data[self._robot] = np.array([10.0, 15.0, 0.0, 1.0])
         # [pose_x, pose_y, open], all doors start off closed
         data[self._door1] = np.array([30.0, 15.0, 0.0])
         data[self._door2] = np.array([50.0, 15.0, 0.0])
@@ -561,7 +561,7 @@ class PlayroomEnv(BlocksEnv):
                      objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation
         del memory  # unused
-        block, = objects
+        _, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
@@ -573,7 +573,7 @@ class PlayroomEnv(BlocksEnv):
                       objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation
         del memory  # unused
-        block, = objects
+        _, block = objects
         block_pose = np.array([state.get(block, "pose_x"),
                                state.get(block, "pose_y"),
                                state.get(block, "pose_z")])
