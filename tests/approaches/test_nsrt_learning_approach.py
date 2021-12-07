@@ -14,6 +14,8 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
     """
     utils.flush_cache()  # Some extremely nasty bugs arise without this.
     utils.update_config({"env": env_name, "approach": approach_name,
+                         "seed": 12345})
+    utils.update_config({"env": env_name, "approach": approach_name,
                          "timeout": 10, "max_samples_per_step": 10,
                          "seed": 12345, "regressor_max_itr": 200,
                          "classifier_max_itr_sampler": 200,
