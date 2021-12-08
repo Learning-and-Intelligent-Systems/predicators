@@ -18,6 +18,9 @@ class GlobalSettings:
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
 
+    # cover_multistep_options parameters
+    cover_multistep_action_limits = [-np.inf, np.inf]
+
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
