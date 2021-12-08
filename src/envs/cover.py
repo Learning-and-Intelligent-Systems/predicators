@@ -641,7 +641,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                     break
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])
-        # [x, y, grip]
+        # [x, y, grip, holding]
         data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0, -1.0])
         return State(data)
 
@@ -689,7 +689,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                        p: Array) -> bool:
         # Pick is done when we're holding the desired object.
         del m, p  # unused
-        block = o[0]
+        block, = o
         return self._Holding_holds(s, [block, self._robot])
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -751,7 +751,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 (state.get(targ, "x")-state.get(targ, "width")/10,
                  state.get(targ, "x")+state.get(targ, "width")/10))
         return hand_regions
-
 
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:

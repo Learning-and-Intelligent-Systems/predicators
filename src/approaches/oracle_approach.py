@@ -138,7 +138,6 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
             ub = float(state.get(b, "pose") + state.get(b, "width")/2)
             ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
-
     pick_nsrt = NSRT("Pick", parameters, preconditions,
                      add_effects, delete_effects, option,
                      option_vars, pick_sampler)
@@ -154,13 +153,12 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     else:
         option_vars = []
         option = PickPlace
-
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
     if include_robot_in_holding:
         preconditions = {LiftedAtom(IsBlock, [block]),
-                     LiftedAtom(IsTarget, [target]),
-                     LiftedAtom(Holding, [block, robot])}
+                         LiftedAtom(IsTarget, [target]),
+                         LiftedAtom(Holding, [block, robot])}
         delete_effects = {LiftedAtom(Holding, [block, robot])}
     else:
         preconditions = {LiftedAtom(IsBlock, [block]),
