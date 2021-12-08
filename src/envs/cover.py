@@ -417,7 +417,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
         # multi-step options.
-        lb, ub = CFG.action_space_limits
+        lb, ub = CFG.cover_multistep_action_limits
         return Box(lb, ub, (3,))
 
     def simulate(self, state: State, action: Action) -> State:
@@ -656,7 +656,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         desired_y = s.get(obj, "y")
         at_desired_y = abs(desired_y - y) < 1e-5
-        lb, ub = CFG.action_space_limits
+        lb, ub = CFG.cover_multistep_action_limits
         # If we're already above the object and prepared to pick,
         # then execute the pick (turn up the magnet).
         if at_desired_x and at_desired_y:
@@ -705,7 +705,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         desired_y = self.block_height + 1e-2
         at_desired_y = abs(desired_y - y) < 1e-5
-        lb, ub = CFG.action_space_limits
+        lb, ub = CFG.cover_multistep_action_limits
         # If we're already above the object and prepared to place,
         # then execute the place (turn down the magnet).
         if at_desired_x and at_desired_y:

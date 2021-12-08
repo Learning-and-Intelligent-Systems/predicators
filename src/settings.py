@@ -19,7 +19,7 @@ class GlobalSettings:
     cover_target_widths = [0.05, 0.03]
 
     # cover_multistep_options parameters
-    action_space_limits = [-np.inf, np.inf]
+    cover_multistep_action_limits = [-np.inf, np.inf]
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
