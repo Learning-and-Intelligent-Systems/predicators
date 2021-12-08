@@ -24,6 +24,9 @@ class GlobalSettings:
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
 
+    # repeated nextto env parameters
+    repeated_nextto_num_dots = 25
+
     # painting env parameters
     painting_train_families = [
         "box_and_shelf",  # placing into both box and shelf
@@ -130,6 +133,7 @@ class GlobalSettings:
                 "cluttered_table": 50,
                 "blocks": 50,
                 "painting": 50,
+                "repeated_nextto": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -143,6 +147,7 @@ class GlobalSettings:
                 "cluttered_table": 50,
                 "blocks": 50,
                 "painting": 50,
+                "repeated_nextto": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -157,6 +162,7 @@ class GlobalSettings:
                 "cluttered_table": 25,
                 "blocks": 25,
                 "painting": 100,
+                "repeated_nextto": 10,
                 "playroom": 25,
                 "behavior": 100,
             })[args["env"]],
@@ -170,6 +176,7 @@ class GlobalSettings:
                 "cluttered_table": "default",
                 "blocks": "default",
                 "painting": "default",
+                "repeated_nextto": "default",
             })[args["env"]],
 
             max_samples_per_step=defaultdict(int, {
@@ -180,6 +187,7 @@ class GlobalSettings:
                 "cluttered_table": 10,
                 "blocks": 10,
                 "painting": 1,
+                "repeated_nextto": 10,
                 "playroom": 10,
                 "behavior": 10,
             })[args["env"]],
