@@ -92,8 +92,8 @@ class _LearnedSimpleParameterizedOption:
         x_lst.extend(state.vec(objects))
         x_lst.extend(params)
         x = np.array(x_lst)
-        action = self._regressor(x)
-        return Action(np.array(action.detach(), dtype=np.float32))
+        action = self._regressor.predict(x)
+        return Action(np.array(action, dtype=np.float32))
 
     def terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                  params: Array) -> bool:

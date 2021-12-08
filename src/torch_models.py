@@ -17,9 +17,14 @@ from predicators.src.settings import CFG
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
+
 class BasicMLP(nn.Module):
     def __init__(self) -> None:  # pylint: disable=useless-super-delegation
         super().__init__()  # type: ignore
+        self._input_shift = torch.zeros(1)
+        self._input_scale = torch.zeros(1)
+        self._output_shift = torch.zeros(1)
+        self._output_scale = torch.zeros(1)
         self._linears = nn.ModuleList()
         self._loss_fn = nn.MSELoss()
 
@@ -39,6 +44,20 @@ class BasicMLP(nn.Module):
             x = F.relu(linear(x))
         x = self._linears[-1](x)
         return x
+
+    def predict(self, inputs: Array) -> Array:
+        """Normalize, predict, and convert to array.
+        """
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        x = x.unsqueeze(dim=0)
+        # Normalize input
+        x = (x - self._input_shift) / self._input_scale
+        y = self(x)
+        # Normalize output
+        y = (y * self._output_scale) + self._output_shift
+        y = y.squeeze(dim=0)
+        y = y.detach()  # type: ignore
+        return y.numpy()
 
     def _initialize_net(self, in_size: int, hid_sizes: List[int],
                         out_size: int) -> None:
