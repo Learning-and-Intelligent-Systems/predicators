@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 import abc
-from typing import List
+from dataclasses import dataclass
+from functools import cached_property
+from typing import List, Set
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment, Partition, Variable, ParameterizedOption, Action
+    Segment, Partition, Variable, ParameterizedOption, Action, Predicate
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
@@ -56,6 +58,53 @@ class _OptionLearnerBase(abc.ABC):
         which this method should figure out.
         """
         raise NotImplementedError("Override me!")
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _LearnedSimpleParameterizedOption:
+    """A convenience class for holding a learned parameterized option.
+    Prefer to use this because it is pickleable.
+    """
+    _op: STRIPSOperator
+    _regressor: BasicMLP
+
+    @cached_property
+    def _predicates(self) -> Set[Predicate]:
+        return {a.predicate for a in self._op.preconditions | \
+                self._op.add_effects | self._op.delete_effects}
+
+    def initiable(self, state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        """The initiable for the parameterized option.
+        """
+        del memory, params  # unused
+        grounded_op = self._op.ground(tuple(objects))
+        preconditions = grounded_op.preconditions
+        abs_state = utils.abstract(state, self._predicates)
+        return preconditions.issubset(abs_state)
+
+    def policy(self, state: State, memory: Dict,
+               objects: Sequence[Object], params: Array) -> Action:
+        """The policy for a parameterized option.
+        """
+        del memory  # unused
+        x_lst : List[Any] = [1.0]  # start with bias term
+        x_lst.extend(state.vec(objects))
+        x_lst.extend(params)
+        x = np.array(x_lst)
+        action = self._regressor(x)
+        return Action(np.array(action.detach(), dtype=np.float32))
+
+    def terminal(self, state: State, memory: Dict, objects: Sequence[Object],
+                 params: Array) -> bool:
+        """The terminal for a parameterized option.
+        """
+        del memory, params  # unused
+        grounded_op = self._op.ground(tuple(objects))
+        abs_state = utils.abstract(state, self._predicates)
+        return grounded_op.add_effects.issubset(abs_state) and \
+            not (grounded_op.delete_effects & abs_state)
+
 
 
 class _SimpleOptionLearner(_OptionLearnerBase):
@@ -149,7 +198,6 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             # high = np.array([np.inf for o in param_ub for dim in o])
             # low = np.array([-np.inf for o in param_lb for dim in o])
             params_space = Box(low, high, dtype=np.float32)
-            _initiable = self._create_initiable_from_op(op)
             # _initiable = (lambda op:
             #                 lambda s, m, o, p:
             #                     (lambda preconditions: preconditions.issubset(
@@ -157,13 +205,16 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             #                         s, {a.predicate for a in preconditions})))
             #                     (op.ground(tuple(o_)).preconditions))
             #              (op)
-            _terminal = self._create_terminal_from_op(op)
-            _policy = self._create_policy_from_regressor(regressor)
+            # This is hacky, but a better way would require a refactoring
+            # of ParameterizedOption.
+            # TODO: should we refactor? For context, see this conversation:
+            # https://lis-mit.slack.com/archives/C0N70S0VC/p1638994507053500
+            learned_wrapper = _LearnedSimpleParameterizedOption(op, regressor)
             option = ParameterizedOption(name=name, types=types, \
                                          params_space=params_space, \
-                                         _policy=_policy, \
-                                         _initiable=_initiable, \
-                                         _terminal=_terminal)
+                                         _policy=learned_wrapper.policy, \
+                                         _initiable=learned_wrapper.initiable, \
+                                         _terminal=learned_wrapper.terminal)
             option_specs.append((option, variables))
 
         return option_specs
@@ -174,47 +225,6 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             param_opt, opt_vars = option_spec
             option = param_opt.ground(objects, params)
             segment.set_option(option)
-
-    @staticmethod
-    def _create_initiable_from_op(op
-        ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
-        preds = {a.predicate for a in op.preconditions}
-        def _initiable(s_: State, m: Dict, o_: Sequence[Object],
-                       p_: Array) -> bool:
-            del m, p_  # unused
-            grounded_op = op.ground(tuple(o_))
-            preconditions = grounded_op.preconditions
-            abs_state = utils.abstract(s_, preds)
-            return preconditions.issubset(abs_state)
-        return _initiable
-
-    @staticmethod
-    def _create_terminal_from_op(op: STRIPSOperator
-        ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
-        preds = {a.predicate for a in op.add_effects | op.delete_effects}
-        def _terminal(s_: State, m: Dict, o_: Sequence[Object],
-                      p_: Array) -> bool:
-            del m, p_  # unused
-            grounded_op = op.ground(tuple(o_))
-            abs_state = utils.abstract(s_, preds)
-            return grounded_op.add_effects.issubset(abs_state) and \
-                not (grounded_op.delete_effects & abs_state)
-        return _terminal
-
-    @staticmethod
-    def _create_policy_from_regressor(regressor: TemporaryMLP
-        ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
-        def _policy(s_: State, m: Dict, o_: Sequence[Object],
-                    p_: Array) -> bool:
-            del m  # unused
-            x_lst : List[Any] = [1.0]  # start with bias term
-            for obj in o_:
-                x_lst.extend(s_[obj])
-            x_lst.extend(p_)
-            x = np.array(x_lst)
-            action = regressor(x)
-            return Action(np.array(action.detach(), dtype=np.float32))
-        return _policy
 
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
