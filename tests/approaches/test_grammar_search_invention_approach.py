@@ -95,8 +95,8 @@ def test_count_positives_for_ops():
     segments = [seg for traj in pruned_atom_data
                 for seg in segment_trajectory(traj)]
 
-    num_true, num_false = _count_positives_for_ops(strips_ops, option_specs,
-                                                   segments)
+    num_true, num_false, _, _ = _count_positives_for_ops(strips_ops,
+         option_specs, segments)
     assert num_true == 1
     assert num_false == 1
 
