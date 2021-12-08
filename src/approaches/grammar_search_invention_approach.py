@@ -363,87 +363,6 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                     yield (uff_predicate, cost)
 
 
-### Useful for debugging ###
-
-# # Replace these strings with anything you want to exclusively enumerate.
-# # Make sure to uncomment return _DebugGrammar(skip_grammar) in
-# # _create_grammar and the call to _run_debug_analysis.
-# _DEBUG_PREDICATE_STRS = [
-#     "((0:obj).wetness<=0.5)",
-#     "NOT-((0:obj).wetness<=0.5)",
-# ]
-
-# @dataclass(frozen=True, eq=False, repr=False)
-# class _DebugGrammar(_PredicateGrammar):
-#     """A grammar that generates only predicates in _DEBUG_PREDICATE_STRS.
-#     """
-#     base_grammar: _PredicateGrammar
-
-#     def generate(self, max_num: int) -> Dict[Predicate, float]:
-#         del max_num
-#         return super().generate(len(_DEBUG_PREDICATE_STRS))
-
-#     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-#         for (predicate, cost) in self.base_grammar.enumerate():
-#             if str(predicate) in _DEBUG_PREDICATE_STRS:
-#                 yield (predicate, cost)
-
-
-# def _run_debug_analysis(candidates: Dict[Predicate, float],
-#                         atom_dataset: List[GroundAtomTrajectory],
-#                         initial_predicates: Set[Predicate]) -> None:
-#     """Some helpful debugging stuff.
-#     """
-#     print("All candidates:", sorted(candidates))
-#     print("Running learning & scoring with ALL predicates.")
-#     all_segments = [seg for traj in atom_dataset
-#                     for seg in segment_trajectory(traj)]
-#     all_strips_ops, all_partitions = learn_strips_operators(all_segments,
-#                                                             verbose=False)
-#     all_option_specs = [p.option_spec for p in all_partitions]
-#     all_num_tps, all_num_fps, _, all_fp_idxs = \
-#         _count_positives_for_ops(all_strips_ops, all_option_specs,
-#                                  all_segments)
-#     print("TP/FP:", all_num_tps, all_num_fps)
-#     print("Running learning & scoring with INITIAL predicates.")
-#     pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
-#                                                        initial_predicates)
-#     init_segments = [seg for traj in pruned_atom_data
-#                      for seg in segment_trajectory(traj)]
-#     assert len(all_segments) == len(init_segments), \
-#         "This analysis assumes that segmentation does not change."
-#     init_strips_ops, init_partitions = learn_strips_operators(init_segments,
-#                                                               verbose=False)
-#     init_option_specs = [p.option_spec for p in init_partitions]
-#     # Score based on how well the operators fit the data.
-#     init_num_tps, init_num_fps, _, init_fp_idxs = \
-#         _count_positives_for_ops(init_strips_ops, init_option_specs,
-#                                  init_segments)
-#     print("TP/FP:", init_num_tps, init_num_fps)
-#     # Generally we would expect false positives to go down with the extra
-#     # predicates. But we're debugging, and there may be some false positives
-#     # that appear with the learned predicates that did not appear initially.
-#     all_combined_fps = {idx for fp_idxs in all_fp_idxs for idx in fp_idxs}
-#     init_combined_fps = {idx for fp_idxs in init_fp_idxs for idx in fp_idxs}
-#     for idx in sorted(all_combined_fps - init_combined_fps):
-#         all_segment = all_segments[idx]
-#         init_segment = init_segments[idx]
-#         assert all_segment.get_option() == init_segment.get_option()
-#         print("The following segment is a FP for ALL but not INITIAL.")
-#         print("Start of segment:", all_segment.init_atoms)
-#         print("Option:", all_segment.get_option())
-#         print("Add effects of segment:", all_segment.add_effects)
-#         print("Delete effects of segment:", all_segment.delete_effects)
-#         print("Here is the operator(s) that it is a FP for:")
-#         for i, op in enumerate(all_strips_ops):
-#             if idx in all_fp_idxs[i]:
-#                 print(op)
-#                 print("    Option Spec:", all_option_specs[i])
-#                 import ipdb; ipdb.set_trace()
-
-### End debugging ###
-
-
 def _create_grammar(grammar_name: str, dataset: Dataset,
                     given_predicates: Set[Predicate]) -> _PredicateGrammar:
     if grammar_name == "holding_dummy":
@@ -471,10 +390,7 @@ def _create_grammar(grammar_name: str, dataset: Dataset,
         # so we just filter them out from actually being enumerated.
         # But remember that we do want to enumerate their negations
         # and foralls, which is why they're included originally.
-        skip_grammar = _SkipGrammar(forall_grammar, given_predicates)
-        return skip_grammar
-        # For debugging, uncomment this, and comment out the previous line.
-        # return _DebugGrammar(skip_grammar)
+        return _SkipGrammar(forall_grammar, given_predicates)
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
 
 
@@ -516,9 +432,6 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         atom_dataset = utils.create_ground_atom_dataset(
             self._dataset, set(candidates) | self._initial_predicates)
         print("Done.")
-        # Useful for debugging in combination with _DebugGrammar.
-        # _run_debug_analysis(candidates, atom_dataset,
-        #                     self._initial_predicates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = self._select_predicates_to_keep(
@@ -622,8 +535,7 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
     assert len(strips_ops) == len(option_specs)
     num_true_positives = 0
     num_false_positives = 0
-    # The following two lists are just useful for debugging with
-    # _run_debug_analysis.
+    # The following two lists are just useful for debugging.
     true_positive_idxs : List[Set[int]] = [set() for _ in strips_ops]
     false_positive_idxs : List[Set[int]] = [set() for _ in strips_ops]
     for idx, segment in enumerate(segments):
