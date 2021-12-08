@@ -6,9 +6,12 @@ import abc
 from typing import List
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment
+    Segment, Partition, Variable, ParameterizedOption, Action
+from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
+from predicators.src.torch_models import NeuralGaussianRegressor, BasicMLP
+from gym.spaces import Box
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -18,10 +21,12 @@ def create_option_learner() -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
-    raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
+    if CFG.option_learner == "simple":
+        return _SimpleOptionLearner()
+    raise NotImplementedError(f"Unknown option learner: {CFG.option_learner}")
 
 
-class _OptionLearnerBase:
+class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options.
@@ -51,6 +56,165 @@ class _OptionLearnerBase:
         which this method should figure out.
         """
         raise NotImplementedError("Override me!")
+
+
+class _SimpleOptionLearner(_OptionLearnerBase):
+    """The option learner that learns options from fixed-length input vectors.
+    That is, the the input data only includes objects whose state changes from
+    the first state in the segment to the last state in the segment. The input
+    data does not include data from other objects in the scene, where the number
+    of other objects would differ across different instiantiations of the env.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.segment_to_grounding = {}
+
+    def learn_option_specs(
+            self, strips_ops: List[STRIPSOperator],
+            partitions: List[Partition]) -> List[OptionSpec]:
+
+        option_specs = []
+
+        for idx, p in enumerate(partitions):
+            X_regressor: List[List[Array]] = []
+            Y_regressor = []
+            op = strips_ops[idx]
+            print(f"\nLearning option for NSRT {op.name}")
+            param_ub, param_lb = [], []
+            types = []
+            variables = []
+            # temp = [len(s.actions) for (s, _) in p]
+            # print("TEMP: ", temp)
+            # print("NUMBER OF data points: ", sum(a for a in temp))
+            # Get objects involved in effects and sort them.
+            for segment, _ in p:
+                objects = sorted({o for atom in segment.add_effects | \
+                                 segment.delete_effects for o in atom.objects})
+                types = [o.type for o in objects]
+                # print("TYPES: ", types)
+
+                param = []
+                all_objects = list(segment.states[0])
+                objects_that_changed = []
+                for o in all_objects:
+                    start = segment.states[0]
+                    end = segment.states[-1]
+                    if not np.array_equal(start[o], end[o]):
+                        objects_that_changed.append(o)
+                # Keep track of max and min for each dimension of parameters
+                # that come from each object.
+                if len(param_ub) == 0:
+                    param_ub = [[-np.inf]*len(segment.states[0][o]) \
+                                for o in objects_that_changed]
+                    param_lb = [[np.inf]*len(segment.states[0][o]) \
+                                for o in objects_that_changed]
+
+                for j, o in enumerate(objects_that_changed):
+                    object_param = segment.states[0][o] - segment.states[-1][o]
+                    for k in range(len(object_param)):
+                        if object_param[k] > param_ub[j][k]:
+                            param_ub[j][k] = object_param[k]
+                        if object_param[k] < param_lb[j][k]:
+                            param_lb[j][k] = object_param[k]
+                    param.extend(object_param)
+                self.segment_to_grounding[segment] = (objects, param)
+
+                variables = [Variable(f"?x{i}", o.type) \
+                             for i, o in enumerate(objects)]
+
+                # Construct input. Input is a bias, state features of objects
+                # involved in effects, and the delta of each low-level feature
+                # of each object involved in effects between the first and last
+                # state of the segment.
+                for i in range(len(segment.states) - 1):
+                    s, s_prime = segment.states[i], segment.states[i+1]
+                    X_regressor.append([np.array(1.0)])
+                    for o in objects:
+                        X_regressor[-1].extend(s[o])
+                    X_regressor[-1].extend(param)
+                    Y_regressor.append(segment.actions[i].arr)
+
+            X_arr_regressor = np.array(X_regressor)
+            Y_arr_regressor = np.array(Y_regressor)
+            print("X SHAPE: ", X_arr_regressor.shape)
+            print("Y SHAPE: ", Y_arr_regressor.shape)
+            regressor = BasicMLP()
+            regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+            # Construct the ParameterizedOption for this partition.
+            name = str(idx)
+            high = np.array([dim for o in param_ub for dim in o])
+            low = np.array([dim for o in param_lb for dim in o])
+            # high = np.array([np.inf for o in param_ub for dim in o])
+            # low = np.array([-np.inf for o in param_lb for dim in o])
+            params_space = Box(low, high, dtype=np.float32)
+            _initiable = self._create_initiable_from_op(op)
+            # _initiable = (lambda op:
+            #                 lambda s, m, o, p:
+            #                     (lambda preconditions: preconditions.issubset(
+            #                         utils.abstract(
+            #                         s, {a.predicate for a in preconditions})))
+            #                     (op.ground(tuple(o_)).preconditions))
+            #              (op)
+            _terminal = self._create_terminal_from_op(op)
+            _policy = self._create_policy_from_regressor(regressor)
+            option = ParameterizedOption(name=name, types=types, \
+                                         params_space=params_space, \
+                                         _policy=_policy, \
+                                         _initiable=_initiable, \
+                                         _terminal=_terminal)
+            option_specs.append((option, variables))
+
+        return option_specs
+
+    def update_segment_from_option_spec(
+            self, segment: Segment, option_spec: OptionSpec) -> None:
+            objects, params = self.segment_to_grounding[segment]
+            param_opt, opt_vars = option_spec
+            option = param_opt.ground(objects, params)
+            segment.set_option(option)
+
+    @staticmethod
+    def _create_initiable_from_op(op
+        ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
+        preds = {a.predicate for a in op.preconditions}
+        def _initiable(s_: State, m: Dict, o_: Sequence[Object],
+                       p_: Array) -> bool:
+            del m, p_  # unused
+            grounded_op = op.ground(tuple(o_))
+            preconditions = grounded_op.preconditions
+            abs_state = utils.abstract(s_, preds)
+            return preconditions.issubset(abs_state)
+        return _initiable
+
+    @staticmethod
+    def _create_terminal_from_op(op: STRIPSOperator
+        ) -> Callable[[State, Dict, Sequence[Object], Array], bool]:
+        preds = {a.predicate for a in op.add_effects | op.delete_effects}
+        def _terminal(s_: State, m: Dict, o_: Sequence[Object],
+                      p_: Array) -> bool:
+            del m, p_  # unused
+            grounded_op = op.ground(tuple(o_))
+            abs_state = utils.abstract(s_, preds)
+            return grounded_op.add_effects.issubset(abs_state) and \
+                not (grounded_op.delete_effects & abs_state)
+        return _terminal
+
+    @staticmethod
+    def _create_policy_from_regressor(regressor: TemporaryMLP
+        ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+        def _policy(s_: State, m: Dict, o_: Sequence[Object],
+                    p_: Array) -> bool:
+            del m  # unused
+            x_lst : List[Any] = [1.0]  # start with bias term
+            for obj in o_:
+                x_lst.extend(s_[obj])
+            x_lst.extend(p_)
+            x = np.array(x_lst)
+            action = regressor(x)
+            return Action(np.array(action.detach(), dtype=np.float32))
+        return _policy
 
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
