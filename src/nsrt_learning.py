@@ -40,6 +40,10 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     option_learner = create_option_learner()
     option_specs = option_learner.learn_option_specs(strips_ops, partitions)
     assert len(option_specs) == len(strips_ops)
+    # Seed the new parameterized option parameter spaces.
+    for parameterized_option, _ in option_specs:
+        parameterized_option.params_space.seed(CFG.seed)
+    # Update the segments to include which option is being executed.
     for partition, spec in zip(partitions, option_specs):
         for (segment, _) in partition:
             # Modifies segment in-place.
