@@ -585,6 +585,32 @@ def all_ground_operators(operator: STRIPSOperator,
     return ground_operators
 
 
+def all_ground_operators_given_partial(operator: STRIPSOperator,
+                                       objects: Collection[Object],
+                                       sub: VarToObjSub
+                                       ) -> Set[_GroundSTRIPSOperator]:
+    """Get all possible groundings of the given operator with the given objects
+    such that the parameters are consistent with the given substitution.
+    """
+    assert set(sub).issubset(set(operator.parameters))
+    ground_ops = set()
+    types = [p.type for p in operator.parameters if p not in sub]
+    for choice in get_object_combinations(objects, types):
+        # Complete the choice with the args that are determined from the sub.
+        choice_lst = list(choice)
+        choice_lst.reverse()
+        completed_choice = []
+        for p in operator.parameters:
+            if p in sub:
+                completed_choice.append(sub[p])
+            else:
+                completed_choice.append(choice_lst.pop())
+        assert not choice_lst
+        ground_op = operator.ground(tuple(completed_choice))
+        ground_ops.add(ground_op)
+    return ground_ops
+
+
 def all_ground_nsrts(
         nsrt: NSRT, objects: Collection[Object]) -> Set[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects.
