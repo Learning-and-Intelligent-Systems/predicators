@@ -864,6 +864,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     delete_effects = {LiftedAtom(LightOff, [dial])}
     def toggledial_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
+        del rng  # unused
         assert len(objs) == 2
         robot, dial = objs
         assert robot.is_instance(robot_type)
