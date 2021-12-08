@@ -193,8 +193,9 @@ class _SimpleOptionLearner(_OptionLearnerBase):
 
             # Construct the ParameterizedOption for this partition.
             name = str(idx)
-            high = np.array([dim for o in param_ub for dim in o])
-            low = np.array([dim for o in param_lb for dim in o])
+            # TODO: remove dead code.
+            high = np.array([np.inf for o in param_ub for dim in o])
+            low = np.array([-np.inf for o in param_lb for dim in o])
             # high = np.array([np.inf for o in param_ub for dim in o])
             # low = np.array([-np.inf for o in param_lb for dim in o])
             params_space = Box(low, high, dtype=np.float32)

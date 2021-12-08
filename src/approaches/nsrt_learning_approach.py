@@ -60,9 +60,6 @@ class NSRTLearningApproach(TAMPApproach):
         for nsrt in sorted(self._nsrts):
             print(nsrt)
         print()
-        # If option learning, seed the option parameter spaces after loading.
-        # If not option learning, the parameter spaces are already seeded
-        # in main.py because they belong to the environment.
-        if CFG.do_option_learning:
-            for nsrt in self._nsrts:
-                nsrt.option.params_space.seed(CFG.seed)
+        # Seed the option parameter spaces after loading.
+        for nsrt in self._nsrts:
+            nsrt.option.params_space.seed(CFG.seed)
