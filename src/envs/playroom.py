@@ -6,7 +6,7 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import pyplot as plt
 from matplotlib import patches
-from predicators.src.envs import BlocksEnv
+from predicators.src.envs import BlocksEnv, EnvironmentFailure
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, Image, Array, GroundAtom
 from predicators.src import utils
@@ -706,5 +706,5 @@ class PlayroomEnv(BlocksEnv):
             if x <= state.get(door, "pose_x") <= prev_x \
                or prev_x <= state.get(door, "pose_x") <= x:
                 if state.get(door, "open") < 0.5:
-                    return False
+                    raise EnvironmentFailure("collision", {door})
         return True

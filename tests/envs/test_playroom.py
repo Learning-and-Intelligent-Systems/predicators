@@ -3,7 +3,7 @@
 
 import pytest
 import numpy as np
-from predicators.src.envs import PlayroomEnv
+from predicators.src.envs import PlayroomEnv, EnvironmentFailure
 from predicators.src import utils
 from predicators.src.structs import Action, State
 
@@ -232,10 +232,8 @@ def test_playroom_simulate_doors_and_dial():
     state = next_state
     # Cannot go through closed door
     act = Action(np.array([105, 15, 3, 1, 1]).astype(np.float32))
-    next_state = env.simulate(state, act)
-    for o in state:
-        if o.type != robot_type:
-            assert np.all(state[o] == next_state[o])
+    with pytest.raises(EnvironmentFailure):
+        next_state = env.simulate(state, act)
     # Turn dial on, facing S
     act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -297,10 +295,11 @@ def test_playroom_options():
     TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
     plan = [
         Move.ground([robot], [2.0, 30.0, 0.0]),
-        Pick.ground([block1], [0.0, 0.0, 0.0, 0.35]),
-        PutOnTable.ground([], [0.1, 0.5, 0.0]),  # put block1 on table
-        Pick.ground([block2], [0.0, 0.0, 0.0, -0.15]),
-        Stack.ground([block1], [0.0, 0.0, 1.0, 0.0]),  # stack block2 on block1
+        Pick.ground([robot, block1], [0.0, 0.0, 0.0, 0.35]),
+        PutOnTable.ground([robot], [0.1, 0.5, 0.0]),  # put block1 on table
+        Pick.ground([robot, block2], [0.0, 0.0, 0.0, -0.15]),
+        # stack block2 on block1
+        Stack.ground([robot, block1], [0.0, 0.0, 1.0, 0.0]),
         OpenDoor.ground([door1], [-0.2, 0.0, 0.0, 0.0]),
         OpenDoor.ground([door2], [-0.2, 0.0, 0.0, 0.0]),
         OpenDoor.ground([door3], [-0.2, 0.0, 0.0, 0.0]),
