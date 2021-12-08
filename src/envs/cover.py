@@ -417,7 +417,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
         # multi-step options.
-        return Box(-0.1, 0.1, (3,))
+        lb, ub = CFG.action_space_limits
+        return Box(lb, ub, (3,))
 
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
@@ -655,22 +656,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         desired_y = s.get(obj, "y")
         at_desired_y = abs(desired_y - y) < 1e-5
+        lb, ub = CFG.action_space_limits
         # If we're already above the object and prepared to pick,
         # then execute the pick (turn up the magnet).
         if at_desired_x and at_desired_y:
             return Action(np.array([0., 0., 0.1], dtype=np.float32))
         # If we're above the object but not yet close enough, move down.
         if at_desired_x:
-            delta_y = np.clip(desired_y - y, -0.1, 0.1)
+            delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, 0.], dtype=np.float32))
         # If we're not above the object, but we're at a safe height,
         # then move left/right.
         if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, -0.1, 0.1)
+            delta_x = np.clip(desired_x - x, lb, ub)
             return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
         # If we're not above the object, and we're not at a safe height,
         # then move up.
-        delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
+        delta_y = np.clip(self.initial_robot_y+1e-2 - y, lb, ub)
         return Action(np.array([0., delta_y, 0.], dtype=np.float32))
 
     def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
@@ -703,22 +705,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         desired_y = self.block_height + 1e-2
         at_desired_y = abs(desired_y - y) < 1e-5
+        lb, ub = CFG.action_space_limits
         # If we're already above the object and prepared to place,
         # then execute the place (turn down the magnet).
         if at_desired_x and at_desired_y:
             return Action(np.array([0., 0., -0.1], dtype=np.float32))
         # If we're above the object but not yet close enough, move down.
         if at_desired_x:
-            delta_y = np.clip(desired_y - y, -0.1, 0.1)
+            delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
         # If we're not above the object, but we're at a safe height,
         # then move left/right.
         if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, -0.1, 0.1)
+            delta_x = np.clip(desired_x - x, lb, ub)
             return Action(np.array([delta_x, 0., 0.1], dtype=np.float32))
         # If we're not above the object, and we're not at a safe height,
         # then move up.
-        delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
+        delta_y = np.clip(self.initial_robot_y+1e-2 - y, lb, ub)
         return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
 
     def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
