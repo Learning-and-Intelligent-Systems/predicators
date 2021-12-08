@@ -1,5 +1,6 @@
 """Debugging script for grammar search invention approach.
 """
+
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, Tuple, Iterator, DefaultDict
