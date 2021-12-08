@@ -47,7 +47,7 @@ class _DebugGrammar(_PredicateGrammar):
                 yield (predicate, cost)
 
 
-def _run_analysis():
+def _run_analysis() -> None:
     env = create_env(CFG.env)
 
     for train_tasks in env.train_tasks_generator():
