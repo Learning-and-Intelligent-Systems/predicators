@@ -614,7 +614,7 @@ def test_all_ground_operators():
     not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
     cup_var = cup_type("?cup")
     plate1_var = plate_type("?plate1")
-    plate2_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate2")
     parameters = [cup_var, plate1_var, plate2_var]
     preconditions = {not_on([cup_var, plate1_var])}
     add_effects = {on([cup_var, plate1_var])}
@@ -640,6 +640,65 @@ def test_all_ground_operators():
     preds, types = utils.extract_preds_and_types({op})
     assert preds == {"NotOn": not_on, "On": on}
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
+
+
+def test_all_ground_operators_given_partial():
+    """Tests for all_ground_operators_given_partial().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate1_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate2")
+    parameters = [cup_var, plate1_var, plate2_var]
+    preconditions = {not_on([cup_var, plate1_var])}
+    add_effects = {on([cup_var, plate1_var])}
+    delete_effects = {not_on([cup_var, plate1_var])}
+    op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
+                        delete_effects)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    # First test empty partial sub.
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, {})
+    assert ground_ops == utils.all_ground_operators(op, objects)
+    # Test with one partial sub.
+    sub = {plate1_var: plate1}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 4
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate1, plate1] in all_obj
+    assert [cup2, plate1, plate1] in all_obj
+    assert [cup1, plate1, plate2] in all_obj
+    assert [cup2, plate1, plate2] in all_obj
+    preds, types = utils.extract_preds_and_types({op})
+    assert preds == {"NotOn": not_on, "On": on}
+    assert types == {"plate_type": plate_type, "cup_type": cup_type}
+    # Test another single partial sub.
+    sub = {plate1_var: plate2}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 4
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate2, plate1] in all_obj
+    assert [cup2, plate2, plate1] in all_obj
+    assert [cup1, plate2, plate2] in all_obj
+    assert [cup2, plate2, plate2] in all_obj
+    # Test multiple partial subs.
+    sub = {plate1_var: plate1, plate2_var: plate2}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 2
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate1, plate2] in all_obj
+    assert [cup2, plate1, plate2] in all_obj
+    sub = {plate1_var: plate2, plate2_var: plate1, cup_var: cup1}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 1
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate2, plate1] in all_obj
 
 
 def test_prune_ground_atom_dataset():
