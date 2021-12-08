@@ -112,35 +112,35 @@ def _run_analysis() -> None:
 
     # Break down FPs for ALL
     print("########### ALL ###########")
-    total_per_op : DefaultDict[str, int] = defaultdict(int)
+    all_total_per_op : DefaultDict[str, int] = defaultdict(int)
     for idx in sorted(all_combined_fps):
         all_segment = all_segments[idx]
         init_segment = init_segments[idx]
         assert all_segment.get_option() == init_segment.get_option()
         for i, op in enumerate(all_strips_ops):
             if idx in all_fp_idxs[i]:
-                total_per_op[op.name] += 1
+                all_total_per_op[op.name] += 1
 
     for op, spec in zip(all_strips_ops, all_option_specs):
         print(op)
         print("    Option Spec:", spec[0].name, spec[1])
-        print(f"Total FPs for {op.name}: {total_per_op[op.name]}")
+        print(f"Total FPs for {op.name}: {all_total_per_op[op.name]}")
 
     # Break down FPs for INIT
     print("########### INIT ###########")
-    total_per_op : DefaultDict[str, int] = defaultdict(int)
+    init_total_per_op : DefaultDict[str, int] = defaultdict(int)
     for idx in sorted(init_combined_fps):
         all_segment = all_segments[idx]
         init_segment = init_segments[idx]
         assert all_segment.get_option() == init_segment.get_option()
         for i, op in enumerate(init_strips_ops):
             if idx in init_fp_idxs[i]:
-                total_per_op[op.name] += 1
+                init_total_per_op[op.name] += 1
 
     for op, spec in zip(init_strips_ops, init_option_specs):
         print(op)
         print("    Option Spec:", spec[0].name, spec[1])
-        print(f"Total FPs for {op.name}: {total_per_op[op.name]}")
+        print(f"Total FPs for {op.name}: {init_total_per_op[op.name]}")
 
 if __name__ == "__main___":
     _run_analysis()
