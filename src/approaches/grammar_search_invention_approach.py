@@ -375,7 +375,7 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 
 # @dataclass(frozen=True, eq=False, repr=False)
 # class _DebugGrammar(_PredicateGrammar):
-#     """A grammar that omits given predicates from being enumerated.
+#     """A grammar that generates only predicates in _DEBUG_PREDICATE_STRS.
 #     """
 #     base_grammar: _PredicateGrammar
 
@@ -615,6 +615,9 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
                                         List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
+
+    The lists of segment indices are useful only for debugging; they are
+    otherwise redundant with num_true_positives/num_false_positives.
     """
     assert len(strips_ops) == len(option_specs)
     num_true_positives = 0
@@ -642,21 +645,8 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
             # segment. So, determine all of the operator variables
             # that are not in the option vars, and consider all
             # groundings of them.
-            types = [p.type for p in op.parameters
-                     if p not in option_vars]
-            for choice in utils.get_object_combinations(objects, types):
-                # Complete the choice with the arguments that are
-                # determined from the option vars.
-                choice_lst = list(choice)
-                choice_lst.reverse()
-                completed_choice = []
-                for p in op.parameters:
-                    if p in option_var_to_obj:
-                        completed_choice.append(option_var_to_obj[p])
-                    else:
-                        completed_choice.append(choice_lst.pop())
-                assert not choice_lst
-                ground_op = op.ground(tuple(completed_choice))
+            for ground_op in utils.all_ground_operators_given_partial(
+                op, objects, option_var_to_obj):
                 # Check the ground_op against the segment.
                 if not ground_op.preconditions.issubset(
                     segment.init_atoms):
