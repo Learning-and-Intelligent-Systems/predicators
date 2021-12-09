@@ -740,9 +740,58 @@ class Action:
         assert not self.has_option()
 
 
+@dataclass(frozen=True, repr=False, eq=False)
+class LowLevelTrajectory:
+    """A structure representing a low-level trajectory, containing a
+    state sequence, action sequence, and optional goal.
+    Invariant 1: If a goal is included, the trajectory achieves that goal.
+                 We call such a trajectory a "demonstration".
+    Invariant 2: The length of the state sequence is always one greater
+                 than the length of the action sequence.
+    """
+    _states: List[State]
+    _actions: List[Action]
+    _goal: Optional[Set[GroundAtom]] = field(default=None)
+
+    def __post_init__(self) -> None:
+        assert len(self._states) == len(self._actions) + 1
+        if self._goal is not None:
+            # Verify that goal is achieved.
+            # This import is here due to circular dependencies with utils.py.
+            from predicators.src.utils import abstract  # pylint:disable=import-outside-toplevel
+            goal_preds = {atom.predicate for atom in self._goal}
+            atoms = abstract(self._states[-1], goal_preds)
+            assert self._goal.issubset(atoms)
+
+    @property
+    def states(self) -> List[State]:
+        """States in the trajectory.
+        """
+        return self._states
+
+    @property
+    def actions(self) -> List[Action]:
+        """Actions in the trajectory.
+        """
+        return self._actions
+
+    @property
+    def is_demo(self) -> bool:
+        """Whether this trajectory is a demonstration.
+        """
+        return self._goal is not None
+
+    @property
+    def goal(self) -> Set[GroundAtom]:
+        """The goal of this trajectory. Requires is_demo to be True.
+        """
+        assert self._goal is not None
+        return self._goal
+
+
 @dataclass(eq=False)
 class Segment:
-    """A segment represents a state-action trajectory that is the result of
+    """A segment represents a low-level trajectory that is the result of
     executing one option. The segment stores the abstract state (ground atoms)
     that held immediately before the option started executing, and the abstract
     state (ground atoms) that held immediately after.
@@ -750,7 +799,7 @@ class Segment:
     Segments are used during learning, when we don't necessarily know the option
     associated with the trajectory yet.
     """
-    trajectory: StateActionTrajectory
+    trajectory: LowLevelTrajectory
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DefaultOption)
@@ -762,13 +811,13 @@ class Segment:
     def states(self) -> List[State]:
         """States in the trajectory.
         """
-        return self.trajectory[0]
+        return self.trajectory.states
 
     @property
     def actions(self) -> List[Action]:
         """Actions in the trajectory.
         """
-        return self.trajectory[1]
+        return self.trajectory.actions
 
     @property
     def add_effects(self) -> Set[GroundAtom]:
@@ -870,11 +919,9 @@ class Partition:
 
 
 # Convenience higher-order types useful throughout the code
-StateActionTrajectory = Tuple[List[State], List[Action]]
-OptionTrajectory = Tuple[List[State], List[_Option]]
+Dataset = List[LowLevelTrajectory]
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
-Dataset = List[StateActionTrajectory]
-GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
+GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]

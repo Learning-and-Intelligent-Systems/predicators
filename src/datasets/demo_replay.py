@@ -20,15 +20,15 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     # all states into one list, is that we want to compute
     # all ground NSRTs once per trajectory only, rather
     # than once per state.
-    weights = np.array([len(traj) for traj in demo_dataset])
+    weights = np.array([len(traj.states) for traj in demo_dataset])
     weights = weights / sum(weights)
     # Ground all NSRTs once per trajectory
     all_nsrts = get_gt_nsrts(env.predicates, env.options)
     ground_nsrts = []
-    for (ss, _) in demo_dataset:
-        objects = sorted(ss[0])
+    for traj in demo_dataset:
+        objects = sorted(traj.states[0])
         # Assumes objects should be the same within a traj
-        assert all(set(objects) == set(s) for s in ss)
+        assert all(set(objects) == set(s) for s in traj.states)
         ground_nsrts_traj: List[_GroundNSRT] = []
         for nsrt in all_nsrts:
             these_ground_nsrts = utils.all_ground_nsrts(nsrt, objects)
@@ -41,7 +41,7 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     for _ in range(CFG.offline_data_num_replays):
         # Sample a trajectory
         traj_idx = rng.choice(len(demo_dataset), p=weights)
-        traj_states = demo_dataset[traj_idx][0]
+        traj_states = demo_dataset[traj_idx].states
         # Sample a state
         # We don't allow sampling the final state in the trajectory here,
         # because there's no guarantee that an initiable option exists
@@ -65,7 +65,7 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # We ignore replay data which leads to an environment failure.
             continue
         if CFG.do_option_learning:
-            for act in replay_traj[1]:
+            for act in replay_traj.actions:
                 act.unset_option()
         replay_dataset.append(replay_traj)
     return demo_dataset + replay_dataset

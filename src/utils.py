@@ -17,9 +17,9 @@ import matplotlib
 import numpy as np
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
-    OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
+    LiftedAtom, Image, Video, Variable, PyperplanFacts, ObjToVarSub, \
+    VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
     _GroundSTRIPSOperator, Array
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
@@ -171,7 +171,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        make_video: bool = False,
                        render: Optional[
                            Callable[[State, Task, Action], List[Image]]] = None,
-                       ) -> Tuple[StateActionTrajectory, Video, bool]:
+                       ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
     Return the state sequence and action sequence, and a bool for
     whether the goal was satisfied at the end.
@@ -204,7 +204,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         # extensions does, but for the sake of avoiding an
         # additional dependency, we'll just ignore this here.
         video.extend(render(state, task))  # type: ignore
-    return (states, actions), video, goal_reached
+    return LowLevelTrajectory(states, actions), video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
@@ -221,7 +221,7 @@ def option_to_trajectory(
         init: State,
         simulator: Callable[[State, Action], State],
         option: _Option,
-        max_num_steps: int) -> StateActionTrajectory:
+        max_num_steps: int) -> LowLevelTrajectory:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -237,8 +237,7 @@ def option_to_trajectory(
         states.append(state)
         if option.terminal(state):
             break
-    assert len(states) == len(actions)+1
-    return states, actions
+    return LowLevelTrajectory(states, actions)
 
 
 class OptionPlanExhausted(Exception):
@@ -275,29 +274,6 @@ def option_plan_to_policy(plan: Sequence[_Option]
             assert queue[0].initiable(state), "Unsound option plan"
         return queue[0].policy(state)
     return _policy
-
-
-def state_action_to_option_trajectory(trajectory: StateActionTrajectory
-                                      ) -> OptionTrajectory:
-    """Create an option trajectory from a state-action trajectory.
-    """
-    states, actions = trajectory
-    assert len(states) > 0
-    new_states = [states[0]]
-    if len(actions) == 0:
-        return new_states, []
-    current_option = actions[0].get_option()
-    options = [current_option]
-    for s, a in zip(states[:-1], actions):
-        o = a.get_option()
-        # This assumes that an option is equal to another
-        # option only if they're the same python object.
-        if o != current_option:
-            new_states.append(s)
-            options.append(o)
-            current_option = o
-    new_states.append(states[-1])
-    return new_states, options
 
 
 @functools.lru_cache(maxsize=None)
@@ -650,10 +626,9 @@ def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
     """Apply all predicates to all trajectories in the dataset.
     """
     ground_atom_dataset = []
-    for states, actions in dataset:
-        assert len(states) == len(actions) + 1
-        atoms = [abstract(s, predicates) for s in states]
-        ground_atom_dataset.append((states, actions, atoms))
+    for traj in dataset:
+        atoms = [abstract(s, predicates) for s in traj.states]
+        ground_atom_dataset.append((traj, atoms))
     return ground_atom_dataset
 
 
@@ -663,11 +638,11 @@ def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
     """Create a new ground atom dataset by keeping only some predicates.
     """
     new_ground_atom_dataset = []
-    for states, actions, atoms in ground_atom_dataset:
-        assert len(states) == len(actions) + 1 == len(atoms)
+    for traj, atoms in ground_atom_dataset:
+        assert len(traj.states) == len(atoms)
         kept_atoms = [{a for a in sa if a.predicate in kept_predicates}
                       for sa in atoms]
-        new_ground_atom_dataset.append((states, actions, kept_atoms))
+        new_ground_atom_dataset.append((traj, kept_atoms))
     return new_ground_atom_dataset
 
 

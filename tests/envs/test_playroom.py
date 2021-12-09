@@ -313,13 +313,13 @@ def test_playroom_options():
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    (states, _), video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.run_policy_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate,
         env.predicates, 14, make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
-    final_atoms = utils.abstract(states[-1], env.predicates)
+    final_atoms = utils.abstract(traj.states[-1], env.predicates)
     assert LightOn([dial]) in final_atoms
     assert OnTable([block1]) in final_atoms
     assert On([block2, block1]) in final_atoms
@@ -354,13 +354,13 @@ def test_playroom_action_sequence_video():
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
-    (states, _), video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, env.predicates,
         len(action_arrs), make_video, env.render)
     if make_video:
         outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
     # Render a state where we're grasping
-    env.render(states[1], task)
+    env.render(traj.states[1], task)
     # Render end state with open and closed doors
-    env.render(states[-1], task)
+    env.render(traj.states[-1], task)
