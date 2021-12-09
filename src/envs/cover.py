@@ -370,7 +370,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._target_type = Type(
             "target", ["is_block", "is_target", "width", "x"])
         # Also removing "hand" because that's ambiguous.
-        self._robot_type = Type("robot", ["x", "y", "grip"])
+        self._robot_type = Type("robot", ["x", "y", "grip", "holding"])
         # Need to override predicate creation because the types are
         # now different (in terms of equality).
         self._IsBlock = Predicate(
@@ -382,7 +382,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._HandEmpty = Predicate(
             "HandEmpty", [], self._HandEmpty_holds)
         self._Holding = Predicate(
-            "Holding", [self._block_type], self._Holding_holds)
+            "Holding", [self._block_type, self._robot_type],
+                        self._Holding_holds)
         # Need to override object creation because the types are now
         # different (in terms of equality).
         self._blocks = []
@@ -416,7 +417,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # last dimension controls the gripper "magnet" or "vacuum".
         # Note that the bounds are relatively low, which necessitates
         # multi-step options.
-        return Box(-0.1, 0.1, (3,))
+        lb, ub = CFG.cover_multistep_action_limits
+        return Box(lb, ub, (3,))
 
     def simulate(self, state: State, action: Action) -> State:
         # Since the action space is lower level, we need to write
@@ -523,6 +525,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             by_lb = by - self.grasp_height_tol
             if by_lb <= y <= by_ub:
                 next_state.set(above_block, "grasp", 1)
+                next_state.set(self._robot, "holding", 1)
 
         # If we are holding anything and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed
@@ -533,6 +536,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             grip < self.grasp_thresh and (hy-hh) < self.placing_height:
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
+            next_state.set(self._robot, "holding", -1)
 
         return next_state
 
@@ -626,8 +630,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                     break
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])
-        # [x, y, grip]
-        data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0])
+        # [x, y, grip, holding]
+        data[self._robot] = np.array([0.0, self.initial_robot_y, 0.0, -1.0])
         return State(data)
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -652,29 +656,31 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         desired_y = s.get(obj, "y")
         at_desired_y = abs(desired_y - y) < 1e-5
+        lb, ub = CFG.cover_multistep_action_limits
         # If we're already above the object and prepared to pick,
         # then execute the pick (turn up the magnet).
         if at_desired_x and at_desired_y:
             return Action(np.array([0., 0., 0.1], dtype=np.float32))
         # If we're above the object but not yet close enough, move down.
         if at_desired_x:
-            delta_y = np.clip(desired_y - y, -0.1, 0.1)
+            delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, 0.], dtype=np.float32))
         # If we're not above the object, but we're at a safe height,
         # then move left/right.
         if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, -0.1, 0.1)
+            delta_x = np.clip(desired_x - x, lb, ub)
             return Action(np.array([delta_x, 0., 0.], dtype=np.float32))
         # If we're not above the object, and we're not at a safe height,
         # then move up.
-        delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
+        delta_y = np.clip(self.initial_robot_y+1e-2 - y, lb, ub)
         return Action(np.array([0., delta_y, 0.], dtype=np.float32))
 
     def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
                        p: Array) -> bool:
         # Pick is done when we're holding the desired object.
         del m, p  # unused
-        return self._Holding_holds(s, o)
+        block, = o
+        return self._Holding_holds(s, [block, self._robot])
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
@@ -699,22 +705,23 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         desired_y = self.block_height + 1e-2
         at_desired_y = abs(desired_y - y) < 1e-5
+        lb, ub = CFG.cover_multistep_action_limits
         # If we're already above the object and prepared to place,
         # then execute the place (turn down the magnet).
         if at_desired_x and at_desired_y:
             return Action(np.array([0., 0., -0.1], dtype=np.float32))
         # If we're above the object but not yet close enough, move down.
         if at_desired_x:
-            delta_y = np.clip(desired_y - y, -0.1, 0.1)
+            delta_y = np.clip(desired_y - y, lb, ub)
             return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
         # If we're not above the object, but we're at a safe height,
         # then move left/right.
         if y >= self.initial_robot_y:
-            delta_x = np.clip(desired_x - x, -0.1, 0.1)
+            delta_x = np.clip(desired_x - x, lb, ub)
             return Action(np.array([delta_x, 0., 0.1], dtype=np.float32))
         # If we're not above the object, and we're not at a safe height,
         # then move up.
-        delta_y = np.clip(self.initial_robot_y+1e-2 - y, -0.1, 0.1)
+        delta_y = np.clip(self.initial_robot_y+1e-2 - y, lb, ub)
         return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
 
     def _Place_terminal(self, s: State, m: Dict, o: Sequence[Object],
@@ -735,6 +742,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 (state.get(targ, "x")-state.get(targ, "width")/10,
                  state.get(targ, "x")+state.get(targ, "width")/10))
         return hand_regions
+
+    @staticmethod
+    def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
+        block, robot = objects
+        return state.get(block, "grasp") != -1 and \
+            state.get(robot, "holding") != -1
 
     @staticmethod
     def _Covers_holds(state: State, objects: Sequence[Object]) -> bool:
