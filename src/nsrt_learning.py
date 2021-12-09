@@ -78,10 +78,11 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     segments = []
     traj, all_atoms = trajectory
     assert len(traj.states) == len(all_atoms)
-    current_segment_traj : Tuple[List[State], List[Action]] = ([], [])
+    current_segment_states : List[State] = []
+    current_segment_actions : List[Action] = []
     for t in range(len(traj.actions)):
-        current_segment_traj[0].append(traj.states[t])
-        current_segment_traj[1].append(traj.actions[t])
+        current_segment_states.append(traj.states[t])
+        current_segment_actions.append(traj.actions[t])
         switch = all_atoms[t] != all_atoms[t+1]
         # Segment based on option specs if we are assuming that options are
         # known. If we do not do this, it can lead to a bug where an option
@@ -117,18 +118,21 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
-            current_segment_traj[0].append(traj.states[t+1])
+            current_segment_states.append(traj.states[t+1])
+            current_segment_traj = LowLevelTrajectory(
+                current_segment_states, current_segment_actions)
             if traj.actions[t].has_option():
-                segment = Segment(LowLevelTrajectory(*current_segment_traj),
+                segment = Segment(current_segment_traj,
                                   all_atoms[t], all_atoms[t+1],
                                   traj.actions[t].get_option())
             else:
                 # If option learning, include the default option here; replaced
                 # during option learning.
-                segment = Segment(LowLevelTrajectory(*current_segment_traj),
+                segment = Segment(current_segment_traj,
                                   all_atoms[t], all_atoms[t+1])
             segments.append(segment)
-            current_segment_traj = ([], [])
+            current_segment_states = []
+            current_segment_actions = []
     # Don't include the last current segment because it didn't result in
     # an abstract state change. (E.g., the option may not be terminating.)
     return segments
