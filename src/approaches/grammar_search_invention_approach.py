@@ -433,7 +433,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             self._dataset, set(candidates) | self._initial_predicates)
         print("Done.")
         # Create the heuristic function that will be used to guide search.
-        heuristic = self._create_heuristic_function(atom_dataset, candidates)
+        heuristic = _create_heuristic_function(self._initial_predicates,
+            atom_dataset, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(candidates,
@@ -442,17 +443,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts()
 
-    def _create_heuristic_function(self,
-            atom_dataset: List[GroundAtomTrajectory],
-            candidates: Dict[Predicate, float]
-            ) -> Callable[[FrozenSet[Predicate]], float]:
-        if CFG.grammar_search_heuristic == "prediction_error":
-            return partial(_prediction_error_heuristic,
-                           self._initial_predicates,
-                           atom_dataset,
-                           candidates)
-        raise NotImplementedError(
-            f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
+
+def _create_heuristic_function(initial_predicates: Set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory],
+        candidates: Dict[Predicate, float]
+        ) -> Callable[[FrozenSet[Predicate]], float]:
+    if CFG.grammar_search_heuristic == "prediction_error":
+        return partial(_prediction_error_heuristic,
+                       initial_predicates,
+                       atom_dataset,
+                       candidates)
+    raise NotImplementedError(
+        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
 
 def _learn_operators_from_atom_dataset(atom_dataset: List[GroundAtomTrajectory]

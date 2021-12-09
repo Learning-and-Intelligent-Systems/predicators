@@ -7,7 +7,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateGrammar, _DataBasedPredicateGrammar, \
     _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
-    _UnaryFreeForallClassifier
+    _UnaryFreeForallClassifier, _create_heuristic_function
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box
@@ -143,3 +143,13 @@ def test_unary_free_forall_classifier():
     classifier1 = _UnaryFreeForallClassifier(on, 1)
     assert classifier1(state0, [plate0])
     assert str(classifier1) == "Forall[0:cup_type].[On(0,1)]"
+
+
+def test_create_heuristic_function():
+    """Tests for _create_heuristic_function().
+    """
+    # The prediction error heuristic function is tested through
+    # testing the full approach (see test_nrst_learning_approach.py).
+    utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
+    with pytest.raises(NotImplementedError):
+        _create_heuristic_function(set(), [], {})
