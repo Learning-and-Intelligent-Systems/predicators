@@ -7,7 +7,8 @@ from typing import Dict, Tuple, Iterator, DefaultDict
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_grammar, _PredicateGrammar, _count_positives_for_ops
+    _create_grammar, _PredicateGrammar, _count_positives_for_ops, \
+    _hadd_match_heuristic
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src import utils
@@ -80,6 +81,23 @@ def _run_analysis() -> None:
     print("Done.")
 
     print("All candidates:", sorted(candidates))
+
+
+    score = _hadd_match_heuristic(initial_predicates,
+                                  atom_dataset,
+                                  candidates,
+                                  frozenset())
+    print("Hadd match score for INIT predicate set:", score)
+
+
+    score = _hadd_match_heuristic(initial_predicates,
+                                  atom_dataset,
+                                  candidates,
+                                  frozenset(candidates))
+    print("Hadd match score for ALL predicate set:", score)
+
+    # Prediction error analysis
+
     print("Running learning & scoring with ALL predicates.")
     all_segments = [seg for traj in atom_dataset
                     for seg in segment_trajectory(traj)]
@@ -143,5 +161,5 @@ def _run_analysis() -> None:
         print("    Option Spec:", spec[0].name, spec[1])
         print(f"Total FPs for {op.name}: {init_total_per_op[op.name]}")
 
-if __name__ == "__main___":
+if __name__ == "__main__":
     _run_analysis()
