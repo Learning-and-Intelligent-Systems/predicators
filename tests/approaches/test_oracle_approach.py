@@ -225,10 +225,10 @@ def test_oracle_approach_cluttered_table():
     policy = approach.solve(train_task, timeout=500)
     assert utils.policy_solves_task(
         policy, train_task, env.simulate, env.predicates)
-    test_task = env.get_test_tasks()[0]
-    policy = approach.solve(test_task, timeout=500)
-    assert utils.policy_solves_task(
-        policy, test_task, env.simulate, env.predicates)
+    for test_task in env.get_test_tasks()[:5]:
+        policy = approach.solve(test_task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, test_task, env.simulate, env.predicates)
 
 
 def test_oracle_approach_blocks():
