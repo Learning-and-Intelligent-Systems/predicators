@@ -196,12 +196,13 @@ def _run_low_level_search(
                 discovered_failures[cur_idx] = None  # no failure occurred
             except EnvironmentFailure as e:
                 can_continue_on = False
-                discovered_failures[cur_idx] = _DiscoveredFailure(
-                    e, nsrt)  # remember only the most recent failure
+                failure = _DiscoveredFailure(e, nsrt)
+                # Remember only the most recent failure.
+                discovered_failures[cur_idx] = failure
                 # If we're immediately propagating failures, raise it now.
                 if CFG.sesame_propagate_failures == "immediately":
                     raise _DiscoveredFailureException(
-                        "Discovered a failure", discovered_failures[cur_idx])
+                        "Discovered a failure", failure)
             if not discovered_failures[cur_idx]:
                 traj[cur_idx+1] = next_state
                 cur_idx += 1
