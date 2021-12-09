@@ -456,6 +456,11 @@ def _create_heuristic_function(initial_predicates: Set[Predicate],
                        initial_predicates,
                        atom_dataset,
                        candidates)
+    elif CFG.grammar_search_heuristic == "hadd_match":
+        return partial(_hadd_match_heuristic,
+                       initial_predicates,
+                       atom_dataset,
+                       candidates)
     raise NotImplementedError(
         f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
@@ -501,6 +506,43 @@ def _prediction_error_heuristic(initial_predicates: Set[Predicate],
     # print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
     #       op_size, pred_complexity, total_score)
     return total_score
+
+
+def _hadd_match_heuristic(initial_predicates: Set[Predicate],
+                          atom_dataset: List[GroundAtomTrajectory],
+                          candidates: Dict[Predicate, float],
+                          s: FrozenSet[Predicate]) -> float:
+    """Score predicates by comparing the hadd values of the induced operators
+    to the groundtruth values inferred from demonstration data.
+    """
+    print("Scoring predicates:", s)
+    score = 0.0  # lower is better
+    kept_predicates = s | initial_predicates
+    pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
+                                                       kept_predicates)
+    _, strips_ops, _ =_learn_operators_from_atom_dataset(pruned_atom_data)
+    for traj, atoms_sequence in pruned_atom_data:
+        if not traj.is_demo:  # we only care about demonstrations
+            continue
+        # Create hAdd heuristic for this trajectory.
+        objects = set(traj.states[0])
+        init_atoms = atoms_sequence[0]
+        goal_atoms = traj.goal
+        ground_ops = {op for strips_op in strips_ops
+                      for op in utils.all_ground_operators(strips_op, objects)}
+        relaxed_operators = frozenset({utils.RelaxedOperator(
+            op.name, utils.atoms_to_tuples(op.preconditions),
+            utils.atoms_to_tuples(op.add_effects)) for op in ground_ops})
+        hadd_fn = utils.HAddHeuristic(
+            utils.atoms_to_tuples(init_atoms),
+            utils.atoms_to_tuples(goal_atoms),
+            relaxed_operators)
+        for i, atoms in enumerate(atoms_sequence):
+            # Assumes optimal demonstrations.
+            ideal_heuristic = len(atoms_sequence) - i - 1
+            hadd_heuristic = hadd_fn(utils.atoms_to_tuples(atoms))
+            score += abs(hadd_heuristic - ideal_heuristic)
+    return score
 
 
 def _select_predicates_to_keep(
