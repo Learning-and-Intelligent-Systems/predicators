@@ -7,7 +7,7 @@ import numpy as np
 from predicators.src.nsrt_learning import learn_nsrts_from_data, \
     unify_effects_and_options, segment_trajectory, learn_strips_operators
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption
+    ParameterizedOption, LowLevelTrajectory
 from predicators.src import utils
 
 
@@ -42,8 +42,8 @@ def test_segment_trajectory():
     action1 = option1.policy(state0)
     option2 = param_option.ground([cup1], np.array([0.1]))
     action2 = option2.policy(state0)
-    trajectory = ([state0, state0, state0, state0, state0],
-                  [action0, action1, action2, action0],
+    trajectory = (LowLevelTrajectory([state0, state0, state0, state0, state0],
+                                     [action0, action1, action2, action0]),
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
     known_option_segments = segment_trajectory(trajectory)
     assert len(known_option_segments) == 3
@@ -57,12 +57,13 @@ def test_segment_trajectory():
     action1.unset_option()
     action2 = option1.policy(state0)
     action2.unset_option()
-    trajectory = ([state0, state0, state0, state0, state0],
-                  [action0, action1, action2, action0],
+    trajectory = (LowLevelTrajectory([state0, state0, state0, state0, state0],
+                                     [action0, action1, action2, action0]),
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
     assert len(segment_trajectory(trajectory)) == 0
-    trajectory = ([state0, state0, state0, state0, state0, state1],
-                  [action0, action1, action2, action0, action1],
+    trajectory = (LowLevelTrajectory(
+        [state0, state0, state0, state0, state0, state1],
+        [action0, action1, action2, action0, action1]),
                   [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
     unknown_option_segments = segment_trajectory(trajectory)
     assert len(unknown_option_segments) == 1
@@ -119,7 +120,7 @@ def test_nsrt_learning_specific_nsrts():
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
-    dataset = [([state1, next_state1], [action1])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
@@ -150,8 +151,8 @@ def test_nsrt_learning_specific_nsrts():
     action2 = option1.policy(state2)
     action2.set_option(option1)
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
-    dataset = [([state1, next_state1], [action1]),
-               ([state2, next_state2], [action2])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
+               LowLevelTrajectory([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
@@ -186,8 +187,8 @@ def test_nsrt_learning_specific_nsrts():
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
-    dataset = [([state1, next_state1], [action1]),
-               ([state2, next_state2], [action2])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
+               LowLevelTrajectory([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 2
     expected = {"Op0": """NSRT-Op0:
@@ -225,8 +226,8 @@ def test_nsrt_learning_specific_nsrts():
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
-    dataset = [([state1, next_state1], [action1]),
-               ([state2, next_state2], [action2])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
+               LowLevelTrajectory([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 2
     expected = {"Op0": """NSRT-Op0:

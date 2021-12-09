@@ -29,8 +29,8 @@ def test_known_options_option_learner():
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
-    for _, actions, _ in ground_atom_dataset:
-        for act in actions:
+    for traj, _ in ground_atom_dataset:
+        for act in traj.actions:
             assert act.has_option()
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
@@ -76,8 +76,8 @@ def test_oracle_option_learner_cover():
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
-    for _, actions, _ in ground_atom_dataset:
-        for act in actions:
+    for traj, _ in ground_atom_dataset:
+        for act in traj.actions:
             assert not act.has_option()
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
@@ -125,8 +125,8 @@ def test_oracle_option_learner_blocks():
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
-    for _, actions, _ in ground_atom_dataset:
-        for act in actions:
+    for traj, _ in ground_atom_dataset:
+        for act in traj.actions:
             assert not act.has_option()
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
