@@ -44,6 +44,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_blocks_gt_nsrts()
     elif CFG.env == "painting":
         nsrts = _get_painting_gt_nsrts()
+    elif CFG.env == "repeated_nextto":
+        nsrts = _get_repeated_nextto_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates/options
@@ -549,5 +551,64 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         "OpenLid", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, openlid_sampler)
     nsrts.add(openlid_nsrt)
+
+    return nsrts
+
+
+def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for RepeatedNextToEnv.
+    """
+    robot_type, dot_type = _get_types_by_names(CFG.env, ["robot", "dot"])
+
+    NextTo, NextToNothing, Grasped = _get_predicates_by_names(
+        CFG.env, ["NextTo", "NextToNothing", "Grasped"])
+
+    Move, Grasp = _get_options_by_names(CFG.env, ["Move", "Grasp"])
+
+    nsrts = set()
+
+    # Move from next to nothing
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    parameters = [robot, targetdot]
+    option_vars = [robot, targetdot]
+    option = Move
+    preconditions = {LiftedAtom(NextToNothing, [robot])}
+    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    delete_effects = {LiftedAtom(NextToNothing, [robot])}
+    move_nsrt1 = NSRT("MoveFromNextToNothing", parameters, preconditions,
+                      add_effects, delete_effects, option, option_vars,
+                      lambda s, rng, o: np.zeros(1, dtype=np.float32))
+    nsrts.add(move_nsrt1)
+
+    # Move from next to something
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    curdot = Variable("?curdot", dot_type)
+    parameters = [robot, targetdot, curdot]
+    option_vars = [robot, targetdot]
+    option = Move
+    preconditions = {LiftedAtom(NextTo, [robot, curdot])}
+    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    delete_effects = {LiftedAtom(NextTo, [robot, curdot])}
+    move_nsrt2 = NSRT("MoveFromNextToSomething", parameters, preconditions,
+                      add_effects, delete_effects, option, option_vars,
+                      lambda s, rng, o: np.zeros(1, dtype=np.float32))
+    nsrts.add(move_nsrt2)
+
+    # Grasp and end up next to nothing
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    parameters = [robot, targetdot]
+    option_vars = [robot, targetdot]
+    option = Grasp
+    preconditions = {LiftedAtom(NextTo, [robot, targetdot])}
+    add_effects = {LiftedAtom(Grasped, [robot, targetdot]),
+                   LiftedAtom(NextToNothing, [robot])}
+    delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    grasp_nsrt1 = NSRT("GraspEndUpNextToNothing", parameters, preconditions,
+                       add_effects, delete_effects, option, option_vars,
+                       lambda s, rng, o: np.zeros(0, dtype=np.float32))
+    nsrts.add(grasp_nsrt1)
 
     return nsrts
