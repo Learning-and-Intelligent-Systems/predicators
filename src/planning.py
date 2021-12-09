@@ -237,11 +237,11 @@ def _run_low_level_search(
                     # after exhaustion, and if there are any failures,
                     # propagate up the EARLIEST one so that search restarts.
                     # Otherwise, return None so that search continues.
-                    for failure in discovered_failures:
+                    for earliest_failure in discovered_failures:
                         if (CFG.sesame_propagate_failures == "after_exhaust"
-                            and failure is not None):
+                            and earliest_failure is not None):
                             raise _DiscoveredFailureException(
-                                "Discovered a failure", failure)
+                                "Discovered a failure", earliest_failure)
                     return None
     # Should only get here if the skeleton was empty
     assert not skeleton
