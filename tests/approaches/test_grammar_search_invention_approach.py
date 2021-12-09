@@ -10,7 +10,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _UnaryFreeForallClassifier
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action, ParameterizedOption, Box
+    Action, ParameterizedOption, Box, LowLevelTrajectory
 from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src import utils
 
@@ -26,7 +26,8 @@ def test_predicate_grammar():
     robby = [o for o in state if o.type.name == "robot"][0]
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
-    dataset = [([state, other_state], [np.zeros(1, dtype=np.float32)])]
+    dataset = [LowLevelTrajectory(
+        [state, other_state], [np.zeros(1, dtype=np.float32)])]
     base_grammar = _PredicateGrammar()
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
@@ -84,13 +85,14 @@ def test_count_positives_for_ops():
     option_specs = [(parameterized_option, [])]
     pruned_atom_data = [
         # Test empty sequence.
-        ([state], [], [{on([cup, plate])}]),
+        (LowLevelTrajectory([state], []), [{on([cup, plate])}]),
         # Test not positive.
-        (states, actions, [{on([cup, plate])}, set()]),
+        (LowLevelTrajectory(states, actions), [{on([cup, plate])}, set()]),
         # Test true positive.
-        (states, actions, [{not_on([cup, plate])}, {on([cup, plate])}]),
+        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
+                                               {on([cup, plate])}]),
         # Test false positive.
-        (states, actions, [{not_on([cup, plate])}, set()]),
+        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])}, set()]),
     ]
     segments = [seg for traj in pruned_atom_data
                 for seg in segment_trajectory(traj)]
