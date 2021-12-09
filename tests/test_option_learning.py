@@ -352,7 +352,7 @@ def test_simple_option_learner_cover_multistep_options():
             samplers_per_task[i][1]
         )
         # We know that the objects are in this order based on the type signature
-        # of the learned operators. 
+        # of the learned operators.
         pick_grounded = pick.ground([block, robot])
         place_grounded = place.ground([block, robot, target])
 
@@ -373,7 +373,7 @@ def test_simple_option_learner_cover_multistep_options():
         try:
             _, video, solved = utils.run_policy_on_task(
                 policy, task, env.simulate, env.predicates,
-                100, False)
+                100, True, env.render)
         except EnvironmentFailure as e:
             print(f"Task {i+1} / {len(tasks)}: Environment failed "
                   f"with error: {e}")
@@ -383,7 +383,8 @@ def test_simple_option_learner_cover_multistep_options():
             num_solved += 1
         else:
             print(f"Task {i+1} / {len(tasks)}: Policy failed")
-
+        outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
+        utils.save_video(outfile, video)
     print(f"Tasks solved: {num_solved} / {len(tasks)}")
     # Reset configuration.
     utils.update_config({"env": "cover",
