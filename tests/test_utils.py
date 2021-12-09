@@ -8,7 +8,8 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator
+    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator, \
+    LowLevelTrajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -96,65 +97,12 @@ def test_option_to_trajectory():
                                    max_num_steps=5)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    states, actions = utils.option_to_trajectory(
+    traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
-    assert len(actions) == len(states)-1 == 19
-    states, actions = utils.option_to_trajectory(
+    assert len(traj.actions) == len(traj.states)-1 == 19
+    traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=10)
-    assert len(actions) == len(states)-1 == 10
-
-
-def test_state_action_to_option_trajectory():
-    """Tests for state_action_to_option_trajectory.
-    """
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = State({cup: [0.5], plate: [1.0, 1.2]})
-    def _simulator(s, a):
-        ns = s.copy()
-        assert a.arr.shape == (1,)
-        ns[cup][0] += a.arr.item()
-        return ns
-    params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, _3, p):
-        return Action(p)
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
-    def _terminal(s, _1, _2, _3):
-        return s[cup][0] > 9.9
-    parameterized_option = ParameterizedOption(
-        "Move", [], params_space, _policy, _initiable, _terminal)
-    params = [0.5]
-    option = parameterized_option.ground([], params)
-    sa_traj = utils.option_to_trajectory(
-        state, _simulator, option, max_num_steps=100)
-    opt_traj = utils.state_action_to_option_trajectory(sa_traj)
-    assert len(opt_traj) == 2
-    assert repr(opt_traj[1][0]) == (
-        "_Option(name='Move', objects=[], "
-        "params=array([0.5], dtype=float32))")
-    state_only_traj = (sa_traj[0][:1], [])
-    opt_traj = utils.state_action_to_option_trajectory(state_only_traj)
-    assert len(opt_traj[0]) == 1
-    assert len(opt_traj[1]) == 0
-    params = [0.6]
-    other_option = parameterized_option.ground([], params)
-    other_sa_traj = utils.option_to_trajectory(
-        sa_traj[0][-1], _simulator, other_option, max_num_steps=100)
-    states = sa_traj[0] + other_sa_traj[0]
-    actions = sa_traj[1] + other_sa_traj[1]
-    opt_traj = utils.state_action_to_option_trajectory((states, actions))
-    assert len(opt_traj) == 2
-    assert len(opt_traj[1]) == 2
-    assert repr(opt_traj[1][0]) == (
-        "_Option(name='Move', objects=[], "
-        "params=array([0.5], dtype=float32))")
-    assert repr(opt_traj[1][1]) == (
-        "_Option(name='Move', objects=[], "
-        "params=array([0.6], dtype=float32))")
-    assert len(opt_traj[0]) == 3
+    assert len(traj.actions) == len(traj.states)-1 == 10
 
 
 def test_option_plan_to_policy():
@@ -190,14 +138,14 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    expected_states, expected_actions = utils.option_to_trajectory(
+    traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
-    assert len(expected_actions) == len(expected_states)-1 == 19
+    assert len(traj.actions) == len(traj.states)-1 == 19
     for t in range(19):
         assert not option.terminal(state)
-        assert state.allclose(expected_states[t])
+        assert state.allclose(traj.states[t])
         action = policy(state)
-        assert np.allclose(action.arr, expected_actions[t].arr)
+        assert np.allclose(action.arr, traj.actions[t].arr)
         state = _simulator(state, action)
     assert option.terminal(state)
     with pytest.raises(utils.OptionPlanExhausted):
@@ -718,18 +666,18 @@ def test_prune_ground_atom_dataset():
     not_on_ground = {GroundAtom(not_on, [cup1, plate2]),
                      GroundAtom(not_on, [cup2, plate1])}
     all_atoms = on_ground | not_on_ground
-    ground_atom_dataset = [([state], [], [all_atoms])]
+    ground_atom_dataset = [(LowLevelTrajectory([state], []), [all_atoms])]
     pruned_dataset1 = utils.prune_ground_atom_dataset(ground_atom_dataset, {on})
-    assert pruned_dataset1[0][2][0] == on_ground
+    assert pruned_dataset1[0][1][0] == on_ground
     pruned_dataset2 = utils.prune_ground_atom_dataset(ground_atom_dataset,
                                                       {not_on})
-    assert pruned_dataset2[0][2][0] == not_on_ground
+    assert pruned_dataset2[0][1][0] == not_on_ground
     pruned_dataset3 = utils.prune_ground_atom_dataset(ground_atom_dataset,
                                                       {on, not_on})
-    assert pruned_dataset3[0][2][0] == all_atoms
+    assert pruned_dataset3[0][1][0] == all_atoms
     pruned_dataset4 = utils.prune_ground_atom_dataset(ground_atom_dataset,
                                                       set())
-    assert pruned_dataset4[0][2][0] == set()
+    assert pruned_dataset4[0][1][0] == set()
 
 
 def test_ground_atom_methods():
@@ -776,18 +724,19 @@ def test_create_ground_atom_dataset():
         State({cup1: [1.1], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
     ]
     actions = [DefaultOption]
-    dataset = [(states, actions)]
+    dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
-    assert len(ground_atom_dataset[0]) == 3
-    assert len(ground_atom_dataset[0][0]) == len(states)
+    assert len(ground_atom_dataset[0]) == 2
+    assert len(ground_atom_dataset[0][0].states) == len(states)
     assert all(gs.allclose(s) for gs, s in \
-               zip(ground_atom_dataset[0][0], states))
-    assert len(ground_atom_dataset[0][1]) == len(actions)
-    assert all(ga == a for ga, a in zip(ground_atom_dataset[0][1], actions))
-    assert len(ground_atom_dataset[0][2]) == len(states) == 2
-    assert ground_atom_dataset[0][2][0] == set()
-    assert ground_atom_dataset[0][2][1] == {GroundAtom(on, [cup1, plate1])}
+               zip(ground_atom_dataset[0][0].states, states))
+    assert len(ground_atom_dataset[0][0].actions) == len(actions)
+    assert all(ga == a for ga, a
+               in zip(ground_atom_dataset[0][0].actions, actions))
+    assert len(ground_atom_dataset[0][1]) == len(states) == 2
+    assert ground_atom_dataset[0][1][0] == set()
+    assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
 
 
 def test_static_nsrt_filtering():

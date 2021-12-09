@@ -8,7 +8,8 @@ from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory
+    Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory, \
+    LowLevelTrajectory
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
@@ -80,11 +81,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 raise ApproachFailure("Failed to sample a task that approach "
                                       "can solve.")  # pragma: no cover
             # Roll out policy
-            action_traj, _, _ = utils.run_policy_on_task(
-                                    policy, task, self._simulator,
-                                    self._get_current_predicates(),
-                                    max_steps=CFG.interactive_max_steps)
-            new_trajectories.append(action_traj)
+            traj, _, _ = utils.run_policy_on_task(
+                policy, task, self._simulator,
+                self._get_current_predicates(),
+                max_steps=CFG.interactive_max_steps)
+            new_trajectories.append(traj)
             if i % CFG.interactive_relearn_every == 0:
                 print("Asking teacher...")
                 # Pick a state from the new states explored
@@ -97,7 +98,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     # Add this atom if it's a positive example
                     if self._ask_teacher(s, random_atom):
                         self._dataset_with_atoms.append(
-                            ([s], [], [{random_atom}]))
+                            (LowLevelTrajectory([s], []), [{random_atom}]))
                     # Still need to implement a way to use negative examples
                 # Relearn predicates and NSRTs
                 self._relearn_predicates_and_nsrts()
@@ -115,9 +116,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             positive_examples = []
             negative_examples = []
             # Positive examples
-            for (states, _, ground_atom_sets) in self._dataset_with_atoms:
-                assert len(states) == len(ground_atom_sets)
-                for (state, ground_atom_set) in zip(states, ground_atom_sets):
+            for (traj, ground_atom_sets) in self._dataset_with_atoms:
+                assert len(traj.states) == len(ground_atom_sets)
+                for (state, ground_atom_set) in zip(
+                        traj.states, ground_atom_sets):
                     if len(ground_atom_set) == 0:
                         continue
                     positives = [state.vec(ground_atom.objects)
@@ -125,8 +127,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                                  if ground_atom.predicate == pred]
                     positive_examples.extend(positives)
             # Negative examples - assume unlabeled is negative for now
-            for (states, _, _) in self._dataset_with_atoms:
-                for state in states:
+            for (traj, _) in self._dataset_with_atoms:
+                for state in traj.states:
                     possible = [state.vec(choice)
                                 for choice in get_object_combinations(
                                                   list(state),
@@ -164,8 +166,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Gets set of states to ask about, according to ask_strategy.
         """
         new_states = []
-        for (ss, _) in trajectories:
-            new_states.extend(ss)
+        for traj in trajectories:
+            new_states.extend(traj.states)
         scores = [score_goal(self._dataset_with_atoms,
                              utils.abstract(s, self._get_current_predicates()))
                   for s in new_states]
@@ -225,9 +227,9 @@ def create_teacher_dataset(preds: Collection[Predicate],
     ratio = CFG.teacher_dataset_label_ratio
     rng = np.random.default_rng(CFG.seed)
     teacher_dataset: List[GroundAtomTrajectory] = []
-    for (states, actions) in dataset:
+    for traj in dataset:
         ground_atoms_traj: List[Set[GroundAtom]] = []
-        for s in states:
+        for s in traj.states:
             ground_atoms = sorted(utils.abstract(s, preds))
             # select random subset to keep
             n_samples = int(len(ground_atoms) * ratio)
@@ -238,15 +240,15 @@ def create_teacher_dataset(preds: Collection[Predicate],
                                     replace=False)
                 subset_atoms = {ground_atoms[j] for j in subset}
             ground_atoms_traj.append(subset_atoms)
-        assert len(states) == len(ground_atoms_traj)
-        teacher_dataset.append((states, actions, ground_atoms_traj))
+        assert len(traj.states) == len(ground_atoms_traj)
+        teacher_dataset.append((traj, ground_atoms_traj))
     assert len(teacher_dataset) == len(dataset)
     return teacher_dataset
 
 
 def glib_sample(initial_state: State,
                 predicates: Set[Predicate],
-                dataset: List[GroundAtomTrajectory],
+                dataset_with_atoms: List[GroundAtomTrajectory],
                 ) -> List[Task]:
     """Sample some tasks via the GLIB approach.
     """
@@ -263,19 +265,19 @@ def glib_sample(initial_state: State,
                           size=(num_atoms,),
                           replace=False)
         goal = {ground_atoms[i] for i in idxs}
-        goals.append((goal, score_goal(dataset, goal)))
+        goals.append((goal, score_goal(dataset_with_atoms, goal)))
     goals.sort(key=lambda tup: tup[1], reverse=True)
     return [Task(initial_state, g) for (g, _) in \
             goals[:CFG.interactive_num_tasks_babbled]]
 
 
-def score_goal(dataset: List[GroundAtomTrajectory],
+def score_goal(dataset_with_atoms: List[GroundAtomTrajectory],
                goal: Set[GroundAtom]) -> float:
     """Score a goal as inversely proportional to the number of examples seen
     during training.
     """
     count = 1  # Avoid division by 0
-    for (_, _, trajectory) in dataset:
+    for (_, trajectory) in dataset_with_atoms:
         for ground_atom_set in trajectory:
             count += 1 if goal.issubset(ground_atom_set) else 0
     return 1.0 / count
