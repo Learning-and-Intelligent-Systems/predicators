@@ -4,7 +4,7 @@ the candidates proposed from a grammar.
 
 import abc
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cached_property, partial
 import itertools
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
@@ -224,12 +224,12 @@ class _HoldingDummyPredicateGrammar(_DataBasedPredicateGrammar):
         # first object argument and looking at its grasp feature. For
         # example, (0.grasp>=-0.9)(block1) would look be a function of
         # state.get(block1, "grasp").
-        yield (Predicate(str(classifier), types, classifier), 1.)
+        yield (Predicate(str(classifier), types, classifier), 1.0)
 
         # An unnecessary predicate (because it's redundant).
         classifier = _SingleAttributeCompareClassifier(
             0, block_type, "is_block", 0.5, ge, ">=")
-        yield (Predicate(str(classifier), types, classifier), 1.)
+        yield (Predicate(str(classifier), types, classifier), 1.0)
 
 
 def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
@@ -250,7 +250,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        constant_generator = _halving_constant_generator(0., 1.)
+        constant_generator = _halving_constant_generator(0.0, 1.0)
         for c in constant_generator:
             for t in sorted(self.types):
                 for f in t.feature_names:
@@ -270,7 +270,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                         0, t, f, k, comp, comp_str)
                     name = str(classifier)
                     types = [t]
-                    yield (Predicate(name, types, classifier), 1.)
+                    yield (Predicate(name, types, classifier), 1.0)
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -432,93 +432,113 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         atom_dataset = utils.create_ground_atom_dataset(
             self._dataset, set(candidates) | self._initial_predicates)
         print("Done.")
+        # Create the heuristic function that will be used to guide search.
+        heuristic = _create_heuristic_function(self._initial_predicates,
+            atom_dataset, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
-        self._learned_predicates = self._select_predicates_to_keep(
-            candidates, atom_dataset)
+        self._learned_predicates = _select_predicates_to_keep(candidates,
+                                                              heuristic)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts()
 
-    def _select_predicates_to_keep(self, candidates: Dict[Predicate, float],
-                                   atom_dataset: List[GroundAtomTrajectory]
-                                   ) -> Set[Predicate]:
-        # Perform a greedy search over predicate sets.
 
-        # The heuristic is where the action happens...
-        def _heuristic(s: FrozenSet[Predicate]) -> float:
-            print("Scoring predicates:", s)
-            # Relearn operators with the current predicates.
-            kept_preds = s | self._initial_predicates
-            pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
-                                                               kept_preds)
-            segments = [seg for traj in pruned_atom_data
-                        for seg in segment_trajectory(traj)]
-            strips_ops, partitions = learn_strips_operators(segments,
-                                                            verbose=False)
-            option_specs = [p.option_spec for p in partitions]
+def _create_heuristic_function(initial_predicates: Set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory],
+        candidates: Dict[Predicate, float]
+        ) -> Callable[[FrozenSet[Predicate]], float]:
+    """Returns a function that takes a frozenset of predicates and returns a
+    heuristic score, where lower is better.
+    """
+    if CFG.grammar_search_heuristic == "prediction_error":
+        return partial(_prediction_error_heuristic,
+                       initial_predicates,
+                       atom_dataset,
+                       candidates)
+    raise NotImplementedError(
+        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
-            # Score based on how well the operators fit the data.
-            num_true_positives, num_false_positives, _, _ = \
-                _count_positives_for_ops(strips_ops, option_specs, segments)
-            # Also add a size penalty.
-            op_size = _get_operators_size(strips_ops)
-            # Also add a penalty based on predicate complexity.
-            pred_complexity = sum(candidates[p] for p in s)
-            total_score = \
-                CFG.grammar_search_false_pos_weight * num_false_positives + \
-                CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-                CFG.grammar_search_size_weight * op_size + \
-                CFG.grammar_search_pred_complexity_weight * pred_complexity
-            # Useful for debugging:
-            # print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
-            #       op_size, pred_complexity, total_score)
-            # Lower is better.
-            return total_score
 
-        # There are no goal states for this search; run until exhausted.
-        def _check_goal(s: FrozenSet[Predicate]) -> bool:
-            del s  # unused
-            return False
+def _learn_operators_from_atom_dataset(atom_dataset: List[GroundAtomTrajectory]
+        ) -> Tuple[List[Segment], List[STRIPSOperator], List[OptionSpec]]:
+    """Relearn operators and option specs with the given dataset, which may
+    be pruned to include only a subset of the predicates.
+    """
+    segments = [seg for traj in atom_dataset
+                for seg in segment_trajectory(traj)]
+    strips_ops, partitions = learn_strips_operators(segments,
+                                                    verbose=False)
+    option_specs = [p.option_spec for p in partitions]
+    return (segments, strips_ops, option_specs)
 
-        if CFG.grammar_search_direction == "largetosmall":
-            # Successively consider smaller predicate sets.
-            def _get_successors(s: FrozenSet[Predicate]
-                    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-                for predicate in sorted(s):  # sorting for determinism
-                    # Actions not needed. Frozensets for hashing.
-                    # The cost of 1. is irrelevant because we're doing GBFS
-                    # and not A* (because we don't care about the path).
-                    yield (None, frozenset(s - {predicate}), 1.)
 
-            # Start the search with all of the candidates.
-            init = frozenset(candidates)
-        else:
-            assert CFG.grammar_search_direction == "smalltolarge"
-            # Successively consider larger predicate sets.
-            def _get_successors(s: FrozenSet[Predicate]
-                    ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-                for predicate in sorted(set(candidates) - s):  # determinism
-                    # Actions not needed. Frozensets for hashing.
-                    # The cost of 1. is irrelevant because we're doing GBFS
-                    # and not A* (because we don't care about the path).
-                    yield (None, frozenset(s | {predicate}), 1.)
+def _prediction_error_heuristic(initial_predicates: Set[Predicate],
+                                atom_dataset: List[GroundAtomTrajectory],
+                                candidates: Dict[Predicate, float],
+                                s: FrozenSet[Predicate]) -> float:
+    """Score a predicate set by learning operators and counting false positives.
+    """
+    print("Scoring predicates:", s)
+    kept_predicates = s | initial_predicates
+    pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
+                                                       kept_predicates)
+    segments, strips_ops, option_specs = \
+        _learn_operators_from_atom_dataset(pruned_atom_data)
+    num_true_positives, num_false_positives, _, _ = \
+        _count_positives_for_ops(strips_ops, option_specs, segments)
+    # Also add a size penalty.
+    op_size = _get_operators_size(strips_ops)
+    # Also add a penalty based on predicate complexity.
+    pred_complexity = sum(candidates[p] for p in s)
+    # Lower is better.
+    total_score = \
+        CFG.grammar_search_false_pos_weight * num_false_positives + \
+        CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
+        CFG.grammar_search_size_weight * op_size + \
+        CFG.grammar_search_pred_complexity_weight * pred_complexity
+    # Useful for debugging:
+    # print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
+    #       op_size, pred_complexity, total_score)
+    return total_score
 
-            # Start the search with no candidates.
-            init = frozenset()
 
-        # Greedy best first search.
-        path, _ = utils.run_gbfs(
-            init, _check_goal, _get_successors, _heuristic,
-            max_evals=CFG.grammar_search_max_evals)
-        kept_predicates = path[-1]
+def _select_predicates_to_keep(
+        candidates: Dict[Predicate, float],
+        heuristic: Callable[[FrozenSet[Predicate]], float]
+        ) -> Set[Predicate]:
+    """Perform a greedy search over predicate sets.
+    """
 
-        print(f"Selected {len(kept_predicates)} predicates out of "
-              f"{len(candidates)} candidates:")
-        for pred in kept_predicates:
-            print(pred)
+    # There are no goal states for this search; run until exhausted.
+    def _check_goal(s: FrozenSet[Predicate]) -> bool:
+        del s  # unused
+        return False
 
-        return set(kept_predicates)
+    # Successively consider larger predicate sets.
+    def _get_successors(s: FrozenSet[Predicate]
+            ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+        for predicate in sorted(set(candidates) - s):  # determinism
+            # Actions not needed. Frozensets for hashing.
+            # The cost of 1.0 is irrelevant because we're doing GBFS
+            # and not A* (because we don't care about the path).
+            yield (None, frozenset(s | {predicate}), 1.0)
+
+    # Start the search with no candidates.
+    init : FrozenSet[Predicate] = frozenset()
+
+    # Greedy best first search.
+    path, _ = utils.run_gbfs(
+        init, _check_goal, _get_successors, heuristic,
+        max_evals=CFG.grammar_search_max_evals)
+    kept_predicates = path[-1]
+
+    print(f"Selected {len(kept_predicates)} predicates out of "
+          f"{len(candidates)} candidates:")
+    for pred in kept_predicates:
+        print(pred)
+
+    return set(kept_predicates)
 
 
 def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
