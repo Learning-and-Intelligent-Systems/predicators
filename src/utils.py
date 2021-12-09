@@ -502,8 +502,6 @@ def _run_heuristic_search(
                 action=action)
             priority = get_priority(child_node)
             num_evals += 1
-            if num_evals >= max_evals:
-                break
             hq.heappush(queue, (priority, next(tiebreak), child_node))
             state_to_best_path_cost[child_state] = child_path_cost
             if priority < best_node_priority:
@@ -515,6 +513,8 @@ def _run_heuristic_search(
                 if lazy_expansion:
                     hq.heappush(queue, (priority, next(tiebreak), node))
                     break
+            if num_evals >= max_evals:
+                break
 
     # Did not find path to goal; return best path seen.
     return _finish_plan(best_node)
