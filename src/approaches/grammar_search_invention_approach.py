@@ -458,7 +458,7 @@ def _create_heuristic_function(initial_predicates: Set[Predicate],
                        initial_predicates,
                        atom_dataset,
                        candidates)
-    elif CFG.grammar_search_heuristic == "hadd_match":
+    if CFG.grammar_search_heuristic == "hadd_match":
         return partial(_hadd_match_heuristic,
                        initial_predicates,
                        atom_dataset,
@@ -517,6 +517,7 @@ def _hadd_match_heuristic(initial_predicates: Set[Predicate],
     """Score predicates by comparing the hadd values of the induced operators
     to the groundtruth values inferred from demonstration data.
     """
+    del candidates  # not currently used, but maybe later
     print("Scoring predicates:", s)
     score = 0.0  # lower is better
     kept_predicates = s | initial_predicates
@@ -544,6 +545,7 @@ def _hadd_match_heuristic(initial_predicates: Set[Predicate],
             ideal_heuristic = len(atoms_sequence) - i - 1
             hadd_heuristic = hadd_fn(utils.atoms_to_tuples(atoms))
             score += abs(hadd_heuristic - ideal_heuristic)
+    print("score:", score)
     return score
 
 
