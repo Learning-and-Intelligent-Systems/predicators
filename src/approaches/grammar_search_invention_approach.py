@@ -448,6 +448,9 @@ def _create_heuristic_function(initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory],
         candidates: Dict[Predicate, float]
         ) -> Callable[[FrozenSet[Predicate]], float]:
+    """Returns a function that takes a frozenset of predicates and returns a
+    heuristic score, where lower is better.
+    """
     if CFG.grammar_search_heuristic == "prediction_error":
         return partial(_prediction_error_heuristic,
                        initial_predicates,
@@ -488,6 +491,7 @@ def _prediction_error_heuristic(initial_predicates: Set[Predicate],
     op_size = _get_operators_size(strips_ops)
     # Also add a penalty based on predicate complexity.
     pred_complexity = sum(candidates[p] for p in s)
+    # Lower is better.
     total_score = \
         CFG.grammar_search_false_pos_weight * num_false_positives + \
         CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
@@ -496,7 +500,6 @@ def _prediction_error_heuristic(initial_predicates: Set[Predicate],
     # Useful for debugging:
     # print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
     #       op_size, pred_complexity, total_score)
-    # Lower is better.
     return total_score
 
 
