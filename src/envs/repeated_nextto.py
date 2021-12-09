@@ -3,8 +3,9 @@ instances of a predicate being in the effects of options. Here,
 the move option can turn on any number of NextTo predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Iterator
+from typing import List, Set, Sequence, Dict, Optional, Iterator
 import numpy as np
+import matplotlib.pyplot as plt
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
@@ -19,8 +20,11 @@ class RepeatedNextToEnv(BaseEnv):
     env_lb = 0.0
     env_ub = 100.0
     grasped_thresh = 0.5
-    # nextto_thresh = 10.0
-    nextto_thresh = 0.02  # TODO: remove
+    # Currently, we set this threshold very low so that the robot is whp only
+    # near a single dot. This makes planning succeed with the oracle operators.
+    # However, we want to eventually increase this threshold so that the robot
+    # can be NextTo many different dots at the same time.
+    nextto_thresh = 0.02
 
     def __init__(self) -> None:
         super().__init__()
@@ -58,19 +62,22 @@ class RepeatedNextToEnv(BaseEnv):
         move_or_grasp, norm_robot_x, norm_dot_x = action.arr
         next_state = state.copy()
         if move_or_grasp < 0.5:
-            # move action
+            # Handle move action.
             robot_x = norm_robot_x * (self.env_ub - self.env_lb) + self.env_lb
             next_state.set(self._robot, "x", robot_x)
         else:
-            # grasp action
-            dot_x = norm_dot_x * (self.env_ub - self.env_lb) + self.env_lb
-            dot_to_grasp = None
-            for dot in self._dots:
-                if abs(state.get(dot, "x") - dot_x) < 1e-4:
-                    assert dot_to_grasp is None
-                    dot_to_grasp = dot
-                    # don't break here, just to check the asserts fully
-            assert dot_to_grasp is not None
+            # Handle grasp action.
+            robot_x = state.get(self._robot, "x")
+            desired_x = norm_dot_x * (self.env_ub - self.env_lb) + self.env_lb
+            dot_to_grasp = min(self._dots, key=lambda dot:
+                               abs(state.get(dot, "x") - desired_x))
+            dot_to_grasp_x = state.get(dot_to_grasp, "x")
+            if abs(dot_to_grasp_x - desired_x) > 1e-4:
+                # There is no dot near the desired_x action argument.
+                return next_state
+            if abs(robot_x - dot_to_grasp_x) > self.nextto_thresh:
+                # Robot must be next to dot in order to grasp it.
+                return next_state
             next_state.set(dot_to_grasp, "grasped", 1.0)
         return next_state
 
@@ -106,7 +113,25 @@ class RepeatedNextToEnv(BaseEnv):
 
     def render(self, state: State, task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        import ipdb; ipdb.set_trace()
+        fig, ax = plt.subplots(1, 1)
+        robot_x = state.get(self._robot, "x")
+        for dot in self._dots:
+            dot_x = state.get(dot, "x")
+            if state.get(dot, "grasped") > self.grasped_thresh:
+                color = "green"
+            elif abs(robot_x - dot_x) < self.nextto_thresh:
+                color = "orange"
+            else:
+                color = "red"
+            plt.scatter(x=dot_x, y=0, color=color)
+        plt.scatter(x=robot_x, y=0.2)
+        ax.set_xlim(self.env_lb - 1, self.env_ub + 1)
+        ax.set_ylim(-0.1, 0.25)
+        plt.suptitle("red = not next to, orange = next to, green = grasped,"
+                     "blue = robot")
+        img = utils.fig2data(fig)
+        plt.close()
+        return [img]
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
