@@ -73,6 +73,10 @@ class GlobalSettings:
     # option learning parameters
     do_option_learning = True  # if False, uses ground truth options
     option_learner = "simple"  # only used if do_option_learning is True
+    basic_mlp_max_itr = 10000
+    basic_mlp_hid_sizes = [32, 32]
+    clip_gradients = False
+    gradient_clip_value = 5
 
     # sampler learning parameters
     do_sampler_learning = True  # if False, uses random samplers
