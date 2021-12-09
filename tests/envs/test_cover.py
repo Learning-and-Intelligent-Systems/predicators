@@ -175,7 +175,7 @@ def test_cover_multistep_options():
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 3-dimensional.
-    assert env.action_space == Box(-0.1, 0.1, (3,))
+    assert len(env.action_space.low) == 3
     # Run through a specific plan of low-level actions.
     task = env.get_test_tasks()[0]
     action_arrs = [
