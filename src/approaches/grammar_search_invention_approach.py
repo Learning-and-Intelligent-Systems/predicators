@@ -194,8 +194,8 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
         """Infer types from the dataset.
         """
         types: Set[Type] = set()
-        for (states, _) in self.dataset:
-            types.update(o.type for o in states[0])
+        for traj in self.dataset:
+            types.update(o.type for o in traj.states[0])
         return types
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
@@ -275,8 +275,8 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
         feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
-        for (states, _) in self.dataset:
-            for state in states:
+        for traj in self.dataset:
+            for state in traj.states:
                 for obj in state:
                     if obj.type not in feature_ranges:
                         feature_ranges[obj.type] = {}

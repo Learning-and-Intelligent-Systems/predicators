@@ -7,7 +7,7 @@ from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
     STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition, \
-    _GroundSTRIPSOperator
+    _GroundSTRIPSOperator, LowLevelTrajectory
 from predicators.src import utils
 
 
@@ -537,10 +537,10 @@ def test_action():
         "Move", [], params_space, _policy, _initiable, _terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    states, actions = utils.option_to_trajectory(state, _simulator, option,
-                                                 max_num_steps=5)
-    assert len(actions) == len(states)-1 == 5
-    for act in actions:
+    traj = utils.option_to_trajectory(state, _simulator, option,
+                                      max_num_steps=5)
+    assert len(traj.actions) == len(traj.states)-1 == 5
+    for act in traj.actions:
         assert act.has_option()
         opt = act.get_option()
         assert opt is option
@@ -548,6 +548,42 @@ def test_action():
         assert not act.has_option()
     act = Action([0.5])
     assert not act.has_option()
+
+
+def test_low_level_trajectory():
+    """Tests for LowLevelTrajectory class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type],
+                   lambda s, o: s.get(o[1], "feat1") < 1.3)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj = LowLevelTrajectory(states, actions)
+    assert traj.states == states
+    assert traj.actions == actions
+    assert not traj.is_demo
+    with pytest.raises(AssertionError):
+        print(traj.goal)  # not a demo
+    traj = LowLevelTrajectory(states, actions, set())
+    assert traj.is_demo
+    assert traj.goal == set()
+    with pytest.raises(AssertionError):
+        # goal is not achieved in final state
+        traj = LowLevelTrajectory(states, actions, {on([cup, plate])})
+    with pytest.raises(AssertionError):
+        # incompatible lengths of states and actions
+        traj = LowLevelTrajectory(states[:-1], actions, {on([cup, plate])})
+    # goal is achieved in final state
+    traj = LowLevelTrajectory(states[:-1], actions[:-1], {on([cup, plate])})
+    assert traj.goal != set()
 
 
 def test_segment():
@@ -566,7 +602,7 @@ def test_segment():
     action0 = Action([0.4])
     action1 = Action([0.6])
     actions = [action0, action1]
-    traj = (states, actions)
+    traj = LowLevelTrajectory(states, actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
     parameterized_option = ParameterizedOption(
@@ -613,7 +649,7 @@ def test_partition():
     action0 = Action([0.4])
     action1 = Action([0.6])
     actions = [action0, action1]
-    traj = (states, actions)
+    traj = LowLevelTrajectory(states, actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
     parameterized_option = ParameterizedOption(
