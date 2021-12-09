@@ -352,6 +352,8 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
+            if predicate.arity == 0:
+                continue
             classifier = _ForallClassifier(predicate)
             yield (Predicate(str(classifier), [], classifier), cost)
             if predicate.arity >= 2:
