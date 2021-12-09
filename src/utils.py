@@ -173,7 +173,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                            Callable[[State, Task, Action], List[Image]]] = None,
                        ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
-    Return the state sequence and action sequence, and a bool for
+    Return the low-level trajectory annotated with the goal, and a bool for
     whether the goal was satisfied at the end.
     """
     state = task.init
@@ -204,7 +204,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         # extensions does, but for the sake of avoiding an
         # additional dependency, we'll just ignore this here.
         video.extend(render(state, task))  # type: ignore
-    return LowLevelTrajectory(states, actions), video, goal_reached
+    return LowLevelTrajectory(states, actions, task.goal), video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,

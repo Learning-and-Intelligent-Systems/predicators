@@ -28,11 +28,11 @@ def test_demo_dataset():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 7
-    assert len(dataset[0]) == 2
-    assert len(dataset[0][0]) == 3
-    assert len(dataset[0][1]) == 2
-    for _, actions in dataset:
-        for action in actions:
+    assert len(dataset[0].states) == 3
+    assert len(dataset[0].actions) == 2
+    for traj in dataset:
+        assert traj.is_demo
+        for action in traj.actions:
             assert not action.has_option()
     # Test that data contains options since do_option_learning is False
     utils.update_config({
@@ -48,11 +48,11 @@ def test_demo_dataset():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 7
-    assert len(dataset[0]) == 2
-    assert len(dataset[0][0]) == 3
-    assert len(dataset[0][1]) == 2
-    for _, actions in dataset:
-        for action in actions:
+    assert len(dataset[0].states) == 3
+    assert len(dataset[0].actions) == 2
+    for traj in dataset:
+        assert traj.is_demo
+        for action in traj.actions:
             assert action.has_option()
     utils.update_config({
         "offline_data_method": "not a real method",
@@ -79,12 +79,14 @@ def test_demo_replay_dataset():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 3
-    assert len(dataset[-1]) == 2
-    assert len(dataset[-1][0]) == 2
-    assert len(dataset[-1][1]) == 1
-    for _, actions in dataset:
-        for action in actions:
+    assert len(dataset[-1].states) == 2
+    assert len(dataset[-1].actions) == 1
+    num_demos = 0
+    for traj in dataset:
+        num_demos += int(traj.is_demo)
+        for action in traj.actions:
             assert action.has_option()
+    assert num_demos == 5
     # Test that data does not contain options since do_option_learning is True
     utils.update_config({
         "env": "cover",
@@ -100,12 +102,14 @@ def test_demo_replay_dataset():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 3
-    assert len(dataset[-1]) == 2
-    assert len(dataset[-1][0]) == 2
-    assert len(dataset[-1][1]) == 1
-    for _, actions in dataset:
-        for action in actions:
+    assert len(dataset[-1].states) == 2
+    assert len(dataset[-1].actions) == 1
+    num_demos = 0
+    for traj in dataset:
+        num_demos += int(traj.is_demo)
+        for action in traj.actions:
             assert not action.has_option()
+    assert num_demos == 5
     # Test cluttered table data collection
     utils.update_config({
         "env": "cluttered_table",
@@ -119,6 +123,5 @@ def test_demo_replay_dataset():
     env = ClutteredTableEnv()
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
-    assert len(dataset[-1]) == 2
-    assert len(dataset[-1][0]) == 2
-    assert len(dataset[-1][1]) == 1
+    assert len(dataset[-1].states) == 2
+    assert len(dataset[-1].actions) == 1
