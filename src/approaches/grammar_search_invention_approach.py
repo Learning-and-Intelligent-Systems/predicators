@@ -449,8 +449,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         if CFG.grammar_search_heuristic == "prediction_error":
             return partial(_prediction_error_heuristic,
                            self._initial_predicates,
-                           candidates,
-                           atom_dataset)
+                           atom_dataset,
+                           candidates)
         raise NotImplementedError(
             f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
