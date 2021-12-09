@@ -166,6 +166,8 @@ def _run_low_level_search(
         timeout: float) -> Optional[List[_Option]]:
     """Backtracking search over continuous values.
     """
+    assert CFG.sesame_propagate_failures in \
+        {"after_exhaust", "immediately", "never"}
     cur_idx = 0
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DefaultOption for _ in skeleton]
@@ -196,6 +198,10 @@ def _run_low_level_search(
                 can_continue_on = False
                 discovered_failures[cur_idx] = _DiscoveredFailure(
                     e, nsrt)  # remember only the most recent failure
+                # If we're immediately propagating failures, raise it now.
+                if CFG.sesame_propagate_failures == "immediately":
+                    raise _DiscoveredFailureException(
+                        "Discovered a failure", discovered_failures[cur_idx])
             if not discovered_failures[cur_idx]:
                 traj[cur_idx+1] = next_state
                 cur_idx += 1
@@ -226,11 +232,13 @@ def _run_low_level_search(
                 traj[cur_idx+1] = DefaultState
                 cur_idx -= 1
                 if cur_idx < 0:
-                    # Backtracking exhausted. If there were any failures,
+                    # Backtracking exhausted. If we're only propagating failures
+                    # after exhaustion, and if there are any failures,
                     # propagate up the EARLIEST one so that search restarts.
                     # Otherwise, return None so that search continues.
                     for failure in discovered_failures:
-                        if CFG.propagate_failures and failure is not None:
+                        if (CFG.sesame_propagate_failures == "after_exhaust"
+                            and failure is not None):
                             raise _DiscoveredFailureException(
                                 "Discovered a failure", failure)
                     return None
