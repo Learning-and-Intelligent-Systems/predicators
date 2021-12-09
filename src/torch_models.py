@@ -53,7 +53,7 @@ class BasicMLP(nn.Module):
         # Normalize input
         x = (x - self._input_shift) / self._input_scale
         y = self(x)
-        # Normalize output
+        # Un-normalize output
         y = (y * self._output_scale) + self._output_shift
         y = y.squeeze(dim=0)
         y = y.detach()  # type: ignore
@@ -83,7 +83,7 @@ class BasicMLP(nn.Module):
         _, output_size = outputs.shape
         # Initialize net
         # hid_sizes = CFG.regressor_hid_sizes
-        hid_sizes = [16, 16]
+        hid_sizes = CFG.basic_mlp_hid_sizes
         self._initialize_net(input_size, hid_sizes, output_size)
         # Convert data to torch
         X = torch.from_numpy(np.array(inputs, dtype=np.float32))
@@ -111,12 +111,15 @@ class BasicMLP(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.regressor_max_itr}",
+                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.basic_mlp_max_itr}",
                       end="\r", flush=True)
             self._optimizer.zero_grad()
             loss.backward()
+            if CFG.clip_gradients:
+                torch.nn.utils.clip_grad_norm_(self.parameters(),
+                                               CFG.gradient_clip_value)
             self._optimizer.step()
-            if itr == CFG.regressor_max_itr:
+            if itr == CFG.basic_mlp_max_itr:
                 print()
                 break
             itr += 1
