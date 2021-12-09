@@ -224,12 +224,12 @@ class _HoldingDummyPredicateGrammar(_DataBasedPredicateGrammar):
         # first object argument and looking at its grasp feature. For
         # example, (0.grasp>=-0.9)(block1) would look be a function of
         # state.get(block1, "grasp").
-        yield (Predicate(str(classifier), types, classifier), 1.)
+        yield (Predicate(str(classifier), types, classifier), 1.0)
 
         # An unnecessary predicate (because it's redundant).
         classifier = _SingleAttributeCompareClassifier(
             0, block_type, "is_block", 0.5, ge, ">=")
-        yield (Predicate(str(classifier), types, classifier), 1.)
+        yield (Predicate(str(classifier), types, classifier), 1.0)
 
 
 def _halving_constant_generator(lo: float, hi: float) -> Iterator[float]:
@@ -250,7 +250,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         # Get ranges of feature values from data.
         feature_ranges = self._get_feature_ranges()
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
-        constant_generator = _halving_constant_generator(0., 1.)
+        constant_generator = _halving_constant_generator(0.0, 1.0)
         for c in constant_generator:
             for t in sorted(self.types):
                 for f in t.feature_names:
@@ -270,7 +270,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                         0, t, f, k, comp, comp_str)
                     name = str(classifier)
                     types = [t]
-                    yield (Predicate(name, types, classifier), 1.)
+                    yield (Predicate(name, types, classifier), 1.0)
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -460,7 +460,7 @@ def _create_heuristic_function(initial_predicates: Set[Predicate],
 def _learn_operators_from_atom_dataset(atom_dataset: List[GroundAtomTrajectory]
         ) -> Tuple[List[Segment], List[STRIPSOperator], List[OptionSpec]]:
     """Relearn operators and option specs with the given dataset, which may
-    be pruned to include only a subset of the predicates..
+    be pruned to include only a subset of the predicates.
     """
     segments = [seg for traj in atom_dataset
                 for seg in segment_trajectory(traj)]
@@ -512,31 +512,17 @@ def _select_predicates_to_keep(
         del s  # unused
         return False
 
-    if CFG.grammar_search_direction == "largetosmall":
-        # Successively consider smaller predicate sets.
-        def _get_successors(s: FrozenSet[Predicate]
-                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-            for predicate in sorted(s):  # sorting for determinism
-                # Actions not needed. Frozensets for hashing.
-                # The cost of 1. is irrelevant because we're doing GBFS
-                # and not A* (because we don't care about the path).
-                yield (None, frozenset(s - {predicate}), 1.)
+    # Successively consider larger predicate sets.
+    def _get_successors(s: FrozenSet[Predicate]
+            ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
+        for predicate in sorted(set(candidates) - s):  # determinism
+            # Actions not needed. Frozensets for hashing.
+            # The cost of 1.0 is irrelevant because we're doing GBFS
+            # and not A* (because we don't care about the path).
+            yield (None, frozenset(s | {predicate}), 1.0)
 
-        # Start the search with all of the candidates.
-        init = frozenset(candidates)
-    else:
-        assert CFG.grammar_search_direction == "smalltolarge"
-        # Successively consider larger predicate sets.
-        def _get_successors(s: FrozenSet[Predicate]
-                ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
-            for predicate in sorted(set(candidates) - s):  # determinism
-                # Actions not needed. Frozensets for hashing.
-                # The cost of 1. is irrelevant because we're doing GBFS
-                # and not A* (because we don't care about the path).
-                yield (None, frozenset(s | {predicate}), 1.)
-
-        # Start the search with no candidates.
-        init = frozenset()
+    # Start the search with no candidates.
+    init : FrozenSet[Predicate] = frozenset()
 
     # Greedy best first search.
     path, _ = utils.run_gbfs(
