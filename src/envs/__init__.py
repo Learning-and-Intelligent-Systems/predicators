@@ -9,6 +9,7 @@ from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 
 __all__ = [
     "BaseEnv",
@@ -22,6 +23,7 @@ __all__ = [
     "PaintingEnv",
     "PlayroomEnv",
     "BehaviorEnv",
+    "RepeatedNextToEnv",
 ]
 
 
@@ -46,4 +48,6 @@ def create_env(name: str) -> BaseEnv:
         return PlayroomEnv()
     if name == "behavior":
         return BehaviorEnv()  # pragma: no cover
+    if name == "repeated_nextto":
+        return RepeatedNextToEnv()
     raise NotImplementedError(f"Unknown env: {name}")
