@@ -133,6 +133,7 @@ def _run_search(task: Task,
                 return plan
         else:
             # Generate successors.
+            metrics["num_nodes_expanded"] += 1
             for nsrt in utils.get_applicable_nsrts(ground_nsrts, node.atoms):
                 child_atoms = utils.apply_nsrt(nsrt, set(node.atoms))
                 child_node = _Node(
