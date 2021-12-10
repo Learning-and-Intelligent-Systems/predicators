@@ -8,8 +8,8 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
     _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
-    _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, \
-    _PredictionErrorHeuristic
+    _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, _HAddMatchHeuristic, \
+    _PredictionErrorHeuristic, _HaddLookaheadHeuristic
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -153,6 +153,15 @@ def test_unary_free_forall_classifier():
 def test_create_heuristic():
     """Tests for _create_heuristic().
     """
+    utils.update_config({"grammar_search_heuristic": "prediction_error"})
+    heuristic = _create_heuristic(set(), [], {})
+    assert isinstance(heuristic, _PredictionErrorHeuristic)
+    utils.update_config({"grammar_search_heuristic": "hadd_match"})
+    heuristic = _create_heuristic(set(), [], {})
+    assert isinstance(heuristic, _HAddMatchHeuristic)
+    utils.update_config({"grammar_search_heuristic": "hadd_lookahead_match"})
+    heuristic = _create_heuristic(set(), [], {})
+    assert isinstance(heuristic, _HaddLookaheadHeuristic)
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
         _create_heuristic(set(), [], {})
@@ -248,3 +257,31 @@ def test_prediction_error_heuristic():
     assert all_included_h < holding_included_h < none_included_h
     assert all_included_h < clear_included_h < none_included_h
     assert all_included_h < gripper_open_included_h < none_included_h
+
+
+def test_hadd_match_heuristic():
+    """Tests for _HAddMatchHeuristic().
+    """
+    # We know that this heuristic is bad, and this test shows why.
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = CoverEnv()
+    ablated = {"HandEmpty"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    heuristic = _HAddMatchHeuristic(initial_predicates, atom_dataset,
+                                    candidates)
+    handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
+    none_included_h = heuristic.evaluate(set())
+    assert handempty_included_h > none_included_h # this is bad!
