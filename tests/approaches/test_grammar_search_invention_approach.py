@@ -150,8 +150,8 @@ def test_unary_free_forall_classifier():
 def test_create_heuristic():
     """Tests for _create_heuristic().
     """
-    # The other error heuristics are tested through
-    # testing the full approach (see test_nrst_learning_approach.py).
+    # TODO: write tests that check that the heuristic values are better when
+    # groundtruth predicates are included.
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
         _create_heuristic(set(), [], {})

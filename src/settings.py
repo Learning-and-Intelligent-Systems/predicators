@@ -116,6 +116,7 @@ class GlobalSettings:
     grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
     grammar_search_heuristic = "hadd_lookahead_match"
+    grammar_search_lookahead_softmax_constant = 5.  # TODO try others
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
