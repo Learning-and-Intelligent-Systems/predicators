@@ -518,8 +518,8 @@ def _hadd_match_heuristic(initial_predicates: Set[Predicate],
     print("Scoring predicates:", s)
     score = 0.0  # lower is better
     kept_predicates = s | initial_predicates
-    pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
-                                                       kept_predicates)
+    pruned_atom_data = utils.prune_ground_atom_dataset(
+        atom_dataset, kept_predicates)
     _, strips_ops, _ =_learn_operators_from_atom_dataset(pruned_atom_data)
     for traj, atoms_sequence in pruned_atom_data:
         if not traj.is_demo:  # we only care about demonstrations
