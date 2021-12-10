@@ -143,5 +143,5 @@ def _run_analysis() -> None:
         print("    Option Spec:", spec[0].name, spec[1])
         print(f"Total FPs for {op.name}: {init_total_per_op[op.name]}")
 
-if __name__ == "__main___":
+if __name__ == "__main__":
     _run_analysis()

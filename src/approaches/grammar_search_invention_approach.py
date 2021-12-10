@@ -352,6 +352,8 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
+            if predicate.arity == 0:
+                continue
             classifier = _ForallClassifier(predicate)
             yield (Predicate(str(classifier), [], classifier), cost)
             if predicate.arity >= 2:
@@ -481,8 +483,8 @@ def _prediction_error_heuristic(initial_predicates: Set[Predicate],
     """
     print("Scoring predicates:", s)
     kept_predicates = s | initial_predicates
-    pruned_atom_data = utils.prune_ground_atom_dataset(atom_dataset,
-                                                       kept_predicates)
+    pruned_atom_data = utils.prune_ground_atom_dataset(
+        atom_dataset, kept_predicates)
     segments, strips_ops, option_specs = \
         _learn_operators_from_atom_dataset(pruned_atom_data)
     num_true_positives, num_false_positives, _, _ = \
