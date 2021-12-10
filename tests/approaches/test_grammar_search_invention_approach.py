@@ -11,7 +11,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, _HAddMatchHeuristic, \
     _PredictionErrorHeuristic, _HaddLookaheadHeuristic
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv, BlocksEnv
+from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory
 from predicators.src.nsrt_learning import segment_trajectory
@@ -258,6 +258,30 @@ def test_prediction_error_heuristic():
     assert all_included_h < clear_included_h < none_included_h
     assert all_included_h < gripper_open_included_h < none_included_h
 
+    # This example shows why this heuristic is bad.
+    utils.update_config({
+        "env": "painting",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = PaintingEnv()
+    ablated = {"IsWet", "IsDry"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
+                                          candidates)
+    all_included_h = heuristic.evaluate(set(candidates))
+    none_included_h = heuristic.evaluate(set())
+    assert all_included_h > none_included_h  # this is very bad!
+
 
 def test_hadd_match_heuristic():
     """Tests for _HAddMatchHeuristic().
@@ -284,4 +308,4 @@ def test_hadd_match_heuristic():
                                     candidates)
     handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
     none_included_h = heuristic.evaluate(set())
-    assert handempty_included_h > none_included_h # this is bad!
+    assert handempty_included_h > none_included_h # this is very bad!
