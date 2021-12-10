@@ -31,7 +31,7 @@ class BlocksEnv(BaseEnv):
     open_fingers = 0.8
     pick_tol = 0.08
     assert pick_tol < block_size
-    lift_amt = 1.0
+    lift_amt = 1.5
     num_blocks_train = [3, 4]
     num_blocks_test = [5, 6]
 
