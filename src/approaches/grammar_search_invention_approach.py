@@ -539,7 +539,7 @@ class _HAddMatchHeuristic(_HAddBasedHeuristic):
         return score
 
 
-class _HaddEnergyBasedHeuristic(_HAddBasedHeuristic):
+class _HaddLookaheadHeuristic(_HAddBasedHeuristic):
     """Score predicates by using the hadd values of the induced operators
     to compute an energy-based policy, and comparing that policy to demos.
     """
@@ -576,7 +576,7 @@ class _HaddEnergyBasedHeuristic(_HAddBasedHeuristic):
                 return float("inf")
             # Compute the probability that the correct next atoms would be
             # output under an energy-based policy.
-            k = 5. # can adjust exponent here
+            k = CFG.grammar_search_lookahead_softmax_constant
             ground_op_to_neg_exp = {o: np.exp(-k*h) if not np.isinf(h) else 0.
                                     for o, h in ground_op_to_heur.items()}
             z = sum(ground_op_to_neg_exp.values())
@@ -599,8 +599,8 @@ def _create_heuristic(initial_predicates: Set[Predicate],
         return _HAddMatchHeuristic(initial_predicates, atom_dataset,
                                    candidates)
     if CFG.grammar_search_heuristic == "hadd_lookahead_match":
-        return _HaddEnergyBasedHeuristic(initial_predicates, atom_dataset,
-                                         candidates)
+        return _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                       candidates)
     raise NotImplementedError(
         f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
