@@ -10,6 +10,7 @@ from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
 from gym.spaces import Box
+import numpy as np
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -463,6 +464,11 @@ def _create_heuristic_function(initial_predicates: Set[Predicate],
                        initial_predicates,
                        atom_dataset,
                        candidates)
+    if CFG.grammar_search_heuristic == "hadd_lookahead_match":
+        return partial(_hadd_lookahead_match,
+                       initial_predicates,
+                       atom_dataset,
+                       candidates)
     raise NotImplementedError(
         f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
@@ -547,6 +553,95 @@ def _hadd_match_heuristic(initial_predicates: Set[Predicate],
             score += abs(hadd_heuristic - ideal_heuristic)
     print("score:", score)
     return score
+
+
+def _hadd_lookahead_match(initial_predicates: Set[Predicate],
+                          atom_dataset: List[GroundAtomTrajectory],
+                          candidates: Dict[Predicate, float],
+                          s: FrozenSet[Predicate]) -> float:
+    """Score predicates by using the hadd values of the induced operators
+    to compute an energy-based policy, and comparing that policy to demos.
+    """
+    print("Scoring predicates:", s)
+    score = 0.0  # lower is better
+    kept_predicates = s | initial_predicates
+    pruned_atom_data = utils.prune_ground_atom_dataset(
+        atom_dataset, kept_predicates)
+    _, strips_ops, _ =_learn_operators_from_atom_dataset(pruned_atom_data)
+    for traj, atoms_sequence in pruned_atom_data:
+        if not traj.is_demo:  # we only care about demonstrations
+            continue
+        # Create hAdd heuristic for this trajectory.
+        objects = set(traj.states[0])
+        init_atoms = atoms_sequence[0]
+        goal_atoms = traj.goal
+        ground_ops = {op for strips_op in strips_ops
+                      for op in utils.all_ground_operators(strips_op, objects)}
+        relaxed_operators = frozenset({utils.RelaxedOperator(
+            op.name, utils.atoms_to_tuples(op.preconditions),
+            utils.atoms_to_tuples(op.add_effects)) for op in ground_ops})
+        hadd_fn = utils.HAddHeuristic(
+            utils.atoms_to_tuples(init_atoms),
+            utils.atoms_to_tuples(goal_atoms),
+            relaxed_operators)
+        for i in range(len(atoms_sequence)-1):
+            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
+            # Record the heuristic value for each ground op.
+            ground_op_to_heur = {}
+            # Record whether the ground op matches the demonstration.
+            ground_op_to_match = {}
+            for ground_op in ground_ops:
+                # Only care about applicable ground ops.
+                if not ground_op.preconditions.issubset(atoms):
+                    continue
+                # Compute the next state under the operator.
+                successor_atoms = atoms.copy()
+                for atom in ground_op.add_effects:
+                    successor_atoms.add(atom)
+                for atom in ground_op.delete_effects:
+                    successor_atoms.discard(atom)
+                # Compute the heuristic for the successor atoms.
+                heur = hadd_fn(utils.atoms_to_tuples(successor_atoms))
+                ground_op_to_heur[ground_op] = heur
+                # Check whether the successor atoms match the demonstration.
+                match = (successor_atoms == next_atoms)
+                ground_op_to_match[ground_op] = match
+            if not any(ground_op_to_match.values()):
+                return float("inf")
+            # Compute the probability that the correct next atoms would be
+            # output under an energy-based policy.
+            k = 5. # can adjust exponent here
+            ground_op_to_neg_exp = {o: np.exp(-k*h) if not np.isinf(h) else 0.
+                                    for o, h in ground_op_to_heur.items()}
+            z = sum(ground_op_to_neg_exp.values())
+            ground_op_to_prob = {o: ground_op_to_neg_exp[o] / z
+                                 for o in ground_op_to_match}
+            atom_score = sum(match * ground_op_to_prob[o]
+                             for o, match in ground_op_to_match.items())
+
+            # print("Real add effects:", next_atoms - atoms)
+            # print("Real del effects:", atoms - next_atoms)
+            # for op in ground_op_to_heur:
+            #     print("Op:", op)
+            #     print("Heur:", ground_op_to_heur[op])
+            #     print("Match:", ground_op_to_match[op])
+            #     print("Prob select:", ground_op_to_prob[op])
+            # print("Score:", atom_score)
+
+            score -= atom_score
+
+    # Also add a size penalty.
+    op_size = _get_operators_size(strips_ops)
+    # Also add a penalty based on predicate complexity.
+    pred_complexity = sum(candidates[p] for p in s)
+    # Lower is better.
+    total_score = score + \
+        CFG.grammar_search_size_weight * op_size + \
+        CFG.grammar_search_pred_complexity_weight * pred_complexity
+
+    print("total_score:", total_score)
+
+    return total_score
 
 
 def _select_predicates_to_keep(
