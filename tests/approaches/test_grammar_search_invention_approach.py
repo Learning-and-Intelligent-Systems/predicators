@@ -8,7 +8,9 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
     _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
-    _OperatorLearningBasedHeuristic, _HAddBasedHeuristic
+    _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, \
+    _PredictionErrorHeuristic
+from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory
@@ -186,3 +188,34 @@ def test_predicate_search_heuristic_base_classes():
     hadd_heuristic = _HAddBasedHeuristic(set(), atom_dataset, {})
     with pytest.raises(NotImplementedError):
         hadd_heuristic.evaluate(set())
+
+
+def test_prediction_error_heuristic():
+    """Tests for _PredictionErrorHeuristic().
+    """
+    # Tests for CoverEnv.
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = CoverEnv()
+    ablated = {"HandEmpty", "Holding"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
+                                          candidates)
+    all_included_h = heuristic.evaluate(set(candidates))
+    handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
+    holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
+    none_included_h = heuristic.evaluate(set())
+    assert all_included_h < holding_included_h < none_included_h
+    assert all_included_h < handempty_included_h  # not better than none
