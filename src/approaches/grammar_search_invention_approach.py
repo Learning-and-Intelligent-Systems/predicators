@@ -432,7 +432,7 @@ class _OperatorLearningBasedHeuristic(_PredicateSearchHeuristic):
         print("Evaluating predicates:", predicates)
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self.atom_dataset, predicates | self.initial_predicates)
-        segments = [seg for traj in self.atom_dataset
+        segments = [seg for traj in pruned_atom_data
                     for seg in segment_trajectory(traj)]
         strips_ops, partitions = learn_strips_operators(segments,
                                                         verbose=False)
