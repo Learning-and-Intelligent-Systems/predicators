@@ -7,7 +7,8 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateGrammar, _DataBasedPredicateGrammar, \
     _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
-    _UnaryFreeForallClassifier, _create_heuristic
+    _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
+    _OperatorLearningBasedHeuristic, _HAddBasedHeuristic
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory
@@ -150,8 +151,38 @@ def test_unary_free_forall_classifier():
 def test_create_heuristic():
     """Tests for _create_heuristic().
     """
-    # TODO: write tests that check that the heuristic values are better when
-    # groundtruth predicates are included.
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
         _create_heuristic(set(), [], {})
+
+
+def test_predicate_search_heuristic_base_classes():
+    """Cover the abstract methods for _PredicateSearchHeuristic and subclasses
+    """
+    pred_search_heuristic = _PredicateSearchHeuristic(set(), [], {})
+    with pytest.raises(NotImplementedError):
+        pred_search_heuristic.evaluate(set())
+    op_learning_heuristic = _OperatorLearningBasedHeuristic(set(), [], {})
+    with pytest.raises(NotImplementedError):
+        op_learning_heuristic.evaluate(set())
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    train_task = next(env.train_tasks_generator())[0]
+    state = train_task.init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    parameterized_option = ParameterizedOption(
+        "Dummy", [], Box(0, 1, (1,)),
+        lambda s, m, o, p: Action(np.array([0.0])),
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
+    option = parameterized_option.ground([], np.array([0.0]))
+    action = Action(np.zeros(1, dtype=np.float32))
+    action.set_option(option)
+    dataset = [LowLevelTrajectory(
+        [state, other_state], [action], set())]
+    atom_dataset = utils.create_ground_atom_dataset(dataset, set())
+    hadd_heuristic = _HAddBasedHeuristic(set(), atom_dataset, {})
+    with pytest.raises(NotImplementedError):
+        hadd_heuristic.evaluate(set())
