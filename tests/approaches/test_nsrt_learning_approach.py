@@ -84,7 +84,6 @@ def test_grammar_search_invention_approach():
         "grammar_search_size_weight": 1e-2,
         "grammar_search_max_predicates": 2,
         "grammar_search_heuristic": "prediction_error",
-        "do_sampler_learning": False,
     })
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False)
@@ -92,8 +91,7 @@ def test_grammar_search_invention_approach():
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False)
     utils.update_config({
-        "grammar_search_grammar_name": "forall_single_feat_ineqs",
-        "grammar_search_max_predicates": 10,
+        "grammar_search_grammar_name": "forall_single_feat_ineqs"
     })
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False)
@@ -102,4 +100,3 @@ def test_grammar_search_invention_approach():
     utils.update_config({"grammar_search_max_predicates": 0})
     _test_approach(env_name="blocks", approach_name="grammar_search_invention",
                    excluded_predicates="GripperOpen", try_solving=False)
-    utils.update_config({"do_sampler_learning": True})
