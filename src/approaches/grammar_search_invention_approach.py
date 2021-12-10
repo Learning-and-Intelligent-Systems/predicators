@@ -606,7 +606,8 @@ def _hadd_lookahead_match(initial_predicates: Set[Predicate],
                 # Check whether the successor atoms match the demonstration.
                 match = (successor_atoms == next_atoms)
                 ground_op_to_match[ground_op] = match
-            if not any(ground_op_to_match.values()):
+            if not any(ground_op_to_match.values()) or all(
+                np.isinf(h) for h in ground_op_to_heur.values()):
                 return float("inf")
             # Compute the probability that the correct next atoms would be
             # output under an energy-based policy.
@@ -627,6 +628,7 @@ def _hadd_lookahead_match(initial_predicates: Set[Predicate],
             #     print("Match:", ground_op_to_match[op])
             #     print("Prob select:", ground_op_to_prob[op])
             # print("Score:", atom_score)
+            # import ipdb; ipdb.set_trace()
 
             score -= atom_score
 
