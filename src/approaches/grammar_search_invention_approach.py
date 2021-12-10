@@ -513,7 +513,7 @@ class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
                 relaxed_operators)
             score += self._evaluate_atom_trajectory(atoms_sequence, hadd_fn,
                                                     ground_ops)
-        return score
+        return CFG.grammar_search_lookahead_hadd_weight * score
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   hadd_fn: utils.HAddHeuristic,
@@ -542,6 +542,14 @@ class _HAddMatchHeuristic(_HAddBasedHeuristic):
 class _HaddLookaheadHeuristic(_HAddBasedHeuristic):
     """Score predicates by using the hadd values of the induced operators
     to compute an energy-based policy, and comparing that policy to demos.
+
+    Overview of the idea:
+    1. Predicates induce operators. Denote this ops(preds).
+    2. Operators induce an hadd heuristic. Denote this hadd(state, ops(preds)).
+    3. The heuristic induces a greedy one-step lookahead energy-based policy.
+       Denote this pi(a|s) propto exp(-constant * hadd(succ(s, a), ops(preds)).
+    4. The objective for predicate learning is to maximize prod pi(a | s)
+       where the product is over demonstrations.
     """
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
@@ -551,10 +559,8 @@ class _HaddLookaheadHeuristic(_HAddBasedHeuristic):
         score = 0
         for i in range(len(atoms_sequence)-1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
-            # Record the heuristic value for each ground op.
-            ground_op_to_heur = {}
-            # Record whether the ground op matches the demonstration.
-            ground_op_to_match = {}
+            ground_op_demo_prob = 0. # total probability mass for demo actions
+            ground_op_total_prob = 0.  # total probability mass for all actions
             for ground_op in ground_ops:
                 # Only care about applicable ground ops.
                 if not ground_op.preconditions.issubset(atoms):
@@ -566,25 +572,25 @@ class _HaddLookaheadHeuristic(_HAddBasedHeuristic):
                 for atom in ground_op.delete_effects:
                     successor_atoms.discard(atom)
                 # Compute the heuristic for the successor atoms.
-                heur = hadd_fn(utils.atoms_to_tuples(successor_atoms))
-                ground_op_to_heur[ground_op] = heur
+                h = hadd_fn(utils.atoms_to_tuples(successor_atoms))
+                # Compute the probability that the correct next atoms would be
+                # output under an energy-based policy.
+                k = CFG.grammar_search_lookahead_softmax_constant
+                p = np.exp(-k*h) if not np.isinf(h) else 0.
+                ground_op_total_prob += p
                 # Check whether the successor atoms match the demonstration.
-                match = (successor_atoms == next_atoms)
-                ground_op_to_match[ground_op] = match
-            if not any(ground_op_to_match.values()) or all(
-                np.isinf(h) for h in ground_op_to_heur.values()):
+                if successor_atoms == next_atoms:
+                    ground_op_demo_prob += p
+            # If there is a demonstration state that is a dead-end under the
+            # operators, immediately return a very bad score, because planning
+            # with these operators would never be able to recover the demo.
+            if ground_op_demo_prob == 0:
                 return float("inf")
-            # Compute the probability that the correct next atoms would be
-            # output under an energy-based policy.
-            k = CFG.grammar_search_lookahead_softmax_constant
-            ground_op_to_neg_exp = {o: np.exp(-k*h) if not np.isinf(h) else 0.
-                                    for o, h in ground_op_to_heur.items()}
-            z = sum(ground_op_to_neg_exp.values())
-            ground_op_to_prob = {o: ground_op_to_neg_exp[o] / z
-                                 for o in ground_op_to_match}
-            atom_score = sum(match * ground_op_to_prob[o]
-                             for o, match in ground_op_to_match.items())
-            score -= atom_score
+            # Accumulate the log probability of each (state, action) in this
+            # demonstrated trajectory.
+            atoms_log_prob = np.log(ground_op_demo_prob) - \
+                             np.log(ground_op_total_prob)
+            score += -atoms_log_prob  # remember that lower is better
         return score
 
 
