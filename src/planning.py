@@ -110,8 +110,13 @@ def _run_search(task: Task,
     heuristic: Callable[[PyperplanFacts], float] = utils.HAddHeuristic(
         utils.atoms_to_tuples(init_atoms),
         utils.atoms_to_tuples(task.goal), relaxed_operators)
+    heuristic2 = utils.FastHAddHeuristic(
+        utils.atoms_to_tuples(init_atoms),
+        utils.atoms_to_tuples(task.goal), relaxed_operators)
+    total_heuristic1_time, total_heuristic2_time = 0., 0.
     heuristic_cache[root_node.pyperplan_facts] = heuristic(
         root_node.pyperplan_facts)
+    assert heuristic2(root_node.pyperplan_facts) == heuristic_cache[root_node.pyperplan_facts]
     hq.heappush(queue, (heuristic_cache[root_node.pyperplan_facts],
                         rng_prio.uniform(),
                         root_node))
@@ -130,6 +135,8 @@ def _run_search(task: Task,
                 task, option_model, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
             if plan is not None:
+                metrics["heuristic1_time"] = total_heuristic1_time
+                metrics["heuristic2_time"] = total_heuristic2_time
                 return plan
         else:
             # Generate successors.
@@ -142,8 +149,14 @@ def _run_search(task: Task,
                     atoms_sequence=node.atoms_sequence+[child_atoms],
                     parent=node)
                 if child_node.pyperplan_facts not in heuristic_cache:
-                    heuristic_cache[child_node.pyperplan_facts] = heuristic(
-                        child_node.pyperplan_facts)
+                    start = time.time()
+                    h1 = heuristic(child_node.pyperplan_facts)
+                    total_heuristic1_time += time.time() - start
+                    heuristic_cache[child_node.pyperplan_facts] = h1
+                    start = time.time()
+                    h2 = heuristic2(child_node.pyperplan_facts)
+                    total_heuristic2_time += time.time() - start
+                    assert h2 == heuristic_cache[child_node.pyperplan_facts]
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton)+
                             heuristic_cache[child_node.pyperplan_facts])
