@@ -717,6 +717,19 @@ def get_applicable_nsrts(ground_nsrts: Collection[_GroundNSRT],
             yield nsrt
 
 
+def get_applicable_operators(ground_ops: Collection[_GroundSTRIPSOperator],
+                             atoms: Collection[GroundAtom]) -> Iterator[
+                             _GroundSTRIPSOperator]:
+    """Iterate over ground operators whose preconditions are satisfied.
+
+    Note: the order may be nondeterministic. Users should be invariant.
+    """
+    for op in ground_ops:
+        applicable = op.preconditions.issubset(atoms)
+        if applicable:
+            yield op
+
+
 def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
                ) -> Collection[GroundAtom]:
     """Get a next set of atoms given a current set and a ground NSRT.
@@ -725,6 +738,18 @@ def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
     for atom in nsrt.add_effects:
         new_atoms.add(atom)
     for atom in nsrt.delete_effects:
+        new_atoms.discard(atom)
+    return new_atoms
+
+
+def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
+                   ) -> Collection[GroundAtom]:
+    """Get a next set of atoms given a current set and a ground operator.
+    """
+    new_atoms = atoms.copy()
+    for atom in operator.add_effects:
+        new_atoms.add(atom)
+    for atom in operator.delete_effects:
         new_atoms.discard(atom)
     return new_atoms
 

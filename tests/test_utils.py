@@ -908,6 +908,69 @@ def test_nsrt_application():
         ground_nsrts, {pred3([cup2, plate2])}))
 
 
+def test_operator_application():
+    """Tests for get_applicable_operators(), apply_operator().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type], lambda s, o: True)
+    pred3 = Predicate("Pred3", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions1 = {pred1([cup_var, plate_var])}
+    add_effects1 = {pred2([cup_var, plate_var])}
+    delete_effects1 = {}
+    preconditions2 = {pred1([cup_var, plate_var])}
+    add_effects2 = {}
+    delete_effects2 = {pred3([cup_var, plate_var])}
+    op1 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1)
+    op2 = STRIPSOperator("Place", parameters, preconditions2, add_effects2,
+                         delete_effects2)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = (utils.all_ground_operators(op1, objects) |
+                  utils.all_ground_operators(op2, objects))
+    assert len(ground_ops) == 8
+    applicable = list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate1])}))
+    assert len(applicable) == 2
+    all_obj = [(op.name, op.objects) for op in applicable]
+    assert ("Pick", [cup1, plate1]) in all_obj
+    assert ("Place", [cup1, plate1]) in all_obj
+    next_atoms = [utils.apply_operator(op, {pred1([cup1, plate1])})
+                  for op in applicable]
+    assert {pred1([cup1, plate1])} in next_atoms
+    assert {pred1([cup1, plate1]), pred2([cup1, plate1])} in next_atoms
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate2])}))
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup2, plate1])}))
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup2, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup1, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup1, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup2, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup2, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup1, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup1, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup2, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup2, plate2])}))
+
+
 def test_hadd_heuristic():
     """Tests for hAddHeuristic.
     """
