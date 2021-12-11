@@ -766,8 +766,6 @@ class RelaxedOperator:
     name: str
     preconditions: PyperplanFacts
     add_effects: PyperplanFacts
-    # Cost of applying this operator.
-    cost: int = field(default=1)
     # Alternative method to check whether all preconditions are True.
     counter: int = field(init=False, default=0)
 
@@ -777,7 +775,10 @@ class RelaxedOperator:
 
 class HAddHeuristic:
     """This class is an implementation of the hADD heuristic.
-    Lightly modified from pyperplan's heuristics/relaxation.py.
+
+    Modified from pyperplan's heuristics/relaxation.py. Unlike the original
+    implementation, this uses fixed point iteration instead of Dijkstra's,
+    since all of our operator costs are unitary.
     """
     def __init__(self, initial_state: PyperplanFacts,
                  goals: PyperplanFacts,
@@ -853,8 +854,8 @@ class HAddHeuristic:
         """
         # Sum over the heuristic values of all preconditions.
         cost = sum([self.facts[pre].distance for pre in operator.preconditions])
-        # Add on operator application cost.
-        return cost+operator.cost
+        # Add on unitary operator application cost.
+        return cost + 1
 
     def calc_goal_h(self) -> float:
         """This function calculates the heuristic value of the whole goal.
@@ -864,6 +865,9 @@ class HAddHeuristic:
     def run_forward_pass(self, initial_state: PyperplanFacts) -> None:
         """Calculate the distance to each goal fact from the initial state
         under the delete relaxation.
+
+        This method modifies the relaxed facts and relaxed operators in place,
+        updating their distances and precondition counters respectively.
         """
         reachable_facts = set(initial_state)
         new_facts = reachable_facts.copy()
@@ -873,8 +877,9 @@ class HAddHeuristic:
                 return
             next_reachable_facts = set()
             for fact in new_facts:
+                relaxed_fact = self.facts[fact]
                 # Iterate over all operators this fact is a precondition of.
-                for operator in self.facts[fact].precondition_of:
+                for operator in relaxed_fact.precondition_of:
                     # Decrease the precondition counter.
                     operator.counter -= 1
                     # Check whether all preconditions are True and we can apply
@@ -885,11 +890,11 @@ class HAddHeuristic:
                         if not new_facts_for_operator:
                             continue
                         operator_cost = self.get_cost(operator)
-                        for n in new_facts_for_operator:
-                            neighbor = self.facts[n]
+                        for neighbor_fact in new_facts_for_operator:
+                            relaxed_neighbor_fact = self.facts[neighbor_fact]
                             # Calculate the cost of applying this operator.
-                            neighbor.distance = operator_cost
-                            next_reachable_facts.add(n)
+                            relaxed_neighbor_fact.distance = operator_cost
+                            next_reachable_facts.add(neighbor_fact)
             new_facts = next_reachable_facts
             reachable_facts |= new_facts
 
