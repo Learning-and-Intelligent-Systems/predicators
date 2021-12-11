@@ -10,7 +10,8 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
+    DefaultDict
 import heapq as hq
 import imageio
 import matplotlib
@@ -920,6 +921,55 @@ class HAddHeuristic:
                                 self.tie_breaker += 1
                 # Finally the fact is marked as expanded.
                 fact.expanded = True
+
+
+class FastHAddHeuristic(HAddHeuristic):
+    """This class is an implementation of the hADD heuristic.
+    Lightly modified from pyperplan's heuristics/relaxation.py.
+    """
+
+    def __call__(self, state: PyperplanFacts) -> float:
+        """Compute heuristic value.
+        """
+        # Reset distance and set to default values.
+        self.init_distance(state)
+
+        # Call the Dijkstra search that performs the forward pass.
+        self._run(state)
+
+        # Extract the goal heuristic.
+        h_value = self.calc_goal_h()
+
+        return h_value
+
+    def _run(self, initial_state: PyperplanFacts) -> None:
+        reachable_facts = set(initial_state)
+        new_facts = reachable_facts.copy()
+        while new_facts:
+            # Check if the goal is reached.
+            if self.goals.issubset(reachable_facts):
+                return
+            next_reachable_facts = set()
+            for fact in new_facts:
+                # Iterate over all operators this fact is a precondition of.
+                for operator in self.facts[fact].precondition_of:
+                    # Decrease the precondition counter.
+                    operator.counter -= 1
+                    # Check whether all preconditions are True and we can apply
+                    # this operator.
+                    if operator.counter <= 0:
+                        new_facts_for_operator = operator.add_effects - \
+                                                 reachable_facts
+                        if not new_facts_for_operator:
+                            continue
+                        operator_cost = self.get_cost(operator)
+                        for n in new_facts_for_operator:
+                            neighbor = self.facts[n]
+                            # Calculate the cost of applying this operator.
+                            neighbor.distance = operator_cost
+                            next_reachable_facts.add(n)
+            new_facts = next_reachable_facts
+            reachable_facts |= new_facts
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
