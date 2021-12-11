@@ -149,21 +149,40 @@ def _run_analysis() -> None:
 
 
 def _run_proxy_analysis() -> None:
-    env_name = "cover"
-    HandEmpty, Holding, Covers = _get_predicates_by_names(env_name,
-        ["HandEmpty", "Holding", "Covers"])
-    goal_predicates = {Covers}
+    # env_name = "cover"
+    # HandEmpty, Holding, IsBlock, IsTarget = _get_predicates_by_names(
+    #     env_name, ["HandEmpty", "Holding", "IsBlock", "IsTarget"])
+    # non_goal_predicate_sets: List[Set[Predicate]] = [
+    #     set(),
+    #     {HandEmpty},
+    #     {Holding},
+    #     {HandEmpty, IsBlock},
+    #     {Holding, IsBlock},
+    #     {HandEmpty, Holding},
+    #     {HandEmpty, Holding, IsBlock},
+    # ]
+
+    env_name = "blocks"
+    Holding, Clear, GripperOpen = _get_predicates_by_names(
+        env_name, ["Holding", "Clear", "GripperOpen"])
     non_goal_predicate_sets: List[Set[Predicate]] = [
         set(),
-        {HandEmpty},
         {Holding},
-        {HandEmpty, Holding}
+        {Clear},
+        {GripperOpen},
+        {Holding, Clear},
+        {Clear, GripperOpen},
+        {GripperOpen, Holding},
+        {Clear, GripperOpen, Holding},
     ]
+
     utils.update_config({
         "env": env_name,
         "offline_data_method": "demo+replay",
         "seed": 0,
         "timeout": 100,
+        "make_videos": False,
+        "grammar_search_max_predicates": 50,
     })
     env = create_env(env_name)
     train_tasks = next(env.train_tasks_generator())
@@ -172,15 +191,13 @@ def _run_proxy_analysis() -> None:
     for non_goal_predicates in non_goal_predicate_sets:
         print(env_name, non_goal_predicates)
         _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
-                                           goal_predicates, non_goal_predicates)
+                                           env.goal_predicates, non_goal_predicates)
     # Also test full predicate set proposed by grammar
     grammar = _create_grammar("forall_single_feat_ineqs",
-                              dataset, goal_predicates)
+                              dataset, env.goal_predicates)
     candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
-    print("******", env_name,
-          f"all {CFG.grammar_search_max_predicates} candidates")
     _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
-                                       goal_predicates, set(candidates))
+                                       env.goal_predicates, set(candidates))
 
 
 def _run_proxy_analysis_for_predicates(env: BaseEnv,
@@ -198,7 +215,12 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
         heuristic = heuristic_cls(initial_predicates, atom_dataset,
                                   candidates)
         heuristic_score = heuristic.evaluate(frozenset(predicates))
-        print("******", heuristic_cls.__name__, heuristic_score)
+        if len(predicates) >= 10:
+            predicate_str = f"All {len(predicates)} candidates"
+        else:
+            predicate_str = str(predicates)
+        print("\n\n******", env.__class__.__name__, predicate_str,
+              heuristic_cls.__name__, heuristic_score)
     # Learn NSRTs and plan.
     utils.flush_cache()
     approach = create_approach("nsrt_learning", env.simulate, all_predicates,
