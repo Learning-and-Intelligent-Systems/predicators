@@ -861,12 +861,6 @@ class HAddHeuristic:
         """
         return sum([self.facts[fact].distance for fact in self.goals])
 
-    def finished(self, achieved_goals: Set[Tuple[str, ...]],
-                 queue: List[Tuple[float, float, RelaxedFact]]) -> bool:
-        """This function gives a stopping criterion for the Dijkstra search.
-        """
-        return achieved_goals == self.goals or not queue
-
     def run_forward_pass(self, initial_state: PyperplanFacts) -> None:
         """Calculate the distance to each goal fact from the initial state
         under the delete relaxation.
