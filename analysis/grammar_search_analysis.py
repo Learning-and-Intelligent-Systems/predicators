@@ -80,9 +80,6 @@ def _run_analysis() -> None:
     print("Done.")
 
     print("All candidates:", sorted(candidates))
-
-    # Prediction error analysis
-
     print("Running learning & scoring with ALL predicates.")
     all_segments = [seg for traj in atom_dataset
                     for seg in segment_trajectory(traj)]
