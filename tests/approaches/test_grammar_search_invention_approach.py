@@ -230,6 +230,7 @@ def test_prediction_error_heuristic():
     assert all_included_h < handempty_included_h  # not better than none
 
     # Tests for BlocksEnv.
+    utils.flush_cache()
     utils.update_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
@@ -259,10 +260,12 @@ def test_prediction_error_heuristic():
     assert all_included_h < gripper_open_included_h < none_included_h
 
     # This example shows why this heuristic is bad.
+    utils.flush_cache()
     utils.update_config({
         "env": "painting",
         "offline_data_method": "demo+replay",
         "seed": 0,
+        "painting_train_families": ["box_and_shelf"],
     })
     env = PaintingEnv()
     ablated = {"IsWet", "IsDry"}
@@ -309,3 +312,98 @@ def test_hadd_match_heuristic():
     handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
     none_included_h = heuristic.evaluate(set())
     assert handempty_included_h > none_included_h # this is very bad!
+
+
+def test_hadd_lookahead_heuristic():
+    """Tests for _HaddLookaheadHeuristic().
+    """
+    # Tests for CoverEnv.
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = CoverEnv()
+    ablated = {"HandEmpty", "Holding"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                        candidates)
+    all_included_h = heuristic.evaluate(set(candidates))
+    handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
+    holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
+    none_included_h = heuristic.evaluate(set())
+    assert all_included_h < holding_included_h < none_included_h
+    assert all_included_h < handempty_included_h  # not better than none
+
+    # Tests for BlocksEnv.
+    utils.flush_cache()
+    utils.update_config({
+        "env": "blocks",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = BlocksEnv()
+    ablated = {"Holding", "Clear", "GripperOpen"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                        candidates)
+    all_included_h = heuristic.evaluate(set(candidates))
+    none_included_h = heuristic.evaluate(set())
+    # Note: the values for Holding alone, Clear alone, and GripperOpen alone
+    # are not in between the bounds. Here are all the values:
+    # ipdb> all_included_h
+    # 11411.369394796297
+    # ipdb> none_included_h
+    # 17640.461089410717
+    # ipdb> holding_included_h
+    # 11240.23793807844
+    # ipdb> clear_included_h
+    # 21144.93016115656
+    # ipdb> gripper_open_included_h
+    # 17641.505279500798
+    # This is  peculiar. But we do see that learning works well in the end.
+    assert all_included_h < none_included_h
+
+    # Tests for PaintEnv.
+    utils.flush_cache()
+    utils.update_config({
+        "env": "painting",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+        "painting_train_families": ["box_and_shelf"],
+    })
+    env = PaintingEnv()
+    ablated = {"IsWet", "IsDry"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                        candidates)
+    all_included_h = heuristic.evaluate(set(candidates))
+    none_included_h = heuristic.evaluate(set())
+    assert all_included_h < none_included_h  # hooray!
