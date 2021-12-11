@@ -9,7 +9,7 @@ from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _create_grammar, _PredicateGrammar, _count_positives_for_ops, \
-    _PredictionErrorHeuristic, _HaddLookaheadHeuristic
+    _PredictionErrorHeuristic, _HAddLookaheadHeuristic
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -191,7 +191,8 @@ def _run_proxy_analysis() -> None:
     for non_goal_predicates in non_goal_predicate_sets:
         print(env_name, non_goal_predicates)
         _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
-                                           env.goal_predicates, non_goal_predicates)
+                                           env.goal_predicates,
+                                           non_goal_predicates)
     # Also test full predicate set proposed by grammar
     grammar = _create_grammar("forall_single_feat_ineqs",
                               dataset, env.goal_predicates)
@@ -211,7 +212,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     all_predicates = predicates | initial_predicates
     atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
     # Compute heuristic scores.
-    for heuristic_cls in [_PredictionErrorHeuristic, _HaddLookaheadHeuristic]:
+    for heuristic_cls in [_PredictionErrorHeuristic, _HAddLookaheadHeuristic]:
         heuristic = heuristic_cls(initial_predicates, atom_dataset,
                                   candidates)
         heuristic_score = heuristic.evaluate(frozenset(predicates))

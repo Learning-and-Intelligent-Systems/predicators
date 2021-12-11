@@ -9,7 +9,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
     _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
     _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, _HAddMatchHeuristic, \
-    _PredictionErrorHeuristic, _HaddLookaheadHeuristic
+    _PredictionErrorHeuristic, _HAddLookaheadHeuristic
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -161,7 +161,7 @@ def test_create_heuristic():
     assert isinstance(heuristic, _HAddMatchHeuristic)
     utils.update_config({"grammar_search_heuristic": "hadd_lookahead_match"})
     heuristic = _create_heuristic(set(), [], {})
-    assert isinstance(heuristic, _HaddLookaheadHeuristic)
+    assert isinstance(heuristic, _HAddLookaheadHeuristic)
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
         _create_heuristic(set(), [], {})
@@ -315,7 +315,7 @@ def test_hadd_match_heuristic():
 
 
 def test_hadd_lookahead_heuristic():
-    """Tests for _HaddLookaheadHeuristic().
+    """Tests for _HAddLookaheadHeuristic().
     """
     # Tests for CoverEnv.
     utils.update_config({
@@ -335,7 +335,7 @@ def test_hadd_lookahead_heuristic():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     dataset = create_dataset(env, next(env.train_tasks_generator()))
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                         candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
@@ -355,7 +355,7 @@ def test_hadd_lookahead_heuristic():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
-    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                         candidates)
     assert heuristic.evaluate(set()) == float("inf")
 
@@ -378,7 +378,7 @@ def test_hadd_lookahead_heuristic():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     dataset = create_dataset(env, next(env.train_tasks_generator()))
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                         candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     none_included_h = heuristic.evaluate(set())
@@ -417,7 +417,7 @@ def test_hadd_lookahead_heuristic():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     dataset = create_dataset(env, next(env.train_tasks_generator()))
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                         candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     none_included_h = heuristic.evaluate(set())
