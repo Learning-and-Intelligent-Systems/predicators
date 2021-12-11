@@ -3,15 +3,19 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, Tuple, Iterator, DefaultDict
+from typing import Dict, Tuple, Iterator, DefaultDict, Set, List
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_env
+from predicators.src.envs import create_env, BaseEnv
+from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_grammar, _PredicateGrammar, _count_positives_for_ops
+    _create_grammar, _PredicateGrammar, _count_positives_for_ops, \
+    _PredictionErrorHeuristic, _HaddLookaheadHeuristic
+from predicators.src.approaches.oracle_approach import _get_predicates_by_names
+from predicators.src.main import _run_testing
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src import utils
-from predicators.src.structs import Predicate
+from predicators.src.structs import Predicate, Dataset, Task
 from predicators.src.settings import CFG
 
 
@@ -143,5 +147,67 @@ def _run_analysis() -> None:
         print("    Option Spec:", spec[0].name, spec[1])
         print(f"Total FPs for {op.name}: {init_total_per_op[op.name]}")
 
+
+def _run_proxy_analysis() -> None:
+    env_name = "cover"
+    HandEmpty, Holding, Covers = _get_predicates_by_names(env_name,
+        ["HandEmpty", "Holding", "Covers"])
+    goal_predicates = {Covers}
+    non_goal_predicate_sets: List[Set[Predicate]] = [
+        set(),
+        {HandEmpty},
+        {Holding},
+        {HandEmpty, Holding}
+    ]
+    utils.update_config({
+        "env": env_name,
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+        "timeout": 100,
+    })
+    env = create_env(env_name)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+
+    for non_goal_predicates in non_goal_predicate_sets:
+        print(env_name, non_goal_predicates)
+        _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+                                           goal_predicates, non_goal_predicates)
+    # Also test full predicate set proposed by grammar
+    grammar = _create_grammar("forall_single_feat_ineqs",
+                              dataset, goal_predicates)
+    candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
+    print("******", env_name,
+          f"all {CFG.grammar_search_max_predicates} candidates")
+    _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+                                       goal_predicates, set(candidates))
+
+
+def _run_proxy_analysis_for_predicates(env: BaseEnv,
+                                       dataset: Dataset,
+                                       train_tasks: List[Task],
+                                       initial_predicates: Set[Predicate],
+                                       predicates: Set[Predicate],
+                                       ) -> None:
+    utils.flush_cache()
+    candidates = {p : 1.0 for p in predicates}
+    all_predicates = predicates | initial_predicates
+    atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
+    # Compute heuristic scores.
+    for heuristic_cls in [_PredictionErrorHeuristic, _HaddLookaheadHeuristic]:
+        heuristic = heuristic_cls(initial_predicates, atom_dataset,
+                                  candidates)
+        heuristic_score = heuristic.evaluate(frozenset(predicates))
+        print("******", heuristic_cls.__name__, heuristic_score)
+    # Learn NSRTs and plan.
+    utils.flush_cache()
+    approach = create_approach("nsrt_learning", env.simulate, all_predicates,
+                               env.options, env.types, env.action_space)
+    approach.learn_from_offline_dataset(dataset, train_tasks)
+    approach.seed(CFG.seed)
+    _run_testing(env, approach)
+
+
 if __name__ == "__main__":
-    _run_analysis()
+    # _run_analysis()
+    _run_proxy_analysis()
