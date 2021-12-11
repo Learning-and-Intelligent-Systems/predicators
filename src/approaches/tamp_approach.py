@@ -38,8 +38,6 @@ class TAMPApproach(BaseApproach):
         for metric in ["num_skeletons_optimized",
                        "num_failures_discovered",
                        "num_nodes_expanded",
-                       "heuristic1_time",
-                       "heuristic2_time",
                        "plan_length"]:
             self._metrics[f"total_{metric}"] += metrics[metric]
         option_policy = utils.option_plan_to_policy(plan)
