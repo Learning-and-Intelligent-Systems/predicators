@@ -344,6 +344,21 @@ def test_hadd_lookahead_heuristic():
     assert all_included_h < holding_included_h < none_included_h
     assert all_included_h < handempty_included_h  # not better than none
 
+    # Test that the score is inf when the operators make the data impossible.
+    ablated = {"Covers"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    # Reuse dataset from above.
+    heuristic = _HaddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                        candidates)
+    assert heuristic.evaluate(set()) == float("inf")
+
     # Tests for BlocksEnv.
     utils.flush_cache()
     utils.update_config({
