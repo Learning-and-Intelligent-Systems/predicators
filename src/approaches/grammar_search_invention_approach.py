@@ -2,27 +2,60 @@
 the candidates proposed from a grammar.
 """
 
+from __future__ import annotations
 import abc
 from dataclasses import dataclass
-from functools import cached_property, partial
+from functools import cached_property
 import itertools
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
-    Dict
+    Dict, Collection
 from gym.spaces import Box
+import numpy as np
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
 from predicators.src.settings import CFG
 
 
 ################################################################################
 #                          Programmatic classifiers                            #
 ################################################################################
+
+def _create_grammar(grammar_name: str, dataset: Dataset,
+                    given_predicates: Set[Predicate]) -> _PredicateGrammar:
+    if grammar_name == "holding_dummy":
+        return _HoldingDummyPredicateGrammar(dataset)
+    if grammar_name == "single_feat_ineqs":
+        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        return _NegationPredicateGrammarWrapper(sfi_grammar)
+    if grammar_name == "forall_single_feat_ineqs":
+        # We start with the given predicates because we want to allow
+        # negated and quantified versions of the given predicates, in
+        # addition to negated and quantified versions of new predicates.
+        given_grammar = _GivenPredicateGrammar(given_predicates)
+        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        # This chained grammar has the effect of enumerating first the
+        # given predicates, then the single feature inequality ones.
+        chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
+        # For each predicate enumerated by the chained grammar, we also
+        # enumerate the negation of that predicate.
+        negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
+        # For each predicate enumerated, we also enumerate foralls for
+        # that predicate.
+        forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
+        # Finally, we don't actually need to enumerate the given predicates
+        # because we already have them in the initial predicate set,
+        # so we just filter them out from actually being enumerated.
+        # But remember that we do want to enumerate their negations
+        # and foralls, which is why they're included originally.
+        return _SkipGrammar(forall_grammar, given_predicates)
+    raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
+
 
 class _ProgrammaticClassifier(abc.ABC):
     """A classifier implemented as an arbitrary program.
@@ -364,37 +397,216 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                                               uff_classifier)
                     yield (uff_predicate, cost)
 
+################################################################################
+#                            Heuristic Functions                               #
+################################################################################
 
-def _create_grammar(grammar_name: str, dataset: Dataset,
-                    given_predicates: Set[Predicate]) -> _PredicateGrammar:
-    if grammar_name == "holding_dummy":
-        return _HoldingDummyPredicateGrammar(dataset)
-    if grammar_name == "single_feat_ineqs":
-        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-        return _NegationPredicateGrammarWrapper(sfi_grammar)
-    if grammar_name == "forall_single_feat_ineqs":
-        # We start with the given predicates because we want to allow
-        # negated and quantified versions of the given predicates, in
-        # addition to negated and quantified versions of new predicates.
-        given_grammar = _GivenPredicateGrammar(given_predicates)
-        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-        # This chained grammar has the effect of enumerating first the
-        # given predicates, then the single feature inequality ones.
-        chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
-        # For each predicate enumerated by the chained grammar, we also
-        # enumerate the negation of that predicate.
-        negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
-        # For each predicate enumerated, we also enumerate foralls for
-        # that predicate.
-        forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
-        # Finally, we don't actually need to enumerate the given predicates
-        # because we already have them in the initial predicate set,
-        # so we just filter them out from actually being enumerated.
-        # But remember that we do want to enumerate their negations
-        # and foralls, which is why they're included originally.
-        return _SkipGrammar(forall_grammar, given_predicates)
-    raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
+def _create_heuristic(initial_predicates: Set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory],
+        candidates: Dict[Predicate, float]
+        ) -> _PredicateSearchHeuristic:
+    if CFG.grammar_search_heuristic == "prediction_error":
+        return _PredictionErrorHeuristic(initial_predicates, atom_dataset,
+                                         candidates)
+    if CFG.grammar_search_heuristic == "hadd_match":
+        return _HAddMatchHeuristic(initial_predicates, atom_dataset,
+                                   candidates)
+    if CFG.grammar_search_heuristic == "hadd_lookahead_match":
+        return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                       candidates)
+    raise NotImplementedError(
+        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _PredicateSearchHeuristic:
+    """A heuristic for guiding search over predicate sets.
+    """
+    _initial_predicates: Set[Predicate]  # predicates given by the environment
+    _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
+    _candidates: Dict[Predicate, float]  # candidate predicates to costs
+
+    def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
+        """Get the heuristic value for the set of predicates.
+
+        Lower is better.
+        """
+        raise NotImplementedError("Override me!")
+
+    def _get_predicate_penalty(self, predicates: FrozenSet[Predicate]) -> float:
+        """Get a heuristic penalty based on the predicate complexities.
+        """
+        pred_complexity = sum(self._candidates[p] for p in predicates)
+        return CFG.grammar_search_pred_complexity_weight * pred_complexity
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _OperatorLearningBasedHeuristic(_PredicateSearchHeuristic):
+    """A heuristic that learns operators given the set of predicates.
+    """
+
+    def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
+        print("Evaluating predicates:", predicates)
+        pruned_atom_data = utils.prune_ground_atom_dataset(
+            self._atom_dataset, predicates | self._initial_predicates)
+        segments = [seg for traj in pruned_atom_data
+                    for seg in segment_trajectory(traj)]
+        strips_ops, partitions = learn_strips_operators(segments,
+                                                        verbose=False)
+        option_specs = [p.option_spec for p in partitions]
+        op_heuristic = self._evaluate_with_operators(predicates,
+            pruned_atom_data, segments, strips_ops, option_specs)
+        pred_penalty = self._get_predicate_penalty(predicates)
+        op_penalty = self._get_operator_penalty(strips_ops)
+        total_score = op_heuristic + pred_penalty + op_penalty
+        print("Total score:", total_score)
+        return total_score
+
+    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        """Use learned operators to compute a heuristic for the predicates.
+        """
+        raise NotImplementedError("Override me!")
+
+    @staticmethod
+    def _get_operator_penalty(strips_ops: Collection[STRIPSOperator]
+                             ) -> float:
+        """Get a heuristic penalty based on the operator complexities.
+        """
+        size = 0
+        for op in strips_ops:
+            size += len(op.parameters) + len(op.preconditions) + \
+                    len(op.add_effects) + len(op.delete_effects)
+        return CFG.grammar_search_size_weight * size
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _PredictionErrorHeuristic(_OperatorLearningBasedHeuristic):
+    """Score a predicate set by learning operators and counting false positives.
+    """
+
+    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        del predicates, pruned_atom_data  # unused
+        num_true_positives, num_false_positives, _, _ = \
+            _count_positives_for_ops(strips_ops, option_specs, segments)
+        return CFG.grammar_search_false_pos_weight * num_false_positives + \
+               CFG.grammar_search_true_pos_weight * (-num_true_positives)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
+    """Score a predicate set by learning operators and computing the hAdd
+    heuristic for the demonstration data.
+
+    Subclasses must decide how exactly the hAdd heuristic values are used to
+    compute the score.
+    """
+
+    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        score = 0.0  # lower is better
+        for traj, atoms_sequence in pruned_atom_data:
+            if not traj.is_demo:  # we only care about demonstrations
+                continue
+            # Create hAdd heuristic for this trajectory.
+            objects = set(traj.states[0])
+            init_atoms = atoms_sequence[0]
+            goal_atoms = traj.goal
+            ground_ops = {op for strips_op in strips_ops
+                for op in utils.all_ground_operators(strips_op, objects)}
+            relaxed_operators = frozenset({utils.RelaxedOperator(
+                op.name, utils.atoms_to_tuples(op.preconditions),
+                utils.atoms_to_tuples(op.add_effects)) for op in ground_ops})
+            hadd_fn = utils.HAddHeuristic(
+                utils.atoms_to_tuples(init_atoms),
+                utils.atoms_to_tuples(goal_atoms),
+                relaxed_operators)
+            # Score the trajectory using hAdd.
+            score += self._evaluate_atom_trajectory(atoms_sequence, hadd_fn,
+                                                    ground_ops)
+        return CFG.grammar_search_lookahead_hadd_weight * score
+
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  hadd_fn: utils.HAddHeuristic,
+                                  ground_ops: Collection[_GroundSTRIPSOperator]
+                                  ) -> float:
+        raise NotImplementedError("Override me!")
+
+
+class _HAddMatchHeuristic(_HAddBasedHeuristic):
+    """Score based on distance to "ground truth" value function for actions that
+    were seen in the demonstration.
+    """
+
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  hadd_fn: utils.HAddHeuristic,
+                                  ground_ops: Collection[_GroundSTRIPSOperator]
+                                  ) -> float:
+        score = 0.0
+        for i, atoms in enumerate(atoms_sequence):
+            ideal_heuristic = len(atoms_sequence) - i - 1
+            hadd_heuristic = hadd_fn(utils.atoms_to_tuples(atoms))
+            score += abs(hadd_heuristic - ideal_heuristic)
+        return score
+
+
+class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
+    """Score predicates by using the hadd values of the induced operators
+    to compute an energy-based policy, and comparing that policy to demos.
+
+    Overview of the idea:
+    1. Predicates induce operators. Denote this ops(preds).
+    2. Operators induce an hadd heuristic. Denote this hadd(state, ops(preds)).
+    3. The heuristic induces a greedy one-step lookahead energy-based policy.
+       Denote this pi(a | s) propto exp(-k * hadd(succ(s, a), ops(preds)) where
+       k is CFG.grammar_search_lookahead_softmax_constant.
+    4. The objective for predicate learning is to maximize prod pi(a | s)
+       where the product is over demonstrations.
+    """
+
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  hadd_fn: utils.HAddHeuristic,
+                                  ground_ops: Collection[_GroundSTRIPSOperator]
+                                  ) -> float:
+        score = 0
+        for i in range(len(atoms_sequence)-1):
+            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
+            ground_op_demo_pm = 0. # total probability mass for demo actions
+            ground_op_total_pm = 0.  # total probability mass for all actions
+            for ground_op in utils.get_applicable_operators(ground_ops, atoms):
+                # Compute the next state under the operator.
+                predicted_next_atoms = utils.apply_operator(ground_op, atoms)
+                # Compute the heuristic for the successor atoms.
+                h = hadd_fn(utils.atoms_to_tuples(predicted_next_atoms))
+                # Compute the probability that the correct next atoms would be
+                # output under an energy-based policy.
+                k = CFG.grammar_search_lookahead_softmax_constant
+                p = np.exp(-k*h) if not np.isinf(h) else 0.
+                ground_op_total_pm += p
+                # Check whether the successor atoms match the demonstration.
+                if predicted_next_atoms == next_atoms:
+                    ground_op_demo_pm += p
+            # If there is a demonstration state that is a dead-end under the
+            # operators, immediately return a very bad score, because planning
+            # with these operators would never be able to recover the demo.
+            if ground_op_demo_pm == 0:
+                return float("inf")
+            # Accumulate the log probability of each (state, action) in this
+            # demonstrated trajectory.
+            trans_log_prob = np.log(ground_op_demo_pm) - \
+                             np.log(ground_op_total_pm)
+            score += -trans_log_prob  # remember that lower is better
+        return score
 
 ################################################################################
 #                                 Approach                                     #
@@ -435,8 +647,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             self._dataset, set(candidates) | self._initial_predicates)
         print("Done.")
         # Create the heuristic function that will be used to guide search.
-        heuristic = _create_heuristic_function(self._initial_predicates,
-            atom_dataset, candidates)
+        heuristic = _create_heuristic(self._initial_predicates, atom_dataset,
+                                      candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(candidates,
@@ -446,68 +658,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         self._learn_nsrts()
 
 
-def _create_heuristic_function(initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory],
-        candidates: Dict[Predicate, float]
-        ) -> Callable[[FrozenSet[Predicate]], float]:
-    """Returns a function that takes a frozenset of predicates and returns a
-    heuristic score, where lower is better.
-    """
-    if CFG.grammar_search_heuristic == "prediction_error":
-        return partial(_prediction_error_heuristic,
-                       initial_predicates,
-                       atom_dataset,
-                       candidates)
-    raise NotImplementedError(
-        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
-
-
-def _learn_operators_from_atom_dataset(atom_dataset: List[GroundAtomTrajectory]
-        ) -> Tuple[List[Segment], List[STRIPSOperator], List[OptionSpec]]:
-    """Relearn operators and option specs with the given dataset, which may
-    be pruned to include only a subset of the predicates.
-    """
-    segments = [seg for traj in atom_dataset
-                for seg in segment_trajectory(traj)]
-    strips_ops, partitions = learn_strips_operators(segments,
-                                                    verbose=False)
-    option_specs = [p.option_spec for p in partitions]
-    return (segments, strips_ops, option_specs)
-
-
-def _prediction_error_heuristic(initial_predicates: Set[Predicate],
-                                atom_dataset: List[GroundAtomTrajectory],
-                                candidates: Dict[Predicate, float],
-                                s: FrozenSet[Predicate]) -> float:
-    """Score a predicate set by learning operators and counting false positives.
-    """
-    print("Scoring predicates:", s)
-    kept_predicates = s | initial_predicates
-    pruned_atom_data = utils.prune_ground_atom_dataset(
-        atom_dataset, kept_predicates)
-    segments, strips_ops, option_specs = \
-        _learn_operators_from_atom_dataset(pruned_atom_data)
-    num_true_positives, num_false_positives, _, _ = \
-        _count_positives_for_ops(strips_ops, option_specs, segments)
-    # Also add a size penalty.
-    op_size = _get_operators_size(strips_ops)
-    # Also add a penalty based on predicate complexity.
-    pred_complexity = sum(candidates[p] for p in s)
-    # Lower is better.
-    total_score = \
-        CFG.grammar_search_false_pos_weight * num_false_positives + \
-        CFG.grammar_search_true_pos_weight * (-num_true_positives) + \
-        CFG.grammar_search_size_weight * op_size + \
-        CFG.grammar_search_pred_complexity_weight * pred_complexity
-    # Useful for debugging:
-    # print("TP/FP/S/C/Total:", num_true_positives, num_false_positives,
-    #       op_size, pred_complexity, total_score)
-    return total_score
-
-
 def _select_predicates_to_keep(
         candidates: Dict[Predicate, float],
-        heuristic: Callable[[FrozenSet[Predicate]], float]
+        heuristic: _PredicateSearchHeuristic
         ) -> Set[Predicate]:
     """Perform a greedy search over predicate sets.
     """
@@ -531,7 +684,7 @@ def _select_predicates_to_keep(
 
     # Greedy best first search.
     path, _ = utils.run_gbfs(
-        init, _check_goal, _get_successors, heuristic,
+        init, _check_goal, _get_successors, heuristic.evaluate,
         max_evals=CFG.grammar_search_max_evals)
     kept_predicates = path[-1]
 
@@ -596,11 +749,3 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
             num_true_positives += 1
     return num_true_positives, num_false_positives, \
         true_positive_idxs, false_positive_idxs
-
-
-def _get_operators_size(strips_ops: List[STRIPSOperator]) -> int:
-    size = 0
-    for op in strips_ops:
-        size += len(op.parameters) + len(op.preconditions) + \
-                len(op.add_effects) + len(op.delete_effects)
-    return size
