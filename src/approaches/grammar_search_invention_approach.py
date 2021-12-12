@@ -2,6 +2,7 @@
 the candidates proposed from a grammar.
 """
 
+from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from functools import cached_property
@@ -24,6 +25,37 @@ from predicators.src.settings import CFG
 ################################################################################
 #                          Programmatic classifiers                            #
 ################################################################################
+
+def _create_grammar(grammar_name: str, dataset: Dataset,
+                    given_predicates: Set[Predicate]) -> _PredicateGrammar:
+    if grammar_name == "holding_dummy":
+        return _HoldingDummyPredicateGrammar(dataset)
+    if grammar_name == "single_feat_ineqs":
+        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        return _NegationPredicateGrammarWrapper(sfi_grammar)
+    if grammar_name == "forall_single_feat_ineqs":
+        # We start with the given predicates because we want to allow
+        # negated and quantified versions of the given predicates, in
+        # addition to negated and quantified versions of new predicates.
+        given_grammar = _GivenPredicateGrammar(given_predicates)
+        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
+        # This chained grammar has the effect of enumerating first the
+        # given predicates, then the single feature inequality ones.
+        chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
+        # For each predicate enumerated by the chained grammar, we also
+        # enumerate the negation of that predicate.
+        negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
+        # For each predicate enumerated, we also enumerate foralls for
+        # that predicate.
+        forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
+        # Finally, we don't actually need to enumerate the given predicates
+        # because we already have them in the initial predicate set,
+        # so we just filter them out from actually being enumerated.
+        # But remember that we do want to enumerate their negations
+        # and foralls, which is why they're included originally.
+        return _SkipGrammar(forall_grammar, given_predicates)
+    raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
+
 
 class _ProgrammaticClassifier(abc.ABC):
     """A classifier implemented as an arbitrary program.
@@ -365,41 +397,26 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                                               uff_classifier)
                     yield (uff_predicate, cost)
 
-
-def _create_grammar(grammar_name: str, dataset: Dataset,
-                    given_predicates: Set[Predicate]) -> _PredicateGrammar:
-    if grammar_name == "holding_dummy":
-        return _HoldingDummyPredicateGrammar(dataset)
-    if grammar_name == "single_feat_ineqs":
-        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-        return _NegationPredicateGrammarWrapper(sfi_grammar)
-    if grammar_name == "forall_single_feat_ineqs":
-        # We start with the given predicates because we want to allow
-        # negated and quantified versions of the given predicates, in
-        # addition to negated and quantified versions of new predicates.
-        given_grammar = _GivenPredicateGrammar(given_predicates)
-        sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-        # This chained grammar has the effect of enumerating first the
-        # given predicates, then the single feature inequality ones.
-        chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
-        # For each predicate enumerated by the chained grammar, we also
-        # enumerate the negation of that predicate.
-        negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
-        # For each predicate enumerated, we also enumerate foralls for
-        # that predicate.
-        forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
-        # Finally, we don't actually need to enumerate the given predicates
-        # because we already have them in the initial predicate set,
-        # so we just filter them out from actually being enumerated.
-        # But remember that we do want to enumerate their negations
-        # and foralls, which is why they're included originally.
-        return _SkipGrammar(forall_grammar, given_predicates)
-    raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
-
-
 ################################################################################
 #                            Heuristic Functions                               #
 ################################################################################
+
+def _create_heuristic(initial_predicates: Set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory],
+        candidates: Dict[Predicate, float]
+        ) -> _PredicateSearchHeuristic:
+    if CFG.grammar_search_heuristic == "prediction_error":
+        return _PredictionErrorHeuristic(initial_predicates, atom_dataset,
+                                         candidates)
+    if CFG.grammar_search_heuristic == "hadd_match":
+        return _HAddMatchHeuristic(initial_predicates, atom_dataset,
+                                   candidates)
+    if CFG.grammar_search_heuristic == "hadd_lookahead_match":
+        return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
+                                       candidates)
+    raise NotImplementedError(
+        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _PredicateSearchHeuristic:
@@ -487,6 +504,9 @@ class _PredictionErrorHeuristic(_OperatorLearningBasedHeuristic):
 class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
     """Score a predicate set by learning operators and computing the hAdd
     heuristic for the demonstration data.
+
+    Subclasses must decide how exactly the hAdd heuristic values are used to
+    compute the score.
     """
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
@@ -526,9 +546,6 @@ class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
 class _HAddMatchHeuristic(_HAddBasedHeuristic):
     """Score based on distance to "ground truth" value function for actions that
     were seen in the demonstration.
-
-    Subclasses must decide how exactly the hAdd heuristic values are used to
-    compute the score.
     """
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
@@ -551,7 +568,8 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
     1. Predicates induce operators. Denote this ops(preds).
     2. Operators induce an hadd heuristic. Denote this hadd(state, ops(preds)).
     3. The heuristic induces a greedy one-step lookahead energy-based policy.
-       Denote this pi(a|s) propto exp(-constant * hadd(succ(s, a), ops(preds)).
+       Denote this pi(a | s) propto exp(-k * hadd(succ(s, a), ops(preds)) where
+       k is CFG.grammar_search_lookahead_softmax_constant.
     4. The objective for predicate learning is to maximize prod pi(a | s)
        where the product is over demonstrations.
     """
@@ -589,23 +607,6 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
                              np.log(ground_op_total_pm)
             score += -trans_log_prob  # remember that lower is better
         return score
-
-
-def _create_heuristic(initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory],
-        candidates: Dict[Predicate, float]
-        ) -> _PredicateSearchHeuristic:
-    if CFG.grammar_search_heuristic == "prediction_error":
-        return _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                         candidates)
-    if CFG.grammar_search_heuristic == "hadd_match":
-        return _HAddMatchHeuristic(initial_predicates, atom_dataset,
-                                   candidates)
-    if CFG.grammar_search_heuristic == "hadd_lookahead_match":
-        return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                       candidates)
-    raise NotImplementedError(
-        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
 ################################################################################
 #                                 Approach                                     #
