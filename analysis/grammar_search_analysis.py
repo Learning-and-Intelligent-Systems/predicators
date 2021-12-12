@@ -31,8 +31,13 @@ utils.update_config({
 
 # Replace these strings with anything you want to exclusively enumerate.
 _DEBUG_PREDICATE_STRS = [
-    "((0:obj).wetness<=0.5)",
-    "NOT-((0:obj).wetness<=0.5)",
+    # "((0:obj).wetness<=0.5)",
+    # "NOT-((0:obj).wetness<=0.5)",
+    "NOT-((0:block).held<=0.25)",
+    "Forall[0:block].[((0:block).held<=0.5)(0)]",
+    "Forall[0:block].[NOT-On(0,1)]",
+    "((0:robot).fingers<=0.25)",
+    "Forall[1:block].[NOT-On(0,1)]",
 ]
 
 
@@ -162,18 +167,34 @@ def _run_proxy_analysis() -> None:
     #     {HandEmpty, Holding, IsBlock},
     # ]
 
-    env_name = "blocks"
-    Holding, Clear, GripperOpen = _get_predicates_by_names(
-        env_name, ["Holding", "Clear", "GripperOpen"])
+    # env_name = "blocks"
+    # Holding, Clear, GripperOpen = _get_predicates_by_names(
+    #     env_name, ["Holding", "Clear", "GripperOpen"])
+    # non_goal_predicate_sets: List[Set[Predicate]] = [
+    #     set(),
+    #     {Holding},
+    #     {Clear},
+    #     {GripperOpen},
+    #     {Holding, Clear},
+    #     {Clear, GripperOpen},
+    #     {GripperOpen, Holding},
+    #     {Clear, GripperOpen, Holding},
+    # ]
+
+    env_name = "painting"
+    (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
+     IsDirty, IsClean) = _get_predicates_by_names("painting",
+            ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+             "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+    all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
+                      IsWet, IsDry, IsDirty, IsClean}
     non_goal_predicate_sets: List[Set[Predicate]] = [
-        set(),
-        {Holding},
-        {Clear},
-        {GripperOpen},
-        {Holding, Clear},
-        {Clear, GripperOpen},
-        {GripperOpen, Holding},
-        {Clear, GripperOpen, Holding},
+        # set(),
+        # all_predicates - {IsWet, IsDry},
+        # all_predicates - {IsClean, IsDirty},
+        # all_predicates - {OnTable},
+        # all_predicates - {HoldingTop, HoldingSide, Holding},
+        all_predicates,
     ]
 
     utils.update_config({
@@ -193,12 +214,19 @@ def _run_proxy_analysis() -> None:
         _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
                                            env.goal_predicates,
                                            non_goal_predicates)
-    # Also test full predicate set proposed by grammar
-    grammar = _create_grammar("forall_single_feat_ineqs",
-                              dataset, env.goal_predicates)
-    candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
-    _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
-                                       env.goal_predicates, set(candidates))
+    # # Also test full predicate set proposed by grammar
+    # grammar = _create_grammar("forall_single_feat_ineqs",
+    #                           dataset, env.goal_predicates)
+    # candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
+    # _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+    #                                    env.goal_predicates, set(candidates))
+    # Test a specific subset of the candidates
+    # grammar = _create_grammar("forall_single_feat_ineqs",
+    #                           dataset, env.goal_predicates)
+    # grammar = _DebugGrammar(grammar)
+    # candidates = grammar.generate(max_num=CFG.grammar_search_max_predicates)
+    # _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+    #                                    env.goal_predicates, set(candidates))
 
 
 def _run_proxy_analysis_for_predicates(env: BaseEnv,
