@@ -578,11 +578,11 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
                                   hadd_fn: utils.HAddHeuristic,
                                   ground_ops: Collection[_GroundSTRIPSOperator]
                                   ) -> float:
-        score = 0
+        score = 0.0
         for i in range(len(atoms_sequence)-1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
-            ground_op_demo_pm = 0. # total probability mass for demo actions
-            ground_op_total_pm = 0.  # total probability mass for all actions
+            ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
+            ground_op_total_lpm = -np.inf  # total log prob mass for all actions
             for ground_op in utils.get_applicable_operators(ground_ops, atoms):
                 # Compute the next state under the operator.
                 predicted_next_atoms = utils.apply_operator(ground_op, atoms)
@@ -591,20 +591,19 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
                 # Compute the probability that the correct next atoms would be
                 # output under an energy-based policy.
                 k = CFG.grammar_search_lookahead_softmax_constant
-                p = np.exp(-k*h) if not np.isinf(h) else 0.
-                ground_op_total_pm += p
+                log_p = -k * h
+                ground_op_total_lpm = np.logaddexp(log_p, ground_op_total_lpm)
                 # Check whether the successor atoms match the demonstration.
                 if predicted_next_atoms == next_atoms:
-                    ground_op_demo_pm += p
+                    ground_op_demo_lpm = np.logaddexp(log_p, ground_op_demo_lpm)
             # If there is a demonstration state that is a dead-end under the
             # operators, immediately return a very bad score, because planning
             # with these operators would never be able to recover the demo.
-            if ground_op_demo_pm == 0:
+            if ground_op_demo_lpm == -np.inf:
                 return float("inf")
             # Accumulate the log probability of each (state, action) in this
             # demonstrated trajectory.
-            trans_log_prob = np.log(ground_op_demo_pm) - \
-                             np.log(ground_op_total_pm)
+            trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
             score += -trans_log_prob  # remember that lower is better
         return score
 

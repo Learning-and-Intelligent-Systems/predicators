@@ -791,6 +791,8 @@ class RelaxedOperator:
     name: str
     preconditions: PyperplanFacts
     add_effects: PyperplanFacts
+    # Cost of applying this operator.
+    cost: int = field(default=1)
     # Alternative method to check whether all preconditions are True.
     counter: int = field(init=False, default=0)
 
@@ -800,10 +802,7 @@ class RelaxedOperator:
 
 class HAddHeuristic:
     """This class is an implementation of the hADD heuristic.
-
-    Modified from pyperplan's heuristics/relaxation.py. Unlike the original
-    implementation, this uses fixed point iteration instead of Dijkstra's,
-    since all of our operator costs are unitary.
+    Lightly modified from pyperplan's heuristics/relaxation.py.
     """
     def __init__(self, initial_state: PyperplanFacts,
                  goals: PyperplanFacts,
@@ -812,6 +811,7 @@ class HAddHeuristic:
         self.operators = []
         self.goals = goals
         self.init = initial_state
+        self.tie_breaker = 0
         self.start_state = RelaxedFact(("start",))
 
         all_facts = initial_state | goals
@@ -844,8 +844,22 @@ class HAddHeuristic:
         # Reset distance and set to default values.
         self.init_distance(state)
 
-        # Run the forward pass to compute the distances to each fact.
-        self.run_forward_pass(state)
+        # Construct the priority queue.
+        heap: List[Tuple[float, float, RelaxedFact]] = []
+        # Add a dedicated start state, to cope with operators without
+        # preconditions and empty initial state.
+        hq.heappush(heap, (0, self.tie_breaker, self.start_state))
+        self.tie_breaker += 1
+
+        for fact in state:
+            # Order is determined by the distance of the facts.
+            # As a tie breaker we use a simple counter.
+            hq.heappush(heap, (self.facts[fact].distance,
+                               self.tie_breaker, self.facts[fact]))
+            self.tie_breaker += 1
+
+        # Call the Dijkstra search that performs the forward pass.
+        self.dijkstra(heap)
 
         # Extract the goal heuristic.
         h_value = self.calc_goal_h()
@@ -879,49 +893,58 @@ class HAddHeuristic:
         """
         # Sum over the heuristic values of all preconditions.
         cost = sum([self.facts[pre].distance for pre in operator.preconditions])
-        # Add on unitary operator application cost.
-        return cost + 1
+        # Add on operator application cost.
+        return cost+operator.cost
 
     def calc_goal_h(self) -> float:
         """This function calculates the heuristic value of the whole goal.
         """
         return sum([self.facts[fact].distance for fact in self.goals])
 
-    def run_forward_pass(self, initial_state: PyperplanFacts) -> None:
-        """Calculate the distance to each goal fact from the initial state
-        under the delete relaxation.
-
-        This method modifies the relaxed facts and relaxed operators in place,
-        updating their distances and precondition counters respectively.
+    def finished(self, achieved_goals: Set[Tuple[str, ...]],
+                 queue: List[Tuple[float, float, RelaxedFact]]) -> bool:
+        """This function gives a stopping criterion for the Dijkstra search.
         """
-        reachable_facts = set(initial_state)
-        new_facts = reachable_facts.copy()
-        while new_facts:
-            # Check if the goal is reached.
-            if self.goals.issubset(reachable_facts):
-                return
-            next_reachable_facts = set()
-            for fact in new_facts:
-                relaxed_fact = self.facts[fact]
+        return achieved_goals == self.goals or not queue
+
+    def dijkstra(self, queue: List[Tuple[float, float, RelaxedFact]]) -> None:
+        """This function is an implementation of a Dijkstra search.
+        For efficiency reasons, it is used instead of an explicit graph
+        representation of the problem.
+        """
+        # Stores the achieved subgoals.
+        achieved_goals: Set[Tuple[str, ...]] = set()
+        while not self.finished(achieved_goals, queue):
+            # Get the fact with the lowest heuristic value.
+            (_dist, _tie, fact) = hq.heappop(queue)
+            # If this node is part of the goal, we add to the goal set, which
+            # is used as an abort criterion.
+            if fact.name in self.goals:
+                achieved_goals.add(fact.name)
+            # Check whether we already expanded this fact.
+            if not fact.expanded:
                 # Iterate over all operators this fact is a precondition of.
-                for operator in relaxed_fact.precondition_of:
+                for operator in fact.precondition_of:
                     # Decrease the precondition counter.
                     operator.counter -= 1
                     # Check whether all preconditions are True and we can apply
                     # this operator.
                     if operator.counter <= 0:
-                        new_facts_for_operator = operator.add_effects - \
-                                                 reachable_facts
-                        if not new_facts_for_operator:
-                            continue
-                        operator_cost = self.get_cost(operator)
-                        for neighbor_fact in new_facts_for_operator:
-                            relaxed_neighbor_fact = self.facts[neighbor_fact]
+                        for n in operator.add_effects:
+                            neighbor = self.facts[n]
                             # Calculate the cost of applying this operator.
-                            relaxed_neighbor_fact.distance = operator_cost
-                            next_reachable_facts.add(neighbor_fact)
-            new_facts = next_reachable_facts
-            reachable_facts |= new_facts
+                            tmp_dist = self.get_cost(operator)
+                            if tmp_dist < neighbor.distance:
+                                # If the new costs are cheaper than the old
+                                # costs, we change the neighbor's heuristic
+                                # values.
+                                neighbor.distance = tmp_dist
+                                # And push it on the queue.
+                                hq.heappush(queue, (
+                                    tmp_dist, self.tie_breaker, neighbor))
+                                self.tie_breaker += 1
+                # Finally the fact is marked as expanded.
+                fact.expanded = True
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
