@@ -578,7 +578,7 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
                                   hadd_fn: utils.HAddHeuristic,
                                   ground_ops: Collection[_GroundSTRIPSOperator]
                                   ) -> float:
-        score = 0
+        score = 0.0
         for i in range(len(atoms_sequence)-1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
             ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
