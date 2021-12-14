@@ -472,7 +472,7 @@ def test_branching_factor_heuristic():
     holding_h = heuristic.evaluate({Holding})
     forall_not_covers_h = heuristic.evaluate({forall_not_covers0,
                                               forall_not_covers1})
-    # This is just to illustrate that the cost for these two bad predicates are
-    # lower than we would like. These are actually the predicates that get
+    # This is just to illustrate that the heuristic for these two bad predicates
+    # is lower than we would like. These are actually the predicates that get
     # returned by running the grammar search on covers with branching factor.
     assert forall_not_covers_h < holding_h
