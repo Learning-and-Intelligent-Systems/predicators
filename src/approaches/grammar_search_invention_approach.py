@@ -612,7 +612,12 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
 
 
 class _TreeModelHeuristic(_HAddBasedHeuristic):
-    """TODO docstring
+    """Estimate the number of nodes that would be explored by A* search and
+    hAdd using the operators induced by the set of predicates.
+
+    To estimate, we assume a tree model where the number of nodes that would
+    be explored by planning is exponential in f=g+h=[cost of path from root]+
+    [heuristic value].
     """
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
@@ -626,6 +631,9 @@ class _TreeModelHeuristic(_HAddBasedHeuristic):
         # compute the bottleneck values along the way.
         for i in range(len(atoms_sequence)-2, -1, -1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
+            # Update the f bottleneck.
+            next_atoms_h = hadd_fn(utils.atoms_to_tuples(next_atoms))
+            f_bottleneck = max(f_bottleneck, i + next_atoms_h)
             # Compute explored subtree sizes for all off-demo states.
             some_ground_op_predicts_demo = False
             for ground_op in utils.get_applicable_operators(ground_ops, atoms):
@@ -643,16 +651,12 @@ class _TreeModelHeuristic(_HAddBasedHeuristic):
                 if f <= f_bottleneck:
                     score = np.logaddexp2(score, h)
                 # Otherwise, we still would prefer not to expand this node
-                # since it's off-demo; it's a like a subtree of size 1.
+                # since it's off-demo; it's like a subtree of size 1.
                 else:
                     score = np.logaddexp2(score, 0)
             if not some_ground_op_predicts_demo:
                 assert CFG.min_data_for_nsrt > 0
                 return np.inf
-            # Update the f bottleneck.
-            next_atoms_h = hadd_fn(utils.atoms_to_tuples(next_atoms))
-            # This will become the next f_bottleneck.
-            f_bottleneck = max(f_bottleneck, i + next_atoms_h)
         return score
 
 ################################################################################
