@@ -193,15 +193,7 @@ def navigate_to_param_sampler(rng, objects):
     # avg length of the bounding boxes of the object
     # and robot (this is how BEHAVIOR defines 'nearness')
     assert len(objects) == 2
-    obj_to_get_near = objects[0]
-    robot = objects[1]
-    obj_aabb = obj_to_get_near.states[AABB].get_value()
-    robot_aabb = robot.states[AABB].get_value()
-    obj_lower, obj_upper = obj_aabb
-    robot_lower, robot_upper = robot_aabb
-    obj_dims = obj_upper - obj_lower
-    robot_dims = robot_upper - robot_lower
-    closeness_limit = np.mean(obj_dims + robot_dims)/6.0
+    closeness_limit = 2
     distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
     return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])

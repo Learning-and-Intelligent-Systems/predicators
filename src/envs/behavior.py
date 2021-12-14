@@ -12,6 +12,7 @@ import numpy as np
 try:
     import bddl
     import igibson
+    from igibson import object_states
     from igibson.envs import behavior_env
     from igibson.objects.articulated_object import (
         ArticulatedObject,
@@ -175,11 +176,11 @@ class BehaviorEnv(BaseEnv):
         types_lst = sorted(self.types)  # for determinism
         # First, extract predicates from iGibson
         for bddl_name in [
-            "inside",
-            "nextto",
+            # "inside",
+            # "nextto",
             "ontop",
-            "under",
-            "touching",
+            # "under",
+            # "touching",
             # NOTE: OnFloor(robot, floor) does not evaluate to true
             # even though it's in the initial BDDL state, because
             # it uses geometry, and the behaviorbot actually floats
@@ -192,12 +193,12 @@ class BehaviorEnv(BaseEnv):
             # "cooked",
             # "burnt",
             # "frozen",
-            "soaked",
-            "open",
-            "dusty",
-            "stained",
-            "sliced",
-            "toggled_on",
+            # "soaked",
+            # "open",
+            # "dusty",
+            # "stained",
+            # "sliced",
+            # "toggled_on",
         ]:
             bddl_predicate = SUPPORTED_PREDICATES[bddl_name]
             # We will create one predicate for every combination of types.
@@ -214,7 +215,9 @@ class BehaviorEnv(BaseEnv):
         custom_predicate_specs = [
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
-            ("nextto-nothing", self._nextto_nothing_classifier, 1),
+            ("reachable-nothing", self._reachable_nothing_classifier, 1),
+            ("reachable", self._reachable_classifier, 2),
+            ("graspable", self._graspable_classifier, 1),
         ]
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
@@ -372,6 +375,59 @@ class BehaviorEnv(BaseEnv):
             raise ValueError("BDDL predicate has unexpected arity.")
 
         return _classifier
+
+    # TODO (wmcclinton) test graspable
+
+    def _get_aabb_volume(self, lo, hi):
+        dimension = hi - lo
+        return dimension[0] * dimension[1] * dimension[2]
+
+    def _graspable_classifier(
+        self, state: State, objs: Sequence[Object]
+    ) -> bool:
+        # Check allclose() here for uniformity with _create_classifier_from_bddl
+        assert state.allclose(self._current_ig_state_to_state())
+        assert len(objs) == 1
+        ig_obj = self._object_to_ig_object(objs[0])
+
+        lo, hi = ig_obj.states[object_states.AABB].get_value()
+        volume = self._get_aabb_volume(lo, hi)
+        if ( volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed):
+            return True
+        else:
+            return False
+
+    #
+
+    # TODO (wmcclinton) test reachable
+
+    def _reachable_classifier(
+        self, state: State, objs: Sequence[Object]
+    ) -> bool:
+        # Check allclose() here for uniformity with _create_classifier_from_bddl
+        assert state.allclose(self._current_ig_state_to_state())
+        assert len(objs) == 2
+        ig_obj = self._object_to_ig_object(objs[0])
+        ig_other_obj = self._object_to_ig_object(objs[1])
+        if (np.linalg.norm(np.array(ig_obj.get_position()) - np.array(ig_other_obj.get_position())) < 2):
+            return True
+        else:
+            return False
+
+    def _reachable_nothing_classifier(
+        self, state: State, objs: Sequence[Object]
+    ) -> bool:
+        # Check allclose() here for uniformity with _create_classifier_from_bddl
+        assert state.allclose(self._current_ig_state_to_state())
+        assert len(objs) == 1
+        ig_obj = self._object_to_ig_object(objs[0])
+        ####
+        for obj in state:
+            if self._reachable_classifier(state=state, objs=[obj, objs[0]]) and (obj != objs[0]):
+                return False
+        ####
+        return True
+    #
 
     def _get_grasped_objects(self, state: State) -> Set[Object]:
         grasped_objs = set()
