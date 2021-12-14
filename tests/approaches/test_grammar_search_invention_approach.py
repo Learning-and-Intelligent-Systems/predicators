@@ -56,6 +56,9 @@ def test_predicate_grammar():
     assert str(sorted(candidates)) == \
         ("[((0:block).pose<=2.33), ((0:block).width<=19.0), "
          "NOT-((0:block).pose<=2.33), NOT-((0:block).width<=19.0)]")
+    forall_grammar = _create_grammar("forall_single_feat_ineqs", dataset,
+                                     env.predicates)
+    assert len(forall_grammar.generate(max_num=100)) == 100
 
 
 def test_count_positives_for_ops():
