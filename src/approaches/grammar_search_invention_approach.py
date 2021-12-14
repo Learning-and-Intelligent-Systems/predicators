@@ -408,6 +408,9 @@ def _create_heuristic(initial_predicates: Set[Predicate],
     if CFG.grammar_search_heuristic == "prediction_error":
         return _PredictionErrorHeuristic(initial_predicates, atom_dataset,
                                          candidates)
+    if CFG.grammar_search_heuristic == "branching_factor":
+        return _BranchingFactorHeuristic(initial_predicates, atom_dataset,
+                                         candidates)
     if CFG.grammar_search_heuristic == "hadd_match":
         return _HAddMatchHeuristic(initial_predicates, atom_dataset,
                                    candidates)
@@ -501,6 +504,22 @@ class _PredictionErrorHeuristic(_OperatorLearningBasedHeuristic):
             _count_positives_for_ops(strips_ops, option_specs, segments)
         return CFG.grammar_search_false_pos_weight * num_false_positives + \
                CFG.grammar_search_true_pos_weight * (-num_true_positives)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _BranchingFactorHeuristic(_OperatorLearningBasedHeuristic):
+    """Score a predicate set by learning operators and counting the number of
+    ground operators that are applicable at each state in the data.
+    """
+
+    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        del predicates, pruned_atom_data, option_specs  # unused
+        total_branching_factor = _count_branching_factor(strips_ops, segments)
+        return CFG.grammar_search_bf_weight * total_branching_factor
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -800,3 +819,19 @@ def _count_positives_for_ops(strips_ops: List[STRIPSOperator],
             num_true_positives += 1
     return num_true_positives, num_false_positives, \
         true_positive_idxs, false_positive_idxs
+
+
+def _count_branching_factor(strips_ops: List[STRIPSOperator],
+                            segments: List[Segment]
+                            ) -> int:
+    """Returns the total branching factor for all states in the segments.
+    """
+    total_branching_factor = 0
+    for segment in segments:
+        atoms = segment.init_atoms
+        objects = set(segment.states[0])
+        ground_ops = {ground_op for op in strips_ops
+                      for ground_op in utils.all_ground_operators(op, objects)}
+        for _ in utils.get_applicable_operators(ground_ops, atoms):
+            total_branching_factor += 1
+    return total_branching_factor
