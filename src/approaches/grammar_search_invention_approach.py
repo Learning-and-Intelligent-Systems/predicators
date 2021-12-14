@@ -635,8 +635,7 @@ class _TreeModelHeuristic(_HAddBasedHeuristic):
     hAdd using the operators induced by the set of predicates.
 
     To estimate, we assume a tree model where the number of nodes that would
-    be explored by planning is exponential in f=g+h=[cost of path from root]+
-    [heuristic value].
+    be explored by planning is exponential in the heuristic.
     """
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
@@ -648,8 +647,8 @@ class _TreeModelHeuristic(_HAddBasedHeuristic):
         f_bottleneck = 0.0
         # Start from the end of the demo and work backwards, so that we can
         # compute the bottleneck values along the way.
-        for i in range(len(atoms_sequence)-2, -1, -1):
-            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
+        for i in range(len(atoms_sequence)-1, 0, -1):
+            atoms, next_atoms = atoms_sequence[i-1], atoms_sequence[i]
             # Update the f bottleneck.
             next_atoms_h = hadd_fn(utils.atoms_to_tuples(next_atoms))
             f_bottleneck = max(f_bottleneck, i + next_atoms_h)

@@ -9,7 +9,7 @@ from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _create_grammar, _PredicateGrammar, _count_positives_for_ops, \
-    _PredictionErrorHeuristic, _HAddLookaheadHeuristic
+    _PredictionErrorHeuristic, _HAddLookaheadHeuristic, _TreeModelHeuristic
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -167,35 +167,35 @@ def _run_proxy_analysis() -> None:
     #     {HandEmpty, Holding, IsBlock},
     # ]
 
-    # env_name = "blocks"
-    # Holding, Clear, GripperOpen = _get_predicates_by_names(
-    #     env_name, ["Holding", "Clear", "GripperOpen"])
-    # non_goal_predicate_sets: List[Set[Predicate]] = [
-    #     set(),
-    #     {Holding},
-    #     {Clear},
-    #     {GripperOpen},
-    #     {Holding, Clear},
-    #     {Clear, GripperOpen},
-    #     {GripperOpen, Holding},
-    #     {Clear, GripperOpen, Holding},
-    # ]
-
-    env_name = "painting"
-    (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
-     IsDirty, IsClean) = _get_predicates_by_names("painting",
-            ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-             "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
-    all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
-                      IsWet, IsDry, IsDirty, IsClean}
+    env_name = "blocks"
+    Holding, Clear, GripperOpen = _get_predicates_by_names(
+        env_name, ["Holding", "Clear", "GripperOpen"])
     non_goal_predicate_sets: List[Set[Predicate]] = [
         # set(),
-        # all_predicates - {IsWet, IsDry},
-        # all_predicates - {IsClean, IsDirty},
-        # all_predicates - {OnTable},
-        # all_predicates - {HoldingTop, HoldingSide, Holding},
-        all_predicates,
+        # {Holding},
+        # {Clear},
+        # {GripperOpen},
+        {Holding, Clear},
+        # {Clear, GripperOpen},
+        # {GripperOpen, Holding},
+        {Clear, GripperOpen, Holding},
     ]
+
+    # env_name = "painting"
+    # (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
+    #  IsDirty, IsClean) = _get_predicates_by_names("painting",
+    #         ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+    #          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+    # all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
+    #                   IsWet, IsDry, IsDirty, IsClean}
+    # non_goal_predicate_sets: List[Set[Predicate]] = [
+    #     # set(),
+    #     # all_predicates - {IsWet, IsDry},
+    #     # all_predicates - {IsClean, IsDirty},
+    #     # all_predicates - {OnTable},
+    #     # all_predicates - {HoldingTop, HoldingSide, Holding},
+    #     all_predicates,
+    # ]
 
     utils.update_config({
         "env": env_name,
@@ -240,7 +240,11 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     all_predicates = predicates | initial_predicates
     atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
     # Compute heuristic scores.
-    for heuristic_cls in [_PredictionErrorHeuristic, _HAddLookaheadHeuristic]:
+    for heuristic_cls in [
+        # _PredictionErrorHeuristic,
+        # _HAddLookaheadHeuristic,
+        _TreeModelHeuristic,
+        ]:
         heuristic = heuristic_cls(initial_predicates, atom_dataset,
                                   candidates)
         heuristic_score = heuristic.evaluate(frozenset(predicates))
@@ -251,12 +255,12 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
         print("\n\n******", env.__class__.__name__, predicate_str,
               heuristic_cls.__name__, heuristic_score)
     # Learn NSRTs and plan.
-    utils.flush_cache()
-    approach = create_approach("nsrt_learning", env.simulate, all_predicates,
-                               env.options, env.types, env.action_space)
-    approach.learn_from_offline_dataset(dataset, train_tasks)
-    approach.seed(CFG.seed)
-    _run_testing(env, approach)
+    # utils.flush_cache()
+    # approach = create_approach("nsrt_learning", env.simulate, all_predicates,
+    #                            env.options, env.types, env.action_space)
+    # approach.learn_from_offline_dataset(dataset, train_tasks)
+    # approach.seed(CFG.seed)
+    # _run_testing(env, approach)
 
 
 if __name__ == "__main__":
