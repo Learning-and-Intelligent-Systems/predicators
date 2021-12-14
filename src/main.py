@@ -44,13 +44,19 @@ def main() -> None:
     env = create_env(CFG.env)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
-        excludeds = set(CFG.excluded_predicates.split(","))
-        assert excludeds.issubset({pred.name for pred in env.predicates}), \
-            "Unrecognized excluded_predicates!"
-        preds = {pred for pred in env.predicates
-                 if pred.name not in excludeds}
-        assert env.goal_predicates.issubset(preds), \
-            "Can't exclude a goal predicate!"
+        if CFG.excluded_predicates == "all":
+            excludeds = {pred.name for pred in env.predicates
+                         if pred not in env.goal_predicates}
+            print(f"All non-goal predicates excluded: {excludeds}")
+            preds = env.goal_predicates
+        else:
+            excludeds = set(CFG.excluded_predicates.split(","))
+            assert excludeds.issubset({pred.name for pred in env.predicates}), \
+                "Unrecognized excluded_predicates!"
+            preds = {pred for pred in env.predicates
+                     if pred.name not in excludeds}
+            assert env.goal_predicates.issubset(preds), \
+                "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
     approach = create_approach(CFG.approach, env.simulate, preds,
