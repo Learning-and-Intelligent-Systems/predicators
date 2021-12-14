@@ -87,3 +87,8 @@ def test_main():
                 "--excluded_predicates", "HandEmpty",
                 "--num_test_tasks", "5"]
     main()  # correct usage
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "all",
+                "--num_test_tasks", "5"]
+    main()  # correct usage
