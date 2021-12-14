@@ -414,6 +414,9 @@ def _create_heuristic(initial_predicates: Set[Predicate],
     if CFG.grammar_search_heuristic == "hadd_lookahead_match":
         return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                        candidates)
+    if CFG.grammar_search_heuristic == "tree_model":
+        return _TreeModelHeuristic(initial_predicates, atom_dataset,
+                                   candidates)
     raise NotImplementedError(
         f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
@@ -605,6 +608,51 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
             # demonstrated trajectory.
             trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
             score += -trans_log_prob  # remember that lower is better
+        return score
+
+
+class _TreeModelHeuristic(_HAddBasedHeuristic):
+    """TODO docstring
+    """
+
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  hadd_fn: utils.HAddHeuristic,
+                                  ground_ops: Collection[_GroundSTRIPSOperator]
+                                  ) -> float:
+        score = -np.inf  # log space
+        # The largest f = g+h in the remaining demo.
+        f_bottleneck = 0.0
+        # Start from the end of the demo and work backwards, so that we can
+        # compute the bottleneck values along the way.
+        for i in range(len(atoms_sequence)-2, -1, -1):
+            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
+            # Compute explored subtree sizes for all off-demo states.
+            some_ground_op_predicts_demo = False
+            for ground_op in utils.get_applicable_operators(ground_ops, atoms):
+                # Compute the next state under the operator.
+                predicted_next_atoms = utils.apply_operator(ground_op, atoms)
+                if predicted_next_atoms == next_atoms:
+                    some_ground_op_predicts_demo = True
+                    continue
+                # Compute the heuristic for the successor atoms.
+                h = hadd_fn(utils.atoms_to_tuples(predicted_next_atoms))
+                f = i + h
+                # If this f is less than f_bottleneck, then the planner would
+                # explore the entire subtree rooted at this node, which we
+                # assume in the tree model to be of size 2**h.
+                if f <= f_bottleneck:
+                    score = np.logaddexp2(score, h)
+                # Otherwise, we still would prefer not to expand this node
+                # since it's off-demo; it's a like a subtree of size 1.
+                else:
+                    score = np.logaddexp2(score, 0)
+            if not some_ground_op_predicts_demo:
+                assert CFG.min_data_for_nsrt > 0
+                return np.inf
+            # Update the f bottleneck.
+            next_atoms_h = hadd_fn(utils.atoms_to_tuples(next_atoms))
+            # This will become the next f_bottleneck.
+            f_bottleneck = max(f_bottleneck, i + next_atoms_h)
         return score
 
 ################################################################################
