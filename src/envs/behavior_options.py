@@ -196,7 +196,8 @@ def navigate_to_param_sampler(rng, objects):
     closeness_limit = 2
     distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
-    return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
+    #return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
+    return np.array([-0.58575623,  0.50996017])
 
 
 def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):

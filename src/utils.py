@@ -572,8 +572,6 @@ def is_dr_reachable(
     reachables = set(atoms)
     while True:
         fixed_point_reached = True
-        print("reachables:", reachables)
-        print()
         for nsrt in ground_nsrts:
             if nsrt.preconditions.issubset(reachables):
                 for new_reachable_atom in nsrt.add_effects - reachables:
