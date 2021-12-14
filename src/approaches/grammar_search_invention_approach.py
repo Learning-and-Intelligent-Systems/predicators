@@ -38,12 +38,13 @@ def _create_grammar(grammar_name: str, dataset: Dataset,
         # negated and quantified versions of the given predicates, in
         # addition to negated and quantified versions of new predicates.
         given_grammar = _GivenPredicateGrammar(given_predicates)
-        # Now, the grammar will undergo a series of transformations.
-        # First, we consider various ways to split single feature values.
+        # Next, we consider various ways to split single feature values
+        # across our dataset.
         sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
         # This chained grammar has the effect of enumerating first the
         # given predicates, then the single feature inequality ones.
         chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
+        # Now, the chained grammar will undergo a series of transformations.
         # For each predicate enumerated by the chained grammar, we also
         # enumerate the negation of that predicate.
         negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
