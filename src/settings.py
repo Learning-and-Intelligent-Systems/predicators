@@ -111,6 +111,7 @@ class GlobalSettings:
     grammar_search_max_evals = 250
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
+    grammar_search_bf_weight = 1
     grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
     grammar_search_grammar_name = "forall_single_feat_ineqs"
