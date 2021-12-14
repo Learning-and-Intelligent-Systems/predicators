@@ -635,16 +635,16 @@ class _TreeModelHeuristic(_HAddBasedHeuristic):
     hAdd using the operators induced by the set of predicates.
 
     To estimate, we assume a tree model where the number of nodes that would
-    be explored by planning is exponential in the heuristic.
+    be explored by planning is *equal* to the heuristic. This is a lower bound.
     """
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   hadd_fn: utils.HAddHeuristic,
                                   ground_ops: Collection[_GroundSTRIPSOperator]
                                   ) -> float:
-        score = -np.inf  # log space
+        score = 0
         # The largest f = g+h in the remaining demo.
-        f_bottleneck = 0.0
+        f_bottleneck = 0
         # Start from the end of the demo and work backwards, so that we can
         # compute the bottleneck values along the way.
         for i in range(len(atoms_sequence)-1, 0, -1):
@@ -665,13 +665,13 @@ class _TreeModelHeuristic(_HAddBasedHeuristic):
                 f = i + h
                 # If this f is less than f_bottleneck, then the planner would
                 # explore the entire subtree rooted at this node, which we
-                # assume in the tree model to be of size 2**h.
+                # assume in the tree model to be of size h.
                 if f <= f_bottleneck:
-                    score = np.logaddexp2(score, h)
+                    score += h
                 # Otherwise, we still would prefer not to expand this node
                 # since it's off-demo; it's like a subtree of size 1.
                 else:
-                    score = np.logaddexp2(score, 0)
+                    score += 1
             if not some_ground_op_predicts_demo:
                 assert CFG.min_data_for_nsrt > 0
                 return np.inf
