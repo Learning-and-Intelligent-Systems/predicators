@@ -9,7 +9,8 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
     _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
     _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, _HAddMatchHeuristic, \
-    _PredictionErrorHeuristic, _HAddLookaheadHeuristic
+    _PredictionErrorHeuristic, _HAddLookaheadHeuristic, \
+    _BranchingFactorHeuristic
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -422,3 +423,53 @@ def test_hadd_lookahead_heuristic():
     all_included_h = heuristic.evaluate(set(candidates))
     none_included_h = heuristic.evaluate(set())
     assert all_included_h < none_included_h  # hooray!
+
+
+def test_branching_factor_heuristic():
+    """Tests for _BranchingFactorHeuristic().
+    """
+    # We know that this heuristic is bad, because it prefers predicates that
+    # make segmentation collapse demo actions into one.
+    utils.update_config({
+        "env": "cover",
+    })
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = CoverEnv()
+
+    name_to_pred = {p.name : p for p in env.predicates}
+    Covers = name_to_pred["Covers"]
+    Holding = name_to_pred["Holding"]
+
+    forall_not_covers0 = Predicate(
+        "Forall[0:block].[NOT-Covers(0,1)]",
+        [Covers.types[1]],
+        _UnaryFreeForallClassifier(Covers.get_negation(), 1)
+    )
+
+    forall_not_covers1 = Predicate(
+        "Forall[1:target].[NOT-Covers(0,1)]",
+        [Covers.types[0]],
+        _UnaryFreeForallClassifier(Covers.get_negation(), 0)
+    )
+
+    candidates = {
+        forall_not_covers0: 1.0,
+        forall_not_covers1: 1.0,
+        Holding: 1.0,
+    }
+    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    atom_dataset = utils.create_ground_atom_dataset(dataset,
+        env.goal_predicates | set(candidates))
+    heuristic = _BranchingFactorHeuristic(env.goal_predicates, atom_dataset,
+                                          candidates, demos_only=False)
+    holding_h = heuristic.evaluate({Holding})
+    forall_not_covers_h = heuristic.evaluate({forall_not_covers0,
+                                              forall_not_covers1})
+    # This is just to illustrate that the cost for these two bad predicates are
+    # lower than we would like. These are actually the predicates that get
+    # returned by running the grammar search on covers with branching factor.
+    assert forall_not_covers_h < holding_h
