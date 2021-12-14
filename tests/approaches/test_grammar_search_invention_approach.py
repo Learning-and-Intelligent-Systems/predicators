@@ -465,7 +465,7 @@ def test_branching_factor_heuristic():
     atom_dataset = utils.create_ground_atom_dataset(dataset,
         env.goal_predicates | set(candidates))
     heuristic = _BranchingFactorHeuristic(env.goal_predicates, atom_dataset,
-                                          candidates, demos_only=False)
+                                          candidates)
     holding_h = heuristic.evaluate({Holding})
     forall_not_covers_h = heuristic.evaluate({forall_not_covers0,
                                               forall_not_covers1})
