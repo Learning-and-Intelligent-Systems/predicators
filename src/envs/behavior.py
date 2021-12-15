@@ -407,7 +407,12 @@ class BehaviorEnv(BaseEnv):
         assert len(objs) == 2
         ig_obj = self._object_to_ig_object(objs[0])
         ig_other_obj = self._object_to_ig_object(objs[1])
-        if (np.linalg.norm(np.array(ig_obj.get_position()) - np.array(ig_other_obj.get_position())) < 2):
+        try:
+            ig_obj == self._env.intended_nav_obj
+        except AttributeError:
+            self._env.intended_nav_obj = None
+
+        if (np.linalg.norm(np.array(ig_obj.get_position()) - np.array(ig_other_obj.get_position())) < 2) and ig_obj == self._env.intended_nav_obj:
             return True
         else:
             return False
