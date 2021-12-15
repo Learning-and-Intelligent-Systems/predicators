@@ -49,6 +49,12 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
 
+    print("\nLearned operators with option specs:")
+    for op, (param_option, option_vars) in zip(strips_ops, option_specs):
+        print(op)
+        print(f"    Parameterized option: {param_option.name}({option_vars})")
+        print()
+
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
     samplers = learn_samplers(strips_ops, partitions, option_specs,
