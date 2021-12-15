@@ -115,9 +115,16 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> None:
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
+    planning_time = time.time()-start
     print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
     print(f"Approach metrics: {approach.metrics}")
-    print(f"Total test time: {time.time()-start:.5f} seconds")
+    print(f"Total test time: {planning_time:.5f} seconds")
+    return {
+        "num solved": num_solved,
+        "total test tasks": len(test_tasks),
+        "nodes expanded": approach.metrics["total_num_nodes_expanded"],
+        "planning time": planning_time
+    }
 
 
 if __name__ == "__main__":  # pragma: no cover

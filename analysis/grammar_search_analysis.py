@@ -17,6 +17,8 @@ from predicators.src.nsrt_learning import segment_trajectory, \
 from predicators.src import utils
 from predicators.src.structs import Predicate, Dataset, Task
 from predicators.src.settings import CFG
+import pandas as pd
+import pickle
 
 
 utils.update_config({
@@ -154,18 +156,15 @@ def _run_analysis() -> None:
 
 
 def _run_proxy_analysis() -> None:
-    # env_name = "cover"
-    # HandEmpty, Holding, IsBlock, IsTarget = _get_predicates_by_names(
-    #     env_name, ["HandEmpty", "Holding", "IsBlock", "IsTarget"])
-    # non_goal_predicate_sets: List[Set[Predicate]] = [
-    #     set(),
-    #     {HandEmpty},
-    #     {Holding},
-    #     {HandEmpty, IsBlock},
-    #     {Holding, IsBlock},
-    #     {HandEmpty, Holding},
-    #     {HandEmpty, Holding, IsBlock},
-    # ]
+    env_name = "cover"
+    HandEmpty, Holding, IsBlock, IsTarget = _get_predicates_by_names(
+        env_name, ["HandEmpty", "Holding", "IsBlock", "IsTarget"])
+    non_goal_predicate_sets: List[Set[Predicate]] = [
+        set(),
+        {HandEmpty},
+        {Holding},
+        {HandEmpty, Holding},
+    ]
 
     # env_name = "blocks"
     # Holding, Clear, GripperOpen = _get_predicates_by_names(
@@ -181,39 +180,41 @@ def _run_proxy_analysis() -> None:
     #     {Clear, GripperOpen, Holding},
     # ]
 
-    env_name = "painting"
-    (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
-     IsDirty, IsClean) = _get_predicates_by_names("painting",
-            ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-             "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
-    all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
-                      IsWet, IsDry, IsDirty, IsClean}
-    non_goal_predicate_sets: List[Set[Predicate]] = [
-        # set(),
-        # all_predicates - {IsWet, IsDry},
-        # all_predicates - {IsClean, IsDirty},
-        # all_predicates - {OnTable},
-        # all_predicates - {HoldingTop, HoldingSide, Holding},
-        all_predicates,
-    ]
+    # env_name = "painting"
+    # (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
+    #  IsDirty, IsClean) = _get_predicates_by_names("painting",
+    #         ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+    #          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+    # all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
+    #                   IsWet, IsDry, IsDirty, IsClean}
+    # non_goal_predicate_sets: List[Set[Predicate]] = [
+    #     # set(),
+    #     # all_predicates - {IsWet, IsDry},
+    #     # all_predicates - {IsClean, IsDirty},
+    #     # all_predicates - {OnTable},
+    #     # all_predicates - {HoldingTop, HoldingSide, Holding},
+    #     all_predicates,
+    # ]
 
     utils.update_config({
         "env": env_name,
         "offline_data_method": "demo+replay",
         "seed": 0,
-        "timeout": 100,
+        "timeout": 1,
         "make_videos": False,
         "grammar_search_max_predicates": 50,
     })
     env = create_env(env_name)
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
+    results = {}
 
     for non_goal_predicates in non_goal_predicate_sets:
-        print(env_name, non_goal_predicates)
-        _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
-                                           env.goal_predicates,
-                                           non_goal_predicates)
+        results[(env_name,
+                 ', '.join(str(p) for p in sorted(non_goal_predicates)))] = \
+            _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+                                               env.goal_predicates,
+                                               non_goal_predicates)
     # # Also test full predicate set proposed by grammar
     # grammar = _create_grammar("forall_single_feat_ineqs",
     #                           dataset, env.goal_predicates)
@@ -228,6 +229,25 @@ def _run_proxy_analysis() -> None:
     # _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
     #                                    env.goal_predicates, set(candidates))
 
+    outfile = f"{env_name}_proxy_analysis.p"
+    with open(outfile, "wb") as f:
+        pickle.dump(results, f)
+    print(f"Dumped results to {outfile}.")
+
+    with open(outfile, "rb") as f:
+        results = pickle.load(f)
+
+    all_results = []
+    columns = None
+    for k in sorted(results):
+        k_columns = sorted(["Non-goal predicates given"] + sorted(results[k]))
+        if columns is None:
+            columns = k_columns
+        assert k_columns == columns
+        all_results.append([k] + [results[k][v] for v in columns[1:]])
+    df = pd.DataFrame(all_results, columns=columns)
+    print(df)
+
 
 def _run_proxy_analysis_for_predicates(env: BaseEnv,
                                        dataset: Dataset,
@@ -239,24 +259,22 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     candidates = {p : 1.0 for p in predicates}
     all_predicates = predicates | initial_predicates
     atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
+    results = {}
     # Compute heuristic scores.
     for heuristic_cls in [_PredictionErrorHeuristic, _HAddLookaheadHeuristic]:
         heuristic = heuristic_cls(initial_predicates, atom_dataset,
                                   candidates)
         heuristic_score = heuristic.evaluate(frozenset(predicates))
-        if len(predicates) >= 10:
-            predicate_str = f"All {len(predicates)} candidates"
-        else:
-            predicate_str = str(predicates)
-        print("\n\n******", env.__class__.__name__, predicate_str,
-              heuristic_cls.__name__, heuristic_score)
+        results[heuristic_cls.__name__] = heuristic_score
     # Learn NSRTs and plan.
     utils.flush_cache()
     approach = create_approach("nsrt_learning", env.simulate, all_predicates,
                                env.options, env.types, env.action_space)
     approach.learn_from_offline_dataset(dataset, train_tasks)
     approach.seed(CFG.seed)
-    _run_testing(env, approach)
+    planning_result = _run_testing(env, approach)
+    results.update(planning_result)
+    return results
 
 
 if __name__ == "__main__":
