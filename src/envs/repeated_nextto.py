@@ -24,7 +24,7 @@ class RepeatedNextToEnv(BaseEnv):
     # near a single dot. This makes planning succeed with the oracle operators.
     # However, we want to eventually increase this threshold so that the robot
     # can be NextTo many different dots at the same time.
-    nextto_thresh = 0.02
+    nextto_thresh = 0.5
 
     def __init__(self) -> None:
         super().__init__()
