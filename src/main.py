@@ -24,12 +24,15 @@ To run grammar search predicate invention (example):
 
 """
 
+from collections import defaultdict
 import time
+from typing import Dict
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
+from predicators.src.structs import Metrics
 from predicators.src import utils
 
 
@@ -71,7 +74,8 @@ def main() -> None:
     if approach.is_learning_based:
         if CFG.load:
             approach.load()
-            _run_testing(env, approach)
+            results = _run_testing(env, approach)
+            _print_test_results(results)
         else:
             # Iterate over the train_tasks lists coming from the generator.
             dataset_idx = 0
@@ -80,13 +84,15 @@ def main() -> None:
                 print(f"\n\nDATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 approach.learn_from_offline_dataset(dataset, train_tasks)
-                _run_testing(env, approach)
+                results = _run_testing(env, approach)
+                _print_test_results(results)
     else:
-        _run_testing(env, approach)
+        results = _run_testing(env, approach)
+        _print_test_results(results)
     print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
 
 
-def _run_testing(env: BaseEnv, approach: BaseApproach) -> None:
+def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
     test_tasks = env.get_test_tasks()
     num_solved = 0
     approach.reset_metrics()
@@ -115,9 +121,22 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> None:
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
-    print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
-    print(f"Approach metrics: {approach.metrics}")
-    print(f"Total test time: {time.time()-start:.5f} seconds")
+    total_test_time = time.time()-start
+    test_metrics: Metrics = defaultdict(float)
+    test_metrics["test_tasks_solved"] = num_solved
+    test_metrics["test_tasks_total"] = len(test_tasks)
+    test_metrics["total_test_time"] = total_test_time
+    return {"test": test_metrics, "approach": approach.metrics.copy()}
+
+
+def _print_test_results(results: Dict[str, Metrics]) -> None:
+    test_tasks_solved = results["test"]["test_tasks_solved"]
+    test_tasks_total = results["test"]["test_tasks_total"]
+    total_test_time = results["test"]["total_test_time"]
+    approach_metrics = results["approach"]
+    print(f"Tasks solved: {test_tasks_solved} / {test_tasks_total}")
+    print(f"Approach metrics: {approach_metrics}")
+    print(f"Total test time: {total_test_time:.5f} seconds")
 
 
 if __name__ == "__main__":  # pragma: no cover
