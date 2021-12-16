@@ -575,13 +575,13 @@ class NSRT:
 
     @cached_property
     def _str(self) -> str:
+        option_var_str = ", ".join([str(v) for v in self.option_vars])
         return f"""NSRT-{self.name}:
     Parameters: {self.parameters}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Option: {self.option}
-    Option Variables: {self.option_vars}"""
+    Option Spec: {self.option.name}({option_var_str})"""
 
     @cached_property
     def _hash(self) -> int:
