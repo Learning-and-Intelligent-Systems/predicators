@@ -459,8 +459,7 @@ def test_nsrts():
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Option: ParameterizedOption(name='Pick', types=[])
-    Option Variables: []"""
+    Option Spec: Pick()"""
     assert isinstance(hash(nsrt), int)
     nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
                  delete_effects, parameterized_option, [], sampler)
@@ -475,8 +474,7 @@ def test_nsrts():
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Option: ParameterizedOption(name='Pick', types=[])
-    Option Objects: []"""
+    Option Spec: Pick()"""
     assert isinstance(hash(ground_nsrt), int)
     ground_nsrt2 = nsrt2.ground([cup, plate])
     assert ground_nsrt == ground_nsrt2
