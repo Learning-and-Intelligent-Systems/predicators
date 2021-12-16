@@ -3,6 +3,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
+import os
 from typing import Dict, Tuple, Iterator, DefaultDict, Set, List
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
@@ -165,37 +166,42 @@ def _run_proxy_analysis() -> None:
         {Holding},
         {HandEmpty, Holding},
     ]
+    _run_proxy_analysis_for_env(env_name, non_goal_predicate_sets)
 
-    # env_name = "blocks"
-    # Holding, Clear, GripperOpen = _get_predicates_by_names(
-    #     env_name, ["Holding", "Clear", "GripperOpen"])
-    # non_goal_predicate_sets: List[Set[Predicate]] = [
-    #     set(),
-    #     {Holding},
-    #     {Clear},
-    #     {GripperOpen},
-    #     {Holding, Clear},
-    #     {Clear, GripperOpen},
-    #     {GripperOpen, Holding},
-    #     {Clear, GripperOpen, Holding},
-    # ]
+    env_name = "blocks"
+    Holding, Clear, GripperOpen = _get_predicates_by_names(
+        env_name, ["Holding", "Clear", "GripperOpen"])
+    non_goal_predicate_sets: List[Set[Predicate]] = [
+        set(),
+        {Holding},
+        {Clear},
+        {GripperOpen},
+        {Holding, Clear},
+        {Clear, GripperOpen},
+        {GripperOpen, Holding},
+        {Clear, GripperOpen, Holding},
+    ]
+    _run_proxy_analysis_for_env(env_name, non_goal_predicate_sets)
 
-    # env_name = "painting"
-    # (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
-    #  IsDirty, IsClean) = _get_predicates_by_names("painting",
-    #         ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-    #          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
-    # all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
-    #                   IsWet, IsDry, IsDirty, IsClean}
-    # non_goal_predicate_sets: List[Set[Predicate]] = [
-    #     # set(),
-    #     # all_predicates - {IsWet, IsDry},
-    #     # all_predicates - {IsClean, IsDirty},
-    #     # all_predicates - {OnTable},
-    #     # all_predicates - {HoldingTop, HoldingSide, Holding},
-    #     all_predicates,
-    # ]
+    env_name = "painting"
+    (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
+     IsDirty, IsClean) = _get_predicates_by_names("painting",
+            ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+             "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+    all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide, Holding,
+                      IsWet, IsDry, IsDirty, IsClean}
+    non_goal_predicate_sets: List[Set[Predicate]] = [
+        set(),
+        all_predicates - {IsWet, IsDry},
+        all_predicates - {IsClean, IsDirty},
+        all_predicates - {OnTable},
+        all_predicates - {HoldingTop, HoldingSide, Holding},
+        all_predicates,
+    ]
+    _run_proxy_analysis_for_env(env_name, non_goal_predicate_sets)
 
+
+def _run_proxy_analysis_for_env():
     utils.update_config({
         "env": env_name,
         "offline_data_method": "demo+replay",
@@ -229,25 +235,6 @@ def _run_proxy_analysis() -> None:
     # _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
     #                                    env.goal_predicates, set(candidates))
 
-    outfile = f"{env_name}_proxy_analysis.p"
-    with open(outfile, "wb") as f:
-        pickle.dump(results, f)
-    print(f"Dumped results to {outfile}.")
-
-    with open(outfile, "rb") as f:
-        results = pickle.load(f)
-
-    all_results = []
-    columns = None
-    for k in sorted(results):
-        k_columns = sorted(["Non-goal predicates given"] + sorted(results[k]))
-        if columns is None:
-            columns = k_columns
-        assert k_columns == columns
-        all_results.append([k] + [results[k][v] for v in columns[1:]])
-    df = pd.DataFrame(all_results, columns=columns)
-    print(df)
-
 
 def _run_proxy_analysis_for_predicates(env: BaseEnv,
                                        dataset: Dataset,
@@ -277,6 +264,29 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     return results
 
 
+def _make_proxy_analysis_results():
+    analysis_dir = os.path.dirname(os.path.realpath(__file__))
+    outdir = os.path.join(analysis_dir, "results")
+    outfile = os.path.join(outdir, f"{env_name}_proxy_analysis.p")
+    with open(outfile, "wb") as f:
+        pickle.dump(results, f)
+    print(f"Dumped results to {outfile}.")
+
+    with open(outfile, "rb") as f:
+        results = pickle.load(f)
+
+    all_results = []
+    columns = None
+    for k in sorted(results):
+        k_columns = sorted(["Non-goal predicates given"] + sorted(results[k]))
+        if columns is None:
+            columns = k_columns
+        assert k_columns == columns
+        all_results.append([k] + [results[k][v] for v in columns[1:]])
+    df = pd.DataFrame(all_results, columns=columns)
+    print(df)
+
 if __name__ == "__main__":
     # _run_analysis()
     _run_proxy_analysis()
+    _make_proxy_analysis_results()
