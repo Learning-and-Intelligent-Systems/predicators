@@ -28,7 +28,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
                 for seg in segment_trajectory(traj)]
 
     # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators(segments)
+    strips_ops, partitions = learn_strips_operators(segments,
+        verbose=CFG.do_option_learning)
     assert len(strips_ops) == len(partitions)
 
     # Learn option specs, or if known, just look them up. The order of
