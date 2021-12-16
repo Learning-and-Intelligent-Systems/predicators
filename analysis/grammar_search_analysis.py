@@ -4,7 +4,7 @@
 from collections import defaultdict
 import glob
 import os
-from typing import Dict, DefaultDict, Set, List
+from typing import Dict, DefaultDict, Set, List, Tuple
 import pandas as pd
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
@@ -151,7 +151,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
 
 
 def _make_proxy_analysis_results(outdir: str) -> None:
-    all_results = defaultdict(dict)
+    all_results: DefaultDict[Tuple[str, str], Dict] = defaultdict(dict)
     for filepath in glob.glob(f"{outdir}/*.result"):
         with open(filepath, "r", encoding="utf-8") as f:
             raw_result = f.read()
@@ -179,7 +179,11 @@ if __name__ == "__main__":
         "hadd_lookahead",
     ]
     RUN_PLANNING = True
+
     OUTDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
+    if not os.path.exists(OUTDIR):
+        os.makedirs(OUTDIR)
+
     _run_proxy_analysis(ENV_NAMES, HEURISTIC_NAMES, RUN_PLANNING, OUTDIR)
     _make_proxy_analysis_results(OUTDIR)
