@@ -132,7 +132,7 @@ class GlobalSettings:
         return dict(
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
-                "cover": 10,
+                "cover": 50,
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
                 "cover_multistep_options": 10,

@@ -882,7 +882,6 @@ class Partition:
     def add_effects(self) -> Set[LiftedAtom]:
         """Get the lifted add effects for this partition.
         """
-        import ipdb; ipdb.set_trace()
         seg, sub = self._exemplar
         return {a.lift(sub) for a in seg.add_effects}
 
@@ -890,7 +889,6 @@ class Partition:
     def delete_effects(self) -> Set[LiftedAtom]:
         """Get the lifted delete effects for this partition.
         """
-        import ipdb; ipdb.set_trace()
         seg, sub = self._exemplar
         return {a.lift(sub) for a in seg.delete_effects}
 
@@ -909,6 +907,7 @@ class Partition:
         """Add a new member.
         """
         seg, sub = member
+        # TODO: fix this...
         # Check for consistency.
         # if len(self.members) > 0:
         #     # The effects should match.

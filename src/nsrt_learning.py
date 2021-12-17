@@ -261,28 +261,16 @@ def learn_strips_operators_from_demos(
             inv_sub = {v: k for k, v in sub.items()}
             ground_preconds = {a.ground(inv_sub) for a in lifted_preconds}
             ground_add_effects = {a.ground(inv_sub) for a in lifted_add_effs}
+            # TODO: is this right? Not using delete effects...
             new_preimage = preimage.copy()
             new_preimage |= ground_preconds
             new_preimage -= ground_add_effects
             trajectory_preimages[traj_idx] = new_preimage
         steps_to_goal += 1
 
-    # TODO: go through operators and filter out ones that are "dominated",
-    # meaning that in every state where the preconditions hold and the effects
-    # follow, there is another operators whose preconditions also hold and
-    # whose effects follow, and whose effects are a superset of the original.
-
-    # We don't need option_vars anymore; we'll recover them later when we call
-    # `learn_option_specs`. The only reason to include them here is to make sure
-    # that params include the option_vars when options are available.
-    del option_vars
-
-    assert len(params) == len(add_effects) == \
-           len(delete_effects) == len(partitions)
-
-    # Prune partitions with not enough data.
     kept_idxs = []
     for idx, partition in enumerate(partitions):
+        # Prune partitions with not enough data.
         if len(partition) >= CFG.min_data_for_nsrt:
             kept_idxs.append(idx)
     params = [params[i] for i in kept_idxs]
@@ -290,7 +278,7 @@ def learn_strips_operators_from_demos(
     delete_effects = [delete_effects[i] for i in kept_idxs]
     partitions = [partitions[i] for i in kept_idxs]
 
-    # Finalize the operators.
+    # Create the operators.
     ops = []
     for i in range(len(params)):
         name = f"Op{i}"
@@ -300,6 +288,67 @@ def learn_strips_operators_from_demos(
             print("Learned STRIPSOperator:")
             print(op)
         ops.append(op)
+
+    # Go through operators and filter out ones that are "dominated",
+    # meaning in every state where the preconditions hold and the effects
+    # follow, there is another operators whose preconditions also hold and
+    # whose effects follow, and whose effects contain the original.
+    for idx in range(len(partitions)-1, -1, -1):
+        op = ops[idx]
+        is_dominated = False
+        for other_idx in range(len(partitions)):
+            if is_dominated:
+                break
+            if idx == other_idx:
+                continue
+            other_op = ops[other_idx]
+            # Check if other_op dominates op.
+            for segment, sub in partition:
+                inv_sub = {v: k for k, v in sub.items()}
+                op_predicted_add_effects = {a.ground(inv_sub)
+                                            for a in op.add_effects}
+                op_predicted_delete_effects = {a.ground(inv_sub)
+                                               for a in op.delete_effects}
+                # Check if this segment is also covered by other_idx.
+                # If the preconditions don't hold, that means that this
+                # other_idx doesn't dominate.
+                segment_covered_by_other = False
+                ground_ops = utils.all_ground_operators(other_op,
+                                                        set(segment.states[0]))
+                for ground_op in utils.get_applicable_operators(
+                    ground_ops, segment.init_atoms):
+                    # Check if the ground effects predicted actually occur.
+                    if not ground_op.add_effects.issubset(segment.add_effects):
+                        continue
+                    if not ground_op.delete_effects.issubset(
+                        segment.delete_effects):
+                        continue
+                    # Check if the ground effects are a superset of the ones
+                    # predicted by op.
+                    if not ground_op.add_effects.issuperset(
+                        op_predicted_add_effects):
+                        continue
+                    if not ground_op.delete_effects.issuperset(
+                        op_predicted_delete_effects):
+                        continue
+                    # We have a match.
+                    segment_covered_by_other = True
+                    break
+                # This segment was not covered by other_op, so other_op
+                # does not dominate op.
+                if not segment_covered_by_other:
+                    break
+            else:
+                # All the segments for op were dominated by other op!
+                is_dominated = True
+                import ipdb; ipdb.set_trace()
+                break
+        # If this op is dominated, remove it.
+        # TODO: add the data to the partition that dominated it! This will
+        # require unifying the variables between op and other_op.
+        if is_dominated:
+            del ops[idx]
+            del partitions[idx]
 
     return ops, partitions
 
