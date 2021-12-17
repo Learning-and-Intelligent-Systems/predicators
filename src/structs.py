@@ -191,6 +191,12 @@ class State:
         suffix = "\n" + "#" * ll+ "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
+    def scope(self, objects: Collection[Object]) -> State:
+        """Create a substate involving only the given objects.
+        """
+        assert set(objects).issubset(self)
+        return State({o: self[o] for o in objects}, self.simulator_state)
+
 
 DefaultState = State({})
 
