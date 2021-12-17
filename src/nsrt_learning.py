@@ -267,6 +267,11 @@ def learn_strips_operators_from_demos(
             trajectory_preimages[traj_idx] = new_preimage
         steps_to_goal += 1
 
+    # TODO: go through operators and filter out ones that are "dominated",
+    # meaning that in every state where the preconditions hold and the effects
+    # follow, there is another operators whose preconditions also hold and
+    # whose effects follow, and whose effects are a superset of the original.
+
     # We don't need option_vars anymore; we'll recover them later when we call
     # `learn_option_specs`. The only reason to include them here is to make sure
     # that params include the option_vars when options are available.
