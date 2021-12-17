@@ -205,10 +205,10 @@ class GlobalSettings:
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
-                "nsrt_learning": "demo+replay",
+                "nsrt_learning": "demo",
                 "interactive_learning": "demo",
-                "iterative_invention": "demo+replay",
-                "grammar_search_invention": "demo+replay",
+                "iterative_invention": "demo",
+                "grammar_search_invention": "demo",
             })[args["approach"]],
         )
 
