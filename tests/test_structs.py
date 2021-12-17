@@ -162,6 +162,18 @@ obj4                 8        9       10
 obj9                11       12       13
 ########################################
 """
+    # Test scope
+    full_state = State({obj3: [1, 2],
+                        obj7: [3, 4],
+                        obj1: [5, 6, 7],
+                        obj4: [8, 9, 10],
+                        obj9: [11, 12, 13]})
+    manually_scoped_state = State({obj3: [1, 2],
+                                   obj1: [5, 6, 7],
+                                   obj9: [11, 12, 13]})
+    scoped_state = full_state.scope({obj1, obj3, obj9})
+    assert not full_state.allclose(scoped_state)
+    assert manually_scoped_state.allclose(scoped_state)
     # Test including simulator_state
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"

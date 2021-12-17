@@ -217,8 +217,6 @@ def _run_low_level_search(
                 expected_atoms = {atom for atom in atoms_sequence[cur_idx]
                                   if atom.predicate.name != _NOT_CAUSES_FAILURE}
                 # Only check atoms where all objects are in scope.
-                # TODO: refactor this to avoid unnecessary calls to predicate
-                # classifiers, and to make more clear.
                 scoped_expected_atoms = {a for a in expected_atoms \
                     if all(o in nsrt.objects for o in a.objects)}
                 if scoped_atoms == scoped_expected_atoms:
