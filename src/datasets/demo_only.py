@@ -18,11 +18,12 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     for task in train_tasks:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)
-        trajectory, _, solved = utils.run_policy_on_task(policy, task,
-            env.simulate, env.predicates, CFG.max_num_steps_check_policy)
+        traj, _, solved = utils.run_policy_on_task(
+            policy, task, env.simulate, env.predicates,
+            CFG.max_num_steps_check_policy, annotate_traj_with_goal=True)
         if CFG.do_option_learning:
-            for act in trajectory[1]:
+            for act in traj.actions:
                 act.unset_option()
         assert solved, "Oracle failed on training task."
-        dataset.append(trajectory)
+        dataset.append(traj)
     return dataset

@@ -60,3 +60,6 @@ class NSRTLearningApproach(TAMPApproach):
         for nsrt in sorted(self._nsrts):
             print(nsrt)
         print()
+        # Seed the option parameter spaces after loading.
+        for nsrt in self._nsrts:
+            nsrt.option.params_space.seed(CFG.seed)

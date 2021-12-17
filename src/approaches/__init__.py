@@ -68,4 +68,4 @@ def create_approach(name: str,
         return GrammarSearchInventionApproach(simulator, initial_predicates,
                                               initial_options, types,
                                               action_space)
-    raise NotImplementedError(f"Unknown env: {name}")
+    raise NotImplementedError(f"Unknown approach: {name}")
