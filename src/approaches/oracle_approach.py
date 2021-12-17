@@ -36,6 +36,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cover_gt_nsrts(options_are_typed=True)
     elif CFG.env == "cover_multistep_options":
         nsrts = _get_cover_gt_nsrts(options_are_typed=True,
+                                    include_robot_in_holding=True,
                                     place_sampler_relative=True)
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
@@ -45,6 +46,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_painting_gt_nsrts()
     elif CFG.env == "playroom":
         nsrts = _get_playroom_gt_nsrts()
+    elif CFG.env == "repeated_nextto":
+        nsrts = _get_repeated_nextto_gt_nsrts()
     else:
         raise NotImplementedError("Ground truth NSRTs not implemented")
     # Filter out excluded predicates/options
@@ -91,10 +94,12 @@ def _get_options_by_names(env_name: str,
 
 
 def _get_cover_gt_nsrts(options_are_typed: bool,
+                        include_robot_in_holding: bool = False,
                         place_sampler_relative: bool = False) -> Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv.
     """
-    block_type, target_type = _get_types_by_names(CFG.env, ["block", "target"])
+    block_type, target_type, robot_type = _get_types_by_names(
+        CFG.env, ["block", "target", "robot"])
 
     IsBlock, IsTarget, Covers, HandEmpty, Holding = \
         _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
@@ -109,7 +114,8 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
 
     # Pick
     block = Variable("?block", block_type)
-    parameters = [block]
+    robot = Variable("?robot", robot_type)
+    parameters = [block, robot] if include_robot_in_holding else [block]
     if options_are_typed:
         option_vars = [block]
         option = Pick
@@ -117,11 +123,14 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
         option_vars = []
         option = PickPlace
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
-    add_effects = {LiftedAtom(Holding, [block])}
+    if include_robot_in_holding:
+        add_effects = {LiftedAtom(Holding, [block, robot])}
+    else:
+        add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
     def pick_sampler(state: State, rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        assert len(objs) == 1
+        assert len(objs) == 2 if include_robot_in_holding else len(objs) == 1
         b = objs[0]
         assert b.is_instance(block_type)
         if options_are_typed:
@@ -140,22 +149,29 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
 
     # Place
     target = Variable("?target", target_type)
-    parameters = [block, target]
+    parameters = [block, target, robot] if include_robot_in_holding \
+        else [block, target]
     if options_are_typed:
         option_vars = [target]
         option = Place
     else:
         option_vars = []
         option = PickPlace
-    preconditions = {LiftedAtom(IsBlock, [block]),
-                     LiftedAtom(IsTarget, [target]),
-                     LiftedAtom(Holding, [block])}
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
-    delete_effects = {LiftedAtom(Holding, [block])}
+    if include_robot_in_holding:
+        preconditions = {LiftedAtom(IsBlock, [block]),
+                         LiftedAtom(IsTarget, [target]),
+                         LiftedAtom(Holding, [block, robot])}
+        delete_effects = {LiftedAtom(Holding, [block, robot])}
+    else:
+        preconditions = {LiftedAtom(IsBlock, [block]),
+                         LiftedAtom(IsTarget, [target]),
+                         LiftedAtom(Holding, [block])}
+        delete_effects = {LiftedAtom(Holding, [block])}
     def place_sampler(state: State, rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
-        assert len(objs) == 2
+        assert len(objs) == 3 if include_robot_in_holding else len(objs) == 2
         t = objs[1]
         assert t.is_instance(target_type)
         if place_sampler_relative:
@@ -894,5 +910,61 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         "TurnOffDial", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, toggledial_sampler)
     nsrts.add(turnoffdial_nsrt)
+
+def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for RepeatedNextToEnv.
+    """
+    robot_type, dot_type = _get_types_by_names(CFG.env, ["robot", "dot"])
+
+    NextTo, NextToNothing, Grasped = _get_predicates_by_names(
+        CFG.env, ["NextTo", "NextToNothing", "Grasped"])
+
+    Move, Grasp = _get_options_by_names(CFG.env, ["Move", "Grasp"])
+
+    nsrts = set()
+
+    # Move from next to nothing
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    parameters = [robot, targetdot]
+    option_vars = [robot, targetdot]
+    option = Move
+    preconditions = {LiftedAtom(NextToNothing, [robot])}
+    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    delete_effects = {LiftedAtom(NextToNothing, [robot])}
+    move_nsrt1 = NSRT("MoveFromNextToNothing", parameters, preconditions,
+                      add_effects, delete_effects, option, option_vars,
+                      lambda s, rng, o: np.zeros(1, dtype=np.float32))
+    nsrts.add(move_nsrt1)
+
+    # Move from next to something
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    curdot = Variable("?curdot", dot_type)
+    parameters = [robot, targetdot, curdot]
+    option_vars = [robot, targetdot]
+    option = Move
+    preconditions = {LiftedAtom(NextTo, [robot, curdot])}
+    add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    delete_effects = {LiftedAtom(NextTo, [robot, curdot])}
+    move_nsrt2 = NSRT("MoveFromNextToSomething", parameters, preconditions,
+                      add_effects, delete_effects, option, option_vars,
+                      lambda s, rng, o: np.zeros(1, dtype=np.float32))
+    nsrts.add(move_nsrt2)
+
+    # Grasp and end up next to nothing
+    robot = Variable("?robot", robot_type)
+    targetdot = Variable("?targetdot", dot_type)
+    parameters = [robot, targetdot]
+    option_vars = [robot, targetdot]
+    option = Grasp
+    preconditions = {LiftedAtom(NextTo, [robot, targetdot])}
+    add_effects = {LiftedAtom(Grasped, [robot, targetdot]),
+                   LiftedAtom(NextToNothing, [robot])}
+    delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
+    grasp_nsrt1 = NSRT("GraspEndUpNextToNothing", parameters, preconditions,
+                       add_effects, delete_effects, option, option_vars,
+                       lambda s, rng, o: np.zeros(0, dtype=np.float32))
+    nsrts.add(grasp_nsrt1)
 
     return nsrts

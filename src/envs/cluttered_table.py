@@ -32,13 +32,13 @@ class ClutteredTableEnv(BaseEnv):
         self._Grasp = ParameterizedOption(
             "Grasp", [self._can_type], params_space=Box(0, 1, (4,)),
             _policy=self._Grasp_policy,
-            _initiable=self._GraspDump_initiable,
-            _terminal=self._GraspDump_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._Dump = ParameterizedOption(
             "Dump", [], params_space=Box(0, 1, (0,)),  # no parameter
             _policy=self._Dump_policy,
-            _initiable=self._GraspDump_initiable,
-            _terminal=self._GraspDump_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         # Objects
         self._cans = []
         for i in range(max(CFG.cluttered_table_num_cans_train,
@@ -244,18 +244,6 @@ class ClutteredTableEnv(BaseEnv):
                      params: Array) -> Action:
         del state, memory, objects, params  # unused
         return Action(np.zeros(4, dtype=np.float32))  # no parameter for dumping
-
-    @staticmethod
-    def _GraspDump_initiable(state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _GraspDump_terminal(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     @staticmethod
     def _any_intersection(pose: Array, radius: float,

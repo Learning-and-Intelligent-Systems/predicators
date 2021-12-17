@@ -11,3 +11,4 @@ pylint_recursive.py
 .coverage
 videos
 saved_data
+analysis/results

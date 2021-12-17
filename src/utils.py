@@ -17,12 +17,29 @@ import matplotlib
 import numpy as np
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, NSRT, _GroundNSRT, Action, Task, StateActionTrajectory, \
-    OptionTrajectory, LiftedAtom, Image, Video, Variable, PyperplanFacts, \
-    ObjToVarSub, VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
-    _GroundSTRIPSOperator
+    Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
+    LiftedAtom, Image, Video, Variable, PyperplanFacts, ObjToVarSub, \
+    VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    _GroundSTRIPSOperator, Array
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
+
+
+def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> bool:
+    """An initiation function for an option that can always be run.
+    """
+    del state, memory, objects, params  # unused
+    return True
+
+
+def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> bool:
+    """A termination function for an option that only lasts 1 timestep.
+    """
+    del state, memory, objects, params  # unused
+    return True
+
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
                p3: Tuple[float, float], p4: Tuple[float, float]) -> bool:
@@ -54,6 +71,7 @@ def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
         return True
     return False
 
+
 def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
                l2: Tuple[float, float], r2: Tuple[float, float]) -> bool:
     """
@@ -67,6 +85,7 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
     if (r1[1] >= l2[1] or r2[1] >= l1[1]):  # one rect above the other
         return False
     return True
+
 
 @functools.lru_cache(maxsize=None)
 def unify(ground_atoms: FrozenSet[GroundAtom],
@@ -152,10 +171,11 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
                        make_video: bool = False,
                        render: Optional[
                            Callable[[State, Task, Action], List[Image]]] = None,
-                       ) -> Tuple[StateActionTrajectory, Video, bool]:
+                       annotate_traj_with_goal: bool = False,
+                       ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
-    Return the state sequence and action sequence, and a bool for
-    whether the goal was satisfied at the end.
+    Return the low-level trajectory (optionally annotated with the goal),
+    and a bool for whether the goal was satisfied at the end.
     """
     state = task.init
     atoms = abstract(state, predicates)
@@ -185,7 +205,11 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
         # extensions does, but for the sake of avoiding an
         # additional dependency, we'll just ignore this here.
         video.extend(render(state, task))  # type: ignore
-    return (states, actions), video, goal_reached
+    if annotate_traj_with_goal:
+        traj = LowLevelTrajectory(states, actions, task.goal)
+    else:
+        traj = LowLevelTrajectory(states, actions)
+    return traj, video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
@@ -202,7 +226,7 @@ def option_to_trajectory(
         init: State,
         simulator: Callable[[State, Action], State],
         option: _Option,
-        max_num_steps: int) -> StateActionTrajectory:
+        max_num_steps: int) -> LowLevelTrajectory:
     """Convert an option into a trajectory, starting at init, by invoking
     the option policy. This trajectory is a tuple of (state sequence,
     action sequence), where the state sequence includes init.
@@ -218,8 +242,7 @@ def option_to_trajectory(
         states.append(state)
         if option.terminal(state):
             break
-    assert len(states) == len(actions)+1
-    return states, actions
+    return LowLevelTrajectory(states, actions)
 
 
 class OptionPlanExhausted(Exception):
@@ -256,29 +279,6 @@ def option_plan_to_policy(plan: Sequence[_Option]
             assert queue[0].initiable(state), "Unsound option plan"
         return queue[0].policy(state)
     return _policy
-
-
-def state_action_to_option_trajectory(trajectory: StateActionTrajectory
-                                      ) -> OptionTrajectory:
-    """Create an option trajectory from a state-action trajectory.
-    """
-    states, actions = trajectory
-    assert len(states) > 0
-    new_states = [states[0]]
-    if len(actions) == 0:
-        return new_states, []
-    current_option = actions[0].get_option()
-    options = [current_option]
-    for s, a in zip(states[:-1], actions):
-        o = a.get_option()
-        # This assumes that an option is equal to another
-        # option only if they're the same python object.
-        if o != current_option:
-            new_states.append(s)
-            options.append(o)
-            current_option = o
-    new_states.append(states[-1])
-    return new_states, options
 
 
 @functools.lru_cache(maxsize=None)
@@ -483,8 +483,6 @@ def _run_heuristic_search(
                 action=action)
             priority = get_priority(child_node)
             num_evals += 1
-            if num_evals >= max_evals:
-                break
             hq.heappush(queue, (priority, next(tiebreak), child_node))
             state_to_best_path_cost[child_state] = child_path_cost
             if priority < best_node_priority:
@@ -496,6 +494,8 @@ def _run_heuristic_search(
                 if lazy_expansion:
                     hq.heappush(queue, (priority, next(tiebreak), node))
                     break
+            if num_evals >= max_evals:
+                break
 
     # Did not find path to goal; return best path seen.
     return _finish_plan(best_node)
@@ -566,6 +566,32 @@ def all_ground_operators(operator: STRIPSOperator,
     return ground_operators
 
 
+def all_ground_operators_given_partial(operator: STRIPSOperator,
+                                       objects: Collection[Object],
+                                       sub: VarToObjSub
+                                       ) -> Set[_GroundSTRIPSOperator]:
+    """Get all possible groundings of the given operator with the given objects
+    such that the parameters are consistent with the given substitution.
+    """
+    assert set(sub).issubset(set(operator.parameters))
+    ground_ops = set()
+    types = [p.type for p in operator.parameters if p not in sub]
+    for choice in get_object_combinations(objects, types):
+        # Complete the choice with the args that are determined from the sub.
+        choice_lst = list(choice)
+        choice_lst.reverse()
+        completed_choice = []
+        for p in operator.parameters:
+            if p in sub:
+                completed_choice.append(sub[p])
+            else:
+                completed_choice.append(choice_lst.pop())
+        assert not choice_lst
+        ground_op = operator.ground(tuple(completed_choice))
+        ground_ops.add(ground_op)
+    return ground_ops
+
+
 def all_ground_nsrts(
         nsrt: NSRT, objects: Collection[Object]) -> Set[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects.
@@ -605,10 +631,9 @@ def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
     """Apply all predicates to all trajectories in the dataset.
     """
     ground_atom_dataset = []
-    for states, actions in dataset:
-        assert len(states) == len(actions) + 1
-        atoms = [abstract(s, predicates) for s in states]
-        ground_atom_dataset.append((states, actions, atoms))
+    for traj in dataset:
+        atoms = [abstract(s, predicates) for s in traj.states]
+        ground_atom_dataset.append((traj, atoms))
     return ground_atom_dataset
 
 
@@ -618,11 +643,11 @@ def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
     """Create a new ground atom dataset by keeping only some predicates.
     """
     new_ground_atom_dataset = []
-    for states, actions, atoms in ground_atom_dataset:
-        assert len(states) == len(actions) + 1 == len(atoms)
+    for traj, atoms in ground_atom_dataset:
+        assert len(traj.states) == len(atoms)
         kept_atoms = [{a for a in sa if a.predicate in kept_predicates}
                       for sa in atoms]
-        new_ground_atom_dataset.append((states, actions, kept_atoms))
+        new_ground_atom_dataset.append((traj, kept_atoms))
     return new_ground_atom_dataset
 
 
@@ -692,6 +717,19 @@ def get_applicable_nsrts(ground_nsrts: Collection[_GroundNSRT],
             yield nsrt
 
 
+def get_applicable_operators(ground_ops: Collection[_GroundSTRIPSOperator],
+                             atoms: Collection[GroundAtom]) -> Iterator[
+                             _GroundSTRIPSOperator]:
+    """Iterate over ground operators whose preconditions are satisfied.
+
+    Note: the order may be nondeterministic. Users should be invariant.
+    """
+    for op in ground_ops:
+        applicable = op.preconditions.issubset(atoms)
+        if applicable:
+            yield op
+
+
 def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
                ) -> Collection[GroundAtom]:
     """Get a next set of atoms given a current set and a ground NSRT.
@@ -700,6 +738,18 @@ def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
     for atom in nsrt.add_effects:
         new_atoms.add(atom)
     for atom in nsrt.delete_effects:
+        new_atoms.discard(atom)
+    return new_atoms
+
+
+def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
+                   ) -> Collection[GroundAtom]:
+    """Get a next set of atoms given a current set and a ground operator.
+    """
+    new_atoms = atoms.copy()
+    for atom in operator.add_effects:
+        new_atoms.add(atom)
+    for atom in operator.delete_effects:
         new_atoms.discard(atom)
     return new_atoms
 

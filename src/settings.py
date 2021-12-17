@@ -18,11 +18,17 @@ class GlobalSettings:
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
 
+    # cover_multistep_options parameters
+    cover_multistep_action_limits = [-np.inf, np.inf]
+
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
+
+    # repeated nextto env parameters
+    repeated_nextto_num_dots = 25
 
     # painting env parameters
     painting_train_families = [
@@ -45,9 +51,9 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    propagate_failures = True
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
+    max_samples_per_step = 10  # max effort on sampling a single skeleton
 
     # evaluation parameters
     save_dir = "saved_data"
@@ -103,13 +109,16 @@ class GlobalSettings:
 
     # grammar search invention parameters
     grammar_search_max_evals = 250
-    grammar_search_direction = "smalltolarge"
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
+    grammar_search_bf_weight = 1
     grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
     grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
+    grammar_search_heuristic = "hadd_lookahead_match"
+    grammar_search_lookahead_hadd_weight = 10.
+    grammar_search_lookahead_softmax_constant = 10.
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -130,6 +139,7 @@ class GlobalSettings:
                 "cluttered_table": 50,
                 "blocks": 50,
                 "painting": 50,
+                "repeated_nextto": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -143,6 +153,7 @@ class GlobalSettings:
                 "cluttered_table": 50,
                 "blocks": 50,
                 "painting": 50,
+                "repeated_nextto": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -157,8 +168,27 @@ class GlobalSettings:
                 "cluttered_table": 25,
                 "blocks": 25,
                 "painting": 100,
+                "repeated_nextto": 10,
                 "playroom": 25,
                 "behavior": 100,
+            })[args["env"]],
+
+            # In SeSamE, when to propagate failures back up to the high level
+            # search. Choices are: {"after_exhaust", "immediately", "never"}.
+            sesame_propagate_failures=defaultdict(str, {
+                "cover": "immediately",
+                "cover_typed_options": "immediately",
+                "cover_hierarchical_types": "immediately",
+                "cover_multistep_options": "immediately",
+                # We use a different strategy for cluttered_table because
+                # of the high likelihood of getting cyclic failures if you
+                # immediately raise failures, leading to unsolvable tasks.
+                "cluttered_table": "after_exhaust",
+                "blocks": "immediately",
+                "painting": "immediately",
+                "repeated_nextto": "immediately",
+                "playroom": "immediately",
+                "behavior": "immediately",
             })[args["env"]],
 
             # Name of the option model to use.
@@ -170,19 +200,8 @@ class GlobalSettings:
                 "cluttered_table": "default",
                 "blocks": "default",
                 "painting": "default",
-                "playroom": "default"
-            })[args["env"]],
-
-            max_samples_per_step=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 10,
-                "cluttered_table": 10,
-                "blocks": 10,
-                "painting": 1,
-                "playroom": 10,
-                "behavior": 10,
+                "playroom": "default",
+                "repeated_nextto": "default",
             })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.

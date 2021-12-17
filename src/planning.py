@@ -62,13 +62,19 @@ def sesame_plan(task: Task,
     start_time = time.time()
     metrics: Metrics = defaultdict(float)
     while True:
+        # There is no point in using NSRTs with empty effects, and they can
+        # slow down search significantly, so we exclude them. Note however
+        # that we need to do this inside the while True here, because an NSRT
+        # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
+        nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
+                                 if nsrt.add_effects | nsrt.delete_effects]
         if check_dr_reachable and \
-           not utils.is_dr_reachable(ground_nsrts, atoms, task.goal):
+           not utils.is_dr_reachable(nonempty_ground_nsrts, atoms, task.goal):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
             plan = _run_search(
-                task, option_model, ground_nsrts, atoms, predicates,
+                task, option_model, nonempty_ground_nsrts, atoms, predicates,
                 timeout-(time.time()-start_time), new_seed, metrics)
             break  # planning succeeded, break out of loop
         except _DiscoveredFailureException as e:
@@ -127,6 +133,7 @@ def _run_search(task: Task,
                 return plan
         else:
             # Generate successors.
+            metrics["num_nodes_expanded"] += 1
             for nsrt in utils.get_applicable_nsrts(ground_nsrts, node.atoms):
                 child_atoms = utils.apply_nsrt(nsrt, set(node.atoms))
                 child_node = _Node(
@@ -160,6 +167,8 @@ def _run_low_level_search(
         timeout: float) -> Optional[List[_Option]]:
     """Backtracking search over continuous values.
     """
+    assert CFG.sesame_propagate_failures in \
+        {"after_exhaust", "immediately", "never"}
     cur_idx = 0
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DefaultOption for _ in skeleton]
@@ -188,16 +197,29 @@ def _run_low_level_search(
                 discovered_failures[cur_idx] = None  # no failure occurred
             except EnvironmentFailure as e:
                 can_continue_on = False
-                discovered_failures[cur_idx] = _DiscoveredFailure(
-                    e, nsrt)  # remember only the most recent failure
+                failure = _DiscoveredFailure(e, nsrt)
+                # Remember only the most recent failure.
+                discovered_failures[cur_idx] = failure
+                # If we're immediately propagating failures, raise it now.
+                if CFG.sesame_propagate_failures == "immediately":
+                    raise _DiscoveredFailureException(
+                        "Discovered a failure", failure)
             if not discovered_failures[cur_idx]:
                 traj[cur_idx+1] = next_state
                 cur_idx += 1
                 # Check atoms against expected atoms_sequence constraint.
+                # The NSRT defines a scope: objects that are relevant for this
+                # transition. All objects outside the scope will be ignored when
+                # checking if the expected abstract state is reached.
                 assert len(traj) == len(atoms_sequence)
-                atoms = utils.abstract(traj[cur_idx], predicates)
-                if atoms == {atom for atom in atoms_sequence[cur_idx]
-                             if atom.predicate.name != _NOT_CAUSES_FAILURE}:
+                scoped_state = traj[cur_idx].scope(nsrt.objects)
+                scoped_atoms = utils.abstract(scoped_state, predicates)
+                expected_atoms = {atom for atom in atoms_sequence[cur_idx]
+                                  if atom.predicate.name != _NOT_CAUSES_FAILURE}
+                # Only check atoms where all objects are in scope.
+                scoped_expected_atoms = {a for a in expected_atoms \
+                    if all(o in nsrt.objects for o in a.objects)}
+                if scoped_atoms == scoped_expected_atoms:
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan
@@ -220,13 +242,15 @@ def _run_low_level_search(
                 traj[cur_idx+1] = DefaultState
                 cur_idx -= 1
                 if cur_idx < 0:
-                    # Backtracking exhausted. If there were any failures,
+                    # Backtracking exhausted. If we're only propagating failures
+                    # after exhaustion, and if there are any failures,
                     # propagate up the EARLIEST one so that search restarts.
                     # Otherwise, return None so that search continues.
-                    for failure in discovered_failures:
-                        if CFG.propagate_failures and failure is not None:
+                    for earliest_failure in discovered_failures:
+                        if (CFG.sesame_propagate_failures == "after_exhaust"
+                            and earliest_failure is not None):
                             raise _DiscoveredFailureException(
-                                "Discovered a failure", failure)
+                                "Discovered a failure", earliest_failure)
                     return None
     # Should only get here if the skeleton was empty
     assert not skeleton

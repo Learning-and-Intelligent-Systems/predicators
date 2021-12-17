@@ -7,7 +7,7 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, \
-    BlocksEnv, PaintingEnv, CoverMultistepOptions
+    BlocksEnv, PaintingEnv, CoverMultistepOptions, RepeatedNextToEnv
 from predicators.src.structs import Action
 from predicators.src import utils
 
@@ -225,10 +225,10 @@ def test_oracle_approach_cluttered_table():
     policy = approach.solve(train_task, timeout=500)
     assert utils.policy_solves_task(
         policy, train_task, env.simulate, env.predicates)
-    test_task = env.get_test_tasks()[0]
-    policy = approach.solve(test_task, timeout=500)
-    assert utils.policy_solves_task(
-        policy, test_task, env.simulate, env.predicates)
+    for test_task in env.get_test_tasks()[:5]:
+        policy = approach.solve(test_task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, test_task, env.simulate, env.predicates)
 
 
 def test_oracle_approach_blocks():
@@ -290,6 +290,26 @@ def test_oracle_approach_playroom():
         assert utils.policy_solves_task(
             policy, train_task, env.simulate, env.predicates)
     for test_task in env.get_test_tasks()[:2]:
+        policy = approach.solve(test_task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, test_task, env.simulate, env.predicates)
+
+def test_oracle_approach_repeated_nextto():
+    """Tests for OracleApproach class with RepeatedNextToEnv.
+    """
+    utils.update_config({"env": "repeated_nextto"})
+    env = RepeatedNextToEnv()
+    env.seed(123)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space)
+    assert not approach.is_learning_based
+    approach.seed(123)
+    for train_task in next(env.train_tasks_generator())[:3]:
+        policy = approach.solve(train_task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, train_task, env.simulate, env.predicates)
+    for test_task in env.get_test_tasks()[:3]:
         policy = approach.solve(test_task, timeout=500)
         assert utils.policy_solves_task(
             policy, test_task, env.simulate, env.predicates)

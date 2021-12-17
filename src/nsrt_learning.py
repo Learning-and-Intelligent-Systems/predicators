@@ -5,8 +5,8 @@ import functools
 from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    StateActionTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
-    DefaultOption, ParameterizedOption
+    LowLevelTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
+    DefaultOption, ParameterizedOption, State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -28,7 +28,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
                 for seg in segment_trajectory(traj)]
 
     # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators(segments)
+    strips_ops, partitions = learn_strips_operators(segments,
+        verbose=CFG.do_option_learning)
     assert len(strips_ops) == len(partitions)
 
     # Learn option specs, or if known, just look them up. The order of
@@ -40,10 +41,21 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     option_learner = create_option_learner()
     option_specs = option_learner.learn_option_specs(strips_ops, partitions)
     assert len(option_specs) == len(strips_ops)
+    # Seed the new parameterized option parameter spaces.
+    for parameterized_option, _ in option_specs:
+        parameterized_option.params_space.seed(CFG.seed)
+    # Update the segments to include which option is being executed.
     for partition, spec in zip(partitions, option_specs):
         for (segment, _) in partition:
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
+
+    # For the impatient, print out the STRIPSOperators with their option specs.
+    print("\nLearned operators with option specs:")
+    for strips_op, (option, option_vars) in zip(strips_ops, option_specs):
+        print(strips_op)
+        option_var_str = ", ".join([str(v) for v in option_vars])
+        print(f"    Option Spec: {option.name}({option_var_str})")
 
     # Learn samplers.
     # The order of the samplers also corresponds to strips_ops.
@@ -72,12 +84,13 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     If options are available, also use them to segment.
     """
     segments = []
-    states, actions, all_atoms = trajectory
-    assert len(states) == len(actions) + 1 == len(all_atoms)
-    current_segment_traj : StateActionTrajectory = ([], [])
-    for t in range(len(actions)):
-        current_segment_traj[0].append(states[t])
-        current_segment_traj[1].append(actions[t])
+    traj, all_atoms = trajectory
+    assert len(traj.states) == len(all_atoms)
+    current_segment_states : List[State] = []
+    current_segment_actions : List[Action] = []
+    for t in range(len(traj.actions)):
+        current_segment_states.append(traj.states[t])
+        current_segment_actions.append(traj.actions[t])
         switch = all_atoms[t] != all_atoms[t+1]
         # Segment based on option specs if we are assuming that options are
         # known. If we do not do this, it can lead to a bug where an option
@@ -94,30 +107,40 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         # like Holding, Handempty, etc., because when doing symbolic planning,
         # we only have predicates, and not the continuous parameters that would
         # be used to distinguish between a PickPlace that is a pick vs a place.
-        if actions[t].has_option() and t < len(actions) - 1:
-            # We don't care about the last option in the traj because there's
-            # no next option after it, so we could never possibly want to
-            # segment due to that option. But we still need to check atoms here,
-            # because the length of all_atoms is one longer.
-            option_t = actions[t].get_option()
-            option_t1 = actions[t+1].get_option()
-            option_t_spec = (option_t.parent, option_t.objects)
-            option_t1_spec = (option_t1.parent, option_t1.objects)
-            if option_t_spec != option_t1_spec:
+        if traj.actions[t].has_option():
+            # Check for a change in option specs.
+            if t < len(traj.actions) - 1:
+                option_t = traj.actions[t].get_option()
+                option_t1 = traj.actions[t+1].get_option()
+                option_t_spec = (option_t.parent, option_t.objects)
+                option_t1_spec = (option_t1.parent, option_t1.objects)
+                if option_t_spec != option_t1_spec:
+                    switch = True
+            # Special case: if the final option terminates in the state, we
+            # can safely segment without using any continuous info. Note that
+            # excluding the final option from the data is highly problematic
+            # when using demo+replay with the default 1 option per replay
+            # because the replay data which causes no change in the symbolic
+            # state would get excluded.
+            elif traj.actions[t].get_option().terminal(traj.states[t]):
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
-            current_segment_traj[0].append(states[t+1])
-            if actions[t].has_option():
-                segment = Segment(current_segment_traj, all_atoms[t],
-                                  all_atoms[t+1], actions[t].get_option())
+            current_segment_states.append(traj.states[t+1])
+            current_segment_traj = LowLevelTrajectory(
+                current_segment_states, current_segment_actions)
+            if traj.actions[t].has_option():
+                segment = Segment(current_segment_traj,
+                                  all_atoms[t], all_atoms[t+1],
+                                  traj.actions[t].get_option())
             else:
                 # If option learning, include the default option here; replaced
                 # during option learning.
                 segment = Segment(current_segment_traj,
                                   all_atoms[t], all_atoms[t+1])
             segments.append(segment)
-            current_segment_traj = ([], [])
+            current_segment_states = []
+            current_segment_actions = []
     # Don't include the last current segment because it didn't result in
     # an abstract state change. (E.g., the option may not be terminating.)
     return segments

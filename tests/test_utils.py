@@ -8,7 +8,8 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator
+    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator, \
+    LowLevelTrajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -96,65 +97,12 @@ def test_option_to_trajectory():
                                    max_num_steps=5)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    states, actions = utils.option_to_trajectory(
+    traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
-    assert len(actions) == len(states)-1 == 19
-    states, actions = utils.option_to_trajectory(
+    assert len(traj.actions) == len(traj.states)-1 == 19
+    traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=10)
-    assert len(actions) == len(states)-1 == 10
-
-
-def test_state_action_to_option_trajectory():
-    """Tests for state_action_to_option_trajectory.
-    """
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = State({cup: [0.5], plate: [1.0, 1.2]})
-    def _simulator(s, a):
-        ns = s.copy()
-        assert a.arr.shape == (1,)
-        ns[cup][0] += a.arr.item()
-        return ns
-    params_space = Box(0, 1, (1,))
-    def _policy(_1, _2, _3, p):
-        return Action(p)
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
-    def _terminal(s, _1, _2, _3):
-        return s[cup][0] > 9.9
-    parameterized_option = ParameterizedOption(
-        "Move", [], params_space, _policy, _initiable, _terminal)
-    params = [0.5]
-    option = parameterized_option.ground([], params)
-    sa_traj = utils.option_to_trajectory(
-        state, _simulator, option, max_num_steps=100)
-    opt_traj = utils.state_action_to_option_trajectory(sa_traj)
-    assert len(opt_traj) == 2
-    assert repr(opt_traj[1][0]) == (
-        "_Option(name='Move', objects=[], "
-        "params=array([0.5], dtype=float32))")
-    state_only_traj = (sa_traj[0][:1], [])
-    opt_traj = utils.state_action_to_option_trajectory(state_only_traj)
-    assert len(opt_traj[0]) == 1
-    assert len(opt_traj[1]) == 0
-    params = [0.6]
-    other_option = parameterized_option.ground([], params)
-    other_sa_traj = utils.option_to_trajectory(
-        sa_traj[0][-1], _simulator, other_option, max_num_steps=100)
-    states = sa_traj[0] + other_sa_traj[0]
-    actions = sa_traj[1] + other_sa_traj[1]
-    opt_traj = utils.state_action_to_option_trajectory((states, actions))
-    assert len(opt_traj) == 2
-    assert len(opt_traj[1]) == 2
-    assert repr(opt_traj[1][0]) == (
-        "_Option(name='Move', objects=[], "
-        "params=array([0.5], dtype=float32))")
-    assert repr(opt_traj[1][1]) == (
-        "_Option(name='Move', objects=[], "
-        "params=array([0.6], dtype=float32))")
-    assert len(opt_traj[0]) == 3
+    assert len(traj.actions) == len(traj.states)-1 == 10
 
 
 def test_option_plan_to_policy():
@@ -190,14 +138,14 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    expected_states, expected_actions = utils.option_to_trajectory(
+    traj = utils.option_to_trajectory(
         state, _simulator, option, max_num_steps=100)
-    assert len(expected_actions) == len(expected_states)-1 == 19
+    assert len(traj.actions) == len(traj.states)-1 == 19
     for t in range(19):
         assert not option.terminal(state)
-        assert state.allclose(expected_states[t])
+        assert state.allclose(traj.states[t])
         action = policy(state)
-        assert np.allclose(action.arr, expected_actions[t].arr)
+        assert np.allclose(action.arr, traj.actions[t].arr)
         state = _simulator(state, action)
     assert option.terminal(state)
     with pytest.raises(utils.OptionPlanExhausted):
@@ -614,7 +562,7 @@ def test_all_ground_operators():
     not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
     cup_var = cup_type("?cup")
     plate1_var = plate_type("?plate1")
-    plate2_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate2")
     parameters = [cup_var, plate1_var, plate2_var]
     preconditions = {not_on([cup_var, plate1_var])}
     add_effects = {on([cup_var, plate1_var])}
@@ -642,6 +590,65 @@ def test_all_ground_operators():
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
 
 
+def test_all_ground_operators_given_partial():
+    """Tests for all_ground_operators_given_partial().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate1_var = plate_type("?plate1")
+    plate2_var = plate_type("?plate2")
+    parameters = [cup_var, plate1_var, plate2_var]
+    preconditions = {not_on([cup_var, plate1_var])}
+    add_effects = {on([cup_var, plate1_var])}
+    delete_effects = {not_on([cup_var, plate1_var])}
+    op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
+                        delete_effects)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    # First test empty partial sub.
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, {})
+    assert ground_ops == utils.all_ground_operators(op, objects)
+    # Test with one partial sub.
+    sub = {plate1_var: plate1}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 4
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate1, plate1] in all_obj
+    assert [cup2, plate1, plate1] in all_obj
+    assert [cup1, plate1, plate2] in all_obj
+    assert [cup2, plate1, plate2] in all_obj
+    preds, types = utils.extract_preds_and_types({op})
+    assert preds == {"NotOn": not_on, "On": on}
+    assert types == {"plate_type": plate_type, "cup_type": cup_type}
+    # Test another single partial sub.
+    sub = {plate1_var: plate2}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 4
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate2, plate1] in all_obj
+    assert [cup2, plate2, plate1] in all_obj
+    assert [cup1, plate2, plate2] in all_obj
+    assert [cup2, plate2, plate2] in all_obj
+    # Test multiple partial subs.
+    sub = {plate1_var: plate1, plate2_var: plate2}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 2
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate1, plate2] in all_obj
+    assert [cup2, plate1, plate2] in all_obj
+    sub = {plate1_var: plate2, plate2_var: plate1, cup_var: cup1}
+    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    assert len(ground_ops) == 1
+    all_obj = [op.objects for op in ground_ops]
+    assert [cup1, plate2, plate1] in all_obj
+
+
 def test_prune_ground_atom_dataset():
     """Tests for prune_ground_atom_dataset().
     """
@@ -659,18 +666,18 @@ def test_prune_ground_atom_dataset():
     not_on_ground = {GroundAtom(not_on, [cup1, plate2]),
                      GroundAtom(not_on, [cup2, plate1])}
     all_atoms = on_ground | not_on_ground
-    ground_atom_dataset = [([state], [], [all_atoms])]
+    ground_atom_dataset = [(LowLevelTrajectory([state], []), [all_atoms])]
     pruned_dataset1 = utils.prune_ground_atom_dataset(ground_atom_dataset, {on})
-    assert pruned_dataset1[0][2][0] == on_ground
+    assert pruned_dataset1[0][1][0] == on_ground
     pruned_dataset2 = utils.prune_ground_atom_dataset(ground_atom_dataset,
                                                       {not_on})
-    assert pruned_dataset2[0][2][0] == not_on_ground
+    assert pruned_dataset2[0][1][0] == not_on_ground
     pruned_dataset3 = utils.prune_ground_atom_dataset(ground_atom_dataset,
                                                       {on, not_on})
-    assert pruned_dataset3[0][2][0] == all_atoms
+    assert pruned_dataset3[0][1][0] == all_atoms
     pruned_dataset4 = utils.prune_ground_atom_dataset(ground_atom_dataset,
                                                       set())
-    assert pruned_dataset4[0][2][0] == set()
+    assert pruned_dataset4[0][1][0] == set()
 
 
 def test_ground_atom_methods():
@@ -717,18 +724,19 @@ def test_create_ground_atom_dataset():
         State({cup1: [1.1], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
     ]
     actions = [DefaultOption]
-    dataset = [(states, actions)]
+    dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
-    assert len(ground_atom_dataset[0]) == 3
-    assert len(ground_atom_dataset[0][0]) == len(states)
+    assert len(ground_atom_dataset[0]) == 2
+    assert len(ground_atom_dataset[0][0].states) == len(states)
     assert all(gs.allclose(s) for gs, s in \
-               zip(ground_atom_dataset[0][0], states))
-    assert len(ground_atom_dataset[0][1]) == len(actions)
-    assert all(ga == a for ga, a in zip(ground_atom_dataset[0][1], actions))
-    assert len(ground_atom_dataset[0][2]) == len(states) == 2
-    assert ground_atom_dataset[0][2][0] == set()
-    assert ground_atom_dataset[0][2][1] == {GroundAtom(on, [cup1, plate1])}
+               zip(ground_atom_dataset[0][0].states, states))
+    assert len(ground_atom_dataset[0][0].actions) == len(actions)
+    assert all(ga == a for ga, a
+               in zip(ground_atom_dataset[0][0].actions, actions))
+    assert len(ground_atom_dataset[0][1]) == len(states) == 2
+    assert ground_atom_dataset[0][1][0] == set()
+    assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
 
 
 def test_static_nsrt_filtering():
@@ -898,6 +906,69 @@ def test_nsrt_application():
         ground_nsrts, {pred3([cup2, plate1])}))
     assert not list(utils.get_applicable_nsrts(
         ground_nsrts, {pred3([cup2, plate2])}))
+
+
+def test_operator_application():
+    """Tests for get_applicable_operators(), apply_operator().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type, plate_type], lambda s, o: True)
+    pred3 = Predicate("Pred3", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions1 = {pred1([cup_var, plate_var])}
+    add_effects1 = {pred2([cup_var, plate_var])}
+    delete_effects1 = {}
+    preconditions2 = {pred1([cup_var, plate_var])}
+    add_effects2 = {}
+    delete_effects2 = {pred3([cup_var, plate_var])}
+    op1 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1)
+    op2 = STRIPSOperator("Place", parameters, preconditions2, add_effects2,
+                         delete_effects2)
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    plate1 = plate_type("plate1")
+    plate2 = plate_type("plate2")
+    objects = {cup1, cup2, plate1, plate2}
+    ground_ops = (utils.all_ground_operators(op1, objects) |
+                  utils.all_ground_operators(op2, objects))
+    assert len(ground_ops) == 8
+    applicable = list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate1])}))
+    assert len(applicable) == 2
+    all_obj = [(op.name, op.objects) for op in applicable]
+    assert ("Pick", [cup1, plate1]) in all_obj
+    assert ("Place", [cup1, plate1]) in all_obj
+    next_atoms = [utils.apply_operator(op, {pred1([cup1, plate1])})
+                  for op in applicable]
+    assert {pred1([cup1, plate1])} in next_atoms
+    assert {pred1([cup1, plate1]), pred2([cup1, plate1])} in next_atoms
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate2])}))
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup2, plate1])}))
+    assert list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup2, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup1, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup1, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup2, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred2([cup2, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup1, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup1, plate2])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup2, plate1])}))
+    assert not list(utils.get_applicable_operators(
+        ground_ops, {pred3([cup2, plate2])}))
 
 
 def test_hadd_heuristic():
@@ -1081,6 +1152,6 @@ def test_run_gbfs():
     # Test limit on max evals.
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
         _grid_check_goal_fn, _inf_grid_successor_fn, _grid_heuristic_fn,
-        lazy_expansion=True, max_evals=3)
+        lazy_expansion=True, max_evals=2)
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
