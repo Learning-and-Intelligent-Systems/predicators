@@ -139,7 +139,7 @@ class GlobalSettings:
                 "cluttered_table": 50,
                 "blocks": 50,
                 "painting": 50,
-                "repeated_nextto": 50,
+                "repeated_nextto": 100,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],

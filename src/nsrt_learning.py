@@ -289,6 +289,9 @@ def learn_strips_operators_from_demos(
             print(op)
         ops.append(op)
 
+    # TODO: none of the below may actually be needed... it may just be
+    # a question of data size.
+
     # Go through operators and filter out ones that are "dominated",
     # meaning in every state where the preconditions hold and the effects
     # follow, there is another operators whose preconditions also hold and
@@ -305,10 +308,15 @@ def learn_strips_operators_from_demos(
             # Check if other_op dominates op.
             for segment, sub in partition:
                 inv_sub = {v: k for k, v in sub.items()}
-                op_predicted_add_effects = {a.ground(inv_sub)
-                                            for a in op.add_effects}
-                op_predicted_delete_effects = {a.ground(inv_sub)
-                                               for a in op.delete_effects}
+                try:
+                    op_predicted_add_effects = {a.ground(inv_sub)
+                                                for a in op.add_effects}
+                    op_predicted_delete_effects = {a.ground(inv_sub)
+                                                   for a in op.delete_effects}
+                except AssertionError:
+                    # Other op definitely does not dominate because there is
+                    # a mismatch in the variables.
+                    break
                 # Check if this segment is also covered by other_idx.
                 # If the preconditions don't hold, that means that this
                 # other_idx doesn't dominate.
@@ -341,7 +349,6 @@ def learn_strips_operators_from_demos(
             else:
                 # All the segments for op were dominated by other op!
                 is_dominated = True
-                import ipdb; ipdb.set_trace()
                 break
         # If this op is dominated, remove it.
         # TODO: add the data to the partition that dominated it! This will
