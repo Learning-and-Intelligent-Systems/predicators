@@ -168,22 +168,26 @@ def _make_proxy_analysis_results(outdir: str) -> None:
     print(f"Wrote out to {csv_filepath}.")
 
 
-if __name__ == "__main__":
-    ENV_NAMES = [
+def _main() -> None:
+    env_names = [
         "cover",
         "blocks",
         "painting",
     ]
-    HEURISTIC_NAMES = [
+    heuristic_names = [
         "prediction_error",
         "hadd_lookahead",
     ]
-    RUN_PLANNING = True
+    run_planning = True
 
-    OUTDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
-    if not os.path.exists(OUTDIR):
-        os.makedirs(OUTDIR)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
 
-    _run_proxy_analysis(ENV_NAMES, HEURISTIC_NAMES, RUN_PLANNING, OUTDIR)
-    _make_proxy_analysis_results(OUTDIR)
+    _run_proxy_analysis(env_names, heuristic_names, run_planning, outdir)
+    _make_proxy_analysis_results(outdir)
+
+
+if __name__ == "__main__":
+    _main()
