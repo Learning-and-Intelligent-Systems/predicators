@@ -208,10 +208,10 @@ def _run_low_level_search(
                 traj[cur_idx+1] = next_state
                 cur_idx += 1
                 # Check atoms against expected atoms_sequence constraint.
-                assert len(traj) == len(atoms_sequence)
                 # The NSRT defines a scope: objects that are relevant for this
                 # transition. All objects outside the scope will be ignored when
                 # checking if the expected abstract state is reached.
+                assert len(traj) == len(atoms_sequence)
                 scoped_state = traj[cur_idx].scope(nsrt.objects)
                 scoped_atoms = utils.abstract(scoped_state, predicates)
                 expected_atoms = {atom for atom in atoms_sequence[cur_idx]
