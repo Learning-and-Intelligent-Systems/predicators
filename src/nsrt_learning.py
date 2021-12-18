@@ -36,22 +36,9 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
     # Learn strips operators.
     strips_ops, partitions = learn_strips_operators_from_demos(
-        demo_traj_segments, demo_goals, verbose=CFG.do_option_learning)
+        demo_traj_segments, demo_goals, nondemo_segments,
+        verbose=CFG.do_option_learning)
     assert len(strips_ops) == len(partitions)
-
-    # Add nondemo data to partitions.
-    for segment in nondemo_segments:
-        for op, partition in zip(strips_ops, partitions):
-            ground_ops = utils.all_ground_operators(op, set(segment.states[0]))
-            for ground_op in utils.get_applicable_operators(
-                ground_ops, segment.init_atoms):
-                if not ground_op.add_effects.issubset(segment.add_effects):
-                    continue
-                if not ground_op.delete_effects.issubset(
-                    segment.delete_effects):
-                    continue
-                sub = dict(zip(ground_op.objects, op.parameters))
-                partition.add((segment, sub))
 
     # Learn option specs, or if known, just look them up. The order of
     # the options corresponds to the strips_ops. Each spec is a
@@ -170,6 +157,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
 def learn_strips_operators_from_demos(
     trajectory_segments: List[List[Segment]],
     trajectory_goals: List[Set[GroundAtom]],
+    nondemo_segments: List[Segment],
     verbose: bool = True
     ) -> Tuple[List[STRIPSOperator], List[Partition]]:
     """Learn operators given the segmented transitions.
@@ -304,10 +292,35 @@ def learn_strips_operators_from_demos(
         name = f"Op{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
                             delete_effects[i])
-        if verbose:
-            print("Learned STRIPSOperator:")
-            print(op)
         ops.append(op)
+
+
+    # Add nondemo data to partitions.
+    for segment in nondemo_segments:
+        # Get option spec for segment.
+        if segment.has_option():
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
+        else:
+            segment_param_option = DefaultOption.parent
+            segment_option_objs = tuple()
+        for idx, op in enumerate(ops):
+            # See about adding this segment to partitions[idx].
+            if segment_param_option != parameterized_options[idx]:
+                continue
+            partial_sub = dict(zip(option_vars[idx], segment_option_objs))
+            ground_ops = utils.all_ground_operators_given_partial(
+                op, set(segment.states[0]),  partial_sub)
+            for ground_op in utils.get_applicable_operators(
+                ground_ops, segment.init_atoms):
+                if not ground_op.add_effects.issubset(segment.add_effects):
+                    continue
+                if not ground_op.delete_effects.issubset(
+                    segment.delete_effects):
+                    continue
+                sub = dict(zip(ground_op.objects, op.parameters))
+                partitions[idx].add((segment, sub))
 
     # TODO: none of the below may actually be needed... it may just be
     # a question of data size.
