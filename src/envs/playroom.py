@@ -667,6 +667,6 @@ class PlayroomEnv(BlocksEnv):
         for door in self._doors:
             if x <= state.get(door, "pose_x") <= prev_x \
                or prev_x <= state.get(door, "pose_x") <= x:
-                if state.get(door, "open") < 0.5:
+                if state.get(door, "open") < self.door_open_thresh:
                     raise EnvironmentFailure("collision", {door})
         return True
