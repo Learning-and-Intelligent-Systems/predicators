@@ -715,12 +715,15 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     delete_effects = {LiftedAtom(NextToDoor, [robot, fromdoor])}
     def movedoortodoor_sampler(state: State, rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
+        del rng  # unused
         assert len(objs) == 3
-        _, _, todoor = objs
+        _, fromdoor, todoor = objs
         assert todoor.is_instance(door_type)
-        x, y = state.get(todoor, "pose_x"), state.get(todoor, "pose_y")
-        rotation = rng.uniform(-1, 1)
-        return np.array([x, y, rotation], dtype=np.float32)
+        to_x, to_y = state.get(todoor, "pose_x"), state.get(todoor, "pose_y")
+        from_x = state.get(fromdoor, "pose_x")
+        rotation = 0.0 if from_x < to_x else -1.0
+        to_x = to_x-0.1 if from_x < to_x else to_x+0.1
+        return np.array([to_x, to_y, rotation], dtype=np.float32)
     movedoortodoor_nsrt = NSRT(
         "MoveDoorToDoor", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, movedoortodoor_sampler)
@@ -737,12 +740,12 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     delete_effects = {LiftedAtom(NextToTable, [robot])}
     def movetabletodoor_sampler(state: State, rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
+        del rng  # unused
         assert len(objs) == 2
         _, door = objs
         assert door.is_instance(door_type)
-        x, y = state.get(door, "pose_x"), state.get(door, "pose_y")
-        rotation = rng.uniform(-1, 1)
-        return np.array([x, y, rotation], dtype=np.float32)
+        x, y = state.get(door, "pose_x")-0.1, state.get(door, "pose_y")
+        return np.array([x, y, 0.0], dtype=np.float32)
     movetabletodoor_nsrt = NSRT(
         "MoveTableToDoor", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, movetabletodoor_sampler)
@@ -790,8 +793,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         assert dial.is_instance(dial_type)
         cls = PlayroomEnv
         dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-        x = rng.uniform(dial_x-cls.dial_r, dial_x+cls.dial_r)
-        y = rng.uniform(dial_y-cls.dial_r, dial_y+cls.dial_r)
+        x = rng.uniform(dial_x-cls.dial_button_tol, dial_x+cls.dial_button_tol)
+        y = rng.uniform(dial_y-cls.dial_button_tol, dial_y+cls.dial_button_tol)
         # find rotation of robot that faces the dial
         rotation = np.arctan2(dial_y-y, dial_x-x) / np.pi
         return np.array([x, y, rotation], dtype=np.float32)
@@ -812,12 +815,12 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     delete_effects = {LiftedAtom(NextToDial, [robot, dial])}
     def movedialtodoor_sampler(state: State, rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
+        del rng  # unused
         assert len(objs) == 3
         _, _, door = objs
         assert door.is_instance(door_type)
         x, y = state.get(door, "pose_x"), state.get(door, "pose_y")
-        rotation = rng.uniform(-1, 1)
-        return np.array([x, y, rotation], dtype=np.float32)
+        return np.array([x+0.1, y, -1.0], dtype=np.float32)
     movedialtodoor_nsrt = NSRT(
         "MoveDialToDoor", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, movedialtodoor_sampler)
@@ -845,7 +848,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         # find rotation of robot that faces the door
         door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
         rotation = np.arctan2(door_y-y, door_x-x) / np.pi
-        return np.array([0, 0, rotation], dtype=np.float32)
+        return np.array([0, 0, 0, rotation], dtype=np.float32)
     opendoor_nsrt = NSRT(
         "OpenDoor", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, toggledoor_sampler)
@@ -910,6 +913,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         "TurnOffDial", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, toggledial_sampler)
     nsrts.add(turnoffdial_nsrt)
+
+    return nsrts
 
 def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for RepeatedNextToEnv.
