@@ -24,14 +24,52 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
 
     # Segment transitions based on changes in predicates.
-    trajectory_segments = [segment_trajectory(traj)
-                           for traj in ground_atom_dataset]
-    trajectory_goals = [ll_traj.goal for ll_traj, _ in ground_atom_dataset]
+    demo_traj_segments, nondemo_segments, demo_goals = [], [], []
+    for traj in ground_atom_dataset:
+        segmented_traj = segment_trajectory(traj)
+        ll_traj = traj[0]
+        if ll_traj.is_demo:
+            demo_traj_segments.append(segmented_traj)
+            demo_goals.append(ll_traj.goal)
+        else:
+            nondemo_segments.extend(segmented_traj)
 
     # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators_from_demos(
-        trajectory_segments, trajectory_goals, verbose=CFG.do_option_learning)
+    strips_ops, partitions, parameterized_options, option_vars, add_effects, \
+        delete_effects = learn_strips_operators_from_demos(
+        demo_traj_segments, demo_goals, verbose=CFG.do_option_learning)
     assert len(strips_ops) == len(partitions)
+
+    # Add nondemo data to partitions.
+    for segment in nondemo_segments:
+        if segment.has_option():
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
+        else:
+            segment_param_option = DefaultOption.parent
+            segment_option_objs = tuple()
+        for i in range(len(partitions)):
+            # Try to unify this transition with existing effects.
+            # Note that both add and delete effects must unify,
+            # and also the objects that are arguments to the options.
+            part_param_option = parameterized_options[i]
+            part_option_vars = option_vars[i]
+            part_add_effects = add_effects[i]
+            part_delete_effects = delete_effects[i]
+            suc, sub = unify_effects_and_options(
+                frozenset(segment.add_effects),
+                frozenset(part_add_effects),
+                frozenset(segment.delete_effects),
+                frozenset(part_delete_effects),
+                segment_param_option,
+                part_param_option,
+                segment_option_objs,
+                part_option_vars)
+            if suc:
+                # Add to this partition.
+                partitions[i].add((segment, sub))
+                break
 
     # Learn option specs, or if known, just look them up. The order of
     # the options corresponds to the strips_ops. Each spec is a
@@ -357,8 +395,8 @@ def learn_strips_operators_from_demos(
             del ops[idx]
             del partitions[idx]
 
-    return ops, partitions
-
+    return ops, partitions, parameterized_options, option_vars, add_effects, \
+        delete_effects
 
 
 def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,

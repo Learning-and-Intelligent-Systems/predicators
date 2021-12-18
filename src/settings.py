@@ -132,14 +132,14 @@ class GlobalSettings:
         return dict(
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
-                "cover": 50,
+                "cover": 10,
                 "cover_typed_options": 10,
                 "cover_hierarchical_types": 10,
                 "cover_multistep_options": 10,
                 "cluttered_table": 50,
                 "blocks": 50,
                 "painting": 50,
-                "repeated_nextto": 100,
+                "repeated_nextto": 50,
                 "playroom": 50,
                 "behavior": 10,
             })[args["env"]],
@@ -205,10 +205,10 @@ class GlobalSettings:
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
-                "nsrt_learning": "demo",
+                "nsrt_learning": "demo+replay",
                 "interactive_learning": "demo",
-                "iterative_invention": "demo",
-                "grammar_search_invention": "demo",
+                "iterative_invention": "demo+replay",
+                "grammar_search_invention": "demo+replay",
             })[args["approach"]],
         )
 
