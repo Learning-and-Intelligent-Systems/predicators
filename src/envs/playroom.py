@@ -73,7 +73,7 @@ class PlayroomEnv(BlocksEnv):
             "InRegion", [self._robot_type, self._region_type],
             self._InRegion_holds)
         self._Borders = Predicate(
-            "Borders", [self._door_type, self._region_type],
+            "Borders", [self._door_type, self._region_type, self._door_type],
             self._Borders_holds)
         self._Connects = Predicate(
             "Connects", [self._door_type, self._region_type, self._region_type],
@@ -598,10 +598,11 @@ class PlayroomEnv(BlocksEnv):
 
     @staticmethod
     def _Borders_holds(state: State, objects: Sequence[Object]) -> bool:
-        door, region = objects
-        door_x = state.get(door, "pose_x")
-        return door_x == state.get(region, "x_lb") or \
-               door_x == state.get(region, "x_ub")
+        door1, region, door2 = objects
+        door1_x = state.get(door1, "pose_x")
+        door2_x = state.get(door2, "pose_x")
+        return door1_x == state.get(region, "x_lb") and \
+               door2_x == state.get(region, "x_ub")
 
     @staticmethod
     def _Connects_holds(state: State, objects: Sequence[Object]) -> bool:

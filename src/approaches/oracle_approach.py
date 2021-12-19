@@ -796,8 +796,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, fromdoor, todoor, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(Borders, [fromdoor, region]),
-                     LiftedAtom(Borders, [todoor, region]),
+    preconditions = {LiftedAtom(Borders, [fromdoor, region, todoor]),
                      LiftedAtom(InRegion, [robot, region]),
                      LiftedAtom(NextToDoor, [robot, fromdoor])}
     add_effects = {LiftedAtom(NextToDoor, [robot, todoor])}
