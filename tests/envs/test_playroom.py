@@ -22,11 +22,11 @@ def test_playroom():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 12
+    assert len(env.predicates) == 19
     assert {pred.name for pred in env.goal_predicates} == \
         {"On", "OnTable", "LightOn", "LightOff"}
     assert len(env.options) == 8
-    assert len(env.types) == 4
+    assert len(env.types) == 5
     assert env.action_space.shape == (5,)
     assert abs(env.action_space.low[0]-PlayroomEnv.x_lb) < 1e-3
     assert abs(env.action_space.high[0]-PlayroomEnv.x_ub) < 1e-3
@@ -314,7 +314,7 @@ def test_playroom_options():
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate,
-        env.predicates, 14, make_video, env.render)
+        env.predicates, len(plan), make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover

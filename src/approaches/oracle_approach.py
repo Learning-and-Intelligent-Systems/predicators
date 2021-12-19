@@ -559,14 +559,19 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
 def _get_playroom_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for Playroom Env.
     """
-    block_type, robot_type, door_type, dial_type = \
-        _get_types_by_names(CFG.env, ["block", "robot", "door", "dial"])
+    block_type, robot_type, door_type, dial_type, region_type = \
+        _get_types_by_names(CFG.env,
+            ["block", "robot", "door", "dial", "region"])
 
     On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, \
-        NextToDial, DoorOpen, DoorClosed, LightOn, LightOff = \
+        NextToDial, InRegion, Borders, Connects, IsBoringRoom, IsPlayroom, \
+        IsBoringRoomDoor, IsPlayroomDoor, DoorOpen, DoorClosed, LightOn, \
+        LightOff = \
             _get_predicates_by_names(
-"playroom", ["On", "OnTable", "GripperOpen", "Holding", "Clear", "NextToTable",
-"NextToDoor", "NextToDial", "DoorOpen", "DoorClosed", "LightOn", "LightOff"])
+            "playroom", ["On", "OnTable", "GripperOpen", "Holding", "Clear",
+            "NextToTable", "NextToDoor", "NextToDial", "InRegion", "Borders",
+            "Connects", "IsBoringRoom", "IsPlayroom", "IsBoringRoomDoor",
+            "IsPlayroomDoor", "DoorOpen", "DoorClosed", "LightOn", "LightOff"])
 
     Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial, \
         TurnOffDial = _get_options_by_names("playroom",
@@ -590,7 +595,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
                       LiftedAtom(Clear, [block]),
                       LiftedAtom(GripperOpen, [robot])}
     def pickfromtable_sampler(state: State, rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
+                              objs: Sequence[Object]) -> Array:
         del rng  # unused
         assert len(objs) == 2
         _, block = objs
@@ -624,7 +629,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
                       LiftedAtom(Clear, [block]),
                       LiftedAtom(GripperOpen, [robot])}
     def unstack_sampler(state: State, rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
+                        objs: Sequence[Object]) -> Array:
         del rng  # unused
         assert len(objs) == 3
         block, _, _ = objs
@@ -703,48 +708,57 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         delete_effects, option, option_vars, putontable_sampler)
     nsrts.add(putontable_nsrt)
 
-    # MoveDoorToDoor
+    # AdvanceThroughDoor
     robot = Variable("?robot", robot_type)
-    fromdoor = Variable("?fromdoor", door_type)
-    todoor = Variable("?todoor", door_type)
-    parameters = [robot, fromdoor, todoor]
+    door = Variable("?door", door_type)
+    from_region = Variable("?from", region_type)
+    to_region = Variable("?to", region_type)
+    parameters = [robot, door, from_region, to_region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(NextToDoor, [robot, fromdoor])}
-    add_effects = {LiftedAtom(NextToDoor, [robot, todoor])}
-    delete_effects = {LiftedAtom(NextToDoor, [robot, fromdoor])}
-    def movedoortodoor_sampler(state: State, rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
+    preconditions = {LiftedAtom(InRegion, [robot, from_region]),
+                     LiftedAtom(Connects, [door, from_region, to_region]),
+                     LiftedAtom(DoorOpen, [door]),
+                     LiftedAtom(NextToDoor, [robot, door])}
+    add_effects = {LiftedAtom(InRegion, [robot, to_region])}
+    delete_effects = {LiftedAtom(InRegion, [robot, from_region])}
+    def advancethroughdoor_sampler(state: State, rng: np.random.Generator,
+                                   objs: Sequence[Object]) -> Array:
         del rng  # unused
-        assert len(objs) == 3
-        _, fromdoor, todoor = objs
-        assert todoor.is_instance(door_type)
-        to_x, to_y = state.get(todoor, "pose_x"), state.get(todoor, "pose_y")
-        from_x = state.get(fromdoor, "pose_x")
-        rotation = 0.0 if from_x < to_x else -1.0
-        to_x = to_x-0.1 if from_x < to_x else to_x+0.1
-        return np.array([to_x, to_y, rotation], dtype=np.float32)
-    movedoortodoor_nsrt = NSRT(
-        "MoveDoorToDoor", parameters, preconditions, add_effects,
-        delete_effects, option, option_vars, movedoortodoor_sampler)
-    nsrts.add(movedoortodoor_nsrt)
+        assert len(objs) == 4
+        robot, door, _, _ = objs
+        assert robot.is_instance(robot_type)
+        assert door.is_instance(door_type)
+        x = state.get(robot, "pose_x")
+        door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
+        final_x = door_x+0.2 if x < door_x else door_x-0.2
+        rotation = 0.0 if x < door_x else -1.0
+        return np.array([final_x, door_y, rotation], dtype=np.float32)
+    advancethroughdoor_nsrt = NSRT(
+        "AdvanceThroughDoor", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, advancethroughdoor_sampler)
+    nsrts.add(advancethroughdoor_nsrt)
 
     # MoveTableToDoor
     robot = Variable("?robot", robot_type)
     door = Variable("?door", door_type)
-    parameters = [robot, door]
+    region = Variable("?region", region_type)
+    parameters = [robot, door, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(NextToTable, [robot])}
+    preconditions = {LiftedAtom(IsBoringRoom, [region]),
+                     LiftedAtom(InRegion, [robot, region]),
+                     LiftedAtom(NextToTable, [robot]),
+                     LiftedAtom(IsBoringRoomDoor, [door])}
     add_effects = {LiftedAtom(NextToDoor, [robot, door])}
     delete_effects = {LiftedAtom(NextToTable, [robot])}
     def movetabletodoor_sampler(state: State, rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
+                                objs: Sequence[Object]) -> Array:
         del rng  # unused
-        assert len(objs) == 2
-        _, door = objs
+        assert len(objs) == 3
+        _, door, _ = objs
         assert door.is_instance(door_type)
-        x, y = state.get(door, "pose_x")-0.1, state.get(door, "pose_y")
+        x, y = state.get(door, "pose_x")-0.2, state.get(door, "pose_y")
         return np.array([x, y, 0.0], dtype=np.float32)
     movetabletodoor_nsrt = NSRT(
         "MoveTableToDoor", parameters, preconditions, add_effects,
@@ -754,70 +768,102 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     # MoveDoorToTable
     robot = Variable("?robot", robot_type)
     door = Variable("?door", door_type)
-    parameters = [robot, door]
+    region = Variable("?region", region_type)
+    parameters = [robot, door, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(NextToDoor, [robot, door])}
+    preconditions = {LiftedAtom(IsBoringRoom, [region]),
+                     LiftedAtom(InRegion, [robot, region]),
+                     LiftedAtom(NextToDoor, [robot, door]),
+                     LiftedAtom(IsBoringRoomDoor, [door])}
     add_effects = {LiftedAtom(NextToTable, [robot])}
     delete_effects = {LiftedAtom(NextToDoor, [robot, door])}
-    def movetotable_sampler(state: State, rng: np.random.Generator,
-                            objs: Sequence[Object]) -> Array:
-        del state, objs  # unused
-        cls = PlayroomEnv
-        x = rng.uniform(cls.table_x_lb, cls.table_x_ub)
-        y = rng.uniform(cls.table_y_lb, cls.table_y_ub)
-        # find rotation of robot that faces the table
-        table_x = (cls.table_x_lb+cls.table_x_ub)/2
-        table_y = (cls.table_y_lb+cls.table_y_ub)/2
-        rotation = np.arctan2(table_y-y, table_x-x) / np.pi
-        return np.array([x, y, rotation], dtype=np.float32)
+    def movedoortotable_sampler(state: State, rng: np.random.Generator,
+                                objs: Sequence[Object]) -> Array:
+        del state, rng, objs  # unused
+        x, y = PlayroomEnv.table_x_ub, PlayroomEnv.table_y_ub
+        return np.array([x, y, -0.75], dtype=np.float32)
     movedoortotable_nsrt = NSRT(
         "MoveDoorToTable", parameters, preconditions, add_effects,
-        delete_effects, option, option_vars, movetotable_sampler)
+        delete_effects, option, option_vars, movedoortotable_sampler)
     nsrts.add(movedoortotable_nsrt)
+
+    # MoveDoorToDoor
+    robot = Variable("?robot", robot_type)
+    fromdoor = Variable("?fromdoor", door_type)
+    todoor = Variable("?todoor", door_type)
+    region = Variable("?region", region_type)
+    parameters = [robot, fromdoor, todoor, region]
+    option_vars = [robot]
+    option = Move
+    preconditions = {LiftedAtom(Borders, [fromdoor, region]),
+                     LiftedAtom(Borders, [todoor, region]),
+                     LiftedAtom(InRegion, [robot, region]),
+                     LiftedAtom(NextToDoor, [robot, fromdoor])}
+    add_effects = {LiftedAtom(NextToDoor, [robot, todoor])}
+    delete_effects = {LiftedAtom(NextToDoor, [robot, fromdoor])}
+    def movedoortodoor_sampler(state: State, rng: np.random.Generator,
+                               objs: Sequence[Object]) -> Array:
+        del rng  # unused
+        assert len(objs) == 4
+        _, fromdoor, todoor, _ = objs
+        assert fromdoor.is_instance(door_type)
+        assert todoor.is_instance(door_type)
+        to_x, to_y = state.get(todoor, "pose_x"), state.get(todoor, "pose_y")
+        from_x = state.get(fromdoor, "pose_x")
+        rotation = 0.0 if from_x < to_x else -1.0
+        x = to_x-0.1 if from_x < to_x else to_x+0.1
+        return np.array([x, to_y, rotation], dtype=np.float32)
+    movedoortodoor_nsrt = NSRT(
+        "MoveDoorToDoor", parameters, preconditions, add_effects,
+        delete_effects, option, option_vars, movedoortodoor_sampler)
+    nsrts.add(movedoortodoor_nsrt)
 
     # MoveDoorToDial
     robot = Variable("?robot", robot_type)
     door = Variable("?door", door_type)
     dial = Variable("?dial", dial_type)
-    parameters = [robot, door, dial]
+    region = Variable("?region", region_type)
+    parameters = [robot, door, dial, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(NextToDoor, [robot, door])}
+    preconditions = {LiftedAtom(IsPlayroom, [region]),
+                     LiftedAtom(InRegion, [robot, region]),
+                     LiftedAtom(IsPlayroomDoor, [door]),
+                     LiftedAtom(NextToDoor, [robot, door])}
     add_effects = {LiftedAtom(NextToDial, [robot, dial])}
     delete_effects = {LiftedAtom(NextToDoor, [robot, door])}
-    def movetodial_sampler(state: State, rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
-        assert len(objs) == 3
-        _, _, dial = objs
+    def movedoortodial_sampler(state: State, rng: np.random.Generator,
+                               objs: Sequence[Object]) -> Array:
+        assert len(objs) == 4
+        _, _, dial, _ = objs
         assert dial.is_instance(dial_type)
-        cls = PlayroomEnv
         dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-        x = rng.uniform(dial_x-cls.dial_button_tol, dial_x+cls.dial_button_tol)
-        y = rng.uniform(dial_y-cls.dial_button_tol, dial_y+cls.dial_button_tol)
-        # find rotation of robot that faces the dial
-        rotation = np.arctan2(dial_y-y, dial_x-x) / np.pi
-        return np.array([x, y, rotation], dtype=np.float32)
+        return np.array([dial_x-0.2, dial_y, -1.0], dtype=np.float32)
     movedoortodial_nsrt = NSRT(
         "MoveDoorToDial", parameters, preconditions, add_effects,
-        delete_effects, option, option_vars, movetodial_sampler)
+        delete_effects, option, option_vars, movedoortodial_sampler)
     nsrts.add(movedoortodial_nsrt)
 
     # MoveDialToDoor
     robot = Variable("?robot", robot_type)
     dial = Variable("?dial", dial_type)
     door = Variable("?door", door_type)
-    parameters = [robot, dial, door]
+    region = Variable("?region", region_type)
+    parameters = [robot, dial, door, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(NextToDial, [robot, dial])}
+    preconditions = {LiftedAtom(IsPlayroom, [region]),
+                     LiftedAtom(InRegion, [robot, region]),
+                     LiftedAtom(IsPlayroomDoor, [door]),
+                     LiftedAtom(NextToDial, [robot, dial])}
     add_effects = {LiftedAtom(NextToDoor, [robot, door])}
     delete_effects = {LiftedAtom(NextToDial, [robot, dial])}
     def movedialtodoor_sampler(state: State, rng: np.random.Generator,
-                           objs: Sequence[Object]) -> Array:
+                               objs: Sequence[Object]) -> Array:
         del rng  # unused
-        assert len(objs) == 3
-        _, _, door = objs
+        assert len(objs) == 4
+        _, _, door, _ = objs
         assert door.is_instance(door_type)
         x, y = state.get(door, "pose_x"), state.get(door, "pose_y")
         return np.array([x+0.1, y, -1.0], dtype=np.float32)
@@ -844,11 +890,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         robot, door = objs
         assert robot.is_instance(robot_type)
         assert door.is_instance(door_type)
-        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-        # find rotation of robot that faces the door
-        door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
-        rotation = np.arctan2(door_y-y, door_x-x) / np.pi
-        return np.array([0, 0, 0, rotation], dtype=np.float32)
+        x, door_x = state.get(robot, "pose_x"), state.get(door, "pose_x")
+        rotation = 0.0 if x < door_x else -1.0
+        dx = -0.2 if x < door_x else 0.2
+        return np.array([dx, 0, 0, rotation], dtype=np.float32)
     opendoor_nsrt = NSRT(
         "OpenDoor", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, toggledoor_sampler)
@@ -882,17 +927,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(LightOn, [dial])}
     delete_effects = {LiftedAtom(LightOff, [dial])}
     def toggledial_sampler(state: State, rng: np.random.Generator,
-                         objs: Sequence[Object]) -> Array:
-        del rng  # unused
-        assert len(objs) == 2
-        robot, dial = objs
-        assert robot.is_instance(robot_type)
-        assert door.is_instance(door_type)
-        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
-        # find rotation of robot that faces the dial
-        dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-        rotation = np.arctan2(dial_y-y, dial_x-x) / np.pi
-        return np.array([0, 0, 0, rotation], dtype=np.float32)
+                           objs: Sequence[Object]) -> Array:
+        del state, rng, objs  # unused
+        return np.array([-0.2, 0, 0, 0.0], dtype=np.float32)
     turnondial_nsrt = NSRT(
         "TurnOnDial", parameters, preconditions, add_effects,
         delete_effects, option, option_vars, toggledial_sampler)
