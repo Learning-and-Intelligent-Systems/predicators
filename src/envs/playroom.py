@@ -49,6 +49,7 @@ class PlayroomEnv(BlocksEnv):
                                           "fingers"])
         self._door_type = Type("door", ["pose_x", "pose_y", "open"])
         self._dial_type = Type("dial", ["pose_x", "pose_y", "level"])
+        self._region_type = Type("region", ["id", "x_lb", "y_lb", "x_ub", "y_ub"])
         # Predicates
         self._On = Predicate(
             "On", [self._block_type, self._block_type], self._On_holds)
@@ -68,6 +69,27 @@ class PlayroomEnv(BlocksEnv):
         self._NextToDial = Predicate(
             "NextToDial", [self._robot_type, self._dial_type],
             self._NextToDial_holds)
+        self._InRegion = Predicate(
+            "InRegion", [self._robot_type, self._region_type],
+            self._InRegion_holds)
+        self._Borders = Predicate(
+            "Borders", [self._door_type, self._region_type],
+            self._Borders_holds)
+        self._Connects = Predicate(
+            "Connects", [self._door_type, self._region_type, self._region_type],
+            self._Connects_holds)
+        self._IsBoringRoom = Predicate(
+            "IsBoringRoom", [self._region_type],
+            self._IsBoringRoom_holds)
+        self._IsPlayroom = Predicate(
+            "IsPlayroom", [self._region_type],
+            self._IsPlayroom_holds)
+        self._IsBoringRoomDoor = Predicate(
+            "IsBoringRoomDoor", [self._door_type],
+            self._IsBoringRoomDoor_holds)
+        self._IsPlayroomDoor = Predicate(
+            "IsPlayroomDoor", [self._door_type],
+            self._IsPlayroomDoor_holds)
         self._DoorOpen = Predicate(
             "DoorOpen", [self._door_type], self._DoorOpen_holds)
         self._DoorClosed = Predicate(
@@ -157,6 +179,13 @@ class PlayroomEnv(BlocksEnv):
         self._door6 = Object("door6", self._door_type)
         self._doors = (self._door1, self._door2, self._door3,
                        self._door4, self._door5, self._door6)
+        self._region1 = Object("region1", self._region_type)
+        self._region2 = Object("region2", self._region_type)
+        self._region3 = Object("region3", self._region_type)
+        self._region4 = Object("region4", self._region_type)
+        self._region5 = Object("region5", self._region_type)
+        self._region6 = Object("region6", self._region_type)
+        self._region7 = Object("region7", self._region_type)
         self._dial = Object("dial", self._dial_type)
 
     def simulate(self, state: State, action: Action) -> State:
@@ -236,8 +265,10 @@ class PlayroomEnv(BlocksEnv):
     def predicates(self) -> Set[Predicate]:
         return {self._On, self._OnTable, self._GripperOpen, self._Holding,
                 self._Clear, self._NextToTable, self._NextToDoor,
-                self._NextToDial, self._DoorOpen, self._DoorClosed,
-                self._LightOn, self._LightOff}
+                self._NextToDial, self._InRegion, self._Borders,
+                self._Connects, self._IsBoringRoom, self._IsPlayroom,
+                self._IsBoringRoomDoor, self._IsPlayroomDoor, self._DoorOpen,
+                self._DoorClosed, self._LightOn, self._LightOff}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -246,7 +277,7 @@ class PlayroomEnv(BlocksEnv):
     @property
     def types(self) -> Set[Type]:
         return {self._block_type, self._robot_type, self._door_type,
-                self._dial_type}
+                self._dial_type, self._region_type}
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -447,6 +478,14 @@ class PlayroomEnv(BlocksEnv):
         data[self._door6] = np.array([110.0, 15.0, 0.0])
         # [pose_x, pose_y, level], light starts on/off randomly
         data[self._dial] = np.array([125.0, 15.0, rng.uniform(0.0, 1.0)])
+        # [id, x_lb, y_lb, x_ub, y_ub], regions left to right
+        data[self._region1] = np.array([1, 0.0, 0.0, 30.0, 30.0])
+        data[self._region2] = np.array([2, 30.0, 10.0, 50.0, 20.0])
+        data[self._region3] = np.array([3, 50.0, 10.0, 60.0, 20.0])
+        data[self._region4] = np.array([4, 60.0, 10.0, 80.0, 20.0])
+        data[self._region5] = np.array([5, 80.0, 10.0, 100.0, 20.0])
+        data[self._region6] = np.array([6, 100.0, 10.0, 110.0, 20.0])
+        data[self._region7] = np.array([7, 110.0, 0.0, 140.0, 30.0])
         return State(data)
 
     def _sample_goal(self, num_blocks: int,
@@ -538,6 +577,50 @@ class PlayroomEnv(BlocksEnv):
                 < dial_x+cls.dial_r+cls.dial_tol) and \
                (dial_y-cls.dial_r-cls.dial_tol < y
                 < dial_y+cls.dial_r+cls.dial_tol)
+
+    @staticmethod
+    def _InRegion_holds(state: State, objects: Sequence[Object]) -> bool:
+        robot, region = objects
+        x, y = state.get(robot, "pose_x"), state.get(robot, "pose_y")
+        x_lb, y_lb = state.get(region, "x_lb"), state.get(region, "y_lb")
+        x_ub, y_ub = state.get(region, "x_ub"), state.get(region, "y_ub")
+        return x_lb <= x <= x_ub and y_lb <= y <= y_ub
+
+    @staticmethod
+    def _IsBoringRoom_holds(state: State, objects: Sequence[Object]) -> bool:
+        region, = objects
+        return state.get(region, "id") == 1
+
+    @staticmethod
+    def _IsPlayroom_holds(state: State, objects: Sequence[Object]) -> bool:
+        region, = objects
+        return state.get(region, "id") == 7
+
+    @staticmethod
+    def _Borders_holds(state: State, objects: Sequence[Object]) -> bool:
+        door, region = objects
+        door_x = state.get(door, "pose_x")
+        return door_x == state.get(region, "x_lb") or \
+               door_x == state.get(region, "x_ub")
+
+    @staticmethod
+    def _Connects_holds(state: State, objects: Sequence[Object]) -> bool:
+        door, from_region, to_region = objects
+        door_x = state.get(door, "pose_x")
+        return door_x == state.get(from_region, "x_ub") and \
+               door_x == state.get(to_region, "x_lb")
+
+    @staticmethod
+    def _IsBoringRoomDoor_holds(state: State, objects: Sequence[Object]
+                                ) -> bool:
+        door, = objects
+        return state.get(door, "pose_x") == 30.0
+
+    @staticmethod
+    def _IsPlayroomDoor_holds(state: State, objects: Sequence[Object]
+                                ) -> bool:
+        door, = objects
+        return state.get(door, "pose_x") == 110.0
 
     @staticmethod
     def _DoorOpen_holds(state: State, objects: Sequence[Object]) -> bool:
@@ -665,8 +748,8 @@ class PlayroomEnv(BlocksEnv):
         prev_x = state.get(self._robot, "pose_x")
         x = action.arr[0]
         for door in self._doors:
-            if x <= state.get(door, "pose_x") <= prev_x \
-               or prev_x <= state.get(door, "pose_x") <= x:
+            door_x = state.get(door, "pose_x")
+            if x <= door_x <= prev_x or prev_x <= door_x <= x:
                 if state.get(door, "open") < self.door_open_thresh:
                     raise EnvironmentFailure("collision", {door})
         return True
