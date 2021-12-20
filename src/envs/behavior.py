@@ -404,15 +404,18 @@ class BehaviorEnv(BaseEnv):
         self, state: State, objs: Sequence[Object]
     ) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
+        #assert state.allclose(self._current_ig_state_to_state())
+        # Checking only scoped varibles has changed
+        try:
+            assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
+
         assert len(objs) == 2
         ig_obj = self._object_to_ig_object(objs[0])
         ig_other_obj = self._object_to_ig_object(objs[1])
-        try:
-            ig_obj == self._env.intended_nav_obj
-        except AttributeError:
-            self._env.intended_nav_obj = None
 
-        if (np.linalg.norm(np.array(ig_obj.get_position()) - np.array(ig_other_obj.get_position())) < 2) and ig_obj == self._env.intended_nav_obj:
+        if (np.linalg.norm(np.array(ig_obj.get_position()) - np.array(ig_other_obj.get_position())) < 2):
             return True
         else:
             return False
@@ -421,6 +424,9 @@ class BehaviorEnv(BaseEnv):
         self, state: State, objs: Sequence[Object]
     ) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
+        #assert state.allclose(self._current_ig_state_to_state())
+        # Checking only scoped varibles has changed
+        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
         assert len(objs) == 1
         ig_obj = self._object_to_ig_object(objs[0])
         ####
@@ -444,6 +450,8 @@ class BehaviorEnv(BaseEnv):
     ) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         #assert state.allclose(self._current_ig_state_to_state())
+        # Checking only scoped varibles has changed
+        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
@@ -451,6 +459,8 @@ class BehaviorEnv(BaseEnv):
     def _holding_classifier(self, state: State, objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         #assert state.allclose(self._current_ig_state_to_state())
+        # Checking only scoped varibles has changed
+        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -460,6 +470,8 @@ class BehaviorEnv(BaseEnv):
     ) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         #assert state.allclose(self._current_ig_state_to_state())
+        # Checking only scoped varibles has changed
+        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
         assert len(objs) == 1
         ig_obj = self._object_to_ig_object(objs[0])
         bddl_predicate = SUPPORTED_PREDICATES["nextto"]
