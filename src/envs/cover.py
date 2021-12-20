@@ -51,7 +51,9 @@ class CoverEnv(BaseEnv):
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
-        assert self.action_space.contains(action.arr)
+        if not self.action_space.contains(action.arr):
+            print("OUT OF ACTION SPACE: ", action)
+        # assert self.action_space.contains(action.arr)
         pose = action.arr.item()
         next_state = state.copy()
         hand_regions = self._get_hand_regions(state)

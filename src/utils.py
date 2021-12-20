@@ -183,6 +183,7 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     video: Video = []
     if task.goal.issubset(atoms):  # goal is already satisfied
         goal_reached = True
+        print("GOAL IS SUBSET OF ORIGINAL")
     else:
         goal_reached = False
         for _ in range(max_steps):
