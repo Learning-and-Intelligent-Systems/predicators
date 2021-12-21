@@ -134,7 +134,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     for heuristic_name in heuristic_names:
         heuristic_cls = heuristics[heuristic_name]
         heuristic = heuristic_cls(initial_predicates, atom_dataset,
-                                  candidates)
+                                  train_tasks, candidates)
         heuristic_score = heuristic.evaluate(frozenset(predicates))
         results[heuristic_name] = heuristic_score
     # Learn NSRTs and plan.
