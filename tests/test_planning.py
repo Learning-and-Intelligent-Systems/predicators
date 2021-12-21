@@ -46,10 +46,10 @@ def test_sesame_plan_failures():
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]
-    block1 = [obj for obj in task.init if obj.name == "block1"][0]
     target0 = [obj for obj in task.init if obj.name == "target0"][0]
+    target1 = [obj for obj in task.init if obj.name == "target1"][0]
     impossible_task = Task(task.init, {Covers([block0, target0]),
-                                       Covers([block1, target0])})
+                                       Covers([block0, target1])})
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=0.1)  # times out
     with pytest.raises(ApproachTimeout):
