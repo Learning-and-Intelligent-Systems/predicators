@@ -389,7 +389,11 @@ class ParameterizedOption:
         for obj, t in zip(objects, self.types):
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
-        assert self.params_space.contains(params)
+
+        # assert self.params_space.contains(params)
+        if not self.params_space.contains(params):
+            import ipdb; ipdb.set_trace()
+        
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name, lambda s: self._policy(s, memory, objects, params),
