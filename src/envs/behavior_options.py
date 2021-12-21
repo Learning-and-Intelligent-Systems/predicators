@@ -186,7 +186,6 @@ def get_delta_low_level_base_action(
 
 # Navigate To #
 
-
 def navigate_to_param_sampler(rng, objects):
     # Our sampler needs to return samples such that 
     # the norm of the sample is not > 1/6th of the 
@@ -394,7 +393,7 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 def grasp_obj_param_sampler(rng):
     x_offset = (rng.random() * 0.4) - 0.2
     y_offset = (rng.random() * 0.4) - 0.2
-    z_offset = (rng.random() * 0.4) - 0.2
+    z_offset = rng.random() * 0.2
     z_rot = (rng.random() * 2 * np.pi) - np.pi
     return np.array([x_offset, y_offset, z_offset, z_rot])
 
@@ -455,7 +454,8 @@ def grasp_obj_at_pos(
     env, obj, grasp_offset_and_z_rot, rng=np.random.default_rng(23)
 ):
     plan = np.zeros((17, 1))
-    if env.obj_in_hand is None:
+    obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
+    if obj_in_hand is None:
         if (
             isinstance(obj, URDFObject)
             and hasattr(obj, "states")
