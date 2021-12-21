@@ -8,7 +8,8 @@ from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
 from predicators.src.planning import sesame_plan
 from predicators.src import utils
-from predicators.src.structs import Task, NSRT, ParameterizedOption
+from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
+    _GroundNSRT
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
 
@@ -21,8 +22,16 @@ def test_sesame_plan():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
     option_model = create_option_model(CFG.option_model_name, env.simulate)
-    plan = sesame_plan(task, option_model, nsrts, env.predicates, 1, 123)
+    plan, _ = sesame_plan(task, option_model, nsrts, env.predicates,
+                          timeout=1, seed=123)
     assert len(plan) == 2
+    assert isinstance(plan[0], _Option)
+    assert isinstance(plan[1], _Option)
+    skeleton, _ = sesame_plan(task, option_model, nsrts, env.predicates,
+                              timeout=1, seed=123, do_low_level_search=False)
+    assert len(skeleton) == 2
+    assert isinstance(skeleton[0], _GroundNSRT)
+    assert isinstance(skeleton[1], _GroundNSRT)
 
 
 def test_sesame_plan_failures():
