@@ -158,35 +158,35 @@ def test_create_heuristic():
     """Tests for _create_heuristic().
     """
     utils.update_config({"grammar_search_heuristic": "prediction_error"})
-    heuristic = _create_heuristic(set(), [], {})
+    heuristic = _create_heuristic(set(), [], [], {})
     assert isinstance(heuristic, _PredictionErrorHeuristic)
     utils.update_config({"grammar_search_heuristic": "hadd_match"})
-    heuristic = _create_heuristic(set(), [], {})
+    heuristic = _create_heuristic(set(), [], [], {})
     assert isinstance(heuristic, _HAddMatchHeuristic)
     utils.update_config({"grammar_search_heuristic": "branching_factor"})
-    heuristic = _create_heuristic(set(), [], {})
+    heuristic = _create_heuristic(set(), [], [], {})
     assert isinstance(heuristic, _BranchingFactorHeuristic)
     utils.update_config({"grammar_search_heuristic": "hadd_lookahead_match"})
-    heuristic = _create_heuristic(set(), [], {})
+    heuristic = _create_heuristic(set(), [], [], {})
     assert isinstance(heuristic, _HAddLookaheadHeuristic)
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
-        _create_heuristic(set(), [], {})
+        _create_heuristic(set(), [], [], {})
 
 
 def test_predicate_search_heuristic_base_classes():
     """Cover the abstract methods for _PredicateSearchHeuristic and subclasses
     """
-    pred_search_heuristic = _PredicateSearchHeuristic(set(), [], {})
+    pred_search_heuristic = _PredicateSearchHeuristic(set(), [], [], {})
     with pytest.raises(NotImplementedError):
         pred_search_heuristic.evaluate(set())
-    op_learning_heuristic = _OperatorLearningBasedHeuristic(set(), [], {})
+    op_learning_heuristic = _OperatorLearningBasedHeuristic(set(), [], [], {})
     with pytest.raises(NotImplementedError):
         op_learning_heuristic.evaluate(set())
     utils.update_config({"env": "cover"})
     env = CoverEnv()
-    train_task = next(env.train_tasks_generator())[0]
-    state = train_task.init
+    train_tasks = next(env.train_tasks_generator())
+    state = train_tasks[0].init
     other_state = state.copy()
     robby = [o for o in state if o.type.name == "robot"][0]
     state.set(robby, "hand", 0.5)
@@ -201,7 +201,7 @@ def test_predicate_search_heuristic_base_classes():
     dataset = [LowLevelTrajectory(
         [state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
-    hadd_heuristic = _HAddBasedHeuristic(set(), atom_dataset, {})
+    hadd_heuristic = _HAddBasedHeuristic(set(), atom_dataset, train_tasks, {})
     with pytest.raises(NotImplementedError):
         hadd_heuristic.evaluate(set())
 
@@ -225,10 +225,11 @@ def test_prediction_error_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                          candidates)
+                                          train_tasks, candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
     holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
@@ -253,10 +254,11 @@ def test_prediction_error_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                          candidates)
+                                          train_tasks, candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
     clear_included_h = heuristic.evaluate({name_to_pred["Clear"]})
@@ -284,10 +286,11 @@ def test_prediction_error_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                          candidates)
+                                          train_tasks, candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     none_included_h = heuristic.evaluate(set())
     assert all_included_h > none_included_h  # this is very bad!
@@ -312,10 +315,11 @@ def test_hadd_match_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _HAddMatchHeuristic(initial_predicates, atom_dataset,
-                                    candidates)
+                                    train_tasks, candidates)
     handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
     none_included_h = heuristic.evaluate(set())
     assert handempty_included_h > none_included_h # this is very bad!
@@ -340,10 +344,11 @@ def test_hadd_lookahead_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        candidates)
+                                        train_tasks, candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
     holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
@@ -363,7 +368,7 @@ def test_hadd_lookahead_heuristic():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
     heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        candidates)
+                                        train_tasks, candidates)
     assert heuristic.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
@@ -383,10 +388,11 @@ def test_hadd_lookahead_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        candidates)
+                                        train_tasks, candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     none_included_h = heuristic.evaluate(set())
     # Note: the values for Holding alone, Clear alone, and GripperOpen alone
@@ -422,10 +428,11 @@ def test_hadd_lookahead_heuristic():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        candidates)
+                                        train_tasks, candidates)
     all_included_h = heuristic.evaluate(set(candidates))
     none_included_h = heuristic.evaluate(set())
     assert all_included_h < none_included_h  # hooray!
@@ -467,11 +474,12 @@ def test_branching_factor_heuristic():
         forall_not_covers1: 1.0,
         Holding: 1.0,
     }
-    dataset = create_dataset(env, next(env.train_tasks_generator()))
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset,
         env.goal_predicates | set(candidates))
     heuristic = _BranchingFactorHeuristic(env.goal_predicates, atom_dataset,
-                                          candidates)
+                                          train_tasks, candidates)
     holding_h = heuristic.evaluate({Holding})
     forall_not_covers_h = heuristic.evaluate({forall_not_covers0,
                                               forall_not_covers1})

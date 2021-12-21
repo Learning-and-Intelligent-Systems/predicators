@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
 import time
-from typing import Collection, Callable, List, Set, Optional, Tuple, Dict
+from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, Union
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -41,12 +41,18 @@ def sesame_plan(task: Task,
                 option_model: _OptionModel,
                 nsrts: Set[NSRT],
                 initial_predicates: Set[Predicate],
-                timeout: float, seed: int,
-                check_dr_reachable: bool = True
-                ) -> Tuple[List[_Option], Metrics]:
+                timeout: float,
+                seed: int,
+                check_dr_reachable: bool = True,
+                do_low_level_search: bool = True,
+                ) -> Tuple[Union[List[_Option], List[_GroundNSRT]], Metrics]:
     """Run TAMP. Return a sequence of options, and a dictionary
     of metrics for this run of the planner. Uses the SeSamE strategy:
     SEarch-and-SAMple planning, then Execution.
+
+    If do_low_level_search is True, also does low-level planning to ultimately
+    return a sequence of Option objects. If do_low_level_search is False, just
+    returns a skeleton (a sequence of GroundNSRT objects).
     """
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
@@ -75,7 +81,8 @@ def sesame_plan(task: Task,
             new_seed = seed+int(metrics["num_failures_discovered"])
             plan = _run_search(
                 task, option_model, nonempty_ground_nsrts, atoms, predicates,
-                timeout-(time.time()-start_time), new_seed, metrics)
+                timeout-(time.time()-start_time), new_seed,
+                do_low_level_search, metrics)
             break  # planning succeeded, break out of loop
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
@@ -92,8 +99,10 @@ def _run_search(task: Task,
                 ground_nsrts: List[_GroundNSRT],
                 init_atoms: Collection[GroundAtom],
                 predicates: Set[Predicate],
-                timeout: float, seed: int,
-                metrics: Metrics) -> List[_Option]:
+                timeout: float,
+                seed: int,
+                do_low_level_search: bool,
+                metrics: Metrics) -> Union[List[_Option], List[_GroundNSRT]]:
     """A* search over skeletons (sequences of ground NSRTs).
     """
     start_time = time.time()
@@ -126,6 +135,8 @@ def _run_search(task: Task,
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, run low-level search.
             metrics["num_skeletons_optimized"] += 1
+            if not do_low_level_search:
+                return node.skeleton
             plan = _run_low_level_search(
                 task, option_model, node.skeleton, node.atoms_sequence,
                 rng_sampler, predicates, start_time, timeout)
