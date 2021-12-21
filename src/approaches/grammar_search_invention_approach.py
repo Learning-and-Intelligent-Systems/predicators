@@ -435,22 +435,24 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 #                            Heuristic Functions                               #
 ################################################################################
 
-def _create_heuristic(initial_predicates: Set[Predicate],
+def _create_heuristic(
+        initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory],
+        train_tasks: List[Task],
         candidates: Dict[Predicate, float]
         ) -> _PredicateSearchHeuristic:
     if CFG.grammar_search_heuristic == "prediction_error":
         return _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                         candidates)
+                                         train_tasks, candidates)
     if CFG.grammar_search_heuristic == "branching_factor":
         return _BranchingFactorHeuristic(initial_predicates, atom_dataset,
-                                         candidates)
+                                         train_tasks, candidates)
     if CFG.grammar_search_heuristic == "hadd_match":
         return _HAddMatchHeuristic(initial_predicates, atom_dataset,
-                                   candidates)
+                                   train_tasks, candidates)
     if CFG.grammar_search_heuristic == "hadd_lookahead_match":
         return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                       candidates)
+                                       train_tasks, candidates)
     raise NotImplementedError(
         f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
@@ -461,6 +463,7 @@ class _PredicateSearchHeuristic:
     """
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
+    _train_tasks: List[Task]  # training tasks that this data was generated on
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
@@ -702,7 +705,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         print("Done.")
         # Create the heuristic function that will be used to guide search.
         heuristic = _create_heuristic(self._initial_predicates, atom_dataset,
-                                      candidates)
+                                      train_tasks, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(candidates,
