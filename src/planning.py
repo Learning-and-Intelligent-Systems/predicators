@@ -7,8 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
 import time
-from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, \
-    Union, cast
+from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, Union
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -42,12 +41,18 @@ def sesame_plan(task: Task,
                 option_model: _OptionModel,
                 nsrts: Set[NSRT],
                 initial_predicates: Set[Predicate],
-                timeout: float, seed: int,
-                check_dr_reachable: bool = True
-                ) -> Tuple[List[_Option], Metrics]:
+                timeout: float,
+                seed: int,
+                check_dr_reachable: bool = True,
+                do_low_level_search: bool = True,
+                ) -> Tuple[Union[List[_Option], List[_GroundNSRT]], Metrics]:
     """Run TAMP. Return a sequence of options, and a dictionary
     of metrics for this run of the planner. Uses the SeSamE strategy:
     SEarch-and-SAMple planning, then Execution.
+
+    If do_low_level_search is True, also does low-level planning to ultimately
+    return a sequence of Option objects. If do_low_level_search is False, just
+    returns a skeleton (a sequence of GroundNSRT objects).
     """
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
@@ -74,9 +79,10 @@ def sesame_plan(task: Task,
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
-            plan = cast(List[_Option], run_search(
+            plan = _run_search(
                 task, option_model, nonempty_ground_nsrts, atoms, predicates,
-                timeout-(time.time()-start_time), new_seed, metrics))
+                timeout-(time.time()-start_time), new_seed,
+                do_low_level_search, metrics)
             break  # planning succeeded, break out of loop
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
@@ -88,19 +94,16 @@ def sesame_plan(task: Task,
     return plan, metrics
 
 
-def run_search(task: Task,
+def _run_search(task: Task,
                 option_model: _OptionModel,
                 ground_nsrts: List[_GroundNSRT],
                 init_atoms: Collection[GroundAtom],
                 predicates: Set[Predicate],
-                timeout: float, seed: int,
-                metrics: Metrics,
-                do_low_level_search: bool = True
-                ) -> Union[List[_Option], List[_GroundNSRT]]:
+                timeout: float,
+                seed: int,
+                do_low_level_search: bool,
+                metrics: Metrics) -> Union[List[_Option], List[_GroundNSRT]]:
     """A* search over skeletons (sequences of ground NSRTs).
-    If do_low_level_search is True, also does low-level planning to ultimately
-    return a sequence of Option objects. If do_low_level_search is False, just
-    returns a skeleton (a sequence of GroundNSRT objects).
     """
     start_time = time.time()
     queue: List[Tuple[float, float, _Node]] = []
