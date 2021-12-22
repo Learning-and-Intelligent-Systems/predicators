@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator, \
+    Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -723,7 +723,7 @@ def test_create_ground_atom_dataset():
         State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]}),
         State({cup1: [1.1], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
     ]
-    actions = [DefaultOption]
+    actions = [DummyOption]
     dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
