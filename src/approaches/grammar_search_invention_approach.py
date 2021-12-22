@@ -580,8 +580,8 @@ class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
         score = 0.0
         node_expansion_upper_bound = 1e7
         for task in self._train_tasks:
-            init_atoms = utils.abstract(task.init,
-                                        predicates | self._initial_predicates)
+            init_atoms = utils.abstract(
+                task.init, predicates | self._initial_predicates)
             objects = set(task.init)
             try:
                 _, metrics = task_plan(
