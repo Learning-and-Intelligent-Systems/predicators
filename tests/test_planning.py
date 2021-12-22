@@ -6,10 +6,10 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan
+from predicators.src.planning import sesame_plan, task_plan
 from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
-    _GroundNSRT
+    _GroundNSRT, STRIPSOperator
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
 
@@ -27,8 +27,25 @@ def test_sesame_plan():
     assert len(plan) == 2
     assert isinstance(plan[0], _Option)
     assert isinstance(plan[1], _Option)
-    skeleton, _ = sesame_plan(task, option_model, nsrts, env.predicates,
-                              timeout=1, seed=123, do_low_level_search=False)
+
+
+def test_task_plan():
+    """Tests for task_plan().
+    """
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    task = next(env.train_tasks_generator())[0]
+    init_atoms = utils.abstract(task.init, env.predicates)
+    strips_ops = []
+    option_specs = []
+    for nsrt in nsrts:
+        strips_ops.append(STRIPSOperator(
+            nsrt.name, nsrt.parameters, nsrt.preconditions,
+            nsrt.add_effects, nsrt.delete_effects))
+        option_specs.append((nsrt.option, nsrt.option_vars))
+    skeleton, _ = task_plan(init_atoms, task.goal, strips_ops, option_specs,
+                            timeout=1, seed=123)
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)

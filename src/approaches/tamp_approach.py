@@ -3,7 +3,7 @@ planning strategy: SEarch-and-SAMple planning, then Execution.
 """
 
 import abc
-from typing import Callable, Set, List, cast
+from typing import Callable, Set, List
 from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
@@ -35,7 +35,6 @@ class TAMPApproach(BaseApproach):
                                     self._get_current_nsrts(),
                                     self._get_current_predicates(),
                                     timeout, seed)
-        plan = cast(List[_Option], plan)  # appease mypy
         for metric in ["num_skeletons_optimized",
                        "num_failures_discovered",
                        "num_nodes_expanded",
