@@ -17,8 +17,7 @@ from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.option_model import DummyOptionModel
-from predicators.src.planning import sesame_plan
+from predicators.src.planning import task_plan
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
@@ -583,18 +582,15 @@ class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
         del pruned_atom_data, segments  # unused
         score = 0.0
         node_expansion_upper_bound = 1e7
-        # Create dummy NSRTs for compatibility with sesame_plan.
-        # The samplers will not be used.
-        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
         for task in self._train_tasks:
+            init_atoms = utils.abstract(
+                task.init, predicates | self._initial_predicates)
+            objects = set(task.init)
             try:
-                _, metrics = sesame_plan(
-                    task, DummyOptionModel, nsrts, set(predicates),
-                    timeout=CFG.grammar_search_task_planning_timeout,
-                    seed=CFG.seed,
-                    do_low_level_search=False,
-                    verbose=False)
-                node_expansions = metrics['num_nodes_expanded']
+                _, metrics = task_plan(
+                    init_atoms, objects, task.goal, strips_ops, option_specs,
+                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
             except (ApproachFailure, ApproachTimeout):
