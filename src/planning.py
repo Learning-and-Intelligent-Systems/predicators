@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
 import time
-from typing import Collection, Callable, List, Set, Optional, Tuple, Dict, Union
+from typing import Collection, Callable, List, Set, Optional, Tuple, Union
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -117,13 +117,10 @@ def _run_search(task: Task,
     relaxed_operators = frozenset({utils.RelaxedOperator(
         nsrt.name, utils.atoms_to_tuples(nsrt.preconditions),
         utils.atoms_to_tuples(nsrt.add_effects)) for nsrt in ground_nsrts})
-    heuristic_cache: Dict[PyperplanFacts, float] = {}
     heuristic: Callable[[PyperplanFacts], float] = utils.HAddHeuristic(
         utils.atoms_to_tuples(init_atoms),
         utils.atoms_to_tuples(task.goal), relaxed_operators)
-    heuristic_cache[root_node.pyperplan_facts] = heuristic(
-        root_node.pyperplan_facts)
-    hq.heappush(queue, (heuristic_cache[root_node.pyperplan_facts],
+    hq.heappush(queue, (heuristic(root_node.pyperplan_facts),
                         rng_prio.uniform(),
                         root_node))
     # Start search.
@@ -154,12 +151,9 @@ def _run_search(task: Task,
                     skeleton=node.skeleton+[nsrt],
                     atoms_sequence=node.atoms_sequence+[child_atoms],
                     parent=node)
-                if child_node.pyperplan_facts not in heuristic_cache:
-                    heuristic_cache[child_node.pyperplan_facts] = heuristic(
-                        child_node.pyperplan_facts)
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton)+
-                            heuristic_cache[child_node.pyperplan_facts])
+                            heuristic(child_node.pyperplan_facts))
                 hq.heappush(queue, (priority,
                                     rng_prio.uniform(),
                                     child_node))
