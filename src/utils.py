@@ -852,6 +852,7 @@ class HAddHeuristic:
                 # helps also when the initial state is empty.
                 self.start_state.precondition_of.append(ro)
 
+    @functools.lru_cache(maxsize=None)
     def __call__(self, state: PyperplanFacts) -> float:
         """Compute heuristic value.
         """
