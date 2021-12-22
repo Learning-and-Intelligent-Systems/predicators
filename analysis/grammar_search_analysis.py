@@ -54,6 +54,7 @@ def _run_proxy_analysis(env_names: List[str],
 
 
     if "painting" in env_names:
+        env_name = "painting"
         (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
          IsDirty, IsClean) = _get_predicates_by_names("painting",
                 ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
