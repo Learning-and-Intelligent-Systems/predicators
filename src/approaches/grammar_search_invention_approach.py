@@ -614,44 +614,45 @@ class _InverseTaskPlanningHeuristic(_TaskPlanningHeuristic):
                                  option_specs: List[OptionSpec]) -> float:
         del segments  # unused
         score = 0.0
-        option_model = create_option_model("default", lambda s, a: s)  # dummy
-        # Create dummy NSRTs for compatibility with sesame_plan. The samplers
-        # will not be used.
-        nsrts = set()
-        assert len(strips_ops) == len(option_specs)
-        for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-            nsrt = op.make_nsrt(param_option, option_vars,
-                                lambda s, rng, o: np.zeros(1))  # dummy sampler
-            nsrts.add(nsrt)
-        for traj, _ in pruned_atom_data:
+        # Create dummy NSRTs for compatibility with sesame_plan.
+        # The samplers will not be used.
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        for traj, atoms_sequence in pruned_atom_data:
             if not traj.is_demo:  # we only care about demonstrations
                 continue
-            # Get the sequence of option specs for this demo.
-            demo_specs = []
+            # Get the sequence of ground atoms for this demo.
+            # Note that unlike segment_trajectory, here we are using the option
+            # termination condition to segment.
+            segmented_atoms_sequence = [frozenset(atoms_sequence[0])]
             for t, action in enumerate(traj.actions):
                 assert action.has_option()
                 option = action.get_option()
                 # Check if this option terminates on the next time step.
                 if option.terminal(traj.states[t+1]):
-                    option_spec = (option.parent, tuple(option.objects))
-                    demo_specs.append(option_spec)
+                    segmented_atoms_sequence.append(
+                        frozenset(atoms_sequence[t+1]))
             task = Task(traj.states[0], traj.goal)
             try:
                 plan, _ = sesame_plan(
-                    task, option_model, nsrts, set(predicates),
+                    task, DummyOptionModel, nsrts, set(predicates),
                     timeout=CFG.grammar_search_task_planning_timeout,
                     seed=CFG.seed,
                     do_low_level_search=False,
                     verbose=False)
                 plan = cast(List[_GroundNSRT], plan)
-                # Compute the edit distance between the option specs in the plan
-                # and the option specs in the demo.
-                plan_specs = [(n.option, tuple(n.option_objs)) for n in plan]
-                edit_distance = utils.levenshtein_distance(tuple(demo_specs),
-                                                           tuple(plan_specs))
+                # Compute the edit distance between the atom sequence found
+                # by planning and the atom sequence in the demo.
+                atoms = set(atoms_sequence[0])
+                plan_atoms_sequence = [frozenset(atoms)]
+                for nsrt in plan:
+                    atoms = utils.apply_nsrt(nsrt, atoms)
+                    plan_atoms_sequence.append(frozenset(atoms))
+                edit_distance = utils.levenshtein_distance(
+                    tuple(segmented_atoms_sequence),
+                    tuple(plan_atoms_sequence))
                 score += edit_distance
             except (ApproachFailure, ApproachTimeout):
-                score += len(demo_specs)
+                score += len(segmented_atoms_sequence)
         return CFG.grammar_search_inverse_task_planning_weight * score
 
 

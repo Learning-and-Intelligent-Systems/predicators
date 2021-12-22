@@ -731,7 +731,7 @@ def get_applicable_operators(ground_ops: Collection[_GroundSTRIPSOperator],
 
 
 def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
-               ) -> Collection[GroundAtom]:
+               ) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground NSRT.
     """
     new_atoms = atoms.copy()
@@ -743,7 +743,7 @@ def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
 
 
 def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
-                   ) -> Collection[GroundAtom]:
+                   ) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground operator.
     """
     new_atoms = atoms.copy()
