@@ -531,3 +531,7 @@ def test_task_planning_heuristic():
         "min_data_for_nsrt": 10000,
     })
     assert heuristic.evaluate(set()) == len(train_tasks) * 1e7
+    # Set this back to avoid screwing up other tests...
+    utils.update_config({
+        "min_data_for_nsrt": 3,
+    })
