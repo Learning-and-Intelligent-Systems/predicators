@@ -10,7 +10,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
     _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, _HAddMatchHeuristic, \
     _PredictionErrorHeuristic, _HAddLookaheadHeuristic, \
-    _BranchingFactorHeuristic
+    _BranchingFactorHeuristic, _TaskPlanningHeuristic
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -169,6 +169,9 @@ def test_create_heuristic():
     utils.update_config({"grammar_search_heuristic": "hadd_lookahead_match"})
     heuristic = _create_heuristic(set(), [], [], {})
     assert isinstance(heuristic, _HAddLookaheadHeuristic)
+    utils.update_config({"grammar_search_heuristic": "task_planning"})
+    heuristic = _create_heuristic(set(), [], [], {})
+    assert isinstance(heuristic, _TaskPlanningHeuristic)
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
         _create_heuristic(set(), [], [], {})
@@ -487,3 +490,51 @@ def test_branching_factor_heuristic():
     # is lower than we would like. These are actually the predicates that get
     # returned by running the grammar search on covers with branching factor.
     assert forall_not_covers_h < holding_h
+
+
+def test_task_planning_heuristic():
+    """Tests for _TaskPlanningHeuristic().
+    """
+    # We know that this heuristic is bad, because it's way too optimistic: it
+    # thinks that any valid sequence of operators can be refined into a plan.
+    # This unit test illustrates that pitfall.
+    utils.update_config({
+        "env": "cover",
+    })
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+    })
+    env = CoverEnv()
+
+    name_to_pred = {p.name : p for p in env.predicates}
+    Holding = name_to_pred["Holding"]
+    HandEmpty = name_to_pred["HandEmpty"]
+
+    candidates = {
+        Holding: 1.0,
+        HandEmpty: 1.0,
+    }
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(dataset,
+        env.goal_predicates | set(candidates))
+    heuristic = _TaskPlanningHeuristic(env.goal_predicates, atom_dataset,
+                                       train_tasks, candidates)
+    all_included_h = heuristic.evaluate({Holding, HandEmpty})
+    none_included_h = heuristic.evaluate(set())
+    # This is terrible!
+    assert none_included_h < all_included_h
+    # Test cases where operators cannot plan to goal.
+    utils.update_config({
+        "min_data_for_nsrt": 10000,
+    })
+    assert heuristic.evaluate(set()) == len(train_tasks) * 1e7
+    # The +2 is for the cost of the two predicates.
+    assert heuristic.evaluate({Holding, HandEmpty}) == 2 + \
+        len(train_tasks) * 1e7
+    # Set this back to avoid screwing up other tests...
+    utils.update_config({
+        "min_data_for_nsrt": 3,
+    })
