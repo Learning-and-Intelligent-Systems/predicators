@@ -183,7 +183,7 @@ def _skeleton_generator(task: Task,
                                     child_node))
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
-    assert time.time()-start_time > timeout
+    assert time.time()-start_time >= timeout
     raise ApproachTimeout("Planning timed out in skeleton search!")
 
 
