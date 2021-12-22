@@ -6,7 +6,7 @@ from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
     LowLevelTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
-    DefaultOption, ParameterizedOption, State, Action
+    DummyOption, ParameterizedOption, State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -163,7 +163,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             segment_param_option = segment_option.parent
             segment_option_objs = tuple(segment_option.objects)
         else:
-            segment_param_option = DefaultOption.parent
+            segment_param_option = DummyOption.parent
             segment_option_objs = tuple()
         for i in range(len(partitions)):
             # Try to unify this transition with existing effects.
