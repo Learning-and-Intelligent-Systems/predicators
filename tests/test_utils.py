@@ -1155,3 +1155,25 @@ def test_run_gbfs():
         lazy_expansion=True, max_evals=2)
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
+
+
+def test_get_tuple_head_tail():
+    """Tests for get_tuple_head_tail().
+    """
+    with pytest.raises(AssertionError):
+        utils.get_tuple_head_tail(tuple())
+    assert utils.get_tuple_head_tail((1,)) == (1, tuple())
+    assert utils.get_tuple_head_tail((1, 2)) == (1, (2,))
+    assert utils.get_tuple_head_tail((1, 2, 3)) == (1, (2, 3))
+
+
+def test_levenshtein_distance():
+    """Tests for levenshtein_distance().
+    """
+    assert utils.levenshtein_distance(tuple(), tuple()) == 0
+    assert utils.levenshtein_distance((1,), (1,)) == 0
+    assert utils.levenshtein_distance((1, 2), (1, 2)) == 0
+    assert utils.levenshtein_distance((1,), (1, 2)) == 1
+    assert utils.levenshtein_distance((1, 2), (1,)) == 1
+    assert utils.levenshtein_distance((1, 2), (1, 3)) == 1
+    assert utils.levenshtein_distance((1, 2), (2, 1)) == 2
