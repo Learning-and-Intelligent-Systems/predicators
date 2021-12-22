@@ -53,13 +53,8 @@ def sesame_plan(task: Task,
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
-    # TODO resolve...
-    if not isinstance(task.init, State):
-        objects, atoms = task.init
-    else:
-        atoms = utils.abstract(task.init, predicates)
-        objects = list(task.init)
-        goal = task.goal
+    atoms = utils.abstract(task.init, predicates)
+    objects = list(task.init)
     ground_nsrts = []
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):

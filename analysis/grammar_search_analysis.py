@@ -63,12 +63,12 @@ def _run_proxy_analysis(env_names: List[str],
         all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide,
                           Holding, IsWet, IsDry, IsDirty, IsClean}
         painting_pred_sets: List[Set[Predicate]] = [
-            # set(),
-            # all_predicates - {IsWet, IsDry},
+            set(),
+            all_predicates - {IsWet, IsDry},
             all_predicates - {IsClean, IsDirty},
-            # all_predicates - {OnTable},
-            # all_predicates - {HoldingTop, HoldingSide, Holding},
-            # all_predicates,
+            all_predicates - {OnTable},
+            all_predicates - {HoldingTop, HoldingSide, Holding},
+            all_predicates,
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     heuristic_names, run_planning, outdir)
@@ -173,16 +173,16 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        # "cover",
-        # "blocks",
+        "cover",
+        "blocks",
         "painting",
     ]
     heuristic_names = [
-        # "prediction_error",
-        # "hadd_lookahead",
+        "prediction_error",
+        "hadd_lookahead",
         "exact_lookahead",
     ]
-    run_planning = False
+    run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")

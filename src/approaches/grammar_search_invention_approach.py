@@ -708,6 +708,11 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExactLookaheadHeuristic(_OperatorLearningBasedHeuristic):
+    """Like _HAddLookaheadHeuristic, but with exact planning to determine
+    the heuristic values, instead of using HAdd.
+
+    TODO: refactor this to remove redundant code w.r.t. _HAddLookaheadHeuristic.
+    """
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
@@ -715,16 +720,12 @@ class _ExactLookaheadHeuristic(_OperatorLearningBasedHeuristic):
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
         score = 0.0  # lower is better
-        # Create dummy NSRTs for compatibility with sesame_plan.
-        # The samplers will not be used.
-        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)            
         for ll_traj, atoms_sequence in pruned_atom_data:
             if not ll_traj.is_demo:  # we only care about demonstrations
                 continue
             objects = set(ll_traj.states[0])
-            planner_h = partial(_exact_planning_heuristic, nsrts, predicates, 
-                                objects, ll_traj.goal)
-            objects = set(ll_traj.states[0])
+            planner_h = partial(_exact_planning_heuristic, objects,
+                                ll_traj.goal, strips_ops, option_specs)
             ground_ops = {op for strips_op in strips_ops
                 for op in utils.all_ground_operators(strips_op, objects)}
             score += self._evaluate_atom_trajectory((ll_traj, atoms_sequence),
@@ -767,19 +768,17 @@ class _ExactLookaheadHeuristic(_OperatorLearningBasedHeuristic):
         return score
 
 
-def _exact_planning_heuristic(nsrts: Collection[NSRT],
-                              predicates: Collection[Predicate],
-                              objects: Set[Object],
+def _exact_planning_heuristic(objects: Set[Object],
                               goal: Set[GroundAtom],
-                              init: Set[GroundAtom]) -> float:
+                              strips_ops: List[STRIPSOperator],
+                              option_specs: List[OptionSpec],
+                              init: Set[GroundAtom],
+                              ) -> float:
+    """Run planning and return the length of the plan, or inf if none found.
+    """
     try:
-        plan, _ = sesame_plan(Task((objects, init), goal),  # TODO resolve...
-                              DummyOptionModel,
-                              nsrts, set(predicates),
-                              timeout=CFG.grammar_search_task_planning_timeout,
-                              seed=CFG.seed,
-                              do_low_level_search=False,
-                              verbose=False)
+        plan, _ = task_plan(init, objects, goal, strips_ops, option_specs,
+                            CFG.seed, CFG.grammar_search_task_planning_timeout)
     except (ApproachFailure, ApproachTimeout):
         return float("inf")
     return float(len(plan))
