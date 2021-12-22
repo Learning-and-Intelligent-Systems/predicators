@@ -349,7 +349,7 @@ class Task:
 
     def __post_init__(self) -> None:
         # Verify types.
-        # assert isinstance(self.init, State)
+        assert isinstance(self.init, State)
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
