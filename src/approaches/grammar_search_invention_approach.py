@@ -13,9 +13,12 @@ from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
 from gym.spaces import Box
 import numpy as np
 from predicators.src import utils
-from predicators.src.approaches import NSRTLearningApproach
+from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
+    ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
+from predicators.src.option_model import DummyOptionModel
+from predicators.src.planning import sesame_plan
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
@@ -453,6 +456,9 @@ def _create_heuristic(
     if CFG.grammar_search_heuristic == "hadd_lookahead_match":
         return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                        train_tasks, candidates)
+    if CFG.grammar_search_heuristic == "task_planning":
+        return _TaskPlanningHeuristic(initial_predicates, atom_dataset,
+                                      train_tasks, candidates)
     raise NotImplementedError(
         f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
 
@@ -556,6 +562,41 @@ class _BranchingFactorHeuristic(_OperatorLearningBasedHeuristic):
         del predicates, pruned_atom_data, option_specs  # unused
         total_branching_factor = _count_branching_factor(strips_ops, segments)
         return CFG.grammar_search_bf_weight * total_branching_factor
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
+    """Score a predicate set by learning operators and planning in the training
+    tasks. The score corresponds to the total number of nodes expanded across
+    all training problems. If no plan is found, a large penalty is added, which
+    is meant to be an upper bound on the number of nodes that could be expanded.
+    """
+
+    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        del pruned_atom_data, segments  # unused
+        score = 0.0
+        node_expansion_upper_bound = 1e7
+        # Create dummy NSRTs for compatibility with sesame_plan.
+        # The samplers will not be used.
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        for task in self._train_tasks:
+            try:
+                _, metrics = sesame_plan(
+                    task, DummyOptionModel, nsrts, set(predicates),
+                    timeout=CFG.grammar_search_task_planning_timeout,
+                    seed=CFG.seed,
+                    do_low_level_search=False,
+                    verbose=False)
+                node_expansions = metrics['num_nodes_expanded']
+                assert node_expansions < node_expansion_upper_bound
+                score += node_expansions
+            except (ApproachFailure, ApproachTimeout):
+                score += node_expansion_upper_bound
+        return score
 
 
 @dataclass(frozen=True, eq=False, repr=False)
