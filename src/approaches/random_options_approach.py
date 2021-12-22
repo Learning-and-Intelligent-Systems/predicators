@@ -3,7 +3,7 @@
 
 from typing import Callable
 from predicators.src.approaches import BaseApproach
-from predicators.src.structs import State, Task, Action, DefaultOption
+from predicators.src.structs import State, Task, Action, DummyOption
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -17,11 +17,11 @@ class RandomOptionsApproach(BaseApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         options = sorted(self._initial_options, key=lambda o: o.name)
-        cur_option = DefaultOption
+        cur_option = DummyOption
         cur_option_ind = 0
         def _policy(state: State) -> Action:
             nonlocal cur_option, cur_option_ind
-            if cur_option is DefaultOption or cur_option.terminal(state):
+            if cur_option is DummyOption or cur_option.terminal(state):
                 for _ in range(CFG.random_options_max_tries):
                     param_opt = options[self._rng.choice(len(options))]
                     objs = utils.get_random_object_combination(

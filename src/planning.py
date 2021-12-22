@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
-    GroundAtom, _GroundNSRT, DefaultOption, DefaultState, _Option, \
+    GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
     PyperplanFacts, Metrics
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
@@ -184,7 +184,7 @@ def _run_low_level_search(
         {"after_exhaust", "immediately", "never"}
     cur_idx = 0
     num_tries = [0 for _ in skeleton]
-    plan: List[_Option] = [DefaultOption for _ in skeleton]
+    plan: List[_Option] = [DummyOption for _ in skeleton]
     traj: List[State] = [task.init]+[DefaultState for _ in skeleton]
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
@@ -243,7 +243,7 @@ def _run_low_level_search(
             assert cur_idx >= 0
             while num_tries[cur_idx] == CFG.max_samples_per_step:
                 num_tries[cur_idx] = 0
-                plan[cur_idx] = DefaultOption
+                plan[cur_idx] = DummyOption
                 traj[cur_idx+1] = DefaultState
                 cur_idx -= 1
                 if cur_idx < 0:
