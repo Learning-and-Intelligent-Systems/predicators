@@ -970,6 +970,40 @@ def save_video(outfile: str, video: Video) -> None:
     print(f"Wrote out to {outpath}")
 
 
+_T = TypeVar('_T', bound=Hashable)
+
+@functools.lru_cache(maxsize=None)
+def levenshtein_distance(x: Tuple[_T, ...], y: Tuple[_T, ...]) -> int:
+    """Compute the edit distance between x and y.
+
+    Insist on tuple inputs because want to cache results for all subsequences.
+
+    Reference: https://en.wikipedia.org/wiki/Levenshtein_distance
+    """
+    if len(x) == 0:
+        return len(y)
+    if len(y) == 0:
+        return len(x)
+    head_x, tail_x = get_tuple_head_tail(x)
+    head_y, tail_y = get_tuple_head_tail(y)
+    if head_x == head_y:
+        return levenshtein_distance(tail_x, tail_y)
+    return 1 + min(
+        levenshtein_distance(tail_x, y),
+        levenshtein_distance(x, tail_y),
+        levenshtein_distance(tail_x, tail_y),
+    )
+
+
+def get_tuple_head_tail(x: Tuple[_T, ...]) -> Tuple[_T, Tuple[_T, ...]]:
+    """Split a tuple into its head and tail.
+    """
+    assert len(x) > 0
+    if len(x) == 1:
+        return x[0], tuple()
+    return x[0], x[1:]
+
+
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG.
     """
