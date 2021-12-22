@@ -42,4 +42,3 @@ class _DefaultOptionModel(_OptionModel):
         return utils.option_to_trajectory(
                 state, self._simulator, option,
                 max_num_steps=CFG.max_num_steps_option_rollout).states[-1]
-

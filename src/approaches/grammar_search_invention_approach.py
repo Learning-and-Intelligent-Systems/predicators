@@ -580,11 +580,13 @@ class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
         score = 0.0
         node_expansion_upper_bound = 1e7
         for task in self._train_tasks:
-            init_atoms = utils.abstract(task.init, set(predicates))
+            init_atoms = utils.abstract(task.init,
+                                        predicates | self._initial_predicates)
+            objects = set(task.init)
             try:
                 _, metrics = task_plan(
-                    init_atoms, task.goal, strips_ops, option_specs, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                    init_atoms, objects, task.goal, strips_ops, option_specs,
+                    CFG.seed, CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
