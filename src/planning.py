@@ -14,7 +14,7 @@ import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    PyperplanFacts, Metrics, STRIPSOperator, OptionSpec
+    PyperplanFacts, Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.option_model import _OptionModel
@@ -95,6 +95,7 @@ def sesame_plan(task: Task,
 
 
 def task_plan(init_atoms: Set[GroundAtom],
+              objects: Set[Object],
               goal: Set[GroundAtom],
               strips_ops: Sequence[STRIPSOperator],
               option_specs: Sequence[OptionSpec],
@@ -109,7 +110,6 @@ def task_plan(init_atoms: Set[GroundAtom],
     takes in only the minimal necessary arguments.
     """
     nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-    objects = {obj for atom in init_atoms for obj in atom.objects}
     ground_nsrts = []
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
