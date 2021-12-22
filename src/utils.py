@@ -20,7 +20,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, Variable, PyperplanFacts, ObjToVarSub, \
     VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
-    _GroundSTRIPSOperator, Array
+    _GroundSTRIPSOperator, Array, OptionSpec
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -752,6 +752,20 @@ def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
     for atom in operator.delete_effects:
         new_atoms.discard(atom)
     return new_atoms
+
+
+def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
+                                 option_specs: Sequence[OptionSpec]
+                                 ) -> Set[NSRT]:
+    """Create NSRTs from strips operators and option specs with dummy samplers.
+    """
+    assert len(strips_ops) == len(option_specs)
+    nsrts = set()
+    for op, (param_option, option_vars) in zip(strips_ops, option_specs):
+        nsrt = op.make_nsrt(param_option, option_vars,
+                            lambda s, rng, o: np.zeros(1))  # dummy sampler
+        nsrts.add(nsrt)
+    return nsrts
 
 
 @functools.lru_cache(maxsize=None)

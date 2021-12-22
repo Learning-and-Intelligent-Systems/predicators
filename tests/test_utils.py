@@ -1157,6 +1157,37 @@ def test_run_gbfs():
     assert action_sequence == ['down']
 
 
+def test_ops_and_specs_to_dummy_nsrts():
+    """Tests fo ops_and_specs_to_dummy_nsrts().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions = {not_on([cup_var, plate_var])}
+    add_effects = {on([cup_var, plate_var])}
+    delete_effects = {not_on([cup_var, plate_var])}
+    params_space = Box(-10, 10, (2,))
+    parameterized_option = ParameterizedOption(
+        "Pick", [], params_space, lambda s, m, o, p: 2*p,
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
+    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
+                                     add_effects, delete_effects)
+    nsrts = utils.ops_and_specs_to_dummy_nsrts([strips_operator],
+                                               [(parameterized_option, [])])
+    assert len(nsrts) == 1
+    nsrt = next(iter(nsrts))
+    assert nsrt.parameters == parameters
+    assert nsrt.preconditions == preconditions
+    assert nsrt.add_effects == add_effects
+    assert nsrt.delete_effects == delete_effects
+    assert nsrt.option == parameterized_option
+    assert nsrt.option_vars == []
+
+
 def test_get_tuple_head_tail():
     """Tests for get_tuple_head_tail().
     """
