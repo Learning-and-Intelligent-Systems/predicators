@@ -17,7 +17,7 @@ from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.option_model import create_option_model
+from predicators.src.option_model import DummyOptionModel
 from predicators.src.planning import sesame_plan
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
@@ -580,19 +580,13 @@ class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
         del pruned_atom_data, segments  # unused
         score = 0.0
         node_expansion_upper_bound = 1e7
-        option_model = create_option_model("default", lambda s, a: s)  # dummy
-        # Create dummy NSRTs for compatibility with sesame_plan. Only the
-        # symbolic components (i.e., the strips operators) will be used.
-        nsrts = set()
-        assert len(strips_ops) == len(option_specs)
-        for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-            nsrt = op.make_nsrt(param_option, option_vars,
-                                lambda s, rng, o: np.zeros(1))  # dummy sampler
-            nsrts.add(nsrt)
+        # Create dummy NSRTs for compatibility with sesame_plan.
+        # The samplers will not be used.
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
         for task in self._train_tasks:
             try:
                 _, metrics = sesame_plan(
-                    task, option_model, nsrts, set(predicates),
+                    task, DummyOptionModel, nsrts, set(predicates),
                     timeout=CFG.grammar_search_task_planning_timeout,
                     seed=CFG.seed,
                     do_low_level_search=False,
