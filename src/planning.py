@@ -45,6 +45,7 @@ def sesame_plan(task: Task,
                 seed: int,
                 check_dr_reachable: bool = True,
                 do_low_level_search: bool = True,
+                verbose: bool = True,
                 ) -> Tuple[Union[List[_Option], List[_GroundNSRT]], Metrics]:
     """Run TAMP. Return a sequence of options, and a dictionary
     of metrics for this run of the planner. Uses the SeSamE strategy:
@@ -87,9 +88,10 @@ def sesame_plan(task: Task,
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             _update_nsrts_with_failure(e.discovered_failure, ground_nsrts)
-    print(f"Planning succeeded! Found plan of length {len(plan)} after trying "
-          f"{int(metrics['num_skeletons_optimized'])} skeletons, discovering "
-          f"{int(metrics['num_failures_discovered'])} failures")
+    if verbose:
+        print(f"Planning succeeded! Found plan of length {len(plan)} after "
+              f"{int(metrics['num_skeletons_optimized'])} skeletons, "
+              f"discovering {int(metrics['num_failures_discovered'])} failures")
     metrics["plan_length"] = len(plan)
     return plan, metrics
 

@@ -119,6 +119,7 @@ class GlobalSettings:
     grammar_search_heuristic = "hadd_lookahead_match"
     grammar_search_lookahead_hadd_weight = 10.
     grammar_search_lookahead_softmax_constant = 10.
+    grammar_search_task_planning_timeout = 1.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
