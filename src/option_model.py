@@ -43,5 +43,3 @@ class _DefaultOptionModel(_OptionModel):
                 state, self._simulator, option,
                 max_num_steps=CFG.max_num_steps_option_rollout).states[-1]
 
-
-DummyOptionModel = _DefaultOptionModel(lambda s, a: s)
