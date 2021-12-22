@@ -5,7 +5,7 @@ the candidates proposed from a grammar.
 from __future__ import annotations
 import abc
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cached_property, partial
 import itertools
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
@@ -456,6 +456,9 @@ def _create_heuristic(
     if CFG.grammar_search_heuristic == "hadd_lookahead_match":
         return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
                                        train_tasks, candidates)
+    if CFG.grammar_search_heuristic == "exact_lookahead_match":
+        return _ExactLookaheadHeuristic(initial_predicates, atom_dataset,
+                                        train_tasks, candidates)
     if CFG.grammar_search_heuristic == "task_planning":
         return _TaskPlanningHeuristic(initial_predicates, atom_dataset,
                                       train_tasks, candidates)
@@ -633,7 +636,7 @@ class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
             # Score the trajectory using hAdd.
             score += self._evaluate_atom_trajectory(atoms_sequence, hadd_fn,
                                                     ground_ops)
-        return CFG.grammar_search_lookahead_hadd_weight * score
+        return CFG.grammar_search_lookahead_weight * score
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   hadd_fn: utils.HAddHeuristic,
@@ -705,6 +708,86 @@ class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
             trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
             score += -trans_log_prob  # remember that lower is better
         return score
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ExactLookaheadHeuristic(_OperatorLearningBasedHeuristic):
+
+    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        score = 0.0  # lower is better
+        # Create dummy NSRTs for compatibility with sesame_plan.
+        # The samplers will not be used.
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)            
+        for ll_traj, atoms_sequence in pruned_atom_data:
+            if not ll_traj.is_demo:  # we only care about demonstrations
+                continue
+            objects = set(ll_traj.states[0])
+            planner_h = partial(_exact_planning_heuristic, nsrts, predicates, 
+                                objects, ll_traj.goal)
+            objects = set(ll_traj.states[0])
+            ground_ops = {op for strips_op in strips_ops
+                for op in utils.all_ground_operators(strips_op, objects)}
+            score += self._evaluate_atom_trajectory((ll_traj, atoms_sequence),
+                                                    planner_h, ground_ops)
+        return CFG.grammar_search_lookahead_weight * score
+
+    def _evaluate_atom_trajectory(self, traj: GroundAtomTrajectory,
+                                  planner_h: Callable[[Set[GroundAtom]], float],
+                                  ground_ops: Collection[_GroundSTRIPSOperator]
+                                  ) -> float:
+        ll_traj, atoms_sequence = traj
+        assert len(ll_traj.states) == len(atoms_sequence)
+        score = 0.0
+        for i in range(len(atoms_sequence)-1):
+            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
+            ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
+            ground_op_total_lpm = -np.inf  # total log prob mass for all actions
+            for ground_op in utils.get_applicable_operators(ground_ops, atoms):
+                # Compute the next state under the operator.
+                predicted_next_atoms = utils.apply_operator(ground_op, atoms)
+                # Compute the exact heuristic for the successor atoms.
+                h = planner_h(predicted_next_atoms)
+                # Compute the probability that the correct next atoms would be
+                # output under an energy-based policy.
+                k = CFG.grammar_search_lookahead_softmax_constant
+                log_p = -k * h
+                ground_op_total_lpm = np.logaddexp(log_p, ground_op_total_lpm)
+                # Check whether the successor atoms match the demonstration.
+                if predicted_next_atoms == next_atoms:
+                    ground_op_demo_lpm = np.logaddexp(log_p, ground_op_demo_lpm)
+            # If there is a demonstration state that is a dead-end under the
+            # operators, immediately return a very bad score, because planning
+            # with these operators would never be able to recover the demo.
+            if ground_op_demo_lpm == -np.inf:
+                return float("inf")
+            # Accumulate the log probability of each (state, action) in this
+            # demonstrated trajectory.
+            trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
+            score += -trans_log_prob  # remember that lower is better
+        return score
+
+
+def _exact_planning_heuristic(nsrts: Collection[NSRT],
+                              predicates: Collection[Predicate],
+                              objects: Set[Object],
+                              goal: Set[GroundAtom],
+                              init: Set[GroundAtom]) -> float:
+    try:
+        plan, _ = sesame_plan(Task((objects, init), goal),  # TODO resolve...
+                              DummyOptionModel,
+                              nsrts, set(predicates),
+                              timeout=CFG.grammar_search_task_planning_timeout,
+                              seed=CFG.seed,
+                              do_low_level_search=False,
+                              verbose=False)
+    except (ApproachFailure, ApproachTimeout):
+        return float("inf")
+    return float(len(plan))
+
 
 ################################################################################
 #                                 Approach                                     #

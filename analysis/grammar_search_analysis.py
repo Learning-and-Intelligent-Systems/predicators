@@ -10,7 +10,8 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredictionErrorHeuristic, _HAddLookaheadHeuristic
+    _PredictionErrorHeuristic, _HAddLookaheadHeuristic, \
+    _ExactLookaheadHeuristic
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -62,12 +63,12 @@ def _run_proxy_analysis(env_names: List[str],
         all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide,
                           Holding, IsWet, IsDry, IsDirty, IsClean}
         painting_pred_sets: List[Set[Predicate]] = [
-            set(),
-            all_predicates - {IsWet, IsDry},
+            # set(),
+            # all_predicates - {IsWet, IsDry},
             all_predicates - {IsClean, IsDirty},
-            all_predicates - {OnTable},
-            all_predicates - {HoldingTop, HoldingSide, Holding},
-            all_predicates,
+            # all_predicates - {OnTable},
+            # all_predicates - {HoldingTop, HoldingSide, Holding},
+            # all_predicates,
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     heuristic_names, run_planning, outdir)
@@ -125,6 +126,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     heuristics = {
         "prediction_error": _PredictionErrorHeuristic,
         "hadd_lookahead": _HAddLookaheadHeuristic,
+        "exact_lookahead": _ExactLookaheadHeuristic,
     }
     utils.flush_cache()
     candidates = {p : 1.0 for p in predicates}
@@ -171,15 +173,16 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        "cover",
-        "blocks",
+        # "cover",
+        # "blocks",
         "painting",
     ]
     heuristic_names = [
-        "prediction_error",
-        "hadd_lookahead",
+        # "prediction_error",
+        # "hadd_lookahead",
+        "exact_lookahead",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
