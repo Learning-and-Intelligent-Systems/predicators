@@ -169,6 +169,9 @@ def test_create_heuristic():
     utils.update_config({"grammar_search_heuristic": "hadd_lookahead_match"})
     heuristic = _create_heuristic(set(), [], [], {})
     assert isinstance(heuristic, _HAddLookaheadHeuristic)
+    utils.update_config({"grammar_search_heuristic": "task_planning"})
+    heuristic = _create_heuristic(set(), [], [], {})
+    assert isinstance(heuristic, _TaskPlanningHeuristic)
     utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
     with pytest.raises(NotImplementedError):
         _create_heuristic(set(), [], [], {})
@@ -523,3 +526,8 @@ def test_task_planning_heuristic():
     none_included_h = heuristic.evaluate(set())
     # This is terrible!
     assert none_included_h < all_included_h
+    # Test cases where operators cannot plan to goal.
+    utils.update_config({
+        "min_data_for_nsrt": 10000,
+    })
+    assert heuristic.evaluate(set()) == len(train_tasks) * 1e7
