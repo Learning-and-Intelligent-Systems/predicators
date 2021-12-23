@@ -188,10 +188,6 @@ def test_playroom_simulate_doors_and_dial():
     robot_type = [t for t in env.types if t.name == "robot"][0]
     dial_type = [t for t in env.types if t.name == "dial"][0]
     door1 = door_type("door1")
-    door2 = door_type("door2")
-    door3 = door_type("door3")
-    door4 = door_type("door4")
-    door5 = door_type("door5")
     door6 = door_type("door6")
     task = next(env.train_tasks_generator())[0]
     state = task.init
@@ -217,14 +213,6 @@ def test_playroom_simulate_doors_and_dial():
     assert np.any(state[robot] != next_state[robot])
     assert np.any(state[door1] != next_state[door1])
     state = next_state
-    # Open all the other doors from left to right
-    door_locs = [49.8, 59.8, 79.8, 99.8, 109.8]
-    doors = [door2, door3, door4, door5, door6]
-    for x, door in zip(door_locs, doors):
-        act = Action(np.array([x, 15, 3, 0, 1]).astype(np.float32))
-        next_state = env.simulate(state, act)
-        assert np.any(state[door] != next_state[door])
-        state = next_state
     # Shut door to playroom
     act = Action(np.array([110.2, 15, 3, 1, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -276,10 +264,6 @@ def test_playroom_options():
     block1 = block_type("block1")
     block2 = block_type("block2")
     door1 = door_type("door1")
-    door2 = door_type("door2")
-    door3 = door_type("door3")
-    door4 = door_type("door4")
-    door5 = door_type("door5")
     door6 = door_type("door6")
     dial = dial_type("dial")
     task = next(env.train_tasks_generator())[0]
@@ -301,13 +285,9 @@ def test_playroom_options():
         # stack block2 on block1
         Stack.ground([robot, block1], [0.0, 0.0, 1.0, 0.0]),
         OpenDoor.ground([door1], [-0.2, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door2], [-0.2, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door3], [-0.2, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door4], [-0.2, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door5], [-0.2, 0.0, 0.0, 0.0]),
-        OpenDoor.ground([door6], [-0.2, 0.0, 0.0, 0.0]),
+        Move.ground([robot], [115.0, 15.0, -0.5]),
         CloseDoor.ground([door6], [0.2, 0.0, 0.0, 1.0]),
-        TurnOffDial.ground([dial], [0.0, 0.0, 0.0, 0.0]),
+        TurnOffDial.ground([dial], [0.0, -0.2, 0.0, 0.5]),
         TurnOnDial.ground([dial], [-0.2, 0.0, 0.0, 0.0])
     ]
     assert plan[0].initiable(state)
@@ -337,15 +317,12 @@ def test_playroom_action_sequence_video():
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
-        # Move down hallway from left to right and open all doors
+        # Open door1
         np.array([29.8, 15, 3, 0, 1]).astype(np.float32),
-        np.array([49.8, 15, 3, 0, 1]).astype(np.float32),
-        np.array([59.8, 15, 3, 0, 1]).astype(np.float32),
-        np.array([79.8, 15, 3, 0, 1]).astype(np.float32),
-        np.array([99.8, 15, 3, 0, 1]).astype(np.float32),
-        np.array([109.8, 15, 3, 0, 1]).astype(np.float32),
+        # Move down hallway to playroom
+        np.array([115, 15, 3, 0, 1]).astype(np.float32),
         # Shut playroom door
-        np.array([110.2, 15, 1, 1, 1]).astype(np.float32),
+        np.array([110.2, 15, 3, -1, 1]).astype(np.float32),
         # Turn dial on
         np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
     ]
