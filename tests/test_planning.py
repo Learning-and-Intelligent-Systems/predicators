@@ -6,9 +6,10 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan
+from predicators.src.planning import sesame_plan, task_plan
 from predicators.src import utils
-from predicators.src.structs import Task, NSRT, ParameterizedOption
+from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
+    _GroundNSRT, STRIPSOperator
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
 
@@ -21,8 +22,34 @@ def test_sesame_plan():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
     option_model = create_option_model(CFG.option_model_name, env.simulate)
-    plan = sesame_plan(task, option_model, nsrts, env.predicates, 1, 123)
+    plan, _ = sesame_plan(task, option_model, nsrts, env.predicates,
+                          timeout=1, seed=123)
     assert len(plan) == 2
+    assert isinstance(plan[0], _Option)
+    assert isinstance(plan[1], _Option)
+
+
+def test_task_plan():
+    """Tests for task_plan().
+    """
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    task = next(env.train_tasks_generator())[0]
+    init_atoms = utils.abstract(task.init, env.predicates)
+    objects = set(task.init)
+    strips_ops = []
+    option_specs = []
+    for nsrt in nsrts:
+        strips_ops.append(STRIPSOperator(
+            nsrt.name, nsrt.parameters, nsrt.preconditions,
+            nsrt.add_effects, nsrt.delete_effects))
+        option_specs.append((nsrt.option, nsrt.option_vars))
+    skeleton, _ = task_plan(init_atoms, objects, task.goal, strips_ops,
+                            option_specs, timeout=1, seed=123)
+    assert len(skeleton) == 2
+    assert isinstance(skeleton[0], _GroundNSRT)
+    assert isinstance(skeleton[1], _GroundNSRT)
 
 
 def test_sesame_plan_failures():
@@ -46,10 +73,10 @@ def test_sesame_plan_failures():
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]
-    block1 = [obj for obj in task.init if obj.name == "block1"][0]
     target0 = [obj for obj in task.init if obj.name == "target0"][0]
+    target1 = [obj for obj in task.init if obj.name == "target1"][0]
     impossible_task = Task(task.init, {Covers([block0, target0]),
-                                       Covers([block1, target0])})
+                                       Covers([block0, target1])})
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=0.1)  # times out
     with pytest.raises(ApproachTimeout):

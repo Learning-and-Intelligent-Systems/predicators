@@ -191,12 +191,6 @@ class State:
         suffix = "\n" + "#" * ll+ "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
-    def scope(self, objects: Collection[Object]) -> State:
-        """Create a substate involving only the given objects.
-        """
-        assert set(objects).issubset(self)
-        return State({o: self[o] for o in objects}, self.simulator_state)
-
 
 DefaultState = State({})
 
@@ -445,11 +439,11 @@ class _Option:
         action.set_option(self)
         return action
 
-DefaultOption: _Option = ParameterizedOption(
+DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
         [], np.array([0.0]))
-DefaultOption.parent.params_space.seed(0)  # for reproducibility
+DummyOption.parent.params_space.seed(0)  # for reproducibility
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -715,7 +709,7 @@ class Action:
     float array that can optionally store the option which produced it.
     """
     _arr: Array
-    _option: _Option = field(repr=False, default=DefaultOption)
+    _option: _Option = field(repr=False, default=DummyOption)
 
     @property
     def arr(self) -> Array:
@@ -726,7 +720,7 @@ class Action:
     def has_option(self) -> bool:
         """Whether this action has a non-default option attached.
         """
-        return self._option is not DefaultOption
+        return self._option is not DummyOption
 
     def get_option(self) -> _Option:
         """Get the option that produced this action.
@@ -742,7 +736,7 @@ class Action:
     def unset_option(self) -> None:
         """Unset the option that produced this action.
         """
-        self._option = DefaultOption
+        self._option = DummyOption
         assert not self.has_option()
 
 
@@ -808,7 +802,7 @@ class Segment:
     trajectory: LowLevelTrajectory
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
-    _option: _Option = field(repr=False, default=DefaultOption)
+    _option: _Option = field(repr=False, default=DummyOption)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -844,7 +838,7 @@ class Segment:
     def has_option(self) -> bool:
         """Whether this segment has a non-default option attached.
         """
-        return self._option is not DefaultOption
+        return self._option is not DummyOption
 
     def get_option(self) -> _Option:
         """Get the option that produced this segment.

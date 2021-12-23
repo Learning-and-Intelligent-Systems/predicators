@@ -8,10 +8,12 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DefaultOption, STRIPSOperator, \
+    Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
+from predicators.src.utils import _HAddHeuristic, _HMaxHeuristic
+
 
 def test_intersects():
     """Tests for intersects().
@@ -723,7 +725,7 @@ def test_create_ground_atom_dataset():
         State({cup1: [0.5], cup2: [0.1], plate1: [1.0], plate2: [1.2]}),
         State({cup1: [1.1], cup2: [0.1], plate1: [1.0], plate2: [1.2]})
     ]
-    actions = [DefaultOption]
+    actions = [DummyOption]
     dataset = [LowLevelTrajectory(states, actions)]
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, {on})
     assert len(ground_atom_dataset) == 1
@@ -971,8 +973,19 @@ def test_operator_application():
         ground_ops, {pred3([cup2, plate2])}))
 
 
+def test_create_heuristic():
+    """Tests for create_heuristic().
+    """
+    hadd_heuristic = utils.create_heuristic("hadd", set(), set(), set())
+    assert isinstance(hadd_heuristic, _HAddHeuristic)
+    hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set())
+    assert isinstance(hmax_heuristic, _HMaxHeuristic)
+    with pytest.raises(ValueError):
+        utils.create_heuristic("not a real heuristic", set(), set(), set())
+
+
 def test_hadd_heuristic():
-    """Tests for hAddHeuristic.
+    """Tests for HAddHeuristic.
     """
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
@@ -1014,13 +1027,74 @@ def test_hadd_heuristic():
             "Dummy", frozenset({}), frozenset({}))]
     goals = frozenset({("Covers", "block0:block", "target0:target"),
                        ("Covers", "block1:block", "target1:target")})
-    heuristic = utils.HAddHeuristic(initial_state, goals, operators)
+    heuristic = _HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 4
     assert heuristic(goals) == 0
     goals = frozenset({("Covers", "block0:block", "target0:target")})
-    heuristic = utils.HAddHeuristic(initial_state, goals, operators)
+    heuristic = _HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
+
+
+def test_hmax_heuristic():
+    """Tests for HMaxHeuristic.
+    """
+    initial_state = frozenset({("IsBlock", "block0:block"),
+                               ("IsTarget", "target0:target"),
+                               ("IsTarget", "target1:target"),
+                               ("HandEmpty",),
+                               ("IsBlock", "block1:block")})
+    operators = [
+        utils.RelaxedOperator(
+            "Pick", frozenset({("HandEmpty",), ("IsBlock", "block1:block")}),
+            frozenset({("Holding", "block1:block")})),
+        utils.RelaxedOperator(
+            "Pick", frozenset({("IsBlock", "block0:block"), ("HandEmpty",)}),
+            frozenset({("Holding", "block0:block")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("Holding", "block0:block"),
+                                ("IsBlock", "block0:block"),
+                                ("IsTarget", "target0:target")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block0:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target0:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block1:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("Covers", "block1:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block0:block"),
+                                ("IsBlock", "block0:block")}),
+            frozenset({("Covers", "block0:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Dummy", frozenset({}), frozenset({}))]
+    goals = frozenset({("Covers", "block0:block", "target0:target"),
+                       ("Covers", "block1:block", "target1:target")})
+    heuristic = _HMaxHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = _HMaxHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    # Test edge case with empty operator preconditions.
+    initial_state = frozenset()
+    operators = [
+        utils.RelaxedOperator(
+            "Pick", frozenset(), frozenset({("HoldingSomething",)})),
+    ]
+    goals = frozenset({("HoldingSomething",)})
+    heuristic = _HMaxHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 1
 
 
 def test_save_video():
@@ -1155,3 +1229,34 @@ def test_run_gbfs():
         lazy_expansion=True, max_evals=2)
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
+
+
+def test_ops_and_specs_to_dummy_nsrts():
+    """Tests fo ops_and_specs_to_dummy_nsrts().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1"])
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    cup_var = cup_type("?cup")
+    plate_var = plate_type("?plate")
+    parameters = [cup_var, plate_var]
+    preconditions = {not_on([cup_var, plate_var])}
+    add_effects = {on([cup_var, plate_var])}
+    delete_effects = {not_on([cup_var, plate_var])}
+    params_space = Box(-10, 10, (2,))
+    parameterized_option = ParameterizedOption(
+        "Pick", [], params_space, lambda s, m, o, p: 2*p,
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
+    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
+                                     add_effects, delete_effects)
+    nsrts = utils.ops_and_specs_to_dummy_nsrts([strips_operator],
+                                               [(parameterized_option, [])])
+    assert len(nsrts) == 1
+    nsrt = next(iter(nsrts))
+    assert nsrt.parameters == parameters
+    assert nsrt.preconditions == preconditions
+    assert nsrt.add_effects == add_effects
+    assert nsrt.delete_effects == delete_effects
+    assert nsrt.option == parameterized_option
+    assert nsrt.option_vars == []
