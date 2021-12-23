@@ -444,20 +444,23 @@ def _create_score_function(
         candidates: Dict[Predicate, float]
         ) -> _PredicateSearchScoreFunction:
     if CFG.grammar_search_score_function == "prediction_error":
-        return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
-                                             train_tasks, candidates)
+        return _PredictionErrorScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
     if CFG.grammar_search_score_function == "branching_factor":
-        return _BranchingFactorScoreFunction(initial_predicates, atom_dataset,
-                                             train_tasks, candidates)
+        return _BranchingFactorScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
     if CFG.grammar_search_score_function == "hadd_match":
-        return _HAddMatchScoreFunction(initial_predicates, atom_dataset,
-                                       train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_lookahead_match":
-        return _HAddLookaheadScoreFunction(initial_predicates, atom_dataset,
-                                           train_tasks, candidates)
+        return _HAddHeuristicMatchBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
+    if CFG.grammar_search_score_function == "hadd_energy":
+        return _HAddHeuristicEnergyBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
+    if CFG.grammar_search_score_function == "exact_energy":
+        return _ExactHeuristicEnergyBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
     if CFG.grammar_search_score_function == "task_planning":
-        return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
-                                          train_tasks, candidates)
+        return _TaskPlanningScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
     raise NotImplementedError(
         f"Unknown score function: {CFG.grammar_search_score_function}.")
 
@@ -595,15 +598,13 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
         return score
 
 
+
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddBasedScoreFunction(_OperatorLearningBasedScoreFunction):
-    """Score a predicate set by learning operators and computing the hAdd
-    heuristic for the demonstration data.
-
-    Subclasses must decide how exactly the hAdd heuristic values are used to
-    compute the score.
+class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
+    """Score a predicate set by learning operators and comparing some
+    heuristic against the demonstrations. Subclasses must choose the
+    heuristic function and how to evaluate against the demonstrations.
     """
-
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
@@ -613,66 +614,68 @@ class _HAddBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         for traj, atoms_sequence in pruned_atom_data:
             if not traj.is_demo:  # we only care about demonstrations
                 continue
-            # Create hAdd heuristic for this trajectory.
-            objects = set(traj.states[0])
             init_atoms = atoms_sequence[0]
-            goal_atoms = traj.goal
-            ground_ops = {op for strips_op in strips_ops
-                for op in utils.all_ground_operators(strips_op, objects)}
-            relaxed_operators = frozenset({utils.RelaxedOperator(
-                op.name, utils.atoms_to_tuples(op.preconditions),
-                utils.atoms_to_tuples(op.add_effects)) for op in ground_ops})
-            hadd_fn = utils.HAddHeuristic(
-                utils.atoms_to_tuples(init_atoms),
-                utils.atoms_to_tuples(goal_atoms),
-                relaxed_operators)
-            # Score the trajectory using hAdd.
-            score += self._evaluate_atom_trajectory(atoms_sequence, hadd_fn,
-                                                    ground_ops)
-        return CFG.grammar_search_lookahead_weight * score
+            objects = set(traj.states[0])
+            goal = traj.goal
+            ground_ops = {op for strips_op in strips_ops for op
+                          in utils.all_ground_operators(strips_op, objects)}
+            heuristic_fn = self._generate_heuristic(
+                init_atoms, objects, goal, strips_ops, option_specs, ground_ops)
+            score += self._evaluate_atom_trajectory(
+                atoms_sequence, heuristic_fn, ground_ops)
+        return CFG.grammar_search_heuristic_based_weight * score
 
-    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
-                                  hadd_fn: utils.HAddHeuristic,
-                                  ground_ops: Collection[_GroundSTRIPSOperator]
-                                  ) -> float:
+    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
+                            objects: Set[Object],
+                            goal: Set[GroundAtom],
+                            strips_ops: Sequence[STRIPSOperator],
+                            option_specs: Sequence[OptionSpec],
+                            ground_ops: Set[_GroundSTRIPSOperator]
+                            ) -> Callable[[Set[GroundAtom]], float]:
+        raise NotImplementedError("Override me!")
+
+    def _evaluate_atom_trajectory(
+            self, atoms_sequence: List[Set[GroundAtom]],
+            heuristic_fn: Callable[[Set[GroundAtom]], float],
+            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
         raise NotImplementedError("Override me!")
 
 
-class _HAddMatchScoreFunction(_HAddBasedScoreFunction):
-    """Score based on distance to "ground truth" value function for actions that
-    were seen in the demonstration.
+@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
+class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
+    """Implement _evaluate_atom_trajectory() by expecting the heuristic
+    to match the exact costs-to-go of the states in the demonstrations.
     """
-
-    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
-                                  hadd_fn: utils.HAddHeuristic,
-                                  ground_ops: Collection[_GroundSTRIPSOperator]
-                                  ) -> float:
+    def _evaluate_atom_trajectory(
+            self, atoms_sequence: List[Set[GroundAtom]],
+            heuristic_fn: Callable[[Set[GroundAtom]], float],
+            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
         score = 0.0
         for i, atoms in enumerate(atoms_sequence):
-            ideal_heuristic = len(atoms_sequence) - i - 1
-            hadd_heuristic = hadd_fn(utils.atoms_to_tuples(atoms))
-            score += abs(hadd_heuristic - ideal_heuristic)
+            ideal_h = len(atoms_sequence) - i - 1
+            h = heuristic_fn(atoms)
+            score += abs(h - ideal_h)
         return score
 
 
-class _HAddLookaheadScoreFunction(_HAddBasedScoreFunction):
-    """Score predicates by using the hadd values of the induced operators
+@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
+class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
+    """Implement _evaluate_atom_trajectory() by using the induced operators
     to compute an energy-based policy, and comparing that policy to demos.
 
     Overview of the idea:
     1. Predicates induce operators. Denote this ops(preds).
-    2. Operators induce an hadd heuristic. Denote this hadd(state, ops(preds)).
+    2. Operators induce a heuristic. Denote this h(state, ops(preds)).
     3. The heuristic induces a greedy one-step lookahead energy-based policy.
-       Denote this pi(a | s) propto exp(-k * hadd(succ(s, a), ops(preds)) where
-       k is CFG.grammar_search_lookahead_softmax_constant.
+       Denote this pi(a | s) propto exp(-k * h(succ(s, a), ops(preds)) where
+       k is CFG.grammar_search_energy_based_temperature.
     4. The objective for predicate learning is to maximize prod pi(a | s)
        where the product is over demonstrations.
     """
-
-    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
-                                  hadd_fn: utils.HAddHeuristic,
-                                  ground_ops: Collection[_GroundSTRIPSOperator]
-                                  ) -> float:
+    def _evaluate_atom_trajectory(
+            self, atoms_sequence: List[Set[GroundAtom]],
+            heuristic_fn: Callable[[Set[GroundAtom]], float],
+            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
         score = 0.0
         for i in range(len(atoms_sequence)-1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
@@ -682,10 +685,10 @@ class _HAddLookaheadScoreFunction(_HAddBasedScoreFunction):
                 # Compute the next state under the operator.
                 predicted_next_atoms = utils.apply_operator(ground_op, atoms)
                 # Compute the heuristic for the successor atoms.
-                h = hadd_fn(utils.atoms_to_tuples(predicted_next_atoms))
+                h = heuristic_fn(predicted_next_atoms)
                 # Compute the probability that the correct next atoms would be
                 # output under an energy-based policy.
-                k = CFG.grammar_search_lookahead_softmax_constant
+                k = CFG.grammar_search_energy_based_temperature
                 log_p = -k * h
                 ground_op_total_lpm = np.logaddexp(log_p, ground_op_total_lpm)
                 # Check whether the successor atoms match the demonstration.
@@ -701,6 +704,79 @@ class _HAddLookaheadScoreFunction(_HAddBasedScoreFunction):
             trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
             score += -trans_log_prob  # remember that lower is better
         return score
+
+
+@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
+class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
+    """Implement _generate_heuristic() with HAdd.
+    """
+    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
+                            objects: Set[Object],
+                            goal: Set[GroundAtom],
+                            strips_ops: Sequence[STRIPSOperator],
+                            option_specs: Sequence[OptionSpec],
+                            ground_ops: Set[_GroundSTRIPSOperator]
+                            ) -> Callable[[Set[GroundAtom]], float]:
+        relaxed_operators = frozenset({utils.RelaxedOperator(
+            op.name, utils.atoms_to_tuples(op.preconditions),
+            utils.atoms_to_tuples(op.add_effects)) for op in ground_ops})
+        hadd_fn = utils.HAddHeuristic(
+            utils.atoms_to_tuples(init_atoms),
+            utils.atoms_to_tuples(goal),
+            relaxed_operators)
+        def _hadd_fn_h(init_atoms: Set[GroundAtom]):
+            return hadd_fn(utils.atoms_to_tuples(init_atoms))
+        return _hadd_fn_h
+
+
+@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
+class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
+    """Implement _generate_heuristic() with task planning.
+    """
+    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
+                            objects: Set[Object],
+                            goal: Set[GroundAtom],
+                            strips_ops: Sequence[STRIPSOperator],
+                            option_specs: Sequence[OptionSpec],
+                            ground_ops: Set[_GroundSTRIPSOperator]
+                            ) -> Callable[[Set[GroundAtom]], float]:
+        def _task_planning_h(init_atoms: Set[GroundAtom]):
+            """Run task planning and return the length of the plan,
+            or inf if no plan is found.
+            """
+            try:
+                plan, _ = task_plan(
+                    init_atoms, objects, goal, strips_ops, option_specs,
+                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+            except (ApproachFailure, ApproachTimeout):
+                return float("inf")
+            return float(len(plan))
+        return _task_planning_h
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HAddHeuristicMatchBasedScoreFunction(
+        _HAddHeuristicBasedScoreFunction, _HeuristicMatchBasedScoreFunction):
+    """Implement _generate_heuristic() with HAdd and
+    _evaluate_atom_trajectory() with matching.
+    """
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HAddHeuristicEnergyBasedScoreFunction(
+        _HAddHeuristicBasedScoreFunction, _HeuristicEnergyBasedScoreFunction):
+    """Implement _generate_heuristic() with HAdd and
+    _evaluate_atom_trajectory() with an energy-based policy.
+    """
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ExactHeuristicEnergyBasedScoreFunction(
+        _ExactHeuristicBasedScoreFunction, _HeuristicEnergyBasedScoreFunction):
+    """Implement _generate_heuristic() with task planning and
+    _evaluate_atom_trajectory() with an energy-based policy.
+    """
+
 
 ################################################################################
 #                                 Approach                                     #

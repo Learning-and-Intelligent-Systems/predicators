@@ -116,9 +116,9 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1
     grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
-    grammar_search_score_function = "hadd_lookahead_match"
-    grammar_search_lookahead_weight = 10.
-    grammar_search_lookahead_softmax_constant = 10.
+    grammar_search_score_function = "hadd_energy"
+    grammar_search_heuristic_based_weight = 10.
+    grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
 
     @staticmethod
