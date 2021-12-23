@@ -724,8 +724,9 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
             utils.atoms_to_tuples(init_atoms),
             utils.atoms_to_tuples(goal),
             relaxed_operators)
-        def _hadd_fn_h(init_atoms: Set[GroundAtom]) -> float:
-            return hadd_fn(utils.atoms_to_tuples(init_atoms))
+        del init_atoms  # unused after this
+        def _hadd_fn_h(atoms: Set[GroundAtom]) -> float:
+            return hadd_fn(utils.atoms_to_tuples(atoms))
         return _hadd_fn_h
 
 
@@ -740,13 +741,14 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        def _task_planning_h(init_atoms: Set[GroundAtom]) -> float:
+        del init_atoms  # unused
+        def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the plan,
             or inf if no plan is found.
             """
             try:
                 plan, _ = task_plan(
-                    init_atoms, objects, goal, strips_ops, option_specs,
+                    atoms, objects, goal, strips_ops, option_specs,
                     CFG.seed, CFG.grammar_search_task_planning_timeout)
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
