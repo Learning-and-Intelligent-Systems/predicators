@@ -178,7 +178,8 @@ def test_create_score_function():
     utils.update_config(
         {"grammar_search_score_function": "exact_lookahead"})
     score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _ExactHeuristicLookaheadBasedScoreFunction)
+    assert isinstance(
+        score_function, _ExactHeuristicLookaheadBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "task_planning"})
     score_function = _create_score_function(set(), [], [], {})
