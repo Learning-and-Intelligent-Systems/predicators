@@ -350,6 +350,9 @@ def test_hadd_lookahead_score_function():
     # Tests for CoverEnv.
     utils.update_config({
         "env": "cover",
+    })
+    utils.update_config({
+        "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
     })
@@ -414,22 +417,23 @@ def test_hadd_lookahead_score_function():
         initial_predicates, atom_dataset, train_tasks, candidates)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
-    # Note: the values for Holding alone, Clear alone, and GripperOpen alone
-    # are not in between the bounds. Here are all the values:
-    # ipdb> all_included_s
-    # 11411.369394796297
-    # ipdb> none_included_s
-    # 17640.461089410717
-    # ipdb> holding_included_s
-    # 11240.23793807844
-    # ipdb> clear_included_s
-    # 21144.93016115656
-    # ipdb> gripper_open_included_s
-    # 17641.505279500798
-    # This is peculiar. But we do see that learning works well in the end.
-    assert all_included_s < none_included_s
+    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
+                                                      name_to_pred["Clear"]})
+    assert all_included_s < none_included_s  # good!
+    # The fact that there is not a monotonic improvement shows a downside of
+    # this score function. But we do see that learning works well in the end.
+    assert gripperopen_excluded_s < all_included_s  # bad!
+    # Note: here are all the scores.
+    # (): 17640.461089410717
+    # (Clear,): 21144.93016115656
+    # (Holding,): 11240.237938078439
+    # (GripperOpen,): 17641.505279500794
+    # (Clear, Holding): 7581.118488743514
+    # (Clear, GripperOpen): 21145.98910036367
+    # (Holding, GripperOpen): 14643.702564367157
+    # (Clear, Holding, GripperOpen): 11411.369394796291
 
-    # Tests for PaintEnv.
+    # Tests for PaintingEnv.
     utils.flush_cache()
     utils.update_config({
         "env": "painting",
@@ -455,6 +459,44 @@ def test_hadd_lookahead_score_function():
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
     assert all_included_s < none_included_s  # hooray!
+
+
+def test_exact_lookahead_score_function():
+    """Tests for _ExactHeuristicLookaheadBasedScoreFunction().
+    """
+    # Just test this on BlocksEnv, since that's a known problem case
+    # for hadd_lookahead.
+    utils.flush_cache()
+    utils.update_config({
+        "env": "blocks",
+    })
+    utils.update_config({
+        "env": "blocks",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+        "num_train_tasks": 2,
+    })
+    env = BlocksEnv()
+    ablated = {"Holding", "Clear", "GripperOpen"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    score_function = _ExactHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    none_included_s = score_function.evaluate(set())
+    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
+                                                      name_to_pred["Clear"]})
+    assert all_included_s < none_included_s  # good!
+    assert all_included_s < gripperopen_excluded_s  # good!
 
 
 def test_branching_factor_score_function():
