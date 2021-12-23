@@ -218,6 +218,7 @@ class _PredicateGrammar:
                 break
         return candidates
 
+    @abc.abstractmethod
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         """Iterate over candidate predicates from less to more cost.
         """
@@ -239,6 +240,7 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
             types.update(o.type for o in traj.states[0])
         return types
 
+    @abc.abstractmethod
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         """Iterate over candidate predicates in an arbitrary order.
         """
@@ -474,6 +476,7 @@ class _PredicateSearchScoreFunction:
     _train_tasks: List[Task]  # training tasks that this data was generated on
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
+    @abc.abstractmethod
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
         """Get the score for the set of predicates.
 
@@ -512,6 +515,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         print(f"\tTotal score: {total_score}")
         return total_score
 
+    @abc.abstractmethod
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
@@ -625,6 +629,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                 atoms_sequence, heuristic_fn, ground_ops)
         return CFG.grammar_search_heuristic_based_weight * score
 
+    @abc.abstractmethod
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
                             objects: Set[Object],
                             goal: Set[GroundAtom],
@@ -634,6 +639,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                             ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
     def _evaluate_atom_trajectory(
             self, atoms_sequence: List[Set[GroundAtom]],
             heuristic_fn: Callable[[Set[GroundAtom]], float],
@@ -641,8 +647,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         raise NotImplementedError("Override me!")
 
 
-@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
-class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
+@dataclass(frozen=True, eq=False, repr=False)
+class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _evaluate_atom_trajectory() by expecting the heuristic
     to match the exact costs-to-go of the states in the demonstrations.
     """
@@ -658,8 +664,8 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
         return score
 
 
-@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
-class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
+@dataclass(frozen=True, eq=False, repr=False)
+class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _evaluate_atom_trajectory() by using the induced operators
     to compute an energy-based policy, and comparing that policy to demos.
 
@@ -706,8 +712,8 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
         return score
 
 
-@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
-class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
+@dataclass(frozen=True, eq=False, repr=False)
+class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with HAdd.
     """
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
@@ -724,13 +730,13 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
             utils.atoms_to_tuples(init_atoms),
             utils.atoms_to_tuples(goal),
             relaxed_operators)
-        def _hadd_fn_h(init_atoms: Set[GroundAtom]):
+        def _hadd_fn_h(init_atoms: Set[GroundAtom]) -> float:
             return hadd_fn(utils.atoms_to_tuples(init_atoms))
         return _hadd_fn_h
 
 
-@dataclass(frozen=True, eq=False, repr=False)  # pylint:disable=abstract-method
-class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
+@dataclass(frozen=True, eq=False, repr=False)
+class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with task planning.
     """
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
@@ -740,7 +746,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        def _task_planning_h(init_atoms: Set[GroundAtom]):
+        def _task_planning_h(init_atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the plan,
             or inf if no plan is found.
             """
