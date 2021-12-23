@@ -701,10 +701,10 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
                 if predicted_next_atoms == next_atoms:
                     ground_op_demo_lpm = np.logaddexp(log_p, ground_op_demo_lpm)
             # If there is a demonstration state that is a dead-end under the
-            # operators, immediately return a very bad score, because planning
-            # with these operators would never be able to recover the demo.
+            # operators, suppose there is some very small probability that the
+            # operators would take this (e.g. it's acting epsilon-greedily).
             if ground_op_demo_lpm == -np.inf:
-                return float("inf")
+                ground_op_demo_lpm = CFG.grammar_search_log_epsilon
             # Accumulate the log probability of each (state, action) in this
             # demonstrated trajectory.
             trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
