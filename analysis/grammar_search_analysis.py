@@ -10,7 +10,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredictionErrorScoreFunction, _HAddLookaheadScoreFunction
+    _PredictionErrorScoreFunction, _HAddHeuristicEnergyBasedScoreFunction
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -124,7 +124,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
                                        ) -> Dict[str, float]:
     score_functions = {
         "prediction_error": _PredictionErrorScoreFunction,
-        "hadd_lookahead": _HAddLookaheadScoreFunction,
+        "hadd_energy": _HAddHeuristicEnergyBasedScoreFunction,
     }
     utils.flush_cache()
     candidates = {p : 1.0 for p in predicates}
@@ -177,7 +177,7 @@ def _main() -> None:
     ]
     score_function_names = [
         "prediction_error",
-        "hadd_lookahead",
+        "hadd_energy",
     ]
     run_planning = True
 
