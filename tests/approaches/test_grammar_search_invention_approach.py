@@ -161,29 +161,28 @@ def test_create_score_function():
     """
     utils.update_config(
         {"grammar_search_score_function": "prediction_error"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _PredictionErrorScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _PredictionErrorScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "hadd_match"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _HAddHeuristicMatchBasedScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _HAddHeuristicMatchBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "branching_factor"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _BranchingFactorScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _BranchingFactorScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "hadd_lookahead"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _HAddHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _HAddHeuristicLookaheadBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "exact_lookahead"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(
-        score_function, _ExactHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "task_planning"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _TaskPlanningScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _TaskPlanningScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "not a real score function"})
     with pytest.raises(NotImplementedError):
