@@ -834,6 +834,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     delete_effects = {LiftedAtom(NextToDoor, [robot, door])}
     def movedoortodial_sampler(state: State, rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
+        del rng  # unused
         assert len(objs) == 4
         _, _, dial, _ = objs
         assert dial.is_instance(dial_type)
