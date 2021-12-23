@@ -10,7 +10,8 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredictionErrorScoreFunction, _HAddLookaheadScoreFunction
+    _PredictionErrorScoreFunction, _HAddHeuristicLookaheadBasedScoreFunction, \
+    _ExactHeuristicLookaheadBasedScoreFunction
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -124,7 +125,8 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
                                        ) -> Dict[str, float]:
     score_functions = {
         "prediction_error": _PredictionErrorScoreFunction,
-        "hadd_lookahead": _HAddLookaheadScoreFunction,
+        "hadd_lookahead": _HAddHeuristicLookaheadBasedScoreFunction,
+        "exact_lookahead": _ExactHeuristicLookaheadBasedScoreFunction,
     }
     utils.flush_cache()
     candidates = {p : 1.0 for p in predicates}
@@ -153,7 +155,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
 
 def _make_proxy_analysis_results(outdir: str) -> None:
     all_results: DefaultDict[Tuple[str, str], Dict] = defaultdict(dict)
-    for filepath in glob.glob(f"{outdir}/*.result"):
+    for filepath in sorted(glob.glob(f"{outdir}/*.result")):
         with open(filepath, "r", encoding="utf-8") as f:
             raw_result = f.read()
         result = float(raw_result)
@@ -178,6 +180,7 @@ def _main() -> None:
     score_function_names = [
         "prediction_error",
         "hadd_lookahead",
+        "exact_lookahead",
     ]
     run_planning = True
 
