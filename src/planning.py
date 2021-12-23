@@ -7,8 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
 import time
-from typing import Collection, Callable, List, Set, Optional, Tuple, \
-    Iterator, Sequence
+from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -143,13 +142,8 @@ def _skeleton_generator(task: Task,
     root_node = _Node(atoms=init_atoms, skeleton=[],
                       atoms_sequence=[init_atoms], parent=None)
     rng_prio = np.random.default_rng(seed)
-    # Set up stuff for pyperplan heuristic.
-    relaxed_operators = frozenset({utils.RelaxedOperator(
-        nsrt.name, utils.atoms_to_tuples(nsrt.preconditions),
-        utils.atoms_to_tuples(nsrt.add_effects)) for nsrt in ground_nsrts})
-    heuristic: Callable[[PyperplanFacts], float] = utils.HAddHeuristic(
-        utils.atoms_to_tuples(init_atoms),
-        utils.atoms_to_tuples(task.goal), relaxed_operators)
+    heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
+                                       init_atoms, task.goal, ground_nsrts)
     hq.heappush(queue, (heuristic(root_node.pyperplan_facts),
                         rng_prio.uniform(),
                         root_node))
