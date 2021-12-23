@@ -455,8 +455,8 @@ def test_hadd_lookahead_score_function():
 def test_branching_factor_score_function():
     """Tests for _BranchingFactorScoreFunction().
     """
-    # We know that this score_function is bad, because it prefers predicates that
-    # make segmentation collapse demo actions into one.
+    # We know that this score_function is bad, because it prefers predicates
+    # that make segmentation collapse demo actions into one.
     utils.update_config({
         "env": "cover",
     })
