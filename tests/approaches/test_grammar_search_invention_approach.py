@@ -20,7 +20,6 @@ from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
 from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
-from predicators.src.settings import CFG
 
 
 def test_predicate_grammar():
