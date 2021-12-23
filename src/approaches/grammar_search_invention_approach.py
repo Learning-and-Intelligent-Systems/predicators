@@ -3,6 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from __future__ import annotations
+import time
 import abc
 from dataclasses import dataclass
 from functools import cached_property
@@ -497,6 +498,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         total_cost = sum(self._candidates[pred] for pred in predicates)
         print(f"Evaluating predicates: {predicates}, with total cost "
               f"{total_cost}")
+        start_time = time.time()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset, predicates | self._initial_predicates)
         segments = [seg for traj in pruned_atom_data
@@ -509,7 +511,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         pred_penalty = self._get_predicate_penalty(predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
-        print(f"\tTotal score: {total_score}")
+        print(f"\tTotal score: {total_score} computed in "
+              f"{time.time()-start_time:.3f} seconds")
         return total_score
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
