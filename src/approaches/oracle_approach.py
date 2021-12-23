@@ -746,9 +746,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, door, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(IsBoringRoom, [region]),
-                     LiftedAtom(InRegion, [robot, region]),
-                     LiftedAtom(NextToTable, [robot]),
+    preconditions = {LiftedAtom(NextToTable, [robot]),
                      LiftedAtom(IsBoringRoomDoor, [door])}
     add_effects = {LiftedAtom(NextToDoor, [robot, door])}
     delete_effects = {LiftedAtom(NextToTable, [robot])}
@@ -853,9 +851,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, dial, door, region]
     option_vars = [robot]
     option = Move
-    preconditions = {LiftedAtom(IsPlayroom, [region]),
-                     LiftedAtom(InRegion, [robot, region]),
-                     LiftedAtom(IsPlayroomDoor, [door]),
+    preconditions = {LiftedAtom(IsPlayroomDoor, [door]),
                      LiftedAtom(NextToDial, [robot, dial])}
     add_effects = {LiftedAtom(NextToDoor, [robot, door])}
     delete_effects = {LiftedAtom(NextToDial, [robot, dial])}
