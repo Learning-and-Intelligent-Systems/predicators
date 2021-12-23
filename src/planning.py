@@ -121,8 +121,8 @@ def task_plan(init_atoms: Set[GroundAtom],
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
-                                    seed, timeout, metrics)
+    generator = _skeleton_generator(dummy_task, nonempty_ground_nsrts,
+                                    init_atoms, seed, timeout, metrics)
     skeleton, _ = next(generator)  # get the first one
     return skeleton, metrics
 
