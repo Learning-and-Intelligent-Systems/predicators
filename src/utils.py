@@ -11,7 +11,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
 import heapq as hq
 import imageio
 import matplotlib
@@ -772,20 +772,23 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
 def create_heuristic(heuristic_name: str,
                      init_atoms: Collection[GroundAtom],
                      goal: Collection[GroundAtom],
-                     ground_nsrts: Collection[_GroundNSRT]
+                     ground_ops: Collection[Union[_GroundNSRT,
+                                                  _GroundSTRIPSOperator]]
                      ) -> Callable[[PyperplanFacts], float]:
     """Create a task planning heuristic that consumes pyperplan facts and
     estimates the cost-to-go.
     """
     relaxed_operators = frozenset({RelaxedOperator(
-        nsrt.name, atoms_to_tuples(nsrt.preconditions),
-        atoms_to_tuples(nsrt.add_effects)) for nsrt in ground_nsrts})
+        op.name, atoms_to_tuples(op.preconditions),
+        atoms_to_tuples(op.add_effects)) for op in ground_ops})
     if heuristic_name == "hadd":
-        return HAddHeuristic(atoms_to_tuples(init_atoms), atoms_to_tuples(goal),
-                             relaxed_operators)
+        return _HAddHeuristic(atoms_to_tuples(init_atoms),
+                              atoms_to_tuples(goal),
+                              relaxed_operators)
     if heuristic_name == "hmax":
-        return HMaxHeuristic(atoms_to_tuples(init_atoms), atoms_to_tuples(goal),
-                             relaxed_operators)
+        return _HMaxHeuristic(atoms_to_tuples(init_atoms),
+                              atoms_to_tuples(goal),
+                              relaxed_operators)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -993,7 +996,7 @@ class _RelaxationHeuristic:
                 fact.expanded = True
 
 
-class HAddHeuristic(_RelaxationHeuristic):
+class _HAddHeuristic(_RelaxationHeuristic):
     """Implements the HAdd delete relaxation heuristic.
     """
     @staticmethod
@@ -1001,7 +1004,7 @@ class HAddHeuristic(_RelaxationHeuristic):
         return sum(distances)
 
 
-class HMaxHeuristic(_RelaxationHeuristic):
+class _HMaxHeuristic(_RelaxationHeuristic):
     """Implements the HMax delete relaxation heuristic.
     """
     @staticmethod

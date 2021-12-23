@@ -12,6 +12,8 @@ from predicators.src.structs import State, Type, ParameterizedOption, \
     LowLevelTrajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
+from predicators.src.utils import _HAddHeuristic, _HMaxHeuristic
+
 
 def test_intersects():
     """Tests for intersects().
@@ -975,9 +977,9 @@ def test_create_heuristic():
     """Tests for create_heuristic().
     """
     hadd_heuristic = utils.create_heuristic("hadd", set(), set(), set())
-    assert isinstance(hadd_heuristic, utils.HAddHeuristic)
+    assert isinstance(hadd_heuristic, _HAddHeuristic)
     hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set())
-    assert isinstance(hmax_heuristic, utils.HMaxHeuristic)
+    assert isinstance(hmax_heuristic, _HMaxHeuristic)
     with pytest.raises(ValueError):
         utils.create_heuristic("not a real heuristic", set(), set(), set())
 
@@ -1025,11 +1027,11 @@ def test_hadd_heuristic():
             "Dummy", frozenset({}), frozenset({}))]
     goals = frozenset({("Covers", "block0:block", "target0:target"),
                        ("Covers", "block1:block", "target1:target")})
-    heuristic = utils.HAddHeuristic(initial_state, goals, operators)
+    heuristic = _HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 4
     assert heuristic(goals) == 0
     goals = frozenset({("Covers", "block0:block", "target0:target")})
-    heuristic = utils.HAddHeuristic(initial_state, goals, operators)
+    heuristic = _HAddHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
 
@@ -1077,11 +1079,11 @@ def test_hmax_heuristic():
             "Dummy", frozenset({}), frozenset({}))]
     goals = frozenset({("Covers", "block0:block", "target0:target"),
                        ("Covers", "block1:block", "target1:target")})
-    heuristic = utils.HMaxHeuristic(initial_state, goals, operators)
+    heuristic = _HMaxHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
     goals = frozenset({("Covers", "block0:block", "target0:target")})
-    heuristic = utils.HMaxHeuristic(initial_state, goals, operators)
+    heuristic = _HMaxHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
 
