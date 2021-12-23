@@ -434,37 +434,37 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 
 
 ################################################################################
-#                            Heuristic Functions                               #
+#                              Score Functions                                 #
 ################################################################################
 
-def _create_heuristic(
+def _create_score_function(
         initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task],
         candidates: Dict[Predicate, float]
-        ) -> _PredicateSearchHeuristic:
-    if CFG.grammar_search_heuristic == "prediction_error":
-        return _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                         train_tasks, candidates)
-    if CFG.grammar_search_heuristic == "branching_factor":
-        return _BranchingFactorHeuristic(initial_predicates, atom_dataset,
-                                         train_tasks, candidates)
-    if CFG.grammar_search_heuristic == "hadd_match":
-        return _HAddMatchHeuristic(initial_predicates, atom_dataset,
-                                   train_tasks, candidates)
-    if CFG.grammar_search_heuristic == "hadd_lookahead_match":
-        return _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
+        ) -> _PredicateSearchScoreFunction:
+    if CFG.grammar_search_score_function == "prediction_error":
+        return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
+                                             train_tasks, candidates)
+    if CFG.grammar_search_score_function == "branching_factor":
+        return _BranchingFactorScoreFunction(initial_predicates, atom_dataset,
+                                             train_tasks, candidates)
+    if CFG.grammar_search_score_function == "hadd_match":
+        return _HAddMatchScoreFunction(initial_predicates, atom_dataset,
                                        train_tasks, candidates)
-    if CFG.grammar_search_heuristic == "task_planning":
-        return _TaskPlanningHeuristic(initial_predicates, atom_dataset,
-                                      train_tasks, candidates)
+    if CFG.grammar_search_score_function == "hadd_lookahead_match":
+        return _HAddLookaheadScoreFunction(initial_predicates, atom_dataset,
+                                           train_tasks, candidates)
+    if CFG.grammar_search_score_function == "task_planning":
+        return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
+                                          train_tasks, candidates)
     raise NotImplementedError(
-        f"Unknown heuristic: {CFG.grammar_search_heuristic}.")
+        f"Unknown score function: {CFG.grammar_search_score_function}.")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateSearchHeuristic:
-    """A heuristic for guiding search over predicate sets.
+class _PredicateSearchScoreFunction:
+    """A score function for guiding search over predicate sets.
     """
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
@@ -472,22 +472,22 @@ class _PredicateSearchHeuristic:
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
-        """Get the heuristic value for the set of predicates.
+        """Get the score for the set of predicates.
 
         Lower is better.
         """
         raise NotImplementedError("Override me!")
 
     def _get_predicate_penalty(self, predicates: FrozenSet[Predicate]) -> float:
-        """Get a heuristic penalty based on the predicate complexities.
+        """Get a score penalty based on the predicate complexities.
         """
         pred_complexity = sum(self._candidates[p] for p in predicates)
         return CFG.grammar_search_pred_complexity_weight * pred_complexity
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _OperatorLearningBasedHeuristic(_PredicateSearchHeuristic):
-    """A heuristic that learns operators given the set of predicates.
+class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
+    """A score function that learns operators given the set of predicates.
     """
 
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
@@ -501,11 +501,11 @@ class _OperatorLearningBasedHeuristic(_PredicateSearchHeuristic):
         strips_ops, partitions = learn_strips_operators(segments,
                                                         verbose=False)
         option_specs = [p.option_spec for p in partitions]
-        op_heuristic = self._evaluate_with_operators(predicates,
+        op_score = self._evaluate_with_operators(predicates,
             pruned_atom_data, segments, strips_ops, option_specs)
         pred_penalty = self._get_predicate_penalty(predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
-        total_score = op_heuristic + pred_penalty + op_penalty
+        total_score = op_score + pred_penalty + op_penalty
         print(f"\tTotal score: {total_score}")
         return total_score
 
@@ -514,14 +514,14 @@ class _OperatorLearningBasedHeuristic(_PredicateSearchHeuristic):
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
-        """Use learned operators to compute a heuristic for the predicates.
+        """Use learned operators to compute a score for the predicates.
         """
         raise NotImplementedError("Override me!")
 
     @staticmethod
     def _get_operator_penalty(strips_ops: Collection[STRIPSOperator]
                              ) -> float:
-        """Get a heuristic penalty based on the operator complexities.
+        """Get a score penalty based on the operator complexities.
         """
         size = 0
         for op in strips_ops:
@@ -531,7 +531,7 @@ class _OperatorLearningBasedHeuristic(_PredicateSearchHeuristic):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredictionErrorHeuristic(_OperatorLearningBasedHeuristic):
+class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting false positives.
     """
 
@@ -548,7 +548,7 @@ class _PredictionErrorHeuristic(_OperatorLearningBasedHeuristic):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _BranchingFactorHeuristic(_OperatorLearningBasedHeuristic):
+class _BranchingFactorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting the number of
     ground operators that are applicable at each state in the data.
     """
@@ -564,7 +564,7 @@ class _BranchingFactorHeuristic(_OperatorLearningBasedHeuristic):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
+class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and planning in the training
     tasks. The score corresponds to the total number of nodes expanded across
     all training problems. If no plan is found, a large penalty is added, which
@@ -596,7 +596,7 @@ class _TaskPlanningHeuristic(_OperatorLearningBasedHeuristic):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
+class _HAddBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and computing the hAdd
     heuristic for the demonstration data.
 
@@ -629,7 +629,7 @@ class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
             # Score the trajectory using hAdd.
             score += self._evaluate_atom_trajectory(atoms_sequence, hadd_fn,
                                                     ground_ops)
-        return CFG.grammar_search_lookahead_hadd_weight * score
+        return CFG.grammar_search_lookahead_weight * score
 
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   hadd_fn: utils.HAddHeuristic,
@@ -638,7 +638,7 @@ class _HAddBasedHeuristic(_OperatorLearningBasedHeuristic):
         raise NotImplementedError("Override me!")
 
 
-class _HAddMatchHeuristic(_HAddBasedHeuristic):
+class _HAddMatchScoreFunction(_HAddBasedScoreFunction):
     """Score based on distance to "ground truth" value function for actions that
     were seen in the demonstration.
     """
@@ -655,7 +655,7 @@ class _HAddMatchHeuristic(_HAddBasedHeuristic):
         return score
 
 
-class _HAddLookaheadHeuristic(_HAddBasedHeuristic):
+class _HAddLookaheadScoreFunction(_HAddBasedScoreFunction):
     """Score predicates by using the hadd values of the induced operators
     to compute an energy-based policy, and comparing that policy to demos.
 
@@ -740,13 +740,13 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         atom_dataset = utils.create_ground_atom_dataset(
             self._dataset, set(candidates) | self._initial_predicates)
         print("Done.")
-        # Create the heuristic function that will be used to guide search.
-        heuristic = _create_heuristic(self._initial_predicates, atom_dataset,
-                                      train_tasks, candidates)
+        # Create the score function that will be used to guide search.
+        score_function = _create_score_function(
+            self._initial_predicates, atom_dataset, train_tasks, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
-        self._learned_predicates = _select_predicates_to_keep(candidates,
-                                                              heuristic)
+        self._learned_predicates = _select_predicates_to_keep(
+            candidates, score_function)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts()
@@ -754,7 +754,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
 def _select_predicates_to_keep(
         candidates: Dict[Predicate, float],
-        heuristic: _PredicateSearchHeuristic
+        score_function: _PredicateSearchScoreFunction
         ) -> Set[Predicate]:
     """Perform a greedy search over predicate sets.
     """
@@ -778,7 +778,7 @@ def _select_predicates_to_keep(
 
     # Greedy best first search.
     path, _ = utils.run_gbfs(
-        init, _check_goal, _get_successors, heuristic.evaluate,
+        init, _check_goal, _get_successors, score_function.evaluate,
         max_evals=CFG.grammar_search_max_evals)
     kept_predicates = path[-1]
 
