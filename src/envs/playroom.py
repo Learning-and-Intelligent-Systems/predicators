@@ -49,7 +49,8 @@ class PlayroomEnv(BlocksEnv):
                                           "fingers"])
         self._door_type = Type("door", ["pose_x", "pose_y", "open"])
         self._dial_type = Type("dial", ["pose_x", "pose_y", "level"])
-        self._region_type = Type("region", ["id", "x_lb", "y_lb", "x_ub", "y_ub"])
+        self._region_type = Type("region",
+                                 ["id", "x_lb", "y_lb", "x_ub", "y_ub"])
         # Predicates
         self._On = Predicate(
             "On", [self._block_type, self._block_type], self._On_holds)
