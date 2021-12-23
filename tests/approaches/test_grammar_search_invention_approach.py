@@ -9,9 +9,10 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
     _UnaryFreeForallClassifier, _create_score_function, \
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction, \
-    _HAddBasedScoreFunction, _HAddMatchScoreFunction, \
-    _PredictionErrorScoreFunction, _HAddLookaheadScoreFunction, \
-    _BranchingFactorScoreFunction, _TaskPlanningScoreFunction
+    _HeuristicBasedScoreFunction, _HAddHeuristicBasedScoreFunction, \
+    _HAddHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction, \
+    _HAddHeuristicLookaheadBasedScoreFunction, _TaskPlanningScoreFunction, \
+    _ExactHeuristicLookaheadBasedScoreFunction, _BranchingFactorScoreFunction
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -160,24 +161,28 @@ def test_create_score_function():
     """
     utils.update_config(
         {"grammar_search_score_function": "prediction_error"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _PredictionErrorScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _PredictionErrorScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "hadd_match"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _HAddMatchScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _HAddHeuristicMatchBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "branching_factor"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _BranchingFactorScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _BranchingFactorScoreFunction)
     utils.update_config(
-        {"grammar_search_score_function": "hadd_lookahead_match"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _HAddLookaheadScoreFunction)
+        {"grammar_search_score_function": "hadd_lookahead"})
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _HAddHeuristicLookaheadBasedScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "exact_lookahead"})
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "task_planning"})
-    score_function = _create_score_function(set(), [], [], {})
-    assert isinstance(score_function, _TaskPlanningScoreFunction)
+    score_func = _create_score_function(set(), [], [], {})
+    assert isinstance(score_func, _TaskPlanningScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "not a real score function"})
     with pytest.raises(NotImplementedError):
@@ -213,7 +218,11 @@ def test_predicate_search_heuristic_base_classes():
     dataset = [LowLevelTrajectory(
         [state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
-    hadd_score_fn = _HAddBasedScoreFunction(
+    heuristic_score_fn = _HeuristicBasedScoreFunction(
+        set(), atom_dataset, train_tasks, {})
+    with pytest.raises(NotImplementedError):
+        heuristic_score_fn.evaluate(set())
+    hadd_score_fn = _HAddHeuristicBasedScoreFunction(
         set(), atom_dataset, train_tasks, {})
     with pytest.raises(NotImplementedError):
         hadd_score_fn.evaluate(set())
@@ -311,7 +320,7 @@ def test_prediction_error_score_function():
 
 
 def test_hadd_match_score_function():
-    """Tests for _HAddMatchScoreFunction().
+    """Tests for _HAddHeuristicMatchBasedScoreFunction().
     """
     # We know that this score function is bad, and this test shows why.
     utils.update_config({
@@ -332,7 +341,7 @@ def test_hadd_match_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddMatchScoreFunction(
+    score_function = _HAddHeuristicMatchBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     none_included_s = score_function.evaluate(set())
@@ -340,9 +349,12 @@ def test_hadd_match_score_function():
 
 
 def test_hadd_lookahead_score_function():
-    """Tests for _HAddLookaheadScoreFunction().
+    """Tests for _HAddHeuristicLookaheadBasedScoreFunction().
     """
     # Tests for CoverEnv.
+    utils.update_config({
+        "env": "cover",
+    })
     utils.update_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
@@ -361,7 +373,7 @@ def test_hadd_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddLookaheadScoreFunction(
+    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
@@ -381,7 +393,7 @@ def test_hadd_lookahead_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
-    score_function = _HAddLookaheadScoreFunction(
+    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     assert score_function.evaluate(set()) == float("inf")
 
@@ -405,26 +417,27 @@ def test_hadd_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddLookaheadScoreFunction(
+    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
-    # Note: the values for Holding alone, Clear alone, and GripperOpen alone
-    # are not in between the bounds. Here are all the values:
-    # ipdb> all_included_s
-    # 11411.369394796297
-    # ipdb> none_included_s
-    # 17640.461089410717
-    # ipdb> holding_included_s
-    # 11240.23793807844
-    # ipdb> clear_included_s
-    # 21144.93016115656
-    # ipdb> gripper_open_included_s
-    # 17641.505279500798
-    # This is peculiar. But we do see that learning works well in the end.
-    assert all_included_s < none_included_s
+    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
+                                                      name_to_pred["Clear"]})
+    assert all_included_s < none_included_s  # good!
+    # The fact that there is not a monotonic improvement shows a downside of
+    # this score function. But we do see that learning works well in the end.
+    assert gripperopen_excluded_s < all_included_s  # bad!
+    # Note: here are all the scores.
+    # (): 17640.461089410717
+    # (Clear,): 21144.93016115656
+    # (Holding,): 11240.237938078439
+    # (GripperOpen,): 17641.505279500794
+    # (Clear, Holding): 7581.118488743514
+    # (Clear, GripperOpen): 21145.98910036367
+    # (Holding, GripperOpen): 14643.702564367157
+    # (Clear, Holding, GripperOpen): 11411.369394796291
 
-    # Tests for PaintEnv.
+    # Tests for PaintingEnv.
     utils.flush_cache()
     utils.update_config({
         "env": "painting",
@@ -445,11 +458,63 @@ def test_hadd_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddLookaheadScoreFunction(
+    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
     assert all_included_s < none_included_s  # hooray!
+
+
+def test_exact_lookahead_score_function():
+    """Tests for _ExactHeuristicLookaheadBasedScoreFunction().
+    """
+    # Just test this on BlocksEnv, since that's a known problem case
+    # for hadd_lookahead.
+    utils.flush_cache()
+    utils.update_config({
+        "env": "blocks",
+    })
+    utils.update_config({
+        "env": "blocks",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+        "num_train_tasks": 2,
+    })
+    env = BlocksEnv()
+    ablated = {"Holding", "Clear", "GripperOpen"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    score_function = _ExactHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    none_included_s = score_function.evaluate(set())
+    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
+                                                      name_to_pred["Clear"]})
+    assert all_included_s < none_included_s  # good!
+    assert all_included_s < gripperopen_excluded_s  # good!
+    # Test that the score is inf when the operators make the data impossible.
+    ablated = {"On"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    # Reuse dataset from above.
+    score_function = _ExactHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    assert score_function.evaluate(set()) == float("inf")
 
 
 def test_branching_factor_score_function():
