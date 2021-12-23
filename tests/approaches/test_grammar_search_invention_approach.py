@@ -501,6 +501,20 @@ def test_exact_lookahead_score_function():
                                                       name_to_pred["Clear"]})
     assert all_included_s < none_included_s  # good!
     assert all_included_s < gripperopen_excluded_s  # good!
+    # Test that the score is inf when the operators make the data impossible.
+    ablated = {"On"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    # Reuse dataset from above.
+    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    assert score_function.evaluate(set()) == float("inf")
 
 
 def test_branching_factor_score_function():
