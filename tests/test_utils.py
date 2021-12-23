@@ -971,8 +971,19 @@ def test_operator_application():
         ground_ops, {pred3([cup2, plate2])}))
 
 
+def test_create_heuristic():
+    """Tests for create_heuristic().
+    """
+    hadd_heuristic = utils.create_heuristic("hadd", set(), set(), set())
+    assert isinstance(hadd_heuristic, utils.HAddHeuristic)
+    hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set())
+    assert isinstance(hmax_heuristic, utils.HMaxHeuristic)
+    with pytest.raises(ValueError):
+        utils.create_heuristic("not a real heuristic", set(), set(), set())
+
+
 def test_hadd_heuristic():
-    """Tests for hAddHeuristic.
+    """Tests for HAddHeuristic.
     """
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
@@ -1019,6 +1030,58 @@ def test_hadd_heuristic():
     assert heuristic(goals) == 0
     goals = frozenset({("Covers", "block0:block", "target0:target")})
     heuristic = utils.HAddHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+
+
+def test_hmax_heuristic():
+    """Tests for HMaxHeuristic.
+    """
+    initial_state = frozenset({("IsBlock", "block0:block"),
+                               ("IsTarget", "target0:target"),
+                               ("IsTarget", "target1:target"),
+                               ("HandEmpty",),
+                               ("IsBlock", "block1:block")})
+    operators = [
+        utils.RelaxedOperator(
+            "Pick", frozenset({("HandEmpty",), ("IsBlock", "block1:block")}),
+            frozenset({("Holding", "block1:block")})),
+        utils.RelaxedOperator(
+            "Pick", frozenset({("IsBlock", "block0:block"), ("HandEmpty",)}),
+            frozenset({("Holding", "block0:block")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("Holding", "block0:block"),
+                                ("IsBlock", "block0:block"),
+                                ("IsTarget", "target0:target")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block0:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target0:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block1:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("Covers", "block1:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block0:block"),
+                                ("IsBlock", "block0:block")}),
+            frozenset({("Covers", "block0:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Dummy", frozenset({}), frozenset({}))]
+    goals = frozenset({("Covers", "block0:block", "target0:target"),
+                       ("Covers", "block1:block", "target1:target")})
+    heuristic = utils.HMaxHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = utils.HMaxHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
 
