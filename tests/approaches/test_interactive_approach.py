@@ -41,12 +41,13 @@ def test_create_teacher_dataset():
         "env": "cover",
         "approach": "interactive_learning",
         "seed": 123,
+        "num_train_tasks": 15,
     })
     env = CoverEnv()
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     teacher_dataset = create_teacher_dataset(env.predicates, dataset)
-    assert len(teacher_dataset) == 10
+    assert len(teacher_dataset) == 15
 
     # Test the first trajectory for correct usage of ratio
     # Generate groundatoms
