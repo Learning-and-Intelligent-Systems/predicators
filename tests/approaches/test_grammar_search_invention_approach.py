@@ -11,7 +11,8 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction, \
     _HeuristicBasedScoreFunction, _HAddHeuristicMatchBasedScoreFunction, \
     _PredictionErrorScoreFunction, _HAddHeuristicEnergyBasedScoreFunction, \
-    _BranchingFactorScoreFunction, _TaskPlanningScoreFunction
+    _ExactHeuristicEnergyBasedScoreFunction, _BranchingFactorScoreFunction, \
+    _TaskPlanningScoreFunction
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -174,6 +175,10 @@ def test_create_score_function():
         {"grammar_search_score_function": "hadd_energy"})
     score_function = _create_score_function(set(), [], [], {})
     assert isinstance(score_function, _HAddHeuristicEnergyBasedScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "exact_energy"})
+    score_function = _create_score_function(set(), [], [], {})
+    assert isinstance(score_function, _ExactHeuristicEnergyBasedScoreFunction)
     utils.update_config(
         {"grammar_search_score_function": "task_planning"})
     score_function = _create_score_function(set(), [], [], {})
