@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+import abc
 import argparse
 import functools
 import gc
@@ -10,7 +11,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
 import heapq as hq
 import imageio
 import matplotlib
@@ -768,6 +769,29 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
     return nsrts
 
 
+def create_heuristic(heuristic_name: str,
+                     init_atoms: Collection[GroundAtom],
+                     goal: Collection[GroundAtom],
+                     ground_ops: Collection[Union[_GroundNSRT,
+                                                  _GroundSTRIPSOperator]]
+                     ) -> Callable[[PyperplanFacts], float]:
+    """Create a task planning heuristic that consumes pyperplan facts and
+    estimates the cost-to-go.
+    """
+    relaxed_operators = frozenset({RelaxedOperator(
+        op.name, atoms_to_tuples(op.preconditions),
+        atoms_to_tuples(op.add_effects)) for op in ground_ops})
+    if heuristic_name == "hadd":
+        return _HAddHeuristic(atoms_to_tuples(init_atoms),
+                              atoms_to_tuples(goal),
+                              relaxed_operators)
+    if heuristic_name == "hmax":
+        return _HMaxHeuristic(atoms_to_tuples(init_atoms),
+                              atoms_to_tuples(goal),
+                              relaxed_operators)
+    raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
+
+
 @functools.lru_cache(maxsize=None)
 def atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
     """Convert atom to tuple for caching.
@@ -814,9 +838,9 @@ class RelaxedOperator:
         self.counter = len(self.preconditions)  # properly initialize counter
 
 
-class HAddHeuristic:
-    """This class is an implementation of the hADD heuristic.
-    Lightly modified from pyperplan's heuristics/relaxation.py.
+class _RelaxationHeuristic:
+    """This class is an implementation of delete relaxation heuristics such as
+    HMax and HAdd. Lightly modified from pyperplan's heuristics/relaxation.py.
     """
     def __init__(self, initial_state: PyperplanFacts,
                  goals: PyperplanFacts,
@@ -881,6 +905,14 @@ class HAddHeuristic:
 
         return h_value
 
+    @staticmethod
+    @abc.abstractmethod
+    def _accumulate(distances: Collection[float]) -> float:
+        """Combine distances to goal facts. Distinguishes different relaxation
+        heuristics, e.g., hmax uses a max and hadd uses a sum.
+        """
+        raise NotImplementedError("Override me!")
+
     def init_distance(self, state: PyperplanFacts) -> None:
         """This function resets all member variables that store information
         that needs to be recomputed for each call of the heuristic.
@@ -906,15 +938,17 @@ class HAddHeuristic:
     def get_cost(self, operator: RelaxedOperator) -> float:
         """This function calculates the cost of applying an operator.
         """
-        # Sum over the heuristic values of all preconditions.
-        cost = sum([self.facts[pre].distance for pre in operator.preconditions])
+        # Accumulate the heuristic values of all preconditions.
+        cost = self._accumulate([self.facts[pre].distance
+                                 for pre in operator.preconditions])
         # Add on operator application cost.
         return cost+operator.cost
 
     def calc_goal_h(self) -> float:
         """This function calculates the heuristic value of the whole goal.
         """
-        return sum([self.facts[fact].distance for fact in self.goals])
+        return self._accumulate([self.facts[fact].distance
+                                 for fact in self.goals])
 
     def finished(self, achieved_goals: Set[Tuple[str, ...]],
                  queue: List[Tuple[float, float, RelaxedFact]]) -> bool:
@@ -960,6 +994,22 @@ class HAddHeuristic:
                                 self.tie_breaker += 1
                 # Finally the fact is marked as expanded.
                 fact.expanded = True
+
+
+class _HAddHeuristic(_RelaxationHeuristic):
+    """Implements the HAdd delete relaxation heuristic.
+    """
+    @staticmethod
+    def _accumulate(distances: Collection[float]) -> float:
+        return sum(distances)
+
+
+class _HMaxHeuristic(_RelaxationHeuristic):
+    """Implements the HMax delete relaxation heuristic.
+    """
+    @staticmethod
+    def _accumulate(distances: Collection[float]) -> float:
+        return max(distances)
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
