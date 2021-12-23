@@ -64,10 +64,9 @@ def test_default_option_model():
 def test_option_model_notimplemented():
     """Tests for various NotImplementedErrors.
     """
-    utils.update_config({"env": "not_a_real_env"})
     env = CoverEnv()
     with pytest.raises(NotImplementedError):
-        create_option_model(CFG.option_model_name, env.simulate)
+        create_option_model("not a real option model", env.simulate)
     model = _OptionModel(env.simulate)
     with pytest.raises(NotImplementedError):
         model.get_next_state(None, None)
