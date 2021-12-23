@@ -218,7 +218,6 @@ class _PredicateGrammar:
                 break
         return candidates
 
-    @abc.abstractmethod
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         """Iterate over candidate predicates from less to more cost.
         """
@@ -240,7 +239,6 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
             types.update(o.type for o in traj.states[0])
         return types
 
-    @abc.abstractmethod
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         """Iterate over candidate predicates in an arbitrary order.
         """
@@ -476,7 +474,6 @@ class _PredicateSearchScoreFunction:
     _train_tasks: List[Task]  # training tasks that this data was generated on
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
-    @abc.abstractmethod
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
         """Get the score for the set of predicates.
 
@@ -515,7 +512,6 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         print(f"\tTotal score: {total_score}")
         return total_score
 
-    @abc.abstractmethod
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
@@ -629,7 +625,6 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                 atoms_sequence, heuristic_fn, ground_ops)
         return CFG.grammar_search_heuristic_based_weight * score
 
-    @abc.abstractmethod
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
                             objects: Set[Object],
                             goal: Set[GroundAtom],
@@ -639,7 +634,6 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                             ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
     def _evaluate_atom_trajectory(
             self, atoms_sequence: List[Set[GroundAtom]],
             heuristic_fn: Callable[[Set[GroundAtom]], float],
