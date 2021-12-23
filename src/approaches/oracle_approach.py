@@ -215,8 +215,10 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
                       objs: Sequence[Object]) -> Array:
         assert len(objs) == 1
         can = objs[0]
-        end_x = state.get(can, "pose_x")
-        end_y = state.get(can, "pose_y")
+        # Need a max here in case the can is trashed already, in which case
+        # both pose_x and pose_y will be -999.
+        end_x = max(0.0, state.get(can, "pose_x"))
+        end_y = max(0.0, state.get(can, "pose_y"))
         start_x, start_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
         return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
     grasp_nsrt = NSRT("Grasp", parameters, preconditions,
