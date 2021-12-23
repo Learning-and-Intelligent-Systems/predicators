@@ -512,7 +512,7 @@ def test_exact_lookahead_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
-    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
+    score_function = _ExactHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     assert score_function.evaluate(set()) == float("inf")
 
