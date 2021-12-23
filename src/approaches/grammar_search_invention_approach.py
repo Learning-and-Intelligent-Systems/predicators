@@ -3,6 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from __future__ import annotations
+import time
 import abc
 from dataclasses import dataclass
 from functools import cached_property
@@ -497,6 +498,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         total_cost = sum(self._candidates[pred] for pred in predicates)
         print(f"Evaluating predicates: {predicates}, with total cost "
               f"{total_cost}")
+        start_time = time.time()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset, predicates | self._initial_predicates)
         segments = [seg for traj in pruned_atom_data
@@ -509,7 +511,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         pred_penalty = self._get_predicate_penalty(predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
-        print(f"\tTotal score: {total_score}")
+        print(f"\tTotal score: {total_score} computed in "
+              f"{time.time()-start_time:.3f} seconds")
         return total_score
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
@@ -587,7 +590,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 task.init, predicates | self._initial_predicates)
             objects = set(task.init)
             try:
-                _, metrics = task_plan(
+                _, _, metrics = task_plan(
                     init_atoms, objects, task.goal, strips_ops, option_specs,
                     CFG.seed, CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
@@ -736,17 +739,23 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
         del init_atoms  # unused
+        cache: Dict[FrozenSet[GroundAtom], float] = {}
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
-            """Run task planning and return the length of the plan,
-            or inf if no plan is found.
+            """Run task planning and return the length of the skeleton,
+            or inf if no skeleton is found.
             """
+            if frozenset(atoms) in cache:
+                return cache[frozenset(atoms)]
             try:
-                plan, _ = task_plan(
+                skeleton, atoms_sequence, _ = task_plan(
                     atoms, objects, goal, strips_ops, option_specs,
                     CFG.seed, CFG.grammar_search_task_planning_timeout)
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
-            return float(len(plan))
+            assert atoms_sequence[0] == atoms
+            for i, actual_atoms in enumerate(atoms_sequence):
+                cache[frozenset(actual_atoms)] = float(len(skeleton) - i)
+            return cache[frozenset(atoms)]
         return _task_planning_h
 
 

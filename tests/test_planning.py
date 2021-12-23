@@ -45,8 +45,8 @@ def test_task_plan():
             nsrt.name, nsrt.parameters, nsrt.preconditions,
             nsrt.add_effects, nsrt.delete_effects))
         option_specs.append((nsrt.option, nsrt.option_vars))
-    skeleton, _ = task_plan(init_atoms, objects, task.goal, strips_ops,
-                            option_specs, timeout=1, seed=123)
+    skeleton, _, _ = task_plan(init_atoms, objects, task.goal, strips_ops,
+                               option_specs, timeout=1, seed=123)
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
