@@ -935,7 +935,7 @@ class _RelaxationHeuristic:
     def get_cost(self, operator: RelaxedOperator) -> float:
         """This function calculates the cost of applying an operator.
         """
-        # Sum over the heuristic values of all preconditions.
+        # Accumulate the heuristic values of all preconditions.
         cost = self._accumulate([self.facts[pre].distance
                                  for pre in operator.preconditions])
         # Add on operator application cost.
