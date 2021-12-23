@@ -455,6 +455,9 @@ def _create_score_function(
     if CFG.grammar_search_score_function == "hadd_lookahead":
         return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
+    if CFG.grammar_search_score_function == "hmax_lookahead":
+        return _HMaxHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
     if CFG.grammar_search_score_function == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
@@ -725,6 +728,24 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _HMaxHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+    """Implement _generate_heuristic() with HMax.
+    """
+    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
+                            objects: Set[Object],
+                            goal: Set[GroundAtom],
+                            strips_ops: Sequence[STRIPSOperator],
+                            option_specs: Sequence[OptionSpec],
+                            ground_ops: Set[_GroundSTRIPSOperator]
+                            ) -> Callable[[Set[GroundAtom]], float]:
+        hmax_fn = utils.create_heuristic("hmax", init_atoms, goal, ground_ops)
+        del init_atoms  # unused after this
+        def _hmax_fn_h(atoms: Set[GroundAtom]) -> float:
+            return hmax_fn(utils.atoms_to_tuples(atoms))
+        return _hmax_fn_h
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with task planning.
     """
@@ -764,6 +785,15 @@ class _HAddHeuristicLookaheadBasedScoreFunction(
         _HAddHeuristicBasedScoreFunction,
         _HeuristicLookaheadBasedScoreFunction):
     """Implement _generate_heuristic() with HAdd and
+    _evaluate_atom_trajectory() with one-step lookahead.
+    """
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HMaxHeuristicLookaheadBasedScoreFunction(
+        _HMaxHeuristicBasedScoreFunction,
+        _HeuristicLookaheadBasedScoreFunction):
+    """Implement _generate_heuristic() with HMax and
     _evaluate_atom_trajectory() with one-step lookahead.
     """
 
