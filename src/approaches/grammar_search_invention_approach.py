@@ -622,6 +622,9 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
             goal = traj.goal
             ground_ops = {op for strips_op in strips_ops for op
                           in utils.all_ground_operators(strips_op, objects)}
+            ground_ops = set(utils.filter_static_ops(ground_ops, init_atoms))
+            ground_ops = {op for op in ground_ops
+                          if op.add_effects | op.delete_effects}
             heuristic_fn = self._generate_heuristic(
                 init_atoms, objects, goal, strips_ops, option_specs, ground_ops)
             score += self._evaluate_atom_trajectory(

@@ -58,7 +58,7 @@ def sesame_plan(task: Task,
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
+    ground_nsrts = utils.filter_static_ops(ground_nsrts, atoms)
     # Keep restarting the A* search while we get new discovered failures.
     start_time = time.time()
     metrics: Metrics = defaultdict(float)
@@ -116,7 +116,7 @@ def task_plan(init_atoms: Set[GroundAtom],
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, init_atoms)
+    ground_nsrts = utils.filter_static_ops(ground_nsrts, init_atoms)
     nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
                              if nsrt.add_effects | nsrt.delete_effects]
     if not utils.is_dr_reachable(nonempty_ground_nsrts, init_atoms, goal):

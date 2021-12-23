@@ -666,26 +666,27 @@ def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
     return preds, types
 
 
-def filter_static_nsrts(ground_nsrts: Collection[_GroundNSRT],
-                        atoms: Collection[GroundAtom]) -> List[
-                            _GroundNSRT]:
-    """Filter out ground NSRTs that don't satisfy static facts.
+_O = TypeVar('_O', bound=Union[_GroundNSRT, _GroundSTRIPSOperator])
+
+def filter_static_ops(ground_ops: Collection[_O],
+                      atoms: Collection[GroundAtom]) -> List[_O]:
+    """Filter out ground operators or NSRTs that don't satisfy static facts.
     """
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
-        # This predicate is not static if it appears in any NSRT's effects.
-        if any(any(atom.predicate == pred for atom in nsrt.add_effects) or
-               any(atom.predicate == pred for atom in nsrt.delete_effects)
-               for nsrt in ground_nsrts):
+        # This predicate is not static if it appears in any op's effects.
+        if any(any(atom.predicate == pred for atom in op.add_effects) or
+               any(atom.predicate == pred for atom in op.delete_effects)
+               for op in ground_ops):
             continue
         static_preds.add(pred)
     static_facts = {atom for atom in atoms if atom.predicate in static_preds}
     # Perform filtering.
-    ground_nsrts = [nsrt for nsrt in ground_nsrts
+    ground_ops = [op for op in ground_ops
                     if not any(atom.predicate in static_preds
                                and atom not in static_facts
-                               for atom in nsrt.preconditions)]
-    return ground_nsrts
+                               for atom in op.preconditions)]
+    return ground_ops
 
 
 def is_dr_reachable(ground_nsrts: Collection[_GroundNSRT],

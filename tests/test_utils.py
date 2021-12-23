@@ -741,8 +741,8 @@ def test_create_ground_atom_dataset():
     assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
 
 
-def test_static_nsrt_filtering():
-    """Tests for filter_static_nsrts().
+def test_static_op_filtering():
+    """Tests for filter_static_op().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -785,7 +785,7 @@ def test_static_nsrt_filtering():
             ("Pred2", "cup2:cup_type", "plate2:plate_type")}
     # All NSRTs with cup2 in the args should get filtered out,
     # since pred1 doesn't hold on cup2.
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
+    ground_nsrts = utils.filter_static_ops(ground_nsrts, atoms)
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in ground_nsrts]
     assert ("Pick", [cup1, plate1]) in all_obj
     assert ("Pick", [cup1, plate2]) in all_obj
@@ -824,7 +824,7 @@ def test_is_dr_reachable():
                     utils.all_ground_nsrts(nsrt2, objects))
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
+    ground_nsrts = utils.filter_static_ops(ground_nsrts, atoms)
     assert utils.is_dr_reachable(ground_nsrts, atoms, {pred1([cup1, plate1])})
     assert utils.is_dr_reachable(ground_nsrts, atoms, {pred1([cup1, plate2])})
     assert utils.is_dr_reachable(ground_nsrts, atoms, {pred2([cup1, plate1])})
