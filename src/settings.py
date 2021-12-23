@@ -202,6 +202,7 @@ class GlobalSettings:
                 "cluttered_table": "default",
                 "blocks": "default",
                 "painting": "default",
+                "playroom": "default",
                 "repeated_nextto": "default",
             })[args["env"]],
 
