@@ -51,6 +51,7 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
+    task_planning_heuristic = "hadd"  # hadd or hmax
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
@@ -116,9 +117,10 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1
     grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
-    grammar_search_heuristic = "hadd_lookahead_match"
-    grammar_search_lookahead_hadd_weight = 10.
-    grammar_search_lookahead_softmax_constant = 10.
+    grammar_search_score_function = "hadd_lookahead"
+    grammar_search_heuristic_based_weight = 10.
+    grammar_search_lookahead_based_temperature = 10.
+    grammar_search_task_planning_timeout = 1.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

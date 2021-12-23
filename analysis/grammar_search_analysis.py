@@ -10,7 +10,8 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredictionErrorHeuristic, _HAddLookaheadHeuristic
+    _PredictionErrorScoreFunction, _HAddHeuristicLookaheadBasedScoreFunction, \
+    _ExactHeuristicLookaheadBasedScoreFunction
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -19,7 +20,7 @@ from predicators.src.settings import CFG
 
 
 def _run_proxy_analysis(env_names: List[str],
-                        heuristic_names: List[str],
+                        score_function_names: List[str],
                         run_planning: bool,
                         outdir: str) -> None:
     if "cover" in env_names:
@@ -33,7 +34,7 @@ def _run_proxy_analysis(env_names: List[str],
             {HandEmpty, Holding},
         ]
         _run_proxy_analysis_for_env(env_name, covers_pred_sets,
-                                    heuristic_names, run_planning, outdir)
+                                    score_function_names, run_planning, outdir)
 
     if "blocks" in env_names:
         env_name = "blocks"
@@ -50,10 +51,11 @@ def _run_proxy_analysis(env_names: List[str],
             {Clear, GripperOpen, Holding},
         ]
         _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
-                                    heuristic_names, run_planning, outdir)
+                                    score_function_names, run_planning, outdir)
 
 
     if "painting" in env_names:
+        env_name = "painting"
         (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
          IsDirty, IsClean) = _get_predicates_by_names("painting",
                 ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
@@ -69,12 +71,12 @@ def _run_proxy_analysis(env_names: List[str],
             all_predicates,
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
-                                    heuristic_names, run_planning, outdir)
+                                    score_function_names, run_planning, outdir)
 
 
 def _run_proxy_analysis_for_env(env_name: str,
                                 non_goal_predicate_sets: List[Set[Predicate]],
-                                heuristic_names: List[str],
+                                score_function_names: List[str],
                                 run_planning: bool,
                                 outdir: str) -> None:
     utils.update_config({
@@ -99,7 +101,7 @@ def _run_proxy_analysis_for_env(env_name: str,
             _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
                                                env.goal_predicates,
                                                non_goal_predicates,
-                                               heuristic_names,
+                                               score_function_names,
                                                run_planning)
         # Save these results.
         pred_str = ",".join(sorted([str(p.name) for p in non_goal_predicates]))
@@ -118,25 +120,26 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
                                        train_tasks: List[Task],
                                        initial_predicates: Set[Predicate],
                                        predicates: Set[Predicate],
-                                       heuristic_names: List[str],
+                                       score_function_names: List[str],
                                        run_planning: bool,
                                        ) -> Dict[str, float]:
-    heuristics = {
-        "prediction_error": _PredictionErrorHeuristic,
-        "hadd_lookahead": _HAddLookaheadHeuristic,
+    score_functions = {
+        "prediction_error": _PredictionErrorScoreFunction,
+        "hadd_lookahead": _HAddHeuristicLookaheadBasedScoreFunction,
+        "exact_lookahead": _ExactHeuristicLookaheadBasedScoreFunction,
     }
     utils.flush_cache()
     candidates = {p : 1.0 for p in predicates}
     all_predicates = predicates | initial_predicates
     atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
     results = {}
-    # Compute heuristic scores.
-    for heuristic_name in heuristic_names:
-        heuristic_cls = heuristics[heuristic_name]
-        heuristic = heuristic_cls(initial_predicates, atom_dataset,
-                                  candidates)
-        heuristic_score = heuristic.evaluate(frozenset(predicates))
-        results[heuristic_name] = heuristic_score
+    # Compute scores.
+    for score_function_name in score_function_names:
+        score_function_cls = score_functions[score_function_name]
+        score_function = score_function_cls(initial_predicates, atom_dataset,
+                                            train_tasks, candidates)
+        score = score_function.evaluate(frozenset(predicates))
+        results[score_function_name] = score
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
@@ -152,7 +155,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
 
 def _make_proxy_analysis_results(outdir: str) -> None:
     all_results: DefaultDict[Tuple[str, str], Dict] = defaultdict(dict)
-    for filepath in glob.glob(f"{outdir}/*.result"):
+    for filepath in sorted(glob.glob(f"{outdir}/*.result")):
         with open(filepath, "r", encoding="utf-8") as f:
             raw_result = f.read()
         result = float(raw_result)
@@ -174,9 +177,10 @@ def _main() -> None:
         "blocks",
         "painting",
     ]
-    heuristic_names = [
+    score_function_names = [
         "prediction_error",
         "hadd_lookahead",
+        "exact_lookahead",
     ]
     run_planning = True
 
@@ -185,7 +189,7 @@ def _main() -> None:
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    _run_proxy_analysis(env_names, heuristic_names, run_planning, outdir)
+    _run_proxy_analysis(env_names, score_function_names, run_planning, outdir)
     _make_proxy_analysis_results(outdir)
 
 
