@@ -7,7 +7,8 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, \
-    BlocksEnv, PaintingEnv, CoverMultistepOptions, RepeatedNextToEnv
+    BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
+    RepeatedNextToEnv
 from predicators.src.structs import Action
 from predicators.src import utils
 
@@ -274,11 +275,12 @@ def test_oracle_approach_painting():
         assert utils.policy_solves_task(
             policy, test_task, env.simulate, env.predicates)
 
+
 def test_oracle_approach_playroom():
-    """Tests for OracleApproach class with PaintingEnv.
+    """Tests for OracleApproach class with PlayroomEnv.
     """
     utils.update_config({"env": "playroom"})
-    env = PaintingEnv()
+    env = PlayroomEnv()
     env.seed(123)
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
@@ -293,6 +295,27 @@ def test_oracle_approach_playroom():
         policy = approach.solve(test_task, timeout=500)
         assert utils.policy_solves_task(
             policy, test_task, env.simulate, env.predicates)
+    # Test MoveDialToDoor for coverage
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    movedialtodoor = [nsrt for nsrt in nsrts \
+                      if nsrt.name == "MoveDialToDoor"][0]
+    env.seed(123)
+    train_task = next(env.train_tasks_generator())[0]
+    state = train_task.init
+    objs = list(state)
+    robot, dial, door, region = objs[17], objs[3], objs[9], objs[16]
+    assert robot.name == "robby"
+    assert dial.name == "dial"
+    assert door.name == "door6"
+    assert region.name == "region7"
+    movedialtodoor_nsrt = movedialtodoor.ground([robot, dial, door, region])
+    rng = np.random.default_rng(123)
+    move_option = movedialtodoor_nsrt.sample_option(state, rng)
+    move_action = move_option.policy(state)
+    assert env.action_space.contains(move_action.arr)
+    assert np.all(move_action.arr == np.array([110.1, 15, 1, -1, 1],
+                                               dtype=np.float32))
+
 
 def test_oracle_approach_repeated_nextto():
     """Tests for OracleApproach class with RepeatedNextToEnv.
