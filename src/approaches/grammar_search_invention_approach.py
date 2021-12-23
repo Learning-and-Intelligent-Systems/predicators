@@ -485,8 +485,8 @@ class _PredicateSearchScoreFunction:
     def _get_predicate_penalty(self, predicates: FrozenSet[Predicate]) -> float:
         """Get a score penalty based on the predicate complexities.
         """
-        pred_complexity = sum(self._candidates[p] for p in predicates)
-        return CFG.grammar_search_pred_complexity_weight * pred_complexity
+        total_pred_cost = sum(self._candidates[p] for p in predicates)
+        return CFG.grammar_search_pred_complexity_weight * total_pred_cost
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -874,8 +874,7 @@ def _select_predicates_to_keep(
           f"{len(candidates)} candidates:")
     for pred in kept_predicates:
         print("\t", pred)
-    total_cost = sum(candidates[pred] for pred in kept_predicates)
-    print(f"\t...with total cost: {total_cost}")
+    score_function.evaluate(kept_predicates)  # print out useful numbers
 
     return set(kept_predicates)
 
