@@ -9,10 +9,10 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
     _UnaryFreeForallClassifier, _create_score_function, \
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction, \
-    _HeuristicBasedScoreFunction, _HAddHeuristicMatchBasedScoreFunction, \
-    _PredictionErrorScoreFunction, _HAddHeuristicLookaheadBasedScoreFunction, \
-    _ExactHeuristicLookaheadBasedScoreFunction, _BranchingFactorScoreFunction, \
-    _TaskPlanningScoreFunction
+    _HeuristicBasedScoreFunction, _HAddHeuristicBasedScoreFunction, \
+    _HAddHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction, \
+    _HAddHeuristicLookaheadBasedScoreFunction, _TaskPlanningScoreFunction, \
+    _ExactHeuristicLookaheadBasedScoreFunction, _BranchingFactorScoreFunction
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -222,6 +222,10 @@ def test_predicate_search_heuristic_base_classes():
         set(), atom_dataset, train_tasks, {})
     with pytest.raises(NotImplementedError):
         heuristic_score_fn.evaluate(set())
+    hadd_score_fn = _HAddHeuristicBasedScoreFunction(
+        set(), atom_dataset, train_tasks, {})
+    with pytest.raises(NotImplementedError):
+        hadd_score_fn.evaluate(set())
 
 
 def test_prediction_error_score_function():
