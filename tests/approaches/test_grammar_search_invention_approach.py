@@ -7,10 +7,11 @@ from predicators.src.approaches.grammar_search_invention_approach import \
     _PredicateGrammar, _DataBasedPredicateGrammar, \
     _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
     _create_grammar, _halving_constant_generator, _ForallClassifier, \
-    _UnaryFreeForallClassifier, _create_heuristic, _PredicateSearchHeuristic, \
-    _OperatorLearningBasedHeuristic, _HAddBasedHeuristic, _HAddMatchHeuristic, \
-    _PredictionErrorHeuristic, _HAddLookaheadHeuristic, \
-    _BranchingFactorHeuristic, _TaskPlanningHeuristic
+    _UnaryFreeForallClassifier, _create_score_function, \
+    _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction, \
+    _HAddBasedScoreFunction, _HAddMatchScoreFunction, \
+    _PredictionErrorScoreFunction, _HAddLookaheadScoreFunction, \
+    _BranchingFactorScoreFunction, _TaskPlanningScoreFunction
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -154,38 +155,46 @@ def test_unary_free_forall_classifier():
     assert str(classifier1) == "Forall[0:cup_type].[On(0,1)]"
 
 
-def test_create_heuristic():
-    """Tests for _create_heuristic().
+def test_create_score_function():
+    """Tests for _create_score_function().
     """
-    utils.update_config({"grammar_search_heuristic": "prediction_error"})
-    heuristic = _create_heuristic(set(), [], [], {})
-    assert isinstance(heuristic, _PredictionErrorHeuristic)
-    utils.update_config({"grammar_search_heuristic": "hadd_match"})
-    heuristic = _create_heuristic(set(), [], [], {})
-    assert isinstance(heuristic, _HAddMatchHeuristic)
-    utils.update_config({"grammar_search_heuristic": "branching_factor"})
-    heuristic = _create_heuristic(set(), [], [], {})
-    assert isinstance(heuristic, _BranchingFactorHeuristic)
-    utils.update_config({"grammar_search_heuristic": "hadd_lookahead_match"})
-    heuristic = _create_heuristic(set(), [], [], {})
-    assert isinstance(heuristic, _HAddLookaheadHeuristic)
-    utils.update_config({"grammar_search_heuristic": "task_planning"})
-    heuristic = _create_heuristic(set(), [], [], {})
-    assert isinstance(heuristic, _TaskPlanningHeuristic)
-    utils.update_config({"grammar_search_heuristic": "not a real heuristic"})
+    utils.update_config(
+        {"grammar_search_score_function": "prediction_error"})
+    score_function = _create_score_function(set(), [], [], {})
+    assert isinstance(score_function, _PredictionErrorScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "hadd_match"})
+    score_function = _create_score_function(set(), [], [], {})
+    assert isinstance(score_function, _HAddMatchScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "branching_factor"})
+    score_function = _create_score_function(set(), [], [], {})
+    assert isinstance(score_function, _BranchingFactorScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "hadd_lookahead_match"})
+    score_function = _create_score_function(set(), [], [], {})
+    assert isinstance(score_function, _HAddLookaheadScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "task_planning"})
+    score_function = _create_score_function(set(), [], [], {})
+    assert isinstance(score_function, _TaskPlanningScoreFunction)
+    utils.update_config(
+        {"grammar_search_score_function": "not a real score function"})
     with pytest.raises(NotImplementedError):
-        _create_heuristic(set(), [], [], {})
+        _create_score_function(set(), [], [], {})
 
 
 def test_predicate_search_heuristic_base_classes():
-    """Cover the abstract methods for _PredicateSearchHeuristic and subclasses
+    """Cover the abstract methods for _PredicateSearchScoreFunction & subclasses
     """
-    pred_search_heuristic = _PredicateSearchHeuristic(set(), [], [], {})
+    pred_search_score_function = _PredicateSearchScoreFunction(
+        set(), [], [], {})
     with pytest.raises(NotImplementedError):
-        pred_search_heuristic.evaluate(set())
-    op_learning_heuristic = _OperatorLearningBasedHeuristic(set(), [], [], {})
+        pred_search_score_function.evaluate(set())
+    op_learning_score_function = _OperatorLearningBasedScoreFunction(
+        set(), [], [], {})
     with pytest.raises(NotImplementedError):
-        op_learning_heuristic.evaluate(set())
+        op_learning_score_function.evaluate(set())
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     train_tasks = next(env.train_tasks_generator())
@@ -204,13 +213,14 @@ def test_predicate_search_heuristic_base_classes():
     dataset = [LowLevelTrajectory(
         [state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
-    hadd_heuristic = _HAddBasedHeuristic(set(), atom_dataset, train_tasks, {})
+    hadd_score_fn = _HAddBasedScoreFunction(
+        set(), atom_dataset, train_tasks, {})
     with pytest.raises(NotImplementedError):
-        hadd_heuristic.evaluate(set())
+        hadd_score_fn.evaluate(set())
 
 
-def test_prediction_error_heuristic():
-    """Tests for _PredictionErrorHeuristic().
+def test_prediction_error_score_function():
+    """Tests for _PredictionErrorScoreFunction().
     """
     # Tests for CoverEnv.
     utils.update_config({
@@ -231,14 +241,14 @@ def test_prediction_error_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                          train_tasks, candidates)
-    all_included_h = heuristic.evaluate(set(candidates))
-    handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
-    holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
-    none_included_h = heuristic.evaluate(set())
-    assert all_included_h < holding_included_h < none_included_h
-    assert all_included_h < handempty_included_h  # not better than none
+    score_function = _PredictionErrorScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
+    holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
+    none_included_s = score_function.evaluate(set())
+    assert all_included_s < holding_included_s < none_included_s
+    assert all_included_s < handempty_included_s  # not better than none
 
     # Tests for BlocksEnv.
     utils.flush_cache()
@@ -260,18 +270,19 @@ def test_prediction_error_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                          train_tasks, candidates)
-    all_included_h = heuristic.evaluate(set(candidates))
-    holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
-    clear_included_h = heuristic.evaluate({name_to_pred["Clear"]})
-    gripper_open_included_h = heuristic.evaluate({name_to_pred["GripperOpen"]})
-    none_included_h = heuristic.evaluate(set())
-    assert all_included_h < holding_included_h < none_included_h
-    assert all_included_h < clear_included_h < none_included_h
-    assert all_included_h < gripper_open_included_h < none_included_h
+    score_function = _PredictionErrorScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
+    clear_included_s = score_function.evaluate({name_to_pred["Clear"]})
+    gripper_open_included_s = score_function.evaluate(
+        {name_to_pred["GripperOpen"]})
+    none_included_s = score_function.evaluate(set())
+    assert all_included_s < holding_included_s < none_included_s
+    assert all_included_s < clear_included_s < none_included_s
+    assert all_included_s < gripper_open_included_s < none_included_s
 
-    # This example shows why this heuristic is bad.
+    # This example shows why this score function is bad.
     utils.flush_cache()
     utils.update_config({
         "env": "painting",
@@ -292,17 +303,17 @@ def test_prediction_error_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _PredictionErrorHeuristic(initial_predicates, atom_dataset,
-                                          train_tasks, candidates)
-    all_included_h = heuristic.evaluate(set(candidates))
-    none_included_h = heuristic.evaluate(set())
-    assert all_included_h > none_included_h  # this is very bad!
+    score_function = _PredictionErrorScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    none_included_s = score_function.evaluate(set())
+    assert all_included_s > none_included_s  # this is very bad!
 
 
-def test_hadd_match_heuristic():
-    """Tests for _HAddMatchHeuristic().
+def test_hadd_match_score_function():
+    """Tests for _HAddMatchScoreFunction().
     """
-    # We know that this heuristic is bad, and this test shows why.
+    # We know that this score function is bad, and this test shows why.
     utils.update_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
@@ -321,15 +332,15 @@ def test_hadd_match_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HAddMatchHeuristic(initial_predicates, atom_dataset,
-                                    train_tasks, candidates)
-    handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
-    none_included_h = heuristic.evaluate(set())
-    assert handempty_included_h > none_included_h # this is very bad!
+    score_function = _HAddMatchScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
+    none_included_s = score_function.evaluate(set())
+    assert handempty_included_s > none_included_s # this is very bad!
 
 
-def test_hadd_lookahead_heuristic():
-    """Tests for _HAddLookaheadHeuristic().
+def test_hadd_lookahead_score_function():
+    """Tests for _HAddLookaheadScoreFunction().
     """
     # Tests for CoverEnv.
     utils.update_config({
@@ -350,14 +361,14 @@ def test_hadd_lookahead_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        train_tasks, candidates)
-    all_included_h = heuristic.evaluate(set(candidates))
-    handempty_included_h = heuristic.evaluate({name_to_pred["HandEmpty"]})
-    holding_included_h = heuristic.evaluate({name_to_pred["Holding"]})
-    none_included_h = heuristic.evaluate(set())
-    assert all_included_h < holding_included_h < none_included_h
-    assert all_included_h < handempty_included_h  # not better than none
+    score_function = _HAddLookaheadScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
+    holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
+    none_included_s = score_function.evaluate(set())
+    assert all_included_s < holding_included_s < none_included_s
+    assert all_included_s < handempty_included_s  # not better than none
 
     # Test that the score is inf when the operators make the data impossible.
     ablated = {"Covers"}
@@ -370,9 +381,9 @@ def test_hadd_lookahead_heuristic():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
-    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        train_tasks, candidates)
-    assert heuristic.evaluate(set()) == float("inf")
+    score_function = _HAddLookaheadScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
     utils.flush_cache()
@@ -394,24 +405,24 @@ def test_hadd_lookahead_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        train_tasks, candidates)
-    all_included_h = heuristic.evaluate(set(candidates))
-    none_included_h = heuristic.evaluate(set())
+    score_function = _HAddLookaheadScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    none_included_s = score_function.evaluate(set())
     # Note: the values for Holding alone, Clear alone, and GripperOpen alone
     # are not in between the bounds. Here are all the values:
-    # ipdb> all_included_h
+    # ipdb> all_included_s
     # 11411.369394796297
-    # ipdb> none_included_h
+    # ipdb> none_included_s
     # 17640.461089410717
-    # ipdb> holding_included_h
+    # ipdb> holding_included_s
     # 11240.23793807844
-    # ipdb> clear_included_h
+    # ipdb> clear_included_s
     # 21144.93016115656
-    # ipdb> gripper_open_included_h
+    # ipdb> gripper_open_included_s
     # 17641.505279500798
-    # This is  peculiar. But we do see that learning works well in the end.
-    assert all_included_h < none_included_h
+    # This is peculiar. But we do see that learning works well in the end.
+    assert all_included_s < none_included_s
 
     # Tests for PaintEnv.
     utils.flush_cache()
@@ -434,17 +445,17 @@ def test_hadd_lookahead_heuristic():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    heuristic = _HAddLookaheadHeuristic(initial_predicates, atom_dataset,
-                                        train_tasks, candidates)
-    all_included_h = heuristic.evaluate(set(candidates))
-    none_included_h = heuristic.evaluate(set())
-    assert all_included_h < none_included_h  # hooray!
+    score_function = _HAddLookaheadScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate(set(candidates))
+    none_included_s = score_function.evaluate(set())
+    assert all_included_s < none_included_s  # hooray!
 
 
-def test_branching_factor_heuristic():
-    """Tests for _BranchingFactorHeuristic().
+def test_branching_factor_score_function():
+    """Tests for _BranchingFactorScoreFunction().
     """
-    # We know that this heuristic is bad, because it prefers predicates that
+    # We know that this score_function is bad, because it prefers predicates that
     # make segmentation collapse demo actions into one.
     utils.update_config({
         "env": "cover",
@@ -481,23 +492,24 @@ def test_branching_factor_heuristic():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset,
         env.goal_predicates | set(candidates))
-    heuristic = _BranchingFactorHeuristic(env.goal_predicates, atom_dataset,
-                                          train_tasks, candidates)
-    holding_h = heuristic.evaluate({Holding})
-    forall_not_covers_h = heuristic.evaluate({forall_not_covers0,
-                                              forall_not_covers1})
-    # This is just to illustrate that the heuristic for these two bad predicates
-    # is lower than we would like. These are actually the predicates that get
-    # returned by running the grammar search on covers with branching factor.
-    assert forall_not_covers_h < holding_h
+    score_function = _BranchingFactorScoreFunction(
+        env.goal_predicates, atom_dataset, train_tasks, candidates)
+    holding_s = score_function.evaluate({Holding})
+    forall_not_covers_s = score_function.evaluate(
+        {forall_not_covers0, forall_not_covers1})
+    # This is just to illustrate that the score function for these two
+    # bad predicates is lower than we would like. These are actually
+    # the predicates that get returned by running the grammar search
+    # on covers with branching factor.
+    assert forall_not_covers_s < holding_s
 
 
-def test_task_planning_heuristic():
-    """Tests for _TaskPlanningHeuristic().
+def test_task_planning_score_function():
+    """Tests for _TaskPlanningScoreFunction().
     """
-    # We know that this heuristic is bad, because it's way too optimistic: it
-    # thinks that any valid sequence of operators can be refined into a plan.
-    # This unit test illustrates that pitfall.
+    # We know that this score function is bad, because it's way too
+    # optimistic: it thinks that any valid sequence of operators can
+    # be refined into a plan. This unit test illustrates that pitfall.
     utils.update_config({
         "env": "cover",
     })
@@ -520,19 +532,19 @@ def test_task_planning_heuristic():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset,
         env.goal_predicates | set(candidates))
-    heuristic = _TaskPlanningHeuristic(env.goal_predicates, atom_dataset,
-                                       train_tasks, candidates)
-    all_included_h = heuristic.evaluate({Holding, HandEmpty})
-    none_included_h = heuristic.evaluate(set())
+    score_function = _TaskPlanningScoreFunction(
+        env.goal_predicates, atom_dataset, train_tasks, candidates)
+    all_included_s = score_function.evaluate({Holding, HandEmpty})
+    none_included_s = score_function.evaluate(set())
     # This is terrible!
-    assert none_included_h < all_included_h
+    assert none_included_s < all_included_s
     # Test cases where operators cannot plan to goal.
     utils.update_config({
         "min_data_for_nsrt": 10000,
     })
-    assert heuristic.evaluate(set()) == len(train_tasks) * 1e7
+    assert score_function.evaluate(set()) == len(train_tasks) * 1e7
     # The +2 is for the cost of the two predicates.
-    assert heuristic.evaluate({Holding, HandEmpty}) == 2 + \
+    assert score_function.evaluate({Holding, HandEmpty}) == 2 + \
         len(train_tasks) * 1e7
     # Set this back to avoid screwing up other tests...
     utils.update_config({
