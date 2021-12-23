@@ -155,7 +155,7 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
 
 def _make_proxy_analysis_results(outdir: str) -> None:
     all_results: DefaultDict[Tuple[str, str], Dict] = defaultdict(dict)
-    for filepath in sorted(glob.glob(f"{outdir}/*.result")
+    for filepath in sorted(glob.glob(f"{outdir}/*.result")):
         with open(filepath, "r", encoding="utf-8") as f:
             raw_result = f.read()
         result = float(raw_result)
