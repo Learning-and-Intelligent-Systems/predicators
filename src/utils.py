@@ -1009,6 +1009,8 @@ class _HMaxHeuristic(_RelaxationHeuristic):
     """
     @staticmethod
     def _accumulate(distances: Collection[float]) -> float:
+        if not distances:
+            return 0.0
         return max(distances)
 
 
