@@ -469,13 +469,13 @@ class PlayroomEnv(BlocksEnv):
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
         # [pose_x, pose_y, rotation, fingers], fingers start off open
         data[self._robot] = np.array([10.0, 15.0, 0.0, 1.0])
-        # [pose_x, pose_y, open], all doors start off closed
+        # [pose_x, pose_y, open], all doors start off open except door1
         data[self._door1] = np.array([30.0, 15.0, 0.0])
-        data[self._door2] = np.array([50.0, 15.0, 0.0])
-        data[self._door3] = np.array([60.0, 15.0, 0.0])
-        data[self._door4] = np.array([80.0, 15.0, 0.0])
-        data[self._door5] = np.array([100.0, 15.0, 0.0])
-        data[self._door6] = np.array([110.0, 15.0, 0.0])
+        data[self._door2] = np.array([50.0, 15.0, 1.0])
+        data[self._door3] = np.array([60.0, 15.0, 1.0])
+        data[self._door4] = np.array([80.0, 15.0, 1.0])
+        data[self._door5] = np.array([100.0, 15.0, 1.0])
+        data[self._door6] = np.array([110.0, 15.0, 1.0])
         # [pose_x, pose_y, level], light starts on/off randomly
         data[self._dial] = np.array([125.0, 15.0, rng.uniform(0.0, 1.0)])
         # [id, x_lb, y_lb, x_ub, y_ub], regions left to right
@@ -599,10 +599,8 @@ class PlayroomEnv(BlocksEnv):
     @staticmethod
     def _Borders_holds(state: State, objects: Sequence[Object]) -> bool:
         door1, region, door2 = objects
-        door1_x = state.get(door1, "pose_x")
-        door2_x = state.get(door2, "pose_x")
-        return door1_x == state.get(region, "x_lb") and \
-               door2_x == state.get(region, "x_ub")
+        return state.get(door1, "pose_x") == state.get(region, "x_lb") and \
+               state.get(door2, "pose_x") == state.get(region, "x_ub")
 
     @staticmethod
     def _Connects_holds(state: State, objects: Sequence[Object]) -> bool:
