@@ -18,6 +18,7 @@ from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory
 from predicators.src.nsrt_learning import segment_trajectory
+from predicators.src.settings import CFG
 from predicators.src import utils
 
 
@@ -291,33 +292,6 @@ def test_prediction_error_score_function():
     assert all_included_s < clear_included_s < none_included_s
     assert all_included_s < gripper_open_included_s < none_included_s
 
-    # This example shows why this score function is bad.
-    utils.flush_cache()
-    utils.update_config({
-        "env": "painting",
-        "offline_data_method": "demo+replay",
-        "seed": 0,
-        "painting_train_families": ["box_and_shelf"],
-    })
-    env = PaintingEnv()
-    ablated = {"IsWet", "IsDry"}
-    initial_predicates = set()
-    name_to_pred = {}
-    for p in env.predicates:
-        if p.name in ablated:
-            name_to_pred[p.name] = p
-        else:
-            initial_predicates.add(p)
-    candidates = {p: 1.0 for p in name_to_pred.values()}
-    train_tasks = next(env.train_tasks_generator())
-    dataset = create_dataset(env, train_tasks)
-    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _PredictionErrorScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
-    all_included_s = score_function.evaluate(set(candidates))
-    none_included_s = score_function.evaluate(set())
-    assert all_included_s > none_included_s  # this is very bad!
-
 
 def test_hadd_match_score_function():
     """Tests for _HAddHeuristicMatchBasedScoreFunction().
@@ -515,6 +489,12 @@ def test_exact_lookahead_score_function():
     score_function = _ExactHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
     assert score_function.evaluate(set()) == float("inf")
+    old_hbmd = CFG.grammar_search_heuristic_based_max_demos
+    utils.update_config({
+        "grammar_search_heuristic_based_max_demos": 0})
+    assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
+    utils.update_config({
+        "grammar_search_heuristic_based_max_demos": old_hbmd})
 
 
 def test_branching_factor_score_function():
@@ -562,11 +542,7 @@ def test_branching_factor_score_function():
     holding_s = score_function.evaluate({Holding})
     forall_not_covers_s = score_function.evaluate(
         {forall_not_covers0, forall_not_covers1})
-    # This is just to illustrate that the score function for these two
-    # bad predicates is lower than we would like. These are actually
-    # the predicates that get returned by running the grammar search
-    # on covers with branching factor.
-    assert forall_not_covers_s < holding_s
+    assert forall_not_covers_s > holding_s
 
 
 def test_task_planning_score_function():
