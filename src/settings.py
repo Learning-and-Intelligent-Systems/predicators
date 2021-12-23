@@ -12,6 +12,12 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings.
     """
+    # parameters for all envs
+    num_train_tasks = 15
+    num_test_tasks = 50
+    max_num_steps_check_policy = 100  # maximum number of steps to run a policy
+                                      # when checking whether it solves a task
+
     # cover env parameters
     cover_num_blocks = 2
     cover_num_targets = 2
@@ -52,6 +58,7 @@ class GlobalSettings:
 
     # SeSamE parameters
     task_planning_heuristic = "hadd"  # hadd or hmax
+    option_model_name = "default"
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
@@ -130,49 +137,6 @@ class GlobalSettings:
         if "approach" not in args:
             args["approach"] = ""
         return dict(
-            # Number of training tasks in each environment.
-            num_train_tasks=defaultdict(int, {
-                "cover": 5,
-                "cover_typed_options": 5,
-                "cover_hierarchical_types": 5,
-                "cover_multistep_options": 5,
-                "cluttered_table": 15,
-                "blocks": 10,
-                "painting": 15,
-                "repeated_nextto": 5,
-                "playroom": 10,
-                "behavior": 10,
-            })[args["env"]],
-
-            # Number of test tasks in each environment.
-            num_test_tasks=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 10,
-                "cluttered_table": 50,
-                "blocks": 50,
-                "painting": 50,
-                "repeated_nextto": 50,
-                "playroom": 50,
-                "behavior": 10,
-            })[args["env"]],
-
-            # Maximum number of steps to run a policy when checking whether
-            # it solves a task.
-            max_num_steps_check_policy=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 100,
-                "cluttered_table": 25,
-                "blocks": 25,
-                "painting": 100,
-                "repeated_nextto": 10,
-                "playroom": 25,
-                "behavior": 100,
-            })[args["env"]],
-
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(str, {
@@ -191,29 +155,16 @@ class GlobalSettings:
                 "behavior": "immediately",
             })[args["env"]],
 
-            # Name of the option model to use.
-            option_model_name=defaultdict(str, {
-                "cover": "default",
-                "cover_typed_options": "default",
-                "cover_hierarchical_types": "default",
-                "cover_multistep_options": "default",
-                "cluttered_table": "default",
-                "blocks": "default",
-                "painting": "default",
-                "playroom": "default",
-                "repeated_nextto": "default",
-            })[args["env"]],
-
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(str, {
                 "nsrt_learning": "demo+replay",
-                "interactive_learning": "demo",
+                "interactive_learning": "demo",  # narrative is active learning
                 "iterative_invention": "demo+replay",
                 "grammar_search_invention": "demo+replay",
             })[args["approach"]],
 
             # Number of replays used when offline_data_method is demo+replay.
-            offline_data_num_replays=defaultdict(str, {
+            offline_data_num_replays=defaultdict(int, {
                 "cover": 500,
                 "cover_typed_options": 500,
                 "cover_hierarchical_types": 500,
@@ -221,7 +172,7 @@ class GlobalSettings:
                 "cluttered_table": 500,
                 "blocks": 500,
                 "painting": 500,
-                "repeated_nextto": 50,
+                "repeated_nextto": 50,  # too many replays makes learning slow
             })[args["env"]],
         )
 
