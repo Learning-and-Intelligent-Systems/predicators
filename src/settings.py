@@ -64,9 +64,6 @@ class GlobalSettings:
     # dataset parameters
     offline_data_planning_timeout = 500  # for learning-based approaches, the
                                          # data collection timeout for planning
-    offline_data_num_replays = 500  # for learning-based approaches, the
-                                    # number of replays used when the data
-                                    # generation method is data+replays
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
@@ -119,6 +116,7 @@ class GlobalSettings:
     grammar_search_max_predicates = 50
     grammar_search_score_function = "hadd_lookahead"
     grammar_search_heuristic_based_weight = 10.
+    grammar_search_heuristic_based_max_demos = 5
     grammar_search_lookahead_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
 
@@ -134,15 +132,15 @@ class GlobalSettings:
         return dict(
             # Number of training tasks in each environment.
             num_train_tasks=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 10,
-                "cluttered_table": 50,
-                "blocks": 50,
-                "painting": 50,
-                "repeated_nextto": 50,
-                "playroom": 50,
+                "cover": 5,
+                "cover_typed_options": 5,
+                "cover_hierarchical_types": 5,
+                "cover_multistep_options": 5,
+                "cluttered_table": 15,
+                "blocks": 10,
+                "painting": 15,
+                "repeated_nextto": 5,
+                "playroom": 10,
                 "behavior": 10,
             })[args["env"]],
 
@@ -213,6 +211,18 @@ class GlobalSettings:
                 "iterative_invention": "demo+replay",
                 "grammar_search_invention": "demo+replay",
             })[args["approach"]],
+
+            # Number of replays used when offline_data_method is demo+replay.
+            offline_data_num_replays=defaultdict(str, {
+                "cover": 500,
+                "cover_typed_options": 500,
+                "cover_hierarchical_types": 500,
+                "cover_multistep_options": 500,
+                "cluttered_table": 500,
+                "blocks": 500,
+                "painting": 500,
+                "repeated_nextto": 50,
+            })[args["env"]],
         )
 
 

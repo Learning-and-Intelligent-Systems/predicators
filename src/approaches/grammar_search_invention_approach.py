@@ -614,9 +614,13 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
         score = 0.0  # lower is better
+        seen_demos = 0
         for traj, atoms_sequence in pruned_atom_data:
             if not traj.is_demo:  # we only care about demonstrations
                 continue
+            if seen_demos == CFG.grammar_search_heuristic_based_max_demos:
+                break
+            seen_demos += 1
             init_atoms = atoms_sequence[0]
             objects = set(traj.states[0])
             goal = traj.goal
