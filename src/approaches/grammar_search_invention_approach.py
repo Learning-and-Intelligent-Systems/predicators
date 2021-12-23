@@ -704,10 +704,11 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             # operators, suppose there is some very small probability that the
             # operators would take this (e.g. it's acting epsilon-greedily).
             if ground_op_demo_lpm == -np.inf:
-                ground_op_demo_lpm = CFG.grammar_search_log_epsilon
-            # Accumulate the log probability of each (state, action) in this
-            # demonstrated trajectory.
-            trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
+                trans_log_prob = CFG.grammar_search_log_epsilon
+            else:
+                # Accumulate the log probability of each (state, action) in this
+                # demonstrated trajectory.
+                trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
             score += -trans_log_prob  # remember that lower is better
         return score
 

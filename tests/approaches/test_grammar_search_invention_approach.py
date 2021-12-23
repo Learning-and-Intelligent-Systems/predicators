@@ -19,6 +19,7 @@ from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory
 from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src import utils
+from predicators.src.settings import CFG
 
 
 def test_predicate_grammar():
@@ -382,7 +383,8 @@ def test_hadd_lookahead_score_function():
     assert all_included_s < holding_included_s < none_included_s
     assert all_included_s < handempty_included_s  # not better than none
 
-    # Test that the score is inf when the operators make the data impossible.
+    # Test that the score is at least CFG.grammar_search_log_epsilon
+    # when the operators make the data impossible.
     ablated = {"Covers"}
     initial_predicates = set()
     name_to_pred = {}
@@ -395,7 +397,7 @@ def test_hadd_lookahead_score_function():
     # Reuse dataset from above.
     score_function = _HAddHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
-    assert score_function.evaluate(set()) == float("inf")
+    assert score_function.evaluate(set()) > CFG.grammar_search_log_epsilon
 
     # Tests for BlocksEnv.
     utils.flush_cache()
@@ -424,9 +426,9 @@ def test_hadd_lookahead_score_function():
     gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
                                                       name_to_pred["Clear"]})
     assert all_included_s < none_included_s  # good!
-    # The fact that there is not a monotonic improvement shows a downside of
-    # this score function. But we do see that learning works well in the end.
-    assert gripperopen_excluded_s < all_included_s  # bad!
+    # This now looks good, whereas before we filtered static and empty effect
+    # operators, this assertion failed.
+    assert gripperopen_excluded_s > all_included_s
     # Note: here are all the scores.
     # (): 17640.461089410717
     # (Clear,): 21144.93016115656
@@ -501,7 +503,8 @@ def test_exact_lookahead_score_function():
                                                       name_to_pred["Clear"]})
     assert all_included_s < none_included_s  # good!
     assert all_included_s < gripperopen_excluded_s  # good!
-    # Test that the score is inf when the operators make the data impossible.
+    # Test that the score is at least CFG.grammar_search_log_epsilon
+    # when the operators make the data impossible.
     ablated = {"On"}
     initial_predicates = set()
     name_to_pred = {}
@@ -514,7 +517,7 @@ def test_exact_lookahead_score_function():
     # Reuse dataset from above.
     score_function = _ExactHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates)
-    assert score_function.evaluate(set()) == float("inf")
+    assert score_function.evaluate(set()) > CFG.grammar_search_log_epsilon
 
 
 def test_branching_factor_score_function():
