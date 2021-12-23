@@ -1,6 +1,7 @@
 """Debugging script for grammar search invention approach.
 """
 
+import time
 from collections import defaultdict
 import glob
 import os
@@ -95,6 +96,7 @@ def _run_proxy_analysis_for_env(env_name: str,
     env = create_env(env_name)
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
+    start_time = time.time()
 
     for non_goal_predicates in non_goal_predicate_sets:
         results_for_predicates = \
@@ -113,6 +115,8 @@ def _run_proxy_analysis_for_env(env_name: str,
             filepath = os.path.join(outdir, filename)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(str(v))
+    print(f"Finished proxy analysis for {env_name} in "
+          f"{time.time()-start_time:.3f} seconds")
 
 
 def _run_proxy_analysis_for_predicates(env: BaseEnv,

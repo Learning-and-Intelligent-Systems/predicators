@@ -736,17 +736,23 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
         del init_atoms  # unused
+        cache = {}
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
-            """Run task planning and return the length of the plan,
-            or inf if no plan is found.
+            """Run task planning and return the length of the skeleton,
+            or inf if no skeleton is found.
             """
+            if frozenset(atoms) in cache:
+                return cache[frozenset(atoms)]
             try:
-                plan, _ = task_plan(
+                skeleton, atoms_sequence, _ = task_plan(
                     atoms, objects, goal, strips_ops, option_specs,
                     CFG.seed, CFG.grammar_search_task_planning_timeout)
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
-            return float(len(plan))
+            assert atoms_sequence[0] == atoms
+            for i, actual_atoms in enumerate(atoms_sequence):
+                cache[frozenset(actual_atoms)] = float(len(skeleton) - i)
+            return cache[frozenset(atoms)]
         return _task_planning_h
 
 
