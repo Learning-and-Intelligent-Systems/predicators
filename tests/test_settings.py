@@ -9,11 +9,6 @@ from predicators.src.settings import CFG, get_save_path
 def test_settings():
     """Tests for settings.py.
     """
-    utils.update_config({"env": "not a real environment"})
-    assert CFG.num_train_tasks == CFG.num_test_tasks == 0
-    utils.update_config({"env": "cover"})
-    assert CFG.num_train_tasks > 0
-    assert CFG.num_test_tasks > 0
     dirname = "_fake_tmp_save_dir"
     old_save_dir = CFG.save_dir
     utils.update_config({"env": "test_env", "approach": "test_approach",
