@@ -454,11 +454,11 @@ def _create_score_function(
     if CFG.grammar_search_score_function == "hadd_match":
         return _HAddHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_energy":
-        return _HAddHeuristicEnergyBasedScoreFunction(
+    if CFG.grammar_search_score_function == "hadd_lookahead":
+        return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "exact_energy":
-        return _ExactHeuristicEnergyBasedScoreFunction(
+    if CFG.grammar_search_score_function == "exact_lookahead":
+        return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
     if CFG.grammar_search_score_function == "task_planning":
         return _TaskPlanningScoreFunction(
@@ -665,7 +665,7 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _evaluate_atom_trajectory() by using the induced operators
     to compute an energy-based policy, and comparing that policy to demos.
 
@@ -674,7 +674,7 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylin
     2. Operators induce a heuristic. Denote this h(state, ops(preds)).
     3. The heuristic induces a greedy one-step lookahead energy-based policy.
        Denote this pi(a | s) propto exp(-k * h(succ(s, a), ops(preds)) where
-       k is CFG.grammar_search_energy_based_temperature.
+       k is CFG.grammar_search_lookahead_based_temperature.
     4. The objective for predicate learning is to maximize prod pi(a | s)
        where the product is over demonstrations.
     """
@@ -694,7 +694,7 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylin
                 h = heuristic_fn(predicted_next_atoms)
                 # Compute the probability that the correct next atoms would be
                 # output under an energy-based policy.
-                k = CFG.grammar_search_energy_based_temperature
+                k = CFG.grammar_search_lookahead_based_temperature
                 log_p = -k * h
                 ground_op_total_lpm = np.logaddexp(log_p, ground_op_total_lpm)
                 # Check whether the successor atoms match the demonstration.
@@ -762,25 +762,28 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _HAddHeuristicMatchBasedScoreFunction(
-        _HAddHeuristicBasedScoreFunction, _HeuristicMatchBasedScoreFunction):
+        _HAddHeuristicBasedScoreFunction,
+        _HeuristicMatchBasedScoreFunction):
     """Implement _generate_heuristic() with HAdd and
     _evaluate_atom_trajectory() with matching.
     """
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicEnergyBasedScoreFunction(
-        _HAddHeuristicBasedScoreFunction, _HeuristicEnergyBasedScoreFunction):
+class _HAddHeuristicLookaheadBasedScoreFunction(
+        _HAddHeuristicBasedScoreFunction,
+        _HeuristicLookaheadBasedScoreFunction):
     """Implement _generate_heuristic() with HAdd and
-    _evaluate_atom_trajectory() with an energy-based policy.
+    _evaluate_atom_trajectory() with one-step lookahead.
     """
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _ExactHeuristicEnergyBasedScoreFunction(
-        _ExactHeuristicBasedScoreFunction, _HeuristicEnergyBasedScoreFunction):
+class _ExactHeuristicLookaheadBasedScoreFunction(
+        _ExactHeuristicBasedScoreFunction,
+        _HeuristicLookaheadBasedScoreFunction):
     """Implement _generate_heuristic() with task planning and
-    _evaluate_atom_trajectory() with an energy-based policy.
+    _evaluate_atom_trajectory() with a lookahead-based policy.
     """
 
 
