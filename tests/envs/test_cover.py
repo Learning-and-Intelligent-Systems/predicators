@@ -156,7 +156,9 @@ def test_cover_typed_options():
 def test_cover_multistep_options():
     """Tests for CoverMultistepOptions.
     """
-    utils.update_config({"env": "cover_multistep_options"})
+    utils.update_config({"env": "cover_multistep_options",
+                         "num_train_tasks": 10,
+                         "num_test_tasks": 10})
     env = CoverMultistepOptions()
     env.seed(123)
     train_tasks_gen = env.train_tasks_generator()

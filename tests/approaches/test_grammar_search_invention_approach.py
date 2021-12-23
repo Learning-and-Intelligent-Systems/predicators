@@ -519,7 +519,7 @@ def test_exact_lookahead_score_function():
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
     utils.update_config({
         "grammar_search_heuristic_based_max_demos": 0})
-    assert score_function.evaluate(set()) == 0.39  # only operator penalty
+    assert 0.3 < score_function.evaluate(set()) < 0.5  # only operator penalty
     utils.update_config({
         "grammar_search_heuristic_based_max_demos": old_hbmd})
 
