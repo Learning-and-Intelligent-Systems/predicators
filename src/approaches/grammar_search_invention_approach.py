@@ -717,13 +717,7 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        relaxed_operators = frozenset({utils.RelaxedOperator(
-            op.name, utils.atoms_to_tuples(op.preconditions),
-            utils.atoms_to_tuples(op.add_effects)) for op in ground_ops})
-        hadd_fn = utils.HAddHeuristic(
-            utils.atoms_to_tuples(init_atoms),
-            utils.atoms_to_tuples(goal),
-            relaxed_operators)
+        hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
         del init_atoms  # unused after this
         def _hadd_fn_h(atoms: Set[GroundAtom]) -> float:
             return hadd_fn(utils.atoms_to_tuples(atoms))

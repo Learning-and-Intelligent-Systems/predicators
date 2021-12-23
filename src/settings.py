@@ -51,6 +51,7 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
+    task_planning_heuristic = "hadd"  # hadd or hmax
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
