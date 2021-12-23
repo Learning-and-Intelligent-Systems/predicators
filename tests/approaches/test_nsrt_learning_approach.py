@@ -83,7 +83,7 @@ def test_grammar_search_invention_approach():
         "grammar_search_false_pos_weight": 1,
         "grammar_search_size_weight": 1e-2,
         "grammar_search_max_predicates": 2,
-        "grammar_search_heuristic": "prediction_error",
+        "grammar_search_score_function": "prediction_error",
         "do_sampler_learning": False,
     })
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
