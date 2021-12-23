@@ -1086,6 +1086,15 @@ def test_hmax_heuristic():
     heuristic = _HMaxHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
+    # Test edge case with empty operator preconditions.
+    initial_state = frozenset()
+    operators = [
+        utils.RelaxedOperator(
+            "Pick", frozenset(), frozenset({("HoldingSomething",)})),
+    ]
+    goals = frozenset({("HoldingSomething",)})
+    heuristic = _HMaxHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 1
 
 
 def test_save_video():
