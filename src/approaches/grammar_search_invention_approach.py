@@ -590,7 +590,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 task.init, predicates | self._initial_predicates)
             objects = set(task.init)
             try:
-                _, metrics = task_plan(
+                _, _, metrics = task_plan(
                     init_atoms, objects, task.goal, strips_ops, option_specs,
                     CFG.seed, CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
@@ -739,7 +739,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
         del init_atoms  # unused
-        cache = {}
+        cache: Dict[FrozenSet[GroundAtom], float] = {}
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton,
             or inf if no skeleton is found.
