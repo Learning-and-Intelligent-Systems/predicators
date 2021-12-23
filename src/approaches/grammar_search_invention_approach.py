@@ -718,6 +718,7 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
         hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
+        del init_atoms  # unused after this
         def _hadd_fn_h(atoms: Set[GroundAtom]) -> float:
             return hadd_fn(utils.atoms_to_tuples(atoms))
         return _hadd_fn_h
