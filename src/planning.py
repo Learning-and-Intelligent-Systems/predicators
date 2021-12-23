@@ -100,9 +100,12 @@ def task_plan(init_atoms: Set[GroundAtom],
               option_specs: Sequence[OptionSpec],
               seed: int,
               timeout: float,
-              ) -> Tuple[List[_GroundNSRT], Metrics]:
+              ) -> Tuple[List[_GroundNSRT],
+                         List[Collection[GroundAtom]],
+                         Metrics]:
     """Run only the task planning portion of SeSamE. A* search is run, and the
     first skeleton that achieves the goal symbolically is returned.
+    Returns a tuple of (skeleton, atoms sequence, metrics dictionary).
 
     This method is NOT used by SeSamE, but is instead provided as a convenient
     wrapper around _skeleton_generator below (which IS used by SeSamE) that
@@ -122,8 +125,8 @@ def task_plan(init_atoms: Set[GroundAtom],
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, nonempty_ground_nsrts,
                                     init_atoms, seed, timeout, metrics)
-    skeleton, _ = next(generator)  # get the first one
-    return skeleton, metrics
+    skeleton, atoms_sequence = next(generator)  # get the first one
+    return skeleton, atoms_sequence, metrics
 
 
 def _skeleton_generator(task: Task,
