@@ -446,7 +446,7 @@ DummyOption: _Option = ParameterizedOption(
 DummyOption.parent.params_space.seed(0)  # for reproducibility
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(frozen=False, repr=False, eq=False)
 class STRIPSOperator:
     """Struct defining a symbolic operator (as in STRIPS). Lifted!
     """
@@ -485,7 +485,7 @@ class STRIPSOperator:
         return _GroundSTRIPSOperator(self, list(objects), preconditions,
                                      add_effects, delete_effects)
 
-    @cached_property
+    @property
     def _str(self) -> str:
         return f"""STRIPS-{self.name}:
     Parameters: {self.parameters}
@@ -494,7 +494,7 @@ class STRIPSOperator:
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Side Predicates: {sorted(self.side_predicates, key=str)}"""
 
-    @cached_property
+    @property
     def _hash(self) -> int:
         return hash(str(self))
 

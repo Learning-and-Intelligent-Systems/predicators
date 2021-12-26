@@ -24,13 +24,20 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
 
     # Segment transitions based on changes in predicates.
-    segments = [seg for traj in ground_atom_dataset
-                for seg in segment_trajectory(traj)]
+    segmented_trajectories = [segment_trajectory(traj)
+                              for traj in ground_atom_dataset]
+    segments = [seg for segmented_traj in segmented_trajectories
+                for seg in segmented_traj]
 
     # Learn strips operators.
     strips_ops, partitions = learn_strips_operators(segments,
         verbose=CFG.do_option_learning)
     assert len(strips_ops) == len(partitions)
+
+    # Try to prune the strips operator effects and add side predicates.
+    prune_operator_effects(strips_ops, segmented_trajectories)
+
+    # TODO: remove redundant operators.
 
     # Learn option specs, or if known, just look them up. The order of
     # the options corresponds to the strips_ops. Each spec is a
@@ -228,12 +235,12 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     # Learn preconditions.
     preconds = [_learn_preconditions(p) for p in partitions]
 
-    # Finalize the operators.
+    # Finalize the operators (with initially empty side effects).
     ops = []
     for i in range(len(params)):
         name = f"Op{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
-                            delete_effects[i])
+                            delete_effects[i], set())
         if verbose:
             print("Learned STRIPSOperator:")
             print(op)
@@ -309,3 +316,89 @@ def unify_effects_and_options(
             f_new_ground_delete_effects,
         f_lifted_option_args | f_new_lifted_add_effects | \
             f_new_lifted_delete_effects)
+
+
+def prune_operator_effects(strips_ops: Sequence[STRIPSOperator],
+        segmented_trajectories: Sequence[Sequence[Segment]]) -> None:
+    """Modifies strips operator side predicates and effects in place.
+    """
+    # TODO: This is currently a ridiculously slow implementation as a
+    # proof-of-concept. There should be many optimizations possible that will
+    # hopefully make this not too slow.
+
+    assert _operators_cover_data(strips_ops, segmented_trajectories)
+
+    # Consider pruning each effect from each operator, one at a time.
+    # TODO: does the order matter? Hopefully not...
+    for strips_op in strips_ops:
+        print("Pruning operator:")
+        print(strips_op)
+        for add_or_delete, effects in (("add", strips_op.add_effects),
+                                        ("delete", strips_op.delete_effects)):
+            for effect in set(effects):
+                # Tentatively remove effect from operator, and check if
+                # operators are still valid.
+                print(f"Considering removing {effect} from {add_or_delete}")
+                effects.remove(effect)
+                new_side_predicate = False
+                if effect.predicate not in strips_op.side_predicates:
+                    strips_op.side_predicates.add(effect.predicate)
+                    new_side_predicate = True
+                if not _operators_cover_data(strips_ops,
+                                             segmented_trajectories):
+                    # Operators are no longer valid, so add back the effect.
+                    print("Pruning failed, adding back.")
+                    effects.add(effect)
+                    if new_side_predicate:
+                        strips_op.side_predicates.remove(effect.predicate)
+                else:
+                    print("Pruning succeeded.")
+                    import ipdb; ipdb.set_trace()
+
+    assert _operators_cover_data(strips_ops, segmented_trajectories)
+
+
+def _operators_cover_data(strips_ops: Sequence[STRIPSOperator],
+        segmented_trajectories: Sequence[Sequence[Segment]]) -> bool:
+    """Helper for prune_operator_effects.
+    """
+    for traj in segmented_trajectories:
+        # TODO: make this less stupid.
+        objects = set(traj[0].trajectory.states[0])
+        ground_ops = []
+        for op in strips_ops:
+            # TODO: without this, anything can be pruned. But what's the
+            # justification?
+            if not (op.add_effects | op.delete_effects):
+                continue
+            for ground_op in utils.all_ground_operators(op, objects):
+                ground_ops.append(ground_op)
+        current_atoms = traj[0].init_atoms
+        for t in range(len(traj)):
+            # TODO: what's the justification?
+            if not (traj[t].add_effects | traj[t].delete_effects):
+                continue
+            some_op_covers_transition = False
+            next_atoms = set()
+            for op in utils.get_applicable_operators(ground_ops, current_atoms):
+                next_atoms_from_op = utils.apply_operator(op, current_atoms)
+
+                # if t > 1 and str(op).count("HandEmpty()") == 1 and str(op).count("Holding") == 1:
+                #     import ipdb; ipdb.set_trace()
+
+                # Assumption: all of the final predicates must be predicted.
+                # This is stronger than assuming known goals, and could be
+                # weakened.
+                if (t == len(traj) - 1 and \
+                    next_atoms_from_op == traj[t].final_atoms) or (
+                    t < len(traj) - 1 and \
+                    next_atoms_from_op.issubset(traj[t].final_atoms)):
+                    # Note: this is like a delete relaxation.
+                    # TODO: to what extent does this make sense?
+                    next_atoms.update(next_atoms_from_op)
+                    some_op_covers_transition = True
+            if not some_op_covers_transition:
+                return False
+            current_atoms = next_atoms
+
+    return True

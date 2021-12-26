@@ -166,15 +166,7 @@ def _skeleton_generator(task: Task,
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
             for nsrt in utils.get_applicable_nsrts(ground_nsrts, node.atoms):
-                # Remove side predicates from the set of atoms that we
-                # definitely expect to be true at this point in the plan.
-                # Note that we are removing the side predicates before the
-                # application of the NSRT, because if the side predicate
-                # appears in the effects, we still know that the effects
-                # will be true, so we don't want to remove them.
-                before_atoms = {a for a in node.atoms
-                                if a.predicate not in nsrt.side_predicates}
-                child_atoms = utils.apply_nsrt(nsrt, before_atoms)
+                child_atoms = utils.apply_nsrt(nsrt, set(node.atoms))
                 child_node = _Node(
                     atoms=child_atoms,
                     skeleton=node.skeleton+[nsrt],
