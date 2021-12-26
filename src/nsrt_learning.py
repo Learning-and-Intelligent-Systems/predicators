@@ -67,9 +67,9 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
                     continue
                 atoms = utils.apply_operator(ground_op, segment.init_atoms)
                 
-                # !!!!!
-                # if atoms.issuperset(segment.final_atoms):
-                if atoms == segment.final_atoms:
+                # TODO: is this backwards???
+                if atoms.issubset(segment.final_atoms):
+                # if atoms == segment.final_atoms:
 
                     full_inv_sub = dict(zip(op.parameters, ground_op.objects))
                     assert all(partial_inv_sub[k] == full_inv_sub[k] for k in partial_inv_sub)
@@ -449,6 +449,15 @@ def prune_operator_effects(strips_ops: Sequence[STRIPSOperator],
                     print("Pruning succeeded.")
 
     assert _skeletons_valid(skeletons, init_atoms, goals)
+
+    for i, strips_op in enumerate(strips_ops):
+        # Prune parameters
+        remaining_params = set()
+        for atom in strips_op.add_effects | strips_op.delete_effects \
+            | strips_op.preconditions:
+            remaining_params.update(atom.variables)
+        strips_op.parameters[:] = [p for p in strips_op.parameters if p in \
+           remaining_params | set(option_vars[i])]
 
 
 def _skeletons_valid(skeletons: Sequence[Sequence[STRIPSOperator]],
