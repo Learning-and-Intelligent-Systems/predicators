@@ -997,4 +997,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
         lambda s, rng, o: np.zeros(0, dtype=np.float32))
     nsrts.add(grasp_nsrt1)
 
+    for nsrt in nsrts:
+        print(nsrt)
+
     return nsrts

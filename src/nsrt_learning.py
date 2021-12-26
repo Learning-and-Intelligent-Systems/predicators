@@ -30,12 +30,63 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
                 for seg in segmented_traj]
 
     # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators(segments,
-        verbose=CFG.do_option_learning)
-    assert len(strips_ops) == len(partitions)
+    strips_ops, partitions, parameterized_options, option_vars = \
+        learn_strips_operators(segments, verbose=CFG.do_option_learning)
+    assert len(strips_ops) == len(partitions) == len(parameterized_options) == \
+        len(option_vars)
 
     # Try to prune the strips operator effects and add side predicates.
-    prune_operator_effects(strips_ops, segmented_trajectories)
+    demo_trajectories = [segment_trajectory(traj)
+                         for traj in ground_atom_dataset if traj[0].is_demo]
+    goals = [traj[0].goal for traj in ground_atom_dataset if traj[0].is_demo]
+    prune_operator_effects(strips_ops, demo_trajectories, goals,
+                           parameterized_options, option_vars)
+    # prune_operator_effects(strips_ops, segmented_trajectories)
+
+    # Re-partition the data. Note now that each transition could end up
+    # in multiple partitions.
+    new_partitions = [[] for _ in partitions]
+    for segment in segments:
+        # TODO make less stupid.
+        if segment.has_option():
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
+        else:
+            segment_param_option = DummyOption.parent
+            segment_option_objs = tuple()
+        for i in range(len(partitions)):
+            if segment_param_option != parameterized_options[i]:
+                continue
+            op = strips_ops[i]
+            assert len(option_vars[i]) == len(segment_option_objs)
+            partial_inv_sub = dict(zip(option_vars[i], segment_option_objs))
+            for ground_op in utils.all_ground_operators_given_partial(op,
+                set(segment.states[0]), partial_inv_sub):
+                if not ground_op.preconditions.issubset(segment.init_atoms):
+                    continue
+                atoms = utils.apply_operator(ground_op, segment.init_atoms)
+                
+                # !!!!!
+                # if atoms.issuperset(segment.final_atoms):
+                if atoms == segment.final_atoms:
+
+                    full_inv_sub = dict(zip(op.parameters, ground_op.objects))
+                    assert all(partial_inv_sub[k] == full_inv_sub[k] for k in partial_inv_sub)
+
+                    # TODO: ??!
+                    if len(set(full_inv_sub.values())) != len(full_inv_sub):
+                        continue
+                    full_sub = {v: k for k, v in full_inv_sub.items()}
+
+                    new_partitions[i].append((segment, full_sub))
+
+    for i in range(len(new_partitions)-1, -1, -1):
+        if not new_partitions[i]:
+            del strips_ops[i]
+            del new_partitions[i]
+    partitions = [Partition(members) for members in new_partitions
+                  if members]
 
     # TODO: remove redundant operators.
 
@@ -217,7 +268,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     # We don't need option_vars anymore; we'll recover them later when we call
     # `learn_option_specs`. The only reason to include them here is to make sure
     # that params include the option_vars when options are available.
-    del option_vars
+    # del option_vars
 
     assert len(params) == len(add_effects) == \
            len(delete_effects) == len(partitions)
@@ -230,6 +281,8 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     params = [params[i] for i in kept_idxs]
     add_effects = [add_effects[i] for i in kept_idxs]
     delete_effects = [delete_effects[i] for i in kept_idxs]
+    parameterized_options = [parameterized_options[i] for i in kept_idxs]
+    option_vars = [option_vars[i] for i in kept_idxs]
     partitions = [partitions[i] for i in kept_idxs]
 
     # Learn preconditions.
@@ -246,7 +299,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             print(op)
         ops.append(op)
 
-    return ops, partitions
+    return ops, partitions, parameterized_options, option_vars
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:
@@ -319,14 +372,56 @@ def unify_effects_and_options(
 
 
 def prune_operator_effects(strips_ops: Sequence[STRIPSOperator],
-        segmented_trajectories: Sequence[Sequence[Segment]]) -> None:
+        segmented_trajectories: Sequence[Sequence[Segment]],
+        goals: Sequence[Set[GroundAtom]],
+        parameterized_options: Sequence[ParameterizedOption],
+        option_vars: Sequence[Tuple[Variable]]) -> None:
     """Modifies strips operator side predicates and effects in place.
     """
     # TODO: This is currently a ridiculously slow implementation as a
     # proof-of-concept. There should be many optimizations possible that will
     # hopefully make this not too slow.
 
-    assert _operators_cover_data(strips_ops, segmented_trajectories)
+    # Find one skeleton per segmented trajectory.
+    skeletons = []
+    init_atoms = []
+    for traj in segmented_trajectories:
+
+        # TODO: make this less stupid.
+        objects = set(traj[0].trajectory.states[0])
+        ground_ops = []
+        for op in strips_ops:
+            for ground_op in utils.all_ground_operators(op, objects):
+                ground_ops.append(ground_op)
+
+        skeleton = []
+        init_atoms.append(traj[0].init_atoms)
+        for segment in traj:
+            option = segment.get_option()
+            for op in utils.get_applicable_operators(ground_ops,
+                                                     segment.init_atoms):
+
+                op_idx = strips_ops.index(op.operator)
+                param_option = parameterized_options[op_idx]
+                opt_vars = option_vars[op_idx]
+                if option.parent != param_option:
+                    continue
+                sub = dict(zip(op.operator.parameters, op.objects))
+                ground_opt_vars = [sub[v] for v in opt_vars]
+                if list(option.objects) != ground_opt_vars:
+                    continue
+
+                pred_atoms = utils.apply_operator(op, segment.init_atoms)
+                if pred_atoms == segment.final_atoms:
+                    skeleton.append(op)
+                    break
+            else:
+                assert CFG.min_data_for_nsrt > 0
+                continue
+
+        skeletons.append(skeleton)
+
+    assert _skeletons_valid(skeletons, init_atoms, goals)
 
     # Consider pruning each effect from each operator, one at a time.
     # TODO: does the order matter? Hopefully not...
@@ -344,8 +439,7 @@ def prune_operator_effects(strips_ops: Sequence[STRIPSOperator],
                 if effect.predicate not in strips_op.side_predicates:
                     strips_op.side_predicates.add(effect.predicate)
                     new_side_predicate = True
-                if not _operators_cover_data(strips_ops,
-                                             segmented_trajectories):
+                if not _skeletons_valid(skeletons, init_atoms, goals):
                     # Operators are no longer valid, so add back the effect.
                     print("Pruning failed, adding back.")
                     effects.add(effect)
@@ -353,52 +447,24 @@ def prune_operator_effects(strips_ops: Sequence[STRIPSOperator],
                         strips_op.side_predicates.remove(effect.predicate)
                 else:
                     print("Pruning succeeded.")
-                    import ipdb; ipdb.set_trace()
 
-    assert _operators_cover_data(strips_ops, segmented_trajectories)
+    assert _skeletons_valid(skeletons, init_atoms, goals)
 
 
-def _operators_cover_data(strips_ops: Sequence[STRIPSOperator],
-        segmented_trajectories: Sequence[Sequence[Segment]]) -> bool:
+def _skeletons_valid(skeletons: Sequence[Sequence[STRIPSOperator]],
+                     init_atoms: Sequence[Set[GroundAtom]],
+                     goals: Sequence[Set[GroundAtom]]) -> bool:
     """Helper for prune_operator_effects.
     """
-    for traj in segmented_trajectories:
-        # TODO: make this less stupid.
-        objects = set(traj[0].trajectory.states[0])
-        ground_ops = []
-        for op in strips_ops:
-            # TODO: without this, anything can be pruned. But what's the
-            # justification?
-            if not (op.add_effects | op.delete_effects):
-                continue
-            for ground_op in utils.all_ground_operators(op, objects):
-                ground_ops.append(ground_op)
-        current_atoms = traj[0].init_atoms
-        for t in range(len(traj)):
-            # TODO: what's the justification?
-            if not (traj[t].add_effects | traj[t].delete_effects):
-                continue
-            some_op_covers_transition = False
-            next_atoms = set()
-            for op in utils.get_applicable_operators(ground_ops, current_atoms):
-                next_atoms_from_op = utils.apply_operator(op, current_atoms)
+    assert len(skeletons) == len(init_atoms)
 
-                # if t > 1 and str(op).count("HandEmpty()") == 1 and str(op).count("Holding") == 1:
-                #     import ipdb; ipdb.set_trace()
-
-                # Assumption: all of the final predicates must be predicted.
-                # This is stronger than assuming known goals, and could be
-                # weakened.
-                if (t == len(traj) - 1 and \
-                    next_atoms_from_op == traj[t].final_atoms) or (
-                    t < len(traj) - 1 and \
-                    next_atoms_from_op.issubset(traj[t].final_atoms)):
-                    # Note: this is like a delete relaxation.
-                    # TODO: to what extent does this make sense?
-                    next_atoms.update(next_atoms_from_op)
-                    some_op_covers_transition = True
-            if not some_op_covers_transition:
+    for skeleton, init_atom_set, goal in zip(skeletons, init_atoms, goals):
+        current_atoms = set(init_atom_set)
+        for stale_op in skeleton:
+            op = stale_op.operator.ground(tuple(stale_op.objects))
+            if not op.preconditions.issubset(current_atoms):
                 return False
-            current_atoms = next_atoms
-
+            current_atoms = utils.apply_operator(op, current_atoms)
+        if not goal.issubset(current_atoms):
+            return False
     return True
