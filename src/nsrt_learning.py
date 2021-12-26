@@ -46,7 +46,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     # Re-partition the data. Note now that each transition could end up
     # in multiple partitions.
     new_partitions = [[] for _ in partitions]
-    for segment in segments:
+    new_partition_segment_idxs = [set() for _ in partitions]
+    for segment_idx, segment in enumerate(segments):
         # TODO make less stupid.
         if segment.has_option():
             segment_option = segment.get_option()
@@ -81,10 +82,28 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
                     new_partitions[i].append((segment, full_sub))
 
+                    new_partition_segment_idxs[i].add(segment_idx)
+
     for i in range(len(new_partitions)-1, -1, -1):
-        if not new_partitions[i]:
+
+        redundant = False
+        for other_i in range(len(new_partitions)):
+            if other_i == i:
+                continue
+            other_i_covers = (new_partition_segment_idxs[i] == \
+                new_partition_segment_idxs[other_i])
+            if other_i_covers:
+                print("Removing")
+                print(strips_ops[i])
+                print("because it is redundant with")
+                print(strips_ops[other_i])
+                redundant = True
+                break
+
+        if not new_partitions[i] or redundant:
             del strips_ops[i]
             del new_partitions[i]
+            del new_partition_segment_idxs[i]
     partitions = [Partition(members) for members in new_partitions
                   if members]
 
