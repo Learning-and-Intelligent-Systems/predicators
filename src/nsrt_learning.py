@@ -1,12 +1,13 @@
 """Algorithms for learning the various components of NSRT objects.
 """
 
+from collections import defaultdict
 import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet
+from typing import Set, Tuple, List, Sequence, FrozenSet, Dict
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
     LowLevelTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
-    DummyOption, ParameterizedOption, State, Action
+    DummyOption, ParameterizedOption, State, Action, OptionSpec
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -23,13 +24,9 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     # Apply predicates to dataset.
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
 
-    # Segment transitions based on changes in predicates.
-    segments = [seg for traj in ground_atom_dataset
-                for seg in segment_trajectory(traj)]
-
     # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators(segments,
-        verbose=CFG.do_option_learning)
+    strips_ops, partitions = learn_strips_operators(ground_atom_dataset,
+        verbose=True)  #CFG.do_option_learning)  # TODO change back
     assert len(strips_ops) == len(partitions)
 
     # Learn option specs, or if known, just look them up. The order of
@@ -146,9 +143,124 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
-        ) -> Tuple[List[STRIPSOperator], List[Partition]]:
-    """Learn operators given the segmented transitions.
+def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
+                           verbose: bool = True,
+                           ) -> Tuple[List[STRIPSOperator], List[Partition]]:
+    """Learn STRIPSOperators.
+    """
+    # Segment transitions based on changes in predicates and options.
+    segmented_trajectories = [segment_trajectory(traj)
+                              for traj in ground_atom_dataset]
+    all_segments = [seg for segs in segmented_trajectories for seg in segs]
+
+    # Learn operators without side predicates.
+    ops_without_sides, option_specs = _learn_operators_no_side_predicates(
+        all_segments)
+
+    if verbose:
+        print("Learned operators without side predicates:")
+        for op, (option, option_vars) in zip(ops_without_sides, option_specs):
+            option_var_str = ", ".join([str(v) for v in option_vars])
+            print(op)
+            print(f"    Option Spec: {option.name}({option_var_str})")
+
+    # Find skeletons for all trajectories.
+    init_atoms = []
+    final_relevant_atoms = []
+    skeletons = []
+    for segs, (ll_traj, _) in zip(segmented_trajectories, ground_atom_dataset):
+        # Only demonstration trajectories are currently annotated with final
+        # relevant atoms.
+        if not ll_traj.is_demo:
+            continue
+        init_atoms.append(segs[0].init_atoms)
+        final_relevant_atoms.append(ll_traj.goal)
+        skeleton = _find_skeleton(segs, ops_without_sides, option_specs)
+        skeletons.append(skeleton)
+
+    # Convert effects to side predicates.
+    name_to_strips_op = {op.name: op for op in ops_without_sides}
+    for op in ops_without_sides:
+        # Consider converting each add effect.
+        for effect in op.add_effects:
+            if verbose:
+                print(f"Considering converting add effect: {effect}")
+            current_op = name_to_strips_op[op.name]
+            # Tentatively replace the current operator.
+            name_to_strips_op[op.name] = STRIPSOperator(op.name, op.parameters,
+                op.preconditions, op.add_effects - {effect},
+                op.delete_effects, op.side_predicates | {effect.predicate})
+            # Check if operators would still cover skeletons.
+            if not all(_skeleton_covered(skeleton, inits, finals,
+                                         name_to_strips_op)
+                       for (skeleton, inits, finals) in \
+                        zip(skeletons, init_atoms, final_relevant_atoms)):
+                # If not, revert the change.
+                name_to_strips_op[op.name] = current_op
+                if verbose:
+                    print("Skeletons not covered; reverting conversion.")
+            elif verbose:
+                print("Skeletons still covered; keeping conversion.")
+        # Consider converting each delete effect.
+        for effect in op.delete_effects:
+            if verbose:
+                print(f"Considering converting delete effect: {effect}")
+            current_op = name_to_strips_op[op.name]
+            # Tentatively replace the current operator.
+            name_to_strips_op[op.name] = STRIPSOperator(op.name, op.parameters,
+                op.preconditions, op.add_effects, op.delete_effects - {effect},
+                op.side_predicates | {effect.predicate})
+            # Check if operators would still cover skeletons.
+            if not all(_skeleton_covered(skeleton, inits, finals,
+                                         name_to_strips_op)
+                       for (skeleton, inits, finals) in \
+                        zip(skeletons, init_atoms, final_relevant_atoms)):
+                # If not, revert the change.
+                name_to_strips_op[op.name] = current_op
+                if verbose:
+                    print("Skeletons not covered; reverting conversion.")
+            elif verbose:
+                print("Skeletons still covered; keeping conversion.")
+
+    # Replace old operators.
+    strips_ops = [name_to_strips_op[op.name] for op in ops_without_sides]
+
+    if verbose:
+        print("Learned operators with side effects:")
+        for op in strips_ops:
+            print(op)
+
+    # Re-partition the data with the new operators.
+    partitions, partition_segment_indices = _partition_segments(
+        segmented_trajectories, strips_ops, option_specs)
+    assert len(partitions) == len(partition_segment_indices) == len(strips_ops)
+
+    # Prune partitions that are redundant or that don't have enough data.
+    final_strips_ops = []
+    final_partitions = []
+    seen_identifiers = set()
+    for op, partition, part_ids in zip(strips_ops, partitions,
+                                       partition_segment_indices):
+        if len(partition) < CFG.min_data_for_nsrt:
+            continue
+        frozen_part_ids = frozenset(part_ids)
+        if frozen_part_ids in seen_identifiers:
+            continue
+        final_strips_ops.append(op)
+        final_partitions.append(partition)
+        seen_identifiers.add(frozen_part_ids)
+
+    if verbose:
+        print("\nFinal operators after pruning:")
+        for op in final_strips_ops:
+            print(op)
+
+    return final_strips_ops, final_partitions
+
+
+def _learn_operators_no_side_predicates(segments: Sequence[Segment]
+        ) -> Tuple[List[STRIPSOperator], List[OptionSpec]]:
+    """Learn STRIPSOperators with no side effects.
     """
     # Partition the segments according to common effects.
     params: List[Sequence[Variable]] = []
@@ -157,6 +269,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     add_effects: List[Set[LiftedAtom]] = []
     delete_effects: List[Set[LiftedAtom]] = []
     partitions: List[Partition] = []
+
     for segment in segments:
         if segment.has_option():
             segment_option = segment.get_option()
@@ -207,26 +320,18 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             new_partition = Partition([(segment, sub)])
             partitions.append(new_partition)
 
-    # We don't need option_vars anymore; we'll recover them later when we call
-    # `learn_option_specs`. The only reason to include them here is to make sure
-    # that params include the option_vars when options are available.
-    del option_vars
+    option_specs = [(param_opt, list(opt_vars)) for param_opt, opt_vars in \
+                    zip(parameterized_options, option_vars)]
 
-    assert len(params) == len(add_effects) == \
-           len(delete_effects) == len(partitions)
-
-    # Prune partitions with not enough data.
-    kept_idxs = []
-    for idx, partition in enumerate(partitions):
-        if len(partition) >= CFG.min_data_for_nsrt:
-            kept_idxs.append(idx)
-    params = [params[i] for i in kept_idxs]
-    add_effects = [add_effects[i] for i in kept_idxs]
-    delete_effects = [delete_effects[i] for i in kept_idxs]
-    partitions = [partitions[i] for i in kept_idxs]
+    assert len(params) == len(add_effects) == len(delete_effects) == \
+           len(option_specs) == len(partitions)
 
     # Learn preconditions.
     preconds = [_learn_preconditions(p) for p in partitions]
+
+    # We don't need the partitions anymore, we'll re-partition the data after
+    # learning operators with side effects.
+    del partitions
 
     # Finalize the operators.
     ops = []
@@ -234,12 +339,9 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         name = f"Op{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
                             delete_effects[i], set())
-        if verbose:
-            print("Learned STRIPSOperator:")
-            print(op)
         ops.append(op)
 
-    return ops, partitions
+    return ops, option_specs
 
 
 def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:
@@ -309,3 +411,135 @@ def unify_effects_and_options(
             f_new_ground_delete_effects,
         f_lifted_option_args | f_new_lifted_add_effects | \
             f_new_lifted_delete_effects)
+
+
+def _find_skeleton(segment_traj: Sequence[Segment],
+                   strips_ops: Sequence[STRIPSOperator],
+                   option_specs: Sequence[OptionSpec]
+                   ) -> List[Tuple[str, Tuple[Object, ...]]]:
+    """A skeleton here is a list of (op name, object parameters).
+
+    Only the operator names are used because the operators will change in the
+    course of learning side predicates (and STRIPSOperators are frozen).
+    """
+    assert len(strips_ops) == len(option_specs)
+    skeleton = []
+    objects = set(segment_traj[0].states[0])
+    grouped_ground_ops = defaultdict(list)
+    for op, (param_opt, opt_vars) in zip(strips_ops, option_specs):
+        for ground_op in utils.all_ground_operators(op, objects):
+            inv_sub = dict(zip(op.parameters, ground_op.objects))
+            opt_objs = tuple(inv_sub[v] for v in opt_vars)
+            grouped_ground_ops[param_opt].append((ground_op, opt_objs))
+    for segment in segment_traj:
+        if segment.has_option():
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
+        else:
+            segment_param_option = DummyOption.parent
+            segment_option_objs = tuple()
+        for (ground_op, opt_objs) in grouped_ground_ops[segment_param_option]:
+            # Check if preconditions hold.
+            if not ground_op.preconditions.issubset(segment.init_atoms):
+                continue
+
+            # Check if option objects match.
+            if segment_option_objs != opt_objs:
+                continue
+
+            # Check if effects match.
+            if ground_op.add_effects != segment.add_effects or \
+               ground_op.delete_effects != segment.delete_effects:
+                continue
+
+            # Operator covers the segment.
+            skeleton.append((ground_op.operator.name, tuple(ground_op.objects)))
+            break
+
+        else:
+            raise Exception("Could not find operator that matches segment.")
+
+    return skeleton
+
+
+def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
+                      init_atoms: Set[GroundAtom],
+                      relevant_final_atoms: Set[GroundAtom],
+                      name_to_strips_op: Dict[str, STRIPSOperator]) -> bool:
+    """A skeleton is covered if all preconditions hold and relevant final atoms
+    are predicted from the init atoms.
+    """
+    # Check preconditions.
+    current_atoms = init_atoms
+    for (op_name, objects) in skeleton:
+        ground_op = name_to_strips_op[op_name].ground(objects)
+        if not ground_op.preconditions.issubset(current_atoms):
+            return False
+        current_atoms = utils.apply_operator(ground_op, current_atoms)
+    # Check final relevant atoms.
+    return relevant_final_atoms.issubset(current_atoms)
+
+
+def _partition_segments(segmented_trajectories: Sequence[Sequence[Segment]],
+                        strips_ops: Sequence[STRIPSOperator],
+                        option_specs: Sequence[OptionSpec]
+                        ) -> Tuple[List[Partition], List[Set[Tuple[int, int]]]]:
+    """The second list returned is a set of segment indices, which will be used
+    to determine whether an operator is redundant.
+    """
+    partition_lsts : List[List[Tuple[Segment, ObjToVarSub]]] = \
+        [[] for _ in strips_ops]
+    partition_segment_indices : List[Set[Tuple[int, int]]] = \
+        [set() for _ in partition_lsts]
+
+    for traj_idx, segment_traj in enumerate(segmented_trajectories):
+
+        # Get ground operators given these objects.
+        objects = set(segment_traj[0].states[0])
+        grouped_ground_ops = defaultdict(list)
+        for op, (param_opt, opt_vars) in zip(strips_ops, option_specs):
+            for ground_op in utils.all_ground_operators(op, objects):
+                inv_sub = dict(zip(op.parameters, ground_op.objects))
+                opt_objs = tuple(inv_sub[v] for v in opt_vars)
+                grouped_ground_ops[param_opt].append((ground_op, opt_objs))
+
+        for segment_idx, segment in enumerate(segment_traj):
+            identifier = (traj_idx, segment_idx)
+
+            if segment.has_option():
+                segment_option = segment.get_option()
+                segment_param_option = segment_option.parent
+                segment_option_objs = tuple(segment_option.objects)
+            else:
+                segment_param_option = DummyOption.parent
+                segment_option_objs = tuple()
+
+            # Consider adding this segment to each of the partitions.
+            for ground_op, opt_objs in grouped_ground_ops[segment_param_option]:
+                # Check if option objects match.
+                if segment_option_objs != opt_objs:
+                    continue
+                # Check if preconditions hold.
+                if not ground_op.preconditions.issubset(segment.init_atoms):
+                    continue
+                # Check if effects match. Note that we're using the side
+                # predicates semantics here!
+                atoms = utils.apply_operator(ground_op, segment.init_atoms)
+                if not atoms.issubset(segment.final_atoms):
+                    continue
+                # This segment belongs in this partition.
+                # TODO: this is an edge case we need to fix by changing
+                # ObjToVarSubs in the partition to VarToObjSubs.
+                if len(set(ground_op.objects)) != len(ground_op.objects):
+                    continue
+                operator = ground_op.operator
+                op_idx = strips_ops.index(operator)
+                sub = dict(zip(ground_op.objects, operator.parameters))
+                partition_lsts[op_idx].append((segment, sub))
+                partition_segment_indices[op_idx].add(identifier)
+
+    # TODO refactor to avoid this.
+    partitions = [Partition(elm) for elm in partition_lsts]
+
+    return partitions, partition_segment_indices
