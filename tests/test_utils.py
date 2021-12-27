@@ -532,7 +532,7 @@ def test_nsrt_methods():
         "Pick", [cup_type], params_space, lambda s, m, o, p: 2*p,
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     nsrt = NSRT("PickNSRT", parameters, preconditions, add_effects,
-                delete_effects, parameterized_option, [parameters[0]],
+                delete_effects, set(), parameterized_option, [parameters[0]],
                 _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
@@ -570,7 +570,7 @@ def test_all_ground_operators():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
-                        delete_effects)
+                        delete_effects, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -607,7 +607,7 @@ def test_all_ground_operators_given_partial():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
-                        delete_effects)
+                        delete_effects, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -760,9 +760,11 @@ def test_static_nsrt_filtering():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -812,9 +814,11 @@ def test_is_dr_reachable():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -865,9 +869,11 @@ def test_nsrt_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -928,9 +934,9 @@ def test_operator_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     op1 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1)
+                         delete_effects1, set())
     op2 = STRIPSOperator("Place", parameters, preconditions2, add_effects2,
-                         delete_effects2)
+                         delete_effects2, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -1249,7 +1255,7 @@ def test_ops_and_specs_to_dummy_nsrts():
         "Pick", [], params_space, lambda s, m, o, p: 2*p,
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects)
+                                     add_effects, delete_effects, set())
     nsrts = utils.ops_and_specs_to_dummy_nsrts([strips_operator],
                                                [(parameterized_option, [])])
     assert len(nsrts) == 1

@@ -642,7 +642,7 @@ class NSRT:
         preconditions = {a for a in self.preconditions if a.predicate in kept}
         add_effects = {a for a in self.add_effects if a.predicate in kept}
         delete_effects = {a for a in self.delete_effects if a.predicate in kept}
-        side_predicates = self.side_predicates & kept
+        side_predicates = {a for a in self.side_predicates if a in kept}
         return NSRT(self.name, self.parameters,
                     preconditions, add_effects, delete_effects, side_predicates,
                     self.option, self.option_vars, self._sampler)

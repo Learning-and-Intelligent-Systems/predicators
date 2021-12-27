@@ -235,7 +235,7 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(HandEmpty, [])}
     delete_effects = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
     dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
-                     delete_effects, option, option_vars,
+                     delete_effects, set(), option, option_vars,
                      lambda s, r, o: np.array([], dtype=np.float32))
     nsrts.add(dump_nsrt)
 
@@ -969,9 +969,9 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, targetdot]
     option_vars = [robot, targetdot]
     option = Move
-    preconditions = set()
+    preconditions : Set[LiftedAtom] = set()
     add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
-    delete_effects = set()
+    delete_effects : Set[LiftedAtom] = set()
     # Moving could have us end up nextto other objects. It could also
     # include NextToNothing as a delete effect.
     side_predicates = {NextTo, NextToNothing}
