@@ -239,8 +239,12 @@ def _run_low_level_search(
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
                 atoms = utils.abstract(traj[cur_idx], predicates)
-                if atoms == {atom for atom in atoms_sequence[cur_idx]
-                             if atom.predicate.name != _NOT_CAUSES_FAILURE}:
+                # The expected atoms are ones that we definitely expect to be
+                # true at this point in the plan. They are not *all* the atoms
+                # that could be true.
+                expected_atoms = {atom for atom in atoms_sequence[cur_idx]
+                                  if atom.predicate.name != _NOT_CAUSES_FAILURE}
+                if atoms.issuperset(expected_atoms):
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan
