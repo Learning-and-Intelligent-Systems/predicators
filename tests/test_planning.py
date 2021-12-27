@@ -43,7 +43,7 @@ def test_task_plan():
     for nsrt in nsrts:
         strips_ops.append(STRIPSOperator(
             nsrt.name, nsrt.parameters, nsrt.preconditions,
-            nsrt.add_effects, nsrt.delete_effects))
+            nsrt.add_effects, nsrt.delete_effects, nsrt.side_predicates))
         option_specs.append((nsrt.option, nsrt.option_vars))
     skeleton, _, _ = task_plan(init_atoms, objects, task.goal, strips_ops,
                                option_specs, timeout=1, seed=123)
@@ -124,8 +124,8 @@ def test_sesame_plan_uninitiable_option():
     for nsrt in nsrts:
         new_nsrts.add(NSRT(
             nsrt.name+"UNINITIABLE", nsrt.parameters, nsrt.preconditions,
-            nsrt.add_effects, nsrt.delete_effects, new_option,
-            nsrt.option_vars, nsrt._sampler))
+            nsrt.add_effects, nsrt.delete_effects, nsrt.side_predicates,
+            new_option, nsrt.option_vars, nsrt._sampler))
     task = next(env.train_tasks_generator())[0]
     with pytest.raises(ApproachFailure) as e:
         # Planning should reach max_skeletons_optimized
