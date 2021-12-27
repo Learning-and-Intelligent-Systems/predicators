@@ -180,6 +180,10 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
 
     # Convert effects to side predicates.
     name_to_strips_op = {op.name: op for op in ops_without_sides}
+    # We need to remember the original strips operators because some of the
+    # parameters might get lost during pruning. TODO: there's probably a more
+    # clear way to code this.
+    name_to_original_strips_op = name_to_strips_op.copy()
     for op, (_, option_vars) in zip(ops_without_sides, option_specs):
         # Consider converting each add effect.
         # TODO refactor to avoid redundant code.
@@ -202,7 +206,8 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
                 current_op.side_predicates | {effect.predicate})
             # Check if operators would still cover skeletons.
             if not all(_skeleton_covered(skeleton, inits, finals,
-                                         name_to_strips_op)
+                                         name_to_strips_op,
+                                         name_to_original_strips_op)
                        for (skeleton, inits, finals) in \
                         zip(skeletons, init_atoms, final_relevant_atoms)):
                 # If not, revert the change.
@@ -231,7 +236,8 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
                 current_op.side_predicates | {effect.predicate})
             # Check if operators would still cover skeletons.
             if not all(_skeleton_covered(skeleton, inits, finals,
-                                         name_to_strips_op)
+                                         name_to_strips_op,
+                                         name_to_original_strips_op)
                        for (skeleton, inits, finals) in \
                         zip(skeletons, init_atoms, final_relevant_atoms)):
                 # If not, revert the change.
@@ -484,14 +490,21 @@ def _find_skeleton(segment_traj: Sequence[Segment],
 def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
                       init_atoms: Set[GroundAtom],
                       relevant_final_atoms: Set[GroundAtom],
-                      name_to_strips_op: Dict[str, STRIPSOperator]) -> bool:
+                      name_to_strips_op: Dict[str, STRIPSOperator],
+                      name_to_original_strips_op: Dict[str, STRIPSOperator]
+                      ) -> bool:
     """A skeleton is covered if all preconditions hold and relevant final atoms
     are predicted from the init atoms.
     """
     # Check preconditions.
     current_atoms = init_atoms
-    for (op_name, objects) in skeleton:
-        ground_op = name_to_strips_op[op_name].ground(objects)
+    for (op_name, original_objects) in skeleton:
+        # Some parameters may have changed.
+        op = name_to_strips_op[op_name]
+        original_vars = name_to_original_strips_op[op_name].parameters
+        objects = tuple(o for o, v in zip(original_objects, original_vars)
+                        if v in op.parameters)
+        ground_op = op.ground(objects)
         if not ground_op.preconditions.issubset(current_atoms):
             return False
         current_atoms = utils.apply_operator(ground_op, current_atoms)
