@@ -914,6 +914,19 @@ def test_nsrt_application():
         ground_nsrts, {pred3([cup2, plate1])}))
     assert not list(utils.get_applicable_nsrts(
         ground_nsrts, {pred3([cup2, plate2])}))
+    # Tests with side predicates.
+    side_predicates = {pred2}
+    nsrt3 = NSRT("Pick", parameters, preconditions1, add_effects1,
+             delete_effects1, side_predicates=side_predicates, option=None,
+             option_vars=[], _sampler=None)
+    ground_nsrts = utils.all_ground_nsrts(nsrt3, objects)
+    applicable = list(utils.get_applicable_nsrts(
+        ground_nsrts, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_nsrt = applicable[0]
+    atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
+    next_atoms = utils.apply_nsrt(ground_nsrt, atoms)
+    assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_operator_application():
@@ -977,6 +990,18 @@ def test_operator_application():
         ground_ops, {pred3([cup2, plate1])}))
     assert not list(utils.get_applicable_operators(
         ground_ops, {pred3([cup2, plate2])}))
+    # Tests with side predicates.
+    side_predicates = {pred2}
+    op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
+             delete_effects1, side_predicates=side_predicates)
+    ground_ops = utils.all_ground_operators(op3, objects)
+    applicable = list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_op = applicable[0]
+    atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
+    next_atoms = utils.apply_operator(ground_op, atoms)
+    assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_create_heuristic():

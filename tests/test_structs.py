@@ -416,6 +416,7 @@ def test_nsrts():
     preconditions = {not_on([cup_var, plate_var])}
     add_effects = {on([cup_var, plate_var])}
     delete_effects = {not_on([cup_var, plate_var])}
+    side_predicates = {on}
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption(
         "Pick", [], params_space, lambda s, m, o, p: 2*p,
@@ -427,17 +428,17 @@ def test_nsrts():
         return params_space.sample()
     # STRIPSOperator
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects, set())
+        add_effects, delete_effects, side_predicates)
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: []"""
+    Side Predicates: [On]"""
     assert isinstance(hash(strips_operator), int)
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
-                                      add_effects, delete_effects, set())
+        add_effects, delete_effects, side_predicates)
     assert strips_operator == strips_operator2
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
@@ -449,23 +450,23 @@ def test_nsrts():
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: []"""
+    Side Predicates: [On]"""
     ground_op2 = strips_operator2.ground((cup, plate))
     assert ground_op == ground_op2
     assert hash(ground_op) == hash(ground_op2)
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects,
-                delete_effects, set(), parameterized_option, [], sampler)
+        delete_effects, side_predicates, parameterized_option, [], sampler)
     assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Side Predicates: []
+    Side Predicates: [On]
     Option Spec: Pick()"""
     assert isinstance(hash(nsrt), int)
     nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
-                 delete_effects, set(), parameterized_option, [], sampler)
+        delete_effects, side_predicates, parameterized_option, [], sampler)
     assert nsrt == nsrt2
     nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
     assert nsrt == nsrt3
@@ -477,7 +478,7 @@ def test_nsrts():
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
-    Side Predicates: []
+    Side Predicates: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
     assert isinstance(hash(ground_nsrt), int)
@@ -485,7 +486,7 @@ def test_nsrts():
     assert ground_nsrt == ground_nsrt2
     # Test less than comparison for grounded options
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
-                 delete_effects, set(), parameterized_option, [], sampler)
+        delete_effects, side_predicates, parameterized_option, [], sampler)
     assert nsrt2 > nsrt4
     assert nsrt4 < nsrt2
     ground_nsrt4 = nsrt4.ground([cup, plate])
