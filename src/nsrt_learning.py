@@ -425,12 +425,6 @@ def _find_skeleton(segment_traj: Sequence[Segment],
     assert len(strips_ops) == len(option_specs)
     skeleton = []
     objects = set(segment_traj[0].states[0])
-    grouped_ground_ops = defaultdict(list)
-    for op, (param_opt, opt_vars) in zip(strips_ops, option_specs):
-        for ground_op in utils.all_ground_operators(op, objects):
-            inv_sub = dict(zip(op.parameters, ground_op.objects))
-            opt_objs = tuple(inv_sub[v] for v in opt_vars)
-            grouped_ground_ops[param_opt].append((ground_op, opt_objs))
     for segment in segment_traj:
         if segment.has_option():
             segment_option = segment.get_option()
@@ -439,24 +433,29 @@ def _find_skeleton(segment_traj: Sequence[Segment],
         else:
             segment_param_option = DummyOption.parent
             segment_option_objs = tuple()
-        for (ground_op, opt_objs) in grouped_ground_ops[segment_param_option]:
-            # Check if preconditions hold.
-            if not ground_op.preconditions.issubset(segment.init_atoms):
+        # Get ground operators given these objects and option objs.
+        for op, (param_opt, opt_vars) in zip(strips_ops, option_specs):
+            if param_opt != segment_param_option:
                 continue
-
-            # Check if option objects match.
-            if segment_option_objs != opt_objs:
+            op_idx = strips_ops.index(op)
+            isub = dict(zip(opt_vars, segment_option_objs))
+            # Consider adding this segment to each of the partitions.
+            for ground_op in utils.all_ground_operators_given_partial(
+                op, objects, isub):
+                # Check if preconditions hold.
+                if not ground_op.preconditions.issubset(segment.init_atoms):
+                    continue
+                # Check if effects match.
+                if ground_op.add_effects != segment.add_effects or \
+                   ground_op.delete_effects != segment.delete_effects:
+                    continue
+                # Operator covers the segment.
+                skeleton.append((ground_op.operator.name,
+                                 tuple(ground_op.objects)))
+                break
+            else:
                 continue
-
-            # Check if effects match.
-            if ground_op.add_effects != segment.add_effects or \
-               ground_op.delete_effects != segment.delete_effects:
-                continue
-
-            # Operator covers the segment.
-            skeleton.append((ground_op.operator.name, tuple(ground_op.objects)))
             break
-
         else:
             raise Exception("Could not find operator that matches segment.")
 
@@ -495,14 +494,7 @@ def _partition_segments(segmented_trajectories: Sequence[Sequence[Segment]],
 
     for traj_idx, segment_traj in enumerate(segmented_trajectories):
 
-        # Get ground operators given these objects.
         objects = set(segment_traj[0].states[0])
-        grouped_ground_ops = defaultdict(list)
-        for op, (param_opt, opt_vars) in zip(strips_ops, option_specs):
-            for ground_op in utils.all_ground_operators(op, objects):
-                inv_sub = dict(zip(op.parameters, ground_op.objects))
-                opt_objs = tuple(inv_sub[v] for v in opt_vars)
-                grouped_ground_ops[param_opt].append((ground_op, opt_objs))
 
         for segment_idx, segment in enumerate(segment_traj):
             identifier = (traj_idx, segment_idx)
@@ -515,29 +507,31 @@ def _partition_segments(segmented_trajectories: Sequence[Sequence[Segment]],
                 segment_param_option = DummyOption.parent
                 segment_option_objs = tuple()
 
-            # Consider adding this segment to each of the partitions.
-            for ground_op, opt_objs in grouped_ground_ops[segment_param_option]:
-                # Check if option objects match.
-                if segment_option_objs != opt_objs:
+            # Get ground operators given these objects and option objs.
+            for op, (param_opt, opt_vars) in zip(strips_ops, option_specs):
+                if param_opt != segment_param_option:
                     continue
-                # Check if preconditions hold.
-                if not ground_op.preconditions.issubset(segment.init_atoms):
-                    continue
-                # Check if effects match. Note that we're using the side
-                # predicates semantics here!
-                atoms = utils.apply_operator(ground_op, segment.init_atoms)
-                if not atoms.issubset(segment.final_atoms):
-                    continue
-                # This segment belongs in this partition.
-                # TODO: this is an edge case we need to fix by changing
-                # ObjToVarSubs in the partition to VarToObjSubs.
-                if len(set(ground_op.objects)) != len(ground_op.objects):
-                    continue
-                operator = ground_op.operator
-                op_idx = strips_ops.index(operator)
-                sub = dict(zip(ground_op.objects, operator.parameters))
-                partition_lsts[op_idx].append((segment, sub))
-                partition_segment_indices[op_idx].add(identifier)
+                op_idx = strips_ops.index(op)
+                isub = dict(zip(opt_vars, segment_option_objs))
+                # Consider adding this segment to each of the partitions.
+                for ground_op in utils.all_ground_operators_given_partial(
+                    op, objects, isub):
+                    # Check if preconditions hold.
+                    if not ground_op.preconditions.issubset(segment.init_atoms):
+                        continue
+                    # Check if effects match. Note that we're using the side
+                    # predicates semantics here!
+                    atoms = utils.apply_operator(ground_op, segment.init_atoms)
+                    if not atoms.issubset(segment.final_atoms):
+                        continue
+                    # This segment belongs in this partition.
+                    # TODO: this is an edge case we need to fix by changing
+                    # ObjToVarSubs in the partition to VarToObjSubs.
+                    if len(set(ground_op.objects)) != len(ground_op.objects):
+                        continue
+                    sub = dict(zip(ground_op.objects, op.parameters))
+                    partition_lsts[op_idx].append((segment, sub))
+                    partition_segment_indices[op_idx].add(identifier)
 
     # TODO refactor to avoid this.
     partitions = [Partition(elm) for elm in partition_lsts]
