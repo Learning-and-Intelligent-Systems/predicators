@@ -180,16 +180,26 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
 
     # Convert effects to side predicates.
     name_to_strips_op = {op.name: op for op in ops_without_sides}
-    for op in ops_without_sides:
+    for op, (_, option_vars) in zip(ops_without_sides, option_specs):
         # Consider converting each add effect.
+        # TODO refactor to avoid redundant code.
         for effect in op.add_effects:
             if verbose:
-                print(f"Considering converting add effect: {effect}")
+                print(f"Considering add effect: {effect} from {op.name}")
             current_op = name_to_strips_op[op.name]
+            assert current_op.name == op.name
             # Tentatively replace the current operator.
-            name_to_strips_op[op.name] = STRIPSOperator(op.name, op.parameters,
-                op.preconditions, op.add_effects - {effect},
-                op.delete_effects, op.side_predicates | {effect.predicate})
+            remaining_params = {p for atom in current_op.preconditions | \
+                (current_op.add_effects - {effect}) | \
+                current_op.delete_effects
+                for p in atom.variables} | set(option_vars)
+            next_params = [p for p in op.parameters if p in remaining_params]
+            name_to_strips_op[op.name] = STRIPSOperator(
+                op.name, next_params,
+                current_op.preconditions,
+                current_op.add_effects - {effect},
+                current_op.delete_effects,
+                current_op.side_predicates | {effect.predicate})
             # Check if operators would still cover skeletons.
             if not all(_skeleton_covered(skeleton, inits, finals,
                                          name_to_strips_op)
@@ -204,12 +214,21 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
         # Consider converting each delete effect.
         for effect in op.delete_effects:
             if verbose:
-                print(f"Considering converting delete effect: {effect}")
+                print(f"Considering delete effect: {effect} from {op.name}")
             current_op = name_to_strips_op[op.name]
+            assert current_op.name == op.name
             # Tentatively replace the current operator.
-            name_to_strips_op[op.name] = STRIPSOperator(op.name, op.parameters,
-                op.preconditions, op.add_effects, op.delete_effects - {effect},
-                op.side_predicates | {effect.predicate})
+            remaining_params = {p for atom in current_op.preconditions | \
+                (current_op.add_effects - {effect}) | \
+                current_op.delete_effects
+                for p in atom.variables} | set(option_vars)
+            next_params = [p for p in op.parameters if p in remaining_params]
+            name_to_strips_op[op.name] = STRIPSOperator(
+                op.name, next_params,
+                current_op.preconditions,
+                current_op.add_effects,
+                current_op.delete_effects - {effect},
+                current_op.side_predicates | {effect.predicate})
             # Check if operators would still cover skeletons.
             if not all(_skeleton_covered(skeleton, inits, finals,
                                          name_to_strips_op)
