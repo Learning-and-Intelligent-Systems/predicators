@@ -40,6 +40,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
                                     place_sampler_relative=True)
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
+    elif CFG.env == "cluttered_table_place": 
+        nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
     elif CFG.env == "blocks":
         nsrts = _get_blocks_gt_nsrts()
     elif CFG.env == "painting":
@@ -191,7 +193,7 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     return nsrts
 
 
-def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
+def _get_cluttered_table_gt_nsrts(with_place=False) -> Set[NSRT]:
     """Create ground truth NSRTs for ClutteredTableEnv.
     """
     can_type, = _get_types_by_names("cluttered_table", ["can"])
@@ -199,7 +201,10 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
     HandEmpty, Holding, Untrashed = _get_predicates_by_names(
         "cluttered_table", ["HandEmpty", "Holding", "Untrashed"])
 
-    Grasp, Dump = _get_options_by_names("cluttered_table", ["Grasp", "Dump"])
+    if with_place: 
+        Grasp, Place = _get_options_by_names("cluttered_table_place", ["Grasp", "Place"])
+    else: 
+        Grasp, Dump = _get_options_by_names("cluttered_table", ["Grasp", "Dump"])
 
     nsrts = set()
 
@@ -219,25 +224,49 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
         # both pose_x and pose_y will be -999.
         end_x = max(0.0, state.get(can, "pose_x"))
         end_y = max(0.0, state.get(can, "pose_y"))
-        start_x, start_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
+        if with_place:
+            start_x, start_y = rng.uniform(0.0, 0.2, size=2)  # start from 0.2x0.2 corner
+        else:
+            start_x, start_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
         return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
     grasp_nsrt = NSRT("Grasp", parameters, preconditions,
                       add_effects, delete_effects, option,
                       option_vars, grasp_sampler)
     nsrts.add(grasp_nsrt)
 
-    # Dump
-    can = Variable("?can", can_type)
-    parameters = [can]
-    option_vars = []
-    option = Dump
-    preconditions = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
-    add_effects = {LiftedAtom(HandEmpty, [])}
-    delete_effects = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
-    dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
-                     delete_effects, option, option_vars,
-                     lambda s, r, o: np.array([], dtype=np.float32))
-    nsrts.add(dump_nsrt)
+    if not with_place: 
+        # Dump
+        can = Variable("?can", can_type)
+        parameters = [can]
+        option_vars = []
+        option = Dump
+        preconditions = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
+        add_effects = {LiftedAtom(HandEmpty, [])}
+        delete_effects = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
+        dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
+                         delete_effects, option, option_vars,
+                         lambda s, r, o: np.array([], dtype=np.float32))
+        nsrts.add(dump_nsrt)
+
+    # Place
+    if with_place:
+        can = Variable("?can", can_type)
+        parameters = [can]
+        option_vars = [can]     # not sure about this (?) 
+        option = Place
+        preconditions = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
+        add_effects = {LiftedAtom(HandEmpty, [])}
+        delete_effects = {LiftedAtom(Holding, [can])}
+        def place_sampler(state: State, rng: np.random.Generator, 
+                          objs: Sequence[Object]) -> Array:
+            assert len(objs) == 1
+            start_x, start_y = rng.uniform(0.0, 0.2, size=2)  # start from 0.2x0.2 corner
+            end_x, end_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
+            return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
+        place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
+                         delete_effects, option, option_vars,
+                         place_sampler)
+        nsrts.add(place_nsrt)
 
     return nsrts
 
