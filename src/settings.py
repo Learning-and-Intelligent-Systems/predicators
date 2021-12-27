@@ -148,6 +148,7 @@ class GlobalSettings:
                 # of the high likelihood of getting cyclic failures if you
                 # immediately raise failures, leading to unsolvable tasks.
                 "cluttered_table": "after_exhaust",
+                "cluttered_table_place": "after_exhaust",     # what should we use here (?)
                 "blocks": "immediately",
                 "painting": "immediately",
                 "repeated_nextto": "immediately",
