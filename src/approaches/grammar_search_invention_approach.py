@@ -18,7 +18,7 @@ from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.planning import task_plan
+from predicators.src.planning import task_plan, MaxNodesExpandedFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
@@ -468,6 +468,10 @@ def _create_score_function(
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
+    if score_function_name == "truncated_lookahead":
+        return _ExactHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            truncation_budget=CFG.grammar_search_score_function_trunc_budget)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
@@ -763,6 +767,8 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with task planning.
     """
+    truncation_budget: int = field(default=100000000)
+
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
                             objects: Set[Object],
                             goal: Set[GroundAtom],
@@ -781,7 +787,10 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
             try:
                 skeleton, atoms_sequence, _ = task_plan(
                     atoms, objects, goal, strips_ops, option_specs,
-                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                    CFG.seed, CFG.grammar_search_task_planning_timeout,
+                    self.truncation_budget)
+            except MaxNodesExpandedFailure as e:
+                return e.best_cost_estimate
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
@@ -816,7 +825,6 @@ class _ExactHeuristicLookaheadBasedScoreFunction(
     """Implement _generate_heuristic() with task planning and
     _evaluate_atom_trajectory() with a lookahead-based policy.
     """
-
 
 ################################################################################
 #                                 Approach                                     #

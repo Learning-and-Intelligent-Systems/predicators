@@ -22,6 +22,16 @@ from predicators.src.settings import CFG
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
 
+class MaxNodesExpandedFailure(ApproachFailure):
+    """Raised when task planning runs out of budget.
+
+    The best cost estimate -- that is, the best f=g+h seen -- is stored.
+    """
+    def __init__(self, best_cost_estimate: float):
+        super().__init__("Maximum number of nodes expanded.")
+        self.best_cost_estimate = best_cost_estimate
+
+
 @dataclass(repr=False, eq=False)
 class _Node:
     """A node for the search over skeletons.
@@ -100,6 +110,7 @@ def task_plan(init_atoms: Set[GroundAtom],
               option_specs: Sequence[OptionSpec],
               seed: int,
               timeout: float,
+              max_node_expansions: int = 100000000,
               ) -> Tuple[List[_GroundNSRT],
                          List[Collection[GroundAtom]],
                          Metrics]:
@@ -124,7 +135,8 @@ def task_plan(init_atoms: Set[GroundAtom],
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, nonempty_ground_nsrts,
-                                    init_atoms, seed, timeout, metrics)
+                                    init_atoms, seed, timeout, metrics,
+                                    max_node_expansions)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
@@ -134,7 +146,9 @@ def _skeleton_generator(task: Task,
                         init_atoms: Set[GroundAtom],
                         seed: int,
                         timeout: float,
-                        metrics: Metrics) -> Iterator[
+                        metrics: Metrics,
+                        max_node_expansions: int = 100000000
+                        ) -> Iterator[
                             Tuple[List[_GroundNSRT],
                                   List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
@@ -147,14 +161,16 @@ def _skeleton_generator(task: Task,
     rng_prio = np.random.default_rng(seed)
     heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
                                        init_atoms, task.goal, ground_nsrts)
-    hq.heappush(queue, (heuristic(root_node.pyperplan_facts),
-                        rng_prio.uniform(),
-                        root_node))
+    root_h = heuristic(root_node.pyperplan_facts)
+    best_cost_estimate = root_h
+    hq.heappush(queue, (root_h, rng_prio.uniform(), root_node))
     # Start search.
     while queue and (time.time()-start_time < timeout):
         if (int(metrics["num_skeletons_optimized"]) ==
             CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
+        if metrics["num_nodes_expanded"] >= max_node_expansions:
+            raise MaxNodesExpandedFailure(best_cost_estimate)
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
@@ -175,6 +191,7 @@ def _skeleton_generator(task: Task,
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton)+
                             heuristic(child_node.pyperplan_facts))
+                best_cost_estimate = min(best_cost_estimate, priority)
                 hq.heappush(queue, (priority,
                                     rng_prio.uniform(),
                                     child_node))
