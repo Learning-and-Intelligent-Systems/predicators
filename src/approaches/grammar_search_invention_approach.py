@@ -439,39 +439,40 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 ################################################################################
 
 def _create_score_function(
+        score_function_name: str,
         initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task],
         candidates: Dict[Predicate, float]
         ) -> _PredicateSearchScoreFunction:
-    if CFG.grammar_search_score_function == "prediction_error":
+    if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "branching_factor":
+    if score_function_name == "branching_factor":
         return _BranchingFactorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_match":
+    if score_function_name == "hadd_match":
         return _HAddHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_lookahead":
+    if score_function_name == "hadd_lookahead":
         return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_lookahead_depth1":
+    if score_function_name == "hadd_lookahead_depth1":
         return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates,
             lookahead_depth=1)
-    if CFG.grammar_search_score_function == "hadd_lookahead_depth2":
+    if score_function_name == "hadd_lookahead_depth2":
         return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates,
             lookahead_depth=2)
-    if CFG.grammar_search_score_function == "exact_lookahead":
+    if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "task_planning":
+    if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
     raise NotImplementedError(
-        f"Unknown score function: {CFG.grammar_search_score_function}.")
+        f"Unknown score function: {score_function_name}.")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -846,7 +847,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         print("Done.")
         # Create the score function that will be used to guide search.
         score_function = _create_score_function(
-            self._initial_predicates, atom_dataset, train_tasks, candidates)
+            CFG.grammar_search_score_function, self._initial_predicates,
+            atom_dataset, train_tasks, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
