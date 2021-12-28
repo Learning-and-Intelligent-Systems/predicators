@@ -126,7 +126,7 @@ class GlobalSettings:
     grammar_search_heuristic_based_max_demos = 5
     grammar_search_lookahead_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
-    grammar_search_score_function_trunc_budget = 10
+    grammar_search_score_function_trunc_budget = 5
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

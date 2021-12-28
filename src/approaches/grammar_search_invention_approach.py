@@ -10,7 +10,7 @@ from functools import cached_property
 import itertools
 from operator import ge, le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
-    Dict, Collection
+    Dict, Collection, Optional
 from gym.spaces import Box
 import numpy as np
 from predicators.src import utils
@@ -21,7 +21,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
 from predicators.src.planning import task_plan, MaxNodesExpandedFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, _GroundNSRT
 from predicators.src.settings import CFG
 
 
@@ -776,8 +776,17 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        del init_atoms  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
+        # Cache the dummy ground nsrts to save time.
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        ground_nsrts = []
+        for nsrt in nsrts:
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+        ground_nsrts = utils.filter_static_nsrts(ground_nsrts, init_atoms)
+        nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
+                                 if nsrt.add_effects | nsrt.delete_effects]
+        del init_atoms  # unused
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton,
             or inf if no skeleton is found.
@@ -788,7 +797,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 skeleton, atoms_sequence, _ = task_plan(
                     atoms, objects, goal, strips_ops, option_specs,
                     CFG.seed, CFG.grammar_search_task_planning_timeout,
-                    self.truncation_budget)
+                    max_node_expansions=self.truncation_budget,
+                    dummy_ground_nsrts=nonempty_ground_nsrts)
             except MaxNodesExpandedFailure as e:
                 return e.best_cost_estimate
             except (ApproachFailure, ApproachTimeout):

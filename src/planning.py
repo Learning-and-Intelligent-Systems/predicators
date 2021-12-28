@@ -7,7 +7,8 @@ from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
 import time
-from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
+from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence, \
+    cast
 from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -111,6 +112,7 @@ def task_plan(init_atoms: Set[GroundAtom],
               seed: int,
               timeout: float,
               max_node_expansions: int = 100000000,
+              dummy_ground_nsrts: Optional[List[_GroundNSRT]] = None,
               ) -> Tuple[List[_GroundNSRT],
                          List[Collection[GroundAtom]],
                          Metrics]:
@@ -122,14 +124,17 @@ def task_plan(init_atoms: Set[GroundAtom],
     wrapper around _skeleton_generator below (which IS used by SeSamE) that
     takes in only the minimal necessary arguments.
     """
-    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-    ground_nsrts = []
-    for nsrt in nsrts:
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, init_atoms)
-    nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
-                             if nsrt.add_effects | nsrt.delete_effects]
+    if not dummy_ground_nsrts:
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        ground_nsrts = []
+        for nsrt in nsrts:
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+        ground_nsrts = utils.filter_static_nsrts(ground_nsrts, init_atoms)
+        nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
+                                 if nsrt.add_effects | nsrt.delete_effects]
+    else:
+        nonempty_ground_nsrts = cast(List[_GroundNSRT], dummy_ground_nsrts)
     if not utils.is_dr_reachable(nonempty_ground_nsrts, init_atoms, goal):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
@@ -138,6 +143,7 @@ def task_plan(init_atoms: Set[GroundAtom],
                                     init_atoms, seed, timeout, metrics,
                                     max_node_expansions)
     skeleton, atoms_sequence = next(generator)  # get the first one
+    # Cache nonempty_ground_nsrts between calls when applicable.
     return skeleton, atoms_sequence, metrics
 
 

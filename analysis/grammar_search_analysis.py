@@ -173,18 +173,19 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        "cover",
-        "blocks",
+        # "cover",
+        # "blocks",
         "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_lookahead",
-        "exact_lookahead",
-        "hadd_lookahead_depth1",
-        "hadd_lookahead_depth2",
+        # "prediction_error",
+        # "hadd_lookahead",
+        # "exact_lookahead",
+        # "hadd_lookahead_depth1",
+        # "hadd_lookahead_depth2",
+        "truncated_lookahead",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
