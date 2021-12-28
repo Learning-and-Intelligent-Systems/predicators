@@ -160,34 +160,29 @@ def test_unary_free_forall_classifier():
 def test_create_score_function():
     """Tests for _create_score_function().
     """
-    utils.update_config(
-        {"grammar_search_score_function": "prediction_error"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("prediction_error", set(), [], [], {})
     assert isinstance(score_func, _PredictionErrorScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "hadd_match"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("hadd_match" ,set(), [], [], {})
     assert isinstance(score_func, _HAddHeuristicMatchBasedScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "branching_factor"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("branching_factor", set(), [], [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "hadd_lookahead"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("hadd_lookahead", set(), [], [], {})
     assert isinstance(score_func, _HAddHeuristicLookaheadBasedScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "exact_lookahead"})
-    score_func = _create_score_function(set(), [], [], {})
+    assert score_func.lookahead_depth == 0
+    score_func = _create_score_function("hadd_lookahead_depth1", set(), [], [],
+                                        {})
+    assert isinstance(score_func, _HAddHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 1
+    score_func = _create_score_function("hadd_lookahead_depth2", set(), [], [],
+                                        {})
+    assert isinstance(score_func, _HAddHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 2
+    score_func = _create_score_function("exact_lookahead", set(), [], [], {})
     assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "task_planning"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("task_planning", set(), [], [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "not a real score function"})
     with pytest.raises(NotImplementedError):
-        _create_score_function(set(), [], [], {})
+        _create_score_function("not a real score function", set(), [], [], {})
 
 
 def test_predicate_search_heuristic_base_classes():
@@ -410,6 +405,16 @@ def test_hadd_lookahead_score_function():
     # (Clear, GripperOpen): 21145.98910036367
     # (Holding, GripperOpen): 14643.702564367157
     # (Clear, Holding, GripperOpen): 11411.369394796291
+
+    # Tests for lookahead_depth > 0.
+    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates,
+        lookahead_depth=1)
+    all_included_s = score_function.evaluate(set(candidates))
+    none_included_s = score_function.evaluate(set())
+    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
+                                                      name_to_pred["Clear"]})
+    assert all_included_s < none_included_s  # good!
 
     # Tests for PaintingEnv.
     utils.flush_cache()
