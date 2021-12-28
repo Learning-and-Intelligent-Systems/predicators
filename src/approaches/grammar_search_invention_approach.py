@@ -737,14 +737,22 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             ) -> Callable[[Set[GroundAtom]], float]:
         hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
         del init_atoms  # unused after this
+        cache: Dict[FrozenSet[GroundAtom], float] = {}
         def _hadd_fn_h(atoms: Set[GroundAtom],
                        depth: int=0) -> float:
+            cache_key = (frozenset(atoms), depth)
+            if cache_key in cache:
+                return cache[cache_key]
             if goal.issubset(atoms):
-                return 0.0
-            if depth == self.lookahead_depth:
-                return hadd_fn(utils.atoms_to_tuples(atoms))
-            return 1.0 + min(_hadd_fn_h(next_atoms, depth+1) for next_atoms in \
-                utils.get_successors_from_ground_ops(atoms, ground_ops))
+                result = 0.0
+            elif depth == self.lookahead_depth:
+                result = hadd_fn(utils.atoms_to_tuples(atoms))
+            else:
+                result = 1.0 + min(_hadd_fn_h(next_atoms, depth+1)
+                    for next_atoms in utils.get_successors_from_ground_ops(
+                        atoms, ground_ops))
+            cache[cache_key] = result
+            return result
         return _hadd_fn_h
 
 
