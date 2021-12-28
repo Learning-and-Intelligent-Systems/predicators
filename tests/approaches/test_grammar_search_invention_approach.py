@@ -61,7 +61,10 @@ def test_predicate_grammar():
          "NOT-((0:block).pose<=2.33), NOT-((0:block).width<=19.0)]")
     forall_grammar = _create_grammar("forall_single_feat_ineqs", dataset,
                                      env.predicates)
-    assert len(forall_grammar.generate(max_num=100)) == 100
+    # There are only so many unique predicates possible under the grammar.
+    # Non-unique predicates are pruned. Note that with a larger dataset,
+    # more predicates would appear unique.
+    assert len(forall_grammar.generate(max_num=10)) == 7
 
 
 def test_count_positives_for_ops():
