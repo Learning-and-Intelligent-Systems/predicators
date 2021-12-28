@@ -121,6 +121,7 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1
     grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
+    grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "hadd_lookahead"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5

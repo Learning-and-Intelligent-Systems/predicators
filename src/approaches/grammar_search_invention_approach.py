@@ -54,12 +54,18 @@ def _create_grammar(grammar_name: str, dataset: Dataset,
         # For each predicate enumerated, we also enumerate foralls for
         # that predicate, along with appropriate negations.
         forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
-        # Finally, we don't actually need to enumerate the given predicates
+        # Prune proposed predicates by checking if they are equivalent to
+        # any already-generated predicates with respect to the dataset.
+        # Note that we want to do this before the skip grammar below,
+        # because if any predicates are equivalent to the given predicates,
+        # we would not want to generate them.
+        pruned_grammar = _PrunedGrammar(dataset, forall_grammar)
+        # We don't actually need to enumerate the given predicates
         # because we already have them in the initial predicate set,
         # so we just filter them out from actually being enumerated.
         # But remember that we do want to enumerate their negations
         # and foralls, which is why they're included originally.
-        final_grammar = _SkipGrammar(forall_grammar, given_predicates)
+        final_grammar = _SkipGrammar(pruned_grammar, given_predicates)
         # We're done! Return the final grammar.
         return final_grammar
     raise NotImplementedError(f"Unknown grammar name: {grammar_name}.")
@@ -214,6 +220,8 @@ class _PredicateGrammar:
         assert max_num > 0
         for candidate, cost in self.enumerate():
             assert cost > 0
+            if cost >= CFG.grammar_search_predicate_cost_upper_bound:
+                break
             candidates[candidate] = cost
             if len(candidates) == max_num:
                 break
@@ -293,7 +301,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         feature_ranges = self._get_feature_ranges()
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
-        for c in constant_generator:
+        for n, c in enumerate(constant_generator):
             for t in sorted(self.types):
                 for f in t.feature_names:
                     lb, ub = feature_ranges[t][f]
@@ -314,7 +322,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     types = [t]
                     pred = Predicate(name, types, classifier)
                     assert pred.arity == 1
-                    yield (pred, 2)  # cost = arity + 1
+                    yield (pred, 2 + n)  # cost = arity + 1 + n
 
 
     def _get_feature_ranges(self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -371,6 +379,42 @@ class _SkipGrammar(_PredicateGrammar):
                 continue
             # No change to costs when skipping.
             yield (predicate, cost)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _PrunedGrammar(_DataBasedPredicateGrammar):
+    """A grammar that prunes redundant predicates.
+    """
+    base_grammar: _PredicateGrammar
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        # Predicates are identified based on their evaluation across
+        # all states in the dataset.
+        seen = {}  # maps identifier to previous predicate, for debugging
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if cost >= CFG.grammar_search_predicate_cost_upper_bound:
+                return
+            pred_id = self._get_predicate_identifier(predicate)
+            if pred_id in seen:
+                # Useful for debugging
+                # print("Pruning", predicate, "b/c equal to", seen[pred_id])
+                continue
+            # Found a new predicate.
+            seen[pred_id] = predicate
+            yield (predicate, cost)
+
+    def _get_predicate_identifier(self, predicate: Predicate) -> int:
+        """Returns a hash of frozensets of groundatoms for each data point.
+        """
+        # Get atoms for this predicate alone on the dataset.
+        atom_dataset = utils.create_ground_atom_dataset(self.dataset,
+                                                        {predicate})
+        raw_identifiers = set()
+        for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
+            for t, atoms in enumerate(atom_traj):
+                atom_args = frozenset(tuple(a.objects) for a in atoms)
+                raw_identifiers.add((traj_idx, t, atom_args))
+        return hash(frozenset(raw_identifiers))
 
 
 @dataclass(frozen=True, eq=False, repr=False)
