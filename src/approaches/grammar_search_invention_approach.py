@@ -737,7 +737,7 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             ) -> Callable[[Set[GroundAtom]], float]:
         hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
         del init_atoms  # unused after this
-        cache: Dict[FrozenSet[GroundAtom], float] = {}
+        cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
         def _hadd_fn_h(atoms: Set[GroundAtom],
                        depth: int=0) -> float:
             cache_key = (frozenset(atoms), depth)
@@ -748,9 +748,12 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
             elif depth == self.lookahead_depth:
                 result = hadd_fn(utils.atoms_to_tuples(atoms))
             else:
-                result = 1.0 + min(_hadd_fn_h(next_atoms, depth+1)
+                successor_hs = [_hadd_fn_h(next_atoms, depth+1)
                     for next_atoms in utils.get_successors_from_ground_ops(
-                        atoms, ground_ops))
+                    atoms, ground_ops)]
+                if not successor_hs:
+                    return float("inf")
+                result = 1.0 + min(successor_hs)
             cache[cache_key] = result
             return result
         return _hadd_fn_h
