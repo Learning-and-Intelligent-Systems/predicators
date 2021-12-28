@@ -68,7 +68,7 @@ def test_predicate_grammar():
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
     utils.update_config({"grammar_search_predicate_cost_upper_bound": 0})
-    assert len(single_ineq_grammar.generate(max_num=10)) == 0    
+    assert len(single_ineq_grammar.generate(max_num=10)) == 0
     # Reset to default just in case.
     utils.update_config({"grammar_search_predicate_cost_upper_bound": default})
 
