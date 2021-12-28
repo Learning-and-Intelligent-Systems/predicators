@@ -5,7 +5,7 @@ the candidates proposed from a grammar.
 from __future__ import annotations
 import time
 import abc
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 import itertools
 from operator import ge, le
@@ -456,6 +456,14 @@ def _create_score_function(
     if CFG.grammar_search_score_function == "hadd_lookahead":
         return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
+    if CFG.grammar_search_score_function == "hadd_lookahead_depth1":
+        return _HAddHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            lookahead_depth=1)
+    if CFG.grammar_search_score_function == "hadd_lookahead_depth2":
+        return _HAddHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            lookahead_depth=2)
     if CFG.grammar_search_score_function == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
@@ -715,8 +723,10 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
-    """Implement _generate_heuristic() with HAdd.
+    """Implement _generate_heuristic() with HAdd and lookahead.
     """
+    lookahead_depth: int = field(default=0)
+
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
                             objects: Set[Object],
                             goal: Set[GroundAtom],
@@ -726,8 +736,14 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             ) -> Callable[[Set[GroundAtom]], float]:
         hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
         del init_atoms  # unused after this
-        def _hadd_fn_h(atoms: Set[GroundAtom]) -> float:
-            return hadd_fn(utils.atoms_to_tuples(atoms))
+        def _hadd_fn_h(atoms: Set[GroundAtom],
+                       depth: int=0) -> float:
+            if goal.issubset(atoms):
+                return 0.0
+            if depth == self.lookahead_depth:
+                return hadd_fn(utils.atoms_to_tuples(atoms))
+            return 1.0 + min(_hadd_fn_h(next_atoms, depth+1) for next_atoms in \
+                utils.get_successors_from_ground_ops(atoms, ground_ops))
         return _hadd_fn_h
 
 

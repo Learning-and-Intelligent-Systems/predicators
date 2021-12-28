@@ -755,6 +755,25 @@ def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
     return new_atoms
 
 
+def get_successors_from_ground_ops(atoms: Set[GroundAtom],
+        ground_ops: Collection[_GroundSTRIPSOperator],
+        unique: bool = True
+        ) -> Iterator[Set[GroundAtom]]:
+    """Get all next atoms from ground operators.
+
+    If unique is true, only yield each unique successor once.
+    """
+    seen_successors = set()
+    for ground_op in get_applicable_operators(ground_ops, atoms):
+        next_atoms = apply_operator(ground_op, atoms)
+        if unique:
+            frozen_next_atoms = frozenset(next_atoms)
+            if frozen_next_atoms in seen_successors:
+                continue
+            seen_successors.add(frozen_next_atoms)
+        yield next_atoms
+
+
 def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
                                  option_specs: Sequence[OptionSpec]
                                  ) -> Set[NSRT]:
