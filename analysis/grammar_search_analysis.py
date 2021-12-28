@@ -135,8 +135,11 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     for score_function_name in score_function_names:
         score_function = _create_score_function(score_function_name,
             initial_predicates, atom_dataset, train_tasks, candidates)
+        start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
-        results[score_function_name] = score
+        eval_time = time.time() - start_time
+        results[score_function_name + " Score"] = score
+        results[score_function_name + " Time"] = eval_time
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
@@ -171,16 +174,17 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 def _main() -> None:
     env_names = [
         "cover",
-        # "blocks",
-        # "painting",
+        "blocks",
+        "painting",
     ]
     score_function_names = [
-        # "prediction_error",
-        # "hadd_lookahead",
-        # "exact_lookahead",
-        "hadd_lookahead_depth1"
+        "prediction_error",
+        "hadd_lookahead",
+        "exact_lookahead",
+        "hadd_lookahead_depth1",
+        "hadd_lookahead_depth2",
     ]
-    run_planning = False
+    run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")

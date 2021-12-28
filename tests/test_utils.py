@@ -911,7 +911,8 @@ def test_nsrt_application():
 
 
 def test_operator_application():
-    """Tests for get_applicable_operators(), apply_operator().
+    """Tests for get_applicable_operators(), apply_operator(), and
+    get_successors_from_ground_ops().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -971,6 +972,28 @@ def test_operator_application():
         ground_ops, {pred3([cup2, plate1])}))
     assert not list(utils.get_applicable_operators(
         ground_ops, {pred3([cup2, plate2])}))
+    # Test for get_successors_from_ground_ops().
+    # Make sure uniqueness is handled properly.
+    op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1)
+    preconditions3 = {pred2([cup_var, plate_var])}
+    op4 = STRIPSOperator("Place", parameters, preconditions3, add_effects2,
+                         delete_effects2)
+    op5 = STRIPSOperator("Pick2", parameters, preconditions1, add_effects1,
+                         delete_effects1)
+    ground_ops = (utils.all_ground_operators(op3, objects) |
+                  utils.all_ground_operators(op4, objects) |
+                  utils.all_ground_operators(op5, objects))
+    successors = list(utils.get_successors_from_ground_ops(
+                      {pred1([cup1, plate1])}, ground_ops))
+    assert len(successors) == 1
+    assert successors[0] == {pred1([cup1, plate1]), pred2([cup1, plate1])}
+    successors = list(utils.get_successors_from_ground_ops(
+                      {pred1([cup1, plate1])}, ground_ops, unique=False))
+    assert len(successors) == 2
+    assert successors[0] == successors[1]
+    assert not list(utils.get_successors_from_ground_ops(
+        {pred3([cup2, plate2])}, ground_ops))
 
 
 def test_create_heuristic():
