@@ -12,7 +12,7 @@ from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _PredictionErrorScoreFunction, _HAddHeuristicLookaheadBasedScoreFunction, \
-    _ExactHeuristicLookaheadBasedScoreFunction
+    _ExactHeuristicLookaheadBasedScoreFunction, _ForallClassifier
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -63,13 +63,24 @@ def _run_proxy_analysis(env_names: List[str],
                  "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
         all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide,
                           Holding, IsWet, IsDry, IsDirty, IsClean}
+
+        # A custom predicate that was kept during learning:
+        # NOT-Forall[0:obj,1:shelf].[NOT-InShelf(0,1)]
+        InShelf, = _get_predicates_by_names("painting", ["InShelf"])
+        forall_not_inshelf = Predicate(
+            "Forall[0:obj,1:shelf].[NOT-InShelf(0,1)]", [],
+            _ForallClassifier(InShelf.get_negation())
+        )
+        not_forall_not_inshelf = forall_not_inshelf.get_negation()
+
         painting_pred_sets: List[Set[Predicate]] = [
-            set(),
-            all_predicates - {IsWet, IsDry},
-            all_predicates - {IsClean, IsDirty},
-            all_predicates - {OnTable},
-            all_predicates - {HoldingTop, HoldingSide, Holding},
+            # set(),
+            # all_predicates - {IsWet, IsDry},
+            # all_predicates - {IsClean, IsDirty},
+            # all_predicates - {OnTable},
+            # all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
+            all_predicates | {not_forall_not_inshelf}
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -177,8 +188,8 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        "cover",
-        "blocks",
+        # "cover",
+        # "blocks",
         "painting",
     ]
     score_function_names = [
