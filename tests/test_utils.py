@@ -1138,9 +1138,9 @@ def test_create_pddl():
 
   (:action Place
     :parameters (?block - block ?target - target)
-    :precondition (and (IsTarget ?target)
+    :precondition (and (Holding ?block)
         (IsBlock ?block)
-        (Holding ?block))
+        (IsTarget ?target))
     :effect (and (Covers ?block ?target)
         (HandEmpty)
         (not (Holding ?block)))

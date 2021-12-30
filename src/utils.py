@@ -1079,13 +1079,13 @@ def _operator_to_pddl_str(operator: Union[STRIPSOperator, NSRT]) -> str:
     params_str = " ".join(f"{p.name} - {p.type.name}"
                           for p in operator.parameters)
     preconds_str = "\n        ".join(map(_atom_to_pddl_str,
-                                         operator.preconditions))
+                                         sorted(operator.preconditions)))
     effects_str = "\n        ".join(map(_atom_to_pddl_str,
-                                        operator.add_effects))
+                                        sorted(operator.add_effects)))
     if operator.delete_effects:
         effects_str += "\n        "
         effects_str += "\n        ".join(f"(not {_atom_to_pddl_str(eff)})"
-                                     for eff in operator.delete_effects)
+            for eff in sorted(operator.delete_effects))
     return f"""(:action {operator.name}
     :parameters ({params_str})
     :precondition (and {preconds_str})
