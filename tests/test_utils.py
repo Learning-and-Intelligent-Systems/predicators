@@ -1149,6 +1149,10 @@ def test_hff_heuristic():
     heuristic = _HFFHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 2
     assert heuristic(goals) == 0
+    # Test unreachable goal.
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, [])
+    assert heuristic(initial_state) == float("inf")
 
 
 def test_save_video():
