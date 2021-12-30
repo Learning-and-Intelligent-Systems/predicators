@@ -779,7 +779,7 @@ def create_heuristic(heuristic_name: str,
     estimates the cost-to-go.
     """
     relaxed_operators = frozenset({RelaxedOperator(
-        op.name, atoms_to_tuples(op.preconditions),
+        (op.name, tuple(op.objects)), atoms_to_tuples(op.preconditions),
         atoms_to_tuples(op.add_effects)) for op in ground_ops})
     if heuristic_name == "hadd":
         return _HAddHeuristic(atoms_to_tuples(init_atoms),
@@ -789,6 +789,10 @@ def create_heuristic(heuristic_name: str,
         return _HMaxHeuristic(atoms_to_tuples(init_atoms),
                               atoms_to_tuples(goal),
                               relaxed_operators)
+    if heuristic_name == "hff":
+        return _HFFHeuristic(atoms_to_tuples(init_atoms),
+                             atoms_to_tuples(goal),
+                             relaxed_operators)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -819,6 +823,8 @@ class RelaxedFact:
     expanded: bool = field(init=False, default=False)
     # The heuristic distance value.
     distance: float = field(init=False, default=float("inf"))
+    # The cheapest operator that was applied to reach this fact, for hFF.
+    cheapest_achiever: Optional[RelaxedOperator] = None
 
 
 @dataclass(repr=False, eq=False)
@@ -826,7 +832,7 @@ class RelaxedOperator:
     """This class represents a relaxed operator (no delete effects).
     Lightly modified from pyperplan's heuristics/relaxation.py.
     """
-    name: str
+    name: Tuple[str, Tuple[Object, ...]]  # operator name, objects
     preconditions: PyperplanFacts
     add_effects: PyperplanFacts
     # Cost of applying this operator.
@@ -919,6 +925,7 @@ class _RelaxationHeuristic:
         """
         def _reset_fact(fact: RelaxedFact) -> None:
             fact.expanded = False
+            fact.cheapest_achiever = None
             if fact.name in state:
                 fact.distance = 0
             else:
@@ -988,6 +995,7 @@ class _RelaxationHeuristic:
                                 # costs, we change the neighbor's heuristic
                                 # values.
                                 neighbor.distance = tmp_dist
+                                neighbor.cheapest_achiever = operator
                                 # And push it on the queue.
                                 hq.heappush(queue, (
                                     tmp_dist, self.tie_breaker, neighbor))
@@ -1012,6 +1020,52 @@ class _HMaxHeuristic(_RelaxationHeuristic):
         if not distances:
             return 0.0
         return max(distances)
+
+
+class _HFFHeuristic(_RelaxationHeuristic):
+    """Implements the HFF delete relaxation heuristic.
+    """
+    @staticmethod
+    def _accumulate(distances: Collection[float]) -> float:
+        return sum(distances)
+
+    def calc_goal_h(self) -> float:
+        """This function has to be overwritten, because the hFF heuristic needs
+        an additional backward pass.
+        """
+        relaxed_plan = set()
+        # Check whether we achieved all subgoals.
+        all_subgoals_achieved = not any(self.facts[g].distance == float("inf")
+                                        for g in self.goals)
+        if not all_subgoals_achieved:
+            return float("inf")
+
+        # Initialize a queue and push all goal nodes.
+        q = []
+        closed_list = set()
+        for g in self.goals:
+            q.append(self.facts[g])
+            closed_list.add(g)
+
+        # Do backward pass.
+        while q:
+            fact = q.pop()
+            # Check whether this fact has a cheapest achiever and that it
+            # is not already expanded
+            if (
+                fact.cheapest_achiever is not None
+                and not fact.cheapest_achiever in relaxed_plan
+            ):
+                # Add all preconditions of the cheapest achiever to the
+                # queue.
+                for pre in fact.cheapest_achiever.preconditions:
+                    if pre not in closed_list:
+                        q.append(self.facts[pre])
+                        closed_list.add(pre)
+                relaxed_plan.add(fact.cheapest_achiever.name)
+
+        # Extract FF value.
+        return len(relaxed_plan)
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
