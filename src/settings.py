@@ -57,7 +57,7 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    task_planning_heuristic = "hadd"  # hadd or hmax
+    task_planning_heuristic = "hadd"  # hadd or hmax or hff
     option_model_name = "default"
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
