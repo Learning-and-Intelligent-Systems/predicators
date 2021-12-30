@@ -695,6 +695,7 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
             ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
             ground_op_total_lpm = -np.inf  # total log prob mass for all actions
+            initial_h = heuristic_fn(atoms)  # TODO remove
             for ground_op in utils.get_applicable_operators(ground_ops, atoms):
                 # Compute the next state under the operator.
                 predicted_next_atoms = utils.apply_operator(ground_op, atoms)

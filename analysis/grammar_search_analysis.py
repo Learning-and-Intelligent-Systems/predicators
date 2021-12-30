@@ -11,7 +11,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_score_function
+    _create_score_function, _ForallClassifier
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -27,11 +27,25 @@ def _run_proxy_analysis(env_names: List[str],
         env_name = "cover"
         HandEmpty, Holding = _get_predicates_by_names(
             env_name, ["HandEmpty", "Holding"])
+
+        # A custom predicate that was kept during with hff_lookahead:
+        # NOT-Forall[0:target].[NOT-IsTarget(0)]
+        IsTarget, IsBlock = _get_predicates_by_names("cover",
+            ["IsTarget", "IsBlock"])
+        forall_not_istarget = Predicate(
+            "Forall[0:target].[NOT-IsTarget(0)]", [],
+            _ForallClassifier(IsTarget.get_negation())
+        )
+        not_forall_not_istarget = forall_not_istarget.get_negation()
+        assert str(not_forall_not_istarget) == "NOT-Forall[0:target].[NOT-IsTarget(0)]"
+
         covers_pred_sets: List[Set[Predicate]] = [
-            set(),
-            {HandEmpty},
-            {Holding},
-            {HandEmpty, Holding},
+            # set(),
+            # {HandEmpty},
+            # {Holding},
+            # {HandEmpty, Holding},
+            {HandEmpty, Holding, IsBlock, IsTarget},
+            {HandEmpty, Holding, IsBlock, IsTarget, not_forall_not_istarget},
         ]
         _run_proxy_analysis_for_env(env_name, covers_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -174,17 +188,17 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 def _main() -> None:
     env_names = [
         "cover",
-        "blocks",
-        "painting",
+        # "blocks",
+        # "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_lookahead",
-        "exact_lookahead",
-        "hmax_lookahead",
+        # "prediction_error",
+        # "hadd_lookahead",
+        # "exact_lookahead",
+        # "hmax_lookahead",
         "hff_lookahead",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
