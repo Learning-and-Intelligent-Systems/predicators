@@ -11,8 +11,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredictionErrorScoreFunction, _HAddHeuristicLookaheadBasedScoreFunction, \
-    _ExactHeuristicLookaheadBasedScoreFunction
+    _create_score_function
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -127,11 +126,6 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
                                        score_function_names: List[str],
                                        run_planning: bool,
                                        ) -> Dict[str, float]:
-    score_functions = {
-        "prediction_error": _PredictionErrorScoreFunction,
-        "hadd_lookahead": _HAddHeuristicLookaheadBasedScoreFunction,
-        "exact_lookahead": _ExactHeuristicLookaheadBasedScoreFunction,
-    }
     utils.flush_cache()
     candidates = {p : 1.0 for p in predicates}
     all_predicates = predicates | initial_predicates
@@ -139,11 +133,13 @@ def _run_proxy_analysis_for_predicates(env: BaseEnv,
     results = {}
     # Compute scores.
     for score_function_name in score_function_names:
-        score_function_cls = score_functions[score_function_name]
-        score_function = score_function_cls(initial_predicates, atom_dataset,
-                                            train_tasks, candidates)
+        score_function = _create_score_function(score_function_name,
+            initial_predicates, atom_dataset, train_tasks, candidates)
+        start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
-        results[score_function_name] = score
+        eval_time = time.time() - start_time
+        results[score_function_name + " Score"] = score
+        results[score_function_name + " Time"] = eval_time
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
@@ -185,6 +181,8 @@ def _main() -> None:
         "prediction_error",
         "hadd_lookahead",
         "exact_lookahead",
+        "hmax_lookahead",
+        "hff_lookahead",
     ]
     run_planning = True
 

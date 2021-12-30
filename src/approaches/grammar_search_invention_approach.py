@@ -439,31 +439,38 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 ################################################################################
 
 def _create_score_function(
+        name: str,
         initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task],
         candidates: Dict[Predicate, float]
         ) -> _PredicateSearchScoreFunction:
-    if CFG.grammar_search_score_function == "prediction_error":
+    if name == "prediction_error":
         return _PredictionErrorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "branching_factor":
+    if name == "branching_factor":
         return _BranchingFactorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_match":
-        return _HAddHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_lookahead":
-        return _HAddHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "exact_lookahead":
+    if name == "hadd_match":
+        return _RelaxationHeuristicMatchBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+    if name == "hadd_lookahead":
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+    if name == "hmax_lookahead":
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hmax")
+    if name == "hff_lookahead":
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hff")
+    if name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "task_planning":
+    if name == "task_planning":
         return _TaskPlanningScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
     raise NotImplementedError(
-        f"Unknown score function: {CFG.grammar_search_score_function}.")
+        f"Unknown score function: {name}.")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -714,9 +721,12 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
-    """Implement _generate_heuristic() with HAdd.
+class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+    """Implement _generate_heuristic() with a delete relaxation heuristic like
+    hadd, hmax, or hff.
     """
+    heuristic_name: str
+
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
                             objects: Set[Object],
                             goal: Set[GroundAtom],
@@ -724,11 +734,12 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
+        h_fn = utils.create_heuristic(self.heuristic_name, init_atoms, goal,
+                                      ground_ops)
         del init_atoms  # unused after this
-        def _hadd_fn_h(atoms: Set[GroundAtom]) -> float:
-            return hadd_fn(utils.atoms_to_tuples(atoms))
-        return _hadd_fn_h
+        def _fn_h(atoms: Set[GroundAtom]) -> float:
+            return h_fn(utils.atoms_to_tuples(atoms))
+        return _fn_h
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -764,19 +775,19 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicMatchBasedScoreFunction(
-        _HAddHeuristicBasedScoreFunction,
+class _RelaxationHeuristicMatchBasedScoreFunction(
+        _RelaxationHeuristicBasedScoreFunction,
         _HeuristicMatchBasedScoreFunction):
-    """Implement _generate_heuristic() with HAdd and
+    """Implement _generate_heuristic() with a delete relaxation heuristic and
     _evaluate_atom_trajectory() with matching.
     """
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicLookaheadBasedScoreFunction(
-        _HAddHeuristicBasedScoreFunction,
+class _RelaxationHeuristicLookaheadBasedScoreFunction(
+        _RelaxationHeuristicBasedScoreFunction,
         _HeuristicLookaheadBasedScoreFunction):
-    """Implement _generate_heuristic() with HAdd and
+    """Implement _generate_heuristic() with delete relaxation heuristic and
     _evaluate_atom_trajectory() with one-step lookahead.
     """
 
@@ -830,6 +841,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         print("Done.")
         # Create the score function that will be used to guide search.
         score_function = _create_score_function(
+            CFG.grammar_search_score_function,
             self._initial_predicates, atom_dataset, train_tasks, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
