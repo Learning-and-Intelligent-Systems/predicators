@@ -509,6 +509,14 @@ class STRIPSOperator:
         assert isinstance(other, STRIPSOperator)
         return str(self) == str(other)
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) > str(other)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundSTRIPSOperator:
