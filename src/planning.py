@@ -167,15 +167,15 @@ def _skeleton_generator(task: Task,
     rng_prio = np.random.default_rng(seed)
     heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
                                        init_atoms, task.goal, ground_nsrts)
-    root_h = heuristic(root_node.pyperplan_facts)
-    best_cost_estimate = root_h
-    hq.heappush(queue, (root_h, rng_prio.uniform(), root_node))
+    hq.heappush(queue, (heuristic(root_node.pyperplan_facts),
+                        rng_prio.uniform(), root_node))
     # Start search.
     while queue and (time.time()-start_time < timeout):
         if (int(metrics["num_skeletons_optimized"]) ==
             CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
         if metrics["num_nodes_expanded"] >= max_node_expansions:
+            best_cost_estimate = min(priority for priority, _, _ in queue)
             raise MaxNodesExpandedFailure(best_cost_estimate)
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print node.skeleton here to see what
@@ -197,7 +197,6 @@ def _skeleton_generator(task: Task,
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton)+
                             heuristic(child_node.pyperplan_facts))
-                best_cost_estimate = min(best_cost_estimate, priority)
                 hq.heappush(queue, (priority,
                                     rng_prio.uniform(),
                                     child_node))
