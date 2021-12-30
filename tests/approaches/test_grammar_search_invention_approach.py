@@ -3,16 +3,16 @@
 
 import pytest
 import numpy as np
-from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredicateGrammar, _DataBasedPredicateGrammar, \
-    _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops, \
-    _create_grammar, _halving_constant_generator, _ForallClassifier, \
-    _UnaryFreeForallClassifier, _create_score_function, \
-    _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction, \
-    _HeuristicBasedScoreFunction, _HAddHeuristicBasedScoreFunction, \
-    _HAddHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction, \
-    _HAddHeuristicLookaheadBasedScoreFunction, _TaskPlanningScoreFunction, \
-    _ExactHeuristicLookaheadBasedScoreFunction, _BranchingFactorScoreFunction
+from predicators.src.approaches.grammar_search_invention_approach import (
+    _PredicateGrammar, _DataBasedPredicateGrammar,
+    _SingleFeatureInequalitiesPredicateGrammar, _count_positives_for_ops,
+    _create_grammar, _halving_constant_generator, _ForallClassifier,
+    _UnaryFreeForallClassifier, _create_score_function,
+    _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction,
+    _HeuristicBasedScoreFunction, _RelaxationHeuristicBasedScoreFunction,
+    _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
+    _RelaxationHeuristicLookaheadBasedScoreFunction, _TaskPlanningScoreFunction,
+    _ExactHeuristicLookaheadBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -160,34 +160,31 @@ def test_unary_free_forall_classifier():
 def test_create_score_function():
     """Tests for _create_score_function().
     """
-    utils.update_config(
-        {"grammar_search_score_function": "prediction_error"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("prediction_error", set(), [], [], {})
     assert isinstance(score_func, _PredictionErrorScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "hadd_match"})
-    score_func = _create_score_function(set(), [], [], {})
-    assert isinstance(score_func, _HAddHeuristicMatchBasedScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "branching_factor"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("hadd_match", set(), [], [], {})
+    assert isinstance(score_func, _RelaxationHeuristicMatchBasedScoreFunction)
+    assert score_func.heuristic_name == "hadd"
+    score_func = _create_score_function("branching_factor", set(), [], [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "hadd_lookahead"})
-    score_func = _create_score_function(set(), [], [], {})
-    assert isinstance(score_func, _HAddHeuristicLookaheadBasedScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "exact_lookahead"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("hadd_lookahead", set(), [], [], {})
+    assert isinstance(score_func,
+                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.heuristic_name == "hadd"
+    score_func = _create_score_function("hmax_lookahead", set(), [], [], {})
+    assert isinstance(score_func,
+                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.heuristic_name == "hmax"
+    score_func = _create_score_function("hff_lookahead", set(), [], [], {})
+    assert isinstance(score_func,
+                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.heuristic_name == "hff"
+    score_func = _create_score_function("exact_lookahead", set(), [], [], {})
     assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "task_planning"})
-    score_func = _create_score_function(set(), [], [], {})
+    score_func = _create_score_function("task_planning", set(), [], [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
-    utils.update_config(
-        {"grammar_search_score_function": "not a real score function"})
     with pytest.raises(NotImplementedError):
-        _create_score_function(set(), [], [], {})
+        _create_score_function("not a real score function", set(), [], [], {})
 
 
 def test_predicate_search_heuristic_base_classes():
@@ -223,8 +220,8 @@ def test_predicate_search_heuristic_base_classes():
         set(), atom_dataset, train_tasks, {})
     with pytest.raises(NotImplementedError):
         heuristic_score_fn.evaluate(set())
-    hadd_score_fn = _HAddHeuristicBasedScoreFunction(
-        set(), atom_dataset, train_tasks, {})
+    hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
+        set(), atom_dataset, train_tasks, {}, "hadd")
     with pytest.raises(NotImplementedError):
         hadd_score_fn.evaluate(set())
 
@@ -315,15 +312,15 @@ def test_hadd_match_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddHeuristicMatchBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _RelaxationHeuristicMatchBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     none_included_s = score_function.evaluate(set())
     assert handempty_included_s > none_included_s # this is very bad!
 
 
 def test_hadd_lookahead_score_function():
-    """Tests for _HAddHeuristicLookaheadBasedScoreFunction().
+    """Tests for _RelaxationHeuristicLookaheadBasedScoreFunction().
     """
     # Tests for CoverEnv.
     utils.update_config({
@@ -347,8 +344,8 @@ def test_hadd_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
@@ -367,8 +364,8 @@ def test_hadd_lookahead_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
-    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
@@ -391,8 +388,8 @@ def test_hadd_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
     gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
@@ -432,8 +429,8 @@ def test_hadd_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
     assert all_included_s < none_included_s  # hooray!
