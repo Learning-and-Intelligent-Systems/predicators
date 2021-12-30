@@ -867,7 +867,7 @@ class _RelaxationHeuristic:
         for fact in all_facts:
             self.facts[fact] = RelaxedFact(fact)
 
-        for ro in operators:
+        for ro in sorted(operators, key=lambda o: o.name):
             # Add operators to operator list.
             self.operators.append(ro)
 
