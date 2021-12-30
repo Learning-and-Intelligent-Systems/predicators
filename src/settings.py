@@ -57,7 +57,6 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    task_planning_heuristic = "hadd"  # hadd or hmax or hff
     option_model_name = "default"
     max_num_steps_option_rollout = 100
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
@@ -137,6 +136,13 @@ class GlobalSettings:
         if "approach" not in args:
             args["approach"] = ""
         return dict(
+            # Task planning heuristic to use in SeSamE.
+            task_planning_heuristic=defaultdict(
+                # Use HAdd by default.
+                lambda : "hadd", {
+                "playroom": "hff",
+            })[args["env"]],
+
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(str, {

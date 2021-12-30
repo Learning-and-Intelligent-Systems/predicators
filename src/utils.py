@@ -1032,6 +1032,8 @@ class _HFFHeuristic(_RelaxationHeuristic):
     def calc_goal_h(self) -> float:
         """This function has to be overwritten, because the hFF heuristic needs
         an additional backward pass.
+
+        This is mostly copied from pyperplan, with a few style changes.
         """
         relaxed_plan = set()
         # Check whether we achieved all subgoals.
