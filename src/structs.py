@@ -246,6 +246,15 @@ class Predicate:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if self.arity == 0:
+            return f"({self.name})"
+        vars_str = " ".join(f"?x{i} - {t.name}"
+                            for i, t in enumerate(self.types))
+        return f"({self.name} {vars_str})"
+
     def get_negation(self) -> Predicate:
         """Return a negated version of this predicate.
         """
@@ -283,6 +292,14 @@ class _Atom:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if not self.entities:
+            return f"({self.predicate.name})"
+        entities_str = " ".join(e.name for e in self.entities)
+        return f"({self.predicate.name} {entities_str})"
 
     def __hash__(self) -> int:
         return self._hash
@@ -502,6 +519,26 @@ class STRIPSOperator:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        params_str = " ".join(f"{p.name} - {p.type.name}"
+                              for p in self.parameters)
+        preconds_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.preconditions))
+        effects_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.add_effects))
+        if self.delete_effects:
+            effects_str += "\n        "
+            effects_str += "\n        ".join(
+                f"(not {atom.pddl_str()})"
+                for atom in sorted(self.delete_effects))
+        return f"""(:action {self.name}
+    :parameters ({params_str})
+    :precondition (and {preconds_str})
+    :effect (and {effects_str})
+  )"""
+
     def __hash__(self) -> int:
         return self._hash
 
@@ -600,6 +637,13 @@ class NSRT:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        op = STRIPSOperator(self.name, self.parameters, self.preconditions,
+                            self.add_effects, self.delete_effects)
+        return op.pddl_str()
 
     def __hash__(self) -> int:
         return self._hash
