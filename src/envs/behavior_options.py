@@ -191,12 +191,16 @@ def navigate_to_param_sampler(rng, objects):
     # the norm of the sample is not > 1/6th of the 
     # avg length of the bounding boxes of the object
     # and robot (this is how BEHAVIOR defines 'nearness')
-    assert len(objects) == 2
+    
+    # assert len(objects) == 2
+    if len(objects) != 2:
+        import ipdb; ipdb.set_trace()
+
     closeness_limit = 2
     distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
-    #return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
-    return np.array([-0.58575623,  0.50996017])
+    return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
+    # return np.array([-0.58575623,  0.50996017])
 
 
 def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
@@ -288,8 +292,6 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 
         if plan is not None:
 
-            # import ipdb; ipdb.set_trace()
-
             def navigateToOption(state, env):
 
                 atol_xy = 1e-2
@@ -365,9 +367,7 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
             p.restoreState(state)
             p.removeState(state)
             print(
-                "PRIMITIVE: navigate to {} failed; birrt failed to sample a plan!".format(
-                    obj.name
-                )
+                f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} failed; birrt failed to sample a plan!"
             )
             return None
 
@@ -452,6 +452,9 @@ def grasp_obj_at_pos(
     plan = np.zeros((17, 1))
     obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
     if obj_in_hand is None:
+        # The below line resets the trigger fraction, which is used to 
+        # detect when assisted grasping should be used
+        env.robots[0].parts["right_hand"].trigger_fraction = 0.0
         if (
             isinstance(obj, URDFObject)
             and hasattr(obj, "states")
@@ -624,6 +627,7 @@ def grasp_obj_at_pos(
                                 reversed_plan.pop(0)
                                 if len(reversed_plan) == 1:
                                     done_bit = True
+                                # import ipdb; ipdb.set_trace()
 
                             return ret_action, done_bit
 
