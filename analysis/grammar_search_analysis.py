@@ -37,13 +37,12 @@ def _run_proxy_analysis(env_names: List[str],
             _ForallClassifier(IsTarget.get_negation())
         )
         not_forall_not_istarget = forall_not_istarget.get_negation()
-        assert str(not_forall_not_istarget) == "NOT-Forall[0:target].[NOT-IsTarget(0)]"
 
         covers_pred_sets: List[Set[Predicate]] = [
-            # set(),
-            # {HandEmpty},
-            # {Holding},
-            # {HandEmpty, Holding},
+            set(),
+            {HandEmpty},
+            {Holding},
+            {HandEmpty, Holding},
             {HandEmpty, Holding, IsBlock, IsTarget},
             {HandEmpty, Holding, IsBlock, IsTarget, not_forall_not_istarget},
         ]
@@ -188,17 +187,17 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 def _main() -> None:
     env_names = [
         "cover",
-        # "blocks",
-        # "painting",
+        "blocks",
+        "painting",
     ]
     score_function_names = [
-        # "prediction_error",
-        # "hadd_lookahead",
-        # "exact_lookahead",
-        # "hmax_lookahead",
+        "prediction_error",
+        "hadd_lookahead",
+        "exact_lookahead",
+        "hmax_lookahead",
         "hff_lookahead",
     ]
-    run_planning = False
+    run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
