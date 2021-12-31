@@ -763,8 +763,8 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
     assert len(strips_ops) == len(option_specs)
     nsrts = set()
     for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-        nsrt = op.make_nsrt(param_option, option_vars,
-                            lambda s, rng, o: np.zeros(1))  # dummy sampler
+        nsrt = op.make_nsrt(param_option, option_vars,  # dummy sampler
+                            lambda s, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
     return nsrts
 
