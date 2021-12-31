@@ -653,7 +653,8 @@ class NSRT:
         """Get a string representation suitable for writing out to a PDDL file.
         """
         op = STRIPSOperator(self.name, self.parameters, self.preconditions,
-                            self.add_effects, self.delete_effects)
+                            self.add_effects, self.delete_effects,
+                            self.side_predicates)
         return op.pddl_str()
 
     def __hash__(self) -> int:

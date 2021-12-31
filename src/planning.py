@@ -166,7 +166,7 @@ def _skeleton_generator(task: Task,
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
             for nsrt in utils.get_applicable_nsrts(ground_nsrts, node.atoms):
-                child_atoms = utils.apply_nsrt(nsrt, set(node.atoms))
+                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 child_node = _Node(
                     atoms=child_atoms,
                     skeleton=node.skeleton+[nsrt],
