@@ -233,7 +233,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     for i in range(len(params)):
         name = f"Op{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
-                            delete_effects[i])
+                            delete_effects[i], set())
         if verbose:
             print("Learned STRIPSOperator:")
             print(op)

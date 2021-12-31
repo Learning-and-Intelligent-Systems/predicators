@@ -731,26 +731,18 @@ def get_applicable_operators(ground_ops: Collection[_GroundSTRIPSOperator],
             yield op
 
 
-def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
-               ) -> Set[GroundAtom]:
-    """Get a next set of atoms given a current set and a ground NSRT.
-    """
-    new_atoms = atoms.copy()
-    for atom in nsrt.add_effects:
-        new_atoms.add(atom)
-    for atom in nsrt.delete_effects:
-        new_atoms.discard(atom)
-    return new_atoms
-
-
-def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
-                   ) -> Set[GroundAtom]:
+def apply_operator(op: Union[_GroundSTRIPSOperator, _GroundNSRT],
+                   atoms: Set[GroundAtom]) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground operator.
     """
-    new_atoms = atoms.copy()
-    for atom in operator.add_effects:
+    # Note that we are removing the side predicates before the
+    # application of the operator, because if the side predicate
+    # appears in the effects, we still know that the effects
+    # will be true, so we don't want to remove them.
+    new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
+    for atom in op.add_effects:
         new_atoms.add(atom)
-    for atom in operator.delete_effects:
+    for atom in op.delete_effects:
         new_atoms.discard(atom)
     return new_atoms
 
