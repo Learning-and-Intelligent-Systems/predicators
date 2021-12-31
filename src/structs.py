@@ -140,7 +140,7 @@ class State:
         """
         feats: List[Array] = []
         if len(objects) == 0:
-            return np.zeros(0)
+            return np.zeros(0, dtype=np.float32)
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
