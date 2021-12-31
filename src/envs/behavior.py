@@ -130,12 +130,11 @@ class BehaviorEnv(BaseEnv):
         # loaded_state = self._current_ig_state_to_state()
         # assert loaded_state.allclose(state)
         a = action.arr
+        self._env.step(a)
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
             assisted_grasp_action[26] = 1.0
-            grasp_success = self._env.robots[0].parts["right_hand"].handle_assisted_grasping(assisted_grasp_action)
-            import ipdb; ipdb.set_trace()
-        self._env.step(a)
+            _ = self._env.robots[0].parts["right_hand"].handle_assisted_grasping(assisted_grasp_action)
         next_state = self._current_ig_state_to_state()
         return next_state
 
@@ -444,8 +443,19 @@ class BehaviorEnv(BaseEnv):
         grasped_objs = set()
         for obj in state:
             ig_obj = self._object_to_ig_object(obj)
-            if any(self._env.robots[0].is_grasping(ig_obj)):
+
+            # NOTE: The below block is necessary because somehow the body_id
+            # is sometimes a 1-element list...
+            # TODO (njk): find a better place to fix this body_id issue; probably
+            # somewhere internal to behavior?
+            if type(ig_obj.body_id) == list:
+                assert len(ig_obj.body_id) == 1
+                ig_obj.body_id = ig_obj.body_id[0]
+            
+            if any(self._env.robots[0].is_grasping(ig_obj.body_id)):
                 grasped_objs.add(obj)
+        # if self._env.robots[0].parts['right_hand'].object_in_hand is not None:
+        #     import ipdb; ipdb.set_trace()
         return grasped_objs
 
     def _handempty_classifier(
