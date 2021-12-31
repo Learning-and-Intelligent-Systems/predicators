@@ -972,7 +972,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     preconditions : Set[LiftedAtom] = set()
     add_effects = {LiftedAtom(NextTo, [robot, targetdot])}
     delete_effects : Set[LiftedAtom] = set()
-    # Moving could have us end up nextto other objects. It could also
+    # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
     side_predicates = {NextTo, NextToNothing}
     move_nsrt = NSRT("Move", parameters, preconditions,
@@ -989,12 +989,15 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(NextTo, [robot, targetdot])}
     add_effects = {LiftedAtom(Grasped, [robot, targetdot])}
     delete_effects = {LiftedAtom(NextTo, [robot, targetdot])}
-    # After grasping, it's possible that you could end up next to nothing,
+    # After grasping, it's possible that you could end up NextToNothing,
     # but it's also possible that you remain next to something else.
+    # Note that NextTo isn't a side predicate here because it's not
+    # something we'd be unsure about for any object. For every object we
+    # are NextTo but did not grasp, we will stay NextTo it.
     side_predicates = {NextToNothing}
-    grasp_nsrt1 = NSRT("Grasp", parameters, preconditions,
+    grasp_nsrt = NSRT("Grasp", parameters, preconditions,
         add_effects, delete_effects, side_predicates, option, option_vars,
         lambda s, rng, o: np.zeros(0, dtype=np.float32))
-    nsrts.add(grasp_nsrt1)
+    nsrts.add(grasp_nsrt)
 
     return nsrts
