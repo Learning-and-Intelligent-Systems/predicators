@@ -39,7 +39,7 @@ _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
 }
 
 
-def get_body_ids(env, include_self=False):
+def get_body_ids(env, include_self=False, grasping_with_right=False):
     ids = []
     for object in env.scene.get_objects():
         if isinstance(object, URDFObject):
@@ -53,7 +53,8 @@ def get_body_ids(env, include_self=False):
         ids.append(env.robots[0].parts["left_hand"].get_body_id())
         ids.append(env.robots[0].parts["body"].get_body_id())
         ids.append(env.robots[0].parts["eye"].get_body_id())
-        ids.append(env.robots[0].parts["right_hand"].get_body_id())
+        if not grasping_with_right:
+            ids.append(env.robots[0].parts["right_hand"].get_body_id())
 
     return ids
 
@@ -187,19 +188,10 @@ def get_delta_low_level_base_action(
 # Navigate To #
 
 def navigate_to_param_sampler(rng, objects):
-    # Our sampler needs to return samples such that 
-    # the norm of the sample is not > 1/6th of the 
-    # avg length of the bounding boxes of the object
-    # and robot (this is how BEHAVIOR defines 'nearness')
-    
-    # assert len(objects) == 2
-    if len(objects) != 2:
-        import ipdb; ipdb.set_trace()
-
-    closeness_limit = 2
+    closeness_limit = 1.5
     distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
-    return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])
+    return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])    
     # return np.array([-0.58575623,  0.50996017])
 
 
@@ -532,7 +524,7 @@ def grasp_obj_at_pos(
                             euler_angles[2],
                         ],
                         hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-                        obstacles=get_body_ids(env, include_self=False),
+                        obstacles=get_body_ids(env, include_self=True, grasping_with_right=True),
                         rng=rng,
                     )
                     p.restoreState(state)
