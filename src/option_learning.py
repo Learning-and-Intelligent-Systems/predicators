@@ -166,7 +166,8 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                             param_ub[j][k] = object_param[k]
                         if object_param[k] < param_lb[j][k]:
                             param_lb[j][k] = object_param[k]
-                    param.extend(object_param)
+                    # param.extend(object_param)
+                    param.extend(segment.states[-1][o])
                 self.segment_to_grounding[segment] = (objects, param)
 
                 variables = [Variable(f"?x{i}", o.type) \
