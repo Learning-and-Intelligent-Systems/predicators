@@ -149,7 +149,7 @@ class BehaviorEnv(BaseEnv):
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
-            np.random.seed(rng.integers(0, 2 ** 32 - 1))
+            np.random.seed(rng.integers(0, (2 ** 32) - 1))
             self._env.reset()
             init_state = self._current_ig_state_to_state()
             goal = self._get_task_goal()
