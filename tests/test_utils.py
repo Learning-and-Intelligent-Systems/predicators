@@ -854,7 +854,7 @@ def test_is_dr_reachable():
 
 
 def test_nsrt_application():
-    """Tests for get_applicable_nsrts(), apply_nsrt().
+    """Tests for get_applicable_nsrts(), apply_operator() with a _GroundNSRT.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -890,7 +890,7 @@ def test_nsrt_application():
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in applicable]
     assert ("Pick", [cup1, plate1]) in all_obj
     assert ("Place", [cup1, plate1]) in all_obj
-    next_atoms = [utils.apply_nsrt(nsrt, {pred1([cup1, plate1])})
+    next_atoms = [utils.apply_operator(nsrt, {pred1([cup1, plate1])})
                   for nsrt in applicable]
     assert {pred1([cup1, plate1])} in next_atoms
     assert {pred1([cup1, plate1]), pred2([cup1, plate1])} in next_atoms
@@ -927,12 +927,13 @@ def test_nsrt_application():
     assert len(applicable) == 1
     ground_nsrt = applicable[0]
     atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
-    next_atoms = utils.apply_nsrt(ground_nsrt, atoms)
+    next_atoms = utils.apply_operator(ground_nsrt, atoms)
     assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_operator_application():
-    """Tests for get_applicable_operators(), apply_operator().
+    """Tests for get_applicable_operators(), apply_operator() with a
+    _GroundSTRIPSOperator.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -995,7 +996,7 @@ def test_operator_application():
     # Tests with side predicates.
     side_predicates = {pred2}
     op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
-             delete_effects1, side_predicates=side_predicates)
+                         delete_effects1, side_predicates=side_predicates)
     ground_ops = utils.all_ground_operators(op3, objects)
     applicable = list(utils.get_applicable_operators(
         ground_ops, {pred1([cup1, plate1])}))
