@@ -359,8 +359,6 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
             p.restoreState(state)
             p.removeState(state)
 
-            # import ipdb; ipdb.set_trace()
-
             return navigateToOption
 
         else:
@@ -375,10 +373,8 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
 
     else:
         print("Position commanded is in collision or blocked!")
-        # import ipdb; ipdb.set_trace()
         p.restoreState(state)
         p.removeState(state)
-        # import ipdb; ipdb.set_trace()
         print(
             f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} fail"
         )
@@ -473,7 +469,6 @@ def grasp_obj_at_pos(
                     )
                     < 2
                 ):
-
                     ### Grasping Phase 1: Compute the position and orientation of the hand based on the
                     # provided continuous parameters and try to create a plan to it.
                     obj_pos = obj.get_position()
@@ -497,38 +492,28 @@ def grasp_obj_at_pos(
                     maxz = max(z, hand_z) + 0.5
 
                     # compute the angle the hand must be in such that it can grasp the object from its current offset position
-                    # This involves aligning the z-axis (in the world frame) of the hand with the vector that goes from the hand
+                    # This involves aligning the z-axis (in the world frame) of the hand with the vector that goes from the hand 
                     # to the object. We can find the rotation matrix that accomplishes this rotation by following:
                     # https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
-                    hand_to_obj_vector = np.array(
-                        [x - hand_x, y - hand_y, z - hand_z]
-                    )
-                    hand_to_obj_unit_vector = (
-                        hand_to_obj_vector / np.linalg.norm(hand_to_obj_vector)
-                    )
-                    unit_z_vector = np.array([0, 0, 1])
-                    c = np.dot(unit_z_vector, hand_to_obj_unit_vector)
-                    if not c == -1.0:
-                        v = np.cross(unit_z_vector, hand_to_obj_unit_vector)
-                        s = np.linalg.norm(v)
-                        v_x = np.array(
-                            [
-                                [0, -v[2], v[1]],
-                                [v[2], 0, -v[0]],
-                                [-v[1], v[0], 0],
-                            ]
-                        )
-                        R = (
-                            np.eye(3)
-                            + v_x
-                            + np.linalg.matrix_power(v_x, 2)
-                            * ((1 - c) / (s ** 2))
-                        )
+                    hand_to_obj_vector = np.array(grasp_offset_and_z_rot[:3])
+                    hand_to_obj_unit_vector = hand_to_obj_vector / np.linalg.norm(hand_to_obj_vector)
+                    unit_z_vector = np.array([0.0,0.0,-1.0]) # This is because we assume the hand is originally oriented so -z is coming out of the palm
+                    c_var = np.dot(unit_z_vector, hand_to_obj_unit_vector)
+                    if not c_var == -1.0 and not c_var == 1.0:
+                        v_var = np.cross(unit_z_vector, hand_to_obj_unit_vector)
+                        s_var = np.linalg.norm(v_var)
+                        v_x = np.array([[0, -v_var[2], v_var[1]], [v_var[2], 0, -v_var[0]], [-v_var[1], v_var[0], 0]])
+                        R = np.eye(3) + v_x + np.linalg.matrix_power(v_x, 2) * ((1-c_var)/(s_var ** 2))
                         r = scipy.spatial.transform.Rotation.from_matrix(R)
-                        euler_angles = r.as_euler("xyz")
-                        euler_angles[2] += grasp_offset_and_z_rot[3]
+                        euler_angles = r.as_euler('xyz')
+                        # TODO (njk): Figure out how to rotate by grasp_offset_and_z_rot[3] about the hand's z axis
+                        # the below line is wrong because it makes the thing rotate about the world z axis
+                        # euler_angles[2] += grasp_offset_and_z_rot[3] # This adds the z-rotation the user specifies
                     else:
-                        euler_angles = np.array([0.0, np.pi, 0.0])
+                        if c_var == 1.0:
+                            euler_angles = np.zeros(3, dtype=float)
+                        else:
+                            euler_angles = np.array([0.0, np.pi, 0.0])
 
                     state = p.saveState()
                     # plan a motion to the pose [x, y, z, euler_angles[0], euler_angles[1], euler_angles[2]]
@@ -578,7 +563,7 @@ def grasp_obj_at_pos(
                             delta_pos / 25.0 for delta_pos in delta_pos_to_obj
                         ]  # because we want to accomplish the motion in 25 timesteps
 
-                        # lower the hand until it touches the object
+                        # move the hand along the vector to the object until it touches the object
                         for _ in range(25):
                             new_hand_pos = [
                                 hand_pos[0] + delta_step_to_obj[0],

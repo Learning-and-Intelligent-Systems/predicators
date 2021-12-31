@@ -390,9 +390,7 @@ class ParameterizedOption:
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
 
-        # assert self.params_space.contains(params)
-        if not self.params_space.contains(params):
-            import ipdb; ipdb.set_trace()
+        assert self.params_space.contains(params)
         
         memory: Dict = {}  # each option has its own memory dict
         return _Option(

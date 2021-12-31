@@ -130,6 +130,11 @@ class BehaviorEnv(BaseEnv):
         # loaded_state = self._current_ig_state_to_state()
         # assert loaded_state.allclose(state)
         a = action.arr
+        if a[16] == 1.0:
+            assisted_grasp_action = np.zeros(28, dtype=float)
+            assisted_grasp_action[26] = 1.0
+            grasp_success = self._env.robots[0].parts["right_hand"].handle_assisted_grasping(assisted_grasp_action)
+            import ipdb; ipdb.set_trace()
         self._env.step(a)
         next_state = self._current_ig_state_to_state()
         return next_state
@@ -395,8 +400,6 @@ class BehaviorEnv(BaseEnv):
             return True
         else:
             return False
-
-    #
 
     # TODO (wmcclinton) test reachable
 
