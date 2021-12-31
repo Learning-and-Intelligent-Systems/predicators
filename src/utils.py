@@ -763,8 +763,8 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
     assert len(strips_ops) == len(option_specs)
     nsrts = set()
     for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-        nsrt = op.make_nsrt(param_option, option_vars,
-                            lambda s, rng, o: np.zeros(1))  # dummy sampler
+        nsrt = op.make_nsrt(param_option, option_vars,  # dummy sampler
+                            lambda s, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
     return nsrts
 
@@ -1068,6 +1068,55 @@ class _HFFHeuristic(_RelaxationHeuristic):
 
         # Extract FF value.
         return len(relaxed_plan)
+
+
+def create_pddl_domain(operators: Collection[Union[STRIPSOperator, NSRT]],
+                       predicates: Collection[Predicate],
+                       types: Collection[Type],
+                       domain_name: str) -> str:
+    """Create a PDDL domain str from STRIPSOperators or NSRTs.
+    """
+    # Sort everything to ensure determinism.
+    preds_lst = sorted(predicates)
+    types_lst = sorted(types)
+    ops_lst = sorted(operators)
+    types_str = " ".join(t.name for t in types_lst)
+    preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
+    ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
+    return f"""(define (domain {domain_name})
+  (:requirements :typing)
+  (:types {types_str})
+
+  (:predicates\n    {preds_str}
+  )
+
+  {ops_strs}
+)"""
+
+
+def create_pddl_problem(objects: Collection[Object],
+                        init_atoms: Collection[GroundAtom],
+                        goal: Collection[GroundAtom],
+                        domain_name: str,
+                        problem_name: str) -> str:
+    """Create a PDDL problem str.
+    """
+    # Sort everything to ensure determinism.
+    objects_lst = sorted(objects)
+    init_atoms_lst = sorted(init_atoms)
+    goal_lst = sorted(goal)
+    objects_str = "\n    ".join(f"{o.name} - {o.type.name}"
+                                for o in objects_lst)
+    init_str = "\n    ".join(atom.pddl_str() for atom in init_atoms_lst)
+    goal_str = "\n    ".join(atom.pddl_str() for atom in goal_lst)
+    return f"""(define (problem {problem_name}) (:domain {domain_name})
+  (:objects\n    {objects_str}
+  )
+  (:init\n    {init_str}
+  )
+  (:goal (and {goal_str}))
+)
+"""
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
