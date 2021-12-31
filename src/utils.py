@@ -21,7 +21,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, Variable, PyperplanFacts, ObjToVarSub, \
     VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
-    _GroundSTRIPSOperator, Array, OptionSpec, _Atom
+    _GroundSTRIPSOperator, Array, OptionSpec
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
