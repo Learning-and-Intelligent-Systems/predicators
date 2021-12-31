@@ -823,7 +823,7 @@ class RelaxedFact:
     expanded: bool = field(init=False, default=False)
     # The heuristic distance value.
     distance: float = field(init=False, default=float("inf"))
-    # The cheapest operator that was applied to reach this fact, for hFF.
+    # The cheapest operator that was applied to reach this fact, for HFF.
     cheapest_achiever: Optional[RelaxedOperator] = None
 
 
@@ -1030,7 +1030,7 @@ class _HFFHeuristic(_RelaxationHeuristic):
         return sum(distances)
 
     def calc_goal_h(self) -> float:
-        """This function has to be overwritten, because the hFF heuristic needs
+        """This function has to be overwritten, because the HFF heuristic needs
         an additional backward pass.
 
         This is mostly copied from pyperplan, with a few style changes.
