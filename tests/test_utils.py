@@ -534,7 +534,7 @@ def test_nsrt_methods():
         "Pick", [cup_type], params_space, lambda s, m, o, p: 2*p,
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     nsrt = NSRT("PickNSRT", parameters, preconditions, add_effects,
-                delete_effects, parameterized_option, [parameters[0]],
+                delete_effects, set(), parameterized_option, [parameters[0]],
                 _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
@@ -572,7 +572,7 @@ def test_all_ground_operators():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
-                        delete_effects)
+                        delete_effects, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -609,7 +609,7 @@ def test_all_ground_operators_given_partial():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
-                        delete_effects)
+                        delete_effects, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -762,9 +762,11 @@ def test_static_nsrt_filtering():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -814,9 +816,11 @@ def test_is_dr_reachable():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -850,7 +854,7 @@ def test_is_dr_reachable():
 
 
 def test_nsrt_application():
-    """Tests for get_applicable_nsrts(), apply_nsrt().
+    """Tests for get_applicable_nsrts(), apply_operator() with a _GroundNSRT.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -867,9 +871,11 @@ def test_nsrt_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -884,7 +890,7 @@ def test_nsrt_application():
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in applicable]
     assert ("Pick", [cup1, plate1]) in all_obj
     assert ("Place", [cup1, plate1]) in all_obj
-    next_atoms = [utils.apply_nsrt(nsrt, {pred1([cup1, plate1])})
+    next_atoms = [utils.apply_operator(nsrt, {pred1([cup1, plate1])})
                   for nsrt in applicable]
     assert {pred1([cup1, plate1])} in next_atoms
     assert {pred1([cup1, plate1]), pred2([cup1, plate1])} in next_atoms
@@ -910,10 +916,24 @@ def test_nsrt_application():
         ground_nsrts, {pred3([cup2, plate1])}))
     assert not list(utils.get_applicable_nsrts(
         ground_nsrts, {pred3([cup2, plate2])}))
+    # Tests with side predicates.
+    side_predicates = {pred2}
+    nsrt3 = NSRT("Pick", parameters, preconditions1, add_effects1,
+             delete_effects1, side_predicates=side_predicates, option=None,
+             option_vars=[], _sampler=None)
+    ground_nsrts = utils.all_ground_nsrts(nsrt3, objects)
+    applicable = list(utils.get_applicable_nsrts(
+        ground_nsrts, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_nsrt = applicable[0]
+    atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
+    next_atoms = utils.apply_operator(ground_nsrt, atoms)
+    assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_operator_application():
-    """Tests for get_applicable_operators(), apply_operator().
+    """Tests for get_applicable_operators(), apply_operator() with a
+    _GroundSTRIPSOperator.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -930,9 +950,9 @@ def test_operator_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     op1 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1)
+                         delete_effects1, set())
     op2 = STRIPSOperator("Place", parameters, preconditions2, add_effects2,
-                         delete_effects2)
+                         delete_effects2, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
@@ -973,6 +993,18 @@ def test_operator_application():
         ground_ops, {pred3([cup2, plate1])}))
     assert not list(utils.get_applicable_operators(
         ground_ops, {pred3([cup2, plate2])}))
+    # Tests with side predicates.
+    side_predicates = {pred2}
+    op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1, side_predicates=side_predicates)
+    ground_ops = utils.all_ground_operators(op3, objects)
+    applicable = list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_op = applicable[0]
+    atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
+    next_atoms = utils.apply_operator(ground_op, atoms)
+    assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_create_heuristic():
@@ -1377,7 +1409,7 @@ def test_ops_and_specs_to_dummy_nsrts():
         "Pick", [], params_space, lambda s, m, o, p: 2*p,
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects)
+                                     add_effects, delete_effects, set())
     nsrts = utils.ops_and_specs_to_dummy_nsrts([strips_operator],
                                                [(parameterized_option, [])])
     assert len(nsrts) == 1
