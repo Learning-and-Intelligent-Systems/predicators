@@ -427,7 +427,8 @@ def test_nsrts():
         del objs  # unused
         return params_space.sample()
     # STRIPSOperator
-    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
+    strips_operator = STRIPSOperator(
+        "Pick", parameters, preconditions,
         add_effects, delete_effects, side_predicates)
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
@@ -437,12 +438,13 @@ def test_nsrts():
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Side Predicates: [On]"""
     assert isinstance(hash(strips_operator), int)
-    strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
+    strips_operator2 = STRIPSOperator(
+        "Pick", parameters, preconditions,
         add_effects, delete_effects, side_predicates)
     assert strips_operator == strips_operator2
-    strips_operator3 = STRIPSOperator("PickDuplicate", parameters,
-                                      preconditions, add_effects,
-                                      delete_effects)
+    strips_operator3 = STRIPSOperator(
+        "PickDuplicate", parameters, preconditions,
+        add_effects, delete_effects, side_predicates)
     assert strips_operator < strips_operator3
     assert strips_operator3 > strips_operator
     # _GroundSTRIPSOperator
