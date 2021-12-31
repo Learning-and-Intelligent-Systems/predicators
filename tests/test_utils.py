@@ -10,9 +10,11 @@ from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
+from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
-from predicators.src.utils import _HAddHeuristic, _HMaxHeuristic
+from predicators.src.utils import _HAddHeuristic, _HMaxHeuristic, _HFFHeuristic
 
 
 def test_intersects():
@@ -980,12 +982,14 @@ def test_create_heuristic():
     assert isinstance(hadd_heuristic, _HAddHeuristic)
     hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set())
     assert isinstance(hmax_heuristic, _HMaxHeuristic)
+    hff_heuristic = utils.create_heuristic("hff", set(), set(), set())
+    assert isinstance(hff_heuristic, _HFFHeuristic)
     with pytest.raises(ValueError):
         utils.create_heuristic("not a real heuristic", set(), set(), set())
 
 
 def test_hadd_heuristic():
-    """Tests for HAddHeuristic.
+    """Tests for _HAddHeuristic.
     """
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
@@ -1037,7 +1041,7 @@ def test_hadd_heuristic():
 
 
 def test_hmax_heuristic():
-    """Tests for HMaxHeuristic.
+    """Tests for _HMaxHeuristic.
     """
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
@@ -1095,6 +1099,130 @@ def test_hmax_heuristic():
     goals = frozenset({("HoldingSomething",)})
     heuristic = _HMaxHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 1
+
+
+def test_hff_heuristic():
+    """Tests for _HFFHeuristic.
+    """
+    initial_state = frozenset({("IsBlock", "block0:block"),
+                               ("IsTarget", "target0:target"),
+                               ("IsTarget", "target1:target"),
+                               ("HandEmpty",),
+                               ("IsBlock", "block1:block")})
+    operators = [
+        utils.RelaxedOperator(
+            "Pick", frozenset({("HandEmpty",), ("IsBlock", "block1:block")}),
+            frozenset({("Holding", "block1:block")})),
+        utils.RelaxedOperator(
+            "Pick", frozenset({("IsBlock", "block0:block"), ("HandEmpty",)}),
+            frozenset({("Holding", "block0:block")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("Holding", "block0:block"),
+                                ("IsBlock", "block0:block"),
+                                ("IsTarget", "target0:target")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block0:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target0:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block1:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("Covers", "block1:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block0:block"),
+                                ("IsBlock", "block0:block")}),
+            frozenset({("Covers", "block0:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Dummy", frozenset({}), frozenset({}))]
+    goals = frozenset({("Covers", "block0:block", "target0:target"),
+                       ("Covers", "block1:block", "target1:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    # Test unreachable goal.
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, [])
+    assert heuristic(initial_state) == float("inf")
+
+
+def test_create_pddl():
+    """Tests for create_pddl_domain() and create_pddl_problem().
+    """
+    utils.update_config({"env": "cover"})
+    # All predicates and options
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    env.seed(123)
+    train_task = next(env.train_tasks_generator())[0]
+    state = train_task.init
+    objects = list(state)
+    init_atoms = utils.abstract(state, env.predicates)
+    goal = train_task.goal
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+                                          "cover")
+    problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
+                                            "cover", "cover-problem0")
+    assert domain_str == """(define (domain cover)
+  (:requirements :typing)
+  (:types block robot target)
+
+  (:predicates
+    (Covers ?x0 - block ?x1 - target)
+    (HandEmpty)
+    (Holding ?x0 - block)
+    (IsBlock ?x0 - block)
+    (IsTarget ?x0 - target)
+  )
+
+  (:action Pick
+    :parameters (?block - block)
+    :precondition (and (HandEmpty)
+        (IsBlock ?block))
+    :effect (and (Holding ?block)
+        (not (HandEmpty)))
+  )
+
+  (:action Place
+    :parameters (?block - block ?target - target)
+    :precondition (and (Holding ?block)
+        (IsBlock ?block)
+        (IsTarget ?target))
+    :effect (and (Covers ?block ?target)
+        (HandEmpty)
+        (not (Holding ?block)))
+  )
+)"""
+
+    assert problem_str == """(define (problem cover-problem0) (:domain cover)
+  (:objects
+    block0 - block
+    block1 - block
+    robby - robot
+    target0 - target
+    target1 - target
+  )
+  (:init
+    (HandEmpty)
+    (IsBlock block0)
+    (IsBlock block1)
+    (IsTarget target0)
+    (IsTarget target1)
+  )
+  (:goal (and (Covers block0 target0)))
+)
+"""
 
 
 def test_save_video():

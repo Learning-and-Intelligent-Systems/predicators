@@ -763,8 +763,8 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
     assert len(strips_ops) == len(option_specs)
     nsrts = set()
     for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-        nsrt = op.make_nsrt(param_option, option_vars,
-                            lambda s, rng, o: np.zeros(1))  # dummy sampler
+        nsrt = op.make_nsrt(param_option, option_vars,  # dummy sampler
+                            lambda s, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
     return nsrts
 
@@ -779,7 +779,7 @@ def create_heuristic(heuristic_name: str,
     estimates the cost-to-go.
     """
     relaxed_operators = frozenset({RelaxedOperator(
-        op.name, atoms_to_tuples(op.preconditions),
+        (op.name, tuple(op.objects)), atoms_to_tuples(op.preconditions),
         atoms_to_tuples(op.add_effects)) for op in ground_ops})
     if heuristic_name == "hadd":
         return _HAddHeuristic(atoms_to_tuples(init_atoms),
@@ -789,6 +789,10 @@ def create_heuristic(heuristic_name: str,
         return _HMaxHeuristic(atoms_to_tuples(init_atoms),
                               atoms_to_tuples(goal),
                               relaxed_operators)
+    if heuristic_name == "hff":
+        return _HFFHeuristic(atoms_to_tuples(init_atoms),
+                             atoms_to_tuples(goal),
+                             relaxed_operators)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -819,6 +823,8 @@ class RelaxedFact:
     expanded: bool = field(init=False, default=False)
     # The heuristic distance value.
     distance: float = field(init=False, default=float("inf"))
+    # The cheapest operator that was applied to reach this fact, for HFF.
+    cheapest_achiever: Optional[RelaxedOperator] = None
 
 
 @dataclass(repr=False, eq=False)
@@ -826,7 +832,7 @@ class RelaxedOperator:
     """This class represents a relaxed operator (no delete effects).
     Lightly modified from pyperplan's heuristics/relaxation.py.
     """
-    name: str
+    name: Tuple[str, Tuple[Object, ...]]  # operator name, objects
     preconditions: PyperplanFacts
     add_effects: PyperplanFacts
     # Cost of applying this operator.
@@ -861,7 +867,7 @@ class _RelaxationHeuristic:
         for fact in all_facts:
             self.facts[fact] = RelaxedFact(fact)
 
-        for ro in operators:
+        for ro in sorted(operators, key=lambda o: o.name):
             # Add operators to operator list.
             self.operators.append(ro)
 
@@ -919,6 +925,7 @@ class _RelaxationHeuristic:
         """
         def _reset_fact(fact: RelaxedFact) -> None:
             fact.expanded = False
+            fact.cheapest_achiever = None
             if fact.name in state:
                 fact.distance = 0
             else:
@@ -988,6 +995,7 @@ class _RelaxationHeuristic:
                                 # costs, we change the neighbor's heuristic
                                 # values.
                                 neighbor.distance = tmp_dist
+                                neighbor.cheapest_achiever = operator
                                 # And push it on the queue.
                                 hq.heappush(queue, (
                                     tmp_dist, self.tie_breaker, neighbor))
@@ -1012,6 +1020,103 @@ class _HMaxHeuristic(_RelaxationHeuristic):
         if not distances:
             return 0.0
         return max(distances)
+
+
+class _HFFHeuristic(_RelaxationHeuristic):
+    """Implements the HFF delete relaxation heuristic.
+    """
+    @staticmethod
+    def _accumulate(distances: Collection[float]) -> float:
+        return sum(distances)
+
+    def calc_goal_h(self) -> float:
+        """This function has to be overwritten, because the HFF heuristic needs
+        an additional backward pass.
+
+        This is mostly copied from pyperplan, with a few style changes.
+        """
+        relaxed_plan = set()
+        # Check whether we achieved all subgoals.
+        all_subgoals_achieved = not any(self.facts[g].distance == float("inf")
+                                        for g in self.goals)
+        if not all_subgoals_achieved:
+            return float("inf")
+
+        # Initialize a queue and push all goal nodes.
+        q = []
+        closed_list = set()
+        for g in self.goals:
+            q.append(self.facts[g])
+            closed_list.add(g)
+
+        # Do backward pass.
+        while q:
+            fact = q.pop()
+            # Check whether this fact has a cheapest achiever and that it
+            # is not already expanded
+            if (
+                fact.cheapest_achiever is not None
+                and not fact.cheapest_achiever in relaxed_plan
+            ):
+                # Add all preconditions of the cheapest achiever to the
+                # queue.
+                for pre in fact.cheapest_achiever.preconditions:
+                    if pre not in closed_list:
+                        q.append(self.facts[pre])
+                        closed_list.add(pre)
+                relaxed_plan.add(fact.cheapest_achiever.name)
+
+        # Extract FF value.
+        return len(relaxed_plan)
+
+
+def create_pddl_domain(operators: Collection[Union[STRIPSOperator, NSRT]],
+                       predicates: Collection[Predicate],
+                       types: Collection[Type],
+                       domain_name: str) -> str:
+    """Create a PDDL domain str from STRIPSOperators or NSRTs.
+    """
+    # Sort everything to ensure determinism.
+    preds_lst = sorted(predicates)
+    types_lst = sorted(types)
+    ops_lst = sorted(operators)
+    types_str = " ".join(t.name for t in types_lst)
+    preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
+    ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
+    return f"""(define (domain {domain_name})
+  (:requirements :typing)
+  (:types {types_str})
+
+  (:predicates\n    {preds_str}
+  )
+
+  {ops_strs}
+)"""
+
+
+def create_pddl_problem(objects: Collection[Object],
+                        init_atoms: Collection[GroundAtom],
+                        goal: Collection[GroundAtom],
+                        domain_name: str,
+                        problem_name: str) -> str:
+    """Create a PDDL problem str.
+    """
+    # Sort everything to ensure determinism.
+    objects_lst = sorted(objects)
+    init_atoms_lst = sorted(init_atoms)
+    goal_lst = sorted(goal)
+    objects_str = "\n    ".join(f"{o.name} - {o.type.name}"
+                                for o in objects_lst)
+    init_str = "\n    ".join(atom.pddl_str() for atom in init_atoms_lst)
+    goal_str = "\n    ".join(atom.pddl_str() for atom in goal_lst)
+    return f"""(define (problem {problem_name}) (:domain {domain_name})
+  (:objects\n    {objects_str}
+  )
+  (:init\n    {init_str}
+  )
+  (:goal (and {goal_str}))
+)
+"""
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
