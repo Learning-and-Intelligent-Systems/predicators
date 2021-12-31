@@ -438,8 +438,9 @@ def test_nsrts():
     strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
                                       add_effects, delete_effects)
     assert strips_operator == strips_operator2
-    strips_operator3 = STRIPSOperator("Zick", parameters, preconditions,
-                                      add_effects, delete_effects)
+    strips_operator3 = STRIPSOperator("PickDuplicate", parameters,
+                                      preconditions, add_effects,
+                                      delete_effects)
     assert strips_operator < strips_operator3
     assert strips_operator3 > strips_operator
     # _GroundSTRIPSOperator
