@@ -12,6 +12,8 @@ def main() -> None:
     """
     # Gather data.
     all_data = []
+    column_names = ["ENV", "APPROACH", "SEED", "TEST_TASKS_SOLVED",
+                    "TEST_TASKS_TOTAL", "TOTAL_TEST_TIME", "TOTAL_TIME"]
     for filepath in sorted(glob.glob("results/*")):
         with open(filepath, "rb") as f:
             run_data = pkl.load(f)
@@ -19,11 +21,14 @@ def main() -> None:
         data = [env, approach, seed, run_data["test_tasks_solved"],
                 run_data["test_tasks_total"], run_data["total_test_time"],
                 run_data["total_time"]]
+        assert len(data) == len(column_names)
         all_data.append(data)
+    if not all_data:
+        print("No data found in results/, terminating")
+        return
     # Group & aggregate data by seed.
     df = pd.DataFrame(all_data)
-    df.columns = ["ENV", "APPROACH", "SEED", "TEST_TASKS_SOLVED",
-                  "TEST_TASKS_TOTAL", "TOTAL_TEST_TIME", "TOTAL_TIME"]
+    df.columns = column_names
     means = df.groupby(["ENV", "APPROACH"]).mean()
     stds = df.groupby(["ENV", "APPROACH"]).std()
     # Add standard deviations to the printout.
