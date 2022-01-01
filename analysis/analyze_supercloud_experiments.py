@@ -29,12 +29,14 @@ def _main() -> None:
     df.columns = column_names
     means = df.groupby(["ENV", "APPROACH"]).mean()
     stds = df.groupby(["ENV", "APPROACH"]).std()
+    sizes = df.groupby(["ENV", "APPROACH"]).size()
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
             mean = means.loc[row, col]
             std = stds.loc[row, col]
             means.loc[row, col] = f"{mean:.2f} ({std:.2f})"
+    means["NUM_SEEDS"] = sizes
     print(means)
 
 
