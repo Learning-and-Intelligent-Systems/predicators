@@ -636,14 +636,14 @@ def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
     return new_ground_atom_dataset
 
 
-def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
+def extract_preds_and_types(ops: Collection[NSRTOrSTRIPSOperator]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
-    """Extract the predicates and types used in the given NSRTs.
+    """Extract the predicates and types used in the given operators.
     """
     preds = {}
     types = {}
-    for nsrt in nsrts:
-        for atom in nsrt.preconditions | nsrt.add_effects | nsrt.delete_effects:
+    for op in ops:
+        for atom in op.preconditions | op.add_effects | op.delete_effects:
             for var_type in atom.predicate.types:
                 types[var_type.name] = var_type
             preds[atom.predicate.name] = atom.predicate
@@ -653,7 +653,7 @@ def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
 def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                             atoms: Collection[GroundAtom]
                             ) -> List[GroundNSRTOrSTRIPSOperator]:
-    """Filter out ground operators or NSRTs that don't satisfy static facts.
+    """Filter out ground operators that don't satisfy static facts.
     """
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
@@ -672,18 +672,18 @@ def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
     return ground_ops
 
 
-def is_dr_reachable(ground_nsrts: Collection[_GroundNSRT],
+def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                     atoms: Collection[GroundAtom],
                     goal: Set[GroundAtom]) -> bool:
     """Quickly check whether the given goal is reachable from the given atoms
-    under the given NSRTs, using a delete relaxation (dr).
+    under the given operators, using a delete relaxation (dr).
     """
     reachables = set(atoms)
     while True:
         fixed_point_reached = True
-        for nsrt in ground_nsrts:
-            if nsrt.preconditions.issubset(reachables):
-                for new_reachable_atom in nsrt.add_effects-reachables:
+        for op in ground_ops:
+            if op.preconditions.issubset(reachables):
+                for new_reachable_atom in op.add_effects-reachables:
                     fixed_point_reached = False
                     reachables.add(new_reachable_atom)
         if fixed_point_reached:
