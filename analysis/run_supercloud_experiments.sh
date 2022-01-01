@@ -2,8 +2,8 @@
 
 EXEC=python # python or profile or profile2
 
-START_SEED=123
-NUM_SEEDS=3
+START_SEED=456
+NUM_SEEDS=5
 ENVS=(
     "cover"
     "blocks"
