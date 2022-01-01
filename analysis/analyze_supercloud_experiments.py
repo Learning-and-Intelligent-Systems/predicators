@@ -31,7 +31,7 @@ def main() -> None:
         for row in means[col].keys():
             mean = means.loc[row, col]
             std = stds.loc[row, col]
-            means.loc[row, col] = f"{mean:.3f} ({std:.3f})"
+            means.loc[row, col] = f"{mean:.2f} ({std:.2f})"
     print(means)
 
 
