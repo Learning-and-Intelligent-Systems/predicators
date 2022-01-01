@@ -30,7 +30,7 @@ try:
         grasp_obj_at_pos,
         place_ontop_obj_pos,
     )
-
+    import pybullet as pyb
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
 except ModuleNotFoundError as e:
@@ -131,10 +131,19 @@ class BehaviorEnv(BaseEnv):
         # assert loaded_state.allclose(state)
         a = action.arr
         self._env.step(a)
+        # print(a)
+
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
             assisted_grasp_action[26] = 1.0
             _ = self._env.robots[0].parts["right_hand"].handle_assisted_grasping(assisted_grasp_action)
+        elif a[16] == -1.0:
+            released_obj = self._env.scene.get_objects()[self._env.robots[0].parts["right_hand"].object_in_hand]
+            # force release object to avoid dealing with stateful AG release mechanism
+            self._env.robots[0].parts["right_hand"].force_release_obj()
+            # reset the released object to zero velocity
+            pyb.resetBaseVelocity(released_obj.get_body_id(), linearVelocity=[0, 0, 0], angularVelocity=[0, 0, 0])
+        
         next_state = self._current_ig_state_to_state()
         return next_state
 
@@ -215,19 +224,27 @@ class BehaviorEnv(BaseEnv):
                 classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
-        # Second, add in custom predicates
+        # Second, add in custom predicates except reachable-nothing
         custom_predicate_specs = [
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
-            ("reachable-nothing", self._reachable_nothing_classifier, 1),
             ("reachable", self._reachable_classifier, 2),
             ("graspable", self._graspable_classifier, 1),
         ]
+
         for name, classifier, arity in custom_predicate_specs:
             for type_combo in itertools.product(types_lst, repeat=arity):
                 pred_name = self._create_type_combo_name(name, type_combo)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
+
+        # Finally, add the reachable-nothing predicate, which only applies to the 'agent' type
+        for i in range(len(types_lst)):
+            if types_lst[i].name == 'agent.n.01':
+                pred_name = self._create_type_combo_name("reachable-nothing", (types_lst[i],))
+                pred = Predicate(pred_name, [types_lst[i]], self._reachable_nothing_classifier)
+                predicates.add(pred)
+
         return predicates
 
     @property
@@ -256,11 +273,10 @@ class BehaviorEnv(BaseEnv):
         controllers = [
             ("NavigateTo", navigate_to_obj_pos, 2, 1, (-2.4, 2.4)),
             ("Grasp", grasp_obj_at_pos, 4, 1, (-np.pi, np.pi)),
-            ("PlaceOnTop", place_ontop_obj_pos, 7, 1, (-1.0, 1.0)),
+            ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
         ]
 
         options: Set[ParameterizedOption] = set()
-
 
         for (
             name,
