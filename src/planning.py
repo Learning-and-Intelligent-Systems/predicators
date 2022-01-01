@@ -278,7 +278,6 @@ def _run_low_level_search(
                         result = plan
                         return result
                 else:
-                    import ipdb; ipdb.set_trace()
                     print("Option did not result in expected high-level termination state :(. Moving on...")
                     can_continue_on = False
             else:

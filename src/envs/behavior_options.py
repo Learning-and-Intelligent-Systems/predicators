@@ -718,12 +718,18 @@ def place_ontop_obj_pos_sampler(
     objA = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand
     ]
-    objB = obj
+
+    for o in obj:
+        if o != objA and o.name != 'BRBody_1':
+            objB = o
+            break
+    
     params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
     aabb = get_aabb(objA.get_body_id())
     aabb_center, aabb_extent = get_aabb_center(aabb), get_aabb_extent(aabb)
 
-    sampling_results = sampling_utils.sample_cuboid_on_object(  # Non rng???
+    # Non rng???
+    sampling_results = sampling_utils.sample_cuboid_on_object(
         objB,
         num_samples=1,
         cuboid_dimensions=aabb_extent,
@@ -732,10 +738,10 @@ def place_ontop_obj_pos_sampler(
         **params,
     )
 
-    if sampling_results[0] is None:
+    if sampling_results[0] is None or sampling_results[0][0] is None:
         return None
 
-    rnd_params = np.subtract(sampling_results[0][0], obj.get_position())
+    rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
 
     if return_orn:
         return rnd_params, sampling_results[0][2]
@@ -801,7 +807,6 @@ def place_ontop_obj_pos(
                         )
                     )
 
-                    # TODO: Include the error-correcting closed-loop execution actions in here.
                     def placeOntopObjectOption(state, env):
                         nonlocal plan
                         nonlocal plan_executed_forwards
@@ -811,7 +816,7 @@ def place_ontop_obj_pos(
 
                         atol_xy = 0.1
                         atol_theta = 0.1
-                        atol_vel = 0.5
+                        atol_vel = 2.5
 
                         # 1. Get current position and orientation
                         current_pos, current_orn_quat = p.multiplyTransforms(
@@ -848,9 +853,8 @@ def place_ontop_obj_pos(
                                     done_bit = False
                                     plan_executed_forwards = True
                                     low_level_action = np.zeros(17)
-                                    low_level_action[16] = 1.0
-                                    # print("lla:", low_level_action)
                                     return low_level_action, done_bit
+                                
                                 low_level_action = (
                                     get_delta_low_level_hand_action(
                                         env,
@@ -877,8 +881,7 @@ def place_ontop_obj_pos(
                                         )
                                     )
                                     plan.pop(0)
-                                low_level_action[16] = 1.0
-                                # print("lla:", low_level_action)
+
                                 return low_level_action, False
 
                             else:
@@ -890,7 +893,7 @@ def place_ontop_obj_pos(
                                     plan_executed_forwards = True
 
                                 else:
-                                    # Step thru the plan to execute Grasping phases 1 and 2
+                                    # Step thru the plan to execute placing phases 1 and 2
                                     low_level_action = (
                                         get_delta_low_level_hand_action(
                                             env,
@@ -900,13 +903,10 @@ def place_ontop_obj_pos(
                                             plan[1][3:],
                                         )
                                     )
-                                    low_level_action[16] = 1.0
                                     if len(plan) == 1:
                                         plan_executed_forwards = True
 
                                 plan.pop(0)
-                                low_level_action[16] = 1.0
-                                # print("lla:", low_level_action)
                                 return low_level_action, done_bit
 
                             ###
@@ -914,9 +914,9 @@ def place_ontop_obj_pos(
                         elif (
                             plan_executed_forwards and not tried_opening_gripper
                         ):
-                            # Close the gripper to see if you've gotten the object
+                            # Open the gripper to see if you've gotten the object
                             low_level_action = np.zeros(17, dtype=float)
-                            low_level_action[16] = 0.0
+                            low_level_action[16] = -1.0
                             tried_opening_gripper = True
                             return low_level_action, False
 
@@ -971,7 +971,7 @@ def place_ontop_obj_pos(
                                     done_bit = True
 
                                 else:
-                                    # Grasping Phase 3: getting the hand back to resting position
+                                    # Placing Phase 3: getting the hand back to resting position
                                     # near the robot.
                                     low_level_action = (
                                         get_delta_low_level_hand_action(
@@ -982,7 +982,6 @@ def place_ontop_obj_pos(
                                             reversed_plan[1][3:],
                                         )
                                     )
-                                    low_level_action[16] = 1.0
                                     if len(reversed_plan) == 1:
                                         done_bit = True
 
