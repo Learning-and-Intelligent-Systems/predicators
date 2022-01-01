@@ -459,7 +459,10 @@ def test_nsrts():
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
     Side Predicates: [On]"""
     ground_op2 = strips_operator2.ground((cup, plate))
+    ground_op3 = strips_operator3.ground((cup, plate))
     assert ground_op == ground_op2
+    assert ground_op < ground_op3
+    assert ground_op3 > ground_op
     assert hash(ground_op) == hash(ground_op2)
     # NSRT
     nsrt = NSRT("Pick", parameters, preconditions, add_effects,

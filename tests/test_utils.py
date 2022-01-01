@@ -541,7 +541,7 @@ def test_nsrt_methods():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = utils.all_ground_nsrts(nsrt, objects)
+    ground_nsrts = sorted(utils.all_ground_nsrts(nsrt, objects))
     assert len(ground_nsrts) == 8
     all_obj = [nsrt.objects for nsrt in ground_nsrts]
     assert [cup1, plate1, plate1] in all_obj
@@ -578,7 +578,7 @@ def test_all_ground_operators():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_ops = utils.all_ground_operators(op, objects)
+    ground_ops = sorted(utils.all_ground_operators(op, objects))
     assert len(ground_ops) == 8
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate1, plate1] in all_obj
@@ -616,11 +616,13 @@ def test_all_ground_operators_given_partial():
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
     # First test empty partial sub.
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, {})
-    assert ground_ops == utils.all_ground_operators(op, objects)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, {}))
+    assert ground_ops == sorted(utils.all_ground_operators(op, objects))
     # Test with one partial sub.
     sub = {plate1_var: plate1}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 4
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate1, plate1] in all_obj
@@ -632,7 +634,8 @@ def test_all_ground_operators_given_partial():
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
     # Test another single partial sub.
     sub = {plate1_var: plate2}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 4
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate2, plate1] in all_obj
@@ -641,13 +644,15 @@ def test_all_ground_operators_given_partial():
     assert [cup2, plate2, plate2] in all_obj
     # Test multiple partial subs.
     sub = {plate1_var: plate1, plate2_var: plate2}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 2
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate1, plate2] in all_obj
     assert [cup2, plate1, plate2] in all_obj
     sub = {plate1_var: plate2, plate2_var: plate1, cup_var: cup1}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 1
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate2, plate1] in all_obj
@@ -772,8 +777,8 @@ def test_static_nsrt_filtering():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (utils.all_ground_nsrts(nsrt1, objects) |
-                    utils.all_ground_nsrts(nsrt2, objects))
+    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
+                    set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2]),
              pred2([cup1, plate1]), pred2([cup1, plate2]),
@@ -826,8 +831,8 @@ def test_is_dr_reachable():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (utils.all_ground_nsrts(nsrt1, objects) |
-                    utils.all_ground_nsrts(nsrt2, objects))
+    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
+                    set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
     ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
@@ -881,8 +886,8 @@ def test_nsrt_application():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (utils.all_ground_nsrts(nsrt1, objects) |
-                  utils.all_ground_nsrts(nsrt2, objects))
+    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
+                    set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
     applicable = list(utils.get_applicable_nsrts(
         ground_nsrts, {pred1([cup1, plate1])}))
@@ -921,7 +926,7 @@ def test_nsrt_application():
     nsrt3 = NSRT("Pick", parameters, preconditions1, add_effects1,
              delete_effects1, side_predicates=side_predicates, option=None,
              option_vars=[], _sampler=None)
-    ground_nsrts = utils.all_ground_nsrts(nsrt3, objects)
+    ground_nsrts = sorted(utils.all_ground_nsrts(nsrt3, objects))
     applicable = list(utils.get_applicable_nsrts(
         ground_nsrts, {pred1([cup1, plate1])}))
     assert len(applicable) == 1
@@ -958,8 +963,8 @@ def test_operator_application():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_ops = (utils.all_ground_operators(op1, objects) |
-                  utils.all_ground_operators(op2, objects))
+    ground_ops = (set(utils.all_ground_operators(op1, objects)) |
+                  set(utils.all_ground_operators(op2, objects)))
     assert len(ground_ops) == 8
     applicable = list(utils.get_applicable_operators(
         ground_ops, {pred1([cup1, plate1])}))
@@ -997,7 +1002,7 @@ def test_operator_application():
     side_predicates = {pred2}
     op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
                          delete_effects1, side_predicates=side_predicates)
-    ground_ops = utils.all_ground_operators(op3, objects)
+    ground_ops = sorted(utils.all_ground_operators(op3, objects))
     applicable = list(utils.get_applicable_operators(
         ground_ops, {pred1([cup1, plate1])}))
     assert len(applicable) == 1
