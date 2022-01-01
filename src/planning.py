@@ -54,13 +54,15 @@ def sesame_plan(task: Task,
     predicates = initial_predicates | set(nsrt_preds.values())
     atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
+    start_time = time.time()
     ground_nsrts = []
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
+            if time.time() - start_time > timeout:
+                raise ApproachTimeout("Planning timed out in grounding!")
     ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
     # Keep restarting the A* search while we get new discovered failures.
-    start_time = time.time()
     metrics: Metrics = defaultdict(float)
     while True:
         # There is no point in using NSRTs with empty effects, and they can
