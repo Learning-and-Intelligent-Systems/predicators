@@ -25,7 +25,9 @@ To run grammar search predicate invention (example):
 """
 
 from collections import defaultdict
+import os
 import time
+import pickle as pkl
 from typing import Dict
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
@@ -39,6 +41,8 @@ from predicators.src import utils
 def main() -> None:
     """Main entry point for running approaches in environments.
     """
+    if not os.path.exists("results/"):
+        os.mkdir("results/")
     start = time.time()
     # Parse & validate args
     args = utils.parse_args()
@@ -75,7 +79,7 @@ def main() -> None:
         if CFG.load:
             approach.load()
             results = _run_testing(env, approach)
-            _print_test_results(results)
+            _save_test_results(results, start)
         else:
             # Iterate over the train_tasks lists coming from the generator.
             dataset_idx = 0
@@ -85,11 +89,10 @@ def main() -> None:
                 dataset_idx += 1
                 approach.learn_from_offline_dataset(dataset, train_tasks)
                 results = _run_testing(env, approach)
-                _print_test_results(results)
+                _save_test_results(results, start)
     else:
         results = _run_testing(env, approach)
-        _print_test_results(results)
-    print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
+        _save_test_results(results, start)
 
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
@@ -129,7 +132,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
     return {"test": test_metrics, "approach": approach.metrics.copy()}
 
 
-def _print_test_results(results: Dict[str, Metrics]) -> None:
+def _save_test_results(results: Dict[str, Metrics], start_time: float) -> None:
     test_tasks_solved = results["test"]["test_tasks_solved"]
     test_tasks_total = results["test"]["test_tasks_total"]
     total_test_time = results["test"]["total_test_time"]
@@ -137,6 +140,14 @@ def _print_test_results(results: Dict[str, Metrics]) -> None:
     print(f"Tasks solved: {test_tasks_solved} / {test_tasks_total}")
     print(f"Approach metrics: {approach_metrics}")
     print(f"Total test time: {total_test_time:.5f} seconds")
+    total_time = time.time() - start_time
+    outfile = f"results/{utils.get_config_path_str()}.pkl"
+    outdata = results["test"].copy()
+    outdata["total_time"] = total_time
+    with open(outfile, "wb") as f:
+        pkl.dump(outdata, f)
+    print(f"\n\nMain script terminated in {total_time:.5f} seconds")
+    print(f"Wrote out results to {outfile}")
 
 
 if __name__ == "__main__":  # pragma: no cover
