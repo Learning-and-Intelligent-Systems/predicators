@@ -1,5 +1,5 @@
 """Script to analyze experiments resulting from running the script
-run_supercloud_experiments.sh.
+analysis/run_supercloud_experiments.sh.
 """
 
 import pickle as pkl
@@ -7,9 +7,7 @@ import glob
 import pandas as pd
 
 
-def main() -> None:
-    """Script entry point.
-    """
+def _main() -> None:
     # Gather data.
     all_data = []
     column_names = ["ENV", "APPROACH", "SEED", "TEST_TASKS_SOLVED",
@@ -26,7 +24,7 @@ def main() -> None:
     if not all_data:
         print("No data found in results/, terminating")
         return
-    # Group & aggregate data by seed.
+    # Group & aggregate data by env name and approach name.
     df = pd.DataFrame(all_data)
     df.columns = column_names
     means = df.groupby(["ENV", "APPROACH"]).mean()
@@ -41,4 +39,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _main()
