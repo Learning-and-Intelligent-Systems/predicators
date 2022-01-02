@@ -87,7 +87,7 @@ def test_count_positives_for_ops():
     add_effects = {on([cup_var, plate_var])}
     delete_effects = {not_on([cup_var, plate_var])}
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects)
+                                     add_effects, delete_effects, set())
     cup = cup_type("cup")
     plate = plate_type("plate")
     parameterized_option = ParameterizedOption(
