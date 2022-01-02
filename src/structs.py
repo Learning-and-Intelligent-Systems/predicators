@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -455,6 +455,7 @@ class _Option:
         action = self._policy(state)
         action.set_option(self)
         return action
+
 
 DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
@@ -1009,3 +1010,9 @@ PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Metrics = DefaultDict[str, float]
+LiftedOrGroundAtom = TypeVar(
+    "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+NSRTOrSTRIPSOperator = TypeVar(
+    "NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar(
+    "GroundNSRTOrSTRIPSOperator", _GroundNSRT, _GroundSTRIPSOperator)
