@@ -1,7 +1,5 @@
 #!/bin/bash
 
-EXEC=python # python or profile or profile2
-
 START_SEED=456
 NUM_SEEDS=5
 ENVS=(
