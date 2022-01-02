@@ -748,7 +748,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Pick is done when we're holding the desired object.
         del m, p  # unused
         block, robot = o
-        return self._Holding_holds(s, [block, self._robot])
+        return self._Holding_holds(s, [block, robot])
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
@@ -792,15 +792,14 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         delta_y = np.clip(self.initial_robot_y+1e-2 - y, lb, ub)
         return Action(np.array([0., delta_y, 0.1], dtype=np.float32))
 
-    def _Place_learned_equivalent_policy(self, s: State, m: Dict,  # type: ignore
-                                         o: Sequence[Object],
+    def _Place_learned_equivalent_policy(self, s: State,  # type: ignore
+                                         m: Dict, o: Sequence[Object],
                                          p: Array) -> Action:
         del m
         # The object is the one we want to place at.
         assert len(o) == 3
         obj = o[0]
         assert len(p) == self._block_type.dim + self._robot_type.dim
-        param = p
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
