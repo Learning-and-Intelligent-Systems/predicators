@@ -924,7 +924,7 @@ def test_nsrt_application():
              delete_effects1, side_predicates=side_predicates, option=None,
              option_vars=[], _sampler=None)
     ground_nsrts = sorted(utils.all_ground_nsrts(nsrt3, objects))
-    applicable = list(utils.get_applicable_nsrts(
+    applicable = list(utils.get_applicable_operators(
         ground_nsrts, {pred1([cup1, plate1])}))
     assert len(applicable) == 1
     ground_nsrt = applicable[0]
