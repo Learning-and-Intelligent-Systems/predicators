@@ -606,6 +606,14 @@ class _GroundSTRIPSOperator:
         assert isinstance(other, _GroundSTRIPSOperator)
         return str(self) == str(other)
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) > str(other)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class NSRT:
