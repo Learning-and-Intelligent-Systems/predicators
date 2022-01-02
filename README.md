@@ -25,7 +25,7 @@ A simple implementation of search-then-sample task and motion planning is provid
 * Run `pip install -r requirements.txt` to install dependencies.
 
 ## Instructions For Running Code
-### Pip
+### Locally
 * (recommended) Make a new virtual env or conda env.
 * Make sure the parent of the repository is on your PYTHONPATH.
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
