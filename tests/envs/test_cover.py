@@ -172,8 +172,9 @@ def test_cover_multistep_options():
             assert len(obj.type.feature_names) == len(task.init[obj])
     # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
     assert len(env.predicates) == 5
-    # Options should be {Pick, Place}.
-    assert len(env.options) == 2
+    # Options should be {Pick, Place, LearnedEquivalentPick,
+    # LearnedEquivalentPlace}.
+    assert len(env.options) == 4
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 3-dimensional.

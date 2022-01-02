@@ -396,7 +396,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Override the original options to make them multi-step.
         self._Pick = ParameterizedOption(
             "Pick", types=[self._block_type],
-            params_space=Box(-0.1, 0.1, (1,)),
+            params_space=Box(-1.0, 1.0, (1,)),
             _policy=self._Pick_policy,
             _initiable=self._Pick_initiable,
             _terminal=self._Pick_terminal)
@@ -405,7 +405,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # space is absolute, and the state of the target is not used.
         self._Place = ParameterizedOption(
             "Place", types=[self._target_type],
-            params_space=Box(-0.1, 0.1, (1,)),
+            params_space=Box(-1.0, 1.0, (1,)),
             _policy=self._Place_policy,
             _initiable=self._Place_initiable,
             _terminal=self._Place_terminal)

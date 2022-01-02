@@ -35,15 +35,10 @@ def get_gt_nsrts(predicates: Set[Predicate],
     elif CFG.env == "cover_typed_options":
         nsrts = _get_cover_gt_nsrts(options_are_typed=True)
     elif CFG.env == "cover_multistep_options":
-        if CFG.cover_multistep_option_type == "learned_equivalent":
-            nsrts = _get_cover_gt_nsrts(options_are_typed=True,
-                                        include_robot_in_holding=True,
-                                        options_are_learned_equivalent=True)
-        else:
-            nsrts = _get_cover_gt_nsrts(options_are_typed=True,
-                                        include_robot_in_holding=True,
-                                        place_sampler_relative=True,
-                                        options_are_learned_equivalent=False)
+        nsrts = _get_cover_gt_nsrts(options_are_typed=True,
+                                    include_robot_in_holding=True,
+                                    options_are_learned_equivalent= \
+                                    CFG.cover_multistep_use_learned_equivalents)
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "blocks":
@@ -101,7 +96,6 @@ def _get_options_by_names(env_name: str,
 
 def _get_cover_gt_nsrts(options_are_typed: bool,
                         include_robot_in_holding: bool = False,
-                        place_sampler_relative: bool = False,
                         options_are_learned_equivalent: bool = False) -> \
                         Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv.
@@ -150,14 +144,18 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
                 else len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
-            if options_are_typed:
-                lb = float(-state.get(b, "width")/2)  # relative positioning
-                ub = float(state.get(b, "width")/2)  # relative positioning
+            if include_robot_in_holding:
+                lb = -1.0
+                ub = 1.0
             else:
-                lb = float(state.get(b, "pose") - state.get(b, "width")/2)
-                lb = max(lb, 0.0)
-                ub = float(state.get(b, "pose") + state.get(b, "width")/2)
-                ub = min(ub, 1.0)
+                if options_are_typed:
+                    lb = float(-state.get(b, "width")/2)  # relative positioning
+                    ub = float(state.get(b, "width")/2)  # relative positioning
+                else:
+                    lb = float(state.get(b, "pose") - state.get(b, "width")/2)
+                    lb = max(lb, 0.0)
+                    ub = float(state.get(b, "pose") + state.get(b, "width")/2)
+                    ub = min(ub, 1.0)
             return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     else:
         def pick_sampler(state: State, rng: np.random.Generator,
@@ -216,11 +214,11 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
                           objs: Sequence[Object]) -> Array:
             assert len(objs) == 3 if include_robot_in_holding \
                 else len(objs) == 2
-            t = objs[1]
+            t = objs[-1]
             assert t.is_instance(target_type)
-            if place_sampler_relative:
-                lb = float(-state.get(t, "width")/2)
-                ub = float(state.get(t, "width")/2)
+            if include_robot_in_holding:
+                lb = -1.0
+                ub = 1.0
             else:
                 lb = float(state.get(t, "pose") - state.get(t, "width")/10)
                 lb = max(lb, 0.0)
