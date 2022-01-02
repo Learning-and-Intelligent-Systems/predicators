@@ -26,9 +26,16 @@ A simple implementation of search-then-sample task and motion planning is provid
 
 ## Instructions For Running Code
 ### Pip
-* (recommended) Make a new virtual env or conda env
+* (recommended) Make a new virtual env or conda env.
 * Make sure the parent of the repository is on your PYTHONPATH.
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
+
+### Running Experiments on Supercloud
+* Log into supercloud (ask Rohan if you don't know how to do this).
+* Go into the `predicators` folder and `git pull` if necessary.
+* Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
+* Monitor with `squeue -u ronuchit`, or cancel jobs with `scancel -u ronuchit` (standard Slurm commands).
+* When all jobs are done, run `python analysis/analyze_supercloud_experiments.py` (still on supercloud) to print out the results table.
 
 ## Instructions For Contributing
 * You can't push directly to master. Make a PR and merge that in.
