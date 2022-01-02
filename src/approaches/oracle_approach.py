@@ -102,7 +102,8 @@ def _get_options_by_names(env_name: str,
 def _get_cover_gt_nsrts(options_are_typed: bool,
                         include_robot_in_holding: bool = False,
                         place_sampler_relative: bool = False,
-                        options_are_learned_equivalent: bool = False) -> Set[NSRT]:
+                        options_are_learned_equivalent: bool = False) -> \
+                        Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv.
     """
     block_type, target_type, robot_type = _get_types_by_names(
@@ -145,12 +146,13 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     if not options_are_learned_equivalent:
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            assert len(objs) == 2 if include_robot_in_holding else len(objs) == 1
+            assert len(objs) == 2 if include_robot_in_holding \
+                else len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if options_are_typed:
-                lb = float(-state.get(b, "width")/2)  # relative positioning only
-                ub = float(state.get(b, "width")/2)  # relative positioning only
+                lb = float(-state.get(b, "width")/2)  # relative positioning
+                ub = float(state.get(b, "width")/2)  # relative positioning
             else:
                 lb = float(state.get(b, "pose") - state.get(b, "width")/2)
                 lb = max(lb, 0.0)
@@ -159,24 +161,25 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
             return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     else:
         def pick_sampler(state: State, rng: np.random.Generator,
-                             objs: Sequence[Object]) -> Array:
-                assert len(objs) == 2 if include_robot_in_holding else len(objs) == 1
-                block, robot = objs
-                assert block.is_instance(block_type)
-                assert robot.is_instance(robot_type)
-                bx, by = state.get(block, "x"), state.get(block, "y")
-                bw, bh = state.get(block, "width"), state.get(block, "height")
-                desired_x = rng.uniform(bx-bw/2, bx+bw/2)
-                desired_x = float(bx)
-                # is_block, is_target, width, x, grasp, y, height
-                # grasp changes from -1 to 1
-                block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
-                # x, y, grip, holding
-                # grip changes from -0.1 to 0.1
-                # holding changes from -1 to 1
-                robot_param = [desired_x, by, 0.1, 1.0]
-                param = block_param + robot_param
-                return np.array(param, dtype=np.float32)
+                         objs: Sequence[Object]) -> Array:
+            assert len(objs) == 2 if include_robot_in_holding \
+                else len(objs) == 1
+            block, robot = objs
+            assert block.is_instance(block_type)
+            assert robot.is_instance(robot_type)
+            bx, by = state.get(block, "x"), state.get(block, "y")
+            bw, bh = state.get(block, "width"), state.get(block, "height")
+            desired_x = rng.uniform(bx-bw/2, bx+bw/2)
+            desired_x = float(bx)
+            # is_block, is_target, width, x, grasp, y, height
+            # grasp changes from -1 to 1
+            block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
+            # x, y, grip, holding
+            # grip changes from -0.1 to 0.1
+            # holding changes from -1 to 1
+            robot_param = [desired_x, by, 0.1, 1.0]
+            param = block_param + robot_param
+            return np.array(param, dtype=np.float32)
     pick_nsrt = NSRT("Pick", parameters, preconditions,
                      add_effects, delete_effects, set(), option,
                      option_vars, pick_sampler)
@@ -211,12 +214,13 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     if not options_are_learned_equivalent:
         def place_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            assert len(objs) == 3 if include_robot_in_holding else len(objs) == 2
+            assert len(objs) == 3 if include_robot_in_holding \
+                else len(objs) == 2
             t = objs[1]
             assert t.is_instance(target_type)
             if place_sampler_relative:
-                lb = float(-state.get(t, "width")/2)  # relative positioning only
-                ub = float(state.get(t, "width")/2)  # relative positioning only
+                lb = float(-state.get(t, "width")/2)
+                ub = float(state.get(t, "width")/2)
             else:
                 lb = float(state.get(t, "pose") - state.get(t, "width")/10)
                 lb = max(lb, 0.0)
@@ -225,28 +229,27 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
             return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
     else:
         def place_sampler(state: State, rng: np.random.Generator,
-                             objs: Sequence[Object]) -> Array:
-                assert len(objs) == 3 if include_robot_in_holding else len(objs) == 2
-                block, robot, target = objs
-                assert block.is_instance(block_type)
-                assert robot.is_instance(robot_type)
-                assert target.is_instance(target_type)
-                tx, tw = state.get(target, "x"), state.get(target, "width")
-                desired_x = rng.uniform(tx-tw/2, tx+tw/2)
-                desired_x = float(tx)
-                bx, by = state.get(block, "x"), state.get(block, "y")
-                bw, bh = state.get(block, "width"), state.get(block, "height")
-                rx, ry = state.get(robot, "x"), state.get(robot, "y")
-                desired_y = bh + 1e2
-                # is_block, is_target, width, x, grasp, y, height
-                # grasp changes from 1 to -1
-                block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
-                # x, y, grip, holding
-                # grip changes from 0.1 to -0.1
-                # holding changes from 1 to -1
-                robot_param = [desired_x, desired_y, -0.1, -2.0]
-                param = block_param + robot_param
-                return np.array(param, dtype=np.float32)
+                          objs: Sequence[Object]) -> Array:
+            assert len(objs) == 3 if include_robot_in_holding \
+                else len(objs) == 2
+            block, robot, target = objs
+            assert block.is_instance(block_type)
+            assert robot.is_instance(robot_type)
+            assert target.is_instance(target_type)
+            tx, tw = state.get(target, "x"), state.get(target, "width")
+            desired_x = rng.uniform(tx-tw/2, tx+tw/2)
+            desired_x = float(tx)
+            bw, bh = state.get(block, "width"), state.get(block, "height")
+            desired_y = bh + 1e2
+            # is_block, is_target, width, x, grasp, y, height
+            # grasp changes from 1 to -1
+            block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
+            # x, y, grip, holding
+            # grip changes from 0.1 to -0.1
+            # holding changes from 1 to -1
+            robot_param = [desired_x, desired_y, -0.1, -2.0]
+            param = block_param + robot_param
+            return np.array(param, dtype=np.float32)
     place_nsrt = NSRT("Place", parameters, preconditions,
                       add_effects, delete_effects, set(), option,
                       option_vars, place_sampler)
