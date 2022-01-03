@@ -39,6 +39,7 @@ class _DefaultOptionModel(_OptionModel):
     to figure out the next state.
     """
     def get_next_state(self, state: State, option: _Option) -> State:
-        return utils.option_to_trajectory(
+        traj = utils.option_to_trajectory(
                 state, self._simulator, option,
-                max_num_steps=CFG.max_num_steps_option_rollout).states[-1]
+                max_num_steps=CFG.max_num_steps_option_rollout)
+        return traj.states[-1]
