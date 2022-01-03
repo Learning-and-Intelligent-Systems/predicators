@@ -104,11 +104,11 @@ class IterativeInventionApproach(NSRTLearningApproach):
         opt_arg_pred = Predicate("OPT-ARGS", param_option.types,
                                  _classifier=lambda s, o: False)  # dummy
         lifted_opt_atom = LiftedAtom(opt_arg_pred, option_vars)
-        op_pre = utils.wrap_atom_predicates_lifted(
+        op_pre = utils.wrap_atom_predicates(
             op.preconditions, "PRE-")
-        op_add_effs = utils.wrap_atom_predicates_lifted(
+        op_add_effs = utils.wrap_atom_predicates(
             op.add_effects, "ADD-")
-        op_del_effs = utils.wrap_atom_predicates_lifted(
+        op_del_effs = utils.wrap_atom_predicates(
             op.delete_effects, "DEL-")
         lifteds = frozenset(op_pre | op_add_effs | op_del_effs |
                             {lifted_opt_atom})
@@ -135,11 +135,11 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 for segment in segments_by_objects[objects]:
                     option = segment.get_option()
                     ground_opt_atom = GroundAtom(opt_arg_pred, option.objects)
-                    trans_atoms = utils.wrap_atom_predicates_ground(
+                    trans_atoms = utils.wrap_atom_predicates(
                         segment.init_atoms, "PRE-")
-                    trans_add_effs = utils.wrap_atom_predicates_ground(
+                    trans_add_effs = utils.wrap_atom_predicates(
                         segment.add_effects, "ADD-")
-                    trans_del_effs = utils.wrap_atom_predicates_ground(
+                    trans_del_effs = utils.wrap_atom_predicates(
                         segment.delete_effects, "DEL-")
                     # Check whether the grounding holds for the atoms & option.
                     # If not, continue.
