@@ -282,7 +282,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     if abs(lb - ub) < 1e-6:
                         continue
                     # Scale the constant by the feature range.
-                    k = (constant + lb) / (ub - lb)
+                    k = constant * (ub - lb) + lb
                     # Only need one of (ge, le) because we can use negations
                     # to get the other (modulo equality, which we shouldn't
                     # rely on anyway because of precision issues).
