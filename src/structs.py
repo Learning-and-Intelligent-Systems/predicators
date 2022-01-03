@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -456,6 +456,7 @@ class _Option:
         action.set_option(self)
         return action
 
+
 DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
@@ -604,6 +605,14 @@ class _GroundSTRIPSOperator:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, _GroundSTRIPSOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) > str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -1001,3 +1010,9 @@ PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Metrics = DefaultDict[str, float]
+LiftedOrGroundAtom = TypeVar(
+    "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+NSRTOrSTRIPSOperator = TypeVar(
+    "NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar(
+    "GroundNSRTOrSTRIPSOperator", _GroundNSRT, _GroundSTRIPSOperator)
