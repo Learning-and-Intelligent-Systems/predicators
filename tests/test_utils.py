@@ -10,9 +10,11 @@ from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
+from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
-from predicators.src.utils import _HAddHeuristic, _HMaxHeuristic
+from predicators.src.utils import _HAddHeuristic, _HMaxHeuristic, _HFFHeuristic
 
 
 def test_intersects():
@@ -178,7 +180,7 @@ def test_strip_predicate():
 
 
 def test_abstract():
-    """Tests for abstract().
+    """Tests for abstract() and wrap_atom_predicates().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
@@ -195,16 +197,12 @@ def test_abstract():
     plate2 = plate_type("plate2")
     state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
     atoms = utils.abstract(state, {pred1, pred2})
-    with pytest.raises(AttributeError):
-        utils.wrap_atom_predicates_lifted(atoms, "TEST-PREFIX-G-")
-    wrapped = utils.wrap_atom_predicates_ground(atoms, "TEST-PREFIX-G-")
+    wrapped = utils.wrap_atom_predicates(atoms, "TEST-PREFIX-G-")
     assert len(wrapped) == len(atoms)
     for atom in wrapped:
         assert atom.predicate.name.startswith("TEST-PREFIX-G-")
     lifted_atoms = {pred1([cup_type("?cup"), plate_type("?plate")])}
-    with pytest.raises(AttributeError):
-        utils.wrap_atom_predicates_ground(lifted_atoms, "TEST-PREFIX-L-")
-    wrapped = utils.wrap_atom_predicates_lifted(lifted_atoms, "TEST-PREFIX-L-")
+    wrapped = utils.wrap_atom_predicates(lifted_atoms, "TEST-PREFIX-L-")
     assert len(wrapped) == len(lifted_atoms)
     for atom in wrapped:
         assert atom.predicate.name.startswith("TEST-PREFIX-L-")
@@ -532,14 +530,14 @@ def test_nsrt_methods():
         "Pick", [cup_type], params_space, lambda s, m, o, p: 2*p,
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     nsrt = NSRT("PickNSRT", parameters, preconditions, add_effects,
-                delete_effects, parameterized_option, [parameters[0]],
+                delete_effects, set(), parameterized_option, [parameters[0]],
                 _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = utils.all_ground_nsrts(nsrt, objects)
+    ground_nsrts = sorted(utils.all_ground_nsrts(nsrt, objects))
     assert len(ground_nsrts) == 8
     all_obj = [nsrt.objects for nsrt in ground_nsrts]
     assert [cup1, plate1, plate1] in all_obj
@@ -570,13 +568,13 @@ def test_all_ground_operators():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
-                        delete_effects)
+                        delete_effects, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_ops = utils.all_ground_operators(op, objects)
+    ground_ops = sorted(utils.all_ground_operators(op, objects))
     assert len(ground_ops) == 8
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate1, plate1] in all_obj
@@ -607,18 +605,20 @@ def test_all_ground_operators_given_partial():
     add_effects = {on([cup_var, plate1_var])}
     delete_effects = {not_on([cup_var, plate1_var])}
     op = STRIPSOperator("Pick", parameters, preconditions, add_effects,
-                        delete_effects)
+                        delete_effects, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
     # First test empty partial sub.
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, {})
-    assert ground_ops == utils.all_ground_operators(op, objects)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, {}))
+    assert ground_ops == sorted(utils.all_ground_operators(op, objects))
     # Test with one partial sub.
     sub = {plate1_var: plate1}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 4
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate1, plate1] in all_obj
@@ -630,7 +630,8 @@ def test_all_ground_operators_given_partial():
     assert types == {"plate_type": plate_type, "cup_type": cup_type}
     # Test another single partial sub.
     sub = {plate1_var: plate2}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 4
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate2, plate1] in all_obj
@@ -639,13 +640,15 @@ def test_all_ground_operators_given_partial():
     assert [cup2, plate2, plate2] in all_obj
     # Test multiple partial subs.
     sub = {plate1_var: plate1, plate2_var: plate2}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 2
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate1, plate2] in all_obj
     assert [cup2, plate1, plate2] in all_obj
     sub = {plate1_var: plate2, plate2_var: plate1, cup_var: cup1}
-    ground_ops = utils.all_ground_operators_given_partial(op, objects, sub)
+    ground_ops = sorted(utils.all_ground_operators_given_partial(
+        op, objects, sub))
     assert len(ground_ops) == 1
     all_obj = [op.objects for op in ground_ops]
     assert [cup1, plate2, plate1] in all_obj
@@ -741,8 +744,8 @@ def test_create_ground_atom_dataset():
     assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
 
 
-def test_static_nsrt_filtering():
-    """Tests for filter_static_nsrts().
+def test_static_filtering():
+    """Tests for filter_static_operators().
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -760,16 +763,18 @@ def test_static_nsrt_filtering():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (utils.all_ground_nsrts(nsrt1, objects) |
-                    utils.all_ground_nsrts(nsrt2, objects))
+    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
+                    set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2]),
              pred2([cup1, plate1]), pred2([cup1, plate2]),
@@ -785,7 +790,7 @@ def test_static_nsrt_filtering():
             ("Pred2", "cup2:cup_type", "plate2:plate_type")}
     # All NSRTs with cup2 in the args should get filtered out,
     # since pred1 doesn't hold on cup2.
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
+    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in ground_nsrts]
     assert ("Pick", [cup1, plate1]) in all_obj
     assert ("Pick", [cup1, plate2]) in all_obj
@@ -812,19 +817,21 @@ def test_is_dr_reachable():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (utils.all_ground_nsrts(nsrt1, objects) |
-                    utils.all_ground_nsrts(nsrt2, objects))
+    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
+                    set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
+    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
     assert utils.is_dr_reachable(ground_nsrts, atoms, {pred1([cup1, plate1])})
     assert utils.is_dr_reachable(ground_nsrts, atoms, {pred1([cup1, plate2])})
     assert utils.is_dr_reachable(ground_nsrts, atoms, {pred2([cup1, plate1])})
@@ -848,7 +855,8 @@ def test_is_dr_reachable():
 
 
 def test_nsrt_application():
-    """Tests for get_applicable_nsrts(), apply_nsrt().
+    """Tests for get_applicable_operators() and apply_operator() with
+    a _GroundNSRT.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -865,54 +873,69 @@ def test_nsrt_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, option=None, option_vars=[], _sampler=None)
+                 delete_effects1, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, option=None, option_vars=[], _sampler=None)
+                 delete_effects2, side_predicates=set(), option=None,
+                 option_vars=[], _sampler=None)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (utils.all_ground_nsrts(nsrt1, objects) |
-                  utils.all_ground_nsrts(nsrt2, objects))
+    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
+                    set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
-    applicable = list(utils.get_applicable_nsrts(
+    applicable = list(utils.get_applicable_operators(
         ground_nsrts, {pred1([cup1, plate1])}))
     assert len(applicable) == 2
     all_obj = [(nsrt.name, nsrt.objects) for nsrt in applicable]
     assert ("Pick", [cup1, plate1]) in all_obj
     assert ("Place", [cup1, plate1]) in all_obj
-    next_atoms = [utils.apply_nsrt(nsrt, {pred1([cup1, plate1])})
+    next_atoms = [utils.apply_operator(nsrt, {pred1([cup1, plate1])})
                   for nsrt in applicable]
     assert {pred1([cup1, plate1])} in next_atoms
     assert {pred1([cup1, plate1]), pred2([cup1, plate1])} in next_atoms
-    assert list(utils.get_applicable_nsrts(
+    assert list(utils.get_applicable_operators(
         ground_nsrts, {pred1([cup1, plate2])}))
-    assert list(utils.get_applicable_nsrts(
+    assert list(utils.get_applicable_operators(
         ground_nsrts, {pred1([cup2, plate1])}))
-    assert list(utils.get_applicable_nsrts(
+    assert list(utils.get_applicable_operators(
         ground_nsrts, {pred1([cup2, plate2])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred2([cup1, plate1])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred2([cup1, plate2])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred2([cup2, plate1])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred2([cup2, plate2])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred3([cup1, plate1])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred3([cup1, plate2])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred3([cup2, plate1])}))
-    assert not list(utils.get_applicable_nsrts(
+    assert not list(utils.get_applicable_operators(
         ground_nsrts, {pred3([cup2, plate2])}))
+    # Tests with side predicates.
+    side_predicates = {pred2}
+    nsrt3 = NSRT("Pick", parameters, preconditions1, add_effects1,
+             delete_effects1, side_predicates=side_predicates, option=None,
+             option_vars=[], _sampler=None)
+    ground_nsrts = sorted(utils.all_ground_nsrts(nsrt3, objects))
+    applicable = list(utils.get_applicable_operators(
+        ground_nsrts, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_nsrt = applicable[0]
+    atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
+    next_atoms = utils.apply_operator(ground_nsrt, atoms)
+    assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_operator_application():
     """Tests for get_applicable_operators(), apply_operator(), and
-    get_successors_from_ground_ops().
+    get_successors_from_ground_ops() with a _GroundSTRIPSOperator.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -929,16 +952,16 @@ def test_operator_application():
     add_effects2 = {}
     delete_effects2 = {pred3([cup_var, plate_var])}
     op1 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1)
+                         delete_effects1, set())
     op2 = STRIPSOperator("Place", parameters, preconditions2, add_effects2,
-                         delete_effects2)
+                         delete_effects2, set())
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     objects = {cup1, cup2, plate1, plate2}
-    ground_ops = (utils.all_ground_operators(op1, objects) |
-                  utils.all_ground_operators(op2, objects))
+    ground_ops = (set(utils.all_ground_operators(op1, objects)) |
+                  set(utils.all_ground_operators(op2, objects)))
     assert len(ground_ops) == 8
     applicable = list(utils.get_applicable_operators(
         ground_ops, {pred1([cup1, plate1])}))
@@ -994,6 +1017,18 @@ def test_operator_application():
     assert successors[0] == successors[1]
     assert not list(utils.get_successors_from_ground_ops(
         {pred3([cup2, plate2])}, ground_ops))
+    # Tests with side predicates.
+    side_predicates = {pred2}
+    op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
+                         delete_effects1, side_predicates=side_predicates)
+    ground_ops = sorted(utils.all_ground_operators(op3, objects))
+    applicable = list(utils.get_applicable_operators(
+        ground_ops, {pred1([cup1, plate1])}))
+    assert len(applicable) == 1
+    ground_op = applicable[0]
+    atoms = {pred1([cup1, plate1]), pred2([cup2, plate2])}
+    next_atoms = utils.apply_operator(ground_op, atoms)
+    assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
 def test_create_heuristic():
@@ -1003,12 +1038,14 @@ def test_create_heuristic():
     assert isinstance(hadd_heuristic, _HAddHeuristic)
     hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set())
     assert isinstance(hmax_heuristic, _HMaxHeuristic)
+    hff_heuristic = utils.create_heuristic("hff", set(), set(), set())
+    assert isinstance(hff_heuristic, _HFFHeuristic)
     with pytest.raises(ValueError):
         utils.create_heuristic("not a real heuristic", set(), set(), set())
 
 
 def test_hadd_heuristic():
-    """Tests for HAddHeuristic.
+    """Tests for _HAddHeuristic.
     """
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
@@ -1060,7 +1097,7 @@ def test_hadd_heuristic():
 
 
 def test_hmax_heuristic():
-    """Tests for HMaxHeuristic.
+    """Tests for _HMaxHeuristic.
     """
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
@@ -1118,6 +1155,130 @@ def test_hmax_heuristic():
     goals = frozenset({("HoldingSomething",)})
     heuristic = _HMaxHeuristic(initial_state, goals, operators)
     assert heuristic(initial_state) == 1
+
+
+def test_hff_heuristic():
+    """Tests for _HFFHeuristic.
+    """
+    initial_state = frozenset({("IsBlock", "block0:block"),
+                               ("IsTarget", "target0:target"),
+                               ("IsTarget", "target1:target"),
+                               ("HandEmpty",),
+                               ("IsBlock", "block1:block")})
+    operators = [
+        utils.RelaxedOperator(
+            "Pick", frozenset({("HandEmpty",), ("IsBlock", "block1:block")}),
+            frozenset({("Holding", "block1:block")})),
+        utils.RelaxedOperator(
+            "Pick", frozenset({("IsBlock", "block0:block"), ("HandEmpty",)}),
+            frozenset({("Holding", "block0:block")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("Holding", "block0:block"),
+                                ("IsBlock", "block0:block"),
+                                ("IsTarget", "target0:target")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block0:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target0:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("HandEmpty",),
+                       ("Covers", "block1:block", "target0:target")})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block1:block"),
+                                ("IsBlock", "block1:block")}),
+            frozenset({("Covers", "block1:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Place", frozenset({("IsTarget", "target1:target"),
+                                ("Holding", "block0:block"),
+                                ("IsBlock", "block0:block")}),
+            frozenset({("Covers", "block0:block", "target1:target"),
+                       ("HandEmpty",)})),
+        utils.RelaxedOperator(
+            "Dummy", frozenset({}), frozenset({}))]
+    goals = frozenset({("Covers", "block0:block", "target0:target"),
+                       ("Covers", "block1:block", "target1:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, operators)
+    assert heuristic(initial_state) == 2
+    assert heuristic(goals) == 0
+    # Test unreachable goal.
+    goals = frozenset({("Covers", "block0:block", "target0:target")})
+    heuristic = _HFFHeuristic(initial_state, goals, [])
+    assert heuristic(initial_state) == float("inf")
+
+
+def test_create_pddl():
+    """Tests for create_pddl_domain() and create_pddl_problem().
+    """
+    utils.update_config({"env": "cover"})
+    # All predicates and options
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    env.seed(123)
+    train_task = next(env.train_tasks_generator())[0]
+    state = train_task.init
+    objects = list(state)
+    init_atoms = utils.abstract(state, env.predicates)
+    goal = train_task.goal
+    domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
+                                          "cover")
+    problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
+                                            "cover", "cover-problem0")
+    assert domain_str == """(define (domain cover)
+  (:requirements :typing)
+  (:types block robot target)
+
+  (:predicates
+    (Covers ?x0 - block ?x1 - target)
+    (HandEmpty)
+    (Holding ?x0 - block)
+    (IsBlock ?x0 - block)
+    (IsTarget ?x0 - target)
+  )
+
+  (:action Pick
+    :parameters (?block - block)
+    :precondition (and (HandEmpty)
+        (IsBlock ?block))
+    :effect (and (Holding ?block)
+        (not (HandEmpty)))
+  )
+
+  (:action Place
+    :parameters (?block - block ?target - target)
+    :precondition (and (Holding ?block)
+        (IsBlock ?block)
+        (IsTarget ?target))
+    :effect (and (Covers ?block ?target)
+        (HandEmpty)
+        (not (Holding ?block)))
+  )
+)"""
+
+    assert problem_str == """(define (problem cover-problem0) (:domain cover)
+  (:objects
+    block0 - block
+    block1 - block
+    robby - robot
+    target0 - target
+    target1 - target
+  )
+  (:init
+    (HandEmpty)
+    (IsBlock block0)
+    (IsBlock block1)
+    (IsTarget target0)
+    (IsTarget target1)
+  )
+  (:goal (and (Covers block0 target0)))
+)
+"""
 
 
 def test_save_video():
@@ -1272,7 +1433,7 @@ def test_ops_and_specs_to_dummy_nsrts():
         "Pick", [], params_space, lambda s, m, o, p: 2*p,
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects)
+                                     add_effects, delete_effects, set())
     nsrts = utils.ops_and_specs_to_dummy_nsrts([strips_operator],
                                                [(parameterized_option, [])])
     assert len(nsrts) == 1

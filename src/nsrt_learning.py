@@ -233,7 +233,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
     for i in range(len(params)):
         name = f"Op{i}"
         op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
-                            delete_effects[i])
+                            delete_effects[i], set())
         if verbose:
             print("Learned STRIPSOperator:")
             print(op)
@@ -286,10 +286,10 @@ def unify_effects_and_options(
                                     _classifier=lambda s, o: False)  # dummy
     f_ground_option_args = frozenset({GroundAtom(ground_opt_arg_pred,
                                                  ground_option_args)})
-    new_ground_add_effects = utils.wrap_atom_predicates_ground(
+    new_ground_add_effects = utils.wrap_atom_predicates(
         ground_add_effects, "ADD-")
     f_new_ground_add_effects = frozenset(new_ground_add_effects)
-    new_ground_delete_effects = utils.wrap_atom_predicates_ground(
+    new_ground_delete_effects = utils.wrap_atom_predicates(
         ground_delete_effects, "DEL-")
     f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
 
@@ -298,10 +298,10 @@ def unify_effects_and_options(
                                     _classifier=lambda s, o: False)  # dummy
     f_lifted_option_args = frozenset({LiftedAtom(lifted_opt_arg_pred,
                                                  lifted_option_args)})
-    new_lifted_add_effects = utils.wrap_atom_predicates_lifted(
+    new_lifted_add_effects = utils.wrap_atom_predicates(
         lifted_add_effects, "ADD-")
     f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
-    new_lifted_delete_effects = utils.wrap_atom_predicates_lifted(
+    new_lifted_delete_effects = utils.wrap_atom_predicates(
         lifted_delete_effects, "DEL-")
     f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
     return utils.unify(
