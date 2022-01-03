@@ -118,8 +118,8 @@ class GlobalSettings:
     grammar_search_bf_weight = 1
     grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
-    grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
+    grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "hadd_lookahead"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5
@@ -139,47 +139,42 @@ class GlobalSettings:
             # Task planning heuristic to use in SeSamE.
             task_planning_heuristic=defaultdict(
                 # Use HAdd by default.
-                lambda : "hadd", {
-                "playroom": "hff",
-            })[args["env"]],
+                lambda: "hadd", {
+                    # In the playroom domain, HFF works better.
+                    "playroom": "hff",
+                }
+            )[args["env"]],
 
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
-            sesame_propagate_failures=defaultdict(str, {
-                "cover": "immediately",
-                "cover_typed_options": "immediately",
-                "cover_hierarchical_types": "immediately",
-                "cover_multistep_options": "immediately",
-                # We use a different strategy for cluttered_table because
-                # of the high likelihood of getting cyclic failures if you
-                # immediately raise failures, leading to unsolvable tasks.
-                "cluttered_table": "after_exhaust",
-                "blocks": "immediately",
-                "painting": "immediately",
-                "repeated_nextto": "immediately",
-                "playroom": "immediately",
-                "behavior": "immediately",
-            })[args["env"]],
+            sesame_propagate_failures=defaultdict(
+                # Use "immediately" by default.
+                lambda: "immediately", {
+                    # We use a different strategy for cluttered_table because
+                    # of the high likelihood of getting cyclic failures if you
+                    # immediately raise failures, leading to unsolvable tasks.
+                    "cluttered_table": "after_exhaust",
+                }
+            )[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
-            offline_data_method=defaultdict(str, {
-                "nsrt_learning": "demo+replay",
-                "interactive_learning": "demo",  # narrative is active learning
-                "iterative_invention": "demo+replay",
-                "grammar_search_invention": "demo+replay",
-            })[args["approach"]],
+            offline_data_method=defaultdict(
+                # Use both demonstrations and random replays by default.
+                lambda: "demo+replay", {
+                    # No replays for active learning project.
+                    "interactive_learning": "demo",
+                }
+            )[args["approach"]],
 
             # Number of replays used when offline_data_method is demo+replay.
-            offline_data_num_replays=defaultdict(int, {
-                "cover": 500,
-                "cover_typed_options": 500,
-                "cover_hierarchical_types": 500,
-                "cover_multistep_options": 500,
-                "cluttered_table": 500,
-                "blocks": 500,
-                "painting": 500,
-                "repeated_nextto": 50,  # too many replays makes learning slow
-            })[args["env"]],
+            offline_data_num_replays=defaultdict(
+                # Default number of random replays.
+                lambda: 500, {
+                    # For the repeated_nextto environment, too many
+                    # replays makes learning slow.
+                    "repeated_nextto": 50,
+                }
+            )[args["env"]],
         )
 
 

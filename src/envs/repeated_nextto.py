@@ -20,11 +20,7 @@ class RepeatedNextToEnv(BaseEnv):
     env_lb = 0.0
     env_ub = 100.0
     grasped_thresh = 0.5
-    # Currently, we set this threshold very low so that the robot is whp only
-    # near a single dot. This makes planning succeed with the oracle operators.
-    # However, we want to eventually increase this threshold so that the robot
-    # can be NextTo many different dots at the same time.
-    nextto_thresh = 0.02
+    nextto_thresh = 0.5
 
     def __init__(self) -> None:
         super().__init__()
