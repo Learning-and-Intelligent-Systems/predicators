@@ -307,7 +307,7 @@ def test_prediction_error_score_function():
 
 
 def test_hadd_match_score_function():
-    """Tests for _HAddHeuristicMatchBasedScoreFunction().
+    """Tests for _RelaxationHeuristicMatchBasedScoreFunction() with hAdd..
     """
     # We know that this score function is bad, and this test shows why.
     utils.update_config({
@@ -425,8 +425,8 @@ def test_hadd_lookahead_score_function():
     # (Clear, Holding, GripperOpen): 11411.369394796291
 
     # Tests for lookahead_depth > 0.
-    score_function = _HAddHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates,
+    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+        initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
         lookahead_depth=1)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
@@ -467,7 +467,9 @@ def test_hadd_lookahead_score_function():
     # if not successor_hs: return float("inf")) but I can't figure out any
     # simpler way. One tricky part is that if there are no ground operators,
     # the heuristic will never get called (see evaluate_atom_trajectory).
-    class _MockHAddLookahead(_HAddHeuristicLookaheadBasedScoreFunction):
+    class _MockHAddLookahead(_RelaxationHeuristicLookaheadBasedScoreFunction):
+        """Mock class.
+        """
 
         def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
@@ -488,7 +490,7 @@ def test_hadd_lookahead_score_function():
             return heuristic_fn(atoms_sequence[0])
 
     score_function = _MockHAddLookahead(initial_predicates, atom_dataset,
-        train_tasks, candidates, lookahead_depth=1)
+        train_tasks, candidates, "hadd", lookahead_depth=1)
     assert score_function.evaluate(set(candidates)) == float("inf")
 
 
