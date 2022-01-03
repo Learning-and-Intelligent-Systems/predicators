@@ -392,7 +392,7 @@ class ParameterizedOption:
         params = np.array(params, dtype=self.params_space.dtype)
 
         assert self.params_space.contains(params)
-        
+
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name, lambda s: self._policy(s, memory, objects, params),

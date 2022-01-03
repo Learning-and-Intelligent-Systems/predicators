@@ -273,12 +273,14 @@ def _run_low_level_search(
 
                 if scoped_expected_atoms.issubset(scoped_atoms):
                     can_continue_on = True
-                    print("Option achieved expected high-level state! Moving on to next action in skeleton.")
+                    print("Option achieved expected high-level state!" +
+                    "Moving on to next action in skeleton.")
                     if cur_idx == len(skeleton):  # success!
                         result = plan
                         return result
                 else:
-                    print("Option did not result in expected high-level termination state :(. Moving on...")
+                    print("Option did not result in expected high-level" +
+                    "termination state :(. Moving on...")
                     can_continue_on = False
             else:
                 cur_idx += 1  # it's about to be decremented again
