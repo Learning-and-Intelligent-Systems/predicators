@@ -715,7 +715,7 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
 
 
 def get_successors_from_ground_ops(atoms: Set[GroundAtom],
-        ground_ops: Collection[_GroundSTRIPSOperator],
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
         unique: bool = True
         ) -> Iterator[Set[GroundAtom]]:
     """Get all next atoms from ground operators.
