@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -140,7 +140,7 @@ class State:
         """
         feats: List[Array] = []
         if len(objects) == 0:
-            return np.zeros(0)
+            return np.zeros(0, dtype=np.float32)
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
@@ -246,6 +246,15 @@ class Predicate:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if self.arity == 0:
+            return f"({self.name})"
+        vars_str = " ".join(f"?x{i} - {t.name}"
+                            for i, t in enumerate(self.types))
+        return f"({self.name} {vars_str})"
+
     def get_negation(self) -> Predicate:
         """Return a negated version of this predicate.
         """
@@ -283,6 +292,14 @@ class _Atom:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if not self.entities:
+            return f"({self.predicate.name})"
+        entities_str = " ".join(e.name for e in self.entities)
+        return f"({self.predicate.name} {entities_str})"
 
     def __hash__(self) -> int:
         return self._hash
@@ -439,6 +456,7 @@ class _Option:
         action.set_option(self)
         return action
 
+
 DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
@@ -455,6 +473,7 @@ class STRIPSOperator:
     preconditions: Set[LiftedAtom]
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
+    side_predicates: Set[Predicate]
 
     def make_nsrt(
             self, option: ParameterizedOption, option_vars: Sequence[Variable],
@@ -464,8 +483,8 @@ class STRIPSOperator:
         given the necessary additional fields.
         """
         return NSRT(self.name, self.parameters, self.preconditions,
-                    self.add_effects, self.delete_effects, option,
-                    option_vars, sampler)
+                    self.add_effects, self.delete_effects, self.side_predicates,
+                    option, option_vars, sampler)
 
     @lru_cache(maxsize=None)
     def ground(self, objects: Tuple[Object]) -> _GroundSTRIPSOperator:
@@ -490,7 +509,8 @@ class STRIPSOperator:
     Parameters: {self.parameters}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
-    Delete Effects: {sorted(self.delete_effects, key=str)}"""
+    Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -502,12 +522,40 @@ class STRIPSOperator:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        params_str = " ".join(f"{p.name} - {p.type.name}"
+                              for p in self.parameters)
+        preconds_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.preconditions))
+        effects_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.add_effects))
+        if self.delete_effects:
+            effects_str += "\n        "
+            effects_str += "\n        ".join(
+                f"(not {atom.pddl_str()})"
+                for atom in sorted(self.delete_effects))
+        return f"""(:action {self.name}
+    :parameters ({params_str})
+    :precondition (and {preconds_str})
+    :effect (and {effects_str})
+  )"""
+
     def __hash__(self) -> int:
         return self._hash
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, STRIPSOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) > str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -526,7 +574,8 @@ class _GroundSTRIPSOperator:
     Parameters: {self.objects}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
-    Delete Effects: {sorted(self.delete_effects, key=str)}"""
+    Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -537,6 +586,12 @@ class _GroundSTRIPSOperator:
         """Name of this ground STRIPSOperator.
         """
         return self.operator.name
+
+    @property
+    def side_predicates(self) -> Set[Predicate]:
+        """Side predicates from the parent.
+        """
+        return self.operator.side_predicates
 
     def __str__(self) -> str:
         return self._str
@@ -550,6 +605,14 @@ class _GroundSTRIPSOperator:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, _GroundSTRIPSOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) > str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -565,6 +628,7 @@ class NSRT:
     preconditions: Set[LiftedAtom]
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
+    side_predicates: Set[Predicate]
     option: ParameterizedOption
     # A subset of parameters corresponding to the (lifted) arguments of the
     # option that this NSRT contains.
@@ -581,6 +645,7 @@ class NSRT:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}
     Option Spec: {self.option.name}({option_var_str})"""
 
     @cached_property
@@ -592,6 +657,14 @@ class NSRT:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        op = STRIPSOperator(self.name, self.parameters, self.preconditions,
+                            self.add_effects, self.delete_effects,
+                            self.side_predicates)
+        return op.pddl_str()
 
     def __hash__(self) -> int:
         return self._hash
@@ -625,14 +698,15 @@ class NSRT:
 
     def filter_predicates(self, kept: Collection[Predicate]) -> NSRT:
         """Keep only the given predicates in the preconditions,
-        add effects, and delete effects. Note that the parameters must
-        stay the same for the sake of the sampler input arguments.
+        add effects, delete effects, and side predicates. Note that the
+        parameters must stay the same for the sake of the sampler inputs.
         """
         preconditions = {a for a in self.preconditions if a.predicate in kept}
         add_effects = {a for a in self.add_effects if a.predicate in kept}
         delete_effects = {a for a in self.delete_effects if a.predicate in kept}
+        side_predicates = {a for a in self.side_predicates if a in kept}
         return NSRT(self.name, self.parameters,
-                    preconditions, add_effects, delete_effects,
+                    preconditions, add_effects, delete_effects, side_predicates,
                     self.option, self.option_vars, self._sampler)
 
 
@@ -658,6 +732,7 @@ class _GroundNSRT:
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}
     Option: {self.option}
     Option Objects: {self.option_objs}"""
 
@@ -670,6 +745,12 @@ class _GroundNSRT:
         """Name of this ground NSRT.
         """
         return self.nsrt.name
+
+    @property
+    def side_predicates(self) -> Set[Predicate]:
+        """Side predicates from the parent.
+        """
+        return self.nsrt.side_predicates
 
     def __str__(self) -> str:
         return self._str
@@ -929,3 +1010,9 @@ PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Metrics = DefaultDict[str, float]
+LiftedOrGroundAtom = TypeVar(
+    "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+NSRTOrSTRIPSOperator = TypeVar(
+    "NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar(
+    "GroundNSRTOrSTRIPSOperator", _GroundNSRT, _GroundSTRIPSOperator)

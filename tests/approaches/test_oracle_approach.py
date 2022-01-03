@@ -295,7 +295,7 @@ def test_oracle_approach_playroom():
         policy = approach.solve(test_task, timeout=500)
         assert utils.policy_solves_task(
             policy, test_task, env.simulate, env.predicates)
-    # Test MoveDialToDoor for coverage
+    # Test MoveDialToDoor for coverage.
     nsrts = get_gt_nsrts(env.predicates, env.options)
     movedialtodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDialToDoor"][0]
@@ -315,6 +315,13 @@ def test_oracle_approach_playroom():
     assert env.action_space.contains(move_action.arr)
     assert np.all(move_action.arr == np.array([110.1, 15, 1, -1, 1],
                                                dtype=np.float32))
+    # Test MoveDoorToTable for coverage.
+    movedoortotable = [nsrt for nsrt in nsrts \
+                      if nsrt.name == "MoveDoorToTable"][0]
+    movedoortotable_nsrt = movedoortotable.ground([robot, door, region])
+    move_option2 = movedoortotable_nsrt.sample_option(state, rng)
+    move_action2 = move_option2.policy(state)
+    assert env.action_space.contains(move_action2.arr)
 
 
 def test_oracle_approach_repeated_nextto():

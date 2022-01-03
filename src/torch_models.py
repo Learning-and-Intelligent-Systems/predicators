@@ -176,8 +176,8 @@ class MLPClassifier(nn.Module):
         for i in range(len(hid_sizes)-1):
             self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
         self._linears.append(nn.Linear(hid_sizes[-1], 1))
-        self._input_shift = np.zeros(1)
-        self._input_scale = np.zeros(1)
+        self._input_shift = np.zeros(1, dtype=np.float32)
+        self._input_scale = np.zeros(1, dtype=np.float32)
         self._max_itr = max_itr
 
     def fit(self, X: Array, y: Array) -> None:
