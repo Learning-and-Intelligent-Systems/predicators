@@ -239,20 +239,12 @@ def _run_low_level_search(
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
                 atoms = utils.abstract(traj[cur_idx], predicates)
-                # import pdb; pdb.set_trace()
-                # if atoms == {atom for atom in atoms_sequence[cur_idx]
-                #              if atom.predicate.name != _NOT_CAUSES_FAILURE
-                #              }:
-                #     can_continue_on = True
-                #     if cur_idx == len(skeleton):  # success!
-                #         result = plan
-                #         return result
-
-                atoms = {atom for atom in atoms_sequence[cur_idx]}
-                can_continue_on = True
-                if cur_idx == len(skeleton):  # success!
-                    result = plan
-                    return result
+                if atoms == {atom for atom in atoms_sequence[cur_idx]
+                             if atom.predicate.name != _NOT_CAUSES_FAILURE}:
+                    can_continue_on = True
+                    if cur_idx == len(skeleton):  # success!
+                        result = plan
+                        return result
                 else:
                     can_continue_on = False
             else:
@@ -295,27 +287,13 @@ def _update_nsrts_with_failure(
     for obj in discovered_failure.env_failure.offending_objects:
         # import pdb; pdb.set_trace()
         atom = GroundAtom(Predicate(_NOT_CAUSES_FAILURE, [obj.type],
-                                    _classifier=lambda s, o: False + foobar), [obj])
+                                    _classifier=lambda s, o: False), [obj])
         # Update the preconditions of the failing NSRT.
         discovered_failure.failing_nsrt.preconditions.add(atom)
         # Update the effects of all nsrts that use this object.
         for nsrt in ground_nsrts:
             if obj in nsrt.objects:
                 nsrt.add_effects.add(atom)
-
-def failure_classifier(s, o):   # (?)
-    
-    # 1. the classifier doesn't seem to be actually used
-    # 2. inputs are state and objects but desired can is specified by action
-    # 3. what is the obj that gets passed into the classifier? 
-
-    ### assume we have the desired can and offending obj
-    offending_x = state.get(obj, "pose_x")
-    offending_y = state.get(obj, "pose_y")
-    desired_x = state.get(desired_can, "pose_x")
-    desired_y = state.get(desired_can, "pose_y")
-    distance_between = ((desired_x - offending_x)**2 + (desired_y - offending_y)**2) ** 0.5
-    return distance_between > 0.3
 
 
 @dataclass(frozen=True, eq=False)
