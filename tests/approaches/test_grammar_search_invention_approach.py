@@ -336,7 +336,7 @@ def test_hadd_match_score_function():
     assert handempty_included_s > none_included_s # this is very bad!
 
 
-def test_hadd_lookahead_score_function():
+def test_relaxation_lookahead_score_function():
     """Tests for _RelaxationHeuristicLookaheadBasedScoreFunction().
     """
     # Tests for CoverEnv.
@@ -364,13 +364,15 @@ def test_hadd_lookahead_score_function():
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
-    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
+    handempty_included_s = score_function.evaluate(
+        {name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
     none_included_s = score_function.evaluate(set())
     assert all_included_s < holding_included_s < none_included_s
     assert all_included_s < handempty_included_s  # not better than none
 
     # Test that the score is inf when the operators make the data impossible.
+    # Sanity check this for all heuristic choices.
     ablated = {"Covers"}
     initial_predicates = set()
     name_to_pred = {}
@@ -380,10 +382,12 @@ def test_hadd_lookahead_score_function():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    # Reuse dataset from above.
-    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    assert score_function.evaluate(set()) == float("inf")
+    for heuristic_name in ["hadd", "hmax", "hff"]:
+        # Reuse dataset from above.
+        score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            heuristic_name)
+        assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
     utils.flush_cache()

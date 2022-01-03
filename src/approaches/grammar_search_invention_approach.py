@@ -762,7 +762,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                                       ground_ops)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
-        def _fn_h(atoms: Set[GroundAtom], depth: int=0) -> float:
+        def _relaxation_h(atoms: Set[GroundAtom], depth: int=0) -> float:
             cache_key = (frozenset(atoms), depth)
             if cache_key in cache:
                 return cache[cache_key]
@@ -771,7 +771,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
             elif depth == self.lookahead_depth:
                 result = h_fn(utils.atoms_to_tuples(atoms))
             else:
-                successor_hs = [_fn_h(next_atoms, depth+1)
+                successor_hs = [_relaxation_h(next_atoms, depth+1)
                     for next_atoms in utils.get_successors_from_ground_ops(
                     atoms, ground_ops)]
                 if not successor_hs:
@@ -779,7 +779,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                 result = 1.0 + min(successor_hs)
             cache[cache_key] = result
             return result
-        return _fn_h
+        return _relaxation_h
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -827,7 +827,7 @@ class _RelaxationHeuristicMatchBasedScoreFunction(
 class _RelaxationHeuristicLookaheadBasedScoreFunction(
         _RelaxationHeuristicBasedScoreFunction,
         _HeuristicLookaheadBasedScoreFunction):
-    """Implement _generate_heuristic() with delete relaxation heuristic and
+    """Implement _generate_heuristic() with a delete relaxation heuristic and
     _evaluate_atom_trajectory() with one-step lookahead.
     """
 
