@@ -5,7 +5,7 @@ the candidates proposed from a grammar.
 from __future__ import annotations
 import time
 import abc
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 import itertools
 from operator import le
@@ -455,31 +455,40 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 ################################################################################
 
 def _create_score_function(
+        score_function_name: str,
         initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task],
         candidates: Dict[Predicate, float]
         ) -> _PredicateSearchScoreFunction:
-    if CFG.grammar_search_score_function == "prediction_error":
+    if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "branching_factor":
+    if score_function_name == "branching_factor":
         return _BranchingFactorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_match":
+    if score_function_name == "hadd_match":
         return _HAddHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "hadd_lookahead":
+    if score_function_name == "hadd_lookahead":
         return _HAddHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "exact_lookahead":
+    if score_function_name == "hadd_lookahead_depth1":
+        return _HAddHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            lookahead_depth=1)
+    if score_function_name == "hadd_lookahead_depth2":
+        return _HAddHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            lookahead_depth=2)
+    if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    if CFG.grammar_search_score_function == "task_planning":
+    if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
     raise NotImplementedError(
-        f"Unknown score function: {CFG.grammar_search_score_function}.")
+        f"Unknown score function: {score_function_name}.")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -704,9 +713,8 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i+1]
             ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
             ground_op_total_lpm = -np.inf  # total log prob mass for all actions
-            for ground_op in utils.get_applicable_operators(ground_ops, atoms):
-                # Compute the next state under the operator.
-                predicted_next_atoms = utils.apply_operator(ground_op, atoms)
+            for predicted_next_atoms in utils.get_successors_from_ground_ops(
+                atoms, ground_ops, unique=False):
                 # Compute the heuristic for the successor atoms.
                 h = heuristic_fn(predicted_next_atoms)
                 # Compute the probability that the correct next atoms would be
@@ -731,8 +739,10 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
-    """Implement _generate_heuristic() with HAdd.
+    """Implement _generate_heuristic() with HAdd and lookahead.
     """
+    lookahead_depth: int = field(default=0)
+
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
                             objects: Set[Object],
                             goal: Set[GroundAtom],
@@ -742,8 +752,25 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             ) -> Callable[[Set[GroundAtom]], float]:
         hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
         del init_atoms  # unused after this
-        def _hadd_fn_h(atoms: Set[GroundAtom]) -> float:
-            return hadd_fn(utils.atoms_to_tuples(atoms))
+        cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
+        def _hadd_fn_h(atoms: Set[GroundAtom],
+                       depth: int=0) -> float:
+            cache_key = (frozenset(atoms), depth)
+            if cache_key in cache:
+                return cache[cache_key]
+            if goal.issubset(atoms):
+                result = 0.0
+            elif depth == self.lookahead_depth:
+                result = hadd_fn(utils.atoms_to_tuples(atoms))
+            else:
+                successor_hs = [_hadd_fn_h(next_atoms, depth+1)
+                    for next_atoms in utils.get_successors_from_ground_ops(
+                    atoms, ground_ops)]
+                if not successor_hs:
+                    return float("inf")
+                result = 1.0 + min(successor_hs)
+            cache[cache_key] = result
+            return result
         return _hadd_fn_h
 
 
@@ -845,7 +872,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         print("Done.")
         # Create the score function that will be used to guide search.
         score_function = _create_score_function(
-            self._initial_predicates, atom_dataset, train_tasks, candidates)
+            CFG.grammar_search_score_function, self._initial_predicates,
+            atom_dataset, train_tasks, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
