@@ -18,7 +18,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, \
-    _GroundSTRIPSOperator
+    _GroundSTRIPSOperator, OptionSpec
 from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -466,7 +466,8 @@ def test_hadd_lookahead_score_function():
             segments = [seg for traj in pruned_atom_data
                         for seg in segment_trajectory(traj)]
             # This is the part that we are overriding, to force no successors.
-            strips_ops, option_specs = [], []
+            strips_ops: List[STRIPSOperator] = []
+            option_specs: List[OptionSpec] = []
             return self._evaluate_with_operators(predicates,
                 pruned_atom_data, segments, strips_ops, option_specs)
 
