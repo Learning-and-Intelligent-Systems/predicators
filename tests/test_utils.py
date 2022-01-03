@@ -998,15 +998,15 @@ def test_operator_application():
     # Test for get_successors_from_ground_ops().
     # Make sure uniqueness is handled properly.
     op3 = STRIPSOperator("Pick", parameters, preconditions1, add_effects1,
-                         delete_effects1)
+                         delete_effects1, set())
     preconditions3 = {pred2([cup_var, plate_var])}
     op4 = STRIPSOperator("Place", parameters, preconditions3, add_effects2,
-                         delete_effects2)
+                         delete_effects2, set())
     op5 = STRIPSOperator("Pick2", parameters, preconditions1, add_effects1,
-                         delete_effects1)
-    ground_ops = (utils.all_ground_operators(op3, objects) |
-                  utils.all_ground_operators(op4, objects) |
-                  utils.all_ground_operators(op5, objects))
+                         delete_effects1, set())
+    ground_ops = (set(utils.all_ground_operators(op3, objects)) |
+                  set(utils.all_ground_operators(op4, objects)) |
+                  set(utils.all_ground_operators(op5, objects)))
     successors = list(utils.get_successors_from_ground_ops(
                       {pred1([cup1, plate1])}, ground_ops))
     assert len(successors) == 1
