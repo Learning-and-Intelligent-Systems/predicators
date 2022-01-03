@@ -120,12 +120,13 @@ def test_count_positives_for_ops():
 def test_halving_constant_generator():
     """Tests for _halving_constant_generator().
     """
-    expected_sequence = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
+    expected_constants = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
     expected_costs = [1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0]
     generator = _halving_constant_generator(0., 1.)
-    for i, (constant, cost) in zip(range(len(expected_sequence)), generator):
-        assert abs(expected_sequence[i] - constant) < 1e-6
-        assert abs(expected_costs[i] - cost) < 1e-6
+    for (expected_constant, expected_cost, (constant, cost)) in \
+        zip(expected_constants, expected_costs, generator):
+        assert abs(expected_constant - constant) < 1e-6
+        assert abs(expected_cost - cost) < 1e-6
 
 
 def test_forall_classifier():
