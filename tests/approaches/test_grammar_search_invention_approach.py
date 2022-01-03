@@ -42,26 +42,30 @@ def test_predicate_grammar():
     assert data_based_grammar.types == env.types
     with pytest.raises(NotImplementedError):
         data_based_grammar.generate(max_num=1)
-    with pytest.raises(NotImplementedError):
-        _create_grammar("not a real grammar name", dataset, set())
     env = CoverEnv()
-    holding_dummy_grammar = _create_grammar("holding_dummy", dataset,
-                                            env.predicates)
-    assert len(holding_dummy_grammar.generate(max_num=1)) == 1
-    assert len(holding_dummy_grammar.generate(max_num=3)) == 2
     single_ineq_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
     assert len(single_ineq_grammar.generate(max_num=1)) == 1
     feature_ranges = single_ineq_grammar._get_feature_ranges()  # pylint: disable=protected-access
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
-    neg_sfi_grammar = _create_grammar("single_feat_ineqs", dataset,
-                                      env.predicates)
-    candidates = neg_sfi_grammar.generate(max_num=4)
-    assert str(sorted(candidates)) == \
-        ("[((0:block).pose<=2.33), ((0:block).width<=19.0), "
-         "NOT-((0:block).pose<=2.33), NOT-((0:block).width<=19.0)]")
-    forall_grammar = _create_grammar("forall_single_feat_ineqs", dataset,
-                                     env.predicates)
-    assert len(forall_grammar.generate(max_num=100)) == 100
+    forall_grammar = _create_grammar(dataset, env.predicates)
+    # There are only so many unique predicates possible under the grammar.
+    # Non-unique predicates are pruned. Note that with a larger dataset,
+    # more predicates would appear unique.
+    assert len(forall_grammar.generate(max_num=10)) == 7
+    # Test CFG.grammar_search_predicate_cost_upper_bound.
+    default = CFG.grammar_search_predicate_cost_upper_bound
+    utils.update_config({"grammar_search_predicate_cost_upper_bound": 0})
+    assert len(single_ineq_grammar.generate(max_num=10)) == 0
+    # With an empty dataset, all predicates should look the same, so zero
+    # predicates should be enumerated. The reason that it's zero and not one
+    # is because the given predicates are considered too when determining
+    # if a candidate predicate is unique.
+    # Set a small upper bound so that this terminates quickly.
+    utils.update_config({"grammar_search_predicate_cost_upper_bound": 2})
+    empty_data_grammar = _create_grammar([], env.predicates)
+    assert len(empty_data_grammar.generate(max_num=10)) == 0
+    # Reset to default just in case.
+    utils.update_config({"grammar_search_predicate_cost_upper_bound": default})
 
 
 def test_count_positives_for_ops():
@@ -116,10 +120,13 @@ def test_count_positives_for_ops():
 def test_halving_constant_generator():
     """Tests for _halving_constant_generator().
     """
-    expected_sequence = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
+    expected_constants = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
+    expected_costs = [1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0]
     generator = _halving_constant_generator(0., 1.)
-    for i, x in zip(range(len(expected_sequence)), generator):
-        assert abs(expected_sequence[i] - x) < 1e-6
+    for (expected_constant, expected_cost, (constant, cost)) in \
+        zip(expected_constants, expected_costs, generator):
+        assert abs(expected_constant - constant) < 1e-6
+        assert abs(expected_cost - cost) < 1e-6
 
 
 def test_forall_classifier():
