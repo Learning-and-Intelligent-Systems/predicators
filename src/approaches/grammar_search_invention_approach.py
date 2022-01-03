@@ -468,19 +468,25 @@ def _create_score_function(
         return _BranchingFactorScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
     if score_function_name == "hadd_match":
-        return _HAddHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates)
+        return _RelaxationHeuristicMatchBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     if score_function_name == "hadd_lookahead":
-        return _HAddHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates)
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     if score_function_name == "hadd_lookahead_depth1":
-        return _HAddHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates,
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
             lookahead_depth=1)
     if score_function_name == "hadd_lookahead_depth2":
-        return _HAddHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates,
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
             lookahead_depth=2)
+    if score_function_name == "hmax_lookahead":
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hmax")
+    if score_function_name == "hff_lookahead":
+        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates, "hff")
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
@@ -738,9 +744,11 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
-    """Implement _generate_heuristic() with HAdd and lookahead.
+class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+    """Implement _generate_heuristic() with a delete relaxation heuristic like
+    hadd, hmax, or hff.
     """
+    heuristic_name: str
     lookahead_depth: int = field(default=0)
 
     def _generate_heuristic(self, init_atoms: Set[GroundAtom],
@@ -750,20 +758,20 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        hadd_fn = utils.create_heuristic("hadd", init_atoms, goal, ground_ops)
+        h_fn = utils.create_heuristic(self.heuristic_name, init_atoms, goal,
+                                      ground_ops)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
-        def _hadd_fn_h(atoms: Set[GroundAtom],
-                       depth: int=0) -> float:
+        def _relaxation_h(atoms: Set[GroundAtom], depth: int=0) -> float:
             cache_key = (frozenset(atoms), depth)
             if cache_key in cache:
                 return cache[cache_key]
             if goal.issubset(atoms):
                 result = 0.0
             elif depth == self.lookahead_depth:
-                result = hadd_fn(utils.atoms_to_tuples(atoms))
+                result = h_fn(utils.atoms_to_tuples(atoms))
             else:
-                successor_hs = [_hadd_fn_h(next_atoms, depth+1)
+                successor_hs = [_relaxation_h(next_atoms, depth+1)
                     for next_atoms in utils.get_successors_from_ground_ops(
                     atoms, ground_ops)]
                 if not successor_hs:
@@ -771,7 +779,7 @@ class _HAddHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:
                 result = 1.0 + min(successor_hs)
             cache[cache_key] = result
             return result
-        return _hadd_fn_h
+        return _relaxation_h
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -807,19 +815,19 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicMatchBasedScoreFunction(
-        _HAddHeuristicBasedScoreFunction,
+class _RelaxationHeuristicMatchBasedScoreFunction(
+        _RelaxationHeuristicBasedScoreFunction,
         _HeuristicMatchBasedScoreFunction):
-    """Implement _generate_heuristic() with HAdd and
+    """Implement _generate_heuristic() with a delete relaxation heuristic and
     _evaluate_atom_trajectory() with matching.
     """
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HAddHeuristicLookaheadBasedScoreFunction(
-        _HAddHeuristicBasedScoreFunction,
+class _RelaxationHeuristicLookaheadBasedScoreFunction(
+        _RelaxationHeuristicBasedScoreFunction,
         _HeuristicLookaheadBasedScoreFunction):
-    """Implement _generate_heuristic() with HAdd and
+    """Implement _generate_heuristic() with a delete relaxation heuristic and
     _evaluate_atom_trajectory() with one-step lookahead.
     """
 
