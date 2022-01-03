@@ -602,7 +602,7 @@ class PaintingEnv(BaseEnv):
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
-        return self._get_held_object(state) == obj
+        return state.get(obj, "held") > self.held_tol
 
     def _IsWet_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -624,7 +624,7 @@ class PaintingEnv(BaseEnv):
         for obj in state:
             if obj.type != self._obj_type:
                 continue
-            if state.get(obj, "held") >= self.held_tol:
+            if state.get(obj, "held") > self.held_tol:
                 return obj
         return None
 
