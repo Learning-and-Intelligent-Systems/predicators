@@ -79,30 +79,7 @@ class ClutteredTableEnv(BaseEnv):
                 desired_can = can
         if desired_can is None:
             return next_state  # end point wasn't at any can
-        vec1 = np.array([end_x-start_x, end_y-start_y])
-        # Handle collision checking. We'll just threshold the angle between
-        # the grasp approach vector and the vector between the desired_can
-        # and any other can. Doing an actually correct geometric computation
-        # would involve the radii somehow, but we don't really care about this.
-        colliding_can = None
-        colliding_can_max_dist = float("-inf")
-        for can in state:
-            if can == desired_can:
-                continue
-            this_x = state.get(can, "pose_x")
-            this_y = state.get(can, "pose_y")
-            vec2 = np.array([end_x-this_x, end_y-this_y])
-            angle = np.arccos(np.clip(
-                vec1.dot(vec2) / (np.linalg.norm(vec1) *  # type: ignore
-                                  np.linalg.norm(vec2)),  # type: ignore
-                -1.0, 1.0))
-            if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
-                dist = np.linalg.norm(vec2)  # type: ignore
-                if dist > colliding_can_max_dist:
-                    colliding_can_max_dist = dist
-                    colliding_can = can
-        if colliding_can is not None:
-            raise EnvironmentFailure("collision", {colliding_can})
+        self._check_collisions(start_x, start_y, end_x, end_y, state, desired_can=desired_can)
         # No collisions, update state and return.
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
@@ -259,6 +236,35 @@ class ClutteredTableEnv(BaseEnv):
                 return True
         return False
 
+    """
+    Handle collision checking. We'll just threshold the angle between
+    the grasp approach vector and the vector between the desired_can
+    and any other can. Doing an actually correct geometric computation
+    would involve the radii somehow, but we don't really care about this.     
+    """
+    @staticmethod
+    def _check_collisions(start_x, start_y, end_x, end_y, state, desired_can=None):
+        vec1 = np.array([end_x-start_x, end_y-start_y])
+        colliding_can = None
+        colliding_can_max_dist = float("-inf")
+        for can in state:
+            if can == desired_can:
+                continue
+            this_x = state.get(can, "pose_x")
+            this_y = state.get(can, "pose_y")
+            vec2 = np.array([end_x-this_x, end_y-this_y])
+            angle = np.arccos(np.clip(
+                vec1.dot(vec2) / (np.linalg.norm(vec1) *  # type: ignore
+                                  np.linalg.norm(vec2)),  # type: ignore
+                -1.0, 1.0))
+            if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
+                dist = np.linalg.norm(vec2)  # type: ignore
+                if dist > colliding_can_max_dist:
+                    colliding_can_max_dist = dist
+                    colliding_can = can
+        if colliding_can is not None:
+            raise EnvironmentFailure("collision", {colliding_can})
+
 
 class ClutteredTablePlaceEnv(ClutteredTableEnv):
     """Toy cluttered table domain.
@@ -302,7 +308,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             if state.get(can, "is_grasped") > 0.5:
                 assert grasped_can is None, "Multiple cans grasped?"
                 assert state.get(can, "is_trashed") < 0.5, \
-                    "Grasped a can that has been trashed?"           # this assert shouldn't be needed because no trashing in this env (!)
+                    "Grasped a can that has been trashed?"
                 grasped_can = can
         # If there is a grasped can, use the action vector to try to place the can.
         if grasped_can is not None:
@@ -310,7 +316,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             next_state.set(grasped_can, "pose_x", end_x)
             next_state.set(grasped_can, "pose_y", end_y)
             next_state.set(grasped_can, "is_grasped", 0.0)
-            self.check_collisions(start_x, start_y, end_x, end_y, state)
+            self._check_collisions(start_x, start_y, end_x, end_y, state)
             return next_state
         # If there is not grasped can, use the action vector to try to grasp a desired can.
         start_x, start_y, end_x, end_y = action.arr
@@ -325,37 +331,9 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
                 desired_can = can
         if desired_can is None:
             return next_state  # end point wasn't at any can
-        self.check_collisions(start_x, start_y, end_x, end_y, state, desired_can)
+        self._check_collisions(start_x, start_y, end_x, end_y, state, desired_can)
         # No collisions, update state and return.
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    """
-    Handle collision checking. We'll just threshold the angle between
-    the grasp approach vector and the vector between the desired_can
-    and any other can. Doing an actually correct geometric computation
-    would involve the radii somehow, but we don't really care about this.     
-    """
-    @staticmethod
-    def check_collisions(start_x, start_y, end_x, end_y, state, desired_can=None):
-        vec1 = np.array([end_x-start_x, end_y-start_y])
-        colliding_can = None
-        colliding_can_max_dist = float("-inf")
-        for can in state:
-            if can == desired_can:
-                continue
-            this_x = state.get(can, "pose_x")
-            this_y = state.get(can, "pose_y")
-            vec2 = np.array([end_x-this_x, end_y-this_y])
-            angle = np.arccos(np.clip(
-                vec1.dot(vec2) / (np.linalg.norm(vec1) *  # type: ignore
-                                  np.linalg.norm(vec2)),  # type: ignore
-                -1.0, 1.0))
-            if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
-                dist = np.linalg.norm(vec2)  # type: ignore
-                if dist > colliding_can_max_dist:
-                    colliding_can_max_dist = dist
-                    colliding_can = can
-        if colliding_can is not None:
-            raise EnvironmentFailure("collision", {colliding_can})
 
