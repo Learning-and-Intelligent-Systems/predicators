@@ -31,6 +31,7 @@ try:
         place_ontop_obj_pos,
     )
     import pybullet as pyb
+
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
 except ModuleNotFoundError as e:
@@ -57,6 +58,11 @@ from predicators.src.settings import CFG
 def make_behavior_option(
     name, types, params_space, env, controller_fn, object_to_ig_object, rng
 ):
+    """
+    Makes an option for a BEHAVIOR env using custom implemented
+    controller_fn
+    """
+
     def _policy(
         state: State, memory: Dict, objects: Sequence[Object], params: Array
     ) -> Action:
@@ -74,16 +80,16 @@ def make_behavior_option(
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
         if memory.get("controller") is None:
-            # We want to reset the state of the environmenet to the state in the init state
-            # so that our options can run RRT/plan from here as intended!
+            # We want to reset the state of the environmenet to
+            # the state in the init state so that our options can
+            # run RRT/plan from here as intended!
             if state.simulator_state is not None:
                 env.task.reset_scene(state.simulator_state)
             controller = controller_fn(env, igo[0], params, rng=rng)
             memory["controller"] = controller
             memory["has_terminated"] = False
             return controller is not None
-        else:
-            return True
+        return True
 
     def _terminal(
         state: State, memory: Dict, objects: Sequence[Object], params: Array
@@ -109,7 +115,7 @@ class BehaviorEnv(BaseEnv):
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
         self._rng = np.random.default_rng(0)
-        self._env = behavior_env.BehaviorEnv(
+        self.behavior_env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
             action_timestep=CFG.behavior_action_timestep,
@@ -117,7 +123,7 @@ class BehaviorEnv(BaseEnv):
             action_filter="mobile_manipulation",
             rng=self._rng,
         )
-        self._env.robots[0].initial_z_offset = 0.7
+        self.behavior_env.robots[0].initial_z_offset = 0.7
 
         self._type_name_to_type: Dict[str, Type] = {}
 
@@ -125,25 +131,36 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        self._env.task.reset_scene(state.simulator_state)
+        self.behavior_env.task.reset_scene(state.simulator_state)
         # We can remove this after we're confident in it
         # loaded_state = self._current_ig_state_to_state()
         # assert loaded_state.allclose(state)
         a = action.arr
-        self._env.step(a)
+        self.behavior_env.step(a)
         # print(a)
 
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
             assisted_grasp_action[26] = 1.0
-            _ = self._env.robots[0].parts["right_hand"].handle_assisted_grasping(assisted_grasp_action)
+            _ = (
+                self.behavior_env.robots[0]
+                .parts["right_hand"]
+                .handle_assisted_grasping(assisted_grasp_action)
+            )
         elif a[16] == -1.0:
-            released_obj = self._env.scene.get_objects()[self._env.robots[0].parts["right_hand"].object_in_hand]
-            # force release object to avoid dealing with stateful AG release mechanism
-            self._env.robots[0].parts["right_hand"].force_release_obj()
+            released_obj = self.behavior_env.scene.get_objects()[
+                self.behavior_env.robots[0].parts["right_hand"].object_in_hand
+            ]
+            # force release object to avoid dealing with stateful AG
+            # release mechanism
+            self.behavior_env.robots[0].parts["right_hand"].force_release_obj()
             # reset the released object to zero velocity
-            pyb.resetBaseVelocity(released_obj.get_body_id(), linearVelocity=[0, 0, 0], angularVelocity=[0, 0, 0])
-        
+            pyb.resetBaseVelocity(
+                released_obj.get_body_id(),
+                linearVelocity=[0, 0, 0],
+                angularVelocity=[0, 0, 0],
+            )
+
         next_state = self._current_ig_state_to_state()
         return next_state
 
@@ -159,7 +176,7 @@ class BehaviorEnv(BaseEnv):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2 ** 32) - 1))
-            self._env.reset()
+            self.behavior_env.reset()
             init_state = self._current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -170,8 +187,8 @@ class BehaviorEnv(BaseEnv):
         # Currently assumes that the goal is a single AND of
         # ground atoms (this is also assumed by the planner).
         goal = set()
-        assert len(self._env.task.ground_goal_state_options) == 1
-        for head_expr in self._env.task.ground_goal_state_options[0]:
+        assert len(self.behavior_env.task.ground_goal_state_options) == 1
+        for head_expr in self.behavior_env.task.ground_goal_state_options[0]:
             bddl_name = head_expr.terms[0]  # untyped
             ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
@@ -238,11 +255,18 @@ class BehaviorEnv(BaseEnv):
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
 
-        # Finally, add the reachable-nothing predicate, which only applies to the 'agent' type
+        # Finally, add the reachable-nothing predicate, which only applies
+        # to the 'agent' type
         for i in range(len(types_lst)):
-            if types_lst[i].name == 'agent.n.01':
-                pred_name = self._create_type_combo_name("reachable-nothing", (types_lst[i],))
-                pred = Predicate(pred_name, [types_lst[i]], self._reachable_nothing_classifier)
+            if types_lst[i].name == "agent.n.01":
+                pred_name = self._create_type_combo_name(
+                    "reachable-nothing", (types_lst[i],)
+                )
+                pred = Predicate(
+                    pred_name,
+                    [types_lst[i]],
+                    self._reachable_nothing_classifier,
+                )
                 predicates.add(pred)
 
         return predicates
@@ -294,9 +318,9 @@ class BehaviorEnv(BaseEnv):
                     params_space=Box(
                         parameter_limits[0], parameter_limits[1], (param_dim,)
                     ),
-                    env=self._env,
+                    env=self.behavior_env,
                     controller_fn=controller_fn,
-                    object_to_ig_object=self._object_to_ig_object,
+                    object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
                 )
                 options.add(option)
@@ -306,10 +330,10 @@ class BehaviorEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # 17-dimensional, between -1 and 1
-        assert self._env.action_space.shape == (17,)
-        assert np.all(self._env.action_space.low == -1)
-        assert np.all(self._env.action_space.high == 1)
-        return self._env.action_space
+        assert self.behavior_env.action_space.shape == (17,)
+        assert np.all(self.behavior_env.action_space.low == -1)
+        assert np.all(self.behavior_env.action_space.high == 1)
+        return self.behavior_env.action_space
 
     def render(
         self, state: State, task: Task, action: Optional[Action] = None
@@ -320,7 +344,7 @@ class BehaviorEnv(BaseEnv):
         )
 
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
-        return list(self._env.task.object_scope.values())
+        return list(self.behavior_env.task.object_scope.values())
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
@@ -330,7 +354,8 @@ class BehaviorEnv(BaseEnv):
         return Object(ig_obj_name, obj_type)
 
     @functools.lru_cache(maxsize=None)
-    def _object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
+    def object_to_ig_object(self, obj: Object) -> "ArticulatedObject":
+        """Maintains a mapping of objects to underlying igibson objects"""
         return self._name_to_ig_object(obj.name)
 
     @functools.lru_cache(maxsize=None)
@@ -360,7 +385,7 @@ class BehaviorEnv(BaseEnv):
                 ]
             )
             state_data[obj] = obj_state
-        simulator_state = self._env.task.save_scene()
+        simulator_state = self.behavior_env.task.save_scene()
         return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(
@@ -373,25 +398,22 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            #assert s.allclose(self._current_ig_state_to_state())
+            # assert s.allclose(self._current_ig_state_to_state())
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
-                ig_obj = self._object_to_ig_object(o[0])
+                ig_obj = self.object_to_ig_object(o[0])
                 bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
-                bddl_ground_atom.initialize(self._env.simulator)
+                bddl_ground_atom.initialize(self.behavior_env.simulator)
                 return bddl_ground_atom.get_value()
             if arity == 2:
                 assert len(o) == 2
-                ig_obj = self._object_to_ig_object(o[0])
-                other_ig_obj = self._object_to_ig_object(o[1])
+                ig_obj = self.object_to_ig_object(o[0])
+                other_ig_obj = self.object_to_ig_object(o[1])
                 bddl_partial_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
-                bddl_partial_ground_atom.initialize(self._env.simulator)
-                # print((ig_obj.name, ig_obj.get_body_id(), other_ig_obj.name, other_ig_obj.get_body_id()))
-                # if ig_obj.name == 'BRBody_1' and other_ig_obj.name == 'hardback_4' and 'next_to' in str(bddl_partial_ground_atom):
-                #     import ipdb; ipdb.set_trace()
+                bddl_partial_ground_atom.initialize(self.behavior_env.simulator)
                 return bddl_partial_ground_atom.get_value(other_ig_obj)
-                
+
             raise ValueError("BDDL predicate has unexpected arity.")
 
         return _classifier
@@ -405,91 +427,105 @@ class BehaviorEnv(BaseEnv):
     def _graspable_classifier(
         self, state: State, objs: Sequence[Object]
     ) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
+        # Check allclose() here for uniformity with
+        # _create_classifier_from_bddl
         assert len(objs) == 1
-        ig_obj = self._object_to_ig_object(objs[0])
+        ig_obj = self.object_to_ig_object(objs[0])
 
         lo, hi = ig_obj.states[object_states.AABB].get_value()
         volume = self._get_aabb_volume(lo, hi)
-        if ( volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed):
-            return True
-        else:
-            return False
+        return volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed
 
     # TODO (wmcclinton) test reachable
 
     def _reachable_classifier(
         self, state: State, objs: Sequence[Object]
     ) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
-        #assert state.allclose(self._current_ig_state_to_state())
+        # Check allclose() here for uniformity with
+        # _create_classifier_from_bddl
+        # assert state.allclose(self._current_ig_state_to_state())
         # Checking only scoped varibles has changed
         try:
-            assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
+            assert state.allclose(
+                self._current_ig_state_to_state().scope(state.data.keys())
+            )
         except AssertionError:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
 
         assert len(objs) == 2
-        ig_obj = self._object_to_ig_object(objs[0])
-        ig_other_obj = self._object_to_ig_object(objs[1])
+        ig_obj = self.object_to_ig_object(objs[0])
+        ig_other_obj = self.object_to_ig_object(objs[1])
 
-        if (np.linalg.norm(np.array(ig_obj.get_position()) - np.array(ig_other_obj.get_position())) < 2):
-            return True
-        else:
-            return False
+        return (
+            np.linalg.norm(
+                np.array(ig_obj.get_position())
+                - np.array(ig_other_obj.get_position())
+            )
+            < 2
+        )
 
     def _reachable_nothing_classifier(
         self, state: State, objs: Sequence[Object]
     ) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
-        #assert state.allclose(self._current_ig_state_to_state())
+        # assert state.allclose(self._current_ig_state_to_state())
         # Checking only scoped varibles has changed
-        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
+        assert state.allclose(
+            self._current_ig_state_to_state().scope(state.data.keys())
+        )
         assert len(objs) == 1
-        ig_obj = self._object_to_ig_object(objs[0])
+        ig_obj = self.object_to_ig_object(objs[0])
         ####
         for obj in state:
-            if self._reachable_classifier(state=state, objs=[obj, objs[0]]) and (obj != objs[0]):
+            if self._reachable_classifier(
+                state=state, objs=[obj, objs[0]]
+            ) and (obj != objs[0]):
                 return False
         ####
         return True
-    #
 
     def _get_grasped_objects(self, state: State) -> Set[Object]:
         grasped_objs = set()
         for obj in state:
-            ig_obj = self._object_to_ig_object(obj)
+            ig_obj = self.object_to_ig_object(obj)
 
             # NOTE: The below block is necessary because somehow the body_id
             # is sometimes a 1-element list...
-            # TODO (njk): find a better place to fix this body_id issue; probably
-            # somewhere internal to behavior?
-            if type(ig_obj.body_id) == list:
+            # TODO (njk): find a better place to fix this body_id issue;
+            # probably somewhere internal to behavior?
+            if isinstance(ig_obj.body_id) == list:
                 assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
-            
-            if any(self._env.robots[0].is_grasping(ig_obj.body_id)):
+
+            if any(self.behavior_env.robots[0].is_grasping(ig_obj.body_id)):
                 grasped_objs.add(obj)
-        # if self._env.robots[0].parts['right_hand'].object_in_hand is not None:
-        #     import ipdb; ipdb.set_trace()
+
         return grasped_objs
 
     def _handempty_classifier(
         self, state: State, objs: Sequence[Object]
     ) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
-        #assert state.allclose(self._current_ig_state_to_state())
+        # Check allclose() here for uniformity with
+        # _create_classifier_from_bddl
+        # assert state.allclose(self._current_ig_state_to_state())
         # Checking only scoped varibles has changed
-        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
+        assert state.allclose(
+            self._current_ig_state_to_state().scope(state.data.keys())
+        )
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
     def _holding_classifier(self, state: State, objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
-        #assert state.allclose(self._current_ig_state_to_state())
+        # Check allclose() here for uniformity with
+        # _create_classifier_from_bddl
+        # assert state.allclose(self._current_ig_state_to_state())
         # Checking only scoped varibles has changed
-        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
+        assert state.allclose(
+            self._current_ig_state_to_state().scope(state.data.keys())
+        )
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -497,17 +533,20 @@ class BehaviorEnv(BaseEnv):
     def _nextto_nothing_classifier(
         self, state: State, objs: Sequence[Object]
     ) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
-        #assert state.allclose(self._current_ig_state_to_state())
+        # Check allclose() here for uniformity with
+        # _create_classifier_from_bddl
+        # assert state.allclose(self._current_ig_state_to_state())
         # Checking only scoped varibles has changed
-        assert state.allclose(self._current_ig_state_to_state().scope(state.data.keys()))
+        assert state.allclose(
+            self._current_ig_state_to_state().scope(state.data.keys())
+        )
         assert len(objs) == 1
-        ig_obj = self._object_to_ig_object(objs[0])
+        ig_obj = self.object_to_ig_object(objs[0])
         bddl_predicate = SUPPORTED_PREDICATES["nextto"]
         for obj in state:
-            other_ig_obj = self._object_to_ig_object(obj)
+            other_ig_obj = self.object_to_ig_object(obj)
             bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
-            bddl_ground_atom.initialize(self._env.simulator)
+            bddl_ground_atom.initialize(self.behavior_env.simulator)
             if bddl_ground_atom.get_value(other_ig_obj):
                 return False
         return True

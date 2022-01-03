@@ -43,9 +43,9 @@ def get_body_ids(env, include_self=False, grasping_with_right=False):
     ids = []
     for object in env.scene.get_objects():
         if isinstance(object, URDFObject):
-            # We want to exclude the floor since we're always floating and will never
-            # practically collide with it, but if we include it in collision checking, we always
-            # seem to collide.
+            # We want to exclude the floor since we're always floating and
+            # will never practically collide with it, but if we include it
+            # in collision checking, we always seem to collide.
             if object.name != "floors":
                 ids.extend(object.body_ids)
 
@@ -125,7 +125,9 @@ def get_metrics_callbacks(config):
     elif robot_type == "BehaviorRobot":
         metrics.append(BehaviorRobotMetric())
     else:
-        Exception("Metrics only implemented for FetchGripper and BehaviorRobot")
+        Exception(
+            "Metrics only implemented for FetchGripper and BehaviorRobot"
+        )
 
     return (
         [metric.start_callback for metric in metrics],
@@ -152,7 +154,8 @@ def get_delta_low_level_base_action(
 
     robot_z = env.robots[0].get_position()[2]
 
-    # First, get the old and new position and orientation in the world frame as numpy arrays
+    # First, get the old and new position and orientation in the world
+    # frame as numpy arrays
     old_pos = np.array([old_xytheta[0], old_xytheta[1], robot_z])
     old_orn_quat = p.getQuaternionFromEuler(
         np.array(
@@ -166,7 +169,8 @@ def get_delta_low_level_base_action(
         )
     )
 
-    # Then, simply get the delta position and orientation by multiplying the inverse of the old pose by the
+    # Then, simply get the delta position and orientation by multiplying the
+    #  inverse of the old pose by the
     # new pose
     inverted_old_pos, inverted_old_orn_quat = p.invertTransform(
         old_pos, old_orn_quat
@@ -187,45 +191,60 @@ def get_delta_low_level_base_action(
 
 # Navigate To #
 
+
 def navigate_to_param_sampler(rng, objects):
-    assert len(objects) in [2,3]
-    # The navigation nsrts are designed such that this is true (the target obj is always last
-    # in the params list).
+    assert len(objects) in [2, 3]
+    # The navigation nsrts are designed such that this is true (the target
+    # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit = max([1.5, np.linalg.norm(np.array(obj_to_sample_near.bounding_box[:2])) + 0.5])
+    closeness_limit = max(
+        [
+            1.5,
+            np.linalg.norm(np.array(obj_to_sample_near.bounding_box[:2]))
+            + 0.5,
+        ]
+    )
     distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
 
-    # The below while loop avoids sampling values that are inside the bounding box of the object
-    # and therefore will certainly be in collision with the object if the robot tries to move there.
-    while abs(x) <= obj_to_sample_near.bounding_box[0] and abs(y) <= obj_to_sample_near.bounding_box[1]:
+    # The below while loop avoids sampling values that are inside
+    # the bounding box of the object and therefore will
+    # certainly be in collision with the object if the robot
+    # tries to move there.
+    while (
+        abs(x) <= obj_to_sample_near.bounding_box[0]
+        and abs(y) <= obj_to_sample_near.bounding_box[1]
+    ):
         distance = (closeness_limit - 0.01) * rng.random() + 0.03
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
 
-    return np.array([x,y])
+    return np.array([x, y])
 
 
 def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
     """
     Parameterized controller for navigation.
-    Runs motion planning to find a feasible trajectory to a certain x,y position offset from obj
-    and selects an orientation such that the robot is facing the object. If the navigation is infeasible,
-    returns an indication to this effect.
+    Runs motion planning to find a feasible trajectory to a certain x,y
+    position offset from obj
+    and selects an orientation such that the robot is facing the object.
+    If the navigation is infeasible, returns an indication to this effect.
     :param obj: an object to navigate toward
-    :param to_pos: a length-2 numpy array (x, y) containing a position to navigate to
-    :return: navigateToOption: a function that takes in a state and env (though the state is not used)
-    and itself returns a low-level action and 'done' bit. Note that this return value may be None if
+    :param to_pos: a length-2 numpy array (x, y) containing a position
+        to navigate to
+    :return: navigateToOption: a function that takes in a state and env
+    (though the state is not used) and itself returns a low-level action
+    and 'done' bit. Note that this return value may be None if
     no plan could be found.
     """
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
     valid_position = None  # ((x,y,z),(roll, pitch, yaw))
     original_orientation = env.robots[0].get_orientation()
-    
+
     state = p.saveState()
 
     def sample_fn(env, rng):
@@ -252,8 +271,9 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
         )
         eye_pos = env.robots[0].parts["eye"].get_position()
         ray_test_res = p.rayTest(eye_pos, obj_pos)
-        # Test to see if the robot is obstructed by some object, but make sure that object
-        # is not either the robot's body or the object we want to pick up!
+        # Test to see if the robot is obstructed by some object, but make sure
+        # that object is not either the robot's body or the object we want to
+        # pick up!
         blocked = len(ray_test_res) > 0 and (
             ray_test_res[0][0]
             not in (
@@ -265,7 +285,8 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
             valid_position = (pos, orn)
     else:
         print(
-            "ERROR! Object to navigate to is not valid (not an instance of URDFObject)."
+            "ERROR! Object to navigate to is not valid (not an instance of" +
+            "URDFObject)."
         )
         p.restoreState(state)
         p.removeState(state)
@@ -347,7 +368,8 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
                 else:
                     if (
                         len(plan) == 1
-                    ):  # In this case, we're at the final position we wanted to reach
+                    ):  # In this case, we're at the final position we wanted
+                        # to reach
                         low_level_action = np.zeros(17, dtype=float)
                         done_bit = True
 
@@ -373,7 +395,9 @@ def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
             p.restoreState(state)
             p.removeState(state)
             print(
-                f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} failed; birrt failed to sample a plan!"
+                f"PRIMITIVE: navigate to {obj.name} with params" +
+                f"{pos_offset} failed;" +
+                "birrt failed to sample a plan!"
             )
             return None
 
@@ -406,8 +430,9 @@ def get_delta_low_level_hand_action(env, old_pos, old_orn, new_pos, new_orn):
     old_orn = p.getQuaternionFromEuler(old_orn)
     new_orn = p.getQuaternionFromEuler(new_orn)
 
-    # Next, find the inverted position of the body (which we know shouldn't change, since our actions
-    # move either the body or the hand, but not both simultaneously)
+    # Next, find the inverted position of the body (which we know shouldn't
+    # change, since our actions move either the body or the hand, but not
+    # both simultaneously)
     body = env.robots[0].parts["right_hand"].parent.parts["body"]
     inverted_body_new_pos, inverted_body_new_orn = p.invertTransform(
         body.new_pos, body.new_orn
@@ -424,7 +449,8 @@ def get_delta_low_level_hand_action(env, old_pos, old_orn, new_pos, new_orn):
         inverted_body_old_pos, inverted_body_old_orn, old_pos, old_orn
     )
 
-    # The delta position is simply given by the difference between these positions
+    # The delta position is simply given by the difference between these
+    # positions
     delta_pos = np.array(new_local_pos) - np.array(old_local_pos)
 
     # Finally, compute the delta orientation
@@ -458,7 +484,7 @@ def grasp_obj_at_pos(
     plan = np.zeros((17, 1))
     obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
     if obj_in_hand is None:
-        # The below line resets the trigger fraction, which is used to 
+        # The below line resets the trigger fraction, which is used to
         # detect when assisted grasping should be used
         env.robots[0].parts["right_hand"].trigger_fraction = 0.0
         if (
@@ -478,8 +504,9 @@ def grasp_obj_at_pos(
                     )
                     < 2
                 ):
-                    ### Grasping Phase 1: Compute the position and orientation of the hand based on the
-                    # provided continuous parameters and try to create a plan to it.
+                    # Grasping Phase 1: Compute the position and orientation of
+                    # the hand based on the provided continuous parameters and
+                    # try to create a plan to it.
                     obj_pos = obj.get_position()
                     x = obj_pos[0] + grasp_offset_and_z_rot[0]
                     y = obj_pos[1] + grasp_offset_and_z_rot[1]
@@ -500,24 +527,49 @@ def grasp_obj_at_pos(
                     maxy = max(y, hand_y) + 0.5
                     maxz = max(z, hand_z) + 0.5
 
-                    # compute the angle the hand must be in such that it can grasp the object from its current offset position
-                    # This involves aligning the z-axis (in the world frame) of the hand with the vector that goes from the hand 
-                    # to the object. We can find the rotation matrix that accomplishes this rotation by following:
-                    # https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+                    # compute the angle the hand must be in such that it can grasp
+                    # the object from its current offset position
+                    # This involves aligning the z-axis (in the world frame) of the
+                    # hand with the vector that goes from the hand
+                    # to the object. We can find the rotation matrix that accomplishes
+                    # this rotation by following:
+                    # https://math.stackexchange.com/questions/180418/
+                    # calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
                     hand_to_obj_vector = np.array(grasp_offset_and_z_rot[:3])
-                    hand_to_obj_unit_vector = hand_to_obj_vector / np.linalg.norm(hand_to_obj_vector)
-                    unit_z_vector = np.array([0.0,0.0,-1.0]) # This is because we assume the hand is originally oriented so -z is coming out of the palm
+                    hand_to_obj_unit_vector = (
+                        hand_to_obj_vector / np.linalg.norm(hand_to_obj_vector)
+                    )
+                    unit_z_vector = np.array(
+                        [0.0, 0.0, -1.0]
+                    )
+                    # This is because we assume the hand is originally oriented so
+                    # -z is coming out of the palm
                     c_var = np.dot(unit_z_vector, hand_to_obj_unit_vector)
                     if not c_var == -1.0 and not c_var == 1.0:
-                        v_var = np.cross(unit_z_vector, hand_to_obj_unit_vector)
+                        v_var = np.cross(
+                            unit_z_vector, hand_to_obj_unit_vector
+                        )
                         s_var = np.linalg.norm(v_var)
-                        v_x = np.array([[0, -v_var[2], v_var[1]], [v_var[2], 0, -v_var[0]], [-v_var[1], v_var[0], 0]])
-                        R = np.eye(3) + v_x + np.linalg.matrix_power(v_x, 2) * ((1-c_var)/(s_var ** 2))
+                        v_x = np.array(
+                            [
+                                [0, -v_var[2], v_var[1]],
+                                [v_var[2], 0, -v_var[0]],
+                                [-v_var[1], v_var[0], 0],
+                            ]
+                        )
+                        R = (
+                            np.eye(3)
+                            + v_x
+                            + np.linalg.matrix_power(v_x, 2)
+                            * ((1 - c_var) / (s_var ** 2))
+                        )
                         r = scipy.spatial.transform.Rotation.from_matrix(R)
-                        euler_angles = r.as_euler('xyz')
-                        # TODO (njk): Figure out how to rotate by grasp_offset_and_z_rot[3] about the hand's z axis
-                        # the below line is wrong because it makes the thing rotate about the world z axis
-                        # euler_angles[2] += grasp_offset_and_z_rot[3] # This adds the z-rotation the user specifies
+                        euler_angles = r.as_euler("xyz")
+                        # TODO (njk): Figure out how to rotate by
+                        # grasp_offset_and_z_rot[3] about the hand's z axis
+                        # the below line is wrong because it makes the
+                        # thing rotate about the world z axis
+                        # euler_angles[2] += grasp_offset_and_z_rot[3]
                     else:
                         if c_var == 1.0:
                             euler_angles = np.zeros(3, dtype=float)
@@ -525,7 +577,8 @@ def grasp_obj_at_pos(
                             euler_angles = np.array([0.0, np.pi, 0.0])
 
                     state = p.saveState()
-                    # plan a motion to the pose [x, y, z, euler_angles[0], euler_angles[1], euler_angles[2]]
+                    # plan a motion to the pose [x, y, z, euler_angles[0],
+                    # euler_angles[1], euler_angles[2]]
                     plan = plan_hand_motion_br(
                         robot=env.robots[0],
                         obj_in_hand=None,
@@ -538,13 +591,16 @@ def grasp_obj_at_pos(
                             euler_angles[2],
                         ],
                         hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-                        obstacles=get_body_ids(env, include_self=True, grasping_with_right=True),
+                        obstacles=get_body_ids(
+                            env, include_self=True, grasping_with_right=True
+                        ),
                         rng=rng,
                     )
                     p.restoreState(state)
 
                     # NOTE: This below line is *VERY* important after the pybullet state is restored. The hands keep an internal track of their state, and if we don't reset their internal state to mirror the
-                    # actual pybullet state, the hand will think its elsewhere and update incorrectly accordingly
+                    # actual pybullet state, the hand will think its elsewhere
+                    # and update incorrectly accordingly
                     env.robots[0].parts["right_hand"].set_position(
                         env.robots[0].parts["right_hand"].get_position()
                     )
@@ -552,13 +608,14 @@ def grasp_obj_at_pos(
                         env.robots[0].parts["left_hand"].get_position()
                     )
 
-                    ### Grasping Phase 2: Move along the vector from the position the hand ends up in to the
+                    # Grasping Phase 2: Move along the vector from the position the hand ends up in to the
                     # object and then try to grasp.
 
                     if plan is not None:
                         hand_pos = plan[-1][0:3]
                         hand_orn = plan[-1][3:6]
-                        # Get the closest point on the object's bounding box at which we can try to put the hand
+                        # Get the closest point on the object's bounding box at
+                        # which we can try to put the hand
                         closest_point_on_aabb = get_closest_point_on_aabb(
                             hand_pos, lo, hi
                         )
@@ -572,7 +629,8 @@ def grasp_obj_at_pos(
                             delta_pos / 25.0 for delta_pos in delta_pos_to_obj
                         ]  # because we want to accomplish the motion in 25 timesteps
 
-                        # move the hand along the vector to the object until it touches the object
+                        # move the hand along the vector to the object until it
+                        # touches the object
                         for _ in range(25):
                             new_hand_pos = [
                                 hand_pos[0] + delta_step_to_obj[0],
@@ -590,7 +648,8 @@ def grasp_obj_at_pos(
                         plan_executed_forwards = False
                         tried_closing_gripper = False
 
-                        # TODO: Include the error-correcting closed-loop execution actions in here.
+                        # TODO: Include the error-correcting closed-loop
+                        # execution actions in here.
                         def graspObjectOption(state, env):
                             nonlocal plan_executed_forwards
                             nonlocal tried_closing_gripper
@@ -599,7 +658,8 @@ def grasp_obj_at_pos(
                                 not plan_executed_forwards
                                 and not tried_closing_gripper
                             ):
-                                # Step thru the plan to execute Grasping phases 1 and 2
+                                # Step thru the plan to execute Grasping phases
+                                # 1 and 2
                                 ret_action = get_delta_low_level_hand_action(
                                     env,
                                     plan[0][0:3],
@@ -615,7 +675,8 @@ def grasp_obj_at_pos(
                                 plan_executed_forwards
                                 and not tried_closing_gripper
                             ):
-                                # Close the gripper to see if you've gotten the object
+                                # Close the gripper to see if you've gotten the
+                                # object
                                 ret_action = np.zeros(17, dtype=float)
                                 ret_action[16] = 1.0
                                 tried_closing_gripper = True
@@ -714,7 +775,8 @@ def place_obj_plan(
     p.removeState(original_state)
 
     # NOTE: This below line is *VERY* important after the pybullet state is restored. The hands keep an internal track of their state, and if we don't reset their internal state to mirror the
-    # actual pybullet state, the hand will think its elsewhere and update incorrectly accordingly
+    # actual pybullet state, the hand will think its elsewhere and update
+    # incorrectly accordingly
     env.robots[0].parts["right_hand"].set_position(
         env.robots[0].parts["right_hand"].get_position()
     )
@@ -734,10 +796,10 @@ def place_ontop_obj_pos_sampler(
     ]
 
     for o in obj:
-        if o != objA and o.name != 'BRBody_1':
+        if o != objA and o.name != "BRBody_1":
             objB = o
             break
-    
+
     params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
     aabb = get_aabb(objA.get_body_id())
     aabb_center, aabb_extent = get_aabb_center(aabb), get_aabb_extent(aabb)
@@ -797,7 +859,8 @@ def place_ontop_obj_pos(
                 p.restoreState(state)
 
                 # NOTE: This below line is *VERY* important after the pybullet state is restored. The hands keep an internal track of their state, and if we don't reset their internal state to mirror the
-                # actual pybullet state, the hand will think its elsewhere and update incorrectly accordingly
+                # actual pybullet state, the hand will think its elsewhere and
+                # update incorrectly accordingly
                 env.robots[0].parts["right_hand"].set_position(
                     env.robots[0].parts["right_hand"].get_position()
                 )
@@ -811,7 +874,9 @@ def place_ontop_obj_pos(
                     )
                     if plan is None:
                         return None
-                    reversed_plan = [rev_elem for rev_elem in reversed(plan[:])]
+                    reversed_plan = [
+                        rev_elem for rev_elem in reversed(plan[:])
+                    ]
                     plan_executed_forwards = False
                     tried_opening_gripper = False
 
@@ -845,7 +910,9 @@ def place_ontop_obj_pos(
                             env.robots[0].parts["right_hand"].local_pos,
                             env.robots[0].parts["right_hand"].local_orn,
                         )
-                        current_orn = p.getEulerFromQuaternion(current_orn_quat)
+                        current_orn = p.getEulerFromQuaternion(
+                            current_orn_quat
+                        )
 
                         expected_pos = np.array(plan[0][0:3])
                         expected_orn = np.array(plan[0][3:])
@@ -868,7 +935,7 @@ def place_ontop_obj_pos(
                                     plan_executed_forwards = True
                                     low_level_action = np.zeros(17)
                                     return low_level_action, done_bit
-                                
+
                                 low_level_action = (
                                     get_delta_low_level_hand_action(
                                         env,
@@ -902,12 +969,15 @@ def place_ontop_obj_pos(
                                 if (
                                     len(plan) <= 1
                                 ):  # In this case, we're at the final position we wanted to reach
-                                    low_level_action = np.zeros(17, dtype=float)
+                                    low_level_action = np.zeros(
+                                        17, dtype=float
+                                    )
                                     done_bit = False
                                     plan_executed_forwards = True
 
                                 else:
-                                    # Step thru the plan to execute placing phases 1 and 2
+                                    # Step thru the plan to execute placing
+                                    # phases 1 and 2
                                     low_level_action = (
                                         get_delta_low_level_hand_action(
                                             env,
@@ -926,9 +996,11 @@ def place_ontop_obj_pos(
                             ###
 
                         elif (
-                            plan_executed_forwards and not tried_opening_gripper
+                            plan_executed_forwards
+                            and not tried_opening_gripper
                         ):
-                            # Open the gripper to see if you've gotten the object
+                            # Open the gripper to see if you've gotten the
+                            # object
                             low_level_action = np.zeros(17, dtype=float)
                             low_level_action[16] = -1.0
                             tried_opening_gripper = True
@@ -981,7 +1053,9 @@ def place_ontop_obj_pos(
                                 if (
                                     len(plan) == 1
                                 ):  # In this case, we're at the final position we wanted to reach
-                                    low_level_action = np.zeros(17, dtype=float)
+                                    low_level_action = np.zeros(
+                                        17, dtype=float
+                                    )
                                     done_bit = True
 
                                 else:

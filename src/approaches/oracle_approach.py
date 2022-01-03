@@ -472,7 +472,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
             parameters = [agent_obj, target_obj]
             option_vars = [target_obj]
             preconditions = {nextto_nothing}
-            add_effects = {_get_lifted_atom("reachable", [target_obj, agent_obj])}
+            add_effects = {_get_lifted_atom("reachable", \
+                [target_obj, agent_obj])}
             delete_effects = {nextto_nothing}
             nsrt = NSRT(
                 f"{option.name}-{next(op_name_count)}",
@@ -482,7 +483,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 delete_effects,
                 option,
                 option_vars,
-                lambda s, r, o: navigate_to_param_sampler(r, [env._object_to_ig_object(o_i) for o_i in o]),
+                lambda s, r, o: navigate_to_param_sampler(r, \
+                    [env.object_to_ig_object(o_i) for o_i in o]),
             )
             nsrts.add(nsrt)
 
@@ -508,7 +510,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                     delete_effects,
                     option,
                     option_vars,
-                    lambda s, r, o: navigate_to_param_sampler(r, [env._object_to_ig_object(o_i) for o_i in o]),
+                    lambda s, r, o: navigate_to_param_sampler(r, \
+                        [env.object_to_ig_object(o_i) for o_i in o]),
                 )
                 nsrts.add(nsrt)
 
@@ -531,7 +534,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 #    "graspable", [target_obj]
                 #)
                 targ_holding = _get_lifted_atom("holding", [target_obj])
-                preconditions = {handempty, targ_next_to} #preconditions = {handempty, targ_next_to, targ_graspable}
+                #preconditions = {handempty, targ_next_to, targ_graspable}
+                preconditions = {handempty, targ_next_to}
                 add_effects = {targ_holding}
                 delete_effects = {handempty}
                 nsrt = NSRT(
@@ -559,7 +563,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 option_vars = [surf_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
-                surf_next_to = _get_lifted_atom("reachable", [surf_obj, agent_obj])
+                surf_next_to = _get_lifted_atom("reachable",\
+                     [surf_obj, agent_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_next_to}
                 add_effects = {ontop, handempty}
@@ -572,7 +577,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                     delete_effects,
                     option,
                     option_vars,
-                    lambda s, r, o: place_ontop_obj_pos_sampler(env._env, [env._object_to_ig_object(o_i) for o_i in o], rng=r),
+                    lambda s, r, o: place_ontop_obj_pos_sampler(
+                        env.behavior_env,
+                        [env.object_to_ig_object(o_i) \
+                            for o_i in o], rng=r),
                 )
                 nsrts.add(nsrt)
 
