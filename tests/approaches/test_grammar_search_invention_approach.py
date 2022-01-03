@@ -1,6 +1,7 @@
 """Test cases for the grammar search invention approach.
 """
 
+from typing import Callable, FrozenSet, List, Set
 import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import \
@@ -16,7 +17,8 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action, ParameterizedOption, Box, LowLevelTrajectory
+    Action, ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, \
+    _GroundSTRIPSOperator
 from predicators.src.nsrt_learning import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -450,6 +452,34 @@ def test_hadd_lookahead_score_function():
     none_included_s = score_function.evaluate(set())
     # Comment out this test because it's flaky.
     # assert all_included_s < none_included_s  # hooray!
+
+    # Cover edge case where there are no successors.
+    # The below is kind of a lot to get one line of coverage (the line is
+    # if not successor_hs: return float("inf")) but I can't figure out any
+    # simpler way. One tricky part is that if there are no ground operators,
+    # the heuristic will never get called (see evaluate_atom_trajectory).
+    class _MockHAddLookahead(_HAddHeuristicLookaheadBasedScoreFunction):
+
+        def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
+            pruned_atom_data = utils.prune_ground_atom_dataset(
+                self._atom_dataset, predicates | self._initial_predicates)
+            segments = [seg for traj in pruned_atom_data
+                        for seg in segment_trajectory(traj)]
+            # This is the part that we are overriding, to force no successors.
+            strips_ops, option_specs = [], []
+            return self._evaluate_with_operators(predicates,
+                pruned_atom_data, segments, strips_ops, option_specs)
+
+        def _evaluate_atom_trajectory(
+            self, atoms_sequence: List[Set[GroundAtom]],
+            heuristic_fn: Callable[[Set[GroundAtom]], float],
+            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+            # We also need to override this to get coverage.
+            return heuristic_fn(atoms_sequence[0])
+
+    score_function = _MockHAddLookahead(initial_predicates, atom_dataset,
+        train_tasks, candidates, lookahead_depth=1)
+    assert score_function.evaluate(set(candidates)) == float("inf")
 
 
 def test_exact_lookahead_score_function():
