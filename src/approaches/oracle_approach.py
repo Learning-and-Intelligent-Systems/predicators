@@ -469,7 +469,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
 
             # Navigate to from nextto nothing
             nextto_nothing = _get_lifted_atom("reachable-nothing", [agent_obj])
-            parameters = [target_obj, agent_obj]
+            parameters = [agent_obj, target_obj]
             option_vars = [target_obj]
             preconditions = {nextto_nothing}
             add_effects = {_get_lifted_atom("reachable", [target_obj, agent_obj])}

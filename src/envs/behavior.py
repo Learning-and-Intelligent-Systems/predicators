@@ -271,7 +271,7 @@ class BehaviorEnv(BaseEnv):
     def options(self) -> Set[ParameterizedOption]:
         # name, controller_fn, param_dim, arity
         controllers = [
-            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-2.4, 2.4)),
+            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-5.0, 5.0)),
             ("Grasp", grasp_obj_at_pos, 4, 1, (-np.pi, np.pi)),
             ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
         ]
