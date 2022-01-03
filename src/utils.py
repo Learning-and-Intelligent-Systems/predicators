@@ -11,7 +11,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
 import heapq as hq
 import imageio
 import matplotlib
@@ -21,7 +21,8 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, Variable, PyperplanFacts, ObjToVarSub, \
     VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
-    _GroundSTRIPSOperator, Array, OptionSpec
+    _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
+    NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -44,8 +45,7 @@ def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
                p3: Tuple[float, float], p4: Tuple[float, float]) -> bool:
-    """
-    Checks if line segment p1p2 and p3p4 intersect.
+    """Checks if line segment p1p2 and p3p4 intersect.
     This method, which works by checking relative orientation, allows for
     collinearity, and only checks if each segment straddles the line
     containing the other.
@@ -74,9 +74,8 @@ def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
 
 
 def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
-               l2: Tuple[float, float], r2: Tuple[float, float]) -> bool:
-    """
-    Checks if two rectangles defined by their top left and bottom right
+            l2: Tuple[float, float], r2: Tuple[float, float]) -> bool:
+    """Checks if two rectangles defined by their top left and bottom right
     points overlap, allowing for overlaps of measure zero. The first rectangle
     is defined by (l1, r1) and the second is defined by (l2, r2).
     """
@@ -136,9 +135,9 @@ def unify(ground_atoms: FrozenSet[GroundAtom],
     return solved, rev_sub
 
 
-def wrap_atom_predicates_lifted(atoms: Collection[LiftedAtom],
-                                prefix: str) -> Set[LiftedAtom]:
-    """Return a new set of lifted atoms which adds the given prefix
+def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
+                         prefix: str) -> Set[LiftedOrGroundAtom]:
+    """Return a new set of atoms which adds the given prefix
     string to the name of every predicate in atoms.
     NOTE: the classifier is removed.
     """
@@ -147,22 +146,7 @@ def wrap_atom_predicates_lifted(atoms: Collection[LiftedAtom],
         new_predicate = Predicate(prefix+atom.predicate.name,
                                   atom.predicate.types,
                                   _classifier=lambda s, o: False)  # dummy
-        new_atoms.add(LiftedAtom(new_predicate, atom.variables))
-    return new_atoms
-
-
-def wrap_atom_predicates_ground(atoms: Collection[GroundAtom],
-                                prefix: str) -> Set[GroundAtom]:
-    """Return a new set of ground atoms which adds the given prefix
-    string to the name of every predicate in atoms.
-    NOTE: the classifier is removed.
-    """
-    new_atoms = set()
-    for atom in atoms:
-        new_predicate = Predicate(prefix+atom.predicate.name,
-                                  atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
-        new_atoms.add(GroundAtom(new_predicate, atom.objects))
+        new_atoms.add(atom.__class__(new_predicate, atom.entities))
     return new_atoms
 
 
@@ -417,8 +401,8 @@ def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
                                          for r in range(start, len(seq)+1))
 
 
-_S = TypeVar('_S', bound=Hashable)  # state in heuristic search
-_A = TypeVar('_A')  # action in heuristic search
+_S = TypeVar("_S", bound=Hashable)  # state in heuristic search
+_A = TypeVar("_A")  # action in heuristic search
 
 
 @dataclass(frozen=True)
@@ -557,25 +541,22 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
 
 def all_ground_operators(operator: STRIPSOperator,
                          objects: Collection[Object]
-                         ) -> Set[_GroundSTRIPSOperator]:
+                         ) -> Iterator[_GroundSTRIPSOperator]:
     """Get all possible groundings of the given operator with the given objects.
     """
     types = [p.type for p in operator.parameters]
-    ground_operators = set()
     for choice in get_object_combinations(objects, types):
-        ground_operators.add(operator.ground(tuple(choice)))
-    return ground_operators
+        yield operator.ground(tuple(choice))
 
 
 def all_ground_operators_given_partial(operator: STRIPSOperator,
                                        objects: Collection[Object],
                                        sub: VarToObjSub
-                                       ) -> Set[_GroundSTRIPSOperator]:
+                                       ) -> Iterator[_GroundSTRIPSOperator]:
     """Get all possible groundings of the given operator with the given objects
     such that the parameters are consistent with the given substitution.
     """
     assert set(sub).issubset(set(operator.parameters))
-    ground_ops = set()
     types = [p.type for p in operator.parameters if p not in sub]
     for choice in get_object_combinations(objects, types):
         # Complete the choice with the args that are determined from the sub.
@@ -589,19 +570,16 @@ def all_ground_operators_given_partial(operator: STRIPSOperator,
                 completed_choice.append(choice_lst.pop())
         assert not choice_lst
         ground_op = operator.ground(tuple(completed_choice))
-        ground_ops.add(ground_op)
-    return ground_ops
+        yield ground_op
 
 
 def all_ground_nsrts(
-        nsrt: NSRT, objects: Collection[Object]) -> Set[_GroundNSRT]:
+        nsrt: NSRT, objects: Collection[Object]) -> Iterator[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects.
     """
     types = [p.type for p in nsrt.parameters]
-    ground_nsrts = set()
     for choice in get_object_combinations(objects, types):
-        ground_nsrts.add(nsrt.ground(choice))
-    return ground_nsrts
+        yield nsrt.ground(choice)
 
 
 def all_ground_predicates(pred: Predicate,
@@ -615,8 +593,8 @@ def all_ground_predicates(pred: Predicate,
             for choice in get_object_combinations(objects, pred.types)}
 
 
-def all_possible_ground_atoms(state: State, preds: Set[Predicate]) \
-        -> List[GroundAtom]:
+def all_possible_ground_atoms(state: State, preds: Set[Predicate]
+                              ) -> List[GroundAtom]:
     """Get a sorted list of all possible ground atoms in a state given the
     predicates. Ignores the predicates' classifiers.
     """
@@ -652,54 +630,54 @@ def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
     return new_ground_atom_dataset
 
 
-def extract_preds_and_types(nsrts: Collection[NSRT]) -> Tuple[
+def extract_preds_and_types(ops: Collection[NSRTOrSTRIPSOperator]) -> Tuple[
         Dict[str, Predicate], Dict[str, Type]]:
-    """Extract the predicates and types used in the given NSRTs.
+    """Extract the predicates and types used in the given operators.
     """
     preds = {}
     types = {}
-    for nsrt in nsrts:
-        for atom in nsrt.preconditions | nsrt.add_effects | nsrt.delete_effects:
+    for op in ops:
+        for atom in op.preconditions | op.add_effects | op.delete_effects:
             for var_type in atom.predicate.types:
                 types[var_type.name] = var_type
             preds[atom.predicate.name] = atom.predicate
     return preds, types
 
 
-def filter_static_nsrts(ground_nsrts: Collection[_GroundNSRT],
-                        atoms: Collection[GroundAtom]) -> List[
-                            _GroundNSRT]:
-    """Filter out ground NSRTs that don't satisfy static facts.
+def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                            atoms: Collection[GroundAtom]
+                            ) -> List[GroundNSRTOrSTRIPSOperator]:
+    """Filter out ground operators that don't satisfy static facts.
     """
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
-        # This predicate is not static if it appears in any NSRT's effects.
-        if any(any(atom.predicate == pred for atom in nsrt.add_effects) or
-               any(atom.predicate == pred for atom in nsrt.delete_effects)
-               for nsrt in ground_nsrts):
+        # This predicate is not static if it appears in any op's effects.
+        if any(any(atom.predicate == pred for atom in op.add_effects) or
+               any(atom.predicate == pred for atom in op.delete_effects)
+               for op in ground_ops):
             continue
         static_preds.add(pred)
     static_facts = {atom for atom in atoms if atom.predicate in static_preds}
     # Perform filtering.
-    ground_nsrts = [nsrt for nsrt in ground_nsrts
+    ground_ops = [op for op in ground_ops
                     if not any(atom.predicate in static_preds
                                and atom not in static_facts
-                               for atom in nsrt.preconditions)]
-    return ground_nsrts
+                               for atom in op.preconditions)]
+    return ground_ops
 
 
-def is_dr_reachable(ground_nsrts: Collection[_GroundNSRT],
+def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                     atoms: Collection[GroundAtom],
                     goal: Set[GroundAtom]) -> bool:
     """Quickly check whether the given goal is reachable from the given atoms
-    under the given NSRTs, using a delete relaxation (dr).
+    under the given operators, using a delete relaxation (dr).
     """
     reachables = set(atoms)
     while True:
         fixed_point_reached = True
-        for nsrt in ground_nsrts:
-            if nsrt.preconditions.issubset(reachables):
-                for new_reachable_atom in nsrt.add_effects-reachables:
+        for op in ground_ops:
+            if op.preconditions.issubset(reachables):
+                for new_reachable_atom in op.add_effects-reachables:
                     fixed_point_reached = False
                     reachables.add(new_reachable_atom)
         if fixed_point_reached:
@@ -707,20 +685,9 @@ def is_dr_reachable(ground_nsrts: Collection[_GroundNSRT],
     return goal.issubset(reachables)
 
 
-def get_applicable_nsrts(ground_nsrts: Collection[_GroundNSRT],
-                         atoms: Collection[GroundAtom]) -> Iterator[
-                             _GroundNSRT]:
-    """Iterate over NSRTs whose preconditions are satisfied.
-    """
-    for nsrt in sorted(ground_nsrts):
-        applicable = nsrt.preconditions.issubset(atoms)
-        if applicable:
-            yield nsrt
-
-
-def get_applicable_operators(ground_ops: Collection[_GroundSTRIPSOperator],
-                             atoms: Collection[GroundAtom]) -> Iterator[
-                             _GroundSTRIPSOperator]:
+def get_applicable_operators(
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
     """Iterate over ground operators whose preconditions are satisfied.
 
     Note: the order may be nondeterministic. Users should be invariant.
@@ -731,28 +698,39 @@ def get_applicable_operators(ground_ops: Collection[_GroundSTRIPSOperator],
             yield op
 
 
-def apply_nsrt(nsrt: _GroundNSRT, atoms: Set[GroundAtom]
-               ) -> Set[GroundAtom]:
-    """Get a next set of atoms given a current set and a ground NSRT.
-    """
-    new_atoms = atoms.copy()
-    for atom in nsrt.add_effects:
-        new_atoms.add(atom)
-    for atom in nsrt.delete_effects:
-        new_atoms.discard(atom)
-    return new_atoms
-
-
-def apply_operator(operator: _GroundSTRIPSOperator, atoms: Set[GroundAtom]
-                   ) -> Set[GroundAtom]:
+def apply_operator(op: GroundNSRTOrSTRIPSOperator,
+                   atoms: Set[GroundAtom]) -> Set[GroundAtom]:
     """Get a next set of atoms given a current set and a ground operator.
     """
-    new_atoms = atoms.copy()
-    for atom in operator.add_effects:
+    # Note that we are removing the side predicates before the
+    # application of the operator, because if the side predicate
+    # appears in the effects, we still know that the effects
+    # will be true, so we don't want to remove them.
+    new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
+    for atom in op.add_effects:
         new_atoms.add(atom)
-    for atom in operator.delete_effects:
+    for atom in op.delete_effects:
         new_atoms.discard(atom)
     return new_atoms
+
+
+def get_successors_from_ground_ops(atoms: Set[GroundAtom],
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        unique: bool = True
+        ) -> Iterator[Set[GroundAtom]]:
+    """Get all next atoms from ground operators.
+
+    If unique is true, only yield each unique successor once.
+    """
+    seen_successors = set()
+    for ground_op in get_applicable_operators(ground_ops, atoms):
+        next_atoms = apply_operator(ground_op, atoms)
+        if unique:
+            frozen_next_atoms = frozenset(next_atoms)
+            if frozen_next_atoms in seen_successors:
+                continue
+            seen_successors.add(frozen_next_atoms)
+        yield next_atoms
 
 
 def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
@@ -763,8 +741,8 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
     assert len(strips_ops) == len(option_specs)
     nsrts = set()
     for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-        nsrt = op.make_nsrt(param_option, option_vars,
-                            lambda s, rng, o: np.zeros(1))  # dummy sampler
+        nsrt = op.make_nsrt(param_option, option_vars,  # dummy sampler
+                            lambda s, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
     return nsrts
 
@@ -772,8 +750,7 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
 def create_heuristic(heuristic_name: str,
                      init_atoms: Collection[GroundAtom],
                      goal: Collection[GroundAtom],
-                     ground_ops: Collection[Union[_GroundNSRT,
-                                                  _GroundSTRIPSOperator]]
+                     ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                      ) -> Callable[[PyperplanFacts], float]:
     """Create a task planning heuristic that consumes pyperplan facts and
     estimates the cost-to-go.
@@ -823,7 +800,7 @@ class RelaxedFact:
     expanded: bool = field(init=False, default=False)
     # The heuristic distance value.
     distance: float = field(init=False, default=float("inf"))
-    # The cheapest operator that was applied to reach this fact, for hFF.
+    # The cheapest operator that was applied to reach this fact, for HFF.
     cheapest_achiever: Optional[RelaxedOperator] = None
 
 
@@ -1030,7 +1007,7 @@ class _HFFHeuristic(_RelaxationHeuristic):
         return sum(distances)
 
     def calc_goal_h(self) -> float:
-        """This function has to be overwritten, because the hFF heuristic needs
+        """This function has to be overwritten, because the HFF heuristic needs
         an additional backward pass.
 
         This is mostly copied from pyperplan, with a few style changes.
@@ -1068,6 +1045,55 @@ class _HFFHeuristic(_RelaxationHeuristic):
 
         # Extract FF value.
         return len(relaxed_plan)
+
+
+def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
+                       predicates: Collection[Predicate],
+                       types: Collection[Type],
+                       domain_name: str) -> str:
+    """Create a PDDL domain str from STRIPSOperators or NSRTs.
+    """
+    # Sort everything to ensure determinism.
+    preds_lst = sorted(predicates)
+    types_lst = sorted(types)
+    ops_lst = sorted(operators)
+    types_str = " ".join(t.name for t in types_lst)
+    preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
+    ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
+    return f"""(define (domain {domain_name})
+  (:requirements :typing)
+  (:types {types_str})
+
+  (:predicates\n    {preds_str}
+  )
+
+  {ops_strs}
+)"""
+
+
+def create_pddl_problem(objects: Collection[Object],
+                        init_atoms: Collection[GroundAtom],
+                        goal: Collection[GroundAtom],
+                        domain_name: str,
+                        problem_name: str) -> str:
+    """Create a PDDL problem str.
+    """
+    # Sort everything to ensure determinism.
+    objects_lst = sorted(objects)
+    init_atoms_lst = sorted(init_atoms)
+    goal_lst = sorted(goal)
+    objects_str = "\n    ".join(f"{o.name} - {o.type.name}"
+                                for o in objects_lst)
+    init_str = "\n    ".join(atom.pddl_str() for atom in init_atoms_lst)
+    goal_str = "\n    ".join(atom.pddl_str() for atom in goal_lst)
+    return f"""(define (problem {problem_name}) (:domain {domain_name})
+  (:objects\n    {objects_str}
+  )
+  (:init\n    {init_str}
+  )
+  (:goal (and {goal_str}))
+)
+"""
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:

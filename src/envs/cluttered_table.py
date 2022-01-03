@@ -99,7 +99,7 @@ class ClutteredTableEnv(BaseEnv):
             if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
                 dist = np.linalg.norm(vec2)  # type: ignore
                 if dist > colliding_can_max_dist:
-                    colliding_can_max_dist = dist
+                    colliding_can_max_dist = float(dist)
                     colliding_can = can
         if colliding_can is not None:
             raise EnvironmentFailure("collision", {colliding_can})
