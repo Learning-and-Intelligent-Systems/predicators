@@ -179,18 +179,19 @@ def test_create_score_function():
     score_func = _create_score_function("hadd_lookahead", set(), [], [], {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 0
     assert score_func.heuristic_name == "hadd"
     score_func = _create_score_function("hmax_lookahead", set(), [], [], {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
+    assert score_func.heuristic_name == "hmax"
     score_func = _create_score_function("hadd_lookahead_depth1", set(), [], [],
                                         {})
     assert score_func.lookahead_depth == 1
     score_func = _create_score_function("hadd_lookahead_depth2", set(), [], [],
                                         {})
     assert score_func.lookahead_depth == 2
-    assert score_func.heuristic_name == "hmax"
     score_func = _create_score_function("hff_lookahead", set(), [], [], {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
