@@ -188,11 +188,25 @@ def get_delta_low_level_base_action(
 # Navigate To #
 
 def navigate_to_param_sampler(rng, objects):
-    closeness_limit = 1.5
+    assert len(objects) in [2,3]
+    # The navigation nsrts are designed such that this is true (the target obj is always last
+    # in the params list).
+    obj_to_sample_near = objects[-1]
+    closeness_limit = max([1.5, np.linalg.norm(np.array(obj_to_sample_near.bounding_box[:2])) + 0.5])
     distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
-    return np.array([distance * np.cos(yaw), distance * np.sin(yaw)])    
-    # return np.array([-0.58575623,  0.50996017])
+    x = distance * np.cos(yaw)
+    y = distance * np.sin(yaw)
+
+    # The below while loop avoids sampling values that are inside the bounding box of the object
+    # and therefore will certainly be in collision with the object if the robot tries to move there.
+    while abs(x) <= obj_to_sample_near.bounding_box[0] and abs(y) <= obj_to_sample_near.bounding_box[1]:
+        distance = (closeness_limit - 0.01) * rng.random() + 0.03
+        yaw = rng.random() * (2 * np.pi) - np.pi
+        x = distance * np.cos(yaw)
+        y = distance * np.sin(yaw)
+
+    return np.array([x,y])
 
 
 def navigate_to_obj_pos(env, obj, pos_offset, rng=np.random.default_rng(23)):
