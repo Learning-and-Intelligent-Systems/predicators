@@ -51,9 +51,7 @@ def test_predicate_grammar():
     assert feature_ranges[robby.type]["hand"] == (0.5, 0.8)
     forall_grammar = _create_grammar(dataset, env.predicates)
     # There are only so many unique predicates possible under the grammar.
-    # Non-unique predicates are pruned. Note that with a larger dataset,
-    # more predicates would appear unique.
-    assert len(forall_grammar.generate(max_num=10)) == 7
+    assert len(forall_grammar.generate(max_num=10)) == 10
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
     utils.update_config({"grammar_search_predicate_cost_upper_bound": 0})
