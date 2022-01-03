@@ -249,7 +249,10 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
 
 def _halving_constant_generator(lo: float, hi: float, cost: float = 1.0
                                 ) -> Iterator[Tuple[float, float]]:
-    """The second element of the tuple is a cost.
+    """The second element of the tuple is a cost. For example, the first
+    several tuples yielded will be:
+
+        (0.5, 1.0), (0.25, 2.0), (0.75, 2.0), (0.125, 3.0), ...
     """
     mid = (hi + lo) / 2.
     yield (mid, cost)
