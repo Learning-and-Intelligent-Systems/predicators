@@ -22,7 +22,7 @@ class PaintingEnv(BaseEnv):
     """
     # Parameters that aren't important enough to need to clog up settings.py
     table_lb = -10.1
-    table_ub = -0.2
+    table_ub = -0.35
     table_height = 0.2
     shelf_l = 2.0 # shelf length
     shelf_lb = 1.
