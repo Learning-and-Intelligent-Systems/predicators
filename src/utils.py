@@ -458,6 +458,7 @@ def _run_heuristic_search(
         states.append(cur_node.state)
         actions.append(cur_node.action)
         print("\nNEW STATE",cur_node.state)
+        last_priority = best_priority
     return states, actions
 
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
