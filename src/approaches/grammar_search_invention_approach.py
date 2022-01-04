@@ -915,10 +915,9 @@ def _select_predicates_to_keep(
     # Start the search with no candidates.
     init : FrozenSet[Predicate] = frozenset()
 
-    # Greedy best first search.
-    path, _ = utils.run_gbfs(
-        init, _check_goal, _get_successors, score_function.evaluate,
-        max_evals=CFG.grammar_search_max_evals)
+    # Greedy local hill climbing search.
+    path, _ = utils.run_hill_climbing(
+        init, _check_goal, _get_successors, score_function.evaluate)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
