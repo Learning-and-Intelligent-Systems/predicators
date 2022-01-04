@@ -184,7 +184,7 @@ def _main() -> None:
         "hadd_lookahead_depth1",
         "hadd_lookahead_depth2",
     ]
-    run_planning = False
+    run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                           "results")
