@@ -179,7 +179,7 @@ def _main() -> None:
     ]
     score_function_names = [
         "prediction_error",
-        "hadd_lookahead",
+        "hadd_lookahead_depth0",
         "exact_lookahead",
         "hadd_lookahead_depth1",
         "hadd_lookahead_depth2",

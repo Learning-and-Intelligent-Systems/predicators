@@ -3,6 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from __future__ import annotations
+import re
 import time
 import abc
 from dataclasses import dataclass, field
@@ -470,23 +471,15 @@ def _create_score_function(
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    if score_function_name == "hadd_lookahead":
+    match = re.match(r"(\w+)_lookahead_depth(\d+)", score_function_name)
+    if match is not None:
+        # heuristic_name can be any of {"hadd", "hmax", "hff"}
+        # depth can be any non-negative integer
+        heuristic_name, depth = match.groups()
+        depth = int(depth)
         return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    if score_function_name == "hadd_lookahead_depth1":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
-            lookahead_depth=1)
-    if score_function_name == "hadd_lookahead_depth2":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
-            lookahead_depth=2)
-    if score_function_name == "hmax_lookahead":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hmax")
-    if score_function_name == "hff_lookahead":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hff")
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            heuristic_name, lookahead_depth=depth)
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
@@ -762,6 +755,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                                       ground_ops)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
+        assert self.lookahead_depth >= 0
         def _relaxation_h(atoms: Set[GroundAtom], depth: int=0) -> float:
             cache_key = (frozenset(atoms), depth)
             if cache_key in cache:
