@@ -77,7 +77,6 @@ def test_grammar_search_invention_approach():
     Keeping this here because we can't import test files in github checks.
     """
     utils.update_config({
-        "grammar_search_max_evals": 10,
         "grammar_search_true_pos_weight": 10,
         "grammar_search_false_pos_weight": 1,
         "grammar_search_size_weight": 1e-2,
