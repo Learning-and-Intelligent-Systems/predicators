@@ -62,7 +62,7 @@ def _create_grammar(dataset: Dataset, given_predicates: Set[Predicate]
     skip_grammar = _SkipGrammar(pruned_grammar, given_predicates)
     final_grammar = _DebugGrammar(skip_grammar)
     # We're done! Return the final grammar.
-    return final_grammar
+    return skip_grammar
 
 
 class _ProgrammaticClassifier(abc.ABC):
@@ -233,9 +233,7 @@ _DEBUG_PREDICATE_STRS = [
     "NOT-((0:robot).gripper_rot<=0.5)",  # HoldingTop
     "((0:robot).gripper_rot<=0.25)",  # HoldingSide
     "NOT-((0:obj).held<=0.5)",  # Holding
-    "NOT-((0:obj).wetness<=0.5)",  # IsWet
     "((0:obj).wetness<=0.5)",  # IsDry
-    "NOT-((0:obj).dirtiness<=0.495)",  # IsDirty
     "((0:obj).dirtiness<=0.495)",  # IsClean
 ]
 
@@ -505,7 +503,7 @@ def _create_score_function(
             initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     if score_function_name == "hadd_lookahead_depth1":
         return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
+            initial_predicates, atom_dataset, train_tasks, candidates, "hff",
             lookahead_depth=1)
     if score_function_name == "hadd_lookahead_depth2":
         return _RelaxationHeuristicLookaheadBasedScoreFunction(
