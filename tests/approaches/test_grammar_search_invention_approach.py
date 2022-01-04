@@ -176,12 +176,14 @@ def test_create_score_function():
     assert score_func.heuristic_name == "hadd"
     score_func = _create_score_function("branching_factor", set(), [], [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
-    score_func = _create_score_function("hadd_lookahead", set(), [], [], {})
+    score_func = _create_score_function("hadd_lookahead_depth0", set(), [], [],
+                                        {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_name == "hadd"
-    score_func = _create_score_function("hmax_lookahead", set(), [], [], {})
+    score_func = _create_score_function("hmax_lookahead_depth0", set(), [], [],
+                                        {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
@@ -192,7 +194,8 @@ def test_create_score_function():
     score_func = _create_score_function("hadd_lookahead_depth2", set(), [], [],
                                         {})
     assert score_func.lookahead_depth == 2
-    score_func = _create_score_function("hff_lookahead", set(), [], [], {})
+    score_func = _create_score_function("hff_lookahead_depth0", set(), [], [],
+                                        {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.heuristic_name == "hff"
@@ -503,7 +506,7 @@ def test_exact_lookahead_score_function():
     """Tests for _ExactHeuristicLookaheadBasedScoreFunction().
     """
     # Just test this on BlocksEnv, since that's a known problem case
-    # for hadd_lookahead.
+    # for hadd_lookahead_depth*.
     utils.flush_cache()
     utils.update_config({
         "env": "blocks",
