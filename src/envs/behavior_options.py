@@ -4,19 +4,22 @@ import numpy as np
 import pybullet as p
 import scipy
 
-from igibson import object_states
+try:
+    from igibson import object_states
 
-from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
-from igibson.objects.articulated_object import URDFObject
-from igibson.utils.behavior_robot_planning_utils import (
-    plan_base_motion_br,
-    plan_hand_motion_br,
-)
-from igibson.utils import sampling_utils
-from igibson.external.pybullet_tools.utils import (
-    get_aabb,
-    get_aabb_extent,
-)
+    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
+    from igibson.objects.articulated_object import URDFObject
+    from igibson.utils.behavior_robot_planning_utils import (
+        plan_base_motion_br,
+        plan_hand_motion_br,
+    )
+    from igibson.utils import sampling_utils
+    from igibson.external.pybullet_tools.utils import (
+        get_aabb,
+        get_aabb_extent,
+    )
+except ModuleNotFoundError as e:
+    print(e)
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
     # "hit_to_plane_threshold": 0.1,  # TODO: Tune this parameter.
