@@ -852,11 +852,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             if not CFG.do_sampler_learning:
                 # Ensure terminal state matches parameterization.
                 param_from_terminal = np.concatenate([s[block], s[robot]])
-                # Note that here we require a tolerance of no more than 1e-02
+                # Note that here we require a tolerance of no less than 1e-02
                 # because before letting go of the block, the robot holds the
-                # the block 1e-02 above the ground. So the final state of the
-                # block is 0, so the difference of the param_from_terminal and
-                # p will differ by 1e-02 in the block's y value. 
+                # the block block_height + 1e-02 above the ground before
+                # dropping it, so the difference of the param_from_terminal and
+                # p will differ by 1e-02 in the block's y value.
                 assert np.allclose(p, param_from_terminal, atol=1e-02)
         return terminal
 
