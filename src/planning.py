@@ -304,7 +304,7 @@ def _update_nsrts_with_failure(
             if ground_nsrt == discovered_failure.failing_nsrt:
                 new_ground_nsrt = ground_nsrt.copy_with(
                     preconditions=ground_nsrt.preconditions | {atom})
-            # Update the effects of all nsrts that use this object.
+            # Update the effects of all NSRTs that use this object.
             # Note that this is an elif rather than an if, because it would
             # never be possible to use the failing NSRT's effects to set
             # the _NOT_CAUSES_FAILURE precondition.
