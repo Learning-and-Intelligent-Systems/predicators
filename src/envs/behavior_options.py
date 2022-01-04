@@ -1,10 +1,10 @@
 """Hardcoded options for BehaviorEnv.
 """
 import numpy as np
-import pybullet as p
 import scipy
 
 try:
+    import pybullet as p
     from igibson import object_states
 
     from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
