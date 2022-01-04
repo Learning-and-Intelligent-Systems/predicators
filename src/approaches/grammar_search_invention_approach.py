@@ -34,32 +34,33 @@ def _create_grammar(dataset: Dataset, given_predicates: Set[Predicate]
     # We start with the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
-    given_grammar = _GivenPredicateGrammar(given_predicates)
+    # given_grammar = _GivenPredicateGrammar(given_predicates)
     # Next, we consider various ways to split single feature values
     # across our dataset.
     sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
     # This chained grammar has the effect of enumerating first the
     # given predicates, then the single feature inequality ones.
-    chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
+    # chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
     # Now, the chained grammar will undergo a series of transformations.
     # For each predicate enumerated by the chained grammar, we also
     # enumerate the negation of that predicate.
-    negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
+    negated_grammar = _NegationPredicateGrammarWrapper(sfi_grammar)
     # For each predicate enumerated, we also enumerate foralls for
     # that predicate, along with appropriate negations.
-    forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
+    # forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
     # Prune proposed predicates by checking if they are equivalent to
     # any already-generated predicates with respect to the dataset.
     # Note that we want to do this before the skip grammar below,
     # because if any predicates are equivalent to the given predicates,
     # we would not want to generate them.
-    pruned_grammar = _PrunedGrammar(dataset, forall_grammar)
+    pruned_grammar = _PrunedGrammar(dataset, negated_grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
     # so we just filter them out from actually being enumerated.
     # But remember that we do want to enumerate their negations
     # and foralls, which is why they're included originally.
-    final_grammar = _SkipGrammar(pruned_grammar, given_predicates)
+    skip_grammar = _SkipGrammar(pruned_grammar, given_predicates)
+    final_grammar = _DebugGrammar(skip_grammar)
     # We're done! Return the final grammar.
     return final_grammar
 
@@ -224,6 +225,35 @@ class _PredicateGrammar:
         """Iterate over candidate predicates from less to more cost.
         """
         raise NotImplementedError("Override me!")
+
+
+_DEBUG_PREDICATE_STRS = [
+    "NOT-((0:robot).fingers<=0.5)",  # GripperOpen
+    "((0:obj).pose_y<=-0.308)",  # OnTable
+    "NOT-((0:robot).gripper_rot<=0.5)",  # HoldingTop
+    "((0:robot).gripper_rot<=0.25)",  # HoldingSide
+    "NOT-((0:obj).held<=0.5)",  # Holding
+    "NOT-((0:obj).wetness<=0.5)",  # IsWet
+    "((0:obj).wetness<=0.5)",  # IsDry
+    "NOT-((0:obj).dirtiness<=0.495)",  # IsDirty
+    "((0:obj).dirtiness<=0.495)",  # IsClean
+]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DebugGrammar(_PredicateGrammar):
+    """A grammar that generates only predicates in _DEBUG_PREDICATE_STRS.
+    """
+    base_grammar: _PredicateGrammar
+
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
+        del max_num
+        return super().generate(len(_DEBUG_PREDICATE_STRS))
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if str(predicate) in _DEBUG_PREDICATE_STRS:
+                yield (predicate, cost)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -914,6 +944,8 @@ def _select_predicates_to_keep(
 
     # Start the search with no candidates.
     init : FrozenSet[Predicate] = frozenset()
+    score_function.evaluate(set(candidates))  # TODO: remove, just for printing score
+    print("\n\n\nstarting search")
 
     # Greedy best first search.
     path, _ = utils.run_gbfs(
