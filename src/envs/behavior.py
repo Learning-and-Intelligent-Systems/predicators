@@ -2,11 +2,10 @@
 """
 # pylint: disable=import-error
 
-from dataclasses import dataclass, field
 import functools
 import itertools
 import os
-from typing import List, Set, Optional, Dict, Callable, Sequence, Any
+from typing import List, Set, Optional, Dict, Callable, Sequence
 import numpy as np
 
 try:
@@ -14,9 +13,9 @@ try:
     import igibson
     from igibson import object_states
     from igibson.envs import behavior_env
-    from igibson.objects.articulated_object import (
+    from igibson.objects.articulated_object import (# pylint: disable=unused-import
         ArticulatedObject,
-    )  # pylint: disable=unused-import
+    )
     from igibson.objects.articulated_object import URDFObject
     from igibson.object_states.on_floor import RoomFloor
     from igibson.robots.behavior_robot import BRBody
@@ -50,10 +49,13 @@ from predicators.src.structs import (
     GroundAtom,
     Image,
     Array,
-    _Option,
 )
 from predicators.src.settings import CFG
 
+def get_aabb_volume(lo, hi):
+    """Simple utility function to compute the volume of an aabb"""
+    dimension = hi - lo
+    return dimension[0] * dimension[1] * dimension[2]
 
 def make_behavior_option(
     name, types, params_space, env, controller_fn, object_to_ig_object, rng
@@ -64,7 +66,7 @@ def make_behavior_option(
     """
 
     def _policy(
-        state: State, memory: Dict, objects: Sequence[Object], params: Array
+        state: State, memory: Dict, _objects: Sequence[Object], _params: Array
     ) -> Action:
         assert "has_terminated" in memory
         assert (
@@ -92,7 +94,7 @@ def make_behavior_option(
         return True
 
     def _terminal(
-        state: State, memory: Dict, objects: Sequence[Object], params: Array
+        _state: State, memory: Dict, _objects: Sequence[Object], _params: Array
     ) -> bool:
         assert "has_terminated" in memory
         return memory["has_terminated"]
@@ -105,7 +107,6 @@ def make_behavior_option(
         _initiable=_initiable,
         _terminal=_terminal,
     )
-
 
 class BehaviorEnv(BaseEnv):
     """Behavior (iGibson) environment."""
@@ -392,7 +393,7 @@ class BehaviorEnv(BaseEnv):
         self,
         bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
-        def _classifier(s: State, o: Sequence[Object]) -> bool:
+        def _classifier(_s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
             # predicate. Because of this, we will assert that whenever
@@ -419,13 +420,8 @@ class BehaviorEnv(BaseEnv):
         return _classifier
 
     # TODO (wmcclinton) test graspable
-
-    def _get_aabb_volume(self, lo, hi):
-        dimension = hi - lo
-        return dimension[0] * dimension[1] * dimension[2]
-
     def _graspable_classifier(
-        self, state: State, objs: Sequence[Object]
+        self, _state: State, objs: Sequence[Object]
     ) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
@@ -433,7 +429,7 @@ class BehaviorEnv(BaseEnv):
         ig_obj = self.object_to_ig_object(objs[0])
 
         lo, hi = ig_obj.states[object_states.AABB].get_value()
-        volume = self._get_aabb_volume(lo, hi)
+        volume = get_aabb_volume(lo, hi)
         return volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed
 
     # TODO (wmcclinton) test reachable
@@ -445,14 +441,9 @@ class BehaviorEnv(BaseEnv):
         # _create_classifier_from_bddl
         # assert state.allclose(self._current_ig_state_to_state())
         # Checking only scoped varibles has changed
-        try:
-            assert state.allclose(
-                self._current_ig_state_to_state().scope(state.data.keys())
-            )
-        except AssertionError:
-            import ipdb
-
-            ipdb.set_trace()
+        assert state.allclose(
+            self._current_ig_state_to_state().scope(state.data.keys())
+        )
 
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
@@ -476,14 +467,11 @@ class BehaviorEnv(BaseEnv):
             self._current_ig_state_to_state().scope(state.data.keys())
         )
         assert len(objs) == 1
-        ig_obj = self.object_to_ig_object(objs[0])
-        ####
         for obj in state:
             if self._reachable_classifier(
                 state=state, objs=[obj, objs[0]]
             ) and (obj != objs[0]):
                 return False
-        ####
         return True
 
     def _get_grasped_objects(self, state: State) -> Set[Object]:
@@ -495,7 +483,7 @@ class BehaviorEnv(BaseEnv):
             # is sometimes a 1-element list...
             # TODO (njk): find a better place to fix this body_id issue;
             # probably somewhere internal to behavior?
-            if isinstance(ig_obj.body_id) == list:
+            if isinstance(ig_obj.body_id, list):
                 assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
 
