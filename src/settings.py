@@ -112,7 +112,6 @@ class GlobalSettings:
     interactive_ask_strategy_pct = 20.0
 
     # grammar search invention parameters
-    grammar_search_max_evals = 250
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
