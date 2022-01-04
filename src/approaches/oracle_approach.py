@@ -173,9 +173,9 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
             # grasp changes from -1 to 1
             block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
             # x, y, grip, holding
-            # grip changes from -0.1 to 0.1
+            # grip changes from -1.0 to 1.0
             # holding changes from -1 to 1
-            robot_param = [desired_x, by, 0.1, 1.0]
+            robot_param = [desired_x, by, 1.0, 1.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     pick_nsrt = NSRT("Pick", parameters, preconditions,
@@ -238,14 +238,14 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
             desired_x = rng.uniform(tx-tw/2, tx+tw/2)
             desired_x = float(tx)
             bw, bh = state.get(block, "width"), state.get(block, "height")
-            desired_y = bh + 1e2
+            desired_y = bh + 1e-2
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from 1 to -1
             block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
             # x, y, grip, holding
-            # grip changes from 0.1 to -0.1
+            # grip changes from 1.0 to -1.0
             # holding changes from 1 to -1
-            robot_param = [desired_x, desired_y, -0.1, -2.0]
+            robot_param = [desired_x, desired_y, -1.0, -1.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     place_nsrt = NSRT("Place", parameters, preconditions,
