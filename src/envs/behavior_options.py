@@ -1,5 +1,7 @@
 """Hardcoded options for BehaviorEnv.
 """
+# pylint: disable=import-error
+
 import numpy as np
 import scipy
 
