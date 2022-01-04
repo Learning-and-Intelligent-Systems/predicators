@@ -457,7 +457,7 @@ def _run_heuristic_search(
         cur_node = best_child_node
         states.append(cur_node.state)
         actions.append(cur_node.action)
-        print("\nNEW STATE",cur_node.state)
+        print("\nNEW STATE",cur_node.state,best_priority)
         last_priority = best_priority
     return states, actions
 
