@@ -429,6 +429,37 @@ def _run_heuristic_search(
 
     If no goal is found, returns the state with the best priority.
     """
+    cur_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
+        initial_state, 0, 0)
+    states = [initial_state]
+    actions = []
+    last_priority = get_priority(cur_node)
+    while True:
+        if check_goal(cur_node.state):
+            break
+        best_priority = float("inf")
+        best_child_node = None
+        for action, child_state, cost in get_successors(cur_node.state):
+            child_path_cost = cur_node.cumulative_cost + cost
+            child_node = _HeuristicSearchNode(
+                state=child_state,
+                edge_cost=cost,
+                cumulative_cost=child_path_cost,
+                parent=cur_node,
+                action=action)
+            priority = get_priority(child_node)
+            if priority < best_priority:
+                best_priority = priority
+                best_child_node = child_node
+        if best_child_node is None or last_priority <= best_priority:
+            print("\nENDING SEARCH")
+            break  # no successors, or no improvement to score
+        cur_node = best_child_node
+        states.append(cur_node.state)
+        actions.append(cur_node.action)
+        print("\nNEW STATE",cur_node.state)
+    return states, actions
+
     queue: List[Tuple[Any, int, _HeuristicSearchNode[_S, _A]]] = []
     state_to_best_path_cost: Dict[_S, float] = \
         defaultdict(lambda : float("inf"))
