@@ -783,6 +783,27 @@ class _GroundNSRT:
         params = self._sampler(state, rng, self.objects)
         return self.option.ground(self.option_objs, params)
 
+    def copy_with(self, **kwargs: Any) -> _GroundNSRT:
+        """Create a copy of the ground NSRT, optionally while replacing
+        any of the arguments.
+        """
+        default_kwargs = dict(
+            nsrt=self.nsrt,
+            objects=self.objects,
+            preconditions=self.preconditions,
+            add_effects=self.add_effects,
+            delete_effects=self.delete_effects,
+            option=self.option,
+            option_objs=self.option_objs,
+            _sampler=self._sampler
+        )
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        # This still seems like the least bad option.
+        return _GroundNSRT(**default_kwargs)  # type: ignore
+
 
 @dataclass(eq=False)
 class Action:
