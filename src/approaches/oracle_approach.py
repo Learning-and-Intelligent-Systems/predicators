@@ -1062,6 +1062,19 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
         pred = pred_name_to_pred[pred_name]
         return LiftedAtom(pred, objects)
 
+    def _get_predicate(
+        base_pred_name: str, types: Sequence[Type]
+    ) -> LiftedAtom:
+        type_names = "-".join(t.name for t in types)
+        pred_name = f"{base_pred_name}-{type_names}"
+        return pred_name_to_pred[pred_name]
+
+    # We start by creating nextTo predicates for all possible type
+    # combinations
+    nextto_predicates = set()
+    for next_to_pred_types in itertools.product(env.types, env.types):
+        nextto_predicates.add(_get_predicate("reachable", next_to_pred_types))
+
     agent_type = type_name_to_type["agent.n.01"]
     agent_obj = Variable("?agent", agent_type)
 
@@ -1094,6 +1107,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 preconditions,
                 add_effects,
                 delete_effects,
+                nextto_predicates,
                 option,
                 option_vars,
                 lambda s, r, o: navigate_to_param_sampler(r,\
@@ -1122,6 +1136,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                     preconditions,
                     add_effects,
                     delete_effects,
+                    nextto_predicates,
                     option,
                     option_vars,
                     lambda s, r, o: navigate_to_param_sampler(r,\
@@ -1159,6 +1174,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                     preconditions,
                     add_effects,
                     delete_effects,
+                    set(),
                     option,
                     option_vars,
                     lambda s, r, o: grasp_obj_param_sampler(r),
@@ -1191,6 +1207,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                   preconditions,
                   add_effects,
                   delete_effects,
+                  set(),
                   option,
                   option_vars,
                   lambda s, r, o: place_ontop_obj_pos_sampler(  # type: ignore
