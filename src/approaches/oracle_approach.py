@@ -1064,7 +1064,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
 
     def _get_predicate(
         base_pred_name: str, types: Sequence[Type]
-    ) -> LiftedAtom:
+    ) -> Predicate:
         type_names = "-".join(t.name for t in types)
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
