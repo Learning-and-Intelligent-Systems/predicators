@@ -61,8 +61,10 @@ def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class.
     """
     _test_approach(env_name="cover", approach_name="nsrt_learning")
+    # Sampler learning requires more data than we are allowing for fast
+    # unit tests, so don't try solving.
     _test_approach(env_name="cover_multistep_options",
-                   approach_name="nsrt_learning")
+                   approach_name="nsrt_learning", try_solving=False)
 
 
 def test_iterative_invention_approach():
