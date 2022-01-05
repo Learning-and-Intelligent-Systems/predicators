@@ -32,15 +32,15 @@ _MOST_RECENT_ENV_INSTANCE = {}
 def create_env(name: str) -> BaseEnv:
     """Create an environment given its name."""
     if name == "cover_typed_options":
-        env = CoverEnvTypedOptions()
+        env = CoverEnvTypedOptions() # type: ignore
     elif name == "cover_hierarchical_types":
-        env = CoverEnvHierarchicalTypes()
+        env = CoverEnvHierarchicalTypes() # type: ignore
     elif name == "cluttered_table":
-        env = ClutteredTableEnv()
+        env = ClutteredTableEnv() # type: ignore
     elif name == "blocks":
-        env = BlocksEnv()
+        env = BlocksEnv() # type: ignore
     elif name == "behavior":
-        env = BehaviorEnv()  # pragma: no cover
+        env = BehaviorEnv() # type: ignore # pragma: no cover
     else:
         raise NotImplementedError(f"Unknown env: {name}")
 
