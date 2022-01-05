@@ -539,7 +539,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
         print(f"\tTotal score: {total_score} computed in "
-              f"{time.time()-start_time:.3f} seconds")
+              f"{time.time()-start_time:.3f} seconds", flush=True)
         return total_score
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
