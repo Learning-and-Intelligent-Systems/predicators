@@ -50,7 +50,7 @@ def get_gt_nsrts(
     elif CFG.env == "blocks":
         nsrts = _get_blocks_gt_nsrts()
     elif CFG.env == "behavior":
-        nsrts = _get_behavior_gt_nsrts()
+        nsrts = _get_behavior_gt_nsrts() # pragma: no cover
     elif CFG.env == "painting":
         nsrts = _get_painting_gt_nsrts()
     elif CFG.env == "playroom":
@@ -1012,7 +1012,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_behavior_gt_nsrts() -> Set[NSRT]:
+def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
     """Create ground truth nsrts for BehaviorEnv."""
     env = get_env_instance("behavior")
 

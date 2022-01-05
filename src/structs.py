@@ -173,7 +173,7 @@ class State:
                 return False
         return True
 
-    def scope(self, objects: Collection[Object]) -> State:
+    def scope(self, objects: Collection[Object]) -> State: # pragma: no cover
         """Create a substate involving only the given objects.
         """
         assert set(objects).issubset(self)
@@ -747,7 +747,7 @@ class _GroundNSRT:
     Delete Effects: {sorted(self.delete_effects, key=str)}
     Side Predicates: {sorted(self.side_predicates, key=str)}
     Option: {self.option}
-    Option Objects: {self.option_objs}\n"""
+    Option Objects: {self.option_objs}"""
 
     @cached_property
     def _hash(self) -> int:
