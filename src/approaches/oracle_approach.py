@@ -1083,6 +1083,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
 
             # Navigate to while nextto something
             for origin_obj_type in sorted(env.types):
+                if origin_obj_type == agent_type or target_obj_type == agent_type:
+                    continue
+
                 origin_obj = Variable("?origin", origin_obj_type)
                 origin_next_to = _get_lifted_atom(
                     "reachable", [origin_obj, agent_obj]
