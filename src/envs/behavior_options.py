@@ -192,7 +192,7 @@ def navigate_to_param_sampler( # type: ignore
                 obj_to_sample_near.bounding_box[:2])) + 0.5,  # type: ignore
         ]
     )
-    distance = (closeness_limit - 0.01) * rng.random() + 0.03
+    distance = (closeness_limit - 0.01) * rng.random() + 0.03 # type: ignore
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
@@ -205,7 +205,7 @@ def navigate_to_param_sampler( # type: ignore
         abs(x) <= obj_to_sample_near.bounding_box[0]
         and abs(y) <= obj_to_sample_near.bounding_box[1]
     ):
-        distance = (closeness_limit - 0.01) * rng.random() + 0.03
+        distance = (closeness_limit - 0.01) * rng.random() + 0.03 # type: ignore
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
