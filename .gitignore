@@ -9,5 +9,8 @@ build
 dist
 pylint_recursive.py
 .coverage
+supercloud_logs
+results
 videos
 saved_data
+analysis/results

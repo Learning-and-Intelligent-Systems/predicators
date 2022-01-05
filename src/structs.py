@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
+from tabulate import tabulate
 
 
 @dataclass(frozen=True, order=True)
@@ -139,7 +140,7 @@ class State:
         """
         feats: List[Array] = []
         if len(objects) == 0:
-            return np.zeros(0)
+            return np.zeros(0, dtype=np.float32)
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
@@ -178,6 +179,25 @@ class State:
         assert set(objects).issubset(self)
         return State({o: self[o] for o in objects}, self.simulator_state)
 
+    def pretty_str(self) -> str:
+        """Display the state in a nice human-readable format.
+        """
+        type_to_table : Dict[Type, List[List[str]]] = {}
+        for obj in self:
+            if obj.type not in type_to_table:
+                type_to_table[obj.type] = []
+            type_to_table[obj.type].append([obj.name] + \
+                                            list(map(str, self[obj])))
+        table_strs = []
+        for t in sorted(type_to_table):
+            headers = ["type: " + t.name] + list(t.feature_names)
+            table_strs.append(tabulate(type_to_table[t], headers=headers))
+        ll = max(len(line) for table in table_strs
+                 for line in table.split("\n"))
+        prefix = "#" * (ll//2 - 3) + " STATE " + "#" * (ll - ll//2 - 4) + "\n"
+        suffix = "\n" + "#" * ll+ "\n"
+        return prefix + "\n\n".join(table_strs) + suffix
+
 DefaultState = State({})
 
 
@@ -196,9 +216,6 @@ class Predicate:
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms.
         """
-        assert len(entities) == self.arity
-        for ent, pred_type in zip(entities, self.types):
-            assert ent.is_instance(pred_type)
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -235,6 +252,15 @@ class Predicate:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if self.arity == 0:
+            return f"({self.name})"
+        vars_str = " ".join(f"?x{i} - {t.name}"
+                            for i, t in enumerate(self.types))
+        return f"({self.name} {vars_str})"
+
     def get_negation(self) -> Predicate:
         """Return a negated version of this predicate.
         """
@@ -254,6 +280,11 @@ class _Atom:
     predicate: Predicate
     entities: Sequence[_TypedEntity]
 
+    def __post_init__(self) -> None:
+        assert len(self.entities) == self.predicate.arity
+        for ent, pred_type in zip(self.entities, self.predicate.types):
+            assert ent.is_instance(pred_type)
+
     @property
     def _str(self) -> str:
         raise NotImplementedError("Override me")
@@ -267,6 +298,14 @@ class _Atom:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if not self.entities:
+            return f"({self.predicate.name})"
+        entities_str = " ".join(e.name for e in self.entities)
+        return f"({self.predicate.name} {entities_str})"
 
     def __hash__(self) -> int:
         return self._hash
@@ -430,11 +469,12 @@ class _Option:
         action.set_option(self)
         return action
 
-DefaultOption: _Option = ParameterizedOption(
+
+DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
         [], np.array([0.0]))
-DefaultOption.parent.params_space.seed(0)  # for reproducibility
+DummyOption.parent.params_space.seed(0)  # for reproducibility
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -446,6 +486,7 @@ class STRIPSOperator:
     preconditions: Set[LiftedAtom]
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
+    side_predicates: Set[Predicate]
 
     def make_nsrt(
             self, option: ParameterizedOption, option_vars: Sequence[Variable],
@@ -455,8 +496,25 @@ class STRIPSOperator:
         given the necessary additional fields.
         """
         return NSRT(self.name, self.parameters, self.preconditions,
-                    self.add_effects, self.delete_effects, option,
-                    option_vars, sampler)
+                    self.add_effects, self.delete_effects, self.side_predicates,
+                    option, option_vars, sampler)
+
+    @lru_cache(maxsize=None)
+    def ground(self, objects: Tuple[Object]) -> _GroundSTRIPSOperator:
+        """Ground into a _GroundSTRIPSOperator, given objects.
+
+        Insist that objects are tuple for hashing in cache.
+        """
+        assert isinstance(objects, tuple)
+        assert len(objects) == len(self.parameters)
+        assert all(o.is_instance(p.type) for o, p
+                   in zip(objects, self.parameters))
+        sub = dict(zip(self.parameters, objects))
+        preconditions = {atom.ground(sub) for atom in self.preconditions}
+        add_effects = {atom.ground(sub) for atom in self.add_effects}
+        delete_effects = {atom.ground(sub) for atom in self.delete_effects}
+        return _GroundSTRIPSOperator(self, list(objects), preconditions,
+                                     add_effects, delete_effects)
 
     @cached_property
     def _str(self) -> str:
@@ -464,7 +522,8 @@ class STRIPSOperator:
     Parameters: {self.parameters}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
-    Delete Effects: {sorted(self.delete_effects, key=str)}"""
+    Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}"""
 
     @cached_property
     def _hash(self) -> int:
@@ -476,12 +535,97 @@ class STRIPSOperator:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        params_str = " ".join(f"{p.name} - {p.type.name}"
+                              for p in self.parameters)
+        preconds_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.preconditions))
+        effects_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.add_effects))
+        if self.delete_effects:
+            effects_str += "\n        "
+            effects_str += "\n        ".join(
+                f"(not {atom.pddl_str()})"
+                for atom in sorted(self.delete_effects))
+        return f"""(:action {self.name}
+    :parameters ({params_str})
+    :precondition (and {preconds_str})
+    :effect (and {effects_str})
+  )"""
+
     def __hash__(self) -> int:
         return self._hash
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, STRIPSOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) > str(other)
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class _GroundSTRIPSOperator:
+    """A STRIPSOperator + objects. Should not be instantiated externally.
+    """
+    operator: STRIPSOperator
+    objects: Sequence[Object]
+    preconditions: Set[GroundAtom]
+    add_effects: Set[GroundAtom]
+    delete_effects: Set[GroundAtom]
+
+    @cached_property
+    def _str(self) -> str:
+        return f"""GroundSTRIPS-{self.name}:
+    Parameters: {self.objects}
+    Preconditions: {sorted(self.preconditions, key=str)}
+    Add Effects: {sorted(self.add_effects, key=str)}
+    Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}"""
+
+    @cached_property
+    def _hash(self) -> int:
+        return hash(str(self))
+
+    @property
+    def name(self) -> str:
+        """Name of this ground STRIPSOperator.
+        """
+        return self.operator.name
+
+    @property
+    def side_predicates(self) -> Set[Predicate]:
+        """Side predicates from the parent.
+        """
+        return self.operator.side_predicates
+
+    def __str__(self) -> str:
+        return self._str
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) > str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -497,6 +641,7 @@ class NSRT:
     preconditions: Set[LiftedAtom]
     add_effects: Set[LiftedAtom]
     delete_effects: Set[LiftedAtom]
+    side_predicates: Set[Predicate]
     option: ParameterizedOption
     # A subset of parameters corresponding to the (lifted) arguments of the
     # option that this NSRT contains.
@@ -507,13 +652,14 @@ class NSRT:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        option_var_str = ", ".join([str(v) for v in self.option_vars])
+        return f"""NSRT-{self.name}:
     Parameters: {self.parameters}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
-    Option: {self.option}
-    Option Variables: {self.option_vars}"""
+    Side Predicates: {sorted(self.side_predicates, key=str)}
+    Option Spec: {self.option.name}({option_var_str})"""
 
     @cached_property
     def _hash(self) -> int:
@@ -525,12 +671,28 @@ class NSRT:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        op = STRIPSOperator(self.name, self.parameters, self.preconditions,
+                            self.add_effects, self.delete_effects,
+                            self.side_predicates)
+        return op.pddl_str()
+
     def __hash__(self) -> int:
         return self._hash
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, NSRT)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, NSRT)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, NSRT)
+        return str(self) > str(other)
 
     def ground(self, objects: Sequence[Object]) -> _GroundNSRT:
         """Ground into a _GroundNSRT, given objects.
@@ -549,14 +711,15 @@ class NSRT:
 
     def filter_predicates(self, kept: Collection[Predicate]) -> NSRT:
         """Keep only the given predicates in the preconditions,
-        add effects, and delete effects. Note that the parameters must
-        stay the same for the sake of the sampler input arguments.
+        add effects, delete effects, and side predicates. Note that the
+        parameters must stay the same for the sake of the sampler inputs.
         """
         preconditions = {a for a in self.preconditions if a.predicate in kept}
         add_effects = {a for a in self.add_effects if a.predicate in kept}
         delete_effects = {a for a in self.delete_effects if a.predicate in kept}
+        side_predicates = {a for a in self.side_predicates if a in kept}
         return NSRT(self.name, self.parameters,
-                    preconditions, add_effects, delete_effects,
+                    preconditions, add_effects, delete_effects, side_predicates,
                     self.option, self.option_vars, self._sampler)
 
 
@@ -577,11 +740,12 @@ class _GroundNSRT:
 
     @cached_property
     def _str(self) -> str:
-        return f"""{self.name}:
+        return f"""GroundNSRT-{self.name}:
     Parameters: {self.objects}
     Preconditions: {sorted(self.preconditions, key=str)}
     Add Effects: {sorted(self.add_effects, key=str)}
     Delete Effects: {sorted(self.delete_effects, key=str)}
+    Side Predicates: {sorted(self.side_predicates, key=str)}
     Option: {self.option}
     Option Objects: {self.option_objs}\n"""
 
@@ -594,6 +758,12 @@ class _GroundNSRT:
         """Name of this ground NSRT.
         """
         return self.nsrt.name
+
+    @property
+    def side_predicates(self) -> Set[Predicate]:
+        """Side predicates from the parent.
+        """
+        return self.nsrt.side_predicates
 
     def __str__(self) -> str:
         return self._str
@@ -626,6 +796,27 @@ class _GroundNSRT:
         params = self._sampler(state, rng, self.objects)
         return self.option.ground(self.option_objs, params)
 
+    def copy_with(self, **kwargs: Any) -> _GroundNSRT:
+        """Create a copy of the ground NSRT, optionally while replacing
+        any of the arguments.
+        """
+        default_kwargs = dict(
+            nsrt=self.nsrt,
+            objects=self.objects,
+            preconditions=self.preconditions,
+            add_effects=self.add_effects,
+            delete_effects=self.delete_effects,
+            option=self.option,
+            option_objs=self.option_objs,
+            _sampler=self._sampler
+        )
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        # This still seems like the least bad option.
+        return _GroundNSRT(**default_kwargs)  # type: ignore
+
 
 @dataclass(eq=False)
 class Action:
@@ -633,7 +824,7 @@ class Action:
     float array that can optionally store the option which produced it.
     """
     _arr: Array
-    _option: _Option = field(repr=False, default=DefaultOption)
+    _option: _Option = field(repr=False, default=DummyOption)
 
     @property
     def arr(self) -> Array:
@@ -644,7 +835,7 @@ class Action:
     def has_option(self) -> bool:
         """Whether this action has a non-default option attached.
         """
-        return self._option is not DefaultOption
+        return self._option is not DummyOption
 
     def get_option(self) -> _Option:
         """Get the option that produced this action.
@@ -660,13 +851,62 @@ class Action:
     def unset_option(self) -> None:
         """Unset the option that produced this action.
         """
-        self._option = DefaultOption
+        self._option = DummyOption
         assert not self.has_option()
+
+
+@dataclass(frozen=True, repr=False, eq=False)
+class LowLevelTrajectory:
+    """A structure representing a low-level trajectory, containing a
+    state sequence, action sequence, and optional goal.
+    Invariant 1: If a goal is included, the trajectory achieves that goal.
+                 We call such a trajectory a "demonstration".
+    Invariant 2: The length of the state sequence is always one greater
+                 than the length of the action sequence.
+    """
+    _states: List[State]
+    _actions: List[Action]
+    _goal: Optional[Set[GroundAtom]] = field(default=None)
+
+    def __post_init__(self) -> None:
+        assert len(self._states) == len(self._actions) + 1
+        if self._goal is not None:
+            # Verify that goal is achieved.
+            # This import is here due to circular dependencies with utils.py.
+            from predicators.src.utils import abstract  # pylint:disable=import-outside-toplevel
+            goal_preds = {atom.predicate for atom in self._goal}
+            atoms = abstract(self._states[-1], goal_preds)
+            assert self._goal.issubset(atoms)
+
+    @property
+    def states(self) -> List[State]:
+        """States in the trajectory.
+        """
+        return self._states
+
+    @property
+    def actions(self) -> List[Action]:
+        """Actions in the trajectory.
+        """
+        return self._actions
+
+    @property
+    def is_demo(self) -> bool:
+        """Whether this trajectory is a demonstration.
+        """
+        return self._goal is not None
+
+    @property
+    def goal(self) -> Set[GroundAtom]:
+        """The goal of this trajectory. Requires is_demo to be True.
+        """
+        assert self._goal is not None
+        return self._goal
 
 
 @dataclass(eq=False)
 class Segment:
-    """A segment represents a state-action trajectory that is the result of
+    """A segment represents a low-level trajectory that is the result of
     executing one option. The segment stores the abstract state (ground atoms)
     that held immediately before the option started executing, and the abstract
     state (ground atoms) that held immediately after.
@@ -674,22 +914,25 @@ class Segment:
     Segments are used during learning, when we don't necessarily know the option
     associated with the trajectory yet.
     """
-    trajectory: StateActionTrajectory
+    trajectory: LowLevelTrajectory
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
-    _option: _Option = field(repr=False, default=DefaultOption)
+    _option: _Option = field(repr=False, default=DummyOption)
+
+    def __post_init__(self) -> None:
+        assert len(self.states) == len(self.actions) + 1
 
     @property
     def states(self) -> List[State]:
         """States in the trajectory.
         """
-        return self.trajectory[0]
+        return self.trajectory.states
 
     @property
     def actions(self) -> List[Action]:
         """Actions in the trajectory.
         """
-        return self.trajectory[1]
+        return self.trajectory.actions
 
     @property
     def add_effects(self) -> Set[GroundAtom]:
@@ -710,7 +953,7 @@ class Segment:
     def has_option(self) -> bool:
         """Whether this segment has a non-default option attached.
         """
-        return self._option is not DefaultOption
+        return self._option is not DummyOption
 
     def get_option(self) -> _Option:
         """Get the option that produced this segment.
@@ -722,17 +965,6 @@ class Segment:
         """Set the option that produced this segment.
         """
         self._option = option
-
-    def set_option_from_trajectory(self) -> None:
-        """Look up the option from the trajectory. Make sure consistent.
-        """
-        for i, act in enumerate(self.trajectory[1]):
-            if i == 0:
-                option = act.get_option()
-            else:
-                assert option == act.get_option()
-        self.set_option(option)
-        assert self.has_option()
 
 
 @dataclass(eq=False)
@@ -770,8 +1002,9 @@ class Partition:
         return {a.lift(sub) for a in seg.delete_effects}
 
     @cached_property
-    def option_spec(self) -> Tuple[ParameterizedOption, List[Variable]]:
-        """Get the parameterized option and option vars for this partition.
+    def option_spec(self) -> OptionSpec:
+        """Get a tuple of (the parameterized option, the option vars)
+        for this partition. This tuple is called an option spec.
         """
         seg, sub = self._exemplar
         assert seg.has_option()
@@ -801,16 +1034,19 @@ class Partition:
 
 
 # Convenience higher-order types useful throughout the code
-StateActionTrajectory = Tuple[List[State], List[Action]]
-OptionTrajectory = Tuple[List[State], List[_Option]]
-Dataset = List[StateActionTrajectory]
-GroundAtomTrajectory = Tuple[List[State], List[Action], List[Set[GroundAtom]]]
+Dataset = List[LowLevelTrajectory]
+OptionSpec = Tuple[ParameterizedOption, List[Variable]]
+GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
-Transition = Tuple[State, State, Set[GroundAtom], _Option,
-                   Set[GroundAtom], Set[GroundAtom], Set[GroundAtom]]
 Metrics = DefaultDict[str, float]
+LiftedOrGroundAtom = TypeVar(
+    "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+NSRTOrSTRIPSOperator = TypeVar(
+    "NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar(
+    "GroundNSRTOrSTRIPSOperator", _GroundNSRT, _GroundSTRIPSOperator)

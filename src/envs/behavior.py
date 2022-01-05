@@ -5,7 +5,7 @@
 import functools
 import itertools
 import os
-from typing import List, Set, Optional, Dict, Callable, Sequence
+from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
 import numpy as np
 from numpy.random._generator import Generator
 
@@ -175,8 +175,8 @@ class BehaviorEnv(BaseEnv):
         next_state = self._current_ig_state_to_state()
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+    def train_tasks_generator(self) -> Iterator[List[Task]]:
+        yield self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)

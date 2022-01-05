@@ -2,3 +2,14 @@
 omit = 
     src/envs/behavior.py
     src/envs/behavior_options.py
+    
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Have to re-enable the standard pragma
+    # per https://coverage.readthedocs.io/en/latest/config.html#syntax
+    pragma: no cover
+
+    # Don't complain about abstract methods, they aren't run
+    @abstractmethod
+    @abc.abstractmethod

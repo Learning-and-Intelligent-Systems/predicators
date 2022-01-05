@@ -4,6 +4,7 @@ gym
 matplotlib
 imageio
 imageio-ffmpeg
+pandas
 torch
 scipy
 tabulate

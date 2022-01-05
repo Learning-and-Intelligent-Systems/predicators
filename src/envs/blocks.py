@@ -5,7 +5,7 @@ are much less than the table dimensions). The simplicity of this environment
 makes it a good testbed for predicate invention.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Iterator
 import numpy as np
 from gym.spaces import Box
 from matplotlib import pyplot as plt
@@ -28,11 +28,10 @@ class BlocksEnv(BaseEnv):
     y_lb = 0.15
     y_ub = 20.85
     held_tol = 0.5
-    clear_tol = 0.5
     open_fingers = 0.8
     pick_tol = 0.08
     assert pick_tol < block_size
-    lift_amt = 1.0
+    lift_amt = 1.5
     num_blocks_train = [3, 4]
     num_blocks_test = [5, 6]
 
@@ -40,7 +39,7 @@ class BlocksEnv(BaseEnv):
         super().__init__()
         # Types
         self._block_type = Type(
-            "block", ["pose_x", "pose_y", "pose_z", "held", "clear"])
+            "block", ["pose_x", "pose_y", "pose_z", "held"])
         self._robot_type = Type("robot", ["fingers"])
         # Predicates
         self._On = Predicate(
@@ -60,24 +59,24 @@ class BlocksEnv(BaseEnv):
             "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Pick_policy,
-            _initiable=self._Pick_initiable,
-            _terminal=self._Pick_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z]
             "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (3,)),
             _policy=self._Stack_policy,
-            _initiable=self._Stack_initiable,
-            _terminal=self._Stack_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable", types=[self._robot_type],
             params_space=Box(0, 1, (2,)),
             _policy=self._PutOnTable_policy,
-            _initiable=self._PutOnTable_initiable,
-            _terminal=self._PutOnTable_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         # Objects
         self._robot = Object("robby", self._robot_type)
 
@@ -101,24 +100,14 @@ class BlocksEnv(BaseEnv):
         if block is None:  # no block at this pose
             return next_state
         # Can only pick if object is clear
-        if state.get(block, "clear") < self.clear_tol:
+        if not self._block_is_clear(block, state):
             return next_state
         # Execute pick
         next_state.set(block, "pose_x", x)
         next_state.set(block, "pose_y", y)
         next_state.set(block, "pose_z", z+self.lift_amt)
         next_state.set(block, "held", 1.0)
-        next_state.set(block, "clear", 0.0)
         next_state.set(self._robot, "fingers", fingers)
-        # Update clear bit of block below, if there is one
-        cur_x = state.get(block, "pose_x")
-        cur_y = state.get(block, "pose_y")
-        cur_z = state.get(block, "pose_z")
-        poss_below_block = self._get_highest_block_below(
-            state, cur_x, cur_y, cur_z)
-        assert poss_below_block != block
-        if poss_below_block is not None:
-            next_state.set(poss_below_block, "clear", 1.0)
         return next_state
 
     def _transition_putontable(self, state: State, x: float, y: float,
@@ -142,7 +131,6 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", y)
         next_state.set(block, "pose_z", z)
         next_state.set(block, "held", 0.0)
-        next_state.set(block, "clear", 1.0)
         next_state.set(self._robot, "fingers", fingers)
         return next_state
 
@@ -162,7 +150,7 @@ class BlocksEnv(BaseEnv):
         if block == other_block:
             return next_state
         # Need block we're stacking onto to be clear
-        if state.get(other_block, "clear") < self.clear_tol:
+        if not self._block_is_clear(other_block, state):
             return next_state
         # Execute stack by snapping into place
         cur_x = state.get(other_block, "pose_x")
@@ -172,15 +160,13 @@ class BlocksEnv(BaseEnv):
         next_state.set(block, "pose_y", cur_y)
         next_state.set(block, "pose_z", cur_z+self.block_size)
         next_state.set(block, "held", 0.0)
-        next_state.set(block, "clear", 1.0)
-        next_state.set(other_block, "clear", 0.0)
         next_state.set(self._robot, "fingers", fingers)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               possible_num_blocks=self.num_blocks_train,
-                               rng=self._train_rng)
+    def train_tasks_generator(self) -> Iterator[List[Task]]:
+        yield self._get_tasks(num_tasks=CFG.num_train_tasks,
+                              possible_num_blocks=self.num_blocks_train,
+                              rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
@@ -305,9 +291,8 @@ class BlocksEnv(BaseEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self.block_size * (0.5 + pile_j)
-            max_j = max(j for i, j in block_to_pile_idx.values() if i == pile_i)
-            # [pose_x, pose_y, pose_z, held, clear]
-            data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
+            # [pose_x, pose_y, pose_z, held]
+            data[block] = np.array([x, y, z, 0.0])
         # [fingers]
         data[self._robot] = np.array([1.0])  # fingers start off open
         return State(data)
@@ -349,6 +334,9 @@ class BlocksEnv(BaseEnv):
             return True
         return False
 
+    def _block_is_clear(self, block: Object, state: State) -> bool:
+        return self._Clear_holds(state, [block])
+
     def _On_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block1, block2 = objects
         if state.get(block1, "held") >= self.held_tol or \
@@ -379,10 +367,16 @@ class BlocksEnv(BaseEnv):
         block, = objects
         return self._get_held_block(state) == block
 
-    @staticmethod
-    def _Clear_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        if self._Holding_holds(state, objects):
+            return False
         block, = objects
-        return state.get(block, "clear") >= BlocksEnv.clear_tol
+        for other_block in state:
+            if other_block.type != self._block_type:
+                continue
+            if self._On_holds(state, [other_block, block]):
+                return False
+        return True
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
@@ -395,18 +389,6 @@ class BlocksEnv(BaseEnv):
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
-    @staticmethod
-    def _Pick_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                        params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _Pick_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
-
     def _Stack_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
@@ -417,18 +399,6 @@ class BlocksEnv(BaseEnv):
         arr = np.r_[block_pose+params, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-
-    @staticmethod
-    def _Stack_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                         params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _Stack_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                        params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     def _PutOnTable_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
@@ -441,18 +411,6 @@ class BlocksEnv(BaseEnv):
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-
-    @staticmethod
-    def _PutOnTable_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _PutOnTable_terminal(state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     def _get_held_block(self, state: State) -> Optional[Object]:
         for block in state:
@@ -472,9 +430,9 @@ class BlocksEnv(BaseEnv):
                                    state.get(block, "pose_y"),
                                    state.get(block, "pose_z")])
             if np.allclose([x, y, z], block_pose, atol=self.pick_tol):
-                dist = np.linalg.norm(np.array([x, y, z])-  # type: ignore
+                dist = np.linalg.norm(np.array([x, y, z]) -  # type: ignore
                                       block_pose)
-                close_blocks.append((block, dist))
+                close_blocks.append((block, float(dist)))
         if not close_blocks:
             return None
         return min(close_blocks, key=lambda x: x[1])[0]  # min distance

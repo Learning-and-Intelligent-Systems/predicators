@@ -34,7 +34,7 @@ def test_random_options_approach():
     Solved = Predicate("Solved", [cup_type], _solved_classifier)
     approach = RandomOptionsApproach(
         _simulator, {Solved}, {parameterized_option}, {cup_type},
-        params_space, [])
+        params_space)
     task = Task(state, {Solved([cup])})
     approach.seed(123)
     policy = approach.solve(task, 500)
@@ -61,7 +61,7 @@ def test_random_options_approach():
         _terminal)
     approach = RandomOptionsApproach(
         _simulator, {Solved}, {parameterized_option2}, {cup_type},
-        params_space, [])
+        params_space)
     task = Task(state, {Solved([cup])})
     approach.seed(123)
     policy = approach.solve(task, 500)
@@ -73,7 +73,7 @@ def test_random_options_approach():
         lambda _1, _2, _3, _4: True)
     approach = RandomOptionsApproach(
         _simulator, {Solved}, {parameterized_option3}, {cup_type},
-        params_space, [])
+        params_space)
     task = Task(state, {Solved([cup])})
     approach.seed(123)
     policy = approach.solve(task, 500)

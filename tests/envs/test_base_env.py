@@ -21,7 +21,7 @@ def test_base_env():
     with pytest.raises(NotImplementedError):
         env.simulate(state, [1, 2])
     with pytest.raises(NotImplementedError):
-        env.get_train_tasks()
+        env.train_tasks_generator()
     with pytest.raises(NotImplementedError):
         env.get_test_tasks()
     with pytest.raises(NotImplementedError):
@@ -42,7 +42,8 @@ def test_create_env():
     """Tests for create_env.
     """
     for name in ["cover", "cover_typed_options", "cover_hierarchical_types",
-                 "cluttered_table", "blocks", "playroom"]:
+                 "cluttered_table", "blocks", "playroom", "painting",
+                 "repeated_nextto"]:
         env = create_env(name)
         assert isinstance(env, BaseEnv)
     with pytest.raises(NotImplementedError):
