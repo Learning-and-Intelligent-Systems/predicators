@@ -26,6 +26,7 @@ To run grammar search predicate invention (example):
 
 from collections import defaultdict
 import os
+import subprocess
 import time
 import pickle as pkl
 from typing import Dict
@@ -47,6 +48,10 @@ def main() -> None:
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
+    print("Full config:")
+    print(CFG)
+    print("Git commit hash:", subprocess.check_output(
+        ["git", "rev-parse", "HEAD"]).decode("ascii").strip())
     # Create & seed classes
     env = create_env(CFG.env)
     assert env.goal_predicates.issubset(env.predicates)

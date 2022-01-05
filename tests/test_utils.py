@@ -1302,9 +1302,30 @@ def test_get_config_path_str():
         "env": "dummyenv",
         "approach": "dummyapproach",
         "seed": 321,
+        "excluded_predicates": "all",
     })
     s = utils.get_config_path_str()
-    assert s == "dummyenv__dummyapproach__321"
+    assert s == "dummyenv__dummyapproach__321__all"
+
+
+def test_get_save_path_str():
+    """Tests for get_save_path_str().
+    """
+    dirname = "_fake_tmp_save_dir"
+    old_save_dir = CFG.save_dir
+    utils.update_config({"env": "test_env", "approach": "test_approach",
+                         "seed": 123, "save_dir": dirname,
+                         "excluded_predicates": "test_pred1,test_pred2"})
+    save_path = utils.get_save_path_str()
+    assert save_path == dirname + ("/test_env__test_approach__123__"
+                                   "test_pred1,test_pred2.saved")
+    utils.update_config({"env": "test_env", "approach": "test_approach",
+                         "seed": 123, "save_dir": dirname,
+                         "excluded_predicates": ""})
+    save_path = utils.get_save_path_str()
+    assert save_path == dirname + "/test_env__test_approach__123__.saved"
+    os.rmdir(dirname)
+    utils.update_config({"save_dir": old_save_dir})
 
 
 def test_update_config():

@@ -76,6 +76,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
+    excluded_predicates = ""
 
     # option learning parameters
     do_option_learning = False  # if False, uses ground truth options
@@ -112,6 +113,8 @@ class GlobalSettings:
     interactive_ask_strategy_pct = 20.0
 
     # grammar search invention parameters
+    grammar_search_grammar_includes_givens = True
+    grammar_search_grammar_includes_foralls = True
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
@@ -175,16 +178,6 @@ class GlobalSettings:
                 }
             )[args["env"]],
         )
-
-
-def get_save_path() -> str:
-    """Create a path for this experiment that can be used to save
-    and load results.
-    """
-    if not os.path.exists(CFG.save_dir):
-        os.makedirs(CFG.save_dir)
-    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
-            f"{CFG.excluded_predicates}.saved")
 
 
 _attr_to_value = {}
