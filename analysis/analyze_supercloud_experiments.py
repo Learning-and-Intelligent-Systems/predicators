@@ -28,6 +28,7 @@ def _main() -> None:
         print("No data found in results/, terminating")
         return
     # Group & aggregate data by env name and approach name.
+    pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
     print("RAW DATA:")
