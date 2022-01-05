@@ -38,8 +38,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     #         then used to initialize _NSRTIntermediateData objects (NIDs).
     #         Note: The OptionSpecs here are extracted directly from the data.
     #         If we are doing option learning, then the data will not contain
-    #         options, and so the option_spec fields are just their default
-    #         values. We need a default value because future steps require
+    #         options, and so the option_spec fields are just the specs of a
+    #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
     nids = _get_initial_nids(segments, verbose=CFG.do_option_learning)
 
