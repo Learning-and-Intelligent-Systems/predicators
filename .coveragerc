@@ -1,2 +1,4 @@
 [run]
-omit = src/envs/behavior.py
+omit = 
+    src/envs/behavior.py
+    src/envs/behavior_options.py
