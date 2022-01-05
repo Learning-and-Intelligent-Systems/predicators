@@ -737,7 +737,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Pick_terminal(self, s: State, m: Dict, o: Sequence[Object],
                        p: Array) -> bool:
-        del m  # unused
+        del m, p  # unused
         block, = o
         # Pick is done when we're holding the desired object.
         return self._Holding_holds(s, [block, self._robot])
@@ -752,7 +752,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if terminal:
             if not CFG.do_sampler_learning:
                 # Ensure terminal state matches parameterization.
-                param_from_terminal = np.concatenate([s[block], s[robot]])
+                param_from_terminal = np.hstack((s[block], s[robot]))
                 assert np.allclose(p, param_from_terminal, atol=1e-03)
         return terminal
 
@@ -845,13 +845,13 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                            o: Sequence[Object],
                                            p: Array) -> bool:
         del m  # unused
-        block, robot, target = o
+        block, robot, _ = o
         # Place is done when the hand is empty.
         terminal = self._HandEmpty_holds(s, [])
         if terminal:
             if not CFG.do_sampler_learning:
                 # Ensure terminal state matches parameterization.
-                param_from_terminal = np.concatenate([s[block], s[robot]])
+                param_from_terminal = np.hstack((s[block], s[robot]))
                 # Note that here we require a tolerance of no less than 1e-02
                 # because before letting go of the block, the robot holds the
                 # the block block_height + 1e-02 above the ground before

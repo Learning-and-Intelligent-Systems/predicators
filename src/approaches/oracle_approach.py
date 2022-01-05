@@ -30,15 +30,6 @@ def get_gt_nsrts(predicates: Set[Predicate],
                  options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env.
     """
-    # if CFG.env in ("cover", "cover_hierarchical_types"):
-    #     nsrts = _get_cover_gt_nsrts(options_are_typed=False)
-    # elif CFG.env == "cover_typed_options":
-    #     nsrts = _get_cover_gt_nsrts(options_are_typed=True)
-    # elif CFG.env == "cover_multistep_options":
-    #     nsrts = _get_cover_gt_nsrts(options_are_typed=True,
-    #                                 include_robot_in_holding=False,
-    #                                 options_are_learned_equivalent= \
-    #                                 CFG.cover_multistep_use_learned_equivalents)
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
                    "cover_multistep_options"):
         nsrts = _get_cover_gt_nsrts()
@@ -97,7 +88,7 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_nsrts():
+def _get_cover_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for CoverEnv or environments that inherit from
     CoverEnv.
     """
