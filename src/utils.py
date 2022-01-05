@@ -223,17 +223,11 @@ def option_to_trajectory(
     action sequence), where the state sequence includes init.
     """
     actions = []
-
     assert option.initiable(init)
-
-    print(f"Starting to Execute Option {option}")
     state = init
     states = [state]
-    for i in range(max_num_steps):
-        # try:
+    for _ in range(max_num_steps):
         act = option.policy(state)
-        # except AssertionError:
-        #     import ipdb; ipdb.set_trace()
         actions.append(act)
         state = simulator(state, act)
         states.append(state)
@@ -277,28 +271,6 @@ def option_plan_to_policy(plan: Sequence[_Option]) -> Callable[[State], Action]:
 
     return _policy
 
-
-def state_action_to_option_trajectory(
-    trajectory: StateActionTrajectory,
-) -> OptionTrajectory:
-    """Create an option trajectory from a state-action trajectory."""
-    states, actions = trajectory
-    assert len(states) > 0
-    new_states = [states[0]]
-    if len(actions) == 0:
-        return new_states, []
-    current_option = actions[0].get_option()
-    options = [current_option]
-    for s, a in zip(states[:-1], actions):
-        o = a.get_option()
-        # This assumes that an option is equal to another
-        # option only if they're the same python object.
-        if o != current_option:
-            new_states.append(s)
-            options.append(o)
-            current_option = o
-    new_states.append(states[-1])
-    return new_states, options
 
 @functools.lru_cache(maxsize=None)
 def get_all_groundings(
@@ -783,11 +755,12 @@ def get_applicable_operators(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
         atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
     """Iterate over ground operators whose preconditions are satisfied.
-
     Note: the order may be nondeterministic. Users should be invariant.
     """
     for op in ground_ops:
         applicable = op.preconditions.issubset(atoms)
+        if applicable:
+            yield op
 
 
 def apply_operator(op: GroundNSRTOrSTRIPSOperator,
@@ -800,12 +773,16 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     # will be true, so we don't want to remove them.
     new_atoms = {a for a in atoms if a.predicate not in op.side_predicates}
     for atom in op.add_effects:
+        new_atoms.add(atom)
+    for atom in op.delete_effects:
+        new_atoms.discard(atom)
+    return new_atoms
 
 
-def get_successors_from_ground_ops(atoms: Set[GroundAtom],
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        unique: bool = True
-        ) -> Iterator[Set[GroundAtom]]:
+def get_successors_from_ground_ops(
+    atoms: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    unique: bool = True) -> Iterator[Set[GroundAtom]]:
     """Get all next atoms from ground operators.
 
     If unique is true, only yield each unique successor once.
@@ -1246,7 +1223,7 @@ def get_save_path_str() -> str:
     if not os.path.exists(CFG.save_dir):
         os.makedirs(CFG.save_dir)
     return f"{CFG.save_dir}/{get_config_path_str()}.saved"
-  
+
 
 def parse_args() -> Dict[str, Any]:
     """Parses command line arguments."""
