@@ -42,9 +42,6 @@ def get_gt_nsrts(
     elif CFG.env == "cover_typed_options":
         nsrts = _get_cover_gt_nsrts(options_are_typed=True)
     elif CFG.env == "cover_multistep_options":
-        nsrts = _get_cover_gt_nsrts(
-            options_are_typed=True, place_sampler_relative=True
-        )
         nsrts = _get_cover_gt_nsrts(options_are_typed=True,
                                     include_robot_in_holding=True,
                                     place_sampler_relative=True)
@@ -72,10 +69,10 @@ def get_gt_nsrts(
     return final_nsrts
 
 
-def _get_from_env_by_names(
-    env_name: str, names: Sequence[str], env_attr: str
-) -> List:
-    """Helper for loading types, predicates, and options by name."""
+def _get_from_env_by_names(env_name: str, names: Sequence[str],
+                           env_attr: str) -> List:
+    """Helper for loading types, predicates, and options by name.
+    """
     env = create_env(env_name)
     name_to_env_obj = {}
     for o in getattr(env, env_attr):
@@ -84,22 +81,24 @@ def _get_from_env_by_names(
     return [name_to_env_obj[name] for name in names]
 
 
-def _get_types_by_names(env_name: str, names: Sequence[str]) -> List[Type]:
-    """Load types from an env given their names."""
+def _get_types_by_names(env_name: str,
+                        names: Sequence[str]) -> List[Type]:
+    """Load types from an env given their names.
+    """
     return _get_from_env_by_names(env_name, names, "types")
 
 
-def _get_predicates_by_names(
-    env_name: str, names: Sequence[str]
-) -> List[Predicate]:
-    """Load predicates from an env given their names."""
+def _get_predicates_by_names(env_name: str,
+                             names: Sequence[str]) -> List[Predicate]:
+    """Load predicates from an env given their names.
+    """
     return _get_from_env_by_names(env_name, names, "predicates")
 
 
-def _get_options_by_names(
-    env_name: str, names: Sequence[str]
-) -> List[ParameterizedOption]:
-    """Load parameterized options from an env given their names."""
+def _get_options_by_names(env_name: str,
+                          names: Sequence[str]) -> List[ParameterizedOption]:
+    """Load parameterized options from an env given their names.
+    """
     return _get_from_env_by_names(env_name, names, "options")
 
 
@@ -111,14 +110,14 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     block_type, target_type, robot_type = _get_types_by_names(
         CFG.env, ["block", "target", "robot"])
 
-    IsBlock, IsTarget, Covers, HandEmpty, Holding = _get_predicates_by_names(
-        CFG.env, ["IsBlock", "IsTarget", "Covers", "HandEmpty", "Holding"]
-    )
+    IsBlock, IsTarget, Covers, HandEmpty, Holding = \
+        _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
+                                           "HandEmpty", "Holding"])
 
     if options_are_typed:
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
     else:
-        (PickPlace,) = _get_options_by_names(CFG.env, ["PickPlace"])
+        PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
 
     nsrts = set()
 
@@ -138,22 +137,20 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     else:
         add_effects = {LiftedAtom(Holding, [block])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
-
     def pick_sampler(state: State, rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
         assert len(objs) == 2 if include_robot_in_holding else len(objs) == 1
         b = objs[0]
         assert b.is_instance(block_type)
         if options_are_typed:
-            lb = float(-state.get(b, "width") / 2)  # relative positioning only
-            ub = float(state.get(b, "width") / 2)  # relative positioning only
+            lb = float(-state.get(b, "width")/2)  # relative positioning only
+            ub = float(state.get(b, "width")/2)  # relative positioning only
         else:
-            lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
+            lb = float(state.get(b, "pose") - state.get(b, "width")/2)
             lb = max(lb, 0.0)
-            ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
+            ub = float(state.get(b, "pose") + state.get(b, "width")/2)
             ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
-
     pick_nsrt = NSRT("Pick", parameters, preconditions,
                      add_effects, delete_effects, set(), option,
                      option_vars, pick_sampler)
@@ -169,7 +166,6 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
     else:
         option_vars = []
         option = PickPlace
-
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
     if include_robot_in_holding:
@@ -188,15 +184,14 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
         t = objs[1]
         assert t.is_instance(target_type)
         if place_sampler_relative:
-            lb = float(-state.get(t, "width") / 2)  # relative positioning only
-            ub = float(state.get(t, "width") / 2)  # relative positioning only
+            lb = float(-state.get(t, "width")/2)  # relative positioning only
+            ub = float(state.get(t, "width")/2)  # relative positioning only
         else:
-            lb = float(state.get(t, "pose") - state.get(t, "width") / 10)
+            lb = float(state.get(t, "pose") - state.get(t, "width")/10)
             lb = max(lb, 0.0)
-            ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
+            ub = float(state.get(t, "pose") + state.get(t, "width")/10)
             ub = min(ub, 1.0)
         return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
-
     place_nsrt = NSRT("Place", parameters, preconditions,
                       add_effects, delete_effects, set(), option,
                       option_vars, place_sampler)
@@ -206,8 +201,9 @@ def _get_cover_gt_nsrts(options_are_typed: bool,
 
 
 def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
-    """Create ground truth NSRTs for ClutteredTableEnv."""
-    (can_type,) = _get_types_by_names("cluttered_table", ["can"])
+    """Create ground truth NSRTs for ClutteredTableEnv.
+    """
+    can_type, = _get_types_by_names("cluttered_table", ["can"])
 
     HandEmpty, Holding, Untrashed = _get_predicates_by_names(
         "cluttered_table", ["HandEmpty", "Holding", "Untrashed"])
@@ -224,10 +220,8 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(HandEmpty, []), LiftedAtom(Untrashed, [can])}
     add_effects = {LiftedAtom(Holding, [can])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
-
-    def grasp_sampler(
-        state: State, rng: np.random.Generator, objs: Sequence[Object]
-    ) -> Array:
+    def grasp_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
         assert len(objs) == 1
         can = objs[0]
         # Need a max here in case the can is trashed already, in which case
@@ -236,7 +230,6 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
         end_y = max(0.0, state.get(can, "pose_y"))
         start_x, start_y = rng.uniform(0.0, 1.0, size=2)  # start from anywhere
         return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
-
     grasp_nsrt = NSRT("Grasp", parameters, preconditions,
                       add_effects, delete_effects, set(), option,
                       option_vars, grasp_sampler)
@@ -259,16 +252,15 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
 
 
 def _get_blocks_gt_nsrts() -> Set[NSRT]:
-    """Create ground truth NSRTs for BlocksEnv."""
+    """Create ground truth NSRTs for BlocksEnv.
+    """
     block_type, robot_type = _get_types_by_names("blocks", ["block", "robot"])
 
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
-        "blocks", ["On", "OnTable", "GripperOpen", "Holding", "Clear"]
-    )
+        "blocks", ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
 
     Pick, Stack, PutOnTable = _get_options_by_names(
-        "blocks", ["Pick", "Stack", "PutOnTable"]
-    )
+        "blocks", ["Pick", "Stack", "PutOnTable"])
 
     nsrts = set()
 
@@ -278,24 +270,17 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     parameters = [block, robot]
     option_vars = [robot, block]
     option = Pick
-    preconditions = {
-        LiftedAtom(OnTable, [block]),
-        LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot]),
-    }
+    preconditions = {LiftedAtom(OnTable, [block]),
+                     LiftedAtom(Clear, [block]),
+                     LiftedAtom(GripperOpen, [robot])}
     add_effects = {LiftedAtom(Holding, [block])}
-    delete_effects = {
-        LiftedAtom(OnTable, [block]),
-        LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot]),
-    }
-
-    def pick_sampler(
-        state: State, rng: np.random.Generator, objs: Sequence[Object]
-    ) -> Array:
+    delete_effects = {LiftedAtom(OnTable, [block]),
+                      LiftedAtom(Clear, [block]),
+                      LiftedAtom(GripperOpen, [robot])}
+    def pick_sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
         del state, rng, objs  # unused
         return np.zeros(3, dtype=np.float32)
-
     pickfromtable_nsrt = NSRT(
         "PickFromTable", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, pick_sampler)
@@ -308,20 +293,14 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     parameters = [block, otherblock, robot]
     option_vars = [robot, block]
     option = Pick
-    preconditions = {
-        LiftedAtom(On, [block, otherblock]),
-        LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot]),
-    }
-    add_effects = {
-        LiftedAtom(Holding, [block]),
-        LiftedAtom(Clear, [otherblock]),
-    }
-    delete_effects = {
-        LiftedAtom(On, [block, otherblock]),
-        LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot]),
-    }
+    preconditions = {LiftedAtom(On, [block, otherblock]),
+                     LiftedAtom(Clear, [block]),
+                     LiftedAtom(GripperOpen, [robot])}
+    add_effects = {LiftedAtom(Holding, [block]),
+                   LiftedAtom(Clear, [otherblock])}
+    delete_effects = {LiftedAtom(On, [block, otherblock]),
+                      LiftedAtom(Clear, [block]),
+                      LiftedAtom(GripperOpen, [robot])}
     unstack_nsrt = NSRT(
         "Unstack", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, pick_sampler)
@@ -334,26 +313,17 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     parameters = [block, otherblock, robot]
     option_vars = [robot, otherblock]
     option = Stack
-    preconditions = {
-        LiftedAtom(Holding, [block]),
-        LiftedAtom(Clear, [otherblock]),
-    }
-    add_effects = {
-        LiftedAtom(On, [block, otherblock]),
-        LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot]),
-    }
-    delete_effects = {
-        LiftedAtom(Holding, [block]),
-        LiftedAtom(Clear, [otherblock]),
-    }
-
-    def stack_sampler(
-        state: State, rng: np.random.Generator, objs: Sequence[Object]
-    ) -> Array:
+    preconditions = {LiftedAtom(Holding, [block]),
+                     LiftedAtom(Clear, [otherblock])}
+    add_effects = {LiftedAtom(On, [block, otherblock]),
+                   LiftedAtom(Clear, [block]),
+                   LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {LiftedAtom(Holding, [block]),
+                      LiftedAtom(Clear, [otherblock])}
+    def stack_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
         del state, rng, objs  # unused
         return np.array([0, 0, BlocksEnv.block_size], dtype=np.float32)
-
     stack_nsrt = NSRT(
         "Stack", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, stack_sampler)
@@ -366,21 +336,16 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     option_vars = [robot]
     option = PutOnTable
     preconditions = {LiftedAtom(Holding, [block])}
-    add_effects = {
-        LiftedAtom(OnTable, [block]),
-        LiftedAtom(Clear, [block]),
-        LiftedAtom(GripperOpen, [robot]),
-    }
+    add_effects = {LiftedAtom(OnTable, [block]),
+                   LiftedAtom(Clear, [block]),
+                   LiftedAtom(GripperOpen, [robot])}
     delete_effects = {LiftedAtom(Holding, [block])}
-
-    def putontable_sampler(
-        state: State, rng: np.random.Generator, objs: Sequence[Object]
-    ) -> Array:
+    def putontable_sampler(state: State, rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
         del state, objs  # unused
         x = rng.uniform()
         y = rng.uniform()
         return np.array([x, y], dtype=np.float32)
-
     putontable_nsrt = NSRT(
         "PutOnTable", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, putontable_sampler)
