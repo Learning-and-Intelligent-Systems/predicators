@@ -113,15 +113,16 @@ class GlobalSettings:
     interactive_ask_strategy_pct = 20.0
 
     # grammar search invention parameters
-    grammar_search_max_evals = 250
+    grammar_search_grammar_includes_givens = True
+    grammar_search_grammar_includes_foralls = True
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
     grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
-    grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
-    grammar_search_score_function = "hadd_lookahead"
+    grammar_search_predicate_cost_upper_bound = 6
+    grammar_search_score_function = "hff_lookahead_depth0"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5
     grammar_search_lookahead_based_temperature = 10.
@@ -177,16 +178,6 @@ class GlobalSettings:
                 }
             )[args["env"]],
         )
-
-
-def get_save_path() -> str:
-    """Create a path for this experiment that can be used to save
-    and load results.
-    """
-    if not os.path.exists(CFG.save_dir):
-        os.makedirs(CFG.save_dir)
-    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
-            f"{CFG.excluded_predicates}.saved")
 
 
 _attr_to_value = {}

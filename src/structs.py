@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -456,6 +456,7 @@ class _Option:
         action.set_option(self)
         return action
 
+
 DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
@@ -604,6 +605,14 @@ class _GroundSTRIPSOperator:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, _GroundSTRIPSOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) > str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -773,6 +782,27 @@ class _GroundNSRT:
         # self.option_objs of objects that are passed into the option.
         params = self._sampler(state, rng, self.objects)
         return self.option.ground(self.option_objs, params)
+
+    def copy_with(self, **kwargs: Any) -> _GroundNSRT:
+        """Create a copy of the ground NSRT, optionally while replacing
+        any of the arguments.
+        """
+        default_kwargs = dict(
+            nsrt=self.nsrt,
+            objects=self.objects,
+            preconditions=self.preconditions,
+            add_effects=self.add_effects,
+            delete_effects=self.delete_effects,
+            option=self.option,
+            option_objs=self.option_objs,
+            _sampler=self._sampler
+        )
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        # This still seems like the least bad option.
+        return _GroundNSRT(**default_kwargs)  # type: ignore
 
 
 @dataclass(eq=False)
@@ -1001,3 +1031,9 @@ PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Metrics = DefaultDict[str, float]
+LiftedOrGroundAtom = TypeVar(
+    "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+NSRTOrSTRIPSOperator = TypeVar(
+    "NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar(
+    "GroundNSRTOrSTRIPSOperator", _GroundNSRT, _GroundSTRIPSOperator)
