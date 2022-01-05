@@ -60,11 +60,11 @@ def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
     return dimension[0] * dimension[1] * dimension[2]
 
 
-def make_behavior_option(
+def make_behavior_option( # type: ignore
     name: str,
     types: Sequence[Type],
     params_space: Box,
-    env: behavior_env.BehaviorEnv,
+    env,
     controller_fn: Callable,
     object_to_ig_object: Callable,
     rng: Generator,
