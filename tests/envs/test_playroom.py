@@ -329,7 +329,6 @@ def test_playroom_action_sequence_video():
     env.seed(123)
     # Run through a specific plan of low-level actions.
     task = next(env.train_tasks_generator())[0]
-    print("task init:", task.init)
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
