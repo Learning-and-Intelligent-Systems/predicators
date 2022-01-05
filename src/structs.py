@@ -478,8 +478,7 @@ class STRIPSOperator:
 
     def make_nsrt(
             self, option: ParameterizedOption, option_vars: Sequence[Variable],
-            sampler: Callable[[State, np.random.Generator, Sequence[Object]],
-                              Array] = field(repr=False)) -> NSRT:
+            sampler: NSRTSampler = field(repr=False)) -> NSRT:
         """Make an NSRT out of this STRIPSOperator object,
         given the necessary additional fields.
         """
@@ -635,8 +634,7 @@ class NSRT:
     # option that this NSRT contains.
     option_vars: Sequence[Variable]
     # A sampler maps a state, RNG, and objects to option parameters.
-    _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
-                       Array] = field(repr=False)
+    _sampler: NSRTSampler = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
@@ -723,8 +721,7 @@ class _GroundNSRT:
     delete_effects: Set[GroundAtom]
     option: ParameterizedOption
     option_objs: Sequence[Object]
-    _sampler: Callable[[State, np.random.Generator, Sequence[Object]],
-                       Array] = field(repr=False)
+    _sampler: NSRTSampler = field(repr=False)
 
     @cached_property
     def _str(self) -> str:
@@ -1028,6 +1025,7 @@ GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
+NSRTSampler = Callable[[State, np.random.Generator, Sequence[Object]], Array]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
