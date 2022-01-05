@@ -20,7 +20,8 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                          "seed": 12345, "regressor_max_itr": 200,
                          "classifier_max_itr_sampler": 200,
                          "classifier_max_itr_predicate": 200,
-                         "excluded_predicates": excluded_predicates})
+                         "excluded_predicates": excluded_predicates,
+                         "do_sampler_learning": True})
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
@@ -52,6 +53,8 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
     approach2.load()
     if try_solving:
         approach2.solve(task, timeout=CFG.timeout)
+    utils.update_config({"env": env_name, "approach": approach_name,
+                         "seed": 12345})
 
 
 def test_nsrt_learning_approach():

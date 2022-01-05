@@ -176,7 +176,8 @@ def test_oracle_approach_cover_multistep_options():
             lambda s: random_action, task, env.simulate, env.predicates)
     utils.update_config({"env": "cover_multistep_options"})
     utils.update_config({"env": "cover_multistep_options",
-                         "cover_multistep_use_learned_equivalents": True})
+                         "cover_multistep_use_learned_equivalents": True,
+                         "do_sampler_learning": False})
     env = CoverMultistepOptions()
     env.seed(123)
     approach = OracleApproach(
