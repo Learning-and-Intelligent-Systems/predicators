@@ -47,10 +47,14 @@ def create_env(name: str) -> BaseEnv:
         env = ClutteredTableEnv() # type: ignore
     elif name == "blocks":
         env = BlocksEnv() # type: ignore
+    elif name == "painting":
+        env = PaintingEnv() # type: ignore
     elif name == "behavior":
         env = BehaviorEnv() # type: ignore # pragma: no cover
     elif name == "playroom":
         env = PlayroomEnv() # type: ignore
+    elif name == "repeated_nextto":
+        return RepeatedNextToEnv() # type: ignore
     else:
         raise NotImplementedError(f"Unknown env: {name}")
 
@@ -58,7 +62,7 @@ def create_env(name: str) -> BaseEnv:
     return env
 
 
-def get_env_instance(name: str) -> BaseEnv:
+def get_env_instance(name: str) -> BaseEnv: # pragma: no cover
     """Get the most recent env instance, or make a new one."""
     if name in _MOST_RECENT_ENV_INSTANCE:
         return _MOST_RECENT_ENV_INSTANCE[name]
