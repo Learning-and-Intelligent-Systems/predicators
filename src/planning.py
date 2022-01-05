@@ -54,13 +54,15 @@ def sesame_plan(task: Task,
     predicates = initial_predicates | set(nsrt_preds.values())
     atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
+    start_time = time.time()
     ground_nsrts = []
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, atoms)
+            if time.time() - start_time > timeout:
+                raise ApproachTimeout("Planning timed out in grounding!")
+    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
     # Keep restarting the A* search while we get new discovered failures.
-    start_time = time.time()
     metrics: Metrics = defaultdict(float)
     while True:
         # There is no point in using NSRTs with empty effects, and they can
@@ -90,7 +92,8 @@ def sesame_plan(task: Task,
                     return plan, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
-            _update_nsrts_with_failure(e.discovered_failure, ground_nsrts)
+            ground_nsrts = _update_nsrts_with_failure(e.discovered_failure,
+                                                      ground_nsrts)
 
 
 def task_plan(init_atoms: Set[GroundAtom],
@@ -116,7 +119,7 @@ def task_plan(init_atoms: Set[GroundAtom],
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_nsrts(ground_nsrts, init_atoms)
+    ground_nsrts = utils.filter_static_operators(ground_nsrts, init_atoms)
     nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
                              if nsrt.add_effects | nsrt.delete_effects]
     if not utils.is_dr_reachable(nonempty_ground_nsrts, init_atoms, goal):
@@ -165,8 +168,9 @@ def _skeleton_generator(task: Task,
         else:
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
-            for nsrt in utils.get_applicable_nsrts(ground_nsrts, node.atoms):
-                child_atoms = utils.apply_nsrt(nsrt, set(node.atoms))
+            for nsrt in utils.get_applicable_operators(
+                    ground_nsrts, node.atoms):
+                child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 child_node = _Node(
                     atoms=child_atoms,
                     skeleton=node.skeleton+[nsrt],
@@ -284,19 +288,33 @@ def _run_low_level_search(
 
 def _update_nsrts_with_failure(
         discovered_failure: _DiscoveredFailure,
-        ground_nsrts: Collection[_GroundNSRT]) -> None:
+        ground_nsrts: List[_GroundNSRT]
+        ) -> List[_GroundNSRT]:
     """Update the given set of ground_nsrts based on the given
-    DiscoveredFailure.
+    DiscoveredFailure. Returns a new list of ground NSRTs to replace the input
+    one, where all ground NSRTs that need modification are replaced with new
+    ones (because _GroundNSRTs are frozen).
     """
+    new_ground_nsrts = []
     for obj in discovered_failure.env_failure.offending_objects:
         atom = GroundAtom(Predicate(_NOT_CAUSES_FAILURE, [obj.type],
                                     _classifier=lambda s, o: False), [obj])
-        # Update the preconditions of the failing NSRT.
-        discovered_failure.failing_nsrt.preconditions.add(atom)
-        # Update the effects of all nsrts that use this object.
-        for nsrt in ground_nsrts:
-            if obj in nsrt.objects:
-                nsrt.add_effects.add(atom)
+        for ground_nsrt in ground_nsrts:
+            # Update the preconditions of the failing NSRT.
+            if ground_nsrt == discovered_failure.failing_nsrt:
+                new_ground_nsrt = ground_nsrt.copy_with(
+                    preconditions=ground_nsrt.preconditions | {atom})
+            # Update the effects of all NSRTs that use this object.
+            # Note that this is an elif rather than an if, because it would
+            # never be possible to use the failing NSRT's effects to set
+            # the _NOT_CAUSES_FAILURE precondition.
+            elif obj in ground_nsrt.objects:
+                new_ground_nsrt = ground_nsrt.copy_with(
+                    add_effects=ground_nsrt.add_effects | {atom})
+            else:
+                new_ground_nsrt = ground_nsrt
+            new_ground_nsrts.append(new_ground_nsrt)
+    return new_ground_nsrts
 
 
 @dataclass(frozen=True, eq=False)

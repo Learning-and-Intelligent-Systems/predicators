@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, FrozenSet, DefaultDict, Optional
+    Tuple, Any, cast, FrozenSet, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
@@ -140,7 +140,7 @@ class State:
         """
         feats: List[Array] = []
         if len(objects) == 0:
-            return np.zeros(0)
+            return np.zeros(0, dtype=np.float32)
         for obj in objects:
             feats.append(self[obj])
         return np.hstack(feats)
@@ -246,6 +246,15 @@ class Predicate:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if self.arity == 0:
+            return f"({self.name})"
+        vars_str = " ".join(f"?x{i} - {t.name}"
+                            for i, t in enumerate(self.types))
+        return f"({self.name} {vars_str})"
+
     def get_negation(self) -> Predicate:
         """Return a negated version of this predicate.
         """
@@ -283,6 +292,14 @@ class _Atom:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        if not self.entities:
+            return f"({self.predicate.name})"
+        entities_str = " ".join(e.name for e in self.entities)
+        return f"({self.predicate.name} {entities_str})"
 
     def __hash__(self) -> int:
         return self._hash
@@ -439,6 +456,7 @@ class _Option:
         action.set_option(self)
         return action
 
+
 DummyOption: _Option = ParameterizedOption(
     "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
@@ -504,12 +522,40 @@ class STRIPSOperator:
     def __repr__(self) -> str:
         return str(self)
 
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        params_str = " ".join(f"{p.name} - {p.type.name}"
+                              for p in self.parameters)
+        preconds_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.preconditions))
+        effects_str = "\n        ".join(atom.pddl_str() for atom
+                                         in sorted(self.add_effects))
+        if self.delete_effects:
+            effects_str += "\n        "
+            effects_str += "\n        ".join(
+                f"(not {atom.pddl_str()})"
+                for atom in sorted(self.delete_effects))
+        return f"""(:action {self.name}
+    :parameters ({params_str})
+    :precondition (and {preconds_str})
+    :effect (and {effects_str})
+  )"""
+
     def __hash__(self) -> int:
         return self._hash
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, STRIPSOperator)
         return str(self) == str(other)
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, STRIPSOperator)
+        return str(self) > str(other)
 
 
 @dataclass(frozen=True, repr=False, eq=False)
@@ -560,6 +606,14 @@ class _GroundSTRIPSOperator:
         assert isinstance(other, _GroundSTRIPSOperator)
         return str(self) == str(other)
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) < str(other)
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, _GroundSTRIPSOperator)
+        return str(self) > str(other)
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class NSRT:
@@ -603,6 +657,14 @@ class NSRT:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pddl_str(self) -> str:
+        """Get a string representation suitable for writing out to a PDDL file.
+        """
+        op = STRIPSOperator(self.name, self.parameters, self.preconditions,
+                            self.add_effects, self.delete_effects,
+                            self.side_predicates)
+        return op.pddl_str()
 
     def __hash__(self) -> int:
         return self._hash
@@ -720,6 +782,27 @@ class _GroundNSRT:
         # self.option_objs of objects that are passed into the option.
         params = self._sampler(state, rng, self.objects)
         return self.option.ground(self.option_objs, params)
+
+    def copy_with(self, **kwargs: Any) -> _GroundNSRT:
+        """Create a copy of the ground NSRT, optionally while replacing
+        any of the arguments.
+        """
+        default_kwargs = dict(
+            nsrt=self.nsrt,
+            objects=self.objects,
+            preconditions=self.preconditions,
+            add_effects=self.add_effects,
+            delete_effects=self.delete_effects,
+            option=self.option,
+            option_objs=self.option_objs,
+            _sampler=self._sampler
+        )
+        assert set(kwargs.keys()).issubset(default_kwargs.keys())
+        default_kwargs.update(kwargs)
+        # mypy is known to have issues with this pattern:
+        # https://github.com/python/mypy/issues/5382
+        # This still seems like the least bad option.
+        return _GroundNSRT(**default_kwargs)  # type: ignore
 
 
 @dataclass(eq=False)
@@ -948,3 +1031,9 @@ PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
 Metrics = DefaultDict[str, float]
+LiftedOrGroundAtom = TypeVar(
+    "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
+NSRTOrSTRIPSOperator = TypeVar(
+    "NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar(
+    "GroundNSRTOrSTRIPSOperator", _GroundNSRT, _GroundSTRIPSOperator)
