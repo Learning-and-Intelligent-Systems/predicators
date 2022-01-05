@@ -34,9 +34,9 @@ def test_sesame_plan_failures():
     option_model = create_option_model(CFG.option_model_name, env.simulate)
     approach = OracleApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
+        env.action_space)
     approach.seed(123)
-    task = env.get_train_tasks()[0]
+    task = next(env.train_tasks_generator())[0]
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
