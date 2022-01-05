@@ -25,8 +25,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
 
     # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators(ground_atom_dataset,
-        verbose=True)  #CFG.do_option_learning)  # TODO change back
+    strips_ops, partitions = learn_strips_operators(
+        ground_atom_dataset, verbose=CFG.do_option_learning)
     assert len(strips_ops) == len(partitions)
 
     # Learn option specs, or if known, just look them up. The order of
@@ -77,7 +77,6 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     """Segment a ground atom trajectory according to abstract state changes.
-
     If options are available, also use them to segment.
     """
     segments = []
@@ -146,7 +145,9 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
 def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
                            verbose: bool = True,
                            ) -> Tuple[List[STRIPSOperator], List[Partition]]:
-    """Learn STRIPSOperators.
+    """Learn STRIPSOperators given a dataset of ground atoms. These
+    STRIPSOperators include side predicates. Also return the associated
+    partitions (data stores) in a one-to-one list.
     """
     # Segment transitions based on changes in predicates and options.
     segmented_trajectories = [segment_trajectory(traj)
@@ -256,6 +257,8 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
             print(op)
 
     # Re-partition the data with the new operators.
+    # We need to do this because now that we have side predicates, each
+    # transition may be assigned to *multiple* partitions.
     partitions, partition_segment_indices = _partition_segments(
         segmented_trajectories, strips_ops, option_specs)
     assert len(partitions) == len(partition_segment_indices) == len(strips_ops)
@@ -285,7 +288,11 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
 
 def _learn_operators_no_side_predicates(segments: Sequence[Segment]
         ) -> Tuple[List[STRIPSOperator], List[OptionSpec]]:
-    """Learn STRIPSOperators with no side effects.
+    """Learn STRIPSOperators with no side effects. The option specs
+    that are returned are either the ground truth options (if we are
+    NOT doing option learning), or DummyOption specs (if we ARE doing
+    option learning). In the option learning case, the actual options
+    will be learned later in the pipeline.
     """
     # Partition the segments according to common effects.
     params: List[Sequence[Variable]] = []
