@@ -2,10 +2,11 @@
 """
 
 from dataclasses import dataclass
-from typing import Set, Tuple, List, Sequence, Callable, Dict, Any
+from typing import Set, Tuple, List, Sequence, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, Partition, STRIPSOperator, OptionSpec
+    Object, Array, State, _Option, Partition, STRIPSOperator, OptionSpec, \
+    NSRTSampler
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
@@ -16,7 +17,7 @@ def learn_samplers(
     partitions: List[Partition],
     option_specs: List[OptionSpec],
     do_sampler_learning: bool
-    ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
+    ) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters.
     """
     samplers = []
@@ -36,8 +37,8 @@ def _learn_sampler(partitions: List[Partition],
                    add_effects: Set[LiftedAtom],
                    delete_effects: Set[LiftedAtom],
                    param_option: ParameterizedOption,
-                   partition_idx: int, do_sampler_learning: bool) -> Callable[[
-                      State, np.random.Generator, Sequence[Object]], Array]:
+                   partition_idx: int, do_sampler_learning: bool
+                   ) -> NSRTSampler:
     """Learn a sampler given data. Transitions are partitioned, so
     that they can be used for generating negative data. Integer partition_idx
     represents the index into transitions corresponding to the partition that
