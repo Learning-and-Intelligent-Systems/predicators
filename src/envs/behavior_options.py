@@ -12,10 +12,8 @@ try:
     import pybullet as p  # type: ignore
     from igibson import object_states
     from igibson.envs.behavior_env import BehaviorEnv
-    from igibson.robots.behavior_robot import BehaviorRobot, BRBody
     from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
     from igibson.objects.articulated_object import URDFObject
-    from igibson.object_states.on_floor import RoomFloor
     from igibson.utils.behavior_robot_planning_utils import (
         plan_base_motion_br,
         plan_hand_motion_br,
@@ -38,8 +36,8 @@ _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
 }
 
 
-def get_body_ids(
-    env: BehaviorEnv,
+def get_body_ids( # type: ignore
+    env,
     include_self: bool = False,
     grasping_with_right: bool = False,
 ) -> List[int]:
@@ -83,7 +81,7 @@ def detect_collision(bodyA: int, object_in_hand: int = None) -> bool:
     return collision
 
 
-def detect_robot_collision(robot: BehaviorRobot) -> bool:
+def detect_robot_collision(robot) -> bool: # type: ignore
     """
     Function to detect whether the robot is currently colliding
     with any object in the scene
@@ -121,7 +119,7 @@ def get_closest_point_on_aabb(
     return closest_point_on_aabb
 
 
-def reset_and_release_hand(env: BehaviorEnv) -> None:
+def reset_and_release_hand(env) -> None: # type: ignore
     """Resets the state of the right hand"""
     env.robots[0].set_position_orientation(
         env.robots[0].get_position(), env.robots[0].get_orientation()
@@ -132,8 +130,8 @@ def reset_and_release_hand(env: BehaviorEnv) -> None:
         p.stepSimulation()
 
 
-def get_delta_low_level_base_action(
-    env: BehaviorEnv,
+def get_delta_low_level_base_action( # type: ignore
+    env,
     original_orientation: Tuple,
     old_xytheta: np.ndarray,
     new_xytheta: np.ndarray,
@@ -179,8 +177,8 @@ def get_delta_low_level_base_action(
 #################
 
 # Navigate To #
-def navigate_to_param_sampler(
-    rng: Generator, objects: Sequence[Union[BRBody, URDFObject]]
+def navigate_to_param_sampler( # type: ignore
+    rng: Generator, objects
 ) -> np.ndarray:
     """Sampler for navigateTo option"""
     assert len(objects) in [2, 3]
@@ -215,9 +213,9 @@ def navigate_to_param_sampler(
     return np.array([x, y])
 
 
-def navigate_to_obj_pos(
-    env: BehaviorEnv,
-    obj: Union[URDFObject, RoomFloor, BRBody],
+def navigate_to_obj_pos( # type: ignore
+    env,
+    obj,
     pos_offset: np.ndarray,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
@@ -413,8 +411,8 @@ def grasp_obj_param_sampler(rng: Generator) -> np.ndarray:
     return np.array([x_offset, y_offset, z_offset, z_rot])
 
 
-def get_delta_low_level_hand_action(
-    env: BehaviorEnv,
+def get_delta_low_level_hand_action( # type: ignore
+    env,
     old_pos: Union[Sequence[float], np.ndarray],
     old_orn: Union[Sequence[float], np.ndarray],
     new_pos: Union[Sequence[float], np.ndarray],
@@ -473,9 +471,9 @@ def get_delta_low_level_hand_action(
     return action
 
 
-def grasp_obj_at_pos(
-    env: BehaviorEnv,
-    obj: Union[URDFObject, RoomFloor, BRBody],
+def grasp_obj_at_pos( # type: ignore
+    env,
+    obj,
     grasp_offset_and_z_rot: np.ndarray,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
@@ -733,9 +731,9 @@ def grasp_obj_at_pos(
 #################
 
 # Place Ontop #
-def place_obj_plan(
-    env: BehaviorEnv,
-    obj: URDFObject,
+def place_obj_plan( # type: ignore
+    env,
+    obj,
     original_state: int,
     place_rel_pos: np.ndarray,
     rng: Generator = np.random.default_rng(23),
@@ -789,9 +787,9 @@ def place_obj_plan(
     return plan
 
 
-def place_ontop_obj_pos_sampler(
-    env: BehaviorEnv,
-    obj: Sequence[Union[URDFObject, RoomFloor, BRBody]],
+def place_ontop_obj_pos_sampler( # type: ignore
+    env,
+    obj,
     return_orn: bool = False,
     rng: Generator = np.random.default_rng(23),
 ) -> Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
@@ -831,9 +829,9 @@ def place_ontop_obj_pos_sampler(
     return rnd_params
 
 
-def place_ontop_obj_pos(  # pylint: disable=inconsistent-return-statements
-    env: BehaviorEnv,
-    obj: Union[URDFObject, RoomFloor, BRBody],
+def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-statements
+    env,
+    obj,
     place_rel_pos: np.ndarray,
     place_orn: Optional[np.ndarray] = None,
     option_model: bool = False,
