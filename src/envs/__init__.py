@@ -29,7 +29,6 @@ __all__ = [
 
 _MOST_RECENT_ENV_INSTANCE = {}
 
-
 def create_env(name: str) -> BaseEnv:
     """Create an environment given its name."""
     if name == "cover_typed_options":
