@@ -1302,9 +1302,10 @@ def test_get_config_path_str():
         "env": "dummyenv",
         "approach": "dummyapproach",
         "seed": 321,
+        "excluded_predicates": "all",
     })
     s = utils.get_config_path_str()
-    assert s == "dummyenv__dummyapproach__321__"
+    assert s == "dummyenv__dummyapproach__321__all"
 
 
 def test_get_save_path_str():
