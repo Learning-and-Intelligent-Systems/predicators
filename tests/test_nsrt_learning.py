@@ -5,10 +5,93 @@ import time
 from gym.spaces import Box
 import numpy as np
 from predicators.src.nsrt_learning import learn_nsrts_from_data, \
-    unify_effects_and_options
+    unify_effects_and_options, segment_trajectory, learn_strips_operators
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption
+    ParameterizedOption, LowLevelTrajectory
 from predicators.src import utils
+
+
+def test_segment_trajectory():
+    """Tests for segment_trajectory().
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    pred0 = Predicate("Pred0", [cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    pred1 = Predicate("Pred1", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    pred2 = Predicate("Pred2", [cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
+    preds = {pred0, pred1, pred2}
+    state0 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
+    atoms0 = utils.abstract(state0, preds)
+    state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
+    atoms1 = utils.abstract(state1, preds)
+    # Tests with known options.
+    param_option = ParameterizedOption(
+        "dummy", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True, lambda s, m, o, p: True)
+    option0 = param_option.ground([cup0], np.array([0.2]))
+    action0 = option0.policy(state0)
+    # Even though the option changes, the option spec stays the same, so we do
+    # not want to segment. This is because we are segmenting based on symbolic
+    # aspects only, because the strips operators can only depend on symbols.
+    option1 = param_option.ground([cup0], np.array([0.1]))
+    action1 = option1.policy(state0)
+    option2 = param_option.ground([cup1], np.array([0.1]))
+    action2 = option2.policy(state0)
+    trajectory = (LowLevelTrajectory([state0, state0, state0, state0, state0],
+                                     [action0, action1, action2, action0]),
+                  [atoms0, atoms0, atoms0, atoms0, atoms0])
+    known_option_segments = segment_trajectory(trajectory)
+    assert len(known_option_segments) == 3
+    assert len(known_option_segments[0].actions) == 2
+    assert len(known_option_segments[1].actions) == 1
+    assert len(known_option_segments[2].actions) == 1
+    # Tests without known options.
+    action0 = option0.policy(state0)
+    action0.unset_option()
+    action1 = option0.policy(state0)
+    action1.unset_option()
+    action2 = option1.policy(state0)
+    action2.unset_option()
+    trajectory = (LowLevelTrajectory([state0, state0, state0, state0, state0],
+                                     [action0, action1, action2, action0]),
+                  [atoms0, atoms0, atoms0, atoms0, atoms0])
+    assert len(segment_trajectory(trajectory)) == 0
+    trajectory = (LowLevelTrajectory(
+        [state0, state0, state0, state0, state0, state1],
+        [action0, action1, action2, action0, action1]),
+                  [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
+    unknown_option_segments = segment_trajectory(trajectory)
+    assert len(unknown_option_segments) == 1
+    assert len(unknown_option_segments[0].actions) == 5
+    return known_option_segments, unknown_option_segments
+
+
+def test_learn_strips_operators():
+    """Tests for learn_strips_operators().
+    """
+    utils.update_config({"min_data_for_nsrt": 0})
+    known_option_segments, unknown_option_segments = test_segment_trajectory()
+    known_option_ops, _ = learn_strips_operators(known_option_segments)
+    assert len(known_option_ops) == 1
+    assert str((known_option_ops[0])) == """STRIPS-Op0:
+    Parameters: [?x0:cup_type]
+    Preconditions: []
+    Add Effects: []
+    Delete Effects: []
+    Side Predicates: []"""
+    unknown_option_ops, _ = learn_strips_operators(unknown_option_segments)
+    assert len(unknown_option_ops) == 1
+    assert str(unknown_option_ops[0]) == """STRIPS-Op0:
+    Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
+    Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
+    Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Side Predicates: []"""  # pylint: disable=line-too-long
 
 
 def test_nsrt_learning_specific_nsrts():
@@ -34,22 +117,22 @@ def test_nsrt_learning_specific_nsrts():
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     option1 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        lambda s, m, o, p: True, lambda s, m, o, p: True).ground(
             [], np.array([0.2]))
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
-    dataset = [([state1, next_state1], [action1])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
-    assert str(nsrt) == """Operator0:
+    assert str(nsrt) == """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
-    Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
-    Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []"""
+    Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
+    Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Side Predicates: []
+    Option Spec: dummy()"""
     # Test the learned samplers
     for _ in range(10):
         assert abs(nsrt.ground([cup0, cup1, cup2]).sample_option(
@@ -70,18 +153,18 @@ def test_nsrt_learning_specific_nsrts():
     action2 = option1.policy(state2)
     action2.set_option(option1)
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
-    dataset = [([state1, next_state1], [action1]),
-               ([state2, next_state2], [action2])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
+               LowLevelTrajectory([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
-    assert str(nsrt) == """Operator0:
+    assert str(nsrt) == """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
-    Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
-    Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
-    Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []"""
+    Preconditions: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Add Effects: [Pred0(?x0:cup_type), Pred0(?x2:cup_type), Pred1(?x0:cup_type, ?x0:cup_type), Pred1(?x0:cup_type, ?x1:cup_type), Pred1(?x0:cup_type, ?x2:cup_type), Pred1(?x2:cup_type, ?x0:cup_type), Pred1(?x2:cup_type, ?x1:cup_type), Pred1(?x2:cup_type, ?x2:cup_type), Pred2(?x0:cup_type), Pred2(?x2:cup_type)]
+    Delete Effects: [Pred0(?x1:cup_type), Pred1(?x1:cup_type, ?x0:cup_type), Pred1(?x1:cup_type, ?x1:cup_type), Pred1(?x1:cup_type, ?x2:cup_type), Pred2(?x1:cup_type)]
+    Side Predicates: []
+    Option Spec: dummy()"""
     # The following two tests check edge cases of unification with respect to
     # the split between add and delete effects. Specifically, it's important
     # to unify both of them together, not separately, which requires changing
@@ -93,7 +176,7 @@ def test_nsrt_learning_specific_nsrts():
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     option1 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        lambda s, m, o, p: True, lambda s, m, o, p: True).ground(
             [], np.array([0.3]))
     action1 = option1.policy(state1)
     action1.set_option(option1)
@@ -101,36 +184,36 @@ def test_nsrt_learning_specific_nsrts():
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
         "dummy", [], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
+        lambda s, m, o, p: True, lambda s, m, o, p: True).ground(
             [], np.array([0.7]))
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
-    dataset = [([state1, next_state1], [action1]),
-               ([state2, next_state2], [action2])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
+               LowLevelTrajectory([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 2
-    expected = {"Operator0": """Operator0:
+    expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
     Preconditions: [Pred0(?x1:cup_type, ?x2:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x1:cup_type, ?x2:cup_type)]
-    Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []""", "Operator1": """Operator1:
+    Side Predicates: []
+    Option Spec: dummy()""", "Op1": """NSRT-Op1:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type, ?x3:cup_type]
     Preconditions: [Pred0(?x2:cup_type, ?x3:cup_type)]
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: [Pred0(?x2:cup_type, ?x3:cup_type)]
-    Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []"""}
+    Side Predicates: []
+    Option Spec: dummy()"""}
     for nsrt in nsrts:
         assert str(nsrt) == expected[nsrt.name]
         # Test the learned samplers
-        if nsrt.name == "Operator0":
+        if nsrt.name == "Op0":
             for _ in range(10):
                 assert abs(nsrt.ground([cup0, cup1, cup2]).sample_option(
                     state1, np.random.default_rng(123)).params - 0.3) < 0.01
-        if nsrt.name == "Operator1":
+        if nsrt.name == "Op1":
             for _ in range(10):
                 assert abs(nsrt.ground([cup2, cup3, cup4, cup5]).sample_option(
                     state2, np.random.default_rng(123)).params - 0.7) < 0.01
@@ -145,23 +228,23 @@ def test_nsrt_learning_specific_nsrts():
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
-    dataset = [([state1, next_state1], [action1]),
-               ([state2, next_state2], [action2])]
+    dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
+               LowLevelTrajectory([state2, next_state2], [action2])]
     nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
     assert len(nsrts) == 2
-    expected = {"Operator0": """Operator0:
+    expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
     Preconditions: []
     Add Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Delete Effects: []
-    Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []""", "Operator1": """Operator1:
+    Side Predicates: []
+    Option Spec: dummy()""", "Op1": """NSRT-Op1:
     Parameters: [?x0:cup_type, ?x1:cup_type]
     Preconditions: [Pred0(?x0:cup_type, ?x1:cup_type)]
     Add Effects: []
     Delete Effects: [Pred0(?x0:cup_type, ?x1:cup_type)]
-    Option: ParameterizedOption(name='dummy', types=[])
-    Option Variables: []"""}
+    Side Predicates: []
+    Option Spec: dummy()"""}
     for nsrt in nsrts:
         assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
@@ -222,6 +305,9 @@ def test_unify_effects_and_options():
     y = cup_type("?y")
     z = cup_type("?z")
     pred0 = Predicate("Pred0", [cup_type, cup_type], lambda s, o: False)
+    param_option0 = ParameterizedOption(
+        "dummy0", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False)
     # Option0(cup0, cup1)
     ground_option_args = (cup0, cup1)
     # Pred0(cup1, cup2) true
@@ -237,7 +323,39 @@ def test_unify_effects_and_options():
         lifted_add_effects,
         ground_delete_effects,
         lifted_delete_effects,
+        param_option0,
+        param_option0,
         ground_option_args,
         lifted_option_args)
+    assert not suc
+    assert not sub
+    # The following test is for an edge case where everything is identical
+    # except for the name of the parameterized option. We do not want to
+    # unify in this case.
+    # First, a unify that should succeed.
+    suc, sub = unify_effects_and_options(
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        param_option0,
+        param_option0,
+        (cup0, cup1),
+        (cup0, cup1))
+    assert suc
+    assert sub == {cup0: cup0, cup1: cup1}
+    # Now, a unify that should fail because of different parameterized options.
+    param_option1 = ParameterizedOption(
+        "dummy1", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False)
+    suc, sub = unify_effects_and_options(
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        param_option0,
+        param_option1,
+        (cup0, cup1),
+        (cup0, cup1))
     assert not suc
     assert not sub

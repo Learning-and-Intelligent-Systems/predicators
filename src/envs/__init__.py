@@ -11,7 +11,9 @@ from predicators.src.envs.cover import (
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 
 __all__ = [
     "BaseEnv",
@@ -22,8 +24,10 @@ __all__ = [
     "CoverMultistepOptions",
     "ClutteredTableEnv",
     "BlocksEnv",
+    "PaintingEnv",
     "PlayroomEnv",
     "BehaviorEnv",
+    "RepeatedNextToEnv",
 ]
 
 

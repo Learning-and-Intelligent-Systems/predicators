@@ -17,8 +17,7 @@ class BaseApproach:
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task]) -> None:
+                 action_space: Box) -> None:
         """All approaches are initialized with only the necessary
         information about the environment.
         """
@@ -27,7 +26,6 @@ class BaseApproach:
         self._initial_options = initial_options
         self._types = types
         self._action_space = action_space
-        self._train_tasks = train_tasks
         self._metrics: Metrics = defaultdict(float)
         self.seed(0)
 
@@ -64,8 +62,10 @@ class BaseApproach:
         self._rng = np.random.default_rng(self._seed)
         self._action_space.seed(seed)
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        """Learning-based approaches can use an offline dataset.
+    def learn_from_offline_dataset(self, dataset: Dataset,
+                                   train_tasks: List[Task]) -> None:
+        """For learning-based approaches, learn whatever is needed from
+        the given dataset, which was generated from the given train_tasks.
         Also, should save whatever is necessary to load() later.
 
         Note: this is not an abc.abstractmethod because it does
@@ -74,7 +74,7 @@ class BaseApproach:
         """
 
     def load(self) -> None:
-        """Load anything from CFG.get_save_path().
+        """Load anything from CFG.get_save_path_str().
         Only called if self.is_learning_based.
         """
 

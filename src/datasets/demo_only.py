@@ -1,29 +1,29 @@
 """Create offline datasets by collecting demonstrations.
 """
 
+from typing import List
 from predicators.src.approaches import create_approach
 from predicators.src.envs import BaseEnv
-from predicators.src.structs import Dataset
+from predicators.src.structs import Dataset, Task
 from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-def create_demo_data(env: BaseEnv) -> Dataset:
+def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos.
     """
-    train_tasks = env.get_train_tasks()
     oracle_approach = create_approach("oracle", env.simulate,
-        env.predicates, env.options, env.types, env.action_space,
-        train_tasks)
+        env.predicates, env.options, env.types, env.action_space)
     dataset = []
     for task in train_tasks:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)
-        trajectory, _, solved = utils.run_policy_on_task(policy, task,
-            env.simulate, env.predicates, CFG.max_num_steps_check_policy)
+        traj, _, solved = utils.run_policy_on_task(
+            policy, task, env.simulate, env.predicates,
+            CFG.max_num_steps_check_policy, annotate_traj_with_goal=True)
         if CFG.do_option_learning:
-            for act in trajectory[1]:
+            for act in traj.actions:
                 act.unset_option()
         assert solved, "Oracle failed on training task."
-        dataset.append(trajectory)
+        dataset.append(traj)
     return dataset

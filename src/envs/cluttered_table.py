@@ -2,7 +2,7 @@
 planner's ability to handle failures reported by the environment.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
+from typing import List, Set, Sequence, Dict, Optional, Iterator
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -26,17 +26,19 @@ class ClutteredTableEnv(BaseEnv):
             "HandEmpty", [], self._HandEmpty_holds)
         self._Holding = Predicate(
             "Holding", [self._can_type], self._Holding_holds)
+        self._Untrashed = Predicate(
+            "Untrashed", [self._can_type], self._Untrashed_holds)
         # Options
         self._Grasp = ParameterizedOption(
             "Grasp", [self._can_type], params_space=Box(0, 1, (4,)),
             _policy=self._Grasp_policy,
-            _initiable=self._GraspDump_initiable,
-            _terminal=self._GraspDump_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         self._Dump = ParameterizedOption(
             "Dump", [], params_space=Box(0, 1, (0,)),  # no parameter
             _policy=self._Dump_policy,
-            _initiable=self._GraspDump_initiable,
-            _terminal=self._GraspDump_terminal)
+            _initiable=utils.always_initiable,
+            _terminal=utils.onestep_terminal)
         # Objects
         self._cans = []
         for i in range(max(CFG.cluttered_table_num_cans_train,
@@ -97,7 +99,7 @@ class ClutteredTableEnv(BaseEnv):
             if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
                 dist = np.linalg.norm(vec2)  # type: ignore
                 if dist > colliding_can_max_dist:
-                    colliding_can_max_dist = dist
+                    colliding_can_max_dist = float(dist)
                     colliding_can = can
         if colliding_can is not None:
             raise EnvironmentFailure("collision", {colliding_can})
@@ -105,17 +107,15 @@ class ClutteredTableEnv(BaseEnv):
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_train_tasks,
-                               train_or_test="train")
+    def train_tasks_generator(self) -> Iterator[List[Task]]:
+        yield self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num=CFG.num_test_tasks,
-                               train_or_test="test")
+        return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._HandEmpty, self._Holding}
+        return {self._HandEmpty, self._Holding, self._Untrashed}
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -229,6 +229,11 @@ class ClutteredTableEnv(BaseEnv):
         return state.get(can, "is_grasped") > 0.5
 
     @staticmethod
+    def _Untrashed_holds(state: State, objects: Sequence[Object]) -> bool:
+        can, = objects
+        return state.get(can, "is_trashed") < 0.5
+
+    @staticmethod
     def _Grasp_policy(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> Action:
         del state, memory, objects  # unused
@@ -239,18 +244,6 @@ class ClutteredTableEnv(BaseEnv):
                      params: Array) -> Action:
         del state, memory, objects, params  # unused
         return Action(np.zeros(4, dtype=np.float32))  # no parameter for dumping
-
-    @staticmethod
-    def _GraspDump_initiable(state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # can be run from anywhere
-
-    @staticmethod
-    def _GraspDump_terminal(state: State, memory: Dict,
-                            objects: Sequence[Object], params: Array) -> bool:
-        del state, memory, objects, params  # unused
-        return True  # always 1 timestep
 
     @staticmethod
     def _any_intersection(pose: Array, radius: float,

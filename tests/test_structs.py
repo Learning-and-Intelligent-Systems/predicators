@@ -6,7 +6,8 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition
+    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition, \
+    _GroundSTRIPSOperator, LowLevelTrajectory
 from predicators.src import utils
 
 
@@ -146,6 +147,21 @@ def test_state():
                     obj4: [8, 9, 10],
                     obj9: [11, 12, 13]})
     assert not state.allclose(state2)  # obj2 is extra
+    # Test pretty_str
+    assert state2.pretty_str() == """################# STATE ################
+type: type1      feat1    feat2
+-------------  -------  -------
+obj3                 1      122
+obj7                 3        4
+
+type: type2      feat3    feat4    feat5
+-------------  -------  -------  -------
+obj1                 5        6        7
+obj2                 5        6        7
+obj4                 8        9       10
+obj9                11       12       13
+########################################
+"""
     # Test including simulator_state
     state_with_sim = State({}, "simulator_state")
     assert state_with_sim.simulator_state == "simulator_state"
@@ -388,7 +404,7 @@ def test_option_memory_correct():
 
 
 def test_nsrts():
-    """Tests for STRIPSOperator and NSRT and _GroundNSRT classes.
+    """Tests for STRIPSOperator, _GroundSTRIPSOperator, NSRT and _GroundNSRT.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
@@ -400,6 +416,7 @@ def test_nsrts():
     preconditions = {not_on([cup_var, plate_var])}
     add_effects = {on([cup_var, plate_var])}
     delete_effects = {not_on([cup_var, plate_var])}
+    side_predicates = {on}
     params_space = Box(-10, 10, (2,))
     parameterized_option = ParameterizedOption(
         "Pick", [], params_space, lambda s, m, o, p: 2*p,
@@ -410,44 +427,68 @@ def test_nsrts():
         del objs  # unused
         return params_space.sample()
     # STRIPSOperator
-    strips_operator = STRIPSOperator("Pick", parameters, preconditions,
-                                     add_effects, delete_effects)
+    strips_operator = STRIPSOperator(
+        "Pick", parameters, preconditions,
+        add_effects, delete_effects, side_predicates)
     assert str(strips_operator) == repr(strips_operator) == \
         """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
     Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
-    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]"""
-    assert isinstance(hash(strips_operator), int)
-    strips_operator2 = STRIPSOperator("Pick", parameters, preconditions,
-                                      add_effects, delete_effects)
-    assert strips_operator == strips_operator2
-    # NSRT
-    nsrt = NSRT("Pick", parameters, preconditions, add_effects,
-                delete_effects, parameterized_option, [], sampler)
-    assert str(nsrt) == repr(nsrt) == """Pick:
-    Parameters: [?cup:cup_type, ?plate:plate_type]
-    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
-    Option: ParameterizedOption(name='Pick', types=[])
-    Option Variables: []"""
-    assert isinstance(hash(nsrt), int)
-    nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
-                 delete_effects, parameterized_option, [], sampler)
-    assert nsrt == nsrt2
-    nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
-    assert nsrt == nsrt3
-    # _GroundNSRT
+    Side Predicates: [On]"""
+    assert isinstance(hash(strips_operator), int)
+    strips_operator2 = STRIPSOperator(
+        "Pick", parameters, preconditions,
+        add_effects, delete_effects, side_predicates)
+    assert strips_operator == strips_operator2
+    strips_operator3 = STRIPSOperator(
+        "PickDuplicate", parameters, preconditions,
+        add_effects, delete_effects, side_predicates)
+    assert strips_operator < strips_operator3
+    assert strips_operator3 > strips_operator
+    # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")
-    ground_nsrt = nsrt.ground([cup, plate])
-    assert isinstance(ground_nsrt, _GroundNSRT)
-    assert str(ground_nsrt) == repr(ground_nsrt) == """Pick:
+    ground_op = strips_operator.ground((cup, plate))
+    assert isinstance(ground_op, _GroundSTRIPSOperator)
+    assert str(ground_op) == repr(ground_op) == """GroundSTRIPS-Pick:
     Parameters: [cup:cup_type, plate:plate_type]
     Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
     Add Effects: [On(cup:cup_type, plate:plate_type)]
     Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
+    Side Predicates: [On]"""
+    ground_op2 = strips_operator2.ground((cup, plate))
+    ground_op3 = strips_operator3.ground((cup, plate))
+    assert ground_op == ground_op2
+    assert ground_op < ground_op3
+    assert ground_op3 > ground_op
+    assert hash(ground_op) == hash(ground_op2)
+    # NSRT
+    nsrt = NSRT("Pick", parameters, preconditions, add_effects,
+        delete_effects, side_predicates, parameterized_option, [], sampler)
+    assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]
+    Option Spec: Pick()"""
+    assert isinstance(hash(nsrt), int)
+    nsrt2 = NSRT("Pick", parameters, preconditions, add_effects,
+        delete_effects, side_predicates, parameterized_option, [], sampler)
+    assert nsrt == nsrt2
+    nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
+    assert nsrt == nsrt3
+    # _GroundNSRT
+    ground_nsrt = nsrt.ground([cup, plate])
+    assert isinstance(ground_nsrt, _GroundNSRT)
+    assert str(ground_nsrt) == repr(ground_nsrt) == """GroundNSRT-Pick:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
+    Add Effects: [On(cup:cup_type, plate:plate_type)]
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
+    Side Predicates: [On]
     Option: ParameterizedOption(name='Pick', types=[])
     Option Objects: []"""
     assert isinstance(hash(ground_nsrt), int)
@@ -455,7 +496,9 @@ def test_nsrts():
     assert ground_nsrt == ground_nsrt2
     # Test less than comparison for grounded options
     nsrt4 = NSRT("Pick-Cup", parameters, preconditions, add_effects,
-                 delete_effects, parameterized_option, [], sampler)
+        delete_effects, side_predicates, parameterized_option, [], sampler)
+    assert nsrt2 > nsrt4
+    assert nsrt4 < nsrt2
     ground_nsrt4 = nsrt4.ground([cup, plate])
     assert ground_nsrt4 < ground_nsrt2
     assert ground_nsrt2 > ground_nsrt4
@@ -471,6 +514,29 @@ def test_nsrts():
     assert len(filtered_nsrt.preconditions) == 1
     assert len(filtered_nsrt.add_effects) == 0
     assert len(filtered_nsrt.delete_effects) == 1
+    # Test copy_with().
+    ground_nsrt_copy1 = ground_nsrt.copy_with()
+    assert ground_nsrt == ground_nsrt_copy1
+    ground_nsrt_copy2 = ground_nsrt.copy_with(
+        preconditions=set())
+    assert str(ground_nsrt_copy2) == """GroundNSRT-Pick:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: []
+    Add Effects: [On(cup:cup_type, plate:plate_type)]
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
+    Side Predicates: [On]
+    Option: ParameterizedOption(name='Pick', types=[])
+    Option Objects: []"""
+    ground_nsrt_copy3 = ground_nsrt.copy_with(
+        add_effects=set())
+    assert str(ground_nsrt_copy3) == """GroundNSRT-Pick:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
+    Add Effects: []
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
+    Side Predicates: [On]
+    Option: ParameterizedOption(name='Pick', types=[])
+    Option Objects: []"""
 
 
 def test_datasets():
@@ -508,10 +574,10 @@ def test_action():
         "Move", [], params_space, _policy, _initiable, _terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    states, actions = utils.option_to_trajectory(state, _simulator, option,
-                                                 max_num_steps=5)
-    assert len(actions) == len(states)-1 == 5
-    for act in actions:
+    traj = utils.option_to_trajectory(state, _simulator, option,
+                                      max_num_steps=5)
+    assert len(traj.actions) == len(traj.states)-1 == 5
+    for act in traj.actions:
         assert act.has_option()
         opt = act.get_option()
         assert opt is option
@@ -519,6 +585,42 @@ def test_action():
         assert not act.has_option()
     act = Action([0.5])
     assert not act.has_option()
+
+
+def test_low_level_trajectory():
+    """Tests for LowLevelTrajectory class.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type],
+                   lambda s, o: s.get(o[1], "feat1") < 1.3)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj = LowLevelTrajectory(states, actions)
+    assert traj.states == states
+    assert traj.actions == actions
+    assert not traj.is_demo
+    with pytest.raises(AssertionError):
+        print(traj.goal)  # not a demo
+    traj = LowLevelTrajectory(states, actions, set())
+    assert traj.is_demo
+    assert traj.goal == set()
+    with pytest.raises(AssertionError):
+        # goal is not achieved in final state
+        traj = LowLevelTrajectory(states, actions, {on([cup, plate])})
+    with pytest.raises(AssertionError):
+        # incompatible lengths of states and actions
+        traj = LowLevelTrajectory(states[:-1], actions, {on([cup, plate])})
+    # goal is achieved in final state
+    traj = LowLevelTrajectory(states[:-1], actions[:-1], {on([cup, plate])})
+    assert traj.goal != set()
 
 
 def test_segment():
@@ -537,7 +639,7 @@ def test_segment():
     action0 = Action([0.4])
     action1 = Action([0.6])
     actions = [action0, action1]
-    traj = (states, actions)
+    traj = LowLevelTrajectory(states, actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
     parameterized_option = ParameterizedOption(
@@ -561,7 +663,7 @@ def test_segment():
     assert segment.add_effects == {not_on([cup, plate])}
     assert segment.delete_effects == {on([cup, plate])}
     assert not segment.has_option()
-    segment.set_option_from_trajectory()
+    segment.set_option(option)
     assert segment.has_option()
     assert segment.get_option() == option
 
@@ -584,7 +686,7 @@ def test_partition():
     action0 = Action([0.4])
     action1 = Action([0.6])
     actions = [action0, action1]
-    traj = (states, actions)
+    traj = LowLevelTrajectory(states, actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
     parameterized_option = ParameterizedOption(
@@ -609,4 +711,3 @@ def test_partition():
     with pytest.raises(AssertionError):
         # Effects don't match.
         partition.add((segment3, objtovar))
-    

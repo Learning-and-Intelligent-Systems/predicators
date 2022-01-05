@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Callable, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, Partition, STRIPSOperator
+    Object, Array, State, _Option, Partition, STRIPSOperator, OptionSpec
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
@@ -14,7 +14,7 @@ from predicators.src.settings import CFG
 def learn_samplers(
     strips_ops: List[STRIPSOperator],
     partitions: List[Partition],
-    options: List[Tuple[ParameterizedOption, List[Variable]]],
+    option_specs: List[OptionSpec],
     do_sampler_learning: bool
     ) -> List[Callable[[State, np.random.Generator, Sequence[Object]], Array]]:
     """Learn all samplers for each operator's option parameters.
@@ -23,7 +23,7 @@ def learn_samplers(
     for i, op in enumerate(strips_ops):
         sampler = _learn_sampler(
             partitions, op.name, op.parameters, op.preconditions,
-            op.add_effects, op.delete_effects, options[i][0], i,
+            op.add_effects, op.delete_effects, option_specs[i][0], i,
             do_sampler_learning)
         samplers.append(sampler)
     return samplers
@@ -114,8 +114,7 @@ def _create_sampler_data(
                 continue
             var_types = [var.type for var in variables]
             objects = list(state)
-            for grounding in utils.get_object_combinations(
-                    objects, var_types, allow_duplicates=False):
+            for grounding in utils.get_object_combinations(objects, var_types):
                 # If we are currently at the partition that we're learning a
                 # sampler for, and this datapoint matches the actual grounding,
                 # add it to the positive data and continue.

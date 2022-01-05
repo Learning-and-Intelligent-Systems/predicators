@@ -5,7 +5,7 @@ from gym.spaces import Box
 import numpy as np
 from predicators.src.sampler_learning import _create_sampler_data
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LiftedAtom, Segment
+    ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
 from predicators.src import utils
 
 
@@ -32,8 +32,8 @@ def test_create_sampler_data():
     next_state = State({cup0: [0.9]})
     atoms = utils.abstract(state, predicates)
     next_atoms = utils.abstract(next_state, predicates)
-    segment1 = Segment(([state, next_state], [action]), atoms, next_atoms,
-                       option)
+    segment1 = Segment(LowLevelTrajectory([state, next_state], [action]),
+                       atoms, next_atoms, option)
     obj_to_var1 = {cup0: var_cup0}
 
     # Transition 2: does nothing
@@ -43,8 +43,8 @@ def test_create_sampler_data():
     next_state = state
     atoms = utils.abstract(state, predicates)
     next_atoms = utils.abstract(next_state, predicates)
-    segment2 = Segment(([state, next_state], [action]), atoms, next_atoms,
-                       option)
+    segment2 = Segment(LowLevelTrajectory([state, next_state], [action]),
+                       atoms, next_atoms, option)
     obj_to_var2 = {cup0: var_cup0}
 
     partitions = [[(segment1, obj_to_var1)], [(segment2, obj_to_var2)]]

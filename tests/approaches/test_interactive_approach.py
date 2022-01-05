@@ -41,22 +41,24 @@ def test_create_teacher_dataset():
         "env": "cover",
         "approach": "interactive_learning",
         "seed": 123,
+        "num_train_tasks": 15,
     })
     env = CoverEnv()
-    dataset = create_dataset(env)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     teacher_dataset = create_teacher_dataset(env.predicates, dataset)
-    assert len(teacher_dataset) == 10
+    assert len(teacher_dataset) == 15
 
     # Test the first trajectory for correct usage of ratio
     # Generate groundatoms
-    (ss, _) = dataset[0]
+    traj = dataset[0]
     ground_atoms_traj = []
-    for s in ss:
+    for s in traj.states:
         ground_atoms = list(utils.abstract(s, env.predicates))
         ground_atoms_traj.append(ground_atoms)
     # Check that numbers of groundatoms are as expected
     lengths = [len(elt) for elt in ground_atoms_traj]
-    _, _, traj = teacher_dataset[0]
+    _, traj = teacher_dataset[0]
     teacher_lengths = [len(elt) for elt in traj]
     assert len(lengths) == len(teacher_lengths)
     ratio = CFG.teacher_dataset_label_ratio
@@ -79,10 +81,11 @@ def test_interactive_learning_approach():
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
-    approach.learn_from_offline_dataset(dataset)
+    approach.learn_from_offline_dataset(dataset, train_tasks)
     for task in env.get_test_tasks():
         try:
             approach.solve(task, timeout=CFG.timeout)
@@ -92,8 +95,8 @@ def test_interactive_learning_approach():
         # have to train very good models, since that would be slow.
 
     # Test teacher
-    (ss, _) = dataset[0]
-    for s in ss:
+    traj = dataset[0]
+    for s in traj.states:
         ground_atoms = sorted(utils.abstract(s, env.predicates))
         for g in ground_atoms:
             assert approach.ask_teacher(s, g)
@@ -109,8 +112,9 @@ def test_interactive_learning_approach_ask_strategies():
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.load_dataset(dataset)
 
@@ -118,8 +122,8 @@ def test_interactive_learning_approach_ask_strategies():
     states_to_ask = approach.get_states_to_ask(dataset)
     # Check that all seen states were returned
     states = []
-    for (ss, _) in dataset:
-        states.extend(ss)
+    for traj in dataset:
+        states.extend(traj.states)
     assert len(states_to_ask) == len(states)
 
     utils.update_config({"interactive_ask_strategy": "threshold",
@@ -127,8 +131,8 @@ def test_interactive_learning_approach_ask_strategies():
     states_to_ask = approach.get_states_to_ask(dataset)
     # Check that all states were returned since threshold is 0
     states = []
-    for (ss, _) in dataset:
-        states.extend(ss)
+    for traj in dataset:
+        states.extend(traj.states)
     assert len(states_to_ask) == len(states)
 
     utils.update_config({"interactive_ask_strategy": "top_k_percent",
@@ -136,8 +140,8 @@ def test_interactive_learning_approach_ask_strategies():
     states_to_ask = approach.get_states_to_ask(dataset)
     # Check that all states were returned since threshold is 0
     states = []
-    for (ss, _) in dataset:
-        states.extend(ss)
+    for traj in dataset:
+        states.extend(traj.states)
     assert len(states_to_ask) == int(
         CFG.interactive_ask_strategy_pct / 100.* len(states))
 
@@ -159,9 +163,10 @@ def test_interactive_learning_approach_no_ground_atoms():
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(
         env.simulate, env.predicates, env.options, env.types,
-        env.action_space, env.get_train_tasks())
-    dataset = create_dataset(env)
+        env.action_space)
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     # MLP training fails since there are 0 positive examples
     with pytest.raises(RuntimeError):
-        approach.learn_from_offline_dataset(dataset)
+        approach.learn_from_offline_dataset(dataset, train_tasks)

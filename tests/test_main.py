@@ -42,7 +42,7 @@ def test_main():
                 "random_options", "--seed", "123", "--num_test_tasks", "5"]
     main()
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
-    sys.argv = ["dummy", "--env", "cover", "--approach", "trivial_learning",
+    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123", "--make_videos", "--num_test_tasks", "1",
                 "--video_dir", video_dir]
     main()
@@ -51,11 +51,22 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123", "--timeout", "0.001", "--num_test_tasks", "5"]
     main()
+    # Run actual main approach, but without sampler learning.
+    sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
+                "--seed", "123", "--do_sampler_learning", "0"]
+    main()
     # Try loading.
     sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
-                "--seed", "2348393", "--load"]
-    with pytest.raises(FileNotFoundError):
-        main()
+                "--seed", "123", "--load"]
+    main()
+    # Try learning (with too low hyperparameters to actually work).
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "nsrt_learning", "--seed", "123",
+                "--do_sampler_learning", "1",
+                "--classifier_max_itr_sampler", "10",
+                "--regressor_max_itr", "10",
+                "--timeout", "0.01"]
+    main()  # correct usage
     # Try predicate exclusion.
     sys.argv = ["dummy", "--env", "cover", "--approach",
                 "random_options", "--seed", "123",
@@ -74,5 +85,10 @@ def test_main():
     sys.argv = ["dummy", "--env", "cover", "--approach",
                 "random_options", "--seed", "123",
                 "--excluded_predicates", "HandEmpty",
+                "--num_test_tasks", "5"]
+    main()  # correct usage
+    sys.argv = ["dummy", "--env", "cover", "--approach",
+                "random_options", "--seed", "123",
+                "--excluded_predicates", "all",
                 "--num_test_tasks", "5"]
     main()  # correct usage

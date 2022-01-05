@@ -22,33 +22,34 @@ class IterativeInventionApproach(NSRTLearningApproach):
     """An approach that iteratively invents predicates.
     """
     def __init__(self, simulator: Callable[[State, Action], State],
-                 all_predicates: Set[Predicate],
+                 initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption],
                  types: Set[Type],
-                 action_space: Box,
-                 train_tasks: List[Task]) -> None:
-        super().__init__(simulator, all_predicates, initial_options,
-                         types, action_space, train_tasks)
+                 action_space: Box) -> None:
+        super().__init__(simulator, initial_predicates, initial_options,
+                         types, action_space)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset,
+                                   train_tasks: List[Task]) -> None:
+        self._dataset.extend(dataset)
+        del dataset
         # Use the current predicates to segment dataset.
         predicates = self._get_current_predicates()
-        segments = [seg for traj in dataset
-                    for seg in segment_trajectory(traj, predicates)]
-        # Note that segmenting does not assume that options are known; it uses
-        # the predicates only. So after segmenting, we will add the correct
-        # options to the segments, because here we are assuming that options
-        # are known.
+        # Apply predicates to dataset.
+        ground_atom_dataset = utils.create_ground_atom_dataset(
+            self._dataset, predicates)
+        # Segment transitions based on changes in predicates.
+        segments = [seg for traj in ground_atom_dataset
+                    for seg in segment_trajectory(traj)]
         assert not CFG.do_option_learning, \
             "Iterative invention assumes that options are given."
         for segment in segments:
-            assert not segment.has_option()
-            segment.set_option_from_trajectory()
+            assert segment.has_option()
         while True:
             print(f"\n\nInvention iteration {self._num_inventions}")
             # Invent predicates one at a time (iteratively).
@@ -70,7 +71,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 segment.final_atoms.update(
                     utils.abstract(segment.states[-1], new_preds))
         # Finally, learn NSRTs via superclass, using all the predicates.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts()
 
     def _invent_for_some_op(self, segments: Sequence[Segment]
                             ) -> Optional[Predicate]:
@@ -103,11 +104,11 @@ class IterativeInventionApproach(NSRTLearningApproach):
         opt_arg_pred = Predicate("OPT-ARGS", param_option.types,
                                  _classifier=lambda s, o: False)  # dummy
         lifted_opt_atom = LiftedAtom(opt_arg_pred, option_vars)
-        op_pre = utils.wrap_atom_predicates_lifted(
+        op_pre = utils.wrap_atom_predicates(
             op.preconditions, "PRE-")
-        op_add_effs = utils.wrap_atom_predicates_lifted(
+        op_add_effs = utils.wrap_atom_predicates(
             op.add_effects, "ADD-")
-        op_del_effs = utils.wrap_atom_predicates_lifted(
+        op_del_effs = utils.wrap_atom_predicates(
             op.delete_effects, "DEL-")
         lifteds = frozenset(op_pre | op_add_effs | op_del_effs |
                             {lifted_opt_atom})
@@ -134,11 +135,11 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 for segment in segments_by_objects[objects]:
                     option = segment.get_option()
                     ground_opt_atom = GroundAtom(opt_arg_pred, option.objects)
-                    trans_atoms = utils.wrap_atom_predicates_ground(
+                    trans_atoms = utils.wrap_atom_predicates(
                         segment.init_atoms, "PRE-")
-                    trans_add_effs = utils.wrap_atom_predicates_ground(
+                    trans_add_effs = utils.wrap_atom_predicates(
                         segment.add_effects, "ADD-")
-                    trans_del_effs = utils.wrap_atom_predicates_ground(
+                    trans_del_effs = utils.wrap_atom_predicates(
                         segment.delete_effects, "DEL-")
                     # Check whether the grounding holds for the atoms & option.
                     # If not, continue.

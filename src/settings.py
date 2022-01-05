@@ -12,17 +12,36 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings.
     """
+    # parameters for all envs
+    num_train_tasks = 15
+    num_test_tasks = 50
+    max_num_steps_check_policy = 100  # maximum number of steps to run a policy
+                                      # when checking whether it solves a task
+
     # cover env parameters
     cover_num_blocks = 2
     cover_num_targets = 2
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
 
+    # cover_multistep_options parameters
+    cover_multistep_action_limits = [-np.inf, np.inf]
+
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
+
+    # repeated nextto env parameters
+    repeated_nextto_num_dots = 25
+
+    # painting env parameters
+    painting_train_families = [
+        "box_and_shelf",  # placing into both box and shelf
+        # "box_only",  # just placing into the box
+        # "shelf_only",  # just placing into the shelf
+    ]
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
@@ -41,12 +60,18 @@ class GlobalSettings:
     propagate_failures = True
     max_samples_per_step = 10
     max_num_steps_option_rollout = 1000
+    option_model_name = "default"
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
+    max_samples_per_step = 10  # max effort on sampling a single skeleton
 
     # evaluation parameters
     save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
+
+    # dataset parameters
+    offline_data_planning_timeout = 500  # for learning-based approaches, the
+                                         # data collection timeout for planning
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
@@ -56,6 +81,7 @@ class GlobalSettings:
 
     # option learning parameters
     do_option_learning = False  # if False, uses ground truth options
+    option_learner = "oracle"  # only used if do_option_learning is True
 
     # sampler learning parameters
     do_sampler_learning = True  # if False, uses random samplers
@@ -87,6 +113,22 @@ class GlobalSettings:
     interactive_ask_strategy_threshold = 0.0
     interactive_ask_strategy_pct = 20.0
 
+    # grammar search invention parameters
+    grammar_search_grammar_includes_givens = True
+    grammar_search_grammar_includes_foralls = True
+    grammar_search_true_pos_weight = 10
+    grammar_search_false_pos_weight = 1
+    grammar_search_bf_weight = 1
+    grammar_search_size_weight = 1e-2
+    grammar_search_pred_complexity_weight = 1
+    grammar_search_max_predicates = 50
+    grammar_search_predicate_cost_upper_bound = 6
+    grammar_search_score_function = "hff_lookahead_depth0"
+    grammar_search_heuristic_based_weight = 10.
+    grammar_search_heuristic_based_max_demos = 5
+    grammar_search_lookahead_based_temperature = 10.
+    grammar_search_task_planning_timeout = 1.0
+
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are
@@ -97,90 +139,46 @@ class GlobalSettings:
         if "approach" not in args:
             args["approach"] = ""
         return dict(
-            # Number of training tasks in each environment.
-            num_train_tasks=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 10,
-                "cluttered_table": 50,
-                "blocks": 50,
-                "playroom": 50,
-                "behavior": 10,
-            })[args["env"]],
+            # Task planning heuristic to use in SeSamE.
+            task_planning_heuristic=defaultdict(
+                # Use HAdd by default.
+                lambda: "hadd", {
+                    # In the playroom domain, HFF works better.
+                    "playroom": "hff",
+                }
+            )[args["env"]],
 
-            # Number of test tasks in each environment.
-            num_test_tasks=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 10,
-                "cluttered_table": 50,
-                "blocks": 50,
-                "playroom": 50,
-                "behavior": 10,
-            })[args["env"]],
-
-            # Maximum number of steps to run a policy when checking whether
-            # it solves a task.
-            max_num_steps_check_policy=defaultdict(int, {
-                "cover": 10,
-                "cover_typed_options": 10,
-                "cover_hierarchical_types": 10,
-                "cover_multistep_options": 100,
-                "cluttered_table": 25,
-                "blocks": 25,
-                "playroom": 25,
-                "behavior": 100,
-            })[args["env"]],
-
-            # Name of the option model to use.
-            option_model_name=defaultdict(str, {
-                "cover": "default",
-                "cover_typed_options": "default",
-                "cover_hierarchical_types": "default",
-                "cover_multistep_options": "default",
-                "cluttered_table": "default",
-                "blocks": "default",
-                "behavior": "default",
-            })[args["env"]],
+            # In SeSamE, when to propagate failures back up to the high level
+            # search. Choices are: {"after_exhaust", "immediately", "never"}.
+            sesame_propagate_failures=defaultdict(
+                # Use "immediately" by default.
+                lambda: "immediately", {
+                    # We use a different strategy for cluttered_table because
+                    # of the high likelihood of getting cyclic failures if you
+                    # immediately raise failures, leading to unsolvable tasks.
+                    "cluttered_table": "after_exhaust",
+                }
+            )[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
-            offline_data_method=defaultdict(str, {
-                "trivial_learning": "demo",
-                "nsrt_learning": "demo+replay",
-                "interactive_learning": "demo",
-                "iterative_invention": "demo+replay",
-            })[args["approach"]],
+            offline_data_method=defaultdict(
+                # Use both demonstrations and random replays by default.
+                lambda: "demo+replay", {
+                    # No replays for active learning project.
+                    "interactive_learning": "demo",
+                }
+            )[args["approach"]],
 
-            # For learning-based approaches, the data collection timeout
-            # used for planning.
-            offline_data_planning_timeout=defaultdict(int, {
-                "trivial_learning": 500,
-                "nsrt_learning": 500,
-                "interactive_learning": 500,
-                "iterative_invention": 500,
-            })[args["approach"]],
-
-            # For learning-based approaches, the number of replays used
-            # when the data generation method is data+replays.
-            offline_data_num_replays=defaultdict(int, {
-                "trivial_learning": 10,
-                "nsrt_learning": 10,
-                "interactive_learning": 10,
-                "iterative_invention": 500,
-            })[args["approach"]],
+            # Number of replays used when offline_data_method is demo+replay.
+            offline_data_num_replays=defaultdict(
+                # Default number of random replays.
+                lambda: 500, {
+                    # For the repeated_nextto environment, too many
+                    # replays makes learning slow.
+                    "repeated_nextto": 50,
+                }
+            )[args["env"]],
         )
-
-
-def get_save_path() -> str:
-    """Create a path for this experiment that can be used to save
-    and load results.
-    """
-    if not os.path.exists(CFG.save_dir):
-        os.makedirs(CFG.save_dir)
-    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
-            f"{CFG.excluded_predicates}.saved")
 
 
 _attr_to_value = {}
