@@ -458,7 +458,8 @@ class _Option:
 
 
 DummyOption: _Option = ParameterizedOption(
-    "", [], Box(0, 1, (1,)), lambda s, m, o, p: Action(np.array([0.0])),
+    "DummyOption", [], Box(0, 1, (1,)),
+    lambda s, m, o, p: Action(np.array([0.0])),
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground(
         [], np.array([0.0]))
 DummyOption.parent.params_space.seed(0)  # for reproducibility
