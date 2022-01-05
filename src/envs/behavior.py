@@ -7,13 +7,14 @@ import itertools
 import os
 from typing import List, Set, Optional, Dict, Callable, Sequence
 import numpy as np
+from numpy.random._generator import Generator
 
 try:
     import bddl
     import igibson
     from igibson import object_states
     from igibson.envs import behavior_env
-    from igibson.objects.articulated_object import (# pylint: disable=unused-import
+    from igibson.objects.articulated_object import (  # pylint: disable=unused-import
         ArticulatedObject,
     )
     from igibson.objects.articulated_object import URDFObject
@@ -29,7 +30,7 @@ try:
         grasp_obj_at_pos,
         place_ontop_obj_pos,
     )
-    import pybullet as pyb
+    import pybullet as pyb  # type: ignore
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -52,14 +53,22 @@ from predicators.src.structs import (
 )
 from predicators.src.settings import CFG
 
-def get_aabb_volume(lo, hi):
+
+def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
     """Simple utility function to compute the volume of an aabb"""
     dimension = hi - lo
     return dimension[0] * dimension[1] * dimension[2]
 
+
 def make_behavior_option(
-    name, types, params_space, env, controller_fn, object_to_ig_object, rng
-):
+    name: str,
+    types: Sequence[Type],
+    params_space: Box,
+    env: behavior_env.BehaviorEnv,
+    controller_fn: Callable,
+    object_to_ig_object: Callable,
+    rng: Generator,
+) -> ParameterizedOption:
     """
     Makes an option for a BEHAVIOR env using custom implemented
     controller_fn
@@ -107,6 +116,7 @@ def make_behavior_option(
         _initiable=_initiable,
         _terminal=_terminal,
     )
+
 
 class BehaviorEnv(BaseEnv):
     """Behavior (iGibson) environment."""
@@ -320,7 +330,7 @@ class BehaviorEnv(BaseEnv):
                         parameter_limits[0], parameter_limits[1], (param_dim,)
                     ),
                     env=self.behavior_env,
-                    controller_fn=controller_fn,
+                    controller_fn=controller_fn,  # type: ignore
                     object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
                 )
@@ -450,7 +460,7 @@ class BehaviorEnv(BaseEnv):
         ig_other_obj = self.object_to_ig_object(objs[1])
 
         return (
-            np.linalg.norm(
+            np.linalg.norm(  # type: ignore
                 np.array(ig_obj.get_position())
                 - np.array(ig_other_obj.get_position())
             )

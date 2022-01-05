@@ -444,7 +444,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
     type_name_to_type = {t.name: t for t in env.types}
     pred_name_to_pred = {p.name: p for p in env.predicates}
 
-    def _get_lifted_atom(base_pred_name, objects):
+    def _get_lifted_atom(
+        base_pred_name: str, objects: Sequence[Variable]
+    ) -> LiftedAtom:
         type_names = "-".join(o.type.name for o in objects)
         pred_name = f"{base_pred_name}-{type_names}"
         pred = pred_name_to_pred[pred_name]
@@ -472,8 +474,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
             parameters = [agent_obj, target_obj]
             option_vars = [target_obj]
             preconditions = {nextto_nothing}
-            add_effects = {_get_lifted_atom("reachable", \
-                [target_obj, agent_obj])}
+            add_effects = {
+                _get_lifted_atom("reachable", [target_obj, agent_obj])
+            }
             delete_effects = {nextto_nothing}
             nsrt = NSRT(
                 f"{option.name}-{next(op_name_count)}",
@@ -483,8 +486,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 delete_effects,
                 option,
                 option_vars,
-                lambda s, r, o: navigate_to_param_sampler(r, \
-                    [env.object_to_ig_object(o_i) for o_i in o]),
+                lambda s, r, o: navigate_to_param_sampler(r,\
+                    [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
+                )
             )
             nsrts.add(nsrt)
 
@@ -510,8 +514,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                     delete_effects,
                     option,
                     option_vars,
-                    lambda s, r, o: navigate_to_param_sampler(r, \
-                        [env.object_to_ig_object(o_i) for o_i in o]),
+                    lambda s, r, o: navigate_to_param_sampler(r,\
+                    [env.object_to_ig_object(o_i) for o_i in o] # type: ignore
+                    )
                 )
                 nsrts.add(nsrt)
 
@@ -530,11 +535,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 targ_next_to = _get_lifted_atom(
                     "reachable", [target_obj, agent_obj]
                 )
-                #targ_graspable = _get_lifted_atom(
+                # targ_graspable = _get_lifted_atom(
                 #    "graspable", [target_obj]
-                #)
+                # )
                 targ_holding = _get_lifted_atom("holding", [target_obj])
-                #preconditions = {handempty, targ_next_to, targ_graspable}
+                # preconditions = {handempty, targ_next_to, targ_graspable}
                 preconditions = {handempty, targ_next_to}
                 add_effects = {targ_holding}
                 delete_effects = {handempty}
@@ -563,24 +568,26 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:
                 option_vars = [surf_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
-                surf_next_to = _get_lifted_atom("reachable",\
-                     [surf_obj, agent_obj])
+                surf_next_to = _get_lifted_atom(
+                    "reachable", [surf_obj, agent_obj]
+                )
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_next_to}
                 add_effects = {ontop, handempty}
                 delete_effects = {held_holding}
                 nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count)}",
-                    parameters,
-                    preconditions,
-                    add_effects,
-                    delete_effects,
-                    option,
-                    option_vars,
-                    lambda s, r, o: place_ontop_obj_pos_sampler(
-                        env.behavior_env,
-                        [env.object_to_ig_object(o_i) \
-                            for o_i in o], rng=r),
+                  f"{option.name}-{next(op_name_count)}",
+                  parameters,
+                  preconditions,
+                  add_effects,
+                  delete_effects,
+                  option,
+                  option_vars,
+                  lambda s, r, o: place_ontop_obj_pos_sampler(  # type: ignore
+                    env.behavior_env,  # type: ignore
+                    [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
+                    rng=r,
+                  ),
                 )
                 nsrts.add(nsrt)
 
