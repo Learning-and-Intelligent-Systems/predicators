@@ -426,7 +426,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             types=[self._block_type, self._robot_type, self._target_type],
             params_space=Box(-np.inf, np.inf, (11,)),
             _policy=self._Place_learned_equivalent_policy,
-            _initiable=self._Place_initiable,
+            _initiable=self._Place_learned_equivalent_initiable,
             _terminal=self._Place_learned_equivalent_terminal)
 
     @property
@@ -762,6 +762,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Also may want to eventually check that the target is clear.
         del m, o, p  # unused
         return not self._HandEmpty_holds(s, [])
+
+    def _Place_learned_equivalent_initiable(self, s: State, m: Dict,
+            o: Sequence[Object], p: Array) -> bool:
+        # Place is initiable if we're holding the object.
+        del m, p  # unused
+        block, robot, _ = o
+        assert block.is_instance(self._block_type)
+        assert robot.is_instance(self._robot_type)
+        return self._Holding_holds(s, [block, robot])
 
     def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
                       p: Array) -> Action:
