@@ -15,7 +15,7 @@ from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _atom_to_tuple, _atoms_to_tuples, \
-    _PyperplanHeuristicWrapper
+    _Heuristic, _PyperplanHeuristicWrapper
 
 
 def test_intersects():
@@ -1037,6 +1037,10 @@ def test_create_heuristic():
     with pytest.raises(ValueError):
         utils.create_heuristic("not a real heuristic", set(), set(), set(),
                                set(), set())
+    # Cover _Heuristic base class.
+    base_heuristic = _Heuristic("base", set(), set(), set())
+    with pytest.raises(NotImplementedError):
+        base_heuristic(set())
 
 
 def test_create_pddl():
