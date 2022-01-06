@@ -130,7 +130,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def learn_strips_operators(segments: Sequence[Segment], verbose: bool
+def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                            ) -> List[PartialNSRTAndDatastore]:
     """Learn strips operators on the given data segments. Return a list of
     PNADs with op (STRIPSOperator), datastore, and option_spec fields filled in.
