@@ -2,8 +2,7 @@
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-import abc
+from dataclasses import dataclass
 import argparse
 import functools
 import gc
@@ -11,7 +10,7 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
 import heapq as hq
 import imageio
 import matplotlib
@@ -819,13 +818,13 @@ def create_heuristic(heuristic_name: str,
 
 
 @dataclass(frozen=True)
-class _Heuristic(Generic[GroundNSRTOrSTRIPSOperator]):
+class _Heuristic:
     """A task planning heuristic.
     """
     name: str
     init_atoms: Collection[GroundAtom]
     goal: Collection[GroundAtom]
-    ground_ops: Collection[GroundNSRTOrSTRIPSOperator]
+    ground_ops: Collection[Union[_GroundNSRT, _GroundSTRIPSOperator]]
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         return self._evaluate(frozenset(atoms))
