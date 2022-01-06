@@ -142,7 +142,7 @@ def _get_initial_pnads(segments: Sequence[Segment], verbose: bool
     # Cluster the segments according to common effects.
     pnads: List[PartialNSRTAndDatastore] = []
     for segment in segments:
-        if not CFG.do_option_learning:
+        if segment.has_option():
             segment_option = segment.get_option()
             segment_param_option = segment_option.parent
             segment_option_objs = tuple(segment_option.objects)
@@ -221,7 +221,7 @@ def _get_initial_pnads(segments: Sequence[Segment], verbose: bool
 
 
 def _learn_pnad_side_predicates(pnads: List[PartialNSRTAndDatastore]) -> None:
-    raise NotImplementedError  # TODO
+    raise NotImplementedError
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:

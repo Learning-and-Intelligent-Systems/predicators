@@ -13,7 +13,7 @@ def test_create_sampler_data():
     """Tests for _create_sampler_data().
     """
     utils.update_config({"min_data_for_nsrt": 0, "seed": 123})
-    # Create two partitions
+    # Create two datastores
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
     var_cup0 = cup_type("?cup0")
@@ -47,21 +47,21 @@ def test_create_sampler_data():
                        atoms, next_atoms, option)
     obj_to_var2 = {cup0: var_cup0}
 
-    partitions = [[(segment1, obj_to_var1)], [(segment2, obj_to_var2)]]
+    datastores = [[(segment1, obj_to_var1)], [(segment2, obj_to_var2)]]
     variables = [var_cup0]
     preconditions = set()
     add_effects = {LiftedAtom(pred0, [var_cup0])}
     delete_effects = set()
     param_option = option.parent
-    partition_idx = 0
+    datastore_idx = 0
 
     positive_examples, negative_examples = _create_sampler_data(
-        partitions, variables, preconditions, add_effects,
-        delete_effects, param_option, partition_idx)
+        datastores, variables, preconditions, add_effects,
+        delete_effects, param_option, datastore_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 1
 
-    # When building data for a partition with effects X, if we
+    # When building data for a datastore with effects X, if we
     # encounter a transition with effects Y, and if Y is a superset
     # of X, then we do not want to include the transition as a
     # negative example, because if Y was achieved, then X was also
@@ -69,13 +69,13 @@ def test_create_sampler_data():
     #
     # In the example here, transition 1's effects are a superset
     # of transition 2's effects. So when creating the examples
-    # for partition 2, we do not want to inclue transition 1
+    # for datastore 2, we do not want to inclue transition 1
     # in the negative effects.
     variables = []
     add_effects = set()
-    partition_idx = 1
+    datastore_idx = 1
     positive_examples, negative_examples = _create_sampler_data(
-        partitions, variables, preconditions, add_effects,
-        delete_effects, param_option, partition_idx)
+        datastores, variables, preconditions, add_effects,
+        delete_effects, param_option, datastore_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 0
