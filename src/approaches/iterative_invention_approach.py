@@ -9,8 +9,8 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Array, STRIPSOperator, Partition, Segment, \
-    LiftedAtom, GroundAtom
+    Type, Task, Action, Dataset, Array, STRIPSOperator, Datastore, \
+    Segment, LiftedAtom, GroundAtom, OptionSpec
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -77,19 +77,23 @@ class IterativeInventionApproach(NSRTLearningApproach):
                             ) -> Optional[Predicate]:
         # Iterate over parameterized options in a random order.
         # Run operator learning.
-        strips_ops, partitions = learn_strips_operators(segments)
+        pnads = learn_strips_operators(segments)
+        strips_ops = [pnad.op for pnad in pnads]
+        datastores = [pnad.datastore for pnad in pnads]
+        option_specs = [pnad.option_spec for pnad in pnads]
         # Iterate over operators in a random order.
         for idx in self._rng.permutation(len(strips_ops)):
             op = strips_ops[idx]
-            new_predicate = self._invent_for_op(op, partitions, idx)
+            option_spec = option_specs[idx]
+            new_predicate = self._invent_for_op(op, option_spec, datastores)
             if new_predicate is not None:
                 # Halt on ANY successful invention.
                 return new_predicate
         return None
 
     def _invent_for_op(self, op: STRIPSOperator,
-                       partitions: Sequence[Partition],
-                       partition_idx: int
+                       option_spec: OptionSpec,
+                       datastores: Sequence[Datastore]
                        ) -> Optional[Predicate]:
         """Go through the data, splitting it into positives and negatives
         based on whether the operator correctly predicts each transition
@@ -100,7 +104,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
             # We can't learn 0-arity predicates since the vectorized
             # states would be empty, i.e. the X matrix has no features.
             return None
-        param_option, option_vars = partitions[partition_idx].option_spec
+        param_option, option_vars = option_spec
         opt_arg_pred = Predicate("OPT-ARGS", param_option.types,
                                  _classifier=lambda s, o: False)  # dummy
         lifted_opt_atom = LiftedAtom(opt_arg_pred, option_vars)
@@ -112,18 +116,16 @@ class IterativeInventionApproach(NSRTLearningApproach):
             op.delete_effects, "DEL-")
         lifteds = frozenset(op_pre | op_add_effs | op_del_effs |
                             {lifted_opt_atom})
-        # Extract the option for this partition.
-        param_option, _ = partitions[partition_idx].option_spec
         # Organize segments by the set of objects that are in each one.
         segments_by_objects = defaultdict(list)
-        for partition in partitions:
-            for (segment, _) in partition:
+        for datastore in datastores:
+            for (segment, _) in datastore:
                 # Exclude if options don't match.
                 if segment.get_option().parent != param_option:
                     continue
                 objects = frozenset(segment.states[0])
                 segments_by_objects[objects].append(segment)
-        del partitions
+        del datastores
         # Figure out which transitions the op makes wrong predictions on.
         # Keep track of data for every subset of op parameters, so that
         # we can do pruning later.
