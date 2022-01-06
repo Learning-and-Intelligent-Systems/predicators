@@ -4,7 +4,8 @@
 import numpy as np
 import pytest
 from predicators.src.approaches import OracleApproach
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.approaches.oracle_approach import get_gt_nsrts, \
+    _check_nsrt_objects
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, \
     BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
@@ -60,6 +61,22 @@ def test_get_gt_nsrts():
     utils.update_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
         get_gt_nsrts(set(), set())
+
+
+def test_check_nsrt_objects():
+    """Checks all of the oracle operators for all envs using
+    _check_nsrt_objects().
+    """
+    envs = {"cover": CoverEnv(), "cover_typed_options": CoverEnvTypedOptions(),
+            "cover_hierarchical_types": CoverEnvHierarchicalTypes(),
+            "cluttered_table": ClutteredTableEnv(), "blocks": BlocksEnv(),
+            "painting": PaintingEnv(), "playroom": PlayroomEnv(),
+            "cover_multistep_options": CoverMultistepOptions(),
+            "repeated_nextto": RepeatedNextToEnv()}
+    for name, env in envs.items():
+        utils.update_config({"env": name})
+        nsrts = get_gt_nsrts(env.predicates, env.options)
+        _check_nsrt_objects(nsrts)  # pylint: disable=protected-access
 
 
 def test_oracle_approach_cover():
