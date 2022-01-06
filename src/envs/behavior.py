@@ -1,6 +1,6 @@
 """Behavior (iGibson) environment.
 """
-# pylint: disable=import-error
+# pylint: disable=import-error,ungrouped-imports
 
 import functools
 import itertools
@@ -55,7 +55,8 @@ from predicators.src.settings import CFG
 
 
 def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
-    """Simple utility function to compute the volume of an aabb"""
+    """Simple utility function to compute the volume of an aabb
+    """
     dimension = hi - lo
     return dimension[0] * dimension[1] * dimension[2]
 
@@ -69,8 +70,7 @@ def make_behavior_option( # type: ignore
     object_to_ig_object: Callable,
     rng: Generator,
 ) -> ParameterizedOption:
-    """
-    Makes an option for a BEHAVIOR env using custom implemented
+    """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn
     """
 
@@ -119,7 +119,8 @@ def make_behavior_option( # type: ignore
 
 
 class BehaviorEnv(BaseEnv):
-    """Behavior (iGibson) environment."""
+    """Behavior (iGibson) environment.
+    """
 
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
@@ -307,7 +308,7 @@ class BehaviorEnv(BaseEnv):
         # name, controller_fn, param_dim, arity
         controllers = [
             ("NavigateTo", navigate_to_obj_pos, 2, 1, (-5.0, 5.0)),
-            ("Grasp", grasp_obj_at_pos, 4, 1, (-np.pi, np.pi)),
+            ("Grasp", grasp_obj_at_pos, 3, 1, (-np.pi, np.pi)),
             ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
         ]
 
@@ -429,7 +430,6 @@ class BehaviorEnv(BaseEnv):
 
         return _classifier
 
-    # TODO (wmcclinton) test graspable
     def _graspable_classifier(
         self, _state: State, objs: Sequence[Object]
     ) -> bool:
@@ -442,17 +442,14 @@ class BehaviorEnv(BaseEnv):
         volume = get_aabb_volume(lo, hi)
         return volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed
 
-    # TODO (wmcclinton) test reachable
 
     def _reachable_classifier(
         self, state: State, objs: Sequence[Object]
     ) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        # assert state.allclose(self._current_ig_state_to_state())
-        # Checking only scoped varibles has changed
+        # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(
-            self._current_ig_state_to_state().scope(state.data.keys())
+            # self._current_ig_state_to_state().scope(state.data.keys())
+            self._current_ig_state_to_state()
         )
 
         assert len(objs) == 2
@@ -471,10 +468,9 @@ class BehaviorEnv(BaseEnv):
         self, state: State, objs: Sequence[Object]
     ) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
-        # assert state.allclose(self._current_ig_state_to_state())
-        # Checking only scoped varibles has changed
         assert state.allclose(
-            self._current_ig_state_to_state().scope(state.data.keys())
+            # self._current_ig_state_to_state().scope(state.data.keys())
+            self._current_ig_state_to_state()
         )
         assert len(objs) == 1
         for obj in state:
@@ -491,8 +487,6 @@ class BehaviorEnv(BaseEnv):
 
             # NOTE: The below block is necessary because somehow the body_id
             # is sometimes a 1-element list...
-            # TODO (njk): find a better place to fix this body_id issue;
-            # probably somewhere internal to behavior?
             if isinstance(ig_obj.body_id, list):
                 assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
@@ -507,10 +501,9 @@ class BehaviorEnv(BaseEnv):
     ) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        # assert state.allclose(self._current_ig_state_to_state())
-        # Checking only scoped varibles has changed
         assert state.allclose(
-            self._current_ig_state_to_state().scope(state.data.keys())
+            # self._current_ig_state_to_state().scope(state.data.keys())
+            self._current_ig_state_to_state()
         )
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
@@ -519,10 +512,9 @@ class BehaviorEnv(BaseEnv):
     def _holding_classifier(self, state: State, objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        # assert state.allclose(self._current_ig_state_to_state())
-        # Checking only scoped varibles has changed
         assert state.allclose(
-            self._current_ig_state_to_state().scope(state.data.keys())
+            # self._current_ig_state_to_state().scope(state.data.keys())
+            self._current_ig_state_to_state()
         )
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
@@ -533,10 +525,9 @@ class BehaviorEnv(BaseEnv):
     ) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        # assert state.allclose(self._current_ig_state_to_state())
-        # Checking only scoped varibles has changed
         assert state.allclose(
-            self._current_ig_state_to_state().scope(state.data.keys())
+            # self._current_ig_state_to_state().scope(state.data.keys())
+            self._current_ig_state_to_state()
         )
         assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])

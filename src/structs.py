@@ -169,15 +169,8 @@ class State:
             return False
         for obj in self.data:
             if not np.allclose(self.data[obj], other.data[obj], atol=1e-3):
-                # import ipdb; ipdb.set_trace()
                 return False
         return True
-
-    def scope(self, objects: Collection[Object]) -> State: # pragma: no cover
-        """Create a substate involving only the given objects.
-        """
-        assert set(objects).issubset(self)
-        return State({o: self[o] for o in objects}, self.simulator_state)
 
     def pretty_str(self) -> str:
         """Display the state in a nice human-readable format.
