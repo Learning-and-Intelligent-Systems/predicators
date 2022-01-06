@@ -179,7 +179,7 @@ class GlobalSettings:
             max_num_steps_option_rollout=defaultdict(
                 lambda: 100, {
                     # For the behavior environment, we need
-                    # to execute the options for a larger number of 
+                    # to execute the options for a larger number of
                     # timesteps
                     "behavior": 1000,
                 }

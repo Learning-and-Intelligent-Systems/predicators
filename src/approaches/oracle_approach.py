@@ -1025,9 +1025,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
     def _get_lifted_atom(
         base_pred_name: str, objects: Sequence[Variable]
     ) -> LiftedAtom:
-        type_names = "-".join(o.type.name for o in objects)
-        pred_name = f"{base_pred_name}-{type_names}"
-        pred = pred_name_to_pred[pred_name]
+        pred = _get_predicate(base_pred_name, [o.type for o in objects])
         return LiftedAtom(pred, objects)
 
     def _get_predicate(
@@ -1179,7 +1177,6 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                   option,
                   option_vars,
                   lambda s, r, o: place_ontop_obj_pos_sampler(  # type: ignore
-                    env.behavior_env,  # type: ignore
                     [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
                     rng=r,
                   ),

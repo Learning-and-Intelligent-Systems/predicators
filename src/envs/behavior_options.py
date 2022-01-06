@@ -778,21 +778,18 @@ def place_obj_plan( # type: ignore
 
 
 def place_ontop_obj_pos_sampler( # type: ignore
-    env,
     obj,
     return_orn: bool = False,
     rng: Generator = np.random.default_rng(23),
 ) -> Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
     """Sampler for placeOnTop option
     """
-    objA = env.scene.get_objects()[
-        env.robots[0].parts["right_hand"].object_in_hand
-    ]
-
-    for o in obj:
-        if o != objA and o.name != "BRBody_1":
-            objB = o
-            break
+    # objA is the object the robot is currently holding, and objB
+    # is the surface that it must place onto.
+    # The BEHAVIOR NSRT's are designed such that objA is the 0th
+    # argument, and objB is the last.
+    objA = obj[0]
+    objB = obj[-1]
 
     params = _ON_TOP_RAY_CASTING_SAMPLING_PARAMS
     aabb = get_aabb(objA.get_body_id())
