@@ -812,8 +812,9 @@ def create_heuristic(heuristic_name: str,
                                                 goal, ground_ops)
         pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
         pyperplan_goal = _atoms_to_tuples(goal)
-        return _PyperplanHeuristicWrapper(init_atoms, goal, ground_ops,
-                                          pyperplan_heuristic, pyperplan_goal)
+        return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
+                                          ground_ops, pyperplan_heuristic,
+                                          pyperplan_goal)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -821,6 +822,7 @@ def create_heuristic(heuristic_name: str,
 class _Heuristic(Generic[GroundNSRTOrSTRIPSOperator]):
     """A task planning heuristic.
     """
+    name: str
     init_atoms: Collection[GroundAtom]
     goal: Collection[GroundAtom]
     ground_ops: Collection[GroundNSRTOrSTRIPSOperator]
@@ -904,7 +906,7 @@ def _create_pyperplan_task(all_reachable_atoms: Collection[GroundAtom],
 
 @functools.lru_cache(maxsize=None)
 def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
-    """Convert atom to tuple for caching.
+    """Convert atom to tuple for interface with pyperplan.
     """
     return (atom.predicate.name,) + tuple(str(o) for o in atom.objects)
 
@@ -914,266 +916,6 @@ def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> PyperplanFacts:
     collection of atoms.
     """
     return frozenset({_atom_to_tuple(atom) for atom in atoms})
-
-
-@dataclass(repr=False, eq=False)
-class RelaxedFact:
-    """This class represents a relaxed fact.
-    Lightly modified from pyperplan's heuristics/relaxation.py.
-    """
-    name: Tuple[str, ...]
-    # A list that contains all operators this fact is a precondition of.
-    precondition_of: List[RelaxedOperator] = field(
-        init=False, default_factory=list)
-    # Whether this fact has been expanded during the Dijkstra forward pass.
-    expanded: bool = field(init=False, default=False)
-    # The heuristic distance value.
-    distance: float = field(init=False, default=float("inf"))
-    # The cheapest operator that was applied to reach this fact, for HFF.
-    cheapest_achiever: Optional[RelaxedOperator] = None
-
-
-@dataclass(repr=False, eq=False)
-class RelaxedOperator:
-    """This class represents a relaxed operator (no delete effects).
-    Lightly modified from pyperplan's heuristics/relaxation.py.
-    """
-    name: Tuple[str, Tuple[Object, ...]]  # operator name, objects
-    preconditions: PyperplanFacts
-    add_effects: PyperplanFacts
-    # Cost of applying this operator.
-    cost: int = field(default=1)
-    # Alternative method to check whether all preconditions are True.
-    counter: int = field(init=False, default=0)
-
-    def __post_init__(self) -> None:
-        self.counter = len(self.preconditions)  # properly initialize counter
-
-
-class _RelaxationHeuristic:
-    """This class is an implementation of delete relaxation heuristics such as
-    HMax and HAdd. Lightly modified from pyperplan's heuristics/relaxation.py.
-    """
-    def __init__(self, initial_state: PyperplanFacts,
-                 goals: PyperplanFacts,
-                 operators: FrozenSet[RelaxedOperator]) -> None:
-        self.facts = {}
-        self.operators = []
-        self.goals = goals
-        self.init = initial_state
-        self.tie_breaker = 0
-        self.start_state = RelaxedFact(("start",))
-
-        all_facts = initial_state | goals
-        for op in operators:
-            all_facts |= op.preconditions
-            all_facts |= op.add_effects
-
-        # Create relaxed facts for all facts in the task description.
-        for fact in all_facts:
-            self.facts[fact] = RelaxedFact(fact)
-
-        for ro in sorted(operators, key=lambda o: o.name):
-            # Add operators to operator list.
-            self.operators.append(ro)
-
-            # Initialize precondition_of-list for each fact
-            for var in ro.preconditions:
-                self.facts[var].precondition_of.append(ro)
-
-            # Handle operators that have no preconditions.
-            if not ro.preconditions:
-                # We add this operator to the precondtion_of list of the start
-                # state. This way it can be applied to the start state. This
-                # helps also when the initial state is empty.
-                self.start_state.precondition_of.append(ro)
-
-    @functools.lru_cache(maxsize=None)
-    def __call__(self, state: PyperplanFacts) -> float:
-        """Compute heuristic value.
-        """
-        # Reset distance and set to default values.
-        self.init_distance(state)
-
-        # Construct the priority queue.
-        heap: List[Tuple[float, float, RelaxedFact]] = []
-        # Add a dedicated start state, to cope with operators without
-        # preconditions and empty initial state.
-        hq.heappush(heap, (0, self.tie_breaker, self.start_state))
-        self.tie_breaker += 1
-
-        for fact in state:
-            # Order is determined by the distance of the facts.
-            # As a tie breaker we use a simple counter.
-            hq.heappush(heap, (self.facts[fact].distance,
-                               self.tie_breaker, self.facts[fact]))
-            self.tie_breaker += 1
-
-        # Call the Dijkstra search that performs the forward pass.
-        self.dijkstra(heap)
-
-        # Extract the goal heuristic.
-        h_value = self.calc_goal_h()
-
-        return h_value
-
-    @staticmethod
-    @abc.abstractmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        """Combine distances to goal facts. Distinguishes different relaxation
-        heuristics, e.g., hmax uses a max and hadd uses a sum.
-        """
-        raise NotImplementedError("Override me!")
-
-    def init_distance(self, state: PyperplanFacts) -> None:
-        """This function resets all member variables that store information
-        that needs to be recomputed for each call of the heuristic.
-        """
-        def _reset_fact(fact: RelaxedFact) -> None:
-            fact.expanded = False
-            fact.cheapest_achiever = None
-            if fact.name in state:
-                fact.distance = 0
-            else:
-                fact.distance = float("inf")
-
-        # Reset start state.
-        _reset_fact(self.start_state)
-
-        # Reset facts.
-        for fact in self.facts.values():
-            _reset_fact(fact)
-
-        # Reset operators.
-        for operator in self.operators:
-            operator.counter = len(operator.preconditions)
-
-    def get_cost(self, operator: RelaxedOperator) -> float:
-        """This function calculates the cost of applying an operator.
-        """
-        # Accumulate the heuristic values of all preconditions.
-        cost = self._accumulate([self.facts[pre].distance
-                                 for pre in operator.preconditions])
-        # Add on operator application cost.
-        return cost+operator.cost
-
-    def calc_goal_h(self) -> float:
-        """This function calculates the heuristic value of the whole goal.
-        """
-        return self._accumulate([self.facts[fact].distance
-                                 for fact in self.goals])
-
-    def finished(self, achieved_goals: Set[Tuple[str, ...]],
-                 queue: List[Tuple[float, float, RelaxedFact]]) -> bool:
-        """This function gives a stopping criterion for the Dijkstra search.
-        """
-        return achieved_goals == self.goals or not queue
-
-    def dijkstra(self, queue: List[Tuple[float, float, RelaxedFact]]) -> None:
-        """This function is an implementation of a Dijkstra search.
-        For efficiency reasons, it is used instead of an explicit graph
-        representation of the problem.
-        """
-        # Stores the achieved subgoals.
-        achieved_goals: Set[Tuple[str, ...]] = set()
-        while not self.finished(achieved_goals, queue):
-            # Get the fact with the lowest heuristic value.
-            (_dist, _tie, fact) = hq.heappop(queue)
-            # If this node is part of the goal, we add to the goal set, which
-            # is used as an abort criterion.
-            if fact.name in self.goals:
-                achieved_goals.add(fact.name)
-            # Check whether we already expanded this fact.
-            if not fact.expanded:
-                # Iterate over all operators this fact is a precondition of.
-                for operator in fact.precondition_of:
-                    # Decrease the precondition counter.
-                    operator.counter -= 1
-                    # Check whether all preconditions are True and we can apply
-                    # this operator.
-                    if operator.counter <= 0:
-                        for n in operator.add_effects:
-                            neighbor = self.facts[n]
-                            # Calculate the cost of applying this operator.
-                            tmp_dist = self.get_cost(operator)
-                            if tmp_dist < neighbor.distance:
-                                # If the new costs are cheaper than the old
-                                # costs, we change the neighbor's heuristic
-                                # values.
-                                neighbor.distance = tmp_dist
-                                neighbor.cheapest_achiever = operator
-                                # And push it on the queue.
-                                hq.heappush(queue, (
-                                    tmp_dist, self.tie_breaker, neighbor))
-                                self.tie_breaker += 1
-                # Finally the fact is marked as expanded.
-                fact.expanded = True
-
-
-class _HAddHeuristic(_RelaxationHeuristic):
-    """Implements the HAdd delete relaxation heuristic.
-    """
-    @staticmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        return sum(distances)
-
-
-class _HMaxHeuristic(_RelaxationHeuristic):
-    """Implements the HMax delete relaxation heuristic.
-    """
-    @staticmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        if not distances:
-            return 0.0
-        return max(distances)
-
-
-class _HFFHeuristic(_RelaxationHeuristic):
-    """Implements the HFF delete relaxation heuristic.
-    """
-    @staticmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        return sum(distances)
-
-    def calc_goal_h(self) -> float:
-        """This function has to be overwritten, because the HFF heuristic needs
-        an additional backward pass.
-
-        This is mostly copied from pyperplan, with a few style changes.
-        """
-        relaxed_plan = set()
-        # Check whether we achieved all subgoals.
-        all_subgoals_achieved = not any(self.facts[g].distance == float("inf")
-                                        for g in self.goals)
-        if not all_subgoals_achieved:
-            return float("inf")
-
-        # Initialize a queue and push all goal nodes.
-        q = []
-        closed_list = set()
-        for g in self.goals:
-            q.append(self.facts[g])
-            closed_list.add(g)
-
-        # Do backward pass.
-        while q:
-            fact = q.pop()
-            # Check whether this fact has a cheapest achiever and that it
-            # is not already expanded
-            if (
-                fact.cheapest_achiever is not None
-                and not fact.cheapest_achiever in relaxed_plan
-            ):
-                # Add all preconditions of the cheapest achiever to the
-                # queue.
-                for pre in fact.cheapest_achiever.preconditions:
-                    if pre not in closed_list:
-                        q.append(self.facts[pre])
-                        closed_list.add(pre)
-                relaxed_plan.add(fact.cheapest_achiever.name)
-
-        # Extract FF value.
-        return len(relaxed_plan)
 
 
 def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
