@@ -46,8 +46,6 @@ def _create_new_env_instance(name: str) -> BaseEnv:
         return ClutteredTableEnv()
     if name == "blocks":
         return BlocksEnv()
-    if name == "behavior":
-        return BehaviorEnv()
     if name == "painting":
         return PaintingEnv()
     if name == "playroom":
