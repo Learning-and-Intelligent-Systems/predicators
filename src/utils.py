@@ -802,7 +802,7 @@ def create_heuristic(heuristic_name: str,
                      init_atoms: Collection[GroundAtom],
                      goal: Collection[GroundAtom],
                      ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                     ) -> Callable[[PyperplanFacts], float]:
+                     ) -> _Heuristic:
     """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go.
     """
@@ -818,7 +818,7 @@ def create_heuristic(heuristic_name: str,
 
 
 @dataclass(frozen=True)
-class _Heuristic:
+class _Heuristic(Generic[GroundNSRTOrSTRIPSOperator]):
     """A task planning heuristic.
     """
     init_atoms: Collection[GroundAtom]

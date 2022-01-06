@@ -118,12 +118,15 @@ def task_plan(init_atoms: Set[GroundAtom],
     ground_nsrts = utils.filter_static_operators(ground_nsrts, init_atoms)
     nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
                              if nsrt.add_effects | nsrt.delete_effects]
-    if not utils.is_dr_reachable(nonempty_ground_nsrts, init_atoms, goal):
+    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                    init_atoms)
+    if not goal.issubset(all_reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, nonempty_ground_nsrts,
-                                    init_atoms, seed, timeout, metrics)
+                                    all_reachable_atoms, init_atoms, seed,
+                                    timeout, metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
