@@ -725,13 +725,7 @@ def test_pnad():
     Option Spec: Move()"""
     with pytest.raises(AssertionError):  # no sampler
         pnad.get_nsrt()
-    params_space = Box(0, 1, (1,))
-    def sampler(s, rng, objs):
-        del s  # unused
-        del rng  # unused
-        del objs  # unused
-        return params_space.sample()
-    pnad.sampler = sampler
+    pnad.sampler = lambda _1, _2, _3: Box(0, 1, (1,)).sample()
     nsrt = pnad.get_nsrt()
     assert repr(nsrt) == str(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]

@@ -85,8 +85,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
         for idx in self._rng.permutation(len(strips_ops)):
             op = strips_ops[idx]
             option_spec = option_specs[idx]
-            new_predicate = self._invent_for_op(
-                op, option_spec, datastores, idx)
+            new_predicate = self._invent_for_op(op, option_spec, datastores)
             if new_predicate is not None:
                 # Halt on ANY successful invention.
                 return new_predicate
@@ -94,8 +93,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
 
     def _invent_for_op(self, op: STRIPSOperator,
                        option_spec: OptionSpec,
-                       datastores: Sequence[NSRTDatastore],
-                       datastore_idx: int
+                       datastores: Sequence[NSRTDatastore]
                        ) -> Optional[Predicate]:
         """Go through the data, splitting it into positives and negatives
         based on whether the operator correctly predicts each transition
