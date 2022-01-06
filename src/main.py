@@ -21,7 +21,6 @@ To exclude predicates:
 To run grammar search predicate invention (example):
     python src/main.py --env blocks --approach grammar_search_invention \
         --seed 0 --excluded_predicates Holding,Clear,GripperOpen
-
 """
 
 from collections import defaultdict
@@ -40,8 +39,7 @@ from predicators.src import utils
 
 
 def main() -> None:
-    """Main entry point for running approaches in environments.
-    """
+    """Main entry point for running approaches in environments."""
     start = time.time()
     # Parse & validate args
     args = utils.parse_args()

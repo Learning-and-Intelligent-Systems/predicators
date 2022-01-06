@@ -1,5 +1,4 @@
-"""Models useful for classification/regression.
-"""
+"""Models useful for classification/regression."""
 
 import os
 from dataclasses import dataclass
@@ -19,8 +18,7 @@ torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
 class NeuralGaussianRegressor(nn.Module):
-    """NeuralGaussianRegressor definition.
-    """
+    """NeuralGaussianRegressor definition."""
     def __init__(self) -> None:  # pylint: disable=useless-super-delegation
         super().__init__()  # type: ignore
         self._input_shift = torch.zeros(1)
@@ -32,6 +30,7 @@ class NeuralGaussianRegressor(nn.Module):
 
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
+
         Both X and Y are multi-dimensional.
         """
         assert X.ndim == 2
@@ -40,6 +39,7 @@ class NeuralGaussianRegressor(nn.Module):
 
     def predict_mean(self, x: Array) -> Array:
         """Return a mean prediction on the given datapoint.
+
         x is single-dimensional.
         """
         assert x.ndim == 1
@@ -49,6 +49,7 @@ class NeuralGaussianRegressor(nn.Module):
     def predict_sample(self, x: Array,
                        rng: np.random.Generator) -> Array:
         """Return a sampled prediction on the given datapoint.
+
         x is single-dimensional.
         """
         assert x.ndim == 1
@@ -63,8 +64,7 @@ class NeuralGaussianRegressor(nn.Module):
         return np.array(y)
 
     def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method.
-        """
+        """Pytorch forward method."""
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
@@ -164,8 +164,7 @@ class NeuralGaussianRegressor(nn.Module):
 
 
 class MLPClassifier(nn.Module):
-    """MLPClassifier definition.
-    """
+    """MLPClassifier definition."""
     def __init__(self, in_size: int, max_itr: int) -> None:
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
@@ -182,6 +181,7 @@ class MLPClassifier(nn.Module):
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
+
         X is multi-dimensional, y is single-dimensional.
         """
         torch.manual_seed(CFG.seed)
@@ -209,8 +209,7 @@ class MLPClassifier(nn.Module):
         self._fit(X, y)
 
     def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method.
-        """
+        """Pytorch forward method."""
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
@@ -219,6 +218,7 @@ class MLPClassifier(nn.Module):
 
     def classify(self, x: Array) -> bool:
         """Return a classification of the given datapoint.
+
         x is single-dimensional.
         """
         assert x.ndim == 1
@@ -283,14 +283,17 @@ class MLPClassifier(nn.Module):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
-    """A convenience class for holding the model underlying a learned predicate.
+    """A convenience class for holding the model underlying a learned
+    predicate.
+
     Prefer to use this because it is pickleable.
     """
     _model: MLPClassifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:
-        """The classifier corresponding to the given model. May be used
-        as the _classifier field in a Predicate.
+        """The classifier corresponding to the given model.
+
+        May be used as the _classifier field in a Predicate.
         """
         v = state.vec(objects)
         return self._model.classify(v)

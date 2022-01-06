@@ -1,5 +1,4 @@
-"""The core algorithm for learning a collection of NSRT data structures.
-"""
+"""The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
 from typing import Set, List, Sequence, cast
@@ -15,9 +14,8 @@ from predicators.src.option_learning import create_option_learner
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
-    """Learn NSRTs from the given dataset of low-level transitions,
-    using the given set of predicates.
-    """
+    """Learn NSRTs from the given dataset of low-level transitions, using the
+    given set of predicates."""
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
@@ -64,6 +62,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     """Segment a ground atom trajectory according to abstract state changes.
+
     If options are available, also use them to segment.
     """
     segments = []
@@ -131,8 +130,10 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
 
 def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                            ) -> List[PartialNSRTAndDatastore]:
-    """Learn strips operators on the given data segments. Return a list of
-    PNADs with op (STRIPSOperator), datastore, and option_spec fields filled in.
+    """Learn strips operators on the given data segments.
+
+    Return a list of PNADs with op (STRIPSOperator), datastore, and
+    option_spec fields filled in.
     """
     # Cluster the segments according to common effects.
     pnads: List[PartialNSRTAndDatastore] = []
