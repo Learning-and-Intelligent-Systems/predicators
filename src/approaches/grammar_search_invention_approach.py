@@ -758,7 +758,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                             predicates: Collection[Predicate],
                             ) -> Callable[[Set[GroundAtom]], float]:
         h_fn = utils.create_heuristic(self.heuristic_name, init_atoms, goal,
-            ground_ops, predicates | self._initial_predicates, objects)
+            ground_ops, set(predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
         assert self.lookahead_depth >= 0
