@@ -21,8 +21,8 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
-    LiftedAtom, Image, Video, Variable, ObjToVarSub, EntToEntSub, \
-    VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
+    Dataset, GroundAtomTrajectory, STRIPSOperator, \
     _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
     NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
@@ -786,20 +786,6 @@ def get_static_preds_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
     return static_preds, static_atoms
 
 
-def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                            atoms: Collection[GroundAtom]
-                            ) -> List[GroundNSRTOrSTRIPSOperator]:
-    """Filter out ground operators that don't satisfy static atoms.
-    """
-    static_preds, static_atoms = get_static_preds_atoms(ground_ops, atoms)
-    # Perform filtering.
-    ground_ops = [op for op in ground_ops
-                    if not any(atom.predicate in static_preds
-                               and atom not in static_atoms
-                               for atom in op.preconditions)]
-    return ground_ops
-
-
 def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                         atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
     """Get all atoms that are reachable from the init atoms.
@@ -879,13 +865,14 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
     return nsrts
 
 
-def create_heuristic(heuristic_name: str,
-                     init_atoms: Set[GroundAtom],
-                     goal: Set[GroundAtom],
-                     ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                     predicates: Collection[Predicate],
-                     objects: Collection[Object],
-                     ) -> _Heuristic:
+def create_task_planning_heuristic(
+    heuristic_name: str,
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+    ) -> _TaskPlanningHeuristic:
     """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go.
     """
@@ -896,7 +883,7 @@ def create_heuristic(heuristic_name: str,
 
 
 @dataclass(frozen=True)
-class _Heuristic:
+class _TaskPlanningHeuristic:
     """A task planning heuristic.
     """
     name: str
@@ -918,7 +905,7 @@ def _create_pyperplan_heuristic(
     predicates: Collection[Predicate],
     objects: Collection[Object],
     ) -> _PyperplanHeuristicWrapper:
-    """Create a pyperplan heuristic that inherits from _Heuristic.
+    """Create a pyperplan heuristic that inherits from _TaskPlanningHeuristic.
     """
     assert heuristic_name in _PYPERPLAN_HEURISTICS
     _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
@@ -965,7 +952,7 @@ class _PyperplanTask:
 
 
 @dataclass(frozen=True)
-class _PyperplanHeuristicWrapper(_Heuristic):
+class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
     """A light wrapper around pyperplan's heuristics.
     """
     _static_atoms: Set[GroundAtom]
@@ -1004,7 +991,10 @@ def _create_pyperplan_task(init_atoms: Set[GroundAtom],
     pyperplan_operators = set()
     for op in ground_ops:
         # Note: the pyperplan operator must include the objects, because hFF
-        # uses the operator name in constructing the relaxed plan.
+        # uses the operator name in constructing the relaxed plan, and the
+        # relaxed plan is a set. If we instead just used op.name, there would
+        # be a very nasty bug where two ground operators in the relaxed plan
+        # that have different objects are counted as just one.
         name = op.name + "-".join(o.name for o in op.objects)
         pyperplan_operator = _PyperplanOperator(name,
             # Note: removing static atoms from preconditions.

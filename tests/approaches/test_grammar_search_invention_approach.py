@@ -379,7 +379,6 @@ def test_relaxation_lookahead_score_function():
     class _MockLookahead(_RelaxationHeuristicLookaheadBasedScoreFunction):
         """Mock class.
         """
-
         def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset, predicates | self._initial_predicates)

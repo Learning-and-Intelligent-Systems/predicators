@@ -14,8 +14,8 @@ from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
-from predicators.src.utils import _atom_to_tuple, _atoms_to_tuples, \
-    _Heuristic, _PyperplanHeuristicWrapper
+from predicators.src.utils import _TaskPlanningHeuristic, \
+    _PyperplanHeuristicWrapper
 
 
 def test_intersects():
@@ -856,60 +856,6 @@ def test_create_ground_atom_dataset():
     assert ground_atom_dataset[0][1][1] == {GroundAtom(on, [cup1, plate1])}
 
 
-def test_static_filtering():
-    """Tests for filter_static_operators().
-    """
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1"])
-    pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
-    pred2 = Predicate("Pred2", [cup_type, plate_type], lambda s, o: True)
-    pred3 = Predicate("Pred3", [cup_type, plate_type], lambda s, o: True)
-    cup_var = cup_type("?cup")
-    plate_var = plate_type("?plate")
-    parameters = [cup_var, plate_var]
-    # pred1 is static, pred2/pred3 are not
-    preconditions1 = {pred1([cup_var, plate_var])}
-    add_effects1 = {pred2([cup_var, plate_var])}
-    delete_effects1 = {}
-    preconditions2 = {pred1([cup_var, plate_var])}
-    add_effects2 = {}
-    delete_effects2 = {pred3([cup_var, plate_var])}
-    nsrt1 = NSRT("Pick", parameters, preconditions1, add_effects1,
-                 delete_effects1, side_predicates=set(), option=None,
-                 option_vars=[], _sampler=None)
-    nsrt2 = NSRT("Place", parameters, preconditions2, add_effects2,
-                 delete_effects2, side_predicates=set(), option=None,
-                 option_vars=[], _sampler=None)
-    cup1 = cup_type("cup1")
-    cup2 = cup_type("cup2")
-    plate1 = plate_type("plate1")
-    plate2 = plate_type("plate2")
-    objects = {cup1, cup2, plate1, plate2}
-    ground_nsrts = (set(utils.all_ground_nsrts(nsrt1, objects)) |
-                    set(utils.all_ground_nsrts(nsrt2, objects)))
-    assert len(ground_nsrts) == 8
-    atoms = {pred1([cup1, plate1]), pred1([cup1, plate2]),
-             pred2([cup1, plate1]), pred2([cup1, plate2]),
-             pred2([cup2, plate1]), pred2([cup2, plate2])}
-    assert _atom_to_tuple(pred1([cup1, plate1])) == (
-        "Pred1", "cup1:cup_type", "plate1:plate_type")
-    with pytest.raises(AttributeError):
-        # Can't call _atom_to_tuple on a lifted atom.
-        _atom_to_tuple(pred1([cup_var, plate_var]))
-    assert _atoms_to_tuples(
-        {pred1([cup1, plate1]), pred2([cup2, plate2])}) == {
-            ("Pred1", "cup1:cup_type", "plate1:plate_type"),
-            ("Pred2", "cup2:cup_type", "plate2:plate_type")}
-    # All NSRTs with cup2 in the args should get filtered out,
-    # since pred1 doesn't hold on cup2.
-    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
-    all_obj = [(nsrt.name, nsrt.objects) for nsrt in ground_nsrts]
-    assert ("Pick", [cup1, plate1]) in all_obj
-    assert ("Pick", [cup1, plate2]) in all_obj
-    assert ("Place", [cup1, plate1]) in all_obj
-    assert ("Place", [cup1, plate2]) in all_obj
-
-
 def test_get_reachable_atoms():
     """Tests for get_reachable_atoms().
     """
@@ -943,14 +889,13 @@ def test_get_reachable_atoms():
                     set(utils.all_ground_nsrts(nsrt2, objects)))
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
-    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, atoms)
     assert {pred1([cup1, plate1]), pred1([cup1, plate2]), pred2([cup1, plate1]),
             pred2([cup1, plate2])}.issubset(reachable_atoms)
-    assert not reachable_atoms & {pred3([cup1, plate1]), pred3([cup1, plate2]),
+    assert reachable_atoms & {pred3([cup1, plate1]), pred3([cup1, plate2]),
                 pred1([cup2, plate1]), pred1([cup2, plate2]),
                 pred2([cup2, plate1]), pred2([cup2, plate2]),
-                pred3([cup2, plate1]), pred3([cup2, plate2])}
+                pred3([cup2, plate1]), pred3([cup2, plate2])} == set()
 
 
 def test_nsrt_application():
@@ -1130,26 +1075,26 @@ def test_operator_application():
     assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
-def test_create_heuristic():
-    """Tests for create_heuristic().
+def test_create_task_planning_heuristic():
+    """Tests for create_task_planning_heuristic().
     """
-    hadd_heuristic = utils.create_heuristic("hadd", set(), set(), set(),
-                                            set(), set())
+    hadd_heuristic = utils.create_task_planning_heuristic("hadd",
+        set(), set(), set(), set(), set())
     assert isinstance(hadd_heuristic, _PyperplanHeuristicWrapper)
     assert hadd_heuristic.name == "hadd"
-    hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set(),
-                                            set(), set())
+    hmax_heuristic = utils.create_task_planning_heuristic("hmax",
+        set(), set(), set(), set(), set())
     assert hmax_heuristic.name == "hmax"
     assert isinstance(hmax_heuristic, _PyperplanHeuristicWrapper)
-    hff_heuristic = utils.create_heuristic("hff", set(), set(), set(),
-                                           set(), set())
+    hff_heuristic = utils.create_task_planning_heuristic("hff",
+        set(), set(), set(), set(), set())
     assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
     assert hff_heuristic.name == "hff"
     with pytest.raises(ValueError):
-        utils.create_heuristic("not a real heuristic", set(), set(), set(),
-                               set(), set())
-    # Cover _Heuristic base class.
-    base_heuristic = _Heuristic("base", set(), set(), set())
+        utils.create_task_planning_heuristic("not a real heuristic",
+            set(), set(), set(), set(), set())
+    # Cover _TaskPlanningHeuristic base class.
+    base_heuristic = _TaskPlanningHeuristic("base", set(), set(), set())
     with pytest.raises(NotImplementedError):
         base_heuristic(set())
 

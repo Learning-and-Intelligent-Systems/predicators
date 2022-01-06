@@ -47,7 +47,7 @@ def sesame_plan(task: Task,
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
-    atoms = utils.abstract(task.init, predicates)
+    init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
     ground_nsrts = []
@@ -56,7 +56,6 @@ def sesame_plan(task: Task,
             ground_nsrts.append(ground_nsrt)
             if time.time() - start_time > timeout:
                 raise ApproachTimeout("Planning timed out in grounding!")
-    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     while True:
@@ -67,7 +66,7 @@ def sesame_plan(task: Task,
         nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
                                  if nsrt.add_effects | nsrt.delete_effects]
         all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                        atoms)
+                                                        init_atoms)
         if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         reachable_nsrts = [nsrt for nsrt in nonempty_ground_nsrts if
@@ -75,7 +74,7 @@ def sesame_plan(task: Task,
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
-                    task, reachable_nsrts, atoms,
+                    task, reachable_nsrts, init_atoms,
                     predicates, objects, new_seed,
                     timeout-(time.time()-start_time), metrics):
                 plan = _run_low_level_search(
@@ -119,7 +118,6 @@ def task_plan(init_atoms: Set[GroundAtom],
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_operators(ground_nsrts, init_atoms)
     nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
                              if nsrt.add_effects | nsrt.delete_effects]
     all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
@@ -157,9 +155,9 @@ def _skeleton_generator(task: Task,
     root_node = _Node(atoms=init_atoms, skeleton=[],
                       atoms_sequence=[init_atoms], parent=None)
     rng_prio = np.random.default_rng(seed)
-    heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
-                                       init_atoms, task.goal, ground_nsrts,
-                                       predicates, objects)
+    heuristic = utils.create_task_planning_heuristic(
+        CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
+        predicates, objects)
     hq.heappush(queue, (heuristic(root_node.atoms),
                         rng_prio.uniform(),
                         root_node))
