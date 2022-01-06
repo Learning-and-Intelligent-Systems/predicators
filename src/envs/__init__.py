@@ -30,7 +30,7 @@ _MOST_RECENT_ENV_INSTANCE = {}
 
 def create_env(name: str) -> BaseEnv:
     """Create an environment given its name."""
-    # NOTE: All the type ignore comments below 
+    # NOTE: All the type ignore comments below
     # are necessary because mypy gets confused
     # by the type of the 'env' variable and
     # complains otherwise.
