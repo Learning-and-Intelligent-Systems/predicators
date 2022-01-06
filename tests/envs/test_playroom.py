@@ -283,6 +283,7 @@ def test_playroom_options():
     block_type = [t for t in env.types if t.name == "block"][0]
     door_type = [t for t in env.types if t.name == "door"][0]
     dial_type = [t for t in env.types if t.name == "dial"][0]
+    region_type = [t for t in env.types if t.name == "region"][0]
     On = [p for p in env.predicates if p.name == "On"][0]
     OnTable = [p for p in env.predicates if p.name == "OnTable"][0]
     Clear = [p for p in env.predicates if p.name == "Clear"][0]
@@ -294,6 +295,8 @@ def test_playroom_options():
     door1 = door_type("door1")
     door6 = door_type("door6")
     dial = dial_type("dial")
+    region1 = region_type("region1")
+    region7 = region_type("region7")
     task = next(env.train_tasks_generator())[0]
     state = task.init
     # Run through a specific plan of options.
@@ -311,13 +314,13 @@ def test_playroom_options():
         Pick.ground([robot, block2], [0.0, 0.0, 0.0, -0.15]),
         # stack block2 on block1
         Stack.ground([robot, block1], [0.0, 0.0, 1.0, 0.0]),
-        Move.ground([robot], [29.6, 15.0, 0.0]),
-        OpenDoor.ground([door1], [-0.2, 0.0, 0.0, 0.0]),
-        Move.ground([robot], [110.3, 15.0, -0.5]),
-        CloseDoor.ground([door6], [0.2, 0.0, 0.0, 1.0]),
-        Move.ground([robot], [124.0, 15.0, 0.0]),
-        TurnOffDial.ground([dial], [0.0, -0.2, 0.0, 0.5]),
-        TurnOnDial.ground([dial], [-0.2, 0.0, 0.0, 0.0])
+        Move.ground([robot, door1, region1], [29.6, 15.0, 0.0]),
+        OpenDoor.ground([robot, door1], [-0.2, 0.0, 0.0, 0.0]),
+        Move.ground([robot, door6, region7], [110.3, 15.0, -0.5]),
+        CloseDoor.ground([robot, door6], [0.2, 0.0, 0.0, 1.0]),
+        Move.ground([robot, door6, region7], [124.0, 15.0, 0.0]),
+        TurnOffDial.ground([robot, dial], [0.0, -0.2, 0.0, 0.5]),
+        TurnOnDial.ground([robot, dial], [-0.2, 0.0, 0.0, 0.0])
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
