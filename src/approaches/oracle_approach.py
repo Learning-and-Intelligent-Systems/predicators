@@ -717,7 +717,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     to_region = Variable("?to", region_type)
     parameters = [robot, door, from_region, to_region]
     option_vars = [robot, door]
-    option = MoveFromDoor  # just needs door
+    option = MoveFromDoor
     preconditions = {LiftedAtom(InRegion, [robot, from_region]),
                      LiftedAtom(Connects, [door, from_region, to_region]),
                      LiftedAtom(DoorOpen, [door]),
@@ -747,7 +747,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     region = Variable("?region", region_type)
     parameters = [robot, door, region]
     option_vars = [robot, region]
-    option = MoveFromRegion  # needs region
+    option = MoveFromRegion
     preconditions = {LiftedAtom(IsBoringRoom, [region]),
                      LiftedAtom(InRegion, [robot, region]),
                      LiftedAtom(NextToTable, [robot]),
@@ -773,7 +773,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     region = Variable("?region", region_type)
     parameters = [robot, door, region]
     option_vars = [robot, region]
-    option = MoveFromRegion  # needs region
+    option = MoveFromRegion
     preconditions = {LiftedAtom(IsBoringRoom, [region]),
                      LiftedAtom(InRegion, [robot, region]),
                      LiftedAtom(NextToDoor, [robot, door]),
@@ -797,7 +797,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     region = Variable("?region", region_type)
     parameters = [robot, fromdoor, todoor, region]
     option_vars = [robot, region]
-    option = MoveFromRegion  # needs region
+    option = MoveFromRegion
     preconditions = {LiftedAtom(Borders, [fromdoor, region, todoor]),
                      LiftedAtom(InRegion, [robot, region]),
                      LiftedAtom(NextToDoor, [robot, fromdoor])}
@@ -827,7 +827,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     region = Variable("?region", region_type)
     parameters = [robot, door, dial, region]
     option_vars = [robot, region]
-    option = MoveFromRegion  # needs region
+    option = MoveFromRegion
     preconditions = {LiftedAtom(IsPlayroom, [region]),
                      LiftedAtom(InRegion, [robot, region]),
                      LiftedAtom(IsPlayroomDoor, [door]),
@@ -854,7 +854,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     region = Variable("?region", region_type)
     parameters = [robot, dial, door, region]
     option_vars = [robot, region]
-    option = MoveFromRegion  # needs region
+    option = MoveFromRegion
     preconditions = {LiftedAtom(IsPlayroom, [region]),
                      LiftedAtom(InRegion, [robot, region]),
                      LiftedAtom(IsPlayroomDoor, [door]),
