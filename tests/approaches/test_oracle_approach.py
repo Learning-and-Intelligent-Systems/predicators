@@ -1,5 +1,4 @@
-"""Test cases for the oracle approach class.
-"""
+"""Test cases for the oracle approach class."""
 
 from typing import Set
 import numpy as np
@@ -15,8 +14,7 @@ from predicators.src import utils
 
 
 def test_cover_get_gt_nsrts():
-    """Tests for get_gt_nsrts in CoverEnv.
-    """
+    """Tests for get_gt_nsrts in CoverEnv."""
     utils.update_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
@@ -56,8 +54,7 @@ def test_cover_get_gt_nsrts():
 
 
 def test_get_gt_nsrts():
-    """Test get_gt_nsrts alone.
-    """
+    """Test get_gt_nsrts alone."""
     utils.update_config({"env": "not a real environment"})
     with pytest.raises(NotImplementedError):
         get_gt_nsrts(set(), set())
@@ -85,14 +82,18 @@ def _check_nsrt_parameters(nsrts: Set[NSRT]) -> None:
 
 
 def test_check_nsrt_parameters():
-    """Checks all of the oracle operators for all envs.
-    """
-    envs = {"cover": CoverEnv(), "cover_typed_options": CoverEnvTypedOptions(),
-            "cover_hierarchical_types": CoverEnvHierarchicalTypes(),
-            "cluttered_table": ClutteredTableEnv(), "blocks": BlocksEnv(),
-            "painting": PaintingEnv(), "playroom": PlayroomEnv(),
-            "cover_multistep_options": CoverMultistepOptions(),
-            "repeated_nextto": RepeatedNextToEnv()}
+    """Checks all of the oracle operators for all envs."""
+    envs = {
+        "cover": CoverEnv(),
+        "cover_typed_options": CoverEnvTypedOptions(),
+        "cover_hierarchical_types": CoverEnvHierarchicalTypes(),
+        "cluttered_table": ClutteredTableEnv(),
+        "blocks": BlocksEnv(),
+        "painting": PaintingEnv(),
+        "playroom": PlayroomEnv(),
+        "cover_multistep_options": CoverMultistepOptions(),
+        "repeated_nextto": RepeatedNextToEnv()
+    }
     for name, env in envs.items():
         utils.update_config({"env": name})
         nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -100,120 +101,111 @@ def test_check_nsrt_parameters():
 
 
 def test_oracle_approach_cover():
-    """Tests for OracleApproach class with CoverEnv.
-    """
+    """Tests for OracleApproach class with CoverEnv."""
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
 
 
 def test_oracle_approach_cover_typed_options():
-    """Tests for OracleApproach class with CoverEnvTypedOptions.
-    """
+    """Tests for OracleApproach class with CoverEnvTypedOptions."""
     utils.update_config({"env": "cover_typed_options"})
     env = CoverEnvTypedOptions()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
 
 
 def test_oracle_approach_cover_hierarchical_types():
-    """Tests for OracleApproach class with CoverEnvHierarchicalTypes.
-    """
+    """Tests for OracleApproach class with CoverEnvHierarchicalTypes."""
     utils.update_config({"env": "cover_hierarchical_types"})
     env = CoverEnvHierarchicalTypes()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
 
 
 def test_oracle_approach_cover_multistep_options():
-    """Tests for OracleApproach class with CoverMultistepOptions.
-    """
+    """Tests for OracleApproach class with CoverMultistepOptions."""
     utils.update_config({"env": "cover_multistep_options"})
     env = CoverMultistepOptions()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate,
+                                        env.predicates)
         # Test that a repeated random action fails.
-        assert not utils.policy_solves_task(
-            lambda s: random_action, task, env.simulate, env.predicates)
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate, env.predicates)
 
 
 def test_cluttered_table_get_gt_nsrts():
-    """Tests for get_gt_nsrts in ClutteredTableEnv.
-    """
+    """Tests for get_gt_nsrts in ClutteredTableEnv."""
     utils.update_config({"env": "cluttered_table"})
     # All predicates and options
     env = ClutteredTableEnv()
@@ -245,93 +237,85 @@ def test_cluttered_table_get_gt_nsrts():
         dump_option = dump0_nsrt.sample_option(state, rng)
         dump_action = dump_option.policy(state)
         assert env.action_space.contains(dump_action.arr)
-        env.simulate(state, dump_action)  # never raises EnvironmentFailure
+        env.simulate(state, dump_action) # never raises EnvironmentFailure
 
 
 def test_oracle_approach_cluttered_table():
-    """Tests for OracleApproach class with ClutteredTableEnv.
-    """
+    """Tests for OracleApproach class with ClutteredTableEnv."""
     utils.update_config({"env": "cluttered_table"})
     env = ClutteredTableEnv()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     train_task = next(env.train_tasks_generator())[0]
     policy = approach.solve(train_task, timeout=500)
-    assert utils.policy_solves_task(
-        policy, train_task, env.simulate, env.predicates)
+    assert utils.policy_solves_task(policy, train_task, env.simulate,
+                                    env.predicates)
     for test_task in env.get_test_tasks()[:5]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, test_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate,
+                                        env.predicates)
 
 
 def test_oracle_approach_blocks():
-    """Tests for OracleApproach class with BlocksEnv.
-    """
+    """Tests for OracleApproach class with BlocksEnv."""
     utils.update_config({"env": "blocks"})
     env = BlocksEnv()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     # Test a couple of train tasks so that we get at least one which
     # requires resampling placement poses on the table.
     for train_task in next(env.train_tasks_generator())[:10]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, train_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate,
+                                        env.predicates)
     test_task = env.get_test_tasks()[0]
     policy = approach.solve(test_task, timeout=500)
-    assert utils.policy_solves_task(
-        policy, test_task, env.simulate, env.predicates)
+    assert utils.policy_solves_task(policy, test_task, env.simulate,
+                                    env.predicates)
 
 
 def test_oracle_approach_painting():
-    """Tests for OracleApproach class with PaintingEnv.
-    """
+    """Tests for OracleApproach class with PaintingEnv."""
     utils.update_config({"env": "painting"})
     env = PaintingEnv()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     for train_task in next(env.train_tasks_generator())[:2]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, train_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate,
+                                        env.predicates)
     for test_task in env.get_test_tasks()[:2]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, test_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate,
+                                        env.predicates)
 
 
 def test_oracle_approach_playroom():
-    """Tests for OracleApproach class with PlayroomEnv.
-    """
+    """Tests for OracleApproach class with PlayroomEnv."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     for train_task in next(env.train_tasks_generator())[:2]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, train_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate,
+                                        env.predicates)
     for test_task in env.get_test_tasks()[:2]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, test_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate,
+                                        env.predicates)
     # Test MoveDialToDoor for coverage.
     nsrts = get_gt_nsrts(env.predicates, env.options)
     movedialtodoor = [nsrt for nsrt in nsrts \
@@ -350,8 +334,8 @@ def test_oracle_approach_playroom():
     move_option = movedialtodoor_nsrt.sample_option(state, rng)
     move_action = move_option.policy(state)
     assert env.action_space.contains(move_action.arr)
-    assert np.all(move_action.arr == np.array([110.1, 15, 1, -1, 1],
-                                               dtype=np.float32))
+    assert np.all(
+        move_action.arr == np.array([110.1, 15, 1, -1, 1], dtype=np.float32))
     # Test MoveDoorToTable for coverage.
     movedoortotable = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDoorToTable"][0]
@@ -362,21 +346,19 @@ def test_oracle_approach_playroom():
 
 
 def test_oracle_approach_repeated_nextto():
-    """Tests for OracleApproach class with RepeatedNextToEnv.
-    """
+    """Tests for OracleApproach class with RepeatedNextToEnv."""
     utils.update_config({"env": "repeated_nextto"})
     env = RepeatedNextToEnv()
     env.seed(123)
-    approach = OracleApproach(
-        env.simulate, env.predicates, env.options, env.types,
-        env.action_space)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     for train_task in next(env.train_tasks_generator())[:3]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, train_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate,
+                                        env.predicates)
     for test_task in env.get_test_tasks()[:3]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(
-            policy, test_task, env.simulate, env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate,
+                                        env.predicates)

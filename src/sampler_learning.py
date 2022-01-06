@@ -1,5 +1,4 @@
-"""Code for learning the samplers within NSRTs.
-"""
+"""Code for learning the samplers within NSRTs."""
 
 from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Dict, Any
@@ -12,14 +11,10 @@ from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_samplers(
-    strips_ops: List[STRIPSOperator],
-    datastores: List[Datastore],
-    option_specs: List[OptionSpec],
-    sampler_learner: str
-    ) -> List[NSRTSampler]:
-    """Learn all samplers for each operator's option parameters.
-    """
+def learn_samplers(strips_ops: List[STRIPSOperator],
+                   datastores: List[Datastore], option_specs: List[OptionSpec],
+                   sampler_learner: str) -> List[NSRTSampler]:
+    """Learn all samplers for each operator's option parameters."""
     samplers = []
     for i, op in enumerate(strips_ops):
         param_option, _ = option_specs[i]
@@ -27,9 +22,9 @@ def learn_samplers(
            param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
         elif sampler_learner == "neural":
-            sampler = _learn_neural_sampler(
-                datastores, op.name, op.parameters, op.preconditions,
-                op.add_effects, op.delete_effects, param_option, i)
+            sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
+                                            op.preconditions, op.add_effects,
+                                            op.delete_effects, param_option, i)
         else:
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
@@ -37,18 +32,17 @@ def learn_samplers(
     return samplers
 
 
-def _learn_neural_sampler(datastores: List[Datastore],
-                          nsrt_name: str,
-                          variables: Sequence[Variable],
-                          preconditions: Set[LiftedAtom],
-                          add_effects: Set[LiftedAtom],
-                          delete_effects: Set[LiftedAtom],
-                          param_option: ParameterizedOption,
-                          datastore_idx: int) -> NSRTSampler:
-    """Learn a neural network sampler given data. Transitions are clustered, so
-    that they can be used for generating negative data. Integer datastore_idx
-    represents the index into transitions corresponding to the datastore that
-    this sampler is being learned for.
+def _learn_neural_sampler(
+        datastores: List[Datastore], nsrt_name: str,
+        variables: Sequence[Variable], preconditions: Set[LiftedAtom],
+        add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
+        param_option: ParameterizedOption, datastore_idx: int) -> NSRTSampler:
+    """Learn a neural network sampler given data.
+
+    Transitions are clustered, so that they can be used for generating
+    negative data. Integer datastore_idx represents the index into
+    transitions corresponding to the datastore that this sampler is
+    being learned for.
     """
     print(f"\nLearning neural sampler for NSRT {nsrt_name}")
 
@@ -61,7 +55,7 @@ def _learn_neural_sampler(datastores: List[Datastore],
     X_classifier: List[List[Array]] = []
     for state, sub, option in positive_data + negative_data:
         # input is state features and option parameters
-        X_classifier.append([np.array(1.0)])  # start with bias term
+        X_classifier.append([np.array(1.0)]) # start with bias term
         for var in variables:
             X_classifier[-1].extend(state[sub[var]])
         X_classifier[-1].extend(option.params)
@@ -77,9 +71,9 @@ def _learn_neural_sampler(datastores: List[Datastore],
     print("Fitting regressor...")
     X_regressor: List[List[Array]] = []
     Y_regressor = []
-    for state, sub, option in positive_data:  # don't use negative data!
+    for state, sub, option in positive_data: # don't use negative data!
         # input is state features
-        X_regressor.append([np.array(1.0)])  # start with bias term
+        X_regressor.append([np.array(1.0)]) # start with bias term
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
         # output is option parameters
@@ -95,16 +89,12 @@ def _learn_neural_sampler(datastores: List[Datastore],
 
 
 def _create_sampler_data(
-        datastores: List[Datastore],
-        variables: Sequence[Variable],
-        preconditions: Set[LiftedAtom],
-        add_effects: Set[LiftedAtom],
-        delete_effects: Set[LiftedAtom],
-        param_option: ParameterizedOption,
-        datastore_idx: int) -> Tuple[List[Tuple[State,
-                                     Dict[Variable, Object], _Option]], ...]:
-    """Generate positive and negative data for training a sampler.
-    """
+        datastores: List[Datastore], variables: Sequence[Variable],
+        preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
+        delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
+        datastore_idx: int
+) -> Tuple[List[Tuple[State, Dict[Variable, Object], _Option]], ...]:
+    """Generate positive and negative data for training a sampler."""
     positive_data = []
     negative_data = []
     for idx, datastore in enumerate(datastores):
@@ -126,9 +116,10 @@ def _create_sampler_data(
                     var_to_obj = {v: k for k, v in obj_to_var.items()}
                     actual_grounding = [var_to_obj[var] for var in variables]
                     if grounding == actual_grounding:
-                        assert all(pre.predicate.holds(
-                            state, [var_to_obj[v] for v in pre.variables])
-                                   for pre in preconditions)
+                        assert all(
+                            pre.predicate.holds(
+                                state, [var_to_obj[v] for v in pre.variables])
+                            for pre in preconditions)
                         positive_data.append((state, var_to_obj, option))
                         continue
                 sub = dict(zip(variables, grounding))
@@ -153,6 +144,7 @@ def _create_sampler_data(
 @dataclass(frozen=True, eq=False, repr=False)
 class _LearnedSampler:
     """A convenience class for holding the models underlying a learned sampler.
+
     Prefer to use this because it is pickleable.
     """
     _classifier: MLPClassifier
@@ -162,18 +154,20 @@ class _LearnedSampler:
 
     def sampler(self, state: State, rng: np.random.Generator,
                 objects: Sequence[Object]) -> Array:
-        """The sampler corresponding to the given models. May be used
-        as the _sampler field in an NSRT.
+        """The sampler corresponding to the given models.
+
+        May be used as the _sampler field in an NSRT.
         """
-        x_lst : List[Any] = [1.0]  # start with bias term
+        x_lst: List[Any] = [1.0] # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
         num_rejections = 0
         while num_rejections <= CFG.max_rejection_sampling_tries:
-            params = np.array(self._regressor.predict_sample(x, rng),
-                              dtype=self._param_option.params_space.dtype)
+            params = np.array(
+                self._regressor.predict_sample(x, rng),
+                dtype=self._param_option.params_space.dtype)
             if self._param_option.params_space.contains(params) and \
                self._classifier.classify(np.r_[x, params]):
                 break
@@ -189,14 +183,17 @@ class _LearnedSampler:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _RandomSampler:
-    """A convenience class for implementing a random sampler. Prefer
-    to use this over a lambda function because it is pickleable.
+    """A convenience class for implementing a random sampler.
+
+    Prefer to use this over a lambda function because it is pickleable.
     """
     _param_option: ParameterizedOption
 
     def sampler(self, state: State, rng: np.random.Generator,
                 objects: Sequence[Object]) -> Array:
-        """A random sampler for this option. Ignores all arguments.
+        """A random sampler for this option.
+
+        Ignores all arguments.
         """
-        del state, rng, objects  # unused
+        del state, rng, objects # unused
         return self._param_option.params_space.sample()

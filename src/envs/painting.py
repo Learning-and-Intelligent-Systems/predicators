@@ -1,7 +1,9 @@
-"""Painting domain, which allows for two different grasps on an object
-(side or top). Side grasping allows for placing into the shelf, and top
-grasping allows for placing into the box. The box has a lid which may
-need to be opened; this lid is NOT modeled by any of the given predicates.
+"""Painting domain, which allows for two different grasps on an object (side or
+top).
+
+Side grasping allows for placing into the shelf, and top grasping allows
+for placing into the box. The box has a lid which may need to be opened;
+this lid is NOT modeled by any of the given predicates.
 """
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any, \
@@ -18,8 +20,7 @@ from predicators.src import utils
 
 
 class PaintingEnv(BaseEnv):
-    """Painting domain.
-    """
+    """Painting domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_lb = -10.1
     table_ub = -1.0
@@ -27,16 +28,16 @@ class PaintingEnv(BaseEnv):
     shelf_l = 2.0 # shelf length
     shelf_lb = 1.
     shelf_ub = shelf_lb + shelf_l - 0.05
-    box_s = 0.8  # side length
-    box_y = 0.5  # y coordinate
-    box_lb = box_y - box_s/10
-    box_ub = box_y + box_s/10
+    box_s = 0.8 # side length
+    box_y = 0.5 # y coordinate
+    box_lb = box_y - box_s / 10
+    box_ub = box_y + box_s / 10
     env_lb = min(table_lb, shelf_lb, box_lb)
     env_ub = max(table_ub, shelf_ub, box_ub)
     obj_height = 0.13
     obj_radius = 0.03
     obj_x = 1.65
-    obj_z = table_height + obj_height/2
+    obj_z = table_height + obj_height / 2
     pick_tol = 1e-2
     color_tol = 1e-2
     wetness_tol = 0.5
@@ -51,46 +52,47 @@ class PaintingEnv(BaseEnv):
     def __init__(self) -> None:
         super().__init__()
         # Types
-        self._obj_type = Type("obj", ["pose_x", "pose_y", "pose_z", "dirtiness",
-                                      "wetness", "color", "held"])
+        self._obj_type = Type("obj", [
+            "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
+            "held"
+        ])
         self._box_type = Type("box", ["color"])
         self._lid_type = Type("lid", ["is_open"])
         self._shelf_type = Type("shelf", ["color"])
         self._robot_type = Type("robot", ["gripper_rot", "fingers"])
         # Predicates
-        self._InBox = Predicate(
-            "InBox", [self._obj_type, self._box_type], self._InBox_holds)
+        self._InBox = Predicate("InBox", [self._obj_type, self._box_type],
+                                self._InBox_holds)
         self._InShelf = Predicate(
             "InShelf", [self._obj_type, self._shelf_type], self._InShelf_holds)
-        self._IsBoxColor = Predicate(
-            "IsBoxColor", [self._obj_type, self._box_type],
-            self._IsBoxColor_holds)
-        self._IsShelfColor = Predicate(
-            "IsShelfColor", [self._obj_type, self._shelf_type],
-            self._IsShelfColor_holds)
-        self._GripperOpen = Predicate(
-            "GripperOpen", [self._robot_type], self._GripperOpen_holds)
-        self._OnTable = Predicate(
-            "OnTable", [self._obj_type], self._OnTable_holds)
-        self._HoldingTop = Predicate(
-            "HoldingTop", [self._robot_type], self._HoldingTop_holds)
-        self._HoldingSide = Predicate(
-            "HoldingSide", [self._robot_type], self._HoldingSide_holds)
-        self._Holding = Predicate(
-            "Holding", [self._obj_type], self._Holding_holds)
-        self._IsWet = Predicate(
-            "IsWet", [self._obj_type], self._IsWet_holds)
-        self._IsDry = Predicate(
-            "IsDry", [self._obj_type], self._IsDry_holds)
-        self._IsDirty = Predicate(
-            "IsDirty", [self._obj_type], self._IsDirty_holds)
-        self._IsClean = Predicate(
-            "IsClean", [self._obj_type], self._IsClean_holds)
+        self._IsBoxColor = Predicate("IsBoxColor",
+                                     [self._obj_type, self._box_type],
+                                     self._IsBoxColor_holds)
+        self._IsShelfColor = Predicate("IsShelfColor",
+                                       [self._obj_type, self._shelf_type],
+                                       self._IsShelfColor_holds)
+        self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
+                                      self._GripperOpen_holds)
+        self._OnTable = Predicate("OnTable", [self._obj_type],
+                                  self._OnTable_holds)
+        self._HoldingTop = Predicate("HoldingTop", [self._robot_type],
+                                     self._HoldingTop_holds)
+        self._HoldingSide = Predicate("HoldingSide", [self._robot_type],
+                                      self._HoldingSide_holds)
+        self._Holding = Predicate("Holding", [self._obj_type],
+                                  self._Holding_holds)
+        self._IsWet = Predicate("IsWet", [self._obj_type], self._IsWet_holds)
+        self._IsDry = Predicate("IsDry", [self._obj_type], self._IsDry_holds)
+        self._IsDirty = Predicate("IsDirty", [self._obj_type],
+                                  self._IsDirty_holds)
+        self._IsClean = Predicate("IsClean", [self._obj_type],
+                                  self._IsClean_holds)
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
             # params: [delta x, delta y, delta z, grasp rotation]
-            "Pick", types=[self._robot_type, self._obj_type],
+            "Pick",
+            types=[self._robot_type, self._obj_type],
             params_space=Box(
                 np.array([-1.0, -1.0, -1.0, -0.01], dtype=np.float32),
                 np.array([1.0, 1.0, 1.0, 1.01], dtype=np.float32)),
@@ -100,31 +102,35 @@ class PaintingEnv(BaseEnv):
         self._Wash = ParameterizedOption(
             # variables: [robot]
             # params: [water level]
-            "Wash", types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1,)),
+            "Wash",
+            types=[self._robot_type],
+            params_space=Box(-0.01, 1.01, (1, )),
             _policy=self._Wash_policy,
             _initiable=self._holding_initiable,
             _terminal=utils.onestep_terminal)
         self._Dry = ParameterizedOption(
             # variables: [robot]
             # params: [heat level]
-            "Dry", types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1,)),
+            "Dry",
+            types=[self._robot_type],
+            params_space=Box(-0.01, 1.01, (1, )),
             _policy=self._Dry_policy,
             _initiable=self._holding_initiable,
             _terminal=utils.onestep_terminal)
         self._Paint = ParameterizedOption(
             # variables: [robot]
             # params: [new color]
-            "Paint", types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1,)),
+            "Paint",
+            types=[self._robot_type],
+            params_space=Box(-0.01, 1.01, (1, )),
             _policy=self._Paint_policy,
             _initiable=self._holding_initiable,
             _terminal=utils.onestep_terminal)
         self._Place = ParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
-            "Place", types=[self._robot_type],
+            "Place",
+            types=[self._robot_type],
             params_space=Box(
                 np.array([self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2],
                          dtype=np.float32),
@@ -136,8 +142,9 @@ class PaintingEnv(BaseEnv):
         self._OpenLid = ParameterizedOption(
             # variables: [robot, lid]
             # params: []
-            "OpenLid", types=[self._robot_type, self._lid_type],
-            params_space=Box(-0.01, 1.01, (0,)),  # no parameters
+            "OpenLid",
+            types=[self._robot_type, self._lid_type],
+            params_space=Box(-0.01, 1.01, (0, )), # no parameters
             _policy=self._OpenLid_policy,
             _initiable=self._handempty_initiable,
             _terminal=utils.onestep_terminal)
@@ -166,8 +173,8 @@ class PaintingEnv(BaseEnv):
         _, transition_fn = min(affinities, key=lambda item: item[0])
         return transition_fn(state, action)
 
-    def _transition_pick_or_openlid(self, state: State, action: Action
-                                    ) -> State:
+    def _transition_pick_or_openlid(self, state: State,
+                                    action: Action) -> State:
         x, y, z, rot = action.arr[:4]
         next_state = state.copy()
         # Open lid
@@ -260,8 +267,8 @@ class PaintingEnv(BaseEnv):
             # Cannot place in either shelf or box, bad gripper_rot
             return next_state
         # Can only place in shelf if side grasping, box if top grasping
-        if (shelf_or_box, top_or_side) not in [("shelf", "side"),
-                                               ("box", "top")]:
+        if (shelf_or_box, top_or_side) not in [("shelf", "side"), ("box",
+                                                                   "top")]:
             return next_state
         # Execute place
         next_state.set(self._robot, "gripper_rot", 0.5)
@@ -277,45 +284,56 @@ class PaintingEnv(BaseEnv):
         num_tasks = CFG.num_train_tasks // len(CFG.painting_train_families)
         for family_name in CFG.painting_train_families:
             if family_name == "box_only":
-                yield self._get_tasks(num_tasks=num_tasks, num_objs_lst=[1],
-                                      rng=self._train_rng)
+                yield self._get_tasks(
+                    num_tasks=num_tasks, num_objs_lst=[1], rng=self._train_rng)
             elif family_name == "shelf_only":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
-                                      rng=self._train_rng, use_box=False)
+                yield self._get_tasks(
+                    num_tasks=num_tasks,
+                    num_objs_lst=self.num_objs_train,
+                    rng=self._train_rng,
+                    use_box=False)
             elif family_name == "box_and_shelf":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
-                                      rng=self._train_rng)
+                yield self._get_tasks(
+                    num_tasks=num_tasks,
+                    num_objs_lst=self.num_objs_train,
+                    rng=self._train_rng)
             else:
                 raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=self.num_objs_test,
-                               rng=self._test_rng)
+        return self._get_tasks(
+            num_tasks=CFG.num_test_tasks,
+            num_objs_lst=self.num_objs_test,
+            rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._InBox, self._InShelf, self._IsBoxColor,
-                self._IsShelfColor, self._GripperOpen, self._OnTable,
-                self._HoldingTop, self._HoldingSide, self._Holding,
-                self._IsWet, self._IsDry, self._IsDirty, self._IsClean}
+        return {
+            self._InBox, self._InShelf, self._IsBoxColor, self._IsShelfColor,
+            self._GripperOpen, self._OnTable, self._HoldingTop,
+            self._HoldingSide, self._Holding, self._IsWet, self._IsDry,
+            self._IsDirty, self._IsClean
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._InBox, self._InShelf, self._IsBoxColor,
-                self._IsShelfColor}
+        return {
+            self._InBox, self._InShelf, self._IsBoxColor, self._IsShelfColor
+        }
 
     @property
     def types(self) -> Set[Type]:
-        return {self._obj_type, self._box_type, self._lid_type,
-                self._shelf_type, self._robot_type}
+        return {
+            self._obj_type, self._box_type, self._lid_type, self._shelf_type,
+            self._robot_type
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Wash, self._Dry, self._Paint,
-                self._Place, self._OpenLid}
+        return {
+            self._Pick, self._Wash, self._Dry, self._Paint, self._Place,
+            self._OpenLid
+        }
 
     @property
     def action_space(self) -> Box:
@@ -323,11 +341,15 @@ class PaintingEnv(BaseEnv):
         # [x, y, z, rot, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
         # while rot, water level, heat level, and color are in [0, 1].
-        lowers = np.array([self.obj_x - 1e-2, self.env_lb,
-                           self.obj_z - 1e-2, 0.0, -1.0, 0.0, 0.0, 0.0],
+        lowers = np.array([
+            self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2, 0.0, -1.0, 0.0,
+            0.0, 0.0
+        ],
                           dtype=np.float32)
-        uppers = np.array([self.obj_x + 1e-2, self.env_ub,
-                           self.obj_z + 1e-2, 1.0, 1.0, 1.0, 1.0, 1.0],
+        uppers = np.array([
+            self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2, 1.0, 1.0, 1.0,
+            1.0, 1.0
+        ],
                           dtype=np.float32)
         return Box(lowers, uppers)
 
@@ -347,9 +369,11 @@ class PaintingEnv(BaseEnv):
         box_color = state.get(self._box, "color")
         box_lower = (self.box_lb - self.obj_radius - self.env_lb) / denom
         box_upper = (self.box_ub + self.obj_radius - self.env_lb) / denom
-        rect = plt.Rectangle(
-            (box_lower, z - h), box_upper - box_lower, 2 * h,
-            facecolor=[box_color, 0, 0], alpha=0.25)
+        rect = plt.Rectangle((box_lower, z - h),
+                             box_upper - box_lower,
+                             2 * h,
+                             facecolor=[box_color, 0, 0],
+                             alpha=0.25)
         ax.add_patch(rect)
         # Draw box lid
         if state.get(self._lid, "is_open") < 0.5:
@@ -359,9 +383,11 @@ class PaintingEnv(BaseEnv):
         shelf_color = state.get(self._shelf, "color")
         shelf_lower = (self.shelf_lb - self.obj_radius - self.env_lb) / denom
         shelf_upper = (self.shelf_ub + self.obj_radius - self.env_lb) / denom
-        rect = plt.Rectangle(
-            (shelf_lower, z - h), shelf_upper - shelf_lower, 2 * h,
-            facecolor=[shelf_color, 0, 0], alpha=0.25)
+        rect = plt.Rectangle((shelf_lower, z - h),
+                             shelf_upper - shelf_lower,
+                             2 * h,
+                             facecolor=[shelf_color, 0, 0],
+                             alpha=0.25)
         ax.add_patch(rect)
         # Draw objects
         held_obj = self._get_held_object(state)
@@ -390,9 +416,8 @@ class PaintingEnv(BaseEnv):
                 grip_rot = state.get(self._robot, "gripper_rot")
                 assert grip_rot < self.side_grasp_thresh or \
                     grip_rot > self.top_grasp_thresh
-                edgecolor = ("yellow"
-                             if grip_rot < self.side_grasp_thresh
-                             else "orange")
+                edgecolor = ("yellow" if grip_rot < self.side_grasp_thresh else
+                             "orange")
             else:
                 edgecolor = "gray"
             # Normalize poses to [0, 1]
@@ -400,28 +425,35 @@ class PaintingEnv(BaseEnv):
             y = (y - self.env_lb) / denom
             z = (z - self.env_lb) / denom
             # Plot as rectangle
-            rect = patches.Rectangle(
-                (y - r, z - h), 2*r, 2*h, zorder=-x,
-                linewidth=1, edgecolor=edgecolor, facecolor=facecolor)
+            rect = patches.Rectangle((y - r, z - h),
+                                     2 * r,
+                                     2 * h,
+                                     zorder=-x,
+                                     linewidth=1,
+                                     edgecolor=edgecolor,
+                                     facecolor=facecolor)
             ax.add_patch(rect)
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
-        plt.suptitle("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-                     "yellow border = side grasp, orange border = top grasp",
-                     fontsize=12)
+        plt.suptitle(
+            "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
+            "yellow border = side grasp, orange border = top grasp",
+            fontsize=12)
         img = utils.fig2data(fig)
         plt.close()
         return [img]
 
-    def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
-                   rng: np.random.Generator, use_box: bool = True
-                   ) -> List[Task]:
+    def _get_tasks(self,
+                   num_tasks: int,
+                   num_objs_lst: List[int],
+                   rng: np.random.Generator,
+                   use_box: bool = True) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
             # Initialize robot
-            data[self._robot] = np.array([0.5, 1.0])  # fingers start off open
+            data[self._robot] = np.array([0.5, 1.0]) # fingers start off open
             # Sample distinct colors for shelf and box
             color1 = rng.uniform(0.2, 0.4)
             color2 = rng.uniform(0.6, 1.0)
@@ -454,14 +486,18 @@ class PaintingEnv(BaseEnv):
                     dirtiness = 0.0
                 color = 0.0
                 held = 0.0
-                data[obj] = np.array([pose[0], pose[1], pose[2], dirtiness,
-                                      wetness, color, held], dtype=np.float32)
-                if use_box and j == num_objs-1:  # last object should go in box
+                data[obj] = np.array([
+                    pose[0], pose[1], pose[2], dirtiness, wetness, color, held
+                ],
+                                     dtype=np.float32)
+                # last object should go in box
+                if use_box and j == num_objs - 1:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
-                    goal.add(GroundAtom(self._IsShelfColor, [obj, self._shelf]))
+                    goal.add(
+                        GroundAtom(self._IsShelfColor, [obj, self._shelf]))
             tasks.append(Task(State(data), goal))
         return tasks
 
@@ -471,20 +507,23 @@ class PaintingEnv(BaseEnv):
         existing_ys = [p[1] for p in existing_poses]
         while True:
             this_y = rng.uniform(self.table_lb, self.table_ub)
-            if all(abs(this_y-other_y) > 3.5*self.obj_radius
-                   for other_y in existing_ys):
-                return (self.obj_x, this_y, self.table_height+self.obj_height/2)
+            if all(
+                    abs(this_y - other_y) > 3.5 * self.obj_radius
+                    for other_y in existing_ys):
+                return (self.obj_x, this_y,
+                        self.table_height + self.obj_height / 2)
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
+        del memory # unused
         _, obj = objects
         obj_x = state.get(obj, "pose_x")
         obj_y = state.get(obj, "pose_y")
         obj_z = state.get(obj, "pose_z")
         dx, dy, dz, rot = params
-        arr = np.array([obj_x + dx, obj_y + dy, obj_z + dz, rot,
-                        1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        arr = np.array(
+            [obj_x + dx, obj_y + dy, obj_z + dz, rot, 1.0, 0.0, 0.0, 0.0],
+            dtype=np.float32)
         # The addition of dx, dy, and dz could cause the action to go
         # out of bounds, so we clip it back into the bounds for safety.
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
@@ -492,38 +531,44 @@ class PaintingEnv(BaseEnv):
 
     def _Wash_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
+        del state, memory, objects # unused
         water_level, = params
         water_level = min(max(water_level, 0.0), 1.0)
-        arr = np.array([self.obj_x, self.table_lb, self.obj_z,
-                        0.0, 0.0, water_level, 0.0, 0.0],
+        arr = np.array([
+            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, water_level, 0.0,
+            0.0
+        ],
                        dtype=np.float32)
         return Action(arr)
 
     def _Dry_policy(self, state: State, memory: Dict,
                     objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
+        del state, memory, objects # unused
         heat_level, = params
         heat_level = min(max(heat_level, 0.0), 1.0)
-        arr = np.array([self.obj_x, self.table_lb, self.obj_z,
-                        0.0, 0.0, 0.0, heat_level, 0.0],
+        arr = np.array([
+            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, heat_level,
+            0.0
+        ],
                        dtype=np.float32)
         return Action(arr)
 
     def _Paint_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
+        del state, memory, objects # unused
         new_color, = params
         new_color = min(max(new_color, 0.0), 1.0)
-        arr = np.array([self.obj_x, self.table_lb, self.obj_z,
-                        0.0, 0.0, 0.0, 0.0, new_color],
+        arr = np.array([
+            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 0.0,
+            new_color
+        ],
                        dtype=np.float32)
         return Action(arr)
 
     @staticmethod
-    def _Place_policy(state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
+    def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> Action:
+        del state, memory, objects # unused
         x, y, z = params
         arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
@@ -531,20 +576,23 @@ class PaintingEnv(BaseEnv):
     def _holding_initiable(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding an object.
-        del memory, objects, params  # unused
+        del memory, objects, params # unused
         return self._get_held_object(state) is not None
 
     def _handempty_initiable(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding nothing.
-        del memory, objects, params  # unused
+        del memory, objects, params # unused
         return self._get_held_object(state) is None
 
     def _OpenLid_policy(self, state: State, memory: Dict,
                         objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects, params  # unused
-        arr = np.array([self.obj_x, (self.box_lb + self.box_ub) / 2, self.obj_z,
-                        0.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        del state, memory, objects, params # unused
+        arr = np.array([
+            self.obj_x, (self.box_lb + self.box_ub) / 2, self.obj_z, 0.0, 1.0,
+            0.0, 0.0, 0.0
+        ],
+                       dtype=np.float32)
         return Action(arr)
 
     def _InBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -565,20 +613,20 @@ class PaintingEnv(BaseEnv):
         obj_y = state.get(obj, "pose_y")
         return self.shelf_lb < obj_y < self.shelf_ub
 
-    def _IsBoxColor_holds(self, state: State, objects: Sequence[Object]
-                          ) -> bool:
+    def _IsBoxColor_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         obj, box = objects
         return abs(state.get(obj, "color") -
                    state.get(box, "color")) < self.color_tol
 
-    def _IsShelfColor_holds(self, state: State, objects: Sequence[Object]
-                            ) -> bool:
+    def _IsShelfColor_holds(self, state: State,
+                            objects: Sequence[Object]) -> bool:
         obj, shelf = objects
         return abs(state.get(obj, "color") -
                    state.get(shelf, "color")) < self.color_tol
 
-    def _GripperOpen_holds(self, state: State, objects: Sequence[Object]
-                           ) -> bool:
+    def _GripperOpen_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
         fingers = state.get(robot, "fingers")
         return fingers >= self.open_fingers
@@ -588,14 +636,14 @@ class PaintingEnv(BaseEnv):
         obj_y = state.get(obj, "pose_y")
         return self.table_lb < obj_y < self.table_ub
 
-    def _HoldingTop_holds(self, state: State, objects: Sequence[Object]
-                          ) -> bool:
+    def _HoldingTop_holds(self, state: State,
+                          objects: Sequence[Object]) -> bool:
         robot, = objects
         rot = state.get(robot, "gripper_rot")
         return rot > self.top_grasp_thresh
 
-    def _HoldingSide_holds(self, state: State, objects: Sequence[Object]
-                           ) -> bool:
+    def _HoldingSide_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
         rot = state.get(robot, "gripper_rot")
         return rot < self.side_grasp_thresh
@@ -628,15 +676,17 @@ class PaintingEnv(BaseEnv):
                 return obj
         return None
 
-    def _get_object_at_xyz(self, state: State, x: float, y: float, z: float
-                           ) -> Optional[Object]:
+    def _get_object_at_xyz(self, state: State, x: float, y: float,
+                           z: float) -> Optional[Object]:
         target_obj = None
         for obj in state:
             if obj.type != self._obj_type:
                 continue
-            if np.allclose([x, y, z], [state.get(obj, "pose_x"),
-                                       state.get(obj, "pose_y"),
-                                       state.get(obj, "pose_z")],
+            if np.allclose([x, y, z], [
+                    state.get(obj, "pose_x"),
+                    state.get(obj, "pose_y"),
+                    state.get(obj, "pose_z")
+            ],
                            atol=self.pick_tol):
                 assert target_obj is None
                 target_obj = obj

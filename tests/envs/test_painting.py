@@ -1,5 +1,4 @@
-"""Test cases for the painting environment.
-"""
+"""Test cases for the painting environment."""
 
 import pytest
 import numpy as np
@@ -8,25 +7,30 @@ from predicators.src import utils
 
 
 def test_painting():
-    """Tests for PaintingEnv class.
-    """
+    """Tests for PaintingEnv class."""
     env = PaintingEnv()
     env.seed(123)
-    utils.update_config({"env": "painting",
-                         "painting_train_families": ["not_a_real_family"]})
+    utils.update_config({
+        "env": "painting",
+        "painting_train_families": ["not_a_real_family"]
+    })
     train_tasks_gen = env.train_tasks_generator()
-    with pytest.raises(ValueError):  # unrecognized task family
+    with pytest.raises(ValueError): # unrecognized task family
         next(train_tasks_gen)
-    utils.update_config({"env": "painting",
-                         "painting_train_families": ["box_and_shelf"]})
+    utils.update_config({
+        "env": "painting",
+        "painting_train_families": ["box_and_shelf"]
+    })
     train_tasks_gen = env.train_tasks_generator()
     for task in next(train_tasks_gen):
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
     with pytest.raises(StopIteration):
         next(train_tasks_gen)
-    utils.update_config({"env": "painting",
-                         "painting_train_families": ["box_only", "shelf_only"]})
+    utils.update_config({
+        "env": "painting",
+        "painting_train_families": ["box_only", "shelf_only"]
+    })
     train_tasks_gen = env.train_tasks_generator()
     for task in next(train_tasks_gen):
         # box only
@@ -55,7 +59,7 @@ def test_painting():
     box_type = [t for t in env.types if t.name == "box"][0]
     shelf_type = [t for t in env.types if t.name == "shelf"][0]
     lid_type = [t for t in env.types if t.name == "lid"][0]
-    assert env.action_space.shape == (8,)
+    assert env.action_space.shape == (8, )
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
         robot = None
@@ -85,13 +89,15 @@ def test_painting():
             # Test rendering
             env.render(state, task)
 
+
 def test_painting_failure_cases():
-    """Tests for the cases where simulate() is a no-op.
-    """
-    utils.update_config({"env": "painting",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "painting_train_families": ["box_and_shelf"]})
+    """Tests for the cases where simulate() is a no-op."""
+    utils.update_config({
+        "env": "painting",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "painting_train_families": ["box_and_shelf"]
+    })
     env = PaintingEnv()
     env.seed(123)
     Pick = [o for o in env.options if o.name == "Pick"][0]
@@ -116,64 +122,66 @@ def test_painting_failure_cases():
     assert OnTable([obj1]) in atoms
     assert OnTable([obj2]) in atoms
     # No object at this pose, pick fails
-    act = Pick.ground([robot, obj0], np.array(
-        [0, -1, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, obj0], np.array([0, -1, 0, 0],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot wash without holding
-    act = Wash.ground([robot], np.array(
-        [1], dtype=np.float32)).policy(state)
+    act = Wash.ground([robot], np.array([1], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot dry without holding
-    act = Dry.ground([robot], np.array(
-        [1], dtype=np.float32)).policy(state)
+    act = Dry.ground([robot], np.array([1], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot paint without holding
-    act = Paint.ground([robot], np.array(
-        [0], dtype=np.float32)).policy(state)
+    act = Paint.ground([robot], np.array([0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot place without holding
-    act = Place.ground([robot], np.array(
-        [PaintingEnv.obj_x, PaintingEnv.shelf_lb, PaintingEnv.obj_z],
-        dtype=np.float32)).policy(state)
+    act = Place.ground(
+        [robot],
+        np.array([PaintingEnv.obj_x, PaintingEnv.shelf_lb, PaintingEnv.obj_z],
+                 dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Perform valid pick with gripper_rot = 0.5
-    act = Pick.ground([robot, obj0], np.array(
-        [0, 0, 0, 0.5], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0.5],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Cannot pick twice in a row
-    act = Pick.ground([robot, obj1], np.array(
-        [0, 0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, obj1], np.array([0, 0, 0, 0],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot paint because not dry/clean
-    act = Paint.ground([robot], np.array(
-        [0], dtype=np.float32)).policy(state)
+    act = Paint.ground([robot], np.array([0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot place outside of shelf/box
-    act = Place.ground([robot], np.array(
-        [PaintingEnv.obj_x, PaintingEnv.shelf_lb-0.1, PaintingEnv.obj_z],
-        dtype=np.float32)).policy(state)
+    act = Place.ground(
+        [robot],
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.shelf_lb - 0.1, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     # Cannot place because gripper_rot is 0.5
-    act = Place.ground([robot], np.array(
-        [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
-        dtype=np.float32)).policy(state)
+    act = Place.ground(
+        [robot],
+        np.array([
+            PaintingEnv.obj_x, PaintingEnv.shelf_lb + 1e-3, PaintingEnv.obj_z
+        ],
+                 dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Reset state
     state = task.init
     # Perform valid pick with gripper_rot = 1 (top grasp)
-    act = Pick.ground([robot, obj0], np.array(
-        [0, 0, 0, 1], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 1],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
@@ -181,37 +189,43 @@ def test_painting_failure_cases():
     # Render with holding
     env.render(state, task)
     # Cannot place in shelf because gripper_rot is 1
-    act = Place.ground([robot], np.array(
-        [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
-        dtype=np.float32)).policy(state)
+    act = Place.ground(
+        [robot],
+        np.array([
+            PaintingEnv.obj_x, PaintingEnv.shelf_lb + 1e-3, PaintingEnv.obj_z
+        ],
+                 dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Render with a forced color of an object
     state.set(obj0, "color", 0.6)
     env.render(state, task)
     # Open the box lid
-    act = OpenLid.ground([robot, lid], np.array(
-        [], dtype=np.float32)).policy(state)
+    act = OpenLid.ground([robot, lid],
+                         np.array([], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     # Reset state
     state = task.init
     # Perform valid pick with gripper_rot = 0 (side grasp)
-    act = Pick.ground([robot, obj0], np.array(
-        [0, 0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Perform valid place into shelf
-    act = Place.ground([robot], np.array(
-        [PaintingEnv.obj_x, PaintingEnv.shelf_lb+1e-3, PaintingEnv.obj_z],
-        dtype=np.float32)).policy(state)
+    act = Place.ground(
+        [robot],
+        np.array([
+            PaintingEnv.obj_x, PaintingEnv.shelf_lb + 1e-3, PaintingEnv.obj_z
+        ],
+                 dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Picking from shelf should fail
-    act = Pick.ground([robot, obj0], np.array(
-        [0, 0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)

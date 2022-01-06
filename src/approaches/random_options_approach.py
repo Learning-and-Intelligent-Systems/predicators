@@ -1,5 +1,4 @@
-"""An approach that just executes random options.
-"""
+"""An approach that just executes random options."""
 
 from typing import Callable
 from predicators.src.approaches import BaseApproach
@@ -9,8 +8,8 @@ from predicators.src import utils
 
 
 class RandomOptionsApproach(BaseApproach):
-    """Samples random options (and random parameters for those options).
-    """
+    """Samples random options (and random parameters for those options)."""
+
     @property
     def is_learning_based(self) -> bool:
         return False
@@ -19,6 +18,7 @@ class RandomOptionsApproach(BaseApproach):
         options = sorted(self._initial_options, key=lambda o: o.name)
         cur_option = DummyOption
         cur_option_ind = 0
+
         def _policy(state: State) -> Action:
             nonlocal cur_option, cur_option_ind
             if cur_option is DummyOption or cur_option.terminal(state):
@@ -32,9 +32,10 @@ class RandomOptionsApproach(BaseApproach):
                         cur_option = opt
                         cur_option_ind = 0
                         break
-                else:  # fall back to a random action
+                else: # fall back to a random action
                     return Action(self._action_space.sample())
             act = cur_option.policy(state)
             cur_option_ind += 1
             return act
+
         return _policy

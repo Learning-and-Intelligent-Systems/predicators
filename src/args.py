@@ -1,4 +1,5 @@
 """Contains settings that vary per run.
+
 All global, immutable settings should be in settings.py.
 """
 
@@ -6,8 +7,7 @@ import argparse
 
 
 def create_arg_parser() -> argparse.ArgumentParser:
-    """Defines command line argument parser.
-    """
+    """Defines command line argument parser."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", required=True, type=str)
     parser.add_argument("--approach", required=True, type=str)

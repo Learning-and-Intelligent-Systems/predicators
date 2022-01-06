@@ -1,5 +1,4 @@
-"""Test cases for the blocks environment.
-"""
+"""Test cases for the blocks environment."""
 
 import pytest
 import numpy as np
@@ -8,12 +7,11 @@ from predicators.src import utils
 
 
 def test_blocks():
-    """Tests for BlocksEnv class.
-    """
+    """Tests for BlocksEnv class."""
     utils.update_config({"env": "blocks"})
     env = BlocksEnv()
     env.seed(123)
-    clear = env._block_is_clear  # pylint: disable=protected-access
+    clear = env._block_is_clear # pylint: disable=protected-access
     train_tasks_gen = env.train_tasks_generator()
     for task in next(train_tasks_gen):
         for obj in task.init:
@@ -28,14 +26,14 @@ def test_blocks():
     assert len(env.options) == 3
     assert len(env.types) == 2
     block_type = [t for t in env.types if t.name == "block"][0]
-    assert env.action_space.shape == (4,)
-    assert abs(env.action_space.low[0]-BlocksEnv.x_lb) < 1e-3
-    assert abs(env.action_space.high[0]-BlocksEnv.x_ub) < 1e-3
-    assert abs(env.action_space.low[1]-BlocksEnv.y_lb) < 1e-3
-    assert abs(env.action_space.high[1]-BlocksEnv.y_ub) < 1e-3
+    assert env.action_space.shape == (4, )
+    assert abs(env.action_space.low[0] - BlocksEnv.x_lb) < 1e-3
+    assert abs(env.action_space.high[0] - BlocksEnv.x_ub) < 1e-3
+    assert abs(env.action_space.low[1] - BlocksEnv.y_lb) < 1e-3
+    assert abs(env.action_space.high[1] - BlocksEnv.y_ub) < 1e-3
     assert abs(env.action_space.low[2]) < 1e-3
     assert abs(env.action_space.low[3]) < 1e-3
-    assert abs(env.action_space.high[3]-1) < 1e-3
+    assert abs(env.action_space.high[3] - 1) < 1e-3
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
         robot = None
@@ -54,9 +52,9 @@ def test_blocks():
             state = env.simulate(state, act)
             env.render(state, task)
 
+
 def test_blocks_failure_cases():
-    """Tests for the cases where simulate() is a no-op.
-    """
+    """Tests for the cases where simulate() is a no-op."""
     utils.update_config({"env": "blocks"})
     env = BlocksEnv()
     env.seed(123)
@@ -79,48 +77,51 @@ def test_blocks_failure_cases():
     assert OnTable([block2]) not in atoms
     assert On([block2, block1]) in atoms
     # No block at this pose, pick fails
-    act = Pick.ground([robot, block0], np.array(
-        [0, -1, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block0],
+                      np.array([0, -1, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Object not clear, pick fails
-    act = Pick.ground([robot, block1], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block1],
+                      np.array([0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot putontable or stack without picking first
-    act = Stack.ground([robot, block1], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block1],
+                       np.array([0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    act = PutOnTable.ground([robot], np.array(
-        [0.5, 0.5], dtype=np.float32)).policy(state)
+    act = PutOnTable.ground([robot], np.array([0.5, 0.5],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Perform valid pick
-    act = Pick.ground([robot, block0], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block0],
+                      np.array([0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Cannot pick twice in a row
-    act = Pick.ground([robot, block2], np.array(
-        [0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block2],
+                      np.array([0, 0, 0], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto non-clear block
-    act = Stack.ground([robot, block1], np.array(
-        [0, 0, BlocksEnv.block_size], dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block1],
+                       np.array([0, 0, BlocksEnv.block_size],
+                                dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto no block
-    act = Stack.ground([robot, block1], np.array(
-        [0, -1, BlocksEnv.block_size], dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block1],
+                       np.array([0, -1, BlocksEnv.block_size],
+                                dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto yourself
-    act = Stack.ground([robot, block0], np.array(
-        [0, 0, BlocksEnv.block_size], dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block0],
+                       np.array([0, 0, BlocksEnv.block_size],
+                                dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
