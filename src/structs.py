@@ -967,7 +967,7 @@ class PartialNSRTAndDatastore:
     # maintains a substitution dictionary of type ObjToVarSub,
     # under which the ParameterizedOption and effects for all
     # segments in the datastore are equivalent.
-    datastore: NSRTDatastore
+    datastore: Datastore
     # The OptionSpec of this NSRT, which is a tuple of (option, option_vars).
     option_spec: OptionSpec
     # The sampler for this NSRT.
@@ -993,8 +993,8 @@ class PartialNSRTAndDatastore:
         # Add to members.
         self.datastore.append(member)
 
-    def get_nsrt(self) -> NSRT:
-        """Get the NSRT for this PNAD.
+    def make_nsrt(self) -> NSRT:
+        """Make an NSRT from this PNAD.
         """
         assert self.sampler is not None
         param_option, option_vars = self.option_spec
@@ -1019,7 +1019,7 @@ Array = NDArray[np.float32]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
-NSRTDatastore = List[Tuple[Segment, ObjToVarSub]]
+Datastore = List[Tuple[Segment, ObjToVarSub]]
 NSRTSampler = Callable[[State, np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar(

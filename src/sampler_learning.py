@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, NSRTDatastore, STRIPSOperator, OptionSpec, \
+    Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
     NSRTSampler
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
@@ -14,7 +14,7 @@ from predicators.src.settings import CFG
 
 def learn_samplers(
     strips_ops: List[STRIPSOperator],
-    datastores: List[NSRTDatastore],
+    datastores: List[Datastore],
     option_specs: List[OptionSpec],
     do_sampler_learning: bool
     ) -> List[NSRTSampler]:
@@ -30,7 +30,7 @@ def learn_samplers(
     return samplers
 
 
-def _learn_sampler(datastores: List[NSRTDatastore],
+def _learn_sampler(datastores: List[Datastore],
                    nsrt_name: str,
                    variables: Sequence[Variable],
                    preconditions: Set[LiftedAtom],
@@ -92,7 +92,7 @@ def _learn_sampler(datastores: List[NSRTDatastore],
 
 
 def _create_sampler_data(
-        datastores: List[NSRTDatastore],
+        datastores: List[Datastore],
         variables: Sequence[Variable],
         preconditions: Set[LiftedAtom],
         add_effects: Set[LiftedAtom],

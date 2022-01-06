@@ -33,14 +33,14 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     segments = [seg for segs in segmented_trajs for seg in segs]
 
     # STEP 3: Cluster the data by effects, jointly producing one STRIPSOperator,
-    #         NSRTDatastore, and OptionSpec per cluster. These items are then
+    #         Datastore, and OptionSpec per cluster. These items are then
     #         used to initialize PartialNSRTAndDatastore objects (PNADs).
     #         Note: The OptionSpecs here are extracted directly from the data.
     #         If we are doing option learning, then the data will not contain
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    pnads = _get_initial_pnads(segments, verbose=CFG.do_option_learning)
+    pnads = learn_strips_operators(segments, verbose=CFG.do_option_learning)
 
     # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
@@ -55,19 +55,12 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     _learn_pnad_samplers(pnads, do_sampler_learning)
 
     # STEP 7: Print and return the NSRTs.
-    nsrts = [pnad.get_nsrt() for pnad in pnads]
+    nsrts = [pnad.make_nsrt() for pnad in pnads]
     print("\nLearned NSRTs:")
     for nsrt in sorted(nsrts):
         print(nsrt)
     print()
     return set(nsrts)
-
-
-def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True
-                           ) -> List[PartialNSRTAndDatastore]:
-    """An alias for _get_initial_pnads.
-    """
-    return _get_initial_pnads(segments, verbose=verbose)
 
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
@@ -137,8 +130,11 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def _get_initial_pnads(segments: Sequence[Segment], verbose: bool
-                      ) -> List[PartialNSRTAndDatastore]:
+def learn_strips_operators(segments: Sequence[Segment], verbose: bool
+                           ) -> List[PartialNSRTAndDatastore]:
+    """Learn strips operators on the given data segments. Return a list of
+    PNADs with op (STRIPSOperator), datastore, and option_spec fields filled in.
+    """
     # Cluster the segments according to common effects.
     pnads: List[PartialNSRTAndDatastore] = []
     for segment in segments:
@@ -207,6 +203,9 @@ def _get_initial_pnads(segments: Sequence[Segment], verbose: bool
                 preconditions = lifted_atoms
             else:
                 preconditions &= lifted_atoms
+        # Replace the operator with one that contains the newly learned
+        # preconditions. We do this because STRIPSOperator objects are
+        # frozen, so their fields cannot be modified.
         pnad.op = STRIPSOperator(
             pnad.op.name, pnad.op.parameters, preconditions,
             pnad.op.add_effects, pnad.op.delete_effects,
