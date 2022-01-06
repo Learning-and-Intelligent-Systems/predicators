@@ -1019,6 +1019,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
     """
     env = get_env_instance("behavior")
 
+    # NOTE: These two methods below are necessary to help instantiate
+    # all combinations of types for predicates (e.g. nextTo(robot, book),
+    # nextTo(robot, fridge), etc). If we had support for hierarchical types
+    # such that all types could inherit from 'object' we would not need
+    # to perform this combinatorial enumeration.
+
     type_name_to_type = {t.name: t for t in env.types}
     pred_name_to_pred = {p.name: p for p in env.predicates}
 
@@ -1077,6 +1083,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                 nextto_predicates,
                 option,
                 option_vars,
+                # NOTE: mypy thinks that the env is of type BaseEnv (because
+                # of the type sig of create_env in __init__.py), and BaseEnv
+                # doesn't have an object_to_ig_object method
                 lambda s, r, o: navigate_to_param_sampler(r,\
                     [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
                 )
@@ -1109,6 +1118,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                     nextto_predicates,
                     option,
                     option_vars,
+                    # NOTE: mypy thinks that the env is of type BaseEnv (because
+                    # of the type sig of create_env in __init__.py), and BaseEnv
+                    # doesn't have an object_to_ig_object method
                     lambda s, r, o: navigate_to_param_sampler(r,\
                     [env.object_to_ig_object(o_i) for o_i in o] # type: ignore
                     )
@@ -1176,7 +1188,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                   set(),
                   option,
                   option_vars,
-                  lambda s, r, o: place_ontop_obj_pos_sampler(  # type: ignore
+                  # NOTE: mypy thinks that the env is of type BaseEnv (because
+                  # of the type sig of create_env in __init__.py), and BaseEnv
+                  # doesn't have an object_to_ig_object method
+                  # The first type ignore is necessary because mypy gets
+                  # confused about the type signature of the NSRT itself
+                  # because we're ignoring the env.object_to_ig_object line
+                  lambda s, r, o: place_ontop_obj_pos_sampler( # type: ignore
                     [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
                     rng=r,
                   ),
