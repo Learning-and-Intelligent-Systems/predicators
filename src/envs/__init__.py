@@ -58,7 +58,7 @@ def _create_new_env_instance(name: str) -> BaseEnv:
 
 
 def create_env(name: str) -> BaseEnv:
-    """Create an environment instance given its name 
+    """Create an environment instance given its name
     and cache it.
     """
     env = _create_new_env_instance(name)
