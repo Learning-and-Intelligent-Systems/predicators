@@ -751,9 +751,6 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         final_x = door_x+0.2 if x < door_x else door_x-0.2
         rotation = 0.0 if x < door_x else -1.0
         return np.array([final_x, door_y, rotation], dtype=np.float32)
-        # if x < door_x:
-        #     return np.array([0.2, 0.0, 0.0], dtype=np.float32)
-        # return np.array([-0.2, 0.0, -1.0], dtype=np.float32)
     advancethroughdoor_nsrt = NSRT(
         "AdvanceThroughDoor", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, advancethroughdoor_sampler)
@@ -780,7 +777,6 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         assert door.is_instance(door_type)
         x, y = state.get(door, "pose_x")-0.2, state.get(door, "pose_y")
         return np.array([x, y, 0.0], dtype=np.float32)
-        # return np.array([-0.2, 0.0, 0.0], dtype=np.float32)
     movetabletodoor_nsrt = NSRT(
         "MoveTableToDoor", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, movetabletodoor_sampler)
@@ -804,7 +800,6 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         del state, rng, objs  # unused
         x, y = PlayroomEnv.table_x_ub, PlayroomEnv.table_y_ub
         return np.array([x, y, -0.75], dtype=np.float32)
-        # return np.array([5.0, 5.0, -0.75], dtype=np.float32)
     movedoortotable_nsrt = NSRT(
         "MoveDoorToTable", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, movedoortotable_sampler)
@@ -835,9 +830,6 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         rotation = 0.0 if from_x < to_x else -1.0
         x = to_x-0.1 if from_x < to_x else to_x+0.1
         return np.array([x, to_y, rotation], dtype=np.float32)
-        # if from_x < to_x:
-        #     return np.array([-0.1, 0.0, 0.0], dtype=np.float32)
-        # return np.array([0.1, 0.0, -1.0], dtype=np.float32)
     movedoortodoor_nsrt = NSRT(
         "MoveDoorToDoor", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, movedoortodoor_sampler)
@@ -865,7 +857,6 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         assert dial.is_instance(dial_type)
         dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
         return np.array([dial_x-0.2, dial_y, -1.0], dtype=np.float32)
-        # return np.array([-0.2, 0.0, -1.0], dtype=np.float32)
     movedoortodial_nsrt = NSRT(
         "MoveDoorToDial", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, movedoortodial_sampler)
@@ -893,7 +884,6 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         assert door.is_instance(door_type)
         x, y = state.get(door, "pose_x"), state.get(door, "pose_y")
         return np.array([x+0.1, y, -1.0], dtype=np.float32)
-        # return np.array([0.1, 0.0, -1.0], dtype=np.float32)
     movedialtodoor_nsrt = NSRT(
         "MoveDialToDoor", parameters, preconditions, add_effects,
         delete_effects, set(), option, option_vars, movedialtodoor_sampler)
