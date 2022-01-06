@@ -25,7 +25,7 @@ def learn_samplers(
         param_option, _ = option_specs[i]
         if sampler_learner == "random" or \
            param_option.params_space.shape == (0,):
-            sampler = _RandomSampler(param_option).sampler
+            sampler: NSRTSampler = _RandomSampler(param_option).sampler
         elif sampler_learner == "neural":
             sampler = _learn_neural_sampler(
                 datastores, op.name, op.parameters, op.preconditions,
