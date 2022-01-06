@@ -754,8 +754,9 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                             option_specs: Sequence[OptionSpec],
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
-        h_fn = utils.create_heuristic(self.heuristic_name, init_atoms, goal,
-                                      ground_ops)
+        all_reachable_atoms = utils.get_reachable_atoms(ground_ops, init_atoms)
+        h_fn = utils.create_heuristic(self.heuristic_name, all_reachable_atoms,
+                                      init_atoms, goal, ground_ops)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
         assert self.lookahead_depth >= 0
@@ -766,7 +767,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
             if goal.issubset(atoms):
                 result = 0.0
             elif depth == self.lookahead_depth:
-                result = h_fn(utils.atoms_to_tuples(atoms))
+                result = h_fn(atoms)
             else:
                 successor_hs = [_relaxation_h(next_atoms, depth+1)
                     for next_atoms in utils.get_successors_from_ground_ops(
