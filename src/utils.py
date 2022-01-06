@@ -21,10 +21,10 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
-    LiftedAtom, Image, Video, Variable, ObjToVarSub, \
+    LiftedAtom, Image, Video, Variable, ObjToVarSub, EntToEntSub, \
     VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
     _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
-    NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator
+    NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
@@ -90,36 +90,35 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
 
 
 @functools.lru_cache(maxsize=None)
-def unify(ground_atoms: FrozenSet[GroundAtom],
-          lifted_atoms: FrozenSet[LiftedAtom]) -> Tuple[bool, ObjToVarSub]:
+def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
+          atoms2: FrozenSet[LiftedOrGroundAtom]
+          ) -> Tuple[bool, EntToEntSub]:
     """Return whether the given ground atom set can be unified
     with the given lifted atom set. Also return the mapping.
     """
-    ground_atoms_lst = sorted(ground_atoms)
-    lifted_atoms_lst = sorted(lifted_atoms)
+    atoms_lst1 = sorted(atoms1)
+    atoms_lst2 = sorted(atoms2)
 
     # Terminate quickly if there is a mismatch between predicates
-    ground_preds = [atom.predicate for atom in ground_atoms_lst]
-    lifted_preds = [atom.predicate for atom in lifted_atoms_lst]
-    if ground_preds != lifted_preds:
+    preds1 = [atom.predicate for atom in atoms_lst1]
+    preds2 = [atom.predicate for atom in atoms_lst2]
+    if preds1 != preds2:
         return False, {}
 
     # Terminate quickly if there is a mismatch between numbers
-    num_objects = len({o for atom in ground_atoms_lst
-                       for o in atom.objects})
-    num_variables = len({o for atom in lifted_atoms_lst
-                         for o in atom.variables})
-    if num_objects != num_variables:
+    num1 = len({o for atom in atoms_lst1 for o in atom.entities})
+    num2 = len({o for atom in atoms_lst2 for o in atom.entities})
+    if num1 != num2:
         return False, {}
 
     # Try to get lucky with a one-to-one mapping
-    subs12: ObjToVarSub = {}
+    subs12: EntToEntSub = {}
     subs21 = {}
     success = True
-    for atom_ground, atom_lifted in zip(ground_atoms_lst, lifted_atoms_lst):
+    for atom1, atom2 in zip(atoms_lst1, atoms_lst2):
         if not success:
             break
-        for v1, v2 in zip(atom_ground.objects, atom_lifted.variables):
+        for v1, v2 in zip(atom1.entities, atom2.entities):
             if v1 in subs12 and subs12[v1] != v2:
                 success = False
                 break
@@ -132,9 +131,58 @@ def unify(ground_atoms: FrozenSet[GroundAtom],
         return True, subs12
 
     # If all else fails, use search
-    solved, sub = find_substitution(ground_atoms_lst, lifted_atoms_lst)
+    solved, sub = find_substitution(atoms_lst1, atoms_lst2)
     rev_sub = {v: k for k, v in sub.items()}
     return solved, rev_sub
+
+
+@functools.lru_cache(maxsize=None)
+def unify_preconds_effects_options(
+        preconds1: FrozenSet[LiftedOrGroundAtom],
+        preconds2: FrozenSet[LiftedOrGroundAtom],
+        add_effects1: FrozenSet[LiftedOrGroundAtom],
+        add_effects2: FrozenSet[LiftedOrGroundAtom],
+        delete_effects1: FrozenSet[LiftedOrGroundAtom],
+        delete_effects2: FrozenSet[LiftedOrGroundAtom],
+        param_option1: ParameterizedOption,
+        param_option2: ParameterizedOption,
+        option_args1: Tuple[_TypedEntity, ...],
+        option_args2: Tuple[_TypedEntity, ...]
+) -> Tuple[bool, EntToEntSub]:
+    """Wrapper around unify() that handles option arguments,
+    preconditions, add effects, and delete effects. Changes predicate
+    names so that all are treated differently by unify().
+    """
+    if param_option1 != param_option2:
+        # Can't unify if the parameterized options are different.
+        return False, {}
+    opt_arg_pred1 = Predicate("OPT-ARGS",
+                              [a.type for a in option_args1],
+                              _classifier=lambda s, o: False)  # dummy
+    f_option_args1 = frozenset({GroundAtom(opt_arg_pred1, option_args1)})
+    new_preconds1 = wrap_atom_predicates(preconds1, "PRE-")
+    f_new_preconds1 = frozenset(new_preconds1)
+    new_add_effects1 = wrap_atom_predicates(add_effects1, "ADD-")
+    f_new_add_effects1 = frozenset(new_add_effects1)
+    new_delete_effects1 = wrap_atom_predicates(delete_effects1, "DEL-")
+    f_new_delete_effects1 = frozenset(new_delete_effects1)
+
+    opt_arg_pred2 = Predicate("OPT-ARGS",
+                              [a.type for a in option_args2],
+                              _classifier=lambda s, o: False)  # dummy
+    f_option_args2 = frozenset({LiftedAtom(opt_arg_pred2, option_args2)})
+    new_preconds2 = wrap_atom_predicates(preconds2, "PRE-")
+    f_new_preconds2 = frozenset(new_preconds2)
+    new_add_effects2 = wrap_atom_predicates(add_effects2, "ADD-")
+    f_new_add_effects2 = frozenset(new_add_effects2)
+    new_delete_effects2 = wrap_atom_predicates(delete_effects2, "DEL-")
+    f_new_delete_effects2 = frozenset(new_delete_effects2)
+
+    all_atoms1 = (f_option_args1 | f_new_preconds1 | f_new_add_effects1 |
+                  f_new_delete_effects1)
+    all_atoms2 = (f_option_args2 | f_new_preconds2 | f_new_add_effects2 |
+                  f_new_delete_effects2)
+    return unify(all_atoms1, all_atoms2)
 
 
 def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
@@ -346,10 +394,10 @@ def get_random_object_combination(
             for t in types]
 
 
-def find_substitution(super_atoms: Collection[GroundAtom],
-                      sub_atoms: Collection[LiftedAtom],
+def find_substitution(super_atoms: Collection[LiftedOrGroundAtom],
+                      sub_atoms: Collection[LiftedOrGroundAtom],
                       allow_redundant: bool = False,
-                      ) -> Tuple[bool, VarToObjSub]:
+                      ) -> Tuple[bool, EntToEntSub]:
     """Find a substitution from the objects in super_atoms to the variables
     in sub_atoms s.t. sub_atoms is a subset of super_atoms.
 
@@ -358,26 +406,26 @@ def find_substitution(super_atoms: Collection[GroundAtom],
 
     If no substitution exists, return (False, {}).
     """
-    super_objects_by_type: Dict[Type, List[Object]] = defaultdict(list)
+    super_entities_by_type: Dict[Type, List[_TypedEntity]] = defaultdict(list)
     super_pred_to_tuples = defaultdict(set)
     for atom in super_atoms:
-        for obj in atom.objects:
-            if obj not in super_objects_by_type[obj.type]:
-                super_objects_by_type[obj.type].append(obj)
-        super_pred_to_tuples[atom.predicate].add(tuple(atom.objects))
-    sub_variables = sorted({v for atom in sub_atoms for v in atom.variables})
+        for obj in atom.entities:
+            if obj not in super_entities_by_type[obj.type]:
+                super_entities_by_type[obj.type].append(obj)
+        super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
+    sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
     return _find_substitution_helper(
-        sub_atoms, super_objects_by_type, sub_variables, super_pred_to_tuples,
+        sub_atoms, super_entities_by_type, sub_variables, super_pred_to_tuples,
         {}, allow_redundant)
 
 
 def _find_substitution_helper(
-        sub_atoms: Collection[LiftedAtom],
-        super_objects_by_type: Dict[Type, List[Object]],
-        remaining_sub_variables: List[Variable],
-        super_pred_to_tuples: Dict[Predicate, Set[Tuple[Object, ...]]],
-        partial_sub: VarToObjSub,
-        allow_redundant: bool) -> Tuple[bool, VarToObjSub]:
+        sub_atoms: Collection[LiftedOrGroundAtom],
+        super_entities_by_type: Dict[Type, List[_TypedEntity]],
+        remaining_sub_variables: List[_TypedEntity],
+        super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        partial_sub: EntToEntSub,
+        allow_redundant: bool) -> Tuple[bool, EntToEntSub]:
     """Helper for find_substitution.
     """
     # Base case: check if all assigned
@@ -387,7 +435,7 @@ def _find_substitution_helper(
     remaining_sub_variables = remaining_sub_variables.copy()
     next_sub_var = remaining_sub_variables.pop(0)
     # Consider possible assignments
-    for super_obj in super_objects_by_type[next_sub_var.type]:
+    for super_obj in super_entities_by_type[next_sub_var.type]:
         if not allow_redundant and super_obj in partial_sub.values():
             continue
         new_sub = partial_sub.copy()
@@ -398,7 +446,7 @@ def _find_substitution_helper(
             continue
         # Backtracking search
         solved, final_sub = _find_substitution_helper(sub_atoms,
-            super_objects_by_type, remaining_sub_variables,
+            super_entities_by_type, remaining_sub_variables,
             super_pred_to_tuples, new_sub, allow_redundant)
         if solved:
             return solved, final_sub
@@ -407,15 +455,15 @@ def _find_substitution_helper(
 
 
 def _substitution_consistent(
-        partial_sub: VarToObjSub,
-        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[Object, ...]]],
-        sub_atoms: Collection[LiftedAtom]) -> bool:
+        partial_sub: EntToEntSub,
+        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        sub_atoms: Collection[LiftedOrGroundAtom]) -> bool:
     """Helper for _find_substitution_helper.
     """
     for sub_atom in sub_atoms:
-        if not set(sub_atom.variables).issubset(partial_sub.keys()):
+        if not set(sub_atom.entities).issubset(partial_sub.keys()):
             continue
-        substituted_vars = tuple(partial_sub[e] for e in sub_atom.variables)
+        substituted_vars = tuple(partial_sub[e] for e in sub_atom.entities)
         if substituted_vars not in super_pred_to_tuples[sub_atom.predicate]:
             return False
     return True
