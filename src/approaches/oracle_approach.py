@@ -56,24 +56,24 @@ def get_gt_nsrts(predicates: Set[Predicate],
         if nsrt.option not in options:
             continue
         nsrt = nsrt.filter_predicates(predicates)
-        _check_nsrt_objects(nsrt)
         final_nsrts.add(nsrt)
     return final_nsrts
 
-def _check_nsrt_objects(nsrt: NSRT) -> None:
-    effects_vars: Set[Variable] = set()
-    precond_vars: Set[Variable] = set()
-    for lifted_atom in nsrt.add_effects:
-        effects_vars |= set(lifted_atom.variables)
-    for lifted_atom in nsrt.delete_effects:
-        effects_vars |= set(lifted_atom.variables)
-    for lifted_atom in nsrt.preconditions:
-        precond_vars |= set(lifted_atom.variables)
-    for var in nsrt.parameters:
-        assert var in effects_vars | precond_vars, \
-            f"Variable {var} not used in preconditions or effects of {nsrt}"
-        assert var in nsrt.option_vars or var in effects_vars, \
-            f"Variable {var} not found in effects or option of {nsrt}"
+def _check_nsrt_objects(nsrts: Set[NSRT]) -> None:
+    for nsrt in nsrts:
+        effects_vars: Set[Variable] = set()
+        precond_vars: Set[Variable] = set()
+        for lifted_atom in nsrt.add_effects:
+            effects_vars |= set(lifted_atom.variables)
+        for lifted_atom in nsrt.delete_effects:
+            effects_vars |= set(lifted_atom.variables)
+        for lifted_atom in nsrt.preconditions:
+            precond_vars |= set(lifted_atom.variables)
+        assert set(nsrt.option_vars).issubset(nsrt.parameters), \
+            f"Option variables is not a subset of parameters in {nsrt}"
+        for var in nsrt.parameters:
+            assert var in nsrt.option_vars or var in effects_vars, \
+                f"Variable {var} not found in effects or option of {nsrt}"
 
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
