@@ -154,6 +154,17 @@ def test_playroom_simulate_blocks():
             robot = item
             break
     assert robot is not None
+    # Move away from table
+    act = Action(np.array([5, 5, 1, 1, 0]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert np.any(state[robot] != next_state[robot])
+    state = next_state
+    # Move to table but do not pick block 1
+    act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert np.any(state[robot] != next_state[robot])
+    assert np.allclose(state[block1], next_state[block1])
+    state = next_state
     # Perform valid pick of block 1
     act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -200,8 +211,8 @@ def test_playroom_simulate_doors_and_dial():
             dial = item
     assert robot is not None
     assert dial is not None
-    # Move to boring room door
-    act = Action(np.array([29.6, 12, 1, 0, 1]).astype(np.float32))
+    # Move to boring room door but do not open it
+    act = Action(np.array([29.8, 15, 3, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
@@ -210,15 +221,16 @@ def test_playroom_simulate_doors_and_dial():
     # Open boring room door
     act = Action(np.array([29.8, 15, 3, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.any(state[robot] != next_state[robot])
     assert np.any(state[door1] != next_state[door1])
     state = next_state
-    # Move to playroom door
+    # Move to playroom door but do not shut it
     act = Action(np.array([110.2, 15, 3, 1, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
-            assert np.all(state[o] == next_state[o])
+            assert np.allclose(state[o], next_state[o])
+        else:
+            assert not np.allclose(state[o], next_state[o])
     state = next_state
     # Shut door to playroom
     act = Action(np.array([110.2, 15, 3, 1, 1]).astype(np.float32))
@@ -229,12 +241,14 @@ def test_playroom_simulate_doors_and_dial():
     act = Action(np.array([105, 15, 3, 1, 1]).astype(np.float32))
     with pytest.raises(EnvironmentFailure):
         next_state = env.simulate(state, act)
-    # Move to dial
+    # Move to dial but do not toggle it
     act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
-            assert np.all(state[o] == next_state[o])
+            assert np.allclose(state[o], next_state[o])
+        else:
+            assert not np.allclose(state[o], next_state[o])
     state = next_state
     # Turn dial on, facing S
     act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
