@@ -933,11 +933,17 @@ def _create_pyperplan_task(init_atoms: Set[GroundAtom],
     pyperplan_facts = _atoms_to_tuples(all_atoms - static_atoms)
     pyperplan_state = _atoms_to_tuples(init_atoms - static_atoms)
     pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
-    pyperplan_operators = {_PyperplanOperator(op.name,
-        # Note: removing static atoms from preconditions.
-        _atoms_to_tuples(op.preconditions - static_atoms),
-        _atoms_to_tuples(op.add_effects),
-        _atoms_to_tuples(op.delete_effects)) for op in ground_ops}
+    pyperplan_operators = set()
+    for op in ground_ops:
+        # Note: the pyperplan operator must include the objects, because hFF
+        # uses the operator name in constructing the relaxed plan.
+        name = op.name + "-".join(o.name for o in op.objects)
+        pyperplan_operator = _PyperplanOperator(name,
+            # Note: removing static atoms from preconditions.
+            _atoms_to_tuples(op.preconditions - static_atoms),
+            _atoms_to_tuples(op.add_effects),
+            _atoms_to_tuples(op.delete_effects))
+        pyperplan_operators.add(pyperplan_operator)
     return _PyperplanTask(pyperplan_facts, pyperplan_state, pyperplan_goal,
                           pyperplan_operators)
 
