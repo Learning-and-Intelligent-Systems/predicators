@@ -17,7 +17,7 @@ class GlobalSettings:
     num_train_tasks = 15
     num_test_tasks = 50
     max_num_steps_check_policy = 100  # maximum number of steps to run a policy
-                                      # when checking whether it solves a task
+    # when checking whether it solves a task
 
     # cover env parameters
     cover_num_blocks = 2
@@ -47,7 +47,8 @@ class GlobalSettings:
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
-        "examples", "configs",
+        "examples",
+        "configs",
         "njk_re-shelving_library_books_full_obs.yaml",
         # "njk_sorting_books_full_obs.yaml"
     )
@@ -72,7 +73,7 @@ class GlobalSettings:
 
     # dataset parameters
     offline_data_planning_timeout = 500  # for learning-based approaches, the
-                                         # data collection timeout for planning
+    # data collection timeout for planning
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
@@ -99,7 +100,7 @@ class GlobalSettings:
     learning_rate = 1e-3
 
     # iterative invention parameters
-    iterative_invention_accept_score = 1-1e-3
+    iterative_invention_accept_score = 1 - 1e-3
 
     # interactive learning parameters
     interactive_known_predicates = {"HandEmpty", "Covers"}
@@ -142,42 +143,42 @@ class GlobalSettings:
             # Task planning heuristic to use in SeSamE.
             task_planning_heuristic=defaultdict(
                 # Use HAdd by default.
-                lambda: "hadd", {
+                lambda: "hadd",
+                {
                     # In the playroom domain, HFF works better.
                     "playroom": "hff",
-                }
-            )[args["env"]],
+                })[args["env"]],
 
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
                 # Use "immediately" by default.
-                lambda: "immediately", {
+                lambda: "immediately",
+                {
                     # We use a different strategy for cluttered_table because
                     # of the high likelihood of getting cyclic failures if you
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
-                }
-            )[args["env"]],
+                })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
                 # Use both demonstrations and random replays by default.
-                lambda: "demo+replay", {
+                lambda: "demo+replay",
+                {
                     # No replays for active learning project.
                     "interactive_learning": "demo",
-                }
-            )[args["approach"]],
+                })[args["approach"]],
 
             # Number of replays used when offline_data_method is demo+replay.
             offline_data_num_replays=defaultdict(
                 # Default number of random replays.
-                lambda: 500, {
+                lambda: 500,
+                {
                     # For the repeated_nextto environment, too many
                     # replays makes learning slow.
                     "repeated_nextto": 50,
-                }
-            )[args["env"]],
+                })[args["env"]],
         )
 
 

@@ -46,8 +46,10 @@ def main() -> None:
     utils.update_config(args)
     print("Full config:")
     print(CFG)
-    print("Git commit hash:", subprocess.check_output(
-        ["git", "rev-parse", "HEAD"]).decode("ascii").strip())
+    print(
+        "Git commit hash:",
+        subprocess.check_output(["git", "rev-parse",
+                                 "HEAD"]).decode("ascii").strip())
     if not os.path.exists(CFG.results_dir):
         os.mkdir(CFG.results_dir)
     # Create & seed classes
@@ -55,22 +57,26 @@ def main() -> None:
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
         if CFG.excluded_predicates == "all":
-            excludeds = {pred.name for pred in env.predicates
-                         if pred not in env.goal_predicates}
+            excludeds = {
+                pred.name
+                for pred in env.predicates if pred not in env.goal_predicates
+            }
             print(f"All non-goal predicates excluded: {excludeds}")
             preds = env.goal_predicates
         else:
             excludeds = set(CFG.excluded_predicates.split(","))
             assert excludeds.issubset({pred.name for pred in env.predicates}), \
                 "Unrecognized excluded_predicates!"
-            preds = {pred for pred in env.predicates
-                     if pred.name not in excludeds}
+            preds = {
+                pred
+                for pred in env.predicates if pred.name not in excludeds
+            }
             assert env.goal_predicates.issubset(preds), \
                 "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    approach = create_approach(CFG.approach, env.simulate, preds,
-                               env.options, env.types, env.action_space)
+    approach = create_approach(CFG.approach, env.simulate, preds, env.options,
+                               env.types, env.action_space)
     env.seed(CFG.seed)
     approach.seed(CFG.seed)
     env.action_space.seed(CFG.seed)
@@ -127,7 +133,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
         if CFG.make_videos:
             outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
             utils.save_video(outfile, video)
-    total_test_time = time.time()-start
+    total_test_time = time.time() - start
     test_metrics: Metrics = defaultdict(float)
     test_metrics["test_tasks_solved"] = num_solved
     test_metrics["test_tasks_total"] = len(test_tasks)
@@ -135,7 +141,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
     return {"test": test_metrics, "approach": approach.metrics.copy()}
 
 
-def _save_test_results(results: Dict[str, Metrics], start_time: float) -> None:
+def _save_test_results(results: Dict[str, Metrics],
+                       start_time: float) -> None:
     test_tasks_solved = results["test"]["test_tasks_solved"]
     test_tasks_total = results["test"]["test_tasks_total"]
     total_test_time = results["test"]["total_test_time"]

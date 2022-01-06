@@ -19,6 +19,7 @@ def create_option_model(name: str, simulator: Callable[[State, Action], State]
 class _OptionModel:
     """Struct defining an option model, which computes the next state of the
     world after an option is executed from a given start state."""
+
     def __init__(self, simulator: Callable[[State, Action], State]):
         self._simulator = simulator
 
@@ -36,8 +37,11 @@ class _OptionModel:
 class _DefaultOptionModel(_OptionModel):
     """A default option model that just runs options through the simulator to
     figure out the next state."""
+
     def get_next_state(self, state: State, option: _Option) -> State:
         traj = utils.option_to_trajectory(
-                state, self._simulator, option,
-                max_num_steps=CFG.max_num_steps_option_rollout)
+            state,
+            self._simulator,
+            option,
+            max_num_steps=CFG.max_num_steps_option_rollout)
         return traj.states[-1]

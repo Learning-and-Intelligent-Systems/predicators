@@ -52,15 +52,17 @@ def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
         -> Tuple[float, float]:
         x1, y1 = a
         x2, y2 = b
-        return (x1-x2), (y1-y2)
+        return (x1 - x2), (y1 - y2)
     def cross_product(a: Tuple[float, float], b: Tuple[float, float]) \
         -> float:
         x1, y1 = b
         x2, y2 = a
         return x1 * y2 - x2 * y1
+
     def direction(a: Tuple[float, float], b: Tuple[float, float],
                   c: Tuple[float, float]) -> float:
         return cross_product(subtract(a, c), subtract(a, b))
+
     d1 = direction(p3, p4, p1)
     d2 = direction(p3, p4, p2)
     d3 = direction(p1, p2, p3)
@@ -89,8 +91,7 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
 
 @functools.lru_cache(maxsize=None)
 def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
-          atoms2: FrozenSet[LiftedOrGroundAtom]
-          ) -> Tuple[bool, EntToEntSub]:
+          atoms2: FrozenSet[LiftedOrGroundAtom]) -> Tuple[bool, EntToEntSub]:
     """Return whether the given ground atom set can be unified with the given
     lifted atom set.
 
@@ -147,8 +148,7 @@ def unify_preconds_effects_options(
         param_option1: ParameterizedOption,
         param_option2: ParameterizedOption,
         option_args1: Tuple[_TypedEntity, ...],
-        option_args2: Tuple[_TypedEntity, ...]
-) -> Tuple[bool, EntToEntSub]:
+        option_args2: Tuple[_TypedEntity, ...]) -> Tuple[bool, EntToEntSub]:
     """Wrapper around unify() that handles option arguments, preconditions, add
     effects, and delete effects.
 
@@ -158,9 +158,9 @@ def unify_preconds_effects_options(
     if param_option1 != param_option2:
         # Can't unify if the parameterized options are different.
         return False, {}
-    opt_arg_pred1 = Predicate("OPT-ARGS",
-                              [a.type for a in option_args1],
-                              _classifier=lambda s, o: False)  # dummy
+    opt_arg_pred1 = Predicate(
+        "OPT-ARGS", [a.type for a in option_args1],
+        _classifier=lambda s, o: False)  # dummy
     f_option_args1 = frozenset({GroundAtom(opt_arg_pred1, option_args1)})
     new_preconds1 = wrap_atom_predicates(preconds1, "PRE-")
     f_new_preconds1 = frozenset(new_preconds1)
@@ -169,9 +169,9 @@ def unify_preconds_effects_options(
     new_delete_effects1 = wrap_atom_predicates(delete_effects1, "DEL-")
     f_new_delete_effects1 = frozenset(new_delete_effects1)
 
-    opt_arg_pred2 = Predicate("OPT-ARGS",
-                              [a.type for a in option_args2],
-                              _classifier=lambda s, o: False)  # dummy
+    opt_arg_pred2 = Predicate(
+        "OPT-ARGS", [a.type for a in option_args2],
+        _classifier=lambda s, o: False)  # dummy
     f_option_args2 = frozenset({LiftedAtom(opt_arg_pred2, option_args2)})
     new_preconds2 = wrap_atom_predicates(preconds2, "PRE-")
     f_new_preconds2 = frozenset(new_preconds2)
@@ -180,10 +180,10 @@ def unify_preconds_effects_options(
     new_delete_effects2 = wrap_atom_predicates(delete_effects2, "DEL-")
     f_new_delete_effects2 = frozenset(new_delete_effects2)
 
-    all_atoms1 = (f_option_args1 | f_new_preconds1 | f_new_add_effects1 |
-                  f_new_delete_effects1)
-    all_atoms2 = (f_option_args2 | f_new_preconds2 | f_new_add_effects2 |
-                  f_new_delete_effects2)
+    all_atoms1 = (f_option_args1 | f_new_preconds1 | f_new_add_effects1
+                  | f_new_delete_effects1)
+    all_atoms2 = (f_option_args2 | f_new_preconds2 | f_new_add_effects2
+                  | f_new_delete_effects2)
     return unify(all_atoms1, all_atoms2)
 
 
@@ -196,21 +196,24 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     """
     new_atoms = set()
     for atom in atoms:
-        new_predicate = Predicate(prefix+atom.predicate.name,
-                                  atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
+        new_predicate = Predicate(
+            prefix + atom.predicate.name,
+            atom.predicate.types,
+            _classifier=lambda s, o: False)  # dummy
         new_atoms.add(atom.__class__(new_predicate, atom.entities))
     return new_atoms
 
 
-def run_policy_on_task(policy: Callable[[State], Action], task: Task,
-                       simulator: Callable[[State, Action], State],
-                       predicates: Collection[Predicate], max_steps: int,
-                       make_video: bool = False,
-                       render: Optional[
-                           Callable[[State, Task, Action], List[Image]]] = None,
-                       annotate_traj_with_goal: bool = False,
-                       ) -> Tuple[LowLevelTrajectory, Video, bool]:
+def run_policy_on_task(
+        policy: Callable[[State], Action],
+        task: Task,
+        simulator: Callable[[State, Action], State],
+        predicates: Collection[Predicate],
+        max_steps: int,
+        make_video: bool = False,
+        render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
+        annotate_traj_with_goal: bool = False,
+) -> Tuple[LowLevelTrajectory, Video, bool]:
     """Execute a policy on a task until goal or max steps.
 
     Return the low-level trajectory (optionally annotated with the
@@ -261,10 +264,8 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
 
 
 def option_to_trajectory(
-        init: State,
-        simulator: Callable[[State, Action], State],
-        option: _Option,
-        max_num_steps: int) -> LowLevelTrajectory:
+        init: State, simulator: Callable[[State, Action], State],
+        option: _Option, max_num_steps: int) -> LowLevelTrajectory:
     """Convert an option into a trajectory, starting at init, by invoking the
     option policy.
 
@@ -289,8 +290,8 @@ class OptionPlanExhausted(Exception):
     """An exception for an option plan running out of options."""
 
 
-def option_plan_to_policy(plan: Sequence[_Option]
-                          ) -> Callable[[State], Action]:
+def option_plan_to_policy(
+        plan: Sequence[_Option]) -> Callable[[State], Action]:
     """Create a policy that executes the options in order.
 
     The logic for this is somewhat complicated because we want:
@@ -302,6 +303,7 @@ def option_plan_to_policy(plan: Sequence[_Option]
     """
     queue = list(plan)  # Don't modify plan, just in case
     initialized = False  # Special case first step
+
     def _policy(state: State) -> Action:
         nonlocal initialized
         # On the very first state, check initiation condition, and
@@ -317,6 +319,7 @@ def option_plan_to_policy(plan: Sequence[_Option]
                 raise OptionPlanExhausted()
             assert queue[0].initiable(state), "Unsound option plan"
         return queue[0].policy(state)
+
     return _policy
 
 
@@ -343,9 +346,8 @@ def get_all_groundings(atoms: FrozenSet[LiftedAtom],
     return result
 
 
-def get_object_combinations(
-        objects: Collection[Object], types: Sequence[Type]
-        ) -> Iterator[List[Object]]:
+def get_object_combinations(objects: Collection[Object],
+                            types: Sequence[Type]) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence."""
     sorted_objects = sorted(objects)
     choices = []
@@ -359,9 +361,9 @@ def get_object_combinations(
         yield list(choice)
 
 
-def get_random_object_combination(
-        objects: Collection[Object], types: Sequence[Type],
-        rng: np.random.Generator) -> List[Object]:
+def get_random_object_combination(objects: Collection[Object],
+                                  types: Sequence[Type],
+                                  rng: np.random.Generator) -> List[Object]:
     """Get a random list of objects from the given collection that satisfy the
     given sequence of types.
 
@@ -370,14 +372,16 @@ def get_random_object_combination(
     types_to_objs = defaultdict(list)
     for obj in objects:
         types_to_objs[obj.type].append(obj)
-    return [types_to_objs[t][rng.choice(len(types_to_objs[t]))]
-            for t in types]
+    return [
+        types_to_objs[t][rng.choice(len(types_to_objs[t]))] for t in types
+    ]
 
 
-def find_substitution(super_atoms: Collection[LiftedOrGroundAtom],
-                      sub_atoms: Collection[LiftedOrGroundAtom],
-                      allow_redundant: bool = False,
-                      ) -> Tuple[bool, EntToEntSub]:
+def find_substitution(
+        super_atoms: Collection[LiftedOrGroundAtom],
+        sub_atoms: Collection[LiftedOrGroundAtom],
+        allow_redundant: bool = False,
+) -> Tuple[bool, EntToEntSub]:
     """Find a substitution from the objects in super_atoms to the variables in
     sub_atoms s.t. sub_atoms is a subset of super_atoms.
 
@@ -394,9 +398,9 @@ def find_substitution(super_atoms: Collection[LiftedOrGroundAtom],
                 super_entities_by_type[obj.type].append(obj)
         super_pred_to_tuples[atom.predicate].add(tuple(atom.entities))
     sub_variables = sorted({e for atom in sub_atoms for e in atom.entities})
-    return _find_substitution_helper(
-        sub_atoms, super_entities_by_type, sub_variables, super_pred_to_tuples,
-        {}, allow_redundant)
+    return _find_substitution_helper(sub_atoms, super_entities_by_type,
+                                     sub_variables, super_pred_to_tuples, {},
+                                     allow_redundant)
 
 
 def _find_substitution_helper(
@@ -424,8 +428,8 @@ def _find_substitution_helper(
                                         sub_atoms):
             continue
         # Backtracking search
-        solved, final_sub = _find_substitution_helper(sub_atoms,
-            super_entities_by_type, remaining_sub_variables,
+        solved, final_sub = _find_substitution_helper(
+            sub_atoms, super_entities_by_type, remaining_sub_variables,
             super_pred_to_tuples, new_sub, allow_redundant)
         if solved:
             return solved, final_sub
@@ -435,7 +439,7 @@ def _find_substitution_helper(
 
 def _substitution_consistent(
         partial_sub: EntToEntSub,
-        super_pred_to_tuples:  Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
+        super_pred_to_tuples: Dict[Predicate, Set[Tuple[_TypedEntity, ...]]],
         sub_atoms: Collection[LiftedOrGroundAtom]) -> bool:
     """Helper for _find_substitution_helper."""
     for sub_atom in sub_atoms:
@@ -450,8 +454,10 @@ def _substitution_consistent(
 def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
     """Get an iterator over the powerset of the given sequence."""
     start = 1 if exclude_empty else 0
-    return itertools.chain.from_iterable(itertools.combinations(list(seq), r)
-                                         for r in range(start, len(seq)+1))
+    return itertools.chain.from_iterable(
+        itertools.combinations(list(seq), r)
+        for r in range(start,
+                       len(seq) + 1))
 
 
 _S = TypeVar("_S", bound=Hashable)  # state in heuristic search
@@ -468,14 +474,13 @@ class _HeuristicSearchNode(Generic[_S, _A]):
 
 
 def _run_heuristic_search(
-    initial_state: _S,
-    check_goal: Callable[[_S], bool],
-    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-    get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
-    max_expansions: int = 10000000,
-    max_evals: int = 10000000,
-    lazy_expansion: bool = False
-    ) -> Tuple[List[_S], List[_A]]:
+        initial_state: _S,
+        check_goal: Callable[[_S], bool],
+        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+        get_priority: Callable[[_HeuristicSearchNode[_S, _A]], Any],
+        max_expansions: int = 10000000,
+        max_evals: int = 10000000,
+        lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """A generic heuristic search implementation.
 
     Depending on get_priority, can implement A*, GBFS, or UCS.
@@ -539,8 +544,8 @@ def _run_heuristic_search(
     return _finish_plan(best_node)
 
 
-def _finish_plan(node: _HeuristicSearchNode[_S, _A]
-                 ) -> Tuple[List[_S], List[_A]]:
+def _finish_plan(
+        node: _HeuristicSearchNode[_S, _A]) -> Tuple[List[_S], List[_A]]:
     """Helper for _run_heuristic_search."""
     rev_state_sequence: List[_S] = []
     rev_action_sequence: List[_A] = []
@@ -555,27 +560,24 @@ def _finish_plan(node: _HeuristicSearchNode[_S, _A]
     return rev_state_sequence[::-1], rev_action_sequence[::-1]
 
 
-def run_gbfs(
-    initial_state: _S,
-    check_goal: Callable[[_S], bool],
-    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-    heuristic: Callable[[_S], float],
-    max_expansions: int = 10000000,
-    max_evals: int = 10000000,
-    lazy_expansion: bool = False
-    ) -> Tuple[List[_S], List[_A]]:
+def run_gbfs(initial_state: _S,
+             check_goal: Callable[[_S], bool],
+             get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+             heuristic: Callable[[_S], float],
+             max_expansions: int = 10000000,
+             max_evals: int = 10000000,
+             lazy_expansion: bool = False) -> Tuple[List[_S], List[_A]]:
     """Greedy best-first search."""
     get_priority = lambda n: heuristic(n.state)
     return _run_heuristic_search(initial_state, check_goal, get_successors,
-        get_priority, max_expansions, max_evals, lazy_expansion)
+                                 get_priority, max_expansions, max_evals,
+                                 lazy_expansion)
 
 
 def run_hill_climbing(
-    initial_state: _S,
-    check_goal: Callable[[_S], bool],
-    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-    heuristic: Callable[[_S], float]
-    ) -> Tuple[List[_S], List[_A]]:
+        initial_state: _S, check_goal: Callable[[_S], bool],
+        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+        heuristic: Callable[[_S], float]) -> Tuple[List[_S], List[_A]]:
     """Simple hill climbing local search.
 
     Lower heuristic is better.
@@ -640,8 +642,7 @@ def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     return atoms
 
 
-def all_ground_operators(operator: STRIPSOperator,
-                         objects: Collection[Object]
+def all_ground_operators(operator: STRIPSOperator, objects: Collection[Object]
                          ) -> Iterator[_GroundSTRIPSOperator]:
     """Get all possible groundings of the given operator with the given
     objects."""
@@ -650,10 +651,9 @@ def all_ground_operators(operator: STRIPSOperator,
         yield operator.ground(tuple(choice))
 
 
-def all_ground_operators_given_partial(operator: STRIPSOperator,
-                                       objects: Collection[Object],
-                                       sub: VarToObjSub
-                                       ) -> Iterator[_GroundSTRIPSOperator]:
+def all_ground_operators_given_partial(
+        operator: STRIPSOperator, objects: Collection[Object],
+        sub: VarToObjSub) -> Iterator[_GroundSTRIPSOperator]:
     """Get all possible groundings of the given operator with the given objects
     such that the parameters are consistent with the given substitution."""
     assert set(sub).issubset(set(operator.parameters))
@@ -673,8 +673,8 @@ def all_ground_operators_given_partial(operator: STRIPSOperator,
         yield ground_op
 
 
-def all_ground_nsrts(
-        nsrt: NSRT, objects: Collection[Object]) -> Iterator[_GroundNSRT]:
+def all_ground_nsrts(nsrt: NSRT,
+                     objects: Collection[Object]) -> Iterator[_GroundNSRT]:
     """Get all possible groundings of the given NSRT with the given objects."""
     types = [p.type for p in nsrt.parameters]
     for choice in get_object_combinations(objects, types):
@@ -688,12 +688,14 @@ def all_ground_predicates(pred: Predicate,
 
     NOTE: Duplicate arguments in predicates are DISALLOWED.
     """
-    return {GroundAtom(pred, choice)
-            for choice in get_object_combinations(objects, pred.types)}
+    return {
+        GroundAtom(pred, choice)
+        for choice in get_object_combinations(objects, pred.types)
+    }
 
 
-def all_possible_ground_atoms(state: State, preds: Set[Predicate]
-                              ) -> List[GroundAtom]:
+def all_possible_ground_atoms(state: State,
+                              preds: Set[Predicate]) -> List[GroundAtom]:
     """Get a sorted list of all possible ground atoms in a state given the
     predicates.
 
@@ -716,21 +718,22 @@ def create_ground_atom_dataset(dataset: Dataset, predicates: Set[Predicate]
     return ground_atom_dataset
 
 
-def prune_ground_atom_dataset(ground_atom_dataset: List[GroundAtomTrajectory],
-                              kept_predicates: Collection[Predicate]
-                              ) -> List[GroundAtomTrajectory]:
+def prune_ground_atom_dataset(
+        ground_atom_dataset: List[GroundAtomTrajectory],
+        kept_predicates: Collection[Predicate]) -> List[GroundAtomTrajectory]:
     """Create a new ground atom dataset by keeping only some predicates."""
     new_ground_atom_dataset = []
     for traj, atoms in ground_atom_dataset:
         assert len(traj.states) == len(atoms)
-        kept_atoms = [{a for a in sa if a.predicate in kept_predicates}
+        kept_atoms = [{a
+                       for a in sa if a.predicate in kept_predicates}
                       for sa in atoms]
         new_ground_atom_dataset.append((traj, kept_atoms))
     return new_ground_atom_dataset
 
 
-def extract_preds_and_types(ops: Collection[NSRTOrSTRIPSOperator]) -> Tuple[
-        Dict[str, Predicate], Dict[str, Type]]:
+def extract_preds_and_types(ops: Collection[NSRTOrSTRIPSOperator]
+                            ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:
     """Extract the predicates and types used in the given operators."""
     preds = {}
     types = {}
@@ -742,24 +745,26 @@ def extract_preds_and_types(ops: Collection[NSRTOrSTRIPSOperator]) -> Tuple[
     return preds, types
 
 
-def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                            atoms: Collection[GroundAtom]
-                            ) -> List[GroundNSRTOrSTRIPSOperator]:
+def filter_static_operators(
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        atoms: Collection[GroundAtom]) -> List[GroundNSRTOrSTRIPSOperator]:
     """Filter out ground operators that don't satisfy static facts."""
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
         # This predicate is not static if it appears in any op's effects.
-        if any(any(atom.predicate == pred for atom in op.add_effects) or
-               any(atom.predicate == pred for atom in op.delete_effects)
-               for op in ground_ops):
+        if any(
+                any(atom.predicate == pred for atom in op.add_effects) or any(
+                    atom.predicate == pred for atom in op.delete_effects)
+                for op in ground_ops):
             continue
         static_preds.add(pred)
     static_facts = {atom for atom in atoms if atom.predicate in static_preds}
     # Perform filtering.
-    ground_ops = [op for op in ground_ops
-                    if not any(atom.predicate in static_preds
-                               and atom not in static_facts
-                               for atom in op.preconditions)]
+    ground_ops = [
+        op for op in ground_ops
+        if not any(atom.predicate in static_preds and atom not in static_facts
+                   for atom in op.preconditions)
+    ]
     return ground_ops
 
 
@@ -773,7 +778,7 @@ def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
         fixed_point_reached = True
         for op in ground_ops:
             if op.preconditions.issubset(reachables):
-                for new_reachable_atom in op.add_effects-reachables:
+                for new_reachable_atom in op.add_effects - reachables:
                     fixed_point_reached = False
                     reachables.add(new_reachable_atom)
         if fixed_point_reached:
@@ -783,7 +788,8 @@ def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
 
 def get_applicable_operators(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
+        atoms: Collection[GroundAtom]
+) -> Iterator[GroundNSRTOrSTRIPSOperator]:
     """Iterate over ground operators whose preconditions are satisfied.
 
     Note: the order may be nondeterministic. Users should be invariant.
@@ -809,10 +815,10 @@ def apply_operator(op: GroundNSRTOrSTRIPSOperator,
     return new_atoms
 
 
-def get_successors_from_ground_ops(atoms: Set[GroundAtom],
+def get_successors_from_ground_ops(
+        atoms: Set[GroundAtom],
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        unique: bool = True
-        ) -> Iterator[Set[GroundAtom]]:
+        unique: bool = True) -> Iterator[Set[GroundAtom]]:
     """Get all next atoms from ground operators.
 
     If unique is true, only yield each unique successor once.
@@ -828,49 +834,55 @@ def get_successors_from_ground_ops(atoms: Set[GroundAtom],
         yield next_atoms
 
 
-def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
-                                 option_specs: Sequence[OptionSpec]
-                                 ) -> Set[NSRT]:
+def ops_and_specs_to_dummy_nsrts(
+        strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec]) -> Set[NSRT]:
     """Create NSRTs from strips operators and option specs with dummy
     samplers."""
     assert len(strips_ops) == len(option_specs)
     nsrts = set()
     for op, (param_option, option_vars) in zip(strips_ops, option_specs):
-        nsrt = op.make_nsrt(param_option, option_vars,  # dummy sampler
-                            lambda s, rng, o: np.zeros(1, dtype=np.float32))
+        nsrt = op.make_nsrt(
+            param_option,
+            option_vars,  # dummy sampler
+            lambda s, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
     return nsrts
 
 
-def create_heuristic(heuristic_name: str,
-                     init_atoms: Collection[GroundAtom],
-                     goal: Collection[GroundAtom],
-                     ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                     ) -> Callable[[PyperplanFacts], float]:
+def create_heuristic(
+        heuristic_name: str,
+        init_atoms: Collection[GroundAtom],
+        goal: Collection[GroundAtom],
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+) -> Callable[[PyperplanFacts], float]:
     """Create a task planning heuristic that consumes pyperplan facts and
     estimates the cost-to-go."""
-    relaxed_operators = frozenset({RelaxedOperator(
-        (op.name, tuple(op.objects)), atoms_to_tuples(op.preconditions),
-        atoms_to_tuples(op.add_effects)) for op in ground_ops})
+    relaxed_operators = frozenset({
+        RelaxedOperator((op.name, tuple(op.objects)),
+                        atoms_to_tuples(op.preconditions),
+                        atoms_to_tuples(op.add_effects))
+        for op in ground_ops
+    })
     if heuristic_name == "hadd":
-        return _HAddHeuristic(atoms_to_tuples(init_atoms),
-                              atoms_to_tuples(goal),
-                              relaxed_operators)
+        return _HAddHeuristic(
+            atoms_to_tuples(init_atoms), atoms_to_tuples(goal),
+            relaxed_operators)
     if heuristic_name == "hmax":
-        return _HMaxHeuristic(atoms_to_tuples(init_atoms),
-                              atoms_to_tuples(goal),
-                              relaxed_operators)
+        return _HMaxHeuristic(
+            atoms_to_tuples(init_atoms), atoms_to_tuples(goal),
+            relaxed_operators)
     if heuristic_name == "hff":
-        return _HFFHeuristic(atoms_to_tuples(init_atoms),
-                             atoms_to_tuples(goal),
-                             relaxed_operators)
+        return _HFFHeuristic(
+            atoms_to_tuples(init_atoms), atoms_to_tuples(goal),
+            relaxed_operators)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
 @functools.lru_cache(maxsize=None)
 def atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
     """Convert atom to tuple for caching."""
-    return (atom.predicate.name,) + tuple(str(o) for o in atom.objects)
+    return (atom.predicate.name, ) + tuple(str(o) for o in atom.objects)
 
 
 def atoms_to_tuples(atoms: Collection[GroundAtom]) -> PyperplanFacts:
@@ -921,15 +933,15 @@ class _RelaxationHeuristic:
 
     Lightly modified from pyperplan's heuristics/relaxation.py.
     """
-    def __init__(self, initial_state: PyperplanFacts,
-                 goals: PyperplanFacts,
+
+    def __init__(self, initial_state: PyperplanFacts, goals: PyperplanFacts,
                  operators: FrozenSet[RelaxedOperator]) -> None:
         self.facts = {}
         self.operators = []
         self.goals = goals
         self.init = initial_state
         self.tie_breaker = 0
-        self.start_state = RelaxedFact(("start",))
+        self.start_state = RelaxedFact(("start", ))
 
         all_facts = initial_state | goals
         for op in operators:
@@ -971,8 +983,8 @@ class _RelaxationHeuristic:
         for fact in state:
             # Order is determined by the distance of the facts.
             # As a tie breaker we use a simple counter.
-            hq.heappush(heap, (self.facts[fact].distance,
-                               self.tie_breaker, self.facts[fact]))
+            hq.heappush(heap, (self.facts[fact].distance, self.tie_breaker,
+                               self.facts[fact]))
             self.tie_breaker += 1
 
         # Call the Dijkstra search that performs the forward pass.
@@ -996,6 +1008,7 @@ class _RelaxationHeuristic:
     def init_distance(self, state: PyperplanFacts) -> None:
         """This function resets all member variables that store information
         that needs to be recomputed for each call of the heuristic."""
+
         def _reset_fact(fact: RelaxedFact) -> None:
             fact.expanded = False
             fact.cheapest_achiever = None
@@ -1018,15 +1031,15 @@ class _RelaxationHeuristic:
     def get_cost(self, operator: RelaxedOperator) -> float:
         """This function calculates the cost of applying an operator."""
         # Accumulate the heuristic values of all preconditions.
-        cost = self._accumulate([self.facts[pre].distance
-                                 for pre in operator.preconditions])
+        cost = self._accumulate(
+            [self.facts[pre].distance for pre in operator.preconditions])
         # Add on operator application cost.
-        return cost+operator.cost
+        return cost + operator.cost
 
     def calc_goal_h(self) -> float:
         """This function calculates the heuristic value of the whole goal."""
-        return self._accumulate([self.facts[fact].distance
-                                 for fact in self.goals])
+        return self._accumulate(
+            [self.facts[fact].distance for fact in self.goals])
 
     def finished(self, achieved_goals: Set[Tuple[str, ...]],
                  queue: List[Tuple[float, float, RelaxedFact]]) -> bool:
@@ -1068,8 +1081,9 @@ class _RelaxationHeuristic:
                                 neighbor.distance = tmp_dist
                                 neighbor.cheapest_achiever = operator
                                 # And push it on the queue.
-                                hq.heappush(queue, (
-                                    tmp_dist, self.tie_breaker, neighbor))
+                                hq.heappush(
+                                    queue,
+                                    (tmp_dist, self.tie_breaker, neighbor))
                                 self.tie_breaker += 1
                 # Finally the fact is marked as expanded.
                 fact.expanded = True
@@ -1077,6 +1091,7 @@ class _RelaxationHeuristic:
 
 class _HAddHeuristic(_RelaxationHeuristic):
     """Implements the HAdd delete relaxation heuristic."""
+
     @staticmethod
     def _accumulate(distances: Collection[float]) -> float:
         return sum(distances)
@@ -1084,6 +1099,7 @@ class _HAddHeuristic(_RelaxationHeuristic):
 
 class _HMaxHeuristic(_RelaxationHeuristic):
     """Implements the HMax delete relaxation heuristic."""
+
     @staticmethod
     def _accumulate(distances: Collection[float]) -> float:
         if not distances:
@@ -1093,6 +1109,7 @@ class _HMaxHeuristic(_RelaxationHeuristic):
 
 class _HFFHeuristic(_RelaxationHeuristic):
     """Implements the HFF delete relaxation heuristic."""
+
     @staticmethod
     def _accumulate(distances: Collection[float]) -> float:
         return sum(distances)
@@ -1122,10 +1139,8 @@ class _HFFHeuristic(_RelaxationHeuristic):
             fact = q.pop()
             # Check whether this fact has a cheapest achiever and that it
             # is not already expanded
-            if (
-                fact.cheapest_achiever is not None
-                and not fact.cheapest_achiever in relaxed_plan
-            ):
+            if (fact.cheapest_achiever is not None
+                    and not fact.cheapest_achiever in relaxed_plan):
                 # Add all preconditions of the cheapest achiever to the
                 # queue.
                 for pre in fact.cheapest_achiever.preconditions:
@@ -1140,8 +1155,7 @@ class _HFFHeuristic(_RelaxationHeuristic):
 
 def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
                        predicates: Collection[Predicate],
-                       types: Collection[Type],
-                       domain_name: str) -> str:
+                       types: Collection[Type], domain_name: str) -> str:
     """Create a PDDL domain str from STRIPSOperators or NSRTs."""
     # Sort everything to ensure determinism.
     preds_lst = sorted(predicates)
@@ -1163,16 +1177,15 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
 
 def create_pddl_problem(objects: Collection[Object],
                         init_atoms: Collection[GroundAtom],
-                        goal: Collection[GroundAtom],
-                        domain_name: str,
+                        goal: Collection[GroundAtom], domain_name: str,
                         problem_name: str) -> str:
     """Create a PDDL problem str."""
     # Sort everything to ensure determinism.
     objects_lst = sorted(objects)
     init_atoms_lst = sorted(init_atoms)
     goal_lst = sorted(goal)
-    objects_str = "\n    ".join(f"{o.name} - {o.type.name}"
-                                for o in objects_lst)
+    objects_str = "\n    ".join(
+        f"{o.name} - {o.type.name}" for o in objects_lst)
     init_str = "\n    ".join(atom.pddl_str() for atom in init_atoms_lst)
     goal_str = "\n    ".join(atom.pddl_str() for atom in goal_lst)
     return f"""(define (problem {problem_name}) (:domain {domain_name})
@@ -1185,13 +1198,14 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
-def fig2data(fig: matplotlib.figure.Figure, dpi: int=150) -> Image:
+def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
     """Convert matplotlib figure into Image."""
     fig.set_dpi(dpi)
     fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_argb(),  # type: ignore
-                         dtype=np.uint8).copy()
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+    data = np.frombuffer(
+        fig.canvas.tostring_argb(),  # type: ignore
+        dtype=np.uint8).copy()
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4, ))
     data[..., [0, 1, 2, 3]] = data[..., [1, 2, 3, 0]]
     return data
 
@@ -1273,7 +1287,8 @@ def flush_cache() -> None:
     gc.collect()
     wrappers = [
         a for a in gc.get_objects()
-        if isinstance(a, functools._lru_cache_wrapper)]  # pylint: disable=protected-access
+        if isinstance(a, functools._lru_cache_wrapper)  # pylint: disable=protected-access
+    ]
 
     for wrapper in wrappers:
         wrapper.cache_clear()

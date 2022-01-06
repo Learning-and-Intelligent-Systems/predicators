@@ -1,5 +1,4 @@
-"""An approach that iteratively invents predicates.
-"""
+"""An approach that iteratively invents predicates."""
 
 from collections import defaultdict
 from typing import Set, Callable, List, Optional, Dict, Sequence, \
@@ -19,12 +18,11 @@ from predicators.src.settings import CFG
 
 
 class IterativeInventionApproach(NSRTLearningApproach):
-    """An approach that iteratively invents predicates.
-    """
+    """An approach that iteratively invents predicates."""
+
     def __init__(self, simulator: Callable[[State, Action], State],
                  initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption],
-                 types: Set[Type],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
         super().__init__(simulator, initial_predicates, initial_options,
                          types, action_space)
@@ -44,8 +42,10 @@ class IterativeInventionApproach(NSRTLearningApproach):
         ground_atom_dataset = utils.create_ground_atom_dataset(
             self._dataset, predicates)
         # Segment transitions based on changes in predicates.
-        segments = [seg for traj in ground_atom_dataset
-                    for seg in segment_trajectory(traj)]
+        segments = [
+            seg for traj in ground_atom_dataset
+            for seg in segment_trajectory(traj)
+        ]
         assert CFG.option_learner == "no_learning", \
             "Iterative invention assumes that options are given."
         for segment in segments:
@@ -73,8 +73,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
         # Finally, learn NSRTs via superclass, using all the predicates.
         self._learn_nsrts()
 
-    def _invent_for_some_op(self, segments: Sequence[Segment]
-                            ) -> Optional[Predicate]:
+    def _invent_for_some_op(
+            self, segments: Sequence[Segment]) -> Optional[Predicate]:
         # Iterate over parameterized options in a random order.
         # Run operator learning.
         pnads = learn_strips_operators(segments)
@@ -91,31 +91,29 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 return new_predicate
         return None
 
-    def _invent_for_op(self, op: STRIPSOperator,
-                       option_spec: OptionSpec,
-                       datastores: Sequence[Datastore]
-                       ) -> Optional[Predicate]:
-        """Go through the data, splitting it into positives and negatives
-        based on whether the operator correctly predicts each transition
-        or not. If there is any negative data, we have a classification
-        problem, which we solve to produce a new predicate.
+    def _invent_for_op(
+            self, op: STRIPSOperator, option_spec: OptionSpec,
+            datastores: Sequence[Datastore]) -> Optional[Predicate]:
+        """Go through the data, splitting it into positives and negatives based
+        on whether the operator correctly predicts each transition or not.
+
+        If there is any negative data, we have a classification problem,
+        which we solve to produce a new predicate.
         """
         if not op.parameters:
             # We can't learn 0-arity predicates since the vectorized
             # states would be empty, i.e. the X matrix has no features.
             return None
         param_option, option_vars = option_spec
-        opt_arg_pred = Predicate("OPT-ARGS", param_option.types,
-                                 _classifier=lambda s, o: False)  # dummy
+        opt_arg_pred = Predicate(
+            "OPT-ARGS", param_option.types,
+            _classifier=lambda s, o: False)  # dummy
         lifted_opt_atom = LiftedAtom(opt_arg_pred, option_vars)
-        op_pre = utils.wrap_atom_predicates(
-            op.preconditions, "PRE-")
-        op_add_effs = utils.wrap_atom_predicates(
-            op.add_effects, "ADD-")
-        op_del_effs = utils.wrap_atom_predicates(
-            op.delete_effects, "DEL-")
-        lifteds = frozenset(op_pre | op_add_effs | op_del_effs |
-                            {lifted_opt_atom})
+        op_pre = utils.wrap_atom_predicates(op.preconditions, "PRE-")
+        op_add_effs = utils.wrap_atom_predicates(op.add_effects, "ADD-")
+        op_del_effs = utils.wrap_atom_predicates(op.delete_effects, "DEL-")
+        lifteds = frozenset(op_pre | op_add_effs | op_del_effs
+                            | {lifted_opt_atom})
         # Organize segments by the set of objects that are in each one.
         segments_by_objects = defaultdict(list)
         for datastore in datastores:
@@ -145,21 +143,28 @@ class IterativeInventionApproach(NSRTLearningApproach):
                         segment.delete_effects, "DEL-")
                     # Check whether the grounding holds for the atoms & option.
                     # If not, continue.
-                    pre_opt_grounding = {atom for atom in grounding if
-                                         atom.predicate.name == "OPT-ARGS" or
-                                         atom.predicate.name.startswith("PRE-")}
-                    if not pre_opt_grounding.issubset(
-                        trans_atoms | {ground_opt_atom}):
+                    pre_opt_grounding = {
+                        atom
+                        for atom in grounding
+                        if atom.predicate.name == "OPT-ARGS"
+                        or atom.predicate.name.startswith("PRE-")
+                    }
+                    if not pre_opt_grounding.issubset(trans_atoms
+                                                      | {ground_opt_atom}):
                         continue
                     # Since we made it past the above check, we know that the
                     # preconditions of the operator can be bound to this
                     # transition. So, this transition belongs in our dataset.
                     # Assign it to either positive_data or negative_data
                     # depending on whether the effects hold.
-                    grounding_add_effects = {atom.ground(sub) for atom in
-                                             op_add_effs}
-                    grounding_delete_effects = {atom.ground(sub) for atom in
-                                                op_del_effs}
+                    grounding_add_effects = {
+                        atom.ground(sub)
+                        for atom in op_add_effs
+                    }
+                    grounding_delete_effects = {
+                        atom.ground(sub)
+                        for atom in op_del_effs
+                    }
                     state = segment.states[0]
                     for params, params_data in data.items():
                         predicate_objects = [sub[v] for v in params]
@@ -187,7 +192,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
             X = np.array(params_data["pos"] + params_data["neg"])
             Y = np.array([1 for _ in params_data["pos"]] +
                          [0 for _ in params_data["neg"]])
-            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
+            model = MLPClassifier(X.shape[1],
+                                  CFG.classifier_max_itr_predicate)
             model.fit(X, Y)
             fit_score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
             if fit_score < CFG.iterative_invention_accept_score:
