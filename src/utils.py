@@ -21,7 +21,7 @@ from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
-    LiftedAtom, Image, Video, Variable, PyperplanFacts, ObjToVarSub, \
+    LiftedAtom, Image, Video, Variable, ObjToVarSub, \
     VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
     _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
     NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator
@@ -842,16 +842,8 @@ def create_heuristic(heuristic_name: str,
     estimates the cost-to-go.
     """
     if heuristic_name in _PYPERPLAN_HEURISTICS:
-        _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
-        pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
-        pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
-                                                predicates, objects,
-                                                static_atoms)
-        pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
-        pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
-        return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
-                                          ground_ops, static_atoms,
-                                          pyperplan_heuristic, pyperplan_goal)
+        return _create_pyperplan_heuristic(heuristic_name, init_atoms, goal,
+                                           ground_ops, predicates, objects)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -868,12 +860,40 @@ class _Heuristic:
         raise NotImplementedError("Override me!")
 
 
+############################### Pyperplan Glue ###############################
+
+def _create_pyperplan_heuristic(
+    heuristic_name: str,
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+    ) -> _PyperplanHeuristicWrapper:
+    """Create a pyperplan heuristic that inherits from _Heuristic.
+    """
+    assert heuristic_name in _PYPERPLAN_HEURISTICS
+    _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
+    pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
+    pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
+                                            predicates, objects,
+                                            static_atoms)
+    pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
+    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
+                                      ground_ops, static_atoms,
+                                      pyperplan_heuristic, pyperplan_goal)
+
+
+_PyperplanFacts = FrozenSet[Tuple[str, ...]]
+
+
 @dataclass(frozen=True)
 class _PyperplanNode:
     """Container glue for pyperplan heuristics.
     """
-    state: PyperplanFacts
-    goal: PyperplanFacts
+    state: _PyperplanFacts
+    goal: _PyperplanFacts
 
 
 @dataclass(frozen=True)
@@ -881,18 +901,18 @@ class _PyperplanOperator:
     """Container glue for pyperplan heuristics.
     """
     name: str
-    preconditions: PyperplanFacts
-    add_effects: PyperplanFacts
-    del_effects: PyperplanFacts
+    preconditions: _PyperplanFacts
+    add_effects: _PyperplanFacts
+    del_effects: _PyperplanFacts
 
 
 @dataclass(frozen=True)
 class _PyperplanTask:
     """Container glue for pyperplan heuristics.
     """
-    facts: PyperplanFacts
-    initial_state: PyperplanFacts
-    goals: PyperplanFacts
+    facts: _PyperplanFacts
+    initial_state: _PyperplanFacts
+    goals: _PyperplanFacts
     operators: Collection[_PyperplanOperator]
 
 
@@ -902,7 +922,7 @@ class _PyperplanHeuristicWrapper(_Heuristic):
     """
     _static_atoms: Set[GroundAtom]
     _pyperplan_heuristic: _PyperplanBaseHeuristic
-    _pyperplan_goal: PyperplanFacts
+    _pyperplan_goal: _PyperplanFacts
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         # Note: filtering out static atoms.
@@ -912,8 +932,8 @@ class _PyperplanHeuristicWrapper(_Heuristic):
 
     @staticmethod
     @functools.lru_cache(maxsize=None)
-    def _evaluate(pyperplan_facts: PyperplanFacts,
-                  pyperplan_goal: PyperplanFacts,
+    def _evaluate(pyperplan_facts: _PyperplanFacts,
+                  pyperplan_goal: _PyperplanFacts,
                   pyperplan_heuristic: _PyperplanBaseHeuristic) -> float:
         pyperplan_node = _PyperplanNode(pyperplan_facts, pyperplan_goal)
         return pyperplan_heuristic(pyperplan_node)
@@ -955,11 +975,14 @@ def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
     return (atom.predicate.name,) + tuple(str(o) for o in atom.objects)
 
 
-def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> PyperplanFacts:
+def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> _PyperplanFacts:
     """Light wrapper around atom_to_tuple() that operates on a
     collection of atoms.
     """
     return frozenset({_atom_to_tuple(atom) for atom in atoms})
+
+
+############################## End Pyperplan Glue ##############################
 
 
 def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],

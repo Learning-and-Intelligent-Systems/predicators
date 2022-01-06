@@ -1022,17 +1022,21 @@ def test_operator_application():
 def test_create_heuristic():
     """Tests for create_heuristic().
     """
-    hadd_heuristic = utils.create_heuristic("hadd", set(), set(), set())
+    hadd_heuristic = utils.create_heuristic("hadd", set(), set(), set(),
+                                            set(), set())
     assert isinstance(hadd_heuristic, _PyperplanHeuristicWrapper)
     assert hadd_heuristic.name == "hadd"
-    hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set())
+    hmax_heuristic = utils.create_heuristic("hmax", set(), set(), set(),
+                                            set(), set())
     assert hmax_heuristic.name == "hmax"
     assert isinstance(hmax_heuristic, _PyperplanHeuristicWrapper)
-    hff_heuristic = utils.create_heuristic("hff", set(), set(), set())
+    hff_heuristic = utils.create_heuristic("hff", set(), set(), set(),
+                                           set(), set())
     assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
     assert hff_heuristic.name == "hff"
     with pytest.raises(ValueError):
-        utils.create_heuristic("not a real heuristic", set(), set(), set())
+        utils.create_heuristic("not a real heuristic", set(), set(), set(),
+                               set(), set())
 
 
 def test_create_pddl():
