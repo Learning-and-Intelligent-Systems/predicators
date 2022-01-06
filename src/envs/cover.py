@@ -749,7 +749,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         block, robot = o
         # Pick is done when we're holding the desired object.
         terminal = self._Holding_holds(s, [block, robot])
-        if terminal and not CFG.do_sampler_learning:
+        if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
             assert np.allclose(p, param_from_terminal, atol=1e-03)
@@ -856,7 +856,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         block, robot, _ = o
         # Place is done when the hand is empty.
         terminal = self._HandEmpty_holds(s, [])
-        if terminal and not CFG.do_sampler_learning:
+        if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
             # Note that here we require a tolerance of no less than 1e-02
