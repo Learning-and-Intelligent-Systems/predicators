@@ -59,6 +59,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         final_nsrts.add(nsrt)
     return final_nsrts
 
+
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
     """Helper for loading types, predicates, and options by name.
