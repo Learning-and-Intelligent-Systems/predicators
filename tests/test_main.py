@@ -50,7 +50,7 @@ def test_main():
     results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123", "--num_test_tasks", "1"]
-                # "--results_dir", results_dir]
+                "--results_dir", results_dir]
     main()
     shutil.rmtree(results_dir)
     # Try running main with a strong timeout.
