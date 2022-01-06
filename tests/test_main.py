@@ -47,13 +47,19 @@ def test_main():
                 "--video_dir", video_dir]
     main()
     shutil.rmtree(video_dir)
+    results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
+    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
+                "--seed", "123", "--num_test_tasks", "1",
+                "--results_dir", results_dir]
+    main()
+    shutil.rmtree(results_dir)
     # Try running main with a strong timeout.
     sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
                 "--seed", "123", "--timeout", "0.001", "--num_test_tasks", "5"]
     main()
     # Run actual main approach, but without sampler learning.
     sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
-                "--seed", "123", "--do_sampler_learning", "0"]
+                "--seed", "123", "--sampler_learner", "random"]
     main()
     # Try loading.
     sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
@@ -62,7 +68,7 @@ def test_main():
     # Try learning (with too low hyperparameters to actually work).
     sys.argv = ["dummy", "--env", "cover", "--approach",
                 "nsrt_learning", "--seed", "123",
-                "--do_sampler_learning", "1",
+                "--sampler_learner", "neural",
                 "--classifier_max_itr_sampler", "10",
                 "--regressor_max_itr", "10",
                 "--timeout", "0.01"]

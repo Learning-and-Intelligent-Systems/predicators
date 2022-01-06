@@ -126,45 +126,46 @@ class PlayroomEnv(BlocksEnv):
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._Move = ParameterizedOption(
-            # variables: [robot]
+            # variables: [robot, door, region]
             # params: [x, y, rotation]
-            "Move", types=[self._robot_type],
+            "Move", types=[self._robot_type, self._door_type,
+                           self._region_type],
             params_space=Box(low=np.array([self.x_lb, self.y_lb, -1.0]),
                              high=np.array([self.x_ub, self.y_ub, 1.0])),
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._OpenDoor = ParameterizedOption(
-            # variables: [door]
+            # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
-            "OpenDoor", types=[self._door_type],
+            "OpenDoor", types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._CloseDoor = ParameterizedOption(
-            # variables: [door]
+            # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
-            "CloseDoor", types=[self._door_type],
+            "CloseDoor", types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._TurnOnDial = ParameterizedOption(
-            # variables: [dial]
+            # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
-            "TurnOnDial", types=[self._dial_type],
+            "TurnOnDial", types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._TurnOffDial = ParameterizedOption(
-            # variables: [dial]
+            # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
-            "TurnOffDial", types=[self._dial_type],
+            "TurnOffDial", types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
@@ -192,6 +193,12 @@ class PlayroomEnv(BlocksEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
+        was_next_to_table = self._NextToTable_holds(state, (self._robot,))
+        was_next_to_door = {door: self._NextToDoor_holds(
+                                    state, (self._robot, door))
+                            for door in self._doors}
+        was_next_to_dial = self._NextToDial_holds(
+                                    state, (self._robot, self._dial))
         # Update robot position
         if not self._is_valid_loc(x, y):
             return state.copy()
@@ -200,8 +207,9 @@ class PlayroomEnv(BlocksEnv):
 
         x = state.get(self._robot, "pose_x")
         y = state.get(self._robot, "pose_y")
-        # Interact with blocks
-        if (self.table_x_lb < x < self.table_x_ub) \
+        # Interact with blocks if robot was already next to table
+        if was_next_to_table \
+            and (self.table_x_lb < x < self.table_x_ub) \
             and (self.table_y_lb < y < self.table_y_ub) \
             and self._robot_is_facing_table(action):
             if fingers < 0.5:
@@ -213,19 +221,22 @@ class PlayroomEnv(BlocksEnv):
         if any(self._NextToDoor_holds(state, (self._robot, door))
                for door in self._doors):
             door = self._get_door_next_to(state)
-            door_x = state.get(door, "pose_x")
-            door_y = state.get(door, "pose_y")
-            if (door_x-self.door_tol < x < door_x+self.door_tol) \
-                and (door_y-self.door_tol < y < door_y+self.door_tol) \
-                and (self.door_button_z-self.door_tol < z
-                        < self.door_button_z+self.door_tol) \
-                and fingers >= self.open_fingers \
-                and self._robot_is_facing_door(state, action, door):
-                return self._transition_door(state, door)
-        # Interact with dial
+            if was_next_to_door[door]:  # Robot was already next to this door
+                door_x = state.get(door, "pose_x")
+                door_y = state.get(door, "pose_y")
+                if (door_x-self.door_tol < x < door_x+self.door_tol) \
+                    and (door_y-self.door_tol < y < door_y+self.door_tol) \
+                    and (self.door_button_z-self.door_tol < z
+                            < self.door_button_z+self.door_tol) \
+                    and fingers >= self.open_fingers \
+                    and self._robot_is_facing_door(state, action, door):
+                    return self._transition_door(state, door)
+        # Interact with dial if robot was already next to dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        if (dial_x-self.dial_button_tol < x < dial_x+self.dial_button_tol) \
+        if was_next_to_dial \
+            and (dial_x-self.dial_button_tol < x
+                    < dial_x+self.dial_button_tol) \
             and (dial_y-self.dial_button_tol < y
                     < dial_y+self.dial_button_tol) \
             and (self.dial_button_z-self.dial_button_tol < z
@@ -680,7 +691,7 @@ class PlayroomEnv(BlocksEnv):
     def _Move_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        robot, = objects
+        robot, _, _= objects
         fingers = state.get(robot, "fingers")
         arr = np.r_[params[:-1], 1.0, params[-1], fingers].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
@@ -689,7 +700,7 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDoor_policy(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        door, = objects
+        _, door = objects
         door_pose = np.array([state.get(door, "pose_x"),
                               state.get(door, "pose_y"),
                               self.door_button_z])
@@ -700,7 +711,7 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDial_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        dial, = objects
+        _, dial = objects
         dial_pose = np.array([state.get(dial, "pose_x"),
                               state.get(dial, "pose_y"),
                               self.dial_button_z])
