@@ -204,7 +204,7 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        predicates: Collection[Predicate]) -> bool:
     """Return whether the given policy solves the given task.
     """
-    _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
+    _, _, _ = run_policy_on_task(policy, task, simulator, predicates,
                                       CFG.max_num_steps_check_policy)
 
 
