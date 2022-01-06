@@ -8,7 +8,7 @@ from collections import defaultdict
 import heapq as hq
 import time
 from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
