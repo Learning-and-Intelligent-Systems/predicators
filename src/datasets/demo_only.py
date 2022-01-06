@@ -21,7 +21,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         traj, _, solved = utils.run_policy_on_task(
             policy, task, env.simulate, env.predicates,
             CFG.max_num_steps_check_policy, annotate_traj_with_goal=True)
-        if CFG.do_option_learning:
+        if CFG.option_learner != "no_learning":
             for act in traj.actions:
                 act.unset_option()
         assert solved, "Oracle failed on training task."

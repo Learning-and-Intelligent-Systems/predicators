@@ -489,8 +489,7 @@ def _create_score_function(
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
-    raise NotImplementedError(
-        f"Unknown score function: {score_function_name}.")
+    raise NotImplementedError(f"Unknown score function: {score_function_name}.")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
