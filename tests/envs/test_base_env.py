@@ -2,7 +2,8 @@
 """
 
 import pytest
-from predicators.src.envs import BaseEnv, create_env, EnvironmentFailure
+from predicators.src.envs import BaseEnv, create_env, EnvironmentFailure, \
+    get_cached_env_instance
 from predicators.src.structs import State, Type, Task
 
 
@@ -39,13 +40,15 @@ def test_base_env():
 
 
 def test_create_env():
-    """Tests for create_env.
+    """Tests for create_env() and get_cached_env_instance().
     """
     for name in ["cover", "cover_typed_options", "cover_hierarchical_types",
                  "cluttered_table", "blocks", "playroom", "painting",
                  "repeated_nextto"]:
         env = create_env(name)
         assert isinstance(env, BaseEnv)
+        other_env = get_cached_env_instance(name)
+        assert env is other_env
     with pytest.raises(NotImplementedError):
         create_env("Not a real env")
 
