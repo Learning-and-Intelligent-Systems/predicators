@@ -250,7 +250,7 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
-                         sampler_learner: bool) -> None:
+                         sampler_learner: str) -> None:
     print("\nDoing sampler learning...")
     strips_ops = []
     datastores = []

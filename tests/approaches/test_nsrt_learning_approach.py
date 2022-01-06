@@ -24,6 +24,7 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                          "classifier_max_itr_predicate": 200,
                          "excluded_predicates": excluded_predicates,
                          "learn_side_predicates": learn_side_predicates,
+                         "option_learner": "no_learning",
                          "sampler_learner": sampler_learner})
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
@@ -61,7 +62,11 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class.
     """
-    _test_approach(env_name="cover", approach_name="nsrt_learning")
+    _test_approach(env_name="blocks", approach_name="nsrt_learning")
+    with pytest.raises(NotImplementedError):  # bad sampler_learner
+        _test_approach(env_name="cover_multistep_options",
+                       approach_name="nsrt_learning", try_solving=False,
+                       sampler_learner="not a real sampler learner")
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning", try_solving=False,
                    sampler_learner="random")
