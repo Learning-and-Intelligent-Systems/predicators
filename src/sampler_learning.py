@@ -16,38 +16,41 @@ def learn_samplers(
     strips_ops: List[STRIPSOperator],
     datastores: List[Datastore],
     option_specs: List[OptionSpec],
-    do_sampler_learning: bool
+    sampler_learner: str
     ) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters.
     """
     samplers = []
     for i, op in enumerate(strips_ops):
-        sampler = _learn_sampler(
-            datastores, op.name, op.parameters, op.preconditions,
-            op.add_effects, op.delete_effects, option_specs[i][0], i,
-            do_sampler_learning)
+        param_option, _ = option_specs[i]
+        if sampler_learner == "random" or \
+           param_option.params_space.shape == (0,):
+            sampler = _RandomSampler(param_option).sampler
+        elif sampler_learner == "neural":
+            sampler = _learn_neural_sampler(
+                datastores, op.name, op.parameters, op.preconditions,
+                op.add_effects, op.delete_effects, param_option, i)
+        else:
+            raise NotImplementedError("Unknown sampler_learner: "
+                                      f"{CFG.sampler_learner}")
         samplers.append(sampler)
     return samplers
 
 
-def _learn_sampler(datastores: List[Datastore],
-                   nsrt_name: str,
-                   variables: Sequence[Variable],
-                   preconditions: Set[LiftedAtom],
-                   add_effects: Set[LiftedAtom],
-                   delete_effects: Set[LiftedAtom],
-                   param_option: ParameterizedOption,
-                   datastore_idx: int, do_sampler_learning: bool
-                   ) -> NSRTSampler:
-    """Learn a sampler given data. Transitions are clustered, so
+def _learn_neural_sampler(datastores: List[Datastore],
+                          nsrt_name: str,
+                          variables: Sequence[Variable],
+                          preconditions: Set[LiftedAtom],
+                          add_effects: Set[LiftedAtom],
+                          delete_effects: Set[LiftedAtom],
+                          param_option: ParameterizedOption,
+                          datastore_idx: int) -> NSRTSampler:
+    """Learn a neural network sampler given data. Transitions are clustered, so
     that they can be used for generating negative data. Integer datastore_idx
     represents the index into transitions corresponding to the datastore that
-    this sampler is being learned for. If do_sampler_learning is False,
-    just returns a random sampler.
+    this sampler is being learned for.
     """
-    if not do_sampler_learning or param_option.params_space.shape == (0,):
-        return _RandomSampler(param_option).sampler
-    print(f"\nLearning sampler for NSRT {nsrt_name}")
+    print(f"\nLearning neural sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
         datastores, variables, preconditions, add_effects, delete_effects,

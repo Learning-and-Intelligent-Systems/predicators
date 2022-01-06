@@ -24,7 +24,7 @@ def test_known_options_option_learner():
                          "approach": "nsrt_learning",
                          "seed": 123,
                          "num_train_tasks": 3,
-                         "do_option_learning": False})
+                         "option_learner": "no_learning"})
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -56,7 +56,7 @@ def test_known_options_option_learner():
     utils.update_config({"env": "cover",
                          "approach": "nsrt_learning",
                          "seed": 123,
-                         "do_option_learning": False})
+                         "option_learner": "no_learning"})
 
 
 def test_oracle_option_learner_cover():
@@ -72,7 +72,6 @@ def test_oracle_option_learner_cover():
                          "approach": "nsrt_learning",
                          "seed": 123,
                          "num_train_tasks": 3,
-                         "do_option_learning": True,
                          "option_learner": "oracle"})
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
@@ -107,7 +106,7 @@ def test_oracle_option_learner_cover():
     utils.update_config({"env": "cover",
                          "approach": "nsrt_learning",
                          "seed": 123,
-                         "do_option_learning": False})
+                         "option_learner": "no_learning"})
 
 
 def test_oracle_option_learner_blocks():
@@ -123,7 +122,6 @@ def test_oracle_option_learner_blocks():
                          "approach": "nsrt_learning",
                          "seed": 123,
                          "num_train_tasks": 3,
-                         "do_option_learning": True,
                          "option_learner": "oracle"})
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
@@ -165,7 +163,7 @@ def test_oracle_option_learner_blocks():
     utils.update_config({"env": "blocks",
                          "approach": "nsrt_learning",
                          "seed": 123,
-                         "do_option_learning": False})
+                         "option_learner": "no_learning"})
 
 
 def test_create_option_learner():
@@ -178,7 +176,6 @@ def test_create_option_learner():
                          "approach": "nsrt_learning",
                          "seed": 123,
                          "num_train_tasks": 3,
-                         "do_option_learning": True,
                          "option_learner": "not a real option learner"})
     with pytest.raises(NotImplementedError):
         create_option_learner()
@@ -186,4 +183,4 @@ def test_create_option_learner():
     utils.update_config({"env": "blocks",
                          "approach": "nsrt_learning",
                          "seed": 123,
-                         "do_option_learning": False})
+                         "option_learner": "no_learning"})
