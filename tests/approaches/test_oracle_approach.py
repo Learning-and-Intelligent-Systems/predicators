@@ -63,25 +63,30 @@ def test_get_gt_nsrts():
         get_gt_nsrts(set(), set())
 
 
+def _check_nsrt_parameters(nsrts: Set[NSRT]) -> None:
+    for nsrt in nsrts:
+        effects_vars: Set[Variable] = set()
+        precond_vars: Set[Variable] = set()
+        for lifted_atom in nsrt.add_effects:
+            effects_vars |= set(lifted_atom.variables)
+        for lifted_atom in nsrt.delete_effects:
+            effects_vars |= set(lifted_atom.variables)
+        for lifted_atom in nsrt.preconditions:
+            precond_vars |= set(lifted_atom.variables)
+        assert set(nsrt.option_vars).issubset(nsrt.parameters), \
+            f"Option variables is not a subset of parameters in {nsrt.name}"
+        for var in nsrt.parameters:
+            assert var in nsrt.option_vars or var in effects_vars, \
+                f"Variable {var} not found in effects or option of {nsrt.name}"
+        assert set(nsrt.parameters) == (set(nsrt.option_vars) | precond_vars |
+                                        effects_vars), \
+            f"Set of parameters is not the union of option and operator " \
+            f"variables in {nsrt.name}"
+
+
 def test_check_nsrt_parameters():
     """Checks all of the oracle operators for all envs.
     """
-    def check_nsrt_parameters(nsrts: Set[NSRT]) -> None:
-        for nsrt in nsrts:
-            effects_vars: Set[Variable] = set()
-            precond_vars: Set[Variable] = set()
-            for lifted_atom in nsrt.add_effects:
-                effects_vars |= set(lifted_atom.variables)
-            for lifted_atom in nsrt.delete_effects:
-                effects_vars |= set(lifted_atom.variables)
-            for lifted_atom in nsrt.preconditions:
-                precond_vars |= set(lifted_atom.variables)
-            assert set(nsrt.option_vars).issubset(nsrt.parameters), \
-                f"Option variables is not a subset of parameters in {nsrt}"
-            for var in nsrt.parameters:
-                assert var in nsrt.option_vars or var in effects_vars, \
-                    f"Variable {var} not found in effects or option of {nsrt}"
-
     envs = {"cover": CoverEnv(), "cover_typed_options": CoverEnvTypedOptions(),
             "cover_hierarchical_types": CoverEnvHierarchicalTypes(),
             "cluttered_table": ClutteredTableEnv(), "blocks": BlocksEnv(),
@@ -91,7 +96,7 @@ def test_check_nsrt_parameters():
     for name, env in envs.items():
         utils.update_config({"env": name})
         nsrts = get_gt_nsrts(env.predicates, env.options)
-        check_nsrt_parameters(nsrts)  # pylint: disable=protected-access
+        _check_nsrt_parameters(nsrts)
 
 
 def test_oracle_approach_cover():
