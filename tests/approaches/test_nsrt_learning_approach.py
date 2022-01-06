@@ -20,9 +20,7 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                          "seed": 12345, "regressor_max_itr": 200,
                          "classifier_max_itr_sampler": 200,
                          "classifier_max_itr_predicate": 200,
-                         "excluded_predicates": excluded_predicates,
-                         "do_sampler_learning": True,
-                         "do_option_learning": False})
+                         "excluded_predicates": excluded_predicates)
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
@@ -65,7 +63,8 @@ def test_nsrt_learning_approach():
     # Sampler learning requires more data than we are allowing for fast
     # unit tests, so don't try solving.
     _test_approach(env_name="cover_multistep_options",
-                   approach_name="nsrt_learning", try_solving=False)
+                   approach_name="nsrt_learning", try_solving=False,
+                   sampler_learner="random")
 
 
 def test_iterative_invention_approach():
