@@ -24,8 +24,7 @@ _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
 @dataclass(repr=False, eq=False)
 class _Node:
-    """A node for the search over skeletons.
-    """
+    """A node for the search over skeletons."""
     atoms: Collection[GroundAtom]
     skeleton: List[_GroundNSRT]
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
@@ -45,9 +44,11 @@ def sesame_plan(task: Task,
                 seed: int,
                 check_dr_reachable: bool = True,
                 ) -> Tuple[List[_Option], Metrics]:
-    """Run TAMP. Return a sequence of options, and a dictionary
-    of metrics for this run of the planner. Uses the SeSamE strategy:
-    SEarch-and-SAMple planning, then Execution.
+    """Run TAMP.
+
+    Return a sequence of options, and a dictionary of metrics for this
+    run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
+    planning, then Execution.
     """
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
@@ -107,12 +108,12 @@ def task_plan(init_atoms: Set[GroundAtom],
                          List[Collection[GroundAtom]],
                          Metrics]:
     """Run only the task planning portion of SeSamE. A* search is run, and the
-    first skeleton that achieves the goal symbolically is returned.
-    Returns a tuple of (skeleton, atoms sequence, metrics dictionary).
+    first skeleton that achieves the goal symbolically is returned. Returns a
+    tuple of (skeleton, atoms sequence, metrics dictionary).
 
-    This method is NOT used by SeSamE, but is instead provided as a convenient
-    wrapper around _skeleton_generator below (which IS used by SeSamE) that
-    takes in only the minimal necessary arguments.
+    This method is NOT used by SeSamE, but is instead provided as a
+    convenient wrapper around _skeleton_generator below (which IS used
+    by SeSamE) that takes in only the minimal necessary arguments.
     """
     nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
@@ -196,8 +197,7 @@ def _run_low_level_search(
         predicates: Set[Predicate],
         seed: int,
         timeout: float) -> Optional[List[_Option]]:
-    """Backtracking search over continuous values.
-    """
+    """Backtracking search over continuous values."""
     start_time = time.time()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
@@ -291,9 +291,11 @@ def _update_nsrts_with_failure(
         ground_nsrts: List[_GroundNSRT]
         ) -> List[_GroundNSRT]:
     """Update the given set of ground_nsrts based on the given
-    DiscoveredFailure. Returns a new list of ground NSRTs to replace the input
-    one, where all ground NSRTs that need modification are replaced with new
-    ones (because _GroundNSRTs are frozen).
+    DiscoveredFailure.
+
+    Returns a new list of ground NSRTs to replace the input one, where
+    all ground NSRTs that need modification are replaced with new ones
+    (because _GroundNSRTs are frozen).
     """
     new_ground_nsrts = []
     for obj in discovered_failure.env_failure.offending_objects:
@@ -319,17 +321,15 @@ def _update_nsrts_with_failure(
 
 @dataclass(frozen=True, eq=False)
 class _DiscoveredFailure:
-    """Container class for holding information related to a low-level
-    discovery of a failure which must be propagated up to the main
-    search function, in order to restart A* search with new NSRTs.
-    """
+    """Container class for holding information related to a low-level discovery
+    of a failure which must be propagated up to the main search function, in
+    order to restart A* search with new NSRTs."""
     env_failure: EnvironmentFailure
     failing_nsrt: _GroundNSRT
 
 
 class _DiscoveredFailureException(Exception):
-    """Exception class for DiscoveredFailure propagation.
-    """
+    """Exception class for DiscoveredFailure propagation."""
     def __init__(self, message: str, discovered_failure: _DiscoveredFailure):
         super().__init__(message)
         self.discovered_failure = discovered_failure

@@ -1,5 +1,7 @@
 """Contains global, immutable settings.
-Anything that varies between runs should be a command-line arg (args.py).
+
+Anything that varies between runs should be a command-line arg
+(args.py).
 """
 
 import os
@@ -10,8 +12,7 @@ import numpy as np
 
 
 class GlobalSettings:
-    """Unchanging settings.
-    """
+    """Unchanging settings."""
     # parameters for all envs
     num_train_tasks = 15
     num_test_tasks = 50
@@ -131,9 +132,8 @@ class GlobalSettings:
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
-        """A workaround for global settings that are
-        derived from the experiment-specific args
-        """
+        """A workaround for global settings that are derived from the
+        experiment-specific args."""
         if "env" not in args:
             args["env"] = ""
         if "approach" not in args:

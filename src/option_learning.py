@@ -1,5 +1,4 @@
-"""Definitions of option learning strategies.
-"""
+"""Definitions of option learning strategies."""
 
 from __future__ import annotations
 import abc
@@ -12,8 +11,7 @@ from predicators.src.envs import create_env, BlocksEnv
 
 
 def create_option_learner() -> _OptionLearnerBase:
-    """Create an option learner given its name.
-    """
+    """Create an option learner given its name."""
     if CFG.option_learner == "no_learning":
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
@@ -24,17 +22,18 @@ def create_option_learner() -> _OptionLearnerBase:
 class _OptionLearnerBase:
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
-    with options.
-    """
+    with options."""
     @abc.abstractmethod
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
             datastores: List[Datastore]) -> List[OptionSpec]:
-        """Given datastores and STRIPS operators that were fit on them,
-        learn option specs, which are tuples of (ParameterizedOption,
-        Sequence[Variable]). The returned option specs should be one-to-one
-        with the given strips_ops / datastores (which are already one-to-one
-        with each other).
+        """Given datastores and STRIPS operators that were fit on them, learn
+        option specs, which are tuples of (ParameterizedOption,
+        Sequence[Variable]).
+
+        The returned option specs should be one-to-one with the given
+        strips_ops / datastores (which are already one-to-one with each
+        other).
         """
         raise NotImplementedError("Override me!")
 
@@ -45,18 +44,17 @@ class _OptionLearnerBase:
         Modify the segment in-place to include this option, via
         segment.set_option().
 
-        At this point, we know which ParameterizedOption was used, and we know
-        the option_vars. This information is included in the given option_spec.
-        But we don't know what parameters were used in the option,
-        which this method should figure out.
+        At this point, we know which ParameterizedOption was used, and
+        we know the option_vars. This information is included in the
+        given option_spec. But we don't know what parameters were used
+        in the option, which this method should figure out.
         """
         raise NotImplementedError("Override me!")
 
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
-    CFG.option_learner is "no_learning".
-    """
+    CFG.option_learner is "no_learning"."""
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
             datastores: List[Datastore]) -> List[OptionSpec]:
@@ -93,7 +91,9 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
 
 class _OracleOptionLearner(_OptionLearnerBase):
     """The option learner that just cheats by looking up ground truth options
-    from the environment. Useful for testing.
+    from the environment.
+
+    Useful for testing.
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
