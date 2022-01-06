@@ -231,8 +231,9 @@ def test_powerset():
     assert list(utils.powerset([], exclude_empty=False)) == [tuple()]
 
 
-def test_unify():
-    """Tests for unify().
+def test_unify_lifted_to_ground():
+    """Tests for unify() when lifted atoms are the first argument and
+    ground atoms are the second argument.
     """
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
@@ -309,6 +310,120 @@ def test_unify():
     found, assignment = utils.unify(kb9, q9)
     assert not found
     assert assignment == {}
+
+
+def test_unify_other_liftedground_combinations():
+    """Tests for unify() with other combinations of ground/lifted atoms.
+    """
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    var0 = cup_type("?var0")
+    var1 = cup_type("?var1")
+    var2 = cup_type("?var2")
+    pred0 = Predicate("Pred0", [cup_type], lambda s, o: True)
+    pred1 = Predicate("Pred1", [cup_type, cup_type], lambda s, o: True)
+    pred2 = Predicate("Pred2", [cup_type], lambda s, o: True)
+
+    kb0 = frozenset({pred0([var0])})
+    q0 = frozenset({pred0([cup0])})
+    found, assignment = utils.unify(kb0, q0)
+    assert found
+    assert assignment == {var0: cup0}
+
+    kb1 = frozenset({pred0([var0])})
+    q1 = frozenset({pred0([var1])})
+    found, assignment = utils.unify(kb1, q1)
+    assert found
+    assert assignment == {var0: var1}
+
+    kb2 = frozenset({pred0([cup0])})
+    q2 = frozenset({pred0([cup2])})
+    found, assignment = utils.unify(kb2, q2)
+    assert found
+    assert assignment == {cup0: cup2}
+
+
+def test_unify_preconds_effects_options():
+    """Tests for unify_preconds_effects_options().
+    """
+    # The following test checks edge cases of unification with respect to
+    # the split between effects and option variables.
+    # The case is basically this:
+    # Add set 1: P(a, b)
+    # Option 1: A(b, c)
+    # Add set 2: P(w, x)
+    # Option 2: A(y, z)
+    cup_type = Type("cup_type", ["feat1"])
+    cup0 = cup_type("cup0")
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    w = cup_type("?w")
+    x = cup_type("?x")
+    y = cup_type("?y")
+    z = cup_type("?z")
+    pred0 = Predicate("Pred0", [cup_type, cup_type], lambda s, o: False)
+    param_option0 = ParameterizedOption(
+        "dummy0", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False)
+    # Option0(cup0, cup1)
+    ground_option_args = (cup0, cup1)
+    # Pred0(cup1, cup2) true
+    ground_add_effects = frozenset({pred0([cup1, cup2])})
+    ground_delete_effects = frozenset()
+    # Option0(w, x)
+    lifted_option_args = (w, x)
+    # Pred0(y, z) True
+    lifted_add_effects = frozenset({pred0([y, z])})
+    lifted_delete_effects = frozenset()
+    suc, sub = utils.unify_preconds_effects_options(
+        frozenset(),
+        frozenset(),
+        ground_add_effects,
+        lifted_add_effects,
+        ground_delete_effects,
+        lifted_delete_effects,
+        param_option0,
+        param_option0,
+        ground_option_args,
+        lifted_option_args)
+    assert not suc
+    assert not sub
+    # The following test is for an edge case where everything is identical
+    # except for the name of the parameterized option. We do not want to
+    # unify in this case.
+    # First, a unify that should succeed.
+    suc, sub = utils.unify_preconds_effects_options(
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        param_option0,
+        param_option0,
+        (cup0, cup1),
+        (cup0, cup1))
+    assert suc
+    assert sub == {cup0: cup0, cup1: cup1}
+    # Now, a unify that should fail because of different parameterized options.
+    param_option1 = ParameterizedOption(
+        "dummy1", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: False, lambda s, m, o, p: False)
+    suc, sub = utils.unify_preconds_effects_options(
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        frozenset(),
+        param_option0,
+        param_option1,
+        (cup0, cup1),
+        (cup0, cup1))
+    assert not suc
+    assert not sub
 
 
 def test_get_random_object_combination():

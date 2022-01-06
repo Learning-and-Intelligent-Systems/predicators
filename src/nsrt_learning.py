@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet
+from typing import Set, Tuple, List, Sequence, FrozenSet, cast
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
     LowLevelTrajectory, Segment, PartialNSRTAndDatastore, Object, \
@@ -150,7 +150,8 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             # Note that both add and delete effects must unify,
             # and also the objects that are arguments to the options.
             (pnad_param_option, pnad_option_vars) = pnad.option_spec
-            suc, sub = unify_effects_and_options(
+            suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
+                frozenset(), frozenset(),  # no preconditions
                 frozenset(segment.add_effects),
                 frozenset(pnad.op.add_effects),
                 frozenset(segment.delete_effects),
@@ -159,6 +160,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                 pnad_param_option,
                 segment_option_objs,
                 tuple(pnad_option_vars))
+            sub = cast(ObjToVarSub, ent_to_ent_sub)
             if suc:
                 # Add to this PNAD.
                 assert set(sub.values()) == set(pnad.op.parameters)
@@ -265,54 +267,3 @@ def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
     # Replace the samplers in the PNADs.
     for pnad, sampler in zip(pnads, samplers):
         pnad.sampler = sampler
-
-
-@functools.lru_cache(maxsize=None)
-def unify_effects_and_options(
-        ground_add_effects: FrozenSet[GroundAtom],
-        lifted_add_effects: FrozenSet[LiftedAtom],
-        ground_delete_effects: FrozenSet[GroundAtom],
-        lifted_delete_effects: FrozenSet[LiftedAtom],
-        ground_param_option: ParameterizedOption,
-        lifted_param_option: ParameterizedOption,
-        ground_option_args: Tuple[Object, ...],
-        lifted_option_args: Tuple[Variable, ...]
-) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles option arguments, add effects,
-    and delete effects. Changes predicate names so that all are treated
-    differently by utils.unify().
-    """
-    # Can't unify if the parameterized options are different.
-    # Note, of course, we could directly check this in the loop above. But we
-    # want to keep all the unification logic in one place, even if it's trivial
-    # in this case.
-    if ground_param_option != lifted_param_option:
-        return False, {}
-    ground_opt_arg_pred = Predicate("OPT-ARGS",
-                                    [a.type for a in ground_option_args],
-                                    _classifier=lambda s, o: False)  # dummy
-    f_ground_option_args = frozenset({GroundAtom(ground_opt_arg_pred,
-                                                 ground_option_args)})
-    new_ground_add_effects = utils.wrap_atom_predicates(
-        ground_add_effects, "ADD-")
-    f_new_ground_add_effects = frozenset(new_ground_add_effects)
-    new_ground_delete_effects = utils.wrap_atom_predicates(
-        ground_delete_effects, "DEL-")
-    f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
-
-    lifted_opt_arg_pred = Predicate("OPT-ARGS",
-                                    [a.type for a in lifted_option_args],
-                                    _classifier=lambda s, o: False)  # dummy
-    f_lifted_option_args = frozenset({LiftedAtom(lifted_opt_arg_pred,
-                                                 lifted_option_args)})
-    new_lifted_add_effects = utils.wrap_atom_predicates(
-        lifted_add_effects, "ADD-")
-    f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
-    new_lifted_delete_effects = utils.wrap_atom_predicates(
-        lifted_delete_effects, "DEL-")
-    f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
-    return utils.unify(
-        f_ground_option_args | f_new_ground_add_effects | \
-            f_new_ground_delete_effects,
-        f_lifted_option_args | f_new_lifted_add_effects | \
-            f_new_lifted_delete_effects)
