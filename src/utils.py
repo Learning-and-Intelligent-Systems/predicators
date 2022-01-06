@@ -307,6 +307,32 @@ def get_object_combinations(
         yield list(choice)
 
 
+@functools.lru_cache(maxsize=None)
+def get_all_ground_atoms_for_predicate(predicate: Predicate,
+                                       objects: FrozenSet[Object]
+                                       ) -> Set[GroundAtom]:
+    """Get all groundings of the predicate given objects.
+    """
+    ground_atoms = set()
+    for args in get_object_combinations(objects, predicate.types):
+        ground_atom = GroundAtom(predicate, args)
+        ground_atoms.add(ground_atom)
+    return ground_atoms
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_ground_atoms(predicates: FrozenSet[Predicate],
+                         objects: FrozenSet[Object]
+                         ) -> Set[GroundAtom]:
+    """Get all groundings of the predicates given objects.
+    """
+    ground_atoms = set()
+    for predicate in predicates:
+        ground_atoms.update(get_all_ground_atoms_for_predicate(predicate,
+                                                               objects))
+    return ground_atoms
+
+
 def get_random_object_combination(
         objects: Collection[Object], types: Sequence[Type],
         rng: np.random.Generator) -> List[Object]:
@@ -695,10 +721,10 @@ def extract_preds_and_types(ops: Collection[NSRTOrSTRIPSOperator]) -> Tuple[
     return preds, types
 
 
-def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                            atoms: Collection[GroundAtom]
-                            ) -> List[GroundNSRTOrSTRIPSOperator]:
-    """Filter out ground operators that don't satisfy static facts.
+def get_static_preds_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                           atoms: Collection[GroundAtom]
+                           ) -> Tuple[Set[Predicate], Set[GroundAtom]]:
+    """Get predicates and atoms that are static w.r.t. the operators.
     """
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
@@ -708,11 +734,20 @@ def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                for op in ground_ops):
             continue
         static_preds.add(pred)
-    static_facts = {atom for atom in atoms if atom.predicate in static_preds}
+    static_atoms = {atom for atom in atoms if atom.predicate in static_preds}
+    return static_preds, static_atoms
+
+
+def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                            atoms: Collection[GroundAtom]
+                            ) -> List[GroundNSRTOrSTRIPSOperator]:
+    """Filter out ground operators that don't satisfy static atoms.
+    """
+    static_preds, static_atoms = get_static_preds_atoms(ground_ops, atoms)
     # Perform filtering.
     ground_ops = [op for op in ground_ops
                     if not any(atom.predicate in static_preds
-                               and atom not in static_facts
+                               and atom not in static_atoms
                                for atom in op.preconditions)]
     return ground_ops
 
@@ -797,23 +832,26 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
 
 
 def create_heuristic(heuristic_name: str,
-                     all_reachable_atoms: Collection[GroundAtom],
-                     init_atoms: Collection[GroundAtom],
-                     goal: Collection[GroundAtom],
+                     init_atoms: Set[GroundAtom],
+                     goal: Set[GroundAtom],
                      ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                     predicates: Collection[Predicate],
+                     objects: Collection[Object],
                      ) -> _Heuristic:
     """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go.
     """
     if heuristic_name in _PYPERPLAN_HEURISTICS:
+        _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
         pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
-        pyperplan_task = _create_pyperplan_task(all_reachable_atoms, init_atoms,
-                                                goal, ground_ops)
+        pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
+                                                predicates, objects,
+                                                static_atoms)
         pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
-        pyperplan_goal = _atoms_to_tuples(goal)
+        pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
         return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
-                                          ground_ops, pyperplan_heuristic,
-                                          pyperplan_goal)
+                                          ground_ops, static_atoms,
+                                          pyperplan_heuristic, pyperplan_goal)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -862,11 +900,13 @@ class _PyperplanTask:
 class _PyperplanHeuristicWrapper(_Heuristic):
     """A light wrapper around pyperplan's heuristics.
     """
+    _static_atoms: Set[GroundAtom]
     _pyperplan_heuristic: _PyperplanBaseHeuristic
     _pyperplan_goal: PyperplanFacts
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
-        pyperplan_facts = _atoms_to_tuples(atoms)
+        # Note: filtering out static atoms.
+        pyperplan_facts = _atoms_to_tuples(set(atoms) - self._static_atoms)
         return self._evaluate(pyperplan_facts, self._pyperplan_goal,
                               self._pyperplan_heuristic)
 
@@ -879,18 +919,23 @@ class _PyperplanHeuristicWrapper(_Heuristic):
         return pyperplan_heuristic(pyperplan_node)
 
 
-def _create_pyperplan_task(all_reachable_atoms: Collection[GroundAtom],
-                           init_atoms: Collection[GroundAtom],
-                           goal: Collection[GroundAtom],
+def _create_pyperplan_task(init_atoms: Set[GroundAtom],
+                           goal: Set[GroundAtom],
                            ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                           predicates: Collection[Predicate],
+                           objects: Collection[Object],
+                           static_atoms: Set[GroundAtom],
                            ) -> _PyperplanTask:
     """Helper glue for pyperplan heuristics.
     """
-    pyperplan_facts = _atoms_to_tuples(all_reachable_atoms)
-    pyperplan_state = _atoms_to_tuples(init_atoms)
-    pyperplan_goal = _atoms_to_tuples(goal)
+    all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
+    # Note: removing static atoms.
+    pyperplan_facts = _atoms_to_tuples(all_atoms - static_atoms)
+    pyperplan_state = _atoms_to_tuples(init_atoms - static_atoms)
+    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
     pyperplan_operators = {_PyperplanOperator(op.name,
-        _atoms_to_tuples(op.preconditions),
+        # Note: removing static atoms from preconditions.
+        _atoms_to_tuples(op.preconditions - static_atoms),
         _atoms_to_tuples(op.add_effects),
         _atoms_to_tuples(op.delete_effects)) for op in ground_ops}
     return _PyperplanTask(pyperplan_facts, pyperplan_state, pyperplan_goal,
