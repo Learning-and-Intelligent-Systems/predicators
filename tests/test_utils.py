@@ -317,14 +317,10 @@ def test_unify_other_liftedground_combinations():
     """
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
-    cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     var0 = cup_type("?var0")
     var1 = cup_type("?var1")
-    var2 = cup_type("?var2")
     pred0 = Predicate("Pred0", [cup_type], lambda s, o: True)
-    pred1 = Predicate("Pred1", [cup_type, cup_type], lambda s, o: True)
-    pred2 = Predicate("Pred2", [cup_type], lambda s, o: True)
 
     kb0 = frozenset({pred0([var0])})
     q0 = frozenset({pred0([cup0])})

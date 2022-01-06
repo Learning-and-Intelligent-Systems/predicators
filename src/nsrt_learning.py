@@ -2,12 +2,11 @@
 """
 
 from __future__ import annotations
-import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet, cast
+from typing import Set, List, Sequence, cast
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
-    GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    LowLevelTrajectory, Segment, PartialNSRTAndDatastore, Object, \
-    GroundAtomTrajectory, DummyOption, ParameterizedOption, State, Action
+    LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption, \
+    State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
