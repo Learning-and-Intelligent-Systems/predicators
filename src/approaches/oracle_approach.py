@@ -14,11 +14,8 @@ from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, PlayroomEnv
 from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.envs.behavior_options import (
-    navigate_to_param_sampler,
-    grasp_obj_param_sampler,
-    place_ontop_obj_pos_sampler,
-)
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
+    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs import get_env_instance
 
 
@@ -34,9 +31,8 @@ class OracleApproach(TAMPApproach):
         return get_gt_nsrts(self._initial_predicates, self._initial_options)
 
 
-def get_gt_nsrts(
-    predicates: Set[Predicate], options: Set[ParameterizedOption]
-) -> Set[NSRT]:
+def get_gt_nsrts(predicates: Set[Predicate], 
+    options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env.
     """
     if CFG.env in ("cover", "cover_hierarchical_types"):
@@ -1028,15 +1024,13 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
     type_name_to_type = {t.name: t for t in env.types}
     pred_name_to_pred = {p.name: p for p in env.predicates}
 
-    def _get_lifted_atom(
-        base_pred_name: str, objects: Sequence[Variable]
-    ) -> LiftedAtom:
+    def _get_lifted_atom(base_pred_name: str,\
+        objects: Sequence[Variable]) -> LiftedAtom:
         pred = _get_predicate(base_pred_name, [o.type for o in objects])
         return LiftedAtom(pred, objects)
 
-    def _get_predicate(
-        base_pred_name: str, types: Sequence[Type]
-    ) -> Predicate:
+    def _get_predicate(base_pred_name: str,\
+        types: Sequence[Type]) -> Predicate:
         type_names = "-".join(t.name for t in types)
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]

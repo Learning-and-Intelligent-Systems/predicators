@@ -89,9 +89,8 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
 
 
 @functools.lru_cache(maxsize=None)
-def unify(
-    ground_atoms: FrozenSet[GroundAtom], lifted_atoms: FrozenSet[LiftedAtom]
-) -> Tuple[bool, ObjToVarSub]:
+def unify(ground_atoms: FrozenSet[GroundAtom],
+          lifted_atoms: FrozenSet[LiftedAtom]) -> Tuple[bool, ObjToVarSub]:
     """Return whether the given ground atom set can be unified
     with the given lifted atom set. Also return the mapping.
     """
@@ -200,17 +199,13 @@ def run_policy_on_task(policy: Callable[[State], Action], task: Task,
     return traj, video, goal_reached
 
 
-def policy_solves_task(
-    policy: Callable[[State], Action],
-    task: Task,
-    simulator: Callable[[State, Action], State],
-    predicates: Collection[Predicate],
-) -> bool:
-    """Return whether the given policy solves the given task."""
-    _, _, solved = run_policy_on_task(
-        policy, task, simulator, predicates, CFG.max_num_steps_check_policy
-    )
-    return solved
+def policy_solves_task(policy: Callable[[State], Action], task: Task,
+                       simulator: Callable[[State, Action], State],
+                       predicates: Collection[Predicate]) -> bool:
+    """Return whether the given policy solves the given task.
+    """
+    _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
+                                      CFG.max_num_steps_check_policy)
 
 
 def option_to_trajectory(
@@ -237,7 +232,8 @@ def option_to_trajectory(
 
 
 class OptionPlanExhausted(Exception):
-    """An exception for an option plan running out of options."""
+    """An exception for an option plan running out of options.
+    """
 
 
 def option_plan_to_policy(plan: Sequence[_Option]) -> Callable[[State], Action]:
@@ -273,9 +269,9 @@ def option_plan_to_policy(plan: Sequence[_Option]) -> Callable[[State], Action]:
 
 
 @functools.lru_cache(maxsize=None)
-def get_all_groundings(
-    atoms: FrozenSet[LiftedAtom], objects: FrozenSet[Object]
-) -> List[Tuple[FrozenSet[GroundAtom], VarToObjSub]]:
+def get_all_groundings(atoms: FrozenSet[LiftedAtom],\
+    objects: FrozenSet[Object]) -> \
+        List[Tuple[FrozenSet[GroundAtom], VarToObjSub]]:
     """Get all the ways to ground the given set of lifted atoms into
     a set of ground atoms, using the given objects. Returns a list
     of (ground atoms, substitution dictionary) tuples.
@@ -294,9 +290,8 @@ def get_all_groundings(
     return result
 
 
-def get_object_combinations(
-        objects: Collection[Object], types: Sequence[Type]
-        ) -> Iterator[List[Object]]:
+def get_object_combinations(objects: Collection[Object],\
+    types: Sequence[Type]) -> Iterator[List[Object]]:
     """Get all combinations of objects satisfying the given types sequence.
     """
     sorted_objects = sorted(objects)
@@ -323,11 +318,9 @@ def get_random_object_combination(
     return [types_to_objs[t][rng.choice(len(types_to_objs[t]))] for t in types]
 
 
-def find_substitution(
-    super_atoms: Collection[GroundAtom],
-    sub_atoms: Collection[LiftedAtom],
-    allow_redundant: bool = False,
-) -> Tuple[bool, VarToObjSub]:
+def find_substitution(super_atoms: Collection[GroundAtom],\
+    sub_atoms: Collection[LiftedAtom],\
+        allow_redundant: bool = False,) -> Tuple[bool, VarToObjSub]:
     """Find a substitution from the objects in super_atoms to the variables
     in sub_atoms s.t. sub_atoms is a subset of super_atoms.
 
@@ -354,14 +347,12 @@ def find_substitution(
     )
 
 
-def _find_substitution_helper(
-    sub_atoms: Collection[LiftedAtom],
-    super_objects_by_type: Dict[Type, List[Object]],
-    remaining_sub_variables: List[Variable],
-    super_pred_to_tuples: Dict[Predicate, Set[Tuple[Object, ...]]],
-    partial_sub: VarToObjSub,
-    allow_redundant: bool,
-) -> Tuple[bool, VarToObjSub]:
+def _find_substitution_helper(sub_atoms: Collection[LiftedAtom],\
+    super_objects_by_type: Dict[Type, List[Object]],\
+        remaining_sub_variables: List[Variable],\
+            super_pred_to_tuples: Dict[Predicate, Set[Tuple[Object, ...]]],\
+                partial_sub: VarToObjSub,allow_redundant: bool,\
+                    ) -> Tuple[bool, VarToObjSub]:
     """Helper for find_substitution."""
     # Base case: check if all assigned
     if not remaining_sub_variables:
@@ -395,8 +386,7 @@ def _find_substitution_helper(
     return False, {}
 
 
-def _substitution_consistent(
-    partial_sub: VarToObjSub,
+def _substitution_consistent(partial_sub: VarToObjSub,\
     super_pred_to_tuples: Dict[Predicate, Set[Tuple[Object, ...]]],
     sub_atoms: Collection[LiftedAtom],
 ) -> bool:
@@ -586,7 +576,8 @@ def run_hill_climbing(
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
-    """Remove classifier from predicate to make new Predicate."""
+    """Remove classifier from predicate to make new Predicate.
+    """
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
 
 
@@ -647,9 +638,8 @@ def all_ground_nsrts(
         yield nsrt.ground(choice)
 
 
-def all_ground_predicates(
-    pred: Predicate, objects: Collection[Object]
-) -> Set[GroundAtom]:
+def all_ground_predicates(pred: Predicate,
+                          objects: Collection[Object]) -> Set[GroundAtom]:
     """Get all possible groundings of the given predicate with the given
     objects.
 
@@ -840,7 +830,8 @@ def create_heuristic(heuristic_name: str,
 
 @functools.lru_cache(maxsize=None)
 def atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
-    """Convert atom to tuple for caching."""
+    """Convert atom to tuple for caching.
+    """
     return (atom.predicate.name,) + tuple(str(o) for o in atom.objects)
 
 
@@ -931,7 +922,8 @@ class _RelaxationHeuristic:
 
     @functools.lru_cache(maxsize=None)
     def __call__(self, state: PyperplanFacts) -> float:
-        """Compute heuristic value."""
+        """Compute heuristic value.
+        """
         # Reset distance and set to default values.
         self.init_distance(state)
 
@@ -1196,7 +1188,8 @@ def save_video(outfile: str, video: Video) -> None:
 
 
 def update_config(args: Dict[str, Any]) -> None:
-    """Args is a dictionary of new arguments to add to the config CFG."""
+    """Args is a dictionary of new arguments to add to the config CFG.
+    """
     # Only override attributes, don't create new ones
     allowed_args = set(CFG.__dict__)
     parser = create_arg_parser()
@@ -1226,7 +1219,8 @@ def get_save_path_str() -> str:
 
 
 def parse_args() -> Dict[str, Any]:
-    """Parses command line arguments."""
+    """Parses command line arguments.
+    """
     parser = create_arg_parser()
     args, overrides = parser.parse_known_args()
     print_args(args)
@@ -1251,7 +1245,8 @@ def parse_args() -> Dict[str, Any]:
 
 
 def print_args(args: argparse.Namespace) -> None:
-    """Print all info for this experiment."""
+    """Print all info for this experiment.
+    """
     print(f"Seed: {args.seed}")
     print(f"Env: {args.env}")
     print(f"Approach: {args.approach}")
@@ -1260,7 +1255,8 @@ def print_args(args: argparse.Namespace) -> None:
 
 
 def flush_cache() -> None:
-    """Clear all lru caches."""
+    """Clear all lru caches.
+    """
     gc.collect()
     wrappers = [
         a

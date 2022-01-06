@@ -24,7 +24,8 @@ _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
 @dataclass(repr=False, eq=False)
 class _Node:
-    """A node for the search over skeletons."""
+    """A node for the search over skeletons.
+    """
 
     atoms: Collection[GroundAtom]
     skeleton: List[_GroundNSRT]
@@ -340,7 +341,8 @@ class _DiscoveredFailure:
 
 
 class _DiscoveredFailureException(Exception):
-    """Exception class for DiscoveredFailure propagation."""
+    """Exception class for DiscoveredFailure propagation.
+    """
 
     def __init__(self, message: str, discovered_failure: _DiscoveredFailure):
         super().__init__(message)
