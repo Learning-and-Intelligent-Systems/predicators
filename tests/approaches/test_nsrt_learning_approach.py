@@ -1,6 +1,7 @@
 """Test cases for the NSRT learning approach.
 """
 
+import pytest
 from predicators.src.envs import create_env
 from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
@@ -9,7 +10,8 @@ from predicators.src import utils
 
 
 def _test_approach(env_name, approach_name, excluded_predicates="",
-                   try_solving=True):
+                   try_solving=True, do_sampler_learning=True,
+                   learn_side_predicates=False):
     """Integration test for the given approach.
     """
     utils.flush_cache()  # Some extremely nasty bugs arise without this.
@@ -20,7 +22,9 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                          "seed": 12345, "regressor_max_itr": 200,
                          "classifier_max_itr_sampler": 200,
                          "classifier_max_itr_predicate": 200,
-                         "excluded_predicates": excluded_predicates})
+                         "excluded_predicates": excluded_predicates,
+                         "learn_side_predicates": learn_side_predicates,
+                         "do_sampler_learning": do_sampler_learning})
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
@@ -60,6 +64,10 @@ def test_nsrt_learning_approach():
     _test_approach(env_name="cover", approach_name="nsrt_learning")
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning")
+    with pytest.raises(NotImplementedError):
+        _test_approach(env_name="repeated_nextto",
+                       approach_name="nsrt_learning", try_solving=False,
+                       do_sampler_learning=False, learn_side_predicates=True)
 
 
 def test_iterative_invention_approach():
