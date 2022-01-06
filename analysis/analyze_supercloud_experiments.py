@@ -5,6 +5,7 @@ analysis/run_supercloud_experiments.sh.
 import pickle as pkl
 import glob
 import pandas as pd
+from predicators.src.settings import CFG
 
 
 def _main() -> None:
@@ -13,7 +14,7 @@ def _main() -> None:
     column_names = ["ENV", "APPROACH", "EXCLUDED_PREDICATES", "SEED",
                     "TEST_TASKS_SOLVED", "TEST_TASKS_TOTAL",
                     "TOTAL_TEST_TIME", "TOTAL_TIME"]
-    for filepath in sorted(glob.glob("results/*")):
+    for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             run_data = pkl.load(f)
         env, approach, seed, excluded_predicates = filepath[8:-4].split("__")
@@ -25,7 +26,7 @@ def _main() -> None:
         assert len(data) == len(column_names)
         all_data.append(data)
     if not all_data:
-        print("No data found in results/, terminating")
+        print(f"No data found in {CFG.results_dir}/, terminating")
         return
     # Group & aggregate data by env name and approach name.
     pd.set_option("display.max_rows", 999999)

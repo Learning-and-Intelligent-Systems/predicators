@@ -34,16 +34,18 @@ def test_known_options_option_learner():
             assert act.has_option()
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
-    strips_ops, partitions = learn_strips_operators(segments)
-    assert len(strips_ops) == len(partitions) == 4
+    pnads = learn_strips_operators(segments)
+    strips_ops = [pnad.op for pnad in pnads]
+    datastores = [pnad.datastore for pnad in pnads]
+    assert len(strips_ops) == len(datastores) == 4
     option_learner = create_option_learner()
-    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
+    option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 1
     PickPlace = next(iter(env.options))
     assert option_specs == [(PickPlace, []) for _ in range(4)]
-    for partition, spec in zip(partitions, option_specs):
-        for (segment, _) in partition:
+    for datastore, spec in zip(datastores, option_specs):
+        for (segment, _) in datastore:
             assert segment.has_option()
             option = segment.get_option()
             # This call should be a no-op when options are known.
@@ -81,16 +83,18 @@ def test_oracle_option_learner_cover():
             assert not act.has_option()
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
-    strips_ops, partitions = learn_strips_operators(segments)
-    assert len(strips_ops) == len(partitions) == 3
+    pnads = learn_strips_operators(segments)
+    strips_ops = [pnad.op for pnad in pnads]
+    datastores = [pnad.datastore for pnad in pnads]
+    assert len(strips_ops) == len(datastores) == 3
     option_learner = create_option_learner()
-    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
+    option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 3
     assert len(env.options) == 1
     PickPlace = next(iter(env.options))
     assert option_specs == [(PickPlace, []), (PickPlace, []), (PickPlace, [])]
-    for partition, spec in zip(partitions, option_specs):
-        for (segment, _) in partition:
+    for datastore, spec in zip(datastores, option_specs):
+        for (segment, _) in datastore:
             assert not segment.has_option()
             # This call should add an option to the segment.
             option_learner.update_segment_from_option_spec(segment, spec)
@@ -130,10 +134,12 @@ def test_oracle_option_learner_blocks():
             assert not act.has_option()
     segments = [seg for traj in ground_atom_dataset
                 for seg in segment_trajectory(traj)]
-    strips_ops, partitions = learn_strips_operators(segments)
-    assert len(strips_ops) == len(partitions) == 4
+    pnads = learn_strips_operators(segments)
+    strips_ops = [pnad.op for pnad in pnads]
+    datastores = [pnad.datastore for pnad in pnads]
+    assert len(strips_ops) == len(datastores) == 4
     option_learner = create_option_learner()
-    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
+    option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 3
     Pick = [option for option in env.options
@@ -146,8 +152,8 @@ def test_oracle_option_learner_blocks():
     assert param_opts.count(Pick) == 2
     assert param_opts.count(Stack) == 1
     assert param_opts.count(PutOnTable) == 1
-    for partition, spec in zip(partitions, option_specs):
-        for (segment, _) in partition:
+    for datastore, spec in zip(datastores, option_specs):
+        for (segment, _) in datastore:
             assert not segment.has_option()
             # This call should add an option to the segment.
             option_learner.update_segment_from_option_spec(segment, spec)

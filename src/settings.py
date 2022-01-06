@@ -63,6 +63,7 @@ class GlobalSettings:
     max_samples_per_step = 10  # max effort on sampling a single skeleton
 
     # evaluation parameters
+    results_dir = "results"
     save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
@@ -76,6 +77,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
+    learn_side_predicates = False
 
     # option learning parameters
     do_option_learning = False  # if False, uses ground truth options
