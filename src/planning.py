@@ -70,10 +70,12 @@ def sesame_plan(task: Task,
                                                         atoms)
         if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
+        reachable_nsrts = [nsrt for nsrt in nonempty_ground_nsrts if
+                           nsrt.preconditions.issubset(all_reachable_atoms)]
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
-                    task, nonempty_ground_nsrts, all_reachable_atoms, atoms,
+                    task, reachable_nsrts, all_reachable_atoms, atoms,
                     new_seed, timeout-(time.time()-start_time), metrics):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
@@ -122,9 +124,11 @@ def task_plan(init_atoms: Set[GroundAtom],
                                                     init_atoms)
     if not goal.issubset(all_reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
+    reachable_nsrts = [nsrt for nsrt in nonempty_ground_nsrts if
+                       nsrt.preconditions.issubset(all_reachable_atoms)]
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    generator = _skeleton_generator(dummy_task, nonempty_ground_nsrts,
+    generator = _skeleton_generator(dummy_task, reachable_nsrts,
                                     all_reachable_atoms, init_atoms, seed,
                                     timeout, metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one

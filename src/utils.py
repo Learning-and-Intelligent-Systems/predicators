@@ -872,8 +872,7 @@ class _PyperplanHeuristicWrapper(_Heuristic):
     @functools.cached_property
     def _hash(self) -> int:
         return hash((frozenset(self.init_atoms), frozenset(self.goal),
-                     frozenset(self.ground_ops),
-                     self._pyperplan_heuristic.__class__))
+                     frozenset(self.ground_ops), self.name))
 
     def __hash__(self) -> int:
         return self._hash
