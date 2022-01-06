@@ -749,11 +749,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         block, robot = o
         # Pick is done when we're holding the desired object.
         terminal = self._Holding_holds(s, [block, robot])
-        if terminal:
-            if not CFG.do_sampler_learning:
-                # Ensure terminal state matches parameterization.
-                param_from_terminal = np.hstack((s[block], s[robot]))
-                assert np.allclose(p, param_from_terminal, atol=1e-03)
+        if terminal and not CFG.do_sampler_learning:
+            # Ensure terminal state matches parameterization.
+            param_from_terminal = np.hstack((s[block], s[robot]))
+            assert np.allclose(p, param_from_terminal, atol=1e-03)
         return terminal
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -857,16 +856,15 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         block, robot, _ = o
         # Place is done when the hand is empty.
         terminal = self._HandEmpty_holds(s, [])
-        if terminal:
-            if not CFG.do_sampler_learning:
-                # Ensure terminal state matches parameterization.
-                param_from_terminal = np.hstack((s[block], s[robot]))
-                # Note that here we require a tolerance of no less than 1e-02
-                # because before letting go of the block, the robot holds the
-                # the block block_height + 1e-02 above the ground before
-                # dropping it, so the difference of the param_from_terminal and
-                # p will differ by 1e-02 in the block's y value.
-                assert np.allclose(p, param_from_terminal, atol=1e-02)
+        if terminal and not CFG.do_sampler_learning:
+            # Ensure terminal state matches parameterization.
+            param_from_terminal = np.hstack((s[block], s[robot]))
+            # Note that here we require a tolerance of no less than 1e-02
+            # because before letting go of the block, the robot holds the block
+            # block_height + 1e-02 above the ground before dropping it, so the
+            # difference of the param_from_terminal and p will differ by 1e-02
+            # in the block's y value.
+            assert np.allclose(p, param_from_terminal, atol=1e-02)
         return terminal
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
