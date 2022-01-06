@@ -2,12 +2,8 @@
 """
 
 from predicators.src.envs.base_env import BaseEnv, EnvironmentFailure
-from predicators.src.envs.cover import (
-    CoverEnv,
-    CoverEnvTypedOptions,
-    CoverEnvHierarchicalTypes,
-    CoverMultistepOptions,
-)
+from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
+    CoverEnvHierarchicalTypes, CoverMultistepOptions
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.blocks import BlocksEnv
@@ -50,6 +46,8 @@ def _create_new_env_instance(name: str) -> BaseEnv:
         return ClutteredTableEnv()
     if name == "blocks":
         return BlocksEnv()
+    if name == "behavior":
+        return BehaviorEnv()
     if name == "painting":
         return PaintingEnv()
     if name == "playroom":

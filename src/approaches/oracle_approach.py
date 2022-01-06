@@ -16,7 +16,7 @@ from predicators.src.structs import NSRT, Predicate, State, \
 from predicators.src.settings import CFG
 from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
     grasp_obj_param_sampler, place_ontop_obj_pos_sampler
-from predicators.src.envs import get_env_instance
+from predicators.src.envs import get_cached_env_instance
 
 
 class OracleApproach(TAMPApproach):
@@ -1013,7 +1013,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
 def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
     """Create ground truth nsrts for BehaviorEnv.
     """
-    env = get_env_instance("behavior")
+    env = get_cached_env_instance("behavior")
 
     # NOTE: These two methods below are necessary to help instantiate
     # all combinations of types for predicates (e.g. nextTo(robot, book),
