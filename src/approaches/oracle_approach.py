@@ -164,9 +164,9 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             if CFG.env == "cover_multistep_options":
-                len(objs) == 2
+                assert len(objs) == 2
             else:
-                len(objs) == 1
+                assert len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if CFG.env == "cover_multistep_options":
@@ -238,9 +238,9 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         def place_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
             if CFG.env == "cover_multistep_options":
-                len(objs) == 3
+                assert len(objs) == 3
             else:
-                len(objs) == 2
+                assert len(objs) == 2
             t = objs[-1]
             assert t.is_instance(target_type)
             if CFG.env == "cover_multistep_options":
