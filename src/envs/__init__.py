@@ -64,13 +64,8 @@ def create_env(name: str) -> BaseEnv:
     return env
 
 
-def get_cached_env_instance (name: str) -> BaseEnv:
+def get_cached_env_instance(name: str) -> BaseEnv:
     """Get the most recent env instance, or make a new one.
     """
     assert name in _MOST_RECENT_ENV_INSTANCE
-    # It is not easy to cover this because we don't control the order that
-    # tests are run. So if we called get_cached_env_instance in a test,
-    # there's no guarantee that some other test hasn't already created
-    # an env, in which case this line would not get hit. So, just don't
-    # cover it.
-    return _MOST_RECENT_ENV_INSTANCE[name]  # pragma: no cover
+    return _MOST_RECENT_ENV_INSTANCE[name]
