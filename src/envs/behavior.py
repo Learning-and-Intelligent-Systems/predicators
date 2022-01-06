@@ -20,16 +20,10 @@ try:
     from igibson.objects.articulated_object import URDFObject
     from igibson.object_states.on_floor import RoomFloor
     from igibson.robots.behavior_robot import BRBody
-    from igibson.activity.bddl_backend import (
-        SUPPORTED_PREDICATES,
-        ObjectStateUnaryPredicate,
-        ObjectStateBinaryPredicate,
-    )
-    from predicators.src.envs.behavior_options import (
-        navigate_to_obj_pos,
-        grasp_obj_at_pos,
-        place_ontop_obj_pos,
-    )
+    from igibson.activity.bddl_backend import SUPPORTED_PREDICATES,\
+        ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
+    from predicators.src.envs.behavior_options import navigate_to_obj_pos,\
+        grasp_obj_at_pos,place_ontop_obj_pos
     import pybullet as pyb  # type: ignore
 
     _BEHAVIOR_IMPORTED = True
@@ -39,18 +33,8 @@ except ModuleNotFoundError as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
-from predicators.src.structs import (
-    Type,
-    Predicate,
-    State,
-    Task,
-    ParameterizedOption,
-    Object,
-    Action,
-    GroundAtom,
-    Image,
-    Array,
-)
+from predicators.src.structs import Type,Predicate,State,Task,\
+    ParameterizedOption,Object,Action,GroundAtom,Image,Array
 from predicators.src.settings import CFG
 
 
@@ -68,15 +52,13 @@ def make_behavior_option( # type: ignore
     env,
     controller_fn: Callable,
     object_to_ig_object: Callable,
-    rng: Generator,
-) -> ParameterizedOption:
+    rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn
     """
 
-    def _policy(
-        state: State, memory: Dict, _objects: Sequence[Object], _params: Array
-    ) -> Action:
+    def _policy(state: State, memory: Dict, _objects: Sequence[Object],\
+        _params: Array) -> Action:
         assert "has_terminated" in memory
         assert (
             "controller" in memory and memory["controller"] is not None
@@ -314,13 +296,8 @@ class BehaviorEnv(BaseEnv):
 
         options: Set[ParameterizedOption] = set()
 
-        for (
-            name,
-            controller_fn,
-            param_dim,
-            num_args,
-            parameter_limits,
-        ) in controllers:
+        for (name,controller_fn,param_dim,num_args,parameter_limits\
+            ) in controllers:
             # Create a different option for each type combo
             for types in itertools.product(self.types, repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
@@ -347,9 +324,8 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.behavior_env.action_space.high == 1)
         return self.behavior_env.action_space
 
-    def render(
-        self, state: State, task: Task, action: Optional[Action] = None
-    ) -> List[Image]:
+    def render(self, state: State, task: Task,\
+        action: Optional[Action] = None) -> List[Image]:
         raise Exception(
             "Cannot make videos for behavior env, change "
             "behavior_mode in settings.py instead"
@@ -400,9 +376,8 @@ class BehaviorEnv(BaseEnv):
         simulator_state = self.behavior_env.task.save_scene()
         return State(state_data, simulator_state)
 
-    def _create_classifier_from_bddl(
-        self,
-        bddl_predicate: "bddl.AtomicFormula",
+    def _create_classifier_from_bddl(self,\
+        bddl_predicate: "bddl.AtomicFormula",\
     ) -> Callable[[State, Sequence[Object]], bool]:
         def _classifier(_s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
@@ -430,9 +405,8 @@ class BehaviorEnv(BaseEnv):
 
         return _classifier
 
-    def _graspable_classifier(
-        self, _state: State, objs: Sequence[Object]
-    ) -> bool:
+    def _graspable_classifier(self, _state: State,\
+        objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert len(objs) == 1
@@ -443,12 +417,11 @@ class BehaviorEnv(BaseEnv):
         return volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed
 
 
-    def _reachable_classifier(
-        self, state: State, objs: Sequence[Object]
-    ) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
+    def _reachable_classifier(self, state: State,\
+        objs: Sequence[Object]) -> bool:
+        # Check allclose() here for uniformity with
+        # _create_classifier_from_bddl
         assert state.allclose(
-            # self._current_ig_state_to_state().scope(state.data.keys())
             self._current_ig_state_to_state()
         )
 
@@ -464,12 +437,10 @@ class BehaviorEnv(BaseEnv):
             < 2
         )
 
-    def _reachable_nothing_classifier(
-        self, state: State, objs: Sequence[Object]
-    ) -> bool:
+    def _reachable_nothing_classifier(self, state: State,\
+        objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(
-            # self._current_ig_state_to_state().scope(state.data.keys())
             self._current_ig_state_to_state()
         )
         assert len(objs) == 1
@@ -496,37 +467,33 @@ class BehaviorEnv(BaseEnv):
 
         return grasped_objs
 
-    def _handempty_classifier(
-        self, state: State, objs: Sequence[Object]
-    ) -> bool:
+    def _handempty_classifier(self, state: State,\
+        objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(
-            # self._current_ig_state_to_state().scope(state.data.keys())
             self._current_ig_state_to_state()
         )
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
-    def _holding_classifier(self, state: State, objs: Sequence[Object]) -> bool:
+    def _holding_classifier(self, state: State,\
+        objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(
-            # self._current_ig_state_to_state().scope(state.data.keys())
             self._current_ig_state_to_state()
         )
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
 
-    def _nextto_nothing_classifier(
-        self, state: State, objs: Sequence[Object]
-    ) -> bool:
+    def _nextto_nothing_classifier(self, state: State,\
+        objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(
-            # self._current_ig_state_to_state().scope(state.data.keys())
             self._current_ig_state_to_state()
         )
         assert len(objs) == 1
@@ -571,8 +538,7 @@ class BehaviorEnv(BaseEnv):
         raise ValueError("BDDL predicate has unexpected arity.")
 
     @staticmethod
-    def _create_type_combo_name(
-        original_name: str, type_combo: Sequence[Type]
-    ) -> str:
+    def _create_type_combo_name(original_name: str,\
+        type_combo: Sequence[Type]) -> str:
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"

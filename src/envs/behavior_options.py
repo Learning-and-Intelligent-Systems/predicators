@@ -97,9 +97,8 @@ def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
     return dimension[0] * dimension[1] * dimension[2]
 
 
-def get_closest_point_on_aabb(
-    xyz: List, lo: np.ndarray, hi: np.ndarray
-) -> List[float]:
+def get_closest_point_on_aabb(xyz: List, lo: np.ndarray,\
+    hi: np.ndarray) -> List[float]:
     """Get the closest point on an aabb from a particular xyz coordinate
     """
     closest_point_on_aabb = [0.0, 0.0, 0.0]
