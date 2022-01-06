@@ -30,14 +30,9 @@ def get_gt_nsrts(predicates: Set[Predicate],
                  options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env.
     """
-    if CFG.env in ("cover", "cover_hierarchical_types"):
-        nsrts = _get_cover_gt_nsrts(options_are_typed=False)
-    elif CFG.env == "cover_typed_options":
-        nsrts = _get_cover_gt_nsrts(options_are_typed=True)
-    elif CFG.env == "cover_multistep_options":
-        nsrts = _get_cover_gt_nsrts(options_are_typed=True,
-                                    include_robot_in_holding=True,
-                                    place_sampler_relative=True)
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
+                   "cover_multistep_options"):
+        nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
         nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "blocks":
@@ -93,96 +88,171 @@ def _get_options_by_names(env_name: str,
     return _get_from_env_by_names(env_name, names, "options")
 
 
-def _get_cover_gt_nsrts(options_are_typed: bool,
-                        include_robot_in_holding: bool = False,
-                        place_sampler_relative: bool = False) -> Set[NSRT]:
-    """Create ground truth NSRTs for CoverEnv.
+def _get_cover_gt_nsrts() -> Set[NSRT]:
+    """Create ground truth NSRTs for CoverEnv or environments that inherit from
+    CoverEnv.
     """
+    # Types
     block_type, target_type, robot_type = _get_types_by_names(
         CFG.env, ["block", "target", "robot"])
 
+    # Objects
+    block = Variable("?block", block_type)
+    robot = Variable("?robot", robot_type)
+    target = Variable("?target", target_type)
+
+    # Predicates
     IsBlock, IsTarget, Covers, HandEmpty, Holding = \
         _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
                                            "HandEmpty", "Holding"])
 
-    if options_are_typed:
-        Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
-    else:
+    # Options
+    if CFG.env in ("cover", "cover_hierarchical_types"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
+        Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
+    if CFG.env == "cover_multistep_options" and \
+        CFG.cover_multistep_use_learned_equivalents:
+        LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
+            CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
 
     nsrts = set()
 
     # Pick
-    block = Variable("?block", block_type)
-    robot = Variable("?robot", robot_type)
-    parameters = [block, robot] if include_robot_in_holding else [block]
-    if options_are_typed:
-        option_vars = [block]
-        option = Pick
-    else:
-        option_vars = []
-        option = PickPlace
+    parameters = [block]
+    holding_predicate_args = [block]
+    if CFG.env == "cover_multistep_options":
+        parameters.append(robot)
+        holding_predicate_args.append(robot)
     preconditions = {LiftedAtom(IsBlock, [block]), LiftedAtom(HandEmpty, [])}
-    if include_robot_in_holding:
-        add_effects = {LiftedAtom(Holding, [block, robot])}
-    else:
-        add_effects = {LiftedAtom(Holding, [block])}
+    add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, [])}
-    def pick_sampler(state: State, rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
-        assert len(objs) == 2 if include_robot_in_holding else len(objs) == 1
-        b = objs[0]
-        assert b.is_instance(block_type)
-        if options_are_typed:
-            lb = float(-state.get(b, "width")/2)  # relative positioning only
-            ub = float(state.get(b, "width")/2)  # relative positioning only
-        else:
-            lb = float(state.get(b, "pose") - state.get(b, "width")/2)
-            lb = max(lb, 0.0)
-            ub = float(state.get(b, "pose") + state.get(b, "width")/2)
-            ub = min(ub, 1.0)
-        return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
+
+    if CFG.env in ("cover", "cover_hierarchical_types"):
+        option = PickPlace
+        option_vars = []
+    elif CFG.env == "cover_multistep_options" and \
+        CFG.cover_multistep_use_learned_equivalents:
+        option = LearnedEquivalentPick
+        option_vars = [block, robot]
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
+        option = Pick
+        option_vars = [block]
+
+    if CFG.env == "cover_multistep_options" and \
+        CFG.cover_multistep_use_learned_equivalents:
+        def pick_sampler(state: State, rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
+            assert len(objs) == 2
+            block, robot = objs
+            assert block.is_instance(block_type)
+            assert robot.is_instance(robot_type)
+            bx, by = state.get(block, "x"), state.get(block, "y")
+            bw, bh = state.get(block, "width"), state.get(block, "height")
+            desired_x = rng.uniform(bx-bw/2, bx+bw/2)
+            desired_x = float(bx)
+            # is_block, is_target, width, x, grasp, y, height
+            # grasp changes from -1 to 1
+            block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
+            # x, y, grip, holding
+            # grip changes from -1.0 to 1.0
+            # holding changes from -1 to 1
+            robot_param = [desired_x, by, 1.0, 1.0]
+            param = block_param + robot_param
+            return np.array(param, dtype=np.float32)
+    else:
+        def pick_sampler(state: State, rng: np.random.Generator,
+                         objs: Sequence[Object]) -> Array:
+            if CFG.env == "cover_multistep_options":
+                assert len(objs) == 2
+            else:
+                assert len(objs) == 1
+            b = objs[0]
+            assert b.is_instance(block_type)
+            if CFG.env == "cover_multistep_options":
+                lb = -1.0
+                ub = 1.0
+            elif CFG.env == "cover_typed_options":
+                lb = float(-state.get(b, "width")/2)
+                ub = float(state.get(b, "width")/2)
+            elif CFG.env in ("cover", "cover_hierarchical_types"):
+                lb = float(state.get(b, "pose") - state.get(b, "width")/2)
+                lb = max(lb, 0.0)
+                ub = float(state.get(b, "pose") + state.get(b, "width")/2)
+                ub = min(ub, 1.0)
+            return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
+
     pick_nsrt = NSRT("Pick", parameters, preconditions,
                      add_effects, delete_effects, set(), option,
                      option_vars, pick_sampler)
     nsrts.add(pick_nsrt)
 
     # Place
-    target = Variable("?target", target_type)
-    parameters = [block, target, robot] if include_robot_in_holding \
-        else [block, target]
-    if options_are_typed:
-        option_vars = [target]
-        option = Place
-    else:
-        option_vars = []
-        option = PickPlace
+    parameters = [block, target]
+    holding_predicate_args = [block]
+    if CFG.env == "cover_multistep_options":
+        parameters = [block, robot, target]
+        holding_predicate_args.append(robot)
+    preconditions = {LiftedAtom(IsBlock, [block]),
+                     LiftedAtom(IsTarget, [target]),
+                     LiftedAtom(Holding, holding_predicate_args)}
     add_effects = {LiftedAtom(HandEmpty, []),
                    LiftedAtom(Covers, [block, target])}
-    if include_robot_in_holding:
-        preconditions = {LiftedAtom(IsBlock, [block]),
-                         LiftedAtom(IsTarget, [target]),
-                         LiftedAtom(Holding, [block, robot])}
-        delete_effects = {LiftedAtom(Holding, [block, robot])}
+    delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
+
+    if CFG.env in ("cover", "cover_hierarchical_types"):
+        option = PickPlace
+        option_vars = []
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
+        option = Place
+        option_vars = [target]
+        if CFG.env == "cover_multistep_options" and \
+            CFG.cover_multistep_use_learned_equivalents:
+            option = LearnedEquivalentPlace
+            option_vars = [block, robot, target]
+
+    if CFG.env == "cover_multistep_options" and \
+        CFG.cover_multistep_use_learned_equivalents:
+        def place_sampler(state: State, rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+            assert len(objs) == 3
+            block, robot, target = objs
+            assert block.is_instance(block_type)
+            assert robot.is_instance(robot_type)
+            assert target.is_instance(target_type)
+            tx, tw = state.get(target, "x"), state.get(target, "width")
+            desired_x = rng.uniform(tx-tw/2, tx+tw/2)
+            desired_x = float(tx)
+            bw, bh = state.get(block, "width"), state.get(block, "height")
+            desired_y = bh + 1e-2
+            # is_block, is_target, width, x, grasp, y, height
+            # grasp changes from 1 to -1
+            block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
+            # x, y, grip, holding
+            # grip changes from 1.0 to -1.0
+            # holding changes from 1 to -1
+            robot_param = [desired_x, desired_y, -1.0, -1.0]
+            param = block_param + robot_param
+            return np.array(param, dtype=np.float32)
     else:
-        preconditions = {LiftedAtom(IsBlock, [block]),
-                         LiftedAtom(IsTarget, [target]),
-                         LiftedAtom(Holding, [block])}
-        delete_effects = {LiftedAtom(Holding, [block])}
-    def place_sampler(state: State, rng: np.random.Generator,
-                      objs: Sequence[Object]) -> Array:
-        assert len(objs) == 3 if include_robot_in_holding else len(objs) == 2
-        t = objs[1]
-        assert t.is_instance(target_type)
-        if place_sampler_relative:
-            lb = float(-state.get(t, "width")/2)  # relative positioning only
-            ub = float(state.get(t, "width")/2)  # relative positioning only
-        else:
-            lb = float(state.get(t, "pose") - state.get(t, "width")/10)
-            lb = max(lb, 0.0)
-            ub = float(state.get(t, "pose") + state.get(t, "width")/10)
-            ub = min(ub, 1.0)
-        return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
+        def place_sampler(state: State, rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+            if CFG.env == "cover_multistep_options":
+                assert len(objs) == 3
+            else:
+                assert len(objs) == 2
+            t = objs[-1]
+            assert t.is_instance(target_type)
+            if CFG.env == "cover_multistep_options":
+                lb = -1.0
+                ub = 1.0
+            else:
+                lb = float(state.get(t, "pose") - state.get(t, "width")/10)
+                lb = max(lb, 0.0)
+                ub = float(state.get(t, "pose") + state.get(t, "width")/10)
+                ub = min(ub, 1.0)
+            return np.array(rng.uniform(lb, ub, size=(1,)), dtype=np.float32)
+
     place_nsrt = NSRT("Place", parameters, preconditions,
                       add_effects, delete_effects, set(), option,
                       option_vars, place_sampler)
