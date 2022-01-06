@@ -15,10 +15,9 @@ from predicators.src.option_learning import create_option_learner
 
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
-                          do_sampler_learning: bool) -> Set[NSRT]:
+                          sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions,
-    using the given set of predicates. If do_sampler_learning is False,
-    the NSRTs have random samplers rather than learned neural ones.
+    using the given set of predicates.
     """
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
@@ -40,7 +39,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    pnads = learn_strips_operators(segments, verbose=CFG.do_option_learning)
+    pnads = learn_strips_operators(
+        segments, verbose=(CFG.option_learner != "no_learning"))
 
     # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
@@ -52,7 +52,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     _learn_pnad_options(pnads)
 
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
-    _learn_pnad_samplers(pnads, do_sampler_learning)
+    _learn_pnad_samplers(pnads, sampler_learner)
 
     # STEP 7: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
@@ -250,7 +250,7 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
-                         do_sampler_learning: bool) -> None:
+                         sampler_learner: str) -> None:
     print("\nDoing sampler learning...")
     strips_ops = []
     datastores = []
@@ -260,7 +260,7 @@ def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
         datastores.append(pnad.datastore)
         option_specs.append(pnad.option_spec)
     samplers = learn_samplers(strips_ops, datastores, option_specs,
-                              do_sampler_learning)
+                              sampler_learner)
     assert len(samplers) == len(strips_ops)
     # Replace the samplers in the PNADs.
     for pnad, sampler in zip(pnads, samplers):

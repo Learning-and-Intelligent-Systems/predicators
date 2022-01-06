@@ -46,7 +46,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
         # Segment transitions based on changes in predicates.
         segments = [seg for traj in ground_atom_dataset
                     for seg in segment_trajectory(traj)]
-        assert not CFG.do_option_learning, \
+        assert CFG.option_learner == "no_learning", \
             "Iterative invention assumes that options are given."
         for segment in segments:
             assert segment.has_option()
