@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 from typing import List
 import numpy as np
-from predicators.src.structs import STRIPSOperator, OptionSpec, Partition, \
+from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
     Segment
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
@@ -29,11 +29,11 @@ class _OptionLearnerBase:
     @abc.abstractmethod
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            partitions: List[Partition]) -> List[OptionSpec]:
-        """Given partitioned data and some STRIPS operators fit on that data,
+            datastores: List[Datastore]) -> List[OptionSpec]:
+        """Given datastores and STRIPS operators that were fit on them,
         learn option specs, which are tuples of (ParameterizedOption,
         Sequence[Variable]). The returned option specs should be one-to-one
-        with the given strips_ops / partitions (which are already one-to-one
+        with the given strips_ops / datastores (which are already one-to-one
         with each other).
         """
         raise NotImplementedError("Override me!")
@@ -59,14 +59,14 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            partitions: List[Partition]) -> List[OptionSpec]:
+            datastores: List[Datastore]) -> List[OptionSpec]:
         # Since we're not actually doing option learning, the data already
         # contains the options. So, we just extract option specs from the data.
         option_specs = []
-        for partition in partitions:
+        for datastore in datastores:
             param_option = None
             option_vars = None
-            for i, (segment, sub) in enumerate(partition):
+            for i, (segment, sub) in enumerate(datastore):
                 option = segment.actions[0].get_option()
                 if i == 0:
                     param_option = option.parent
@@ -80,7 +80,7 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
                     assert param_option == option_a.parent
                     assert option_vars == [sub[o] for o in option_a.objects]
             assert param_option is not None and option_vars is not None, \
-                "No data for this partition?"
+                "No data in this datastore?"
             option_specs.append((param_option, option_vars))
         return option_specs
 
@@ -97,7 +97,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            partitions: List[Partition]) -> List[OptionSpec]:
+            datastores: List[Datastore]) -> List[OptionSpec]:
         env = create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":

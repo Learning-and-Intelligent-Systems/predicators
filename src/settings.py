@@ -76,6 +76,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
+    learn_side_predicates = False
 
     # option learning parameters
     do_option_learning = False  # if False, uses ground truth options
