@@ -43,6 +43,7 @@ def main() -> None:
     """Main entry point for running approaches in environments.
     """
     if not os.path.exists("results/"):
+        # NOTE: no cover necessary to get 100% coverage
         os.mkdir("results/") # pragma: no cover
     start = time.time()
     # Parse & validate args

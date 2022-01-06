@@ -23,7 +23,8 @@ from predicators.src.envs import get_env_instance
 
 
 class OracleApproach(TAMPApproach):
-    """A TAMP approach that uses hand-specified NSRTs."""
+    """A TAMP approach that uses hand-specified NSRTs.
+    """
 
     @property
     def is_learning_based(self) -> bool:
@@ -36,7 +37,8 @@ class OracleApproach(TAMPApproach):
 def get_gt_nsrts(
     predicates: Set[Predicate], options: Set[ParameterizedOption]
 ) -> Set[NSRT]:
-    """Create ground truth NSRTs for an env."""
+    """Create ground truth NSRTs for an env.
+    """
     if CFG.env in ("cover", "cover_hierarchical_types"):
         nsrts = _get_cover_gt_nsrts(options_are_typed=False)
     elif CFG.env == "cover_typed_options":
@@ -1013,7 +1015,8 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
 
 
 def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
-    """Create ground truth nsrts for BehaviorEnv."""
+    """Create ground truth nsrts for BehaviorEnv.
+    """
     env = get_env_instance("behavior")
 
     type_name_to_type = {t.name: t for t in env.types}
@@ -1034,11 +1037,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
 
-    # We start by creating nextTo predicates for all possible type
-    # combinations
+    # We start by creating NextTo predicates for all possible type
+    # combinations. These predicates will be used as side predicates
+    # for navigateTo operators
     nextto_predicates = set()
-    for next_to_pred_types in itertools.product(env.types, env.types):
-        nextto_predicates.add(_get_predicate("reachable", next_to_pred_types))
+    for nextto_pred_types in itertools.product(env.types, env.types):
+        nextto_predicates.add(_get_predicate("reachable", nextto_pred_types))
 
     agent_type = type_name_to_type["agent.n.01"]
     agent_obj = Variable("?agent", agent_type)
@@ -1057,7 +1061,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
 
-            # Navigate to from nextto nothing
+            # Navigate to from nextto nothing.
             nextto_nothing = _get_lifted_atom("reachable-nothing", [agent_obj])
             parameters = [agent_obj, target_obj]
             option_vars = [target_obj]
@@ -1081,23 +1085,23 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
             )
             nsrts.add(nsrt)
 
-            # Navigate to while nextto something
+            # Navigate to while nextto something.
             for origin_obj_type in sorted(env.types):
                 if agent_type in [origin_obj_type, target_obj_type]:
                     continue
 
                 origin_obj = Variable("?origin", origin_obj_type)
-                origin_next_to = _get_lifted_atom(
+                origin_nextto = _get_lifted_atom(
                     "reachable", [origin_obj, agent_obj]
                 )
-                targ_next_to = _get_lifted_atom(
+                targ_nextto = _get_lifted_atom(
                     "reachable", [target_obj, agent_obj]
                 )
                 parameters = [origin_obj, agent_obj, target_obj]
                 option_vars = [target_obj]
-                preconditions = {origin_next_to}
-                add_effects = {targ_next_to}
-                delete_effects = {origin_next_to}
+                preconditions = {origin_nextto}
+                add_effects = {targ_nextto}
+                delete_effects = {origin_nextto}
                 nsrt = NSRT(
                     f"{option.name}-{next(op_name_count)}",
                     parameters,
@@ -1125,15 +1129,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                 parameters = [target_obj, agent_obj, surf_obj]
                 option_vars = [target_obj]
                 handempty = _get_lifted_atom("handempty", [])
-                targ_next_to = _get_lifted_atom(
+                targ_nextto = _get_lifted_atom(
                     "reachable", [target_obj, agent_obj]
                 )
-                # targ_graspable = _get_lifted_atom(
-                #    "graspable", [target_obj]
-                # )
                 targ_holding = _get_lifted_atom("holding", [target_obj])
-                # preconditions = {handempty, targ_next_to, targ_graspable}
-                preconditions = {handempty, targ_next_to}
+                preconditions = {handempty, targ_nextto}
                 add_effects = {targ_holding}
                 delete_effects = {handempty}
                 nsrt = NSRT(
@@ -1162,11 +1162,11 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                 option_vars = [surf_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
-                surf_next_to = _get_lifted_atom(
+                surf_nextto = _get_lifted_atom(
                     "reachable", [surf_obj, agent_obj]
                 )
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
-                preconditions = {held_holding, surf_next_to}
+                preconditions = {held_holding, surf_nextto}
                 add_effects = {ontop, handempty}
                 delete_effects = {held_holding}
                 nsrt = NSRT(

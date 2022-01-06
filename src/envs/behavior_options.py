@@ -1,6 +1,6 @@
 """Hardcoded options for BehaviorEnv.
 """
-# pylint: disable=import-error
+# pylint: disable=import-error,ungrouped-imports
 
 from typing import Callable, Dict, List, Sequence, Tuple, Union, Optional
 import numpy as np
@@ -27,7 +27,6 @@ except ModuleNotFoundError as e:
     print(e)
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
-    # "hit_to_plane_threshold": 0.1,  # TODO: Tune this parameter.
     "max_angle_with_z_axis": 0.17,
     "bimodal_stdev_fraction": 1e-6,
     "bimodal_mean_fraction": 1.0,
@@ -41,8 +40,7 @@ def get_body_ids( # type: ignore
     include_self: bool = False,
     grasping_with_right: bool = False,
 ) -> List[int]:
-    """
-    Function to return list of body_ids for all objects for collision
+    """Function to return list of body_ids for all objects for collision
     checking depending on whether navigation or grasping/placing
     is being done
     """
@@ -66,8 +64,7 @@ def get_body_ids( # type: ignore
 
 
 def detect_collision(bodyA: int, object_in_hand: int = None) -> bool:
-    """
-    Detects collisions between objects in the scene (except for the
+    """Detects collisions between objects in the scene (except for the
     object in the robot's hand)
     """
     collision = False
@@ -82,8 +79,7 @@ def detect_collision(bodyA: int, object_in_hand: int = None) -> bool:
 
 
 def detect_robot_collision(robot) -> bool: # type: ignore
-    """
-    Function to detect whether the robot is currently colliding
+    """Function to detect whether the robot is currently colliding
     with any object in the scene
     """
     object_in_hand = robot.parts["right_hand"].object_in_hand
@@ -95,7 +91,8 @@ def detect_robot_collision(robot) -> bool: # type: ignore
 
 
 def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
-    """Simple utility function to compute the volume of an aabb"""
+    """Simple utility function to compute the volume of an aabb
+    """
     dimension = hi - lo
     return dimension[0] * dimension[1] * dimension[2]
 
@@ -103,7 +100,8 @@ def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
 def get_closest_point_on_aabb(
     xyz: List, lo: np.ndarray, hi: np.ndarray
 ) -> List[float]:
-    """Get the closest point on an aabb from a particular xyz coordinate"""
+    """Get the closest point on an aabb from a particular xyz coordinate
+    """
     closest_point_on_aabb = [0.0, 0.0, 0.0]
     for i in range(3):
         # if the coordinate is between the min and max of the aabb, then
@@ -120,7 +118,8 @@ def get_closest_point_on_aabb(
 
 
 def reset_and_release_hand(env) -> None: # type: ignore
-    """Resets the state of the right hand"""
+    """Resets the state of the right hand
+    """
     env.robots[0].set_position_orientation(
         env.robots[0].get_position(), env.robots[0].get_orientation()
     )
@@ -136,7 +135,8 @@ def get_delta_low_level_base_action( # type: ignore
     old_xytheta: np.ndarray,
     new_xytheta: np.ndarray,
 ) -> np.ndarray:
-    """Get low-level actions from base movement plan"""
+    """Get low-level actions from base movement plan
+    """
     ret_action = np.zeros(17)
 
     robot_z = env.robots[0].get_position()[2]
@@ -180,7 +180,8 @@ def get_delta_low_level_base_action( # type: ignore
 def navigate_to_param_sampler( # type: ignore
     rng: Generator, objects
 ) -> np.ndarray:
-    """Sampler for navigateTo option"""
+    """Sampler for navigateTo option
+    """
     assert len(objects) in [2, 3]
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
@@ -219,8 +220,7 @@ def navigate_to_obj_pos( # type: ignore
     pos_offset: np.ndarray,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
-    """
-    Parameterized controller for navigation.
+    """Parameterized controller for navigation.
     Runs motion planning to find a feasible trajectory to a certain x,y
     position offset from obj and selects an orientation such that the robot
     is facing the object. If the navigation is infeasible, returns an
@@ -403,12 +403,12 @@ def navigate_to_obj_pos( # type: ignore
 
 # Sampler for grasp continuous params
 def grasp_obj_param_sampler(rng: Generator) -> np.ndarray:
-    """Sampler for grasp option"""
+    """Sampler for grasp option
+    """
     x_offset = (rng.random() * 0.4) - 0.2
     y_offset = (rng.random() * 0.4) - 0.2
     z_offset = rng.random() * 0.2
-    z_rot = (rng.random() * 2 * np.pi) - np.pi
-    return np.array([x_offset, y_offset, z_offset, z_rot])
+    return np.array([x_offset, y_offset, z_offset])
 
 
 def get_delta_low_level_hand_action( # type: ignore
@@ -418,7 +418,8 @@ def get_delta_low_level_hand_action( # type: ignore
     new_pos: Union[Sequence[float], np.ndarray],
     new_orn: Union[Sequence[float], np.ndarray],
 ) -> np.ndarray:
-    """Function to get low level actions from hand-movement plan"""
+    """Function to get low level actions from hand-movement plan
+    """
     # First, convert the supplied orientations to quaternions
     old_orn = p.getQuaternionFromEuler(old_orn)
     new_orn = p.getQuaternionFromEuler(new_orn)
@@ -474,11 +475,10 @@ def get_delta_low_level_hand_action( # type: ignore
 def grasp_obj_at_pos( # type: ignore
     env,
     obj,
-    grasp_offset_and_z_rot: np.ndarray,
+    grasp_offset: np.ndarray,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
-    """
-    Parameterized controller for grasping.
+    """Parameterized controller for grasping.
     Runs motion planning to find a feasible trajectory to a certain x,y,z
     position offset from obj and selects an orientation such that the palm
     is facing the object. If the grasp is infeasible, returns an
@@ -509,18 +509,14 @@ def grasp_obj_at_pos( # type: ignore
                     # the hand based on the provided continuous parameters and
                     # try to create a plan to it.
                     obj_pos = obj.get_position()
-                    x = obj_pos[0] + grasp_offset_and_z_rot[0]
-                    y = obj_pos[1] + grasp_offset_and_z_rot[1]
-                    z = obj_pos[2] + grasp_offset_and_z_rot[2]
+                    x = obj_pos[0] + grasp_offset[0]
+                    y = obj_pos[1] + grasp_offset[1]
+                    z = obj_pos[2] + grasp_offset[2]
                     hand_x, hand_y, hand_z = (
                         env.robots[0].parts["right_hand"].get_position()
                     )
 
                     # # add a little randomness to avoid getting stuck
-                    # x += np.random.uniform(-0.025, 0.025)
-                    # y += np.random.uniform(-0.025, 0.025)
-                    # z += np.random.uniform(-0.025, 0.025)
-
                     minx = min(x, hand_x) - 0.5
                     miny = min(y, hand_y) - 0.5
                     minz = min(z, hand_z) - 0.5
@@ -537,7 +533,7 @@ def grasp_obj_at_pos( # type: ignore
                     # https://math.stackexchange.com/questions/180418/
                     # calculate-rotation-matrix-to-align-vector-a-to-vector
                     # -b-in-3d
-                    hand_to_obj_vector = np.array(grasp_offset_and_z_rot[:3])
+                    hand_to_obj_vector = np.array(grasp_offset[:3])
                     hand_to_obj_unit_vector = hand_to_obj_vector / \
                         np.linalg.norm(
                         hand_to_obj_vector
@@ -565,11 +561,6 @@ def grasp_obj_at_pos( # type: ignore
                         )
                         r = scipy.spatial.transform.Rotation.from_matrix(R)
                         euler_angles = r.as_euler("xyz")
-                        # TODO (njk): Figure out how to rotate by
-                        # grasp_offset_and_z_rot[3] about the hand's z axis
-                        # the below line is wrong because it makes the
-                        # thing rotate about the world z axis
-                        # euler_angles[2] += grasp_offset_and_z_rot[3]
                     else:
                         if c_var == 1.0:
                             euler_angles = np.zeros(3, dtype=float)
@@ -650,8 +641,6 @@ def grasp_obj_at_pos( # type: ignore
                         plan_executed_forwards = False
                         tried_closing_gripper = False
 
-                        # TODO: Include the error-correcting closed-loop
-                        # execution actions in here.
                         def graspObjectOption(
                             _state: State, env: BehaviorEnv
                         ) -> Tuple[np.ndarray, bool]:
@@ -709,7 +698,7 @@ def grasp_obj_at_pos( # type: ignore
                     print(
                         f"PRIMITIVE: grasp {obj.name} fail, failed"
                         + " to find plan to continuous params"
-                        + f" {grasp_offset_and_z_rot}"
+                        + f" {grasp_offset}"
                     )
                     return None
 
@@ -738,7 +727,8 @@ def place_obj_plan( # type: ignore
     place_rel_pos: np.ndarray,
     rng: Generator = np.random.default_rng(23),
 ) -> List[List[float]]:
-    """Function to return an RRT plan for placing an object"""
+    """Function to return an RRT plan for placing an object
+    """
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand
     ]
@@ -764,7 +754,7 @@ def place_obj_plan( # type: ignore
             0,
             np.pi * 7 / 6,
             0,
-        ],  # TODO FIX to make HAND Face Table (Can Sample These)
+        ],
         hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
         obstacles=obstacles,
         rng=rng,
@@ -793,7 +783,8 @@ def place_ontop_obj_pos_sampler( # type: ignore
     return_orn: bool = False,
     rng: Generator = np.random.default_rng(23),
 ) -> Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
-    """Sampler for placeOnTop option"""
+    """Sampler for placeOnTop option
+    """
     objA = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand
     ]
@@ -807,7 +798,6 @@ def place_ontop_obj_pos_sampler( # type: ignore
     aabb = get_aabb(objA.get_body_id())
     aabb_extent = get_aabb_extent(aabb)
 
-    # TODO: Incorporate an rng into this below function
     _ = rng.random()
     sampling_results = sampling_utils.sample_cuboid_on_object(
         objB,
@@ -837,8 +827,7 @@ def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-st
     option_model: bool = False,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
-    """
-    Parameterized controller for placeOnTop.
+    """Parameterized controller for placeOnTop.
     Runs motion planning to find a feasible trajectory to a certain
     offset from obj and selects an orientation such that the palm
     is facing the object. If the placement is infeasible, returns an
