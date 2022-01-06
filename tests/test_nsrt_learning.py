@@ -5,7 +5,7 @@ import time
 from gym.spaces import Box
 import numpy as np
 from predicators.src.nsrt_learning import learn_nsrts_from_data, \
-    unify_effects_and_options, segment_trajectory, learn_strips_operators
+    segment_trajectory, learn_strips_operators
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption, LowLevelTrajectory
 from predicators.src import utils
@@ -76,7 +76,8 @@ def test_learn_strips_operators():
     """
     utils.update_config({"min_data_for_nsrt": 0})
     known_option_segments, unknown_option_segments = test_segment_trajectory()
-    known_option_ops, _ = learn_strips_operators(known_option_segments)
+    known_option_pnads = learn_strips_operators(known_option_segments)
+    known_option_ops = [pnad.op for pnad in known_option_pnads]
     assert len(known_option_ops) == 1
     assert str((known_option_ops[0])) == """STRIPS-Op0:
     Parameters: [?x0:cup_type]
@@ -84,7 +85,8 @@ def test_learn_strips_operators():
     Add Effects: []
     Delete Effects: []
     Side Predicates: []"""
-    unknown_option_ops, _ = learn_strips_operators(unknown_option_segments)
+    unknown_option_pnads = learn_strips_operators(unknown_option_segments)
+    unknown_option_ops = [pnad.op for pnad in unknown_option_pnads]
     assert len(unknown_option_ops) == 1
     assert str(unknown_option_ops[0]) == """STRIPS-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
@@ -123,7 +125,7 @@ def test_nsrt_learning_specific_nsrts():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -155,7 +157,7 @@ def test_nsrt_learning_specific_nsrts():
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
                LowLevelTrajectory([state2, next_state2], [action2])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -191,7 +193,7 @@ def test_nsrt_learning_specific_nsrts():
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
                LowLevelTrajectory([state2, next_state2], [action2])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
@@ -230,7 +232,7 @@ def test_nsrt_learning_specific_nsrts():
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
                LowLevelTrajectory([state2, next_state2], [action2])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
@@ -249,13 +251,13 @@ def test_nsrt_learning_specific_nsrts():
         assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
     utils.update_config({"min_data_for_nsrt": 3})
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 0
     # Test sampler giving out-of-bounds outputs
     utils.update_config({"min_data_for_nsrt": 0, "seed": 123,
                          "classifier_max_itr_sampler": 1,
                          "regressor_max_itr": 1})
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):
@@ -264,18 +266,18 @@ def test_nsrt_learning_specific_nsrts():
                     state1, np.random.default_rng(123)).params)
     # Test max_rejection_sampling_tries = 0
     utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):
             assert option1.parent.params_space.contains(
                 nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
-    # Test do_sampler_learning = False
+    # Test sampler_learner = "random"
     utils.update_config({"seed": 123, "classifier_max_itr_sampler": 100000,
                          "regressor_max_itr": 100000})
     start_time = time.time()
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=False)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
     assert time.time()-start_time < 0.1  # should be lightning fast
     assert len(nsrts) == 2
     for nsrt in nsrts:
@@ -284,78 +286,3 @@ def test_nsrt_learning_specific_nsrts():
             assert option1.parent.params_space.contains(
                 nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
-
-
-def test_unify_effects_and_options():
-    """Tests for unify_effects_and_options().
-    """
-    # The following test checks edge cases of unification with respect to
-    # the split between effects and option variables.
-    # The case is basically this:
-    # Add set 1: P(a, b)
-    # Option 1: A(b, c)
-    # Add set 2: P(w, x)
-    # Option 2: A(y, z)
-    cup_type = Type("cup_type", ["feat1"])
-    cup0 = cup_type("cup0")
-    cup1 = cup_type("cup1")
-    cup2 = cup_type("cup2")
-    w = cup_type("?w")
-    x = cup_type("?x")
-    y = cup_type("?y")
-    z = cup_type("?z")
-    pred0 = Predicate("Pred0", [cup_type, cup_type], lambda s, o: False)
-    param_option0 = ParameterizedOption(
-        "dummy0", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False)
-    # Option0(cup0, cup1)
-    ground_option_args = (cup0, cup1)
-    # Pred0(cup1, cup2) true
-    ground_add_effects = frozenset({pred0([cup1, cup2])})
-    ground_delete_effects = frozenset()
-    # Option0(w, x)
-    lifted_option_args = (w, x)
-    # Pred0(y, z) True
-    lifted_add_effects = frozenset({pred0([y, z])})
-    lifted_delete_effects = frozenset()
-    suc, sub = unify_effects_and_options(
-        ground_add_effects,
-        lifted_add_effects,
-        ground_delete_effects,
-        lifted_delete_effects,
-        param_option0,
-        param_option0,
-        ground_option_args,
-        lifted_option_args)
-    assert not suc
-    assert not sub
-    # The following test is for an edge case where everything is identical
-    # except for the name of the parameterized option. We do not want to
-    # unify in this case.
-    # First, a unify that should succeed.
-    suc, sub = unify_effects_and_options(
-        frozenset(),
-        frozenset(),
-        frozenset(),
-        frozenset(),
-        param_option0,
-        param_option0,
-        (cup0, cup1),
-        (cup0, cup1))
-    assert suc
-    assert sub == {cup0: cup0, cup1: cup1}
-    # Now, a unify that should fail because of different parameterized options.
-    param_option1 = ParameterizedOption(
-        "dummy1", [cup_type], Box(0.1, 1, (1,)), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False, lambda s, m, o, p: False)
-    suc, sub = unify_effects_and_options(
-        frozenset(),
-        frozenset(),
-        frozenset(),
-        frozenset(),
-        param_option0,
-        param_option1,
-        (cup0, cup1),
-        (cup0, cup1))
-    assert not suc
-    assert not sub
