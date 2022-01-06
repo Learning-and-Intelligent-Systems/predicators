@@ -958,62 +958,38 @@ class Segment:
         self._option = option
 
 
-@dataclass(eq=False)
-class Partition:
-    """A partition stores a collection of segments that will ultimately be
-    covered by the same NSRT. For each segment, the partition also stores an
-    ObjToVarSub, under which the ParameterizedOption and effects for all
-    segments in the partition are equivalent.
+@dataclass(eq=False, repr=False)
+class PartialNSRTAndDatastore:
+    """PNAD: A helper class for NSRT learning that contains information
+    useful to maintain throughout the learning procedure. Each object of
+    this class corresponds to a learned NSRT. We use this class because
+    we don't want to clutter the NSRT class with a datastore, since data
+    is only used for learning and is not part of the representation itself.
     """
-    members: List[Tuple[Segment, ObjToVarSub]]
+    # The symbolic components of the NSRT.
+    op: STRIPSOperator
+    # The datastore, a list of segments that are covered by the
+    # STRIPSOperator self.op. For each such segment, the datastore also
+    # maintains a substitution dictionary of type ObjToVarSub,
+    # under which the ParameterizedOption and effects for all
+    # segments in the datastore are equivalent.
+    datastore: Datastore
+    # The OptionSpec of this NSRT, which is a tuple of (option, option_vars).
+    option_spec: OptionSpec
+    # The sampler for this NSRT.
+    sampler: Optional[NSRTSampler] = field(init=False, default=None)
 
-    def __iter__(self) -> Iterator[Tuple[Segment, ObjToVarSub]]:
-        return iter(self.members)
-
-    def __len__(self) -> int:
-        return len(self.members)
-
-    @cached_property
-    def _exemplar(self) -> Tuple[Segment, ObjToVarSub]:
-        assert len(self.members) > 0, "Partition is empty."
-        return self.members[0]
-
-    @cached_property
-    def add_effects(self) -> Set[LiftedAtom]:
-        """Get the lifted add effects for this partition.
-        """
-        seg, sub = self._exemplar
-        return {a.lift(sub) for a in seg.add_effects}
-
-    @cached_property
-    def delete_effects(self) -> Set[LiftedAtom]:
-        """Get the lifted delete effects for this partition.
-        """
-        seg, sub = self._exemplar
-        return {a.lift(sub) for a in seg.delete_effects}
-
-    @cached_property
-    def option_spec(self) -> OptionSpec:
-        """Get a tuple of (the parameterized option, the option vars)
-        for this partition. This tuple is called an option spec.
-        """
-        seg, sub = self._exemplar
-        assert seg.has_option()
-        option = seg.get_option()
-        option_args = [sub[o] for o in option.objects]
-        return (option.parent, option_args)
-
-    def add(self, member: Tuple[Segment, ObjToVarSub]) -> None:
-        """Add a new member.
+    def add_to_datastore(self, member: Tuple[Segment, ObjToVarSub]) -> None:
+        """Add a new member to self.datastore.
         """
         seg, sub = member
         # Check for consistency.
-        if len(self.members) > 0:
+        if len(self.datastore) > 0:
             # The effects should match.
             lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
             lifted_delete_effects = {a.lift(sub) for a in seg.delete_effects}
-            assert lifted_add_effects == self.add_effects
-            assert lifted_delete_effects == self.delete_effects
+            assert lifted_add_effects == self.op.add_effects
+            assert lifted_delete_effects == self.op.delete_effects
             if seg.has_option():
                 option = seg.get_option()
                 part_param_option, part_option_args = self.option_spec
@@ -1021,7 +997,22 @@ class Partition:
                 option_args = [sub[o] for o in option.objects]
                 assert option_args == part_option_args
         # Add to members.
-        self.members.append(member)
+        self.datastore.append(member)
+
+    def make_nsrt(self) -> NSRT:
+        """Make an NSRT from this PNAD.
+        """
+        assert self.sampler is not None
+        param_option, option_vars = self.option_spec
+        return self.op.make_nsrt(param_option, option_vars, self.sampler)
+
+    def __repr__(self) -> str:
+        param_option, option_vars = self.option_spec
+        vars_str = ", ".join(str(v) for v in option_vars)
+        return f"{self.op}\n    Option Spec: {param_option.name}({vars_str})"
+
+    def __str__(self) -> str:
+        return repr(self)
 
 
 # Convenience higher-order types useful throughout the code
@@ -1031,10 +1022,11 @@ GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
-NSRTSampler = Callable[[State, np.random.Generator, Sequence[Object]], Array]
 PyperplanFacts = FrozenSet[Tuple[str, ...]]
 ObjToVarSub = Dict[Object, Variable]
 VarToObjSub = Dict[Variable, Object]
+Datastore = List[Tuple[Segment, ObjToVarSub]]
+NSRTSampler = Callable[[State, np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar(
     "LiftedOrGroundAtom", LiftedAtom, GroundAtom)
