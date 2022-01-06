@@ -6,8 +6,8 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, Partition, \
-    _GroundSTRIPSOperator, LowLevelTrajectory
+    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, LowLevelTrajectory, \
+    PartialNSRTAndDatastore, _GroundSTRIPSOperator
 from predicators.src import utils
 
 
@@ -668,8 +668,8 @@ def test_segment():
     assert segment.get_option() == option
 
 
-def test_partition():
-    """Tests for Partition class.
+def test_pnad():
+    """Tests for PartialNSRTAndDatastoreclass.
     """
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
@@ -700,14 +700,43 @@ def test_partition():
     objtovar = {cup: cup_var, plate: plate_var}
     segment2 = Segment(traj, init_atoms, final_atoms, option)
     segment3 = Segment(traj, init_atoms, set(), option)
-    partition = Partition([(segment1, objtovar)])
-    assert partition.add_effects == {not_on([cup_var, plate_var])}
-    assert partition.delete_effects == {on([cup_var, plate_var])}
-    assert partition.option_spec == (parameterized_option, [])
-    assert len(partition) == 1
-    assert len(list(partition)) == 1
-    partition.add((segment2, objtovar))
-    assert len(partition) == 2
-    with pytest.raises(AssertionError):
-        # Effects don't match.
-        partition.add((segment3, objtovar))
+    datastore = [(segment1, objtovar)]
+    parameters = [cup_var, plate_var]
+    preconditions = {on([cup_var, plate_var])}
+    add_effects = {not_on([cup_var, plate_var])}
+    delete_effects = {on([cup_var, plate_var])}
+    side_predicates = {on}
+    strips_operator = STRIPSOperator(
+        "Pick", parameters, preconditions,
+        add_effects, delete_effects, side_predicates)
+    pnad = PartialNSRTAndDatastore(
+        strips_operator, datastore, (parameterized_option, []))
+    assert len(pnad.datastore) == 1
+    pnad.add_to_datastore((segment2, objtovar))
+    assert len(pnad.datastore) == 2
+    with pytest.raises(AssertionError):  # doesn't fit add effects
+        pnad.add_to_datastore((segment3, objtovar))
+    assert repr(pnad) == str(pnad) == """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]
+    Option Spec: Move()"""
+    with pytest.raises(AssertionError):  # no sampler
+        pnad.get_nsrt()
+    params_space = Box(0, 1, (1,))
+    def sampler(s, rng, objs):
+        del s  # unused
+        del rng  # unused
+        del objs  # unused
+        return params_space.sample()
+    pnad.sampler = sampler
+    nsrt = pnad.get_nsrt()
+    assert repr(nsrt) == str(nsrt) == """NSRT-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]
+    Option Spec: Move()"""

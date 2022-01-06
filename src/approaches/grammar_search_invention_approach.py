@@ -530,9 +530,9 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             self._atom_dataset, predicates | self._initial_predicates)
         segments = [seg for traj in pruned_atom_data
                     for seg in segment_trajectory(traj)]
-        strips_ops, partitions = learn_strips_operators(segments,
-                                                        verbose=False)
-        option_specs = [p.option_spec for p in partitions]
+        pnads = learn_strips_operators(segments, verbose=False)
+        strips_ops = [pnad.op for pnad in pnads]
+        option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self._evaluate_with_operators(predicates,
             pruned_atom_data, segments, strips_ops, option_specs)
         pred_penalty = self._get_predicate_penalty(predicates)

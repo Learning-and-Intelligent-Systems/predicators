@@ -2,13 +2,12 @@
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
 import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet, Optional
+from typing import Set, Tuple, List, Sequence, FrozenSet
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    LowLevelTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
-    DummyOption, ParameterizedOption, State, Action, OptionSpec, NSRTSampler
+    LowLevelTrajectory, Segment, PartialNSRTAndDatastore, Object, \
+    GroundAtomTrajectory, DummyOption, ParameterizedOption, State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -34,33 +33,29 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     segments = [seg for segs in segmented_trajs for seg in segs]
 
     # STEP 3: Cluster the data by effects, jointly producing one STRIPSOperator,
-    #         OptionSpec, and Partition (data store) per cluster. These items
-    #         then used to initialize _NSRTIntermediateData objects (NIDs).
+    #         NSRTDatastore, and OptionSpec per cluster. These items are then
+    #         used to initialize PartialNSRTAndDatastore objects (PNADs).
     #         Note: The OptionSpecs here are extracted directly from the data.
     #         If we are doing option learning, then the data will not contain
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    nids = _get_initial_nids(segments, verbose=CFG.do_option_learning)
+    pnads = _get_initial_pnads(segments, verbose=CFG.do_option_learning)
 
-    # STEP 4: Learn side predicates for the operators and update NIDs. These
+    # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
-        _learn_nid_side_predicates(nids)
+        _learn_pnad_side_predicates(pnads)
 
-    # STEP 5: Learn options (option_learning.py) and update NIDs.
-    _learn_nid_options(nids)
+    # STEP 5: Learn options (option_learning.py) and update PNADs.
+    _learn_pnad_options(pnads)
 
-    # STEP 6: Learn samplers (sampler_learning.py) and update NIDs.
-    _learn_nid_samplers(nids, do_sampler_learning)
+    # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
+    _learn_pnad_samplers(pnads, do_sampler_learning)
 
-    # STEP 7: Finalize and return the NSRTs.
-    nsrts = []
-    for nid in nids:
-        nid.finalize()
-        assert nid.nsrt is not None
-        nsrts.append(nid.nsrt)
+    # STEP 7: Print and return the NSRTs.
+    nsrts = [pnad.get_nsrt() for pnad in pnads]
     print("\nLearned NSRTs:")
     for nsrt in sorted(nsrts):
         print(nsrt)
@@ -68,18 +63,11 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     return set(nsrts)
 
 
-def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
-                           ) -> Tuple[List[STRIPSOperator], List[Partition]]:
-    """A light wrapper around _get_initial_nids() that returns the operators
-    and partitions themselves, rather than exposing the internal data structure.
+def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True
+                           ) -> List[PartialNSRTAndDatastore]:
+    """An alias for _get_initial_pnads.
     """
-    nids = _get_initial_nids(segments, verbose=verbose)
-    ops = []
-    partitions = []
-    for nid in nids:
-        ops.append(nid.op)
-        partitions.append(nid.partition)
-    return ops, partitions
+    return _get_initial_pnads(segments, verbose=verbose)
 
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
@@ -149,10 +137,10 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def _get_initial_nids(segments: Sequence[Segment], verbose: bool
-                      ) -> List[_NSRTIntermediateData]:
-    # Partition the segments according to common effects.
-    nids = []
+def _get_initial_pnads(segments: Sequence[Segment], verbose: bool
+                      ) -> List[PartialNSRTAndDatastore]:
+    # Cluster the segments according to common effects.
+    pnads: List[PartialNSRTAndDatastore] = []
     for segment in segments:
         if not CFG.do_option_learning:
             segment_option = segment.get_option()
@@ -161,29 +149,27 @@ def _get_initial_nids(segments: Sequence[Segment], verbose: bool
         else:
             segment_param_option = DummyOption.parent
             segment_option_objs = tuple()
-        for nid in nids:
+        for pnad in pnads:
             # Try to unify this transition with existing effects.
             # Note that both add and delete effects must unify,
             # and also the objects that are arguments to the options.
-            (nid_param_option, nid_option_vars) = nid.option_spec
-            nid_add_effects = nid.op.add_effects
-            nid_delete_effects = nid.op.delete_effects
+            (pnad_param_option, pnad_option_vars) = pnad.option_spec
             suc, sub = unify_effects_and_options(
                 frozenset(segment.add_effects),
-                frozenset(nid_add_effects),
+                frozenset(pnad.op.add_effects),
                 frozenset(segment.delete_effects),
-                frozenset(nid_delete_effects),
+                frozenset(pnad.op.delete_effects),
                 segment_param_option,
-                nid_param_option,
+                pnad_param_option,
                 segment_option_objs,
-                tuple(nid_option_vars))
+                tuple(pnad_option_vars))
             if suc:
-                # Add to this NID.
-                assert set(sub.values()) == set(nid.op.parameters)
-                nid.partition.add((segment, sub))
+                # Add to this PNAD.
+                assert set(sub.values()) == set(pnad.op.parameters)
+                pnad.add_to_datastore((segment, sub))
                 break
         else:
-            # Otherwise, create a new NID.
+            # Otherwise, create a new PNAD.
             objects = {o for atom in segment.add_effects |
                        segment.delete_effects for o in atom.objects} | \
                       set(segment_option_objs)
@@ -195,19 +181,20 @@ def _get_initial_nids(segments: Sequence[Segment], verbose: bool
             add_effects = {atom.lift(sub) for atom in segment.add_effects}
             delete_effects = {atom.lift(sub) for atom in segment.delete_effects}
             side_predicates: Set[Predicate] = set()  # will be learned later
-            op = STRIPSOperator(f"Op{len(nids)}", params, preconds,
+            op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                 add_effects, delete_effects, side_predicates)
-            partition = Partition([(segment, sub)])
+            datastore = [(segment, sub)]
             option_vars = [sub[o] for o in segment_option_objs]
             option_spec = (segment_param_option, option_vars)
-            nids.append(_NSRTIntermediateData(op, partition, option_spec))
+            pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
 
-    # Prune NIDs with not enough data.
-    nids = [nid for nid in nids if len(nid.partition) >= CFG.min_data_for_nsrt]
+    # Prune PNADs with not enough data.
+    pnads = [pnad for pnad in pnads
+             if len(pnad.datastore) >= CFG.min_data_for_nsrt]
 
-    # Learn the preconditions of the operators in the NIDs via intersection.
-    for nid in nids:
-        for i, (segment, sub) in enumerate(nid.partition):
+    # Learn the preconditions of the operators in the PNADs via intersection.
+    for pnad in pnads:
+        for i, (segment, sub) in enumerate(pnad.datastore):
             objects = set(sub.keys())
             atoms = {atom for atom in segment.init_atoms if
                      all(o in objects for o in atom.objects)}
@@ -220,64 +207,65 @@ def _get_initial_nids(segments: Sequence[Segment], verbose: bool
                 preconditions = lifted_atoms
             else:
                 preconditions &= lifted_atoms
-        nid.op = STRIPSOperator(
-            nid.op.name, nid.op.parameters, preconditions, nid.op.add_effects,
-            nid.op.delete_effects, nid.op.side_predicates)
+        pnad.op = STRIPSOperator(
+            pnad.op.name, pnad.op.parameters, preconditions,
+            pnad.op.add_effects, pnad.op.delete_effects,
+            pnad.op.side_predicates)
 
-    # Print and return the NIDs.
+    # Print and return the PNADs.
     if verbose:
         print("\nLearned operators (before option learning):")
-        for nid in nids:
-            print(nid)
-    return nids
+        for pnad in pnads:
+            print(pnad)
+    return pnads
 
 
-def _learn_nid_side_predicates(nids: List[_NSRTIntermediateData]) -> None:
+def _learn_pnad_side_predicates(pnads: List[PartialNSRTAndDatastore]) -> None:
     raise NotImplementedError  # TODO
 
 
-def _learn_nid_options(nids: List[_NSRTIntermediateData]) -> None:
+def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
     print("\nDoing option learning...")
     option_learner = create_option_learner()
     strips_ops = []
-    partitions = []
-    for nid in nids:
-        strips_ops.append(nid.op)
-        partitions.append(nid.partition)
-    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
-    assert len(option_specs) == len(nids)
-    # Replace the option_specs in the NIDs.
-    for nid, option_spec in zip(nids, option_specs):
-        nid.option_spec = option_spec
+    datastores = []
+    for pnad in pnads:
+        strips_ops.append(pnad.op)
+        datastores.append(pnad.datastore)
+    option_specs = option_learner.learn_option_specs(strips_ops, datastores)
+    assert len(option_specs) == len(pnads)
+    # Replace the option_specs in the PNADs.
+    for pnad, option_spec in zip(pnads, option_specs):
+        pnad.option_spec = option_spec
     # Seed the new parameterized option parameter spaces.
     for parameterized_option, _ in option_specs:
         parameterized_option.params_space.seed(CFG.seed)
     # Update the segments to include which option is being executed.
-    for partition, spec in zip(partitions, option_specs):
-        for (segment, _) in partition:
+    for datastore, spec in zip(datastores, option_specs):
+        for (segment, _) in datastore:
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
     print("\nLearned operators with option specs:")
-    for nid in nids:
-        print(nid)
+    for pnad in pnads:
+        print(pnad)
 
 
-def _learn_nid_samplers(nids: List[_NSRTIntermediateData],
-                        do_sampler_learning: bool) -> None:
+def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
+                         do_sampler_learning: bool) -> None:
     print("\nDoing sampler learning...")
     strips_ops = []
-    partitions = []
+    datastores = []
     option_specs = []
-    for nid in nids:
-        strips_ops.append(nid.op)
-        partitions.append(nid.partition)
-        option_specs.append(nid.option_spec)
-    samplers = learn_samplers(strips_ops, partitions, option_specs,
+    for pnad in pnads:
+        strips_ops.append(pnad.op)
+        datastores.append(pnad.datastore)
+        option_specs.append(pnad.option_spec)
+    samplers = learn_samplers(strips_ops, datastores, option_specs,
                               do_sampler_learning)
     assert len(samplers) == len(strips_ops)
-    # Replace the samplers in the NIDs.
-    for nid, sampler in zip(nids, samplers):
-        nid.sampler = sampler
+    # Replace the samplers in the PNADs.
+    for pnad, sampler in zip(pnads, samplers):
+        pnad.sampler = sampler
 
 
 @functools.lru_cache(maxsize=None)
@@ -329,40 +317,3 @@ def unify_effects_and_options(
             f_new_ground_delete_effects,
         f_lifted_option_args | f_new_lifted_add_effects | \
             f_new_lifted_delete_effects)
-
-
-@dataclass(repr=False)
-class _NSRTIntermediateData:
-    """NID: An internal helper class for NSRT learning that contains information
-    useful to maintain throughout the learning procedure. Each object of this
-    class corresponds to an NSRT, and at the end of learning will ultimately
-    contain a finalized NSRT object.
-    """
-    # The symbolic components of the NSRT are the first thing that get learned.
-    op: STRIPSOperator
-    # The data store (i.e., partition) describing which segments in the
-    # dataset are covered by the STRIPSOperator self.op.
-    partition: Partition
-    # The OptionSpec of this NSRT, which is a tuple of (option, option_vars).
-    # See the NSRT class and definition of OptionSpec in structs.py.
-    option_spec: OptionSpec
-    # The sampler for this NSRT.
-    sampler: Optional[NSRTSampler] = field(init=False, default=None)
-    # The finalized NSRT produced at the end of the learning procedure.
-    nsrt: Optional[NSRT] = field(init=False, default=None)
-
-    def finalize(self) -> None:
-        """Set self.nsrt to the finalized NSRT object.
-        """
-        assert self.nsrt is None
-        assert self.sampler is not None
-        param_option, option_vars = self.option_spec
-        self.nsrt = self.op.make_nsrt(param_option, option_vars, self.sampler)
-
-    def __repr__(self) -> str:
-        param_option, option_vars = self.option_spec
-        vars_str = ", ".join(str(v) for v in option_vars)
-        return f"{self.op}\n    Option Spec: {param_option.name}({vars_str})"
-
-    def __str__(self) -> str:
-        return repr(self)
