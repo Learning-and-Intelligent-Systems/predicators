@@ -27,8 +27,12 @@ __all__ = [
 ]
 
 
-def create_env(name: str) -> BaseEnv:
-    """Create an environment given its name.
+_MOST_RECENT_ENV_INSTANCE = {}
+
+
+def _create_new_env_instance(name: str) -> BaseEnv:
+    """Create a new instance of an environment from its name.
+    Note that this env instance will not be cached.
     """
     if name == "cover":
         return CoverEnv()
@@ -51,3 +55,21 @@ def create_env(name: str) -> BaseEnv:
     if name == "repeated_nextto":
         return RepeatedNextToEnv()
     raise NotImplementedError(f"Unknown env: {name}")
+
+
+def create_env(name: str) -> BaseEnv:
+    """Create an environment instance given its name
+    and cache it.
+    """
+    env = _create_new_env_instance(name)
+    _MOST_RECENT_ENV_INSTANCE[name] = env
+    return env
+
+
+def get_cached_env_instance(name: str) -> BaseEnv:
+    """Get the most recent cached env instance (env
+    must have been previously created with create_env()
+    to exist in the cache).
+    """
+    assert name in _MOST_RECENT_ENV_INSTANCE
+    return _MOST_RECENT_ENV_INSTANCE[name]
