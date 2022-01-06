@@ -755,8 +755,10 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                             ground_ops: Set[_GroundSTRIPSOperator]
                             ) -> Callable[[Set[GroundAtom]], float]:
         all_reachable_atoms = utils.get_reachable_atoms(ground_ops, init_atoms)
+        reachable_ground_ops = {op for op in ground_ops \
+            if op.preconditions.issubset(all_reachable_atoms)}
         h_fn = utils.create_heuristic(self.heuristic_name, all_reachable_atoms,
-                                      init_atoms, goal, ground_ops)
+                                      init_atoms, goal, reachable_ground_ops)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
         assert self.lookahead_depth >= 0
