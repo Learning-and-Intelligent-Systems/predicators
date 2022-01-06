@@ -126,45 +126,46 @@ class PlayroomEnv(BlocksEnv):
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._Move = ParameterizedOption(
-            # variables: [robot]
+            # variables: [robot, door, region]
             # params: [x, y, rotation]
-            "Move", types=[self._robot_type],
+            "Move", types=[self._robot_type, self._door_type,
+                           self._region_type],
             params_space=Box(low=np.array([self.x_lb, self.y_lb, -1.0]),
                              high=np.array([self.x_ub, self.y_ub, 1.0])),
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._OpenDoor = ParameterizedOption(
-            # variables: [door]
+            # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
-            "OpenDoor", types=[self._door_type],
+            "OpenDoor", types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._CloseDoor = ParameterizedOption(
-            # variables: [door]
+            # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
-            "CloseDoor", types=[self._door_type],
+            "CloseDoor", types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._TurnOnDial = ParameterizedOption(
-            # variables: [dial]
+            # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
-            "TurnOnDial", types=[self._dial_type],
+            "TurnOnDial", types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._TurnOffDial = ParameterizedOption(
-            # variables: [dial]
+            # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
-            "TurnOffDial", types=[self._dial_type],
+            "TurnOffDial", types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
@@ -690,7 +691,7 @@ class PlayroomEnv(BlocksEnv):
     def _Move_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        robot, = objects
+        robot, _, _= objects
         fingers = state.get(robot, "fingers")
         arr = np.r_[params[:-1], 1.0, params[-1], fingers].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
@@ -699,7 +700,7 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDoor_policy(self, state: State, memory: Dict,
                          objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        door, = objects
+        _, door = objects
         door_pose = np.array([state.get(door, "pose_x"),
                               state.get(door, "pose_y"),
                               self.door_button_z])
@@ -710,7 +711,7 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDial_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
-        dial, = objects
+        _, dial = objects
         dial_pose = np.array([state.get(dial, "pose_x"),
                               state.get(dial, "pose_y"),
                               self.dial_button_z])
