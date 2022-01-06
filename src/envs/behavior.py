@@ -180,7 +180,9 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self._env.action_space.high == 1)
         return self._env.action_space
 
-    def render(self, state: State, task: Task,
+    def render(self,
+               state: State,
+               task: Task,
                action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
@@ -228,9 +230,10 @@ class BehaviorEnv(BaseEnv):
         return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(
-            self,
-            bddl_predicate: "bddl.AtomicFormula",
+        self,
+        bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
+
         def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
