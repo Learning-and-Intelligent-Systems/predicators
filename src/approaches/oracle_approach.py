@@ -131,13 +131,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     if CFG.env in ("cover", "cover_hierarchical_types"):
         option = PickPlace
         option_vars = []
-    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
-        option = Pick
-        option_vars = [block]
-    if CFG.env == "cover_multistep_options" and \
+    elif CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
+    elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
+        option = Pick
+        option_vars = [block]
 
     if CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
@@ -163,8 +163,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     else:
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            assert len(objs) == 2 if CFG.env == "cover_multistep_options" \
-                else len(objs) == 1
+            if CFG.env == "cover_multistep_options":
+                len(objs) == 2
+            else:
+                len(objs) == 1
             b = objs[0]
             assert b.is_instance(block_type)
             if CFG.env == "cover_multistep_options":
@@ -235,8 +237,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     else:
         def place_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            assert len(objs) == 3 if CFG.env == "cover_multistep_options" \
-                else len(objs) == 2
+            if CFG.env == "cover_multistep_options":
+                len(objs) == 3
+            else:
+                len(objs) == 2
             t = objs[-1]
             assert t.is_instance(target_type)
             if CFG.env == "cover_multistep_options":

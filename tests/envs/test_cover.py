@@ -173,7 +173,7 @@ def test_cover_multistep_options():
     # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
     assert len(env.predicates) == 5
     # Options should be {Pick, Place, LearnedEquivalentPick,
-    # LearnedEquivalentPlace}.
+    #                    LearnedEquivalentPlace}.
     assert len(env.options) == 4
     # Types should be {block, target, robot}
     assert len(env.types) == 3

@@ -21,7 +21,8 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                          "classifier_max_itr_sampler": 200,
                          "classifier_max_itr_predicate": 200,
                          "excluded_predicates": excluded_predicates,
-                         "do_sampler_learning": True})
+                         "do_sampler_learning": True,
+                         "do_option_learning": False})
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
