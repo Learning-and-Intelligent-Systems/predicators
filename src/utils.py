@@ -827,10 +827,6 @@ class _Heuristic:
     ground_ops: Collection[Union[_GroundNSRT, _GroundSTRIPSOperator]]
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
-        return self._evaluate(frozenset(atoms))
-
-    @functools.lru_cache(maxsize=None)
-    def _evaluate(self, atoms: FrozenSet[GroundAtom]) -> float:
         raise NotImplementedError("Override me!")
 
 
@@ -869,19 +865,18 @@ class _PyperplanHeuristicWrapper(_Heuristic):
     _pyperplan_heuristic: _PyperplanBaseHeuristic
     _pyperplan_goal: PyperplanFacts
 
-    @functools.cached_property
-    def _hash(self) -> int:
-        return hash((frozenset(self.init_atoms), frozenset(self.goal),
-                     frozenset(self.ground_ops), self.name))
-
-    def __hash__(self) -> int:
-        return self._hash
-
-    @functools.lru_cache(maxsize=None)
-    def _evaluate(self, atoms: FrozenSet[GroundAtom]) -> float:
+    def __call__(self, atoms: Collection[GroundAtom]) -> float:
         pyperplan_facts = _atoms_to_tuples(atoms)
-        pyperplan_node = _PyperplanNode(pyperplan_facts, self._pyperplan_goal)
-        return self._pyperplan_heuristic(pyperplan_node)
+        return self._evaluate(pyperplan_facts, self._pyperplan_goal,
+                              self._pyperplan_heuristic)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=None)
+    def _evaluate(pyperplan_facts: PyperplanFacts,
+                  pyperplan_goal: PyperplanFacts,
+                  pyperplan_heuristic: _PyperplanBaseHeuristic) -> float:
+        pyperplan_node = _PyperplanNode(pyperplan_facts, pyperplan_goal)
+        return pyperplan_heuristic(pyperplan_node)
 
 
 def _create_pyperplan_task(all_reachable_atoms: Collection[GroundAtom],
