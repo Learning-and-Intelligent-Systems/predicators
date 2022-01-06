@@ -514,6 +514,29 @@ def test_nsrts():
     assert len(filtered_nsrt.preconditions) == 1
     assert len(filtered_nsrt.add_effects) == 0
     assert len(filtered_nsrt.delete_effects) == 1
+    # Test copy_with().
+    ground_nsrt_copy1 = ground_nsrt.copy_with()
+    assert ground_nsrt == ground_nsrt_copy1
+    ground_nsrt_copy2 = ground_nsrt.copy_with(
+        preconditions=set())
+    assert str(ground_nsrt_copy2) == """GroundNSRT-Pick:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: []
+    Add Effects: [On(cup:cup_type, plate:plate_type)]
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
+    Side Predicates: [On]
+    Option: ParameterizedOption(name='Pick', types=[])
+    Option Objects: []"""
+    ground_nsrt_copy3 = ground_nsrt.copy_with(
+        add_effects=set())
+    assert str(ground_nsrt_copy3) == """GroundNSRT-Pick:
+    Parameters: [cup:cup_type, plate:plate_type]
+    Preconditions: [NotOn(cup:cup_type, plate:plate_type)]
+    Add Effects: []
+    Delete Effects: [NotOn(cup:cup_type, plate:plate_type)]
+    Side Predicates: [On]
+    Option: ParameterizedOption(name='Pick', types=[])
+    Option Objects: []"""
 
 
 def test_datasets():

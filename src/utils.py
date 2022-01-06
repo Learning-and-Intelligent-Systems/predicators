@@ -519,6 +519,55 @@ def run_gbfs(
         get_priority, max_expansions, max_evals, lazy_expansion)
 
 
+def run_hill_climbing(
+    initial_state: _S,
+    check_goal: Callable[[_S], bool],
+    get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+    heuristic: Callable[[_S], float]
+    ) -> Tuple[List[_S], List[_A]]:
+    """Simple hill climbing local search. Lower heuristic is better.
+    """
+    cur_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
+        initial_state, 0, 0)
+    states = [initial_state]
+    actions = []
+    last_heuristic = heuristic(cur_node.state)
+    print(f"\n\nStarting hill climbing at state {cur_node.state} "
+          f"with heuristic {last_heuristic}")
+    while True:
+        if check_goal(cur_node.state):
+            print("\nTerminating hill climbing, achieved goal")
+            break
+        best_heuristic = float("inf")
+        best_child_node = None
+        for action, child_state, cost in get_successors(cur_node.state):
+            child_path_cost = cur_node.cumulative_cost + cost
+            child_node = _HeuristicSearchNode(
+                state=child_state,
+                edge_cost=cost,
+                cumulative_cost=child_path_cost,
+                parent=cur_node,
+                action=action)
+            child_heuristic = heuristic(child_node.state)
+            if child_heuristic < best_heuristic:
+                best_heuristic = child_heuristic
+                best_child_node = child_node
+        if best_child_node is None:
+            print("\nTerminating hill climbing, no more successors")
+            break
+        if last_heuristic <= best_heuristic:
+            print("\nTerminating hill climbing, could not improve score")
+            break
+        cur_node = best_child_node
+        states.append(cur_node.state)
+        action = cast(_A, cur_node.action)
+        actions.append(action)
+        last_heuristic = best_heuristic
+        print(f"\nHill climbing reached new state {cur_node.state} "
+              f"with heuristic {last_heuristic}")
+    return states, actions
+
+
 def strip_predicate(predicate: Predicate) -> Predicate:
     """Remove classifier from predicate to make new Predicate.
     """
@@ -1137,9 +1186,17 @@ def update_config(args: Dict[str, Any]) -> None:
 
 
 def get_config_path_str() -> str:
-    """Create a filename prefix based on the current CFG.
+    """Get a filename prefix for configuration based on the current CFG.
     """
-    return f"{CFG.env}__{CFG.approach}__{CFG.seed}"
+    return f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+
+
+def get_save_path_str() -> str:
+    """Get a path for saving and loading models.
+    """
+    if not os.path.exists(CFG.save_dir):
+        os.makedirs(CFG.save_dir)
+    return f"{CFG.save_dir}/{get_config_path_str()}.saved"
 
 
 def parse_args() -> Dict[str, Any]:

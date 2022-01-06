@@ -3,6 +3,7 @@ the candidates proposed from a grammar.
 """
 
 from __future__ import annotations
+import re
 import time
 import abc
 from dataclasses import dataclass, field
@@ -31,37 +32,40 @@ from predicators.src.settings import CFG
 
 def _create_grammar(dataset: Dataset, given_predicates: Set[Predicate]
                     ) -> _PredicateGrammar:
-    # We start with the given predicates because we want to allow
+    # We start with considering various ways to split single feature values
+    # across our dataset.
+    grammar: _PredicateGrammar = _SingleFeatureInequalitiesPredicateGrammar(
+        dataset)
+    # We next optionally add in the given predicates because we want to allow
     # negated and quantified versions of the given predicates, in
     # addition to negated and quantified versions of new predicates.
-    given_grammar = _GivenPredicateGrammar(given_predicates)
-    # Next, we consider various ways to split single feature values
-    # across our dataset.
-    sfi_grammar = _SingleFeatureInequalitiesPredicateGrammar(dataset)
-    # This chained grammar has the effect of enumerating first the
+    # The chained grammar has the effect of enumerating first the
     # given predicates, then the single feature inequality ones.
-    chained_grammar = _ChainPredicateGrammar([given_grammar, sfi_grammar])
-    # Now, the chained grammar will undergo a series of transformations.
-    # For each predicate enumerated by the chained grammar, we also
+    if CFG.grammar_search_grammar_includes_givens:
+        given_grammar = _GivenPredicateGrammar(given_predicates)
+        grammar = _ChainPredicateGrammar([given_grammar, grammar])
+    # Now, the grammar will undergo a series of transformations.
+    # For each predicate enumerated by the grammar, we also
     # enumerate the negation of that predicate.
-    negated_grammar = _NegationPredicateGrammarWrapper(chained_grammar)
-    # For each predicate enumerated, we also enumerate foralls for
-    # that predicate, along with appropriate negations.
-    forall_grammar = _ForallPredicateGrammarWrapper(negated_grammar)
+    grammar = _NegationPredicateGrammarWrapper(grammar)
+    # For each predicate enumerated, we also optionally enumerate foralls
+    # for that predicate, along with appropriate negations.
+    if CFG.grammar_search_grammar_includes_foralls:
+        grammar = _ForallPredicateGrammarWrapper(grammar)
     # Prune proposed predicates by checking if they are equivalent to
     # any already-generated predicates with respect to the dataset.
     # Note that we want to do this before the skip grammar below,
     # because if any predicates are equivalent to the given predicates,
     # we would not want to generate them.
-    pruned_grammar = _PrunedGrammar(dataset, forall_grammar)
+    grammar = _PrunedGrammar(dataset, grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
     # so we just filter them out from actually being enumerated.
     # But remember that we do want to enumerate their negations
     # and foralls, which is why they're included originally.
-    final_grammar = _SkipGrammar(pruned_grammar, given_predicates)
+    grammar = _SkipGrammar(grammar, given_predicates)
     # We're done! Return the final grammar.
-    return final_grammar
+    return grammar
 
 
 class _ProgrammaticClassifier(abc.ABC):
@@ -470,23 +474,15 @@ def _create_score_function(
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    if score_function_name == "hadd_lookahead":
+    match = re.match(r"(\w+)_lookahead_depth(\d+)", score_function_name)
+    if match is not None:
+        # heuristic_name can be any of {"hadd", "hmax", "hff"}
+        # depth can be any non-negative integer
+        heuristic_name, depth = match.groups()
+        depth = int(depth)
         return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    if score_function_name == "hadd_lookahead_depth1":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
-            lookahead_depth=1)
-    if score_function_name == "hadd_lookahead_depth2":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
-            lookahead_depth=2)
-    if score_function_name == "hmax_lookahead":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hmax")
-    if score_function_name == "hff_lookahead":
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hff")
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            heuristic_name, lookahead_depth=depth)
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
@@ -543,7 +539,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
         print(f"\tTotal score: {total_score} computed in "
-              f"{time.time()-start_time:.3f} seconds")
+              f"{time.time()-start_time:.3f} seconds", flush=True)
         return total_score
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
@@ -762,6 +758,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
                                       ground_ops)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
+        assert self.lookahead_depth >= 0
         def _relaxation_h(atoms: Set[GroundAtom], depth: int=0) -> float:
             cache_key = (frozenset(atoms), depth)
             if cache_key in cache:
@@ -915,10 +912,9 @@ def _select_predicates_to_keep(
     # Start the search with no candidates.
     init : FrozenSet[Predicate] = frozenset()
 
-    # Greedy best first search.
-    path, _ = utils.run_gbfs(
-        init, _check_goal, _get_successors, score_function.evaluate,
-        max_evals=CFG.grammar_search_max_evals)
+    # Greedy local hill climbing search.
+    path, _ = utils.run_hill_climbing(
+        init, _check_goal, _get_successors, score_function.evaluate)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "

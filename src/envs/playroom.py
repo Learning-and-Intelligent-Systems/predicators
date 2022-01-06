@@ -197,9 +197,11 @@ class PlayroomEnv(BlocksEnv):
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
         was_next_to_table = self._NextToTable_holds(state, (self._robot,))
-        was_next_to_door = {door: self._NextToDoor_holds(state, (self._robot, door))
-                        for door in self._doors}
-        was_next_to_dial = self._NextToDial_holds(state, (self._robot, self._dial))
+        was_next_to_door = {door: self._NextToDoor_holds(
+                                    state, (self._robot, door))
+                            for door in self._doors}
+        was_next_to_dial = self._NextToDial_holds(
+                                    state, (self._robot, self._dial))
         # Update robot position
         if not self._is_valid_loc(x, y):
             return state.copy()
@@ -208,7 +210,7 @@ class PlayroomEnv(BlocksEnv):
 
         x = state.get(self._robot, "pose_x")
         y = state.get(self._robot, "pose_y")
-        # Interact with blocks
+        # Interact with blocks if robot was already next to table
         if was_next_to_table \
             and (self.table_x_lb < x < self.table_x_ub) \
             and (self.table_y_lb < y < self.table_y_ub) \
@@ -232,11 +234,12 @@ class PlayroomEnv(BlocksEnv):
                     and fingers >= self.open_fingers \
                     and self._robot_is_facing_door(state, action, door):
                     return self._transition_door(state, door)
-        # Interact with dial
+        # Interact with dial if robot was already next to dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
         if was_next_to_dial \
-            and (dial_x-self.dial_button_tol < x < dial_x+self.dial_button_tol) \
+            and (dial_x-self.dial_button_tol < x
+                    < dial_x+self.dial_button_tol) \
             and (dial_y-self.dial_button_tol < y
                     < dial_y+self.dial_button_tol) \
             and (self.dial_button_z-self.dial_button_tol < z
