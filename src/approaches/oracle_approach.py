@@ -31,7 +31,7 @@ class OracleApproach(TAMPApproach):
         return get_gt_nsrts(self._initial_predicates, self._initial_options)
 
 
-def get_gt_nsrts(predicates: Set[Predicate], 
+def get_gt_nsrts(predicates: Set[Predicate],
     options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env.
     """
