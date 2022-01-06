@@ -14,11 +14,11 @@ from predicators.src.envs import create_env, BlocksEnv
 def create_option_learner() -> _OptionLearnerBase:
     """Create an option learner given its name.
     """
-    if not CFG.do_option_learning:
+    if CFG.option_learner == "no_learning":
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
-    raise NotImplementedError(f"Unknown option learner: {CFG.option_learner}")
+    raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
 class _OptionLearnerBase:
@@ -55,7 +55,7 @@ class _OptionLearnerBase:
 
 class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
-    CFG.do_option_learning is False.
+    CFG.option_learner is "no_learning".
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
