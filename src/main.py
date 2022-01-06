@@ -42,8 +42,6 @@ from predicators.src import utils
 def main() -> None:
     """Main entry point for running approaches in environments.
     """
-    if not os.path.exists("results/"):
-        os.mkdir("results/")
     start = time.time()
     # Parse & validate args
     args = utils.parse_args()
@@ -52,6 +50,8 @@ def main() -> None:
     print(CFG)
     print("Git commit hash:", subprocess.check_output(
         ["git", "rev-parse", "HEAD"]).decode("ascii").strip())
+    if not os.path.exists(CFG.results_dir):
+        os.mkdir(CFG.results_dir)
     # Create & seed classes
     env = create_env(CFG.env)
     assert env.goal_predicates.issubset(env.predicates)
@@ -146,7 +146,7 @@ def _save_test_results(results: Dict[str, Metrics], start_time: float) -> None:
     print(f"Approach metrics: {approach_metrics}")
     print(f"Total test time: {total_test_time:.5f} seconds")
     total_time = time.time() - start_time
-    outfile = f"results/{utils.get_config_path_str()}.pkl"
+    outfile = f"{CFG.results_dir}/{utils.get_config_path_str()}.pkl"
     outdata = results["test"].copy()
     outdata["total_time"] = total_time
     with open(outfile, "wb") as f:

@@ -63,6 +63,7 @@ class GlobalSettings:
     max_samples_per_step = 10  # max effort on sampling a single skeleton
 
     # evaluation parameters
+    results_dir = "results"
     save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2

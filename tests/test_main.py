@@ -92,3 +92,10 @@ def test_main():
                 "--excluded_predicates", "all",
                 "--num_test_tasks", "5"]
     main()  # correct usage
+    results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
+    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
+                "--seed", "123", "--num_test_tasks", "1",
+                "--results_dir", results_dir]
+    main()
+    assert os.path.exists(results_dir)
+    shutil.rmtree(results_dir)
