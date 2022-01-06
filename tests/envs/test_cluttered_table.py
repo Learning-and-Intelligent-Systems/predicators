@@ -1,5 +1,4 @@
-"""Test cases for the cluttered table environment.
-"""
+"""Test cases for the cluttered table environment."""
 
 import pytest
 import numpy as np
@@ -11,8 +10,7 @@ from predicators.src.envs import EnvironmentFailure
 
 
 def test_cluttered_table():
-    """Tests for ClutteredTableEnv class.
-    """
+    """Tests for ClutteredTableEnv class."""
     utils.update_config({"env": "cluttered_table"})
     env = ClutteredTableEnv()
     env.seed(123)
@@ -34,7 +32,7 @@ def test_cluttered_table():
     # Types should be {can}
     assert len(env.types) == 1
     # Action space should be 4-dimensional.
-    assert env.action_space == Box(0, 1, (4,))
+    assert env.action_space == Box(0, 1, (4, ))
     # Test init state and simulate()
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
@@ -48,8 +46,8 @@ def test_cluttered_table():
                 pose_x2 = state.get(can2, "pose_x")
                 pose_y2 = state.get(can2, "pose_y")
                 rad2 = state.get(can2, "radius")
-                assert np.linalg.norm(
-                    [pose_y2-pose_y1, pose_x2-pose_x1]) > rad1+rad2
+                assert np.linalg.norm([pose_y2 - pose_y1, pose_x2 - pose_x1
+                                       ]) > rad1 + rad2
         can = list(state)[0]
         act = Action(env.action_space.sample())
         if i == 0:

@@ -11,12 +11,10 @@ from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 
 
-def learn_samplers(
-    strips_ops: List[STRIPSOperator],
-    datastores: List[Datastore],
-    option_specs: List[OptionSpec],
-    sampler_learner: str
-    ) -> List[NSRTSampler]:
+def learn_samplers(strips_ops: List[STRIPSOperator],
+                   datastores: List[Datastore],
+                   option_specs: List[OptionSpec],
+                   sampler_learner: str) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters."""
     samplers = []
     for i, op in enumerate(strips_ops):
@@ -35,14 +33,11 @@ def learn_samplers(
     return samplers
 
 
-def _learn_neural_sampler(datastores: List[Datastore],
-                          nsrt_name: str,
-                          variables: Sequence[Variable],
-                          preconditions: Set[LiftedAtom],
-                          add_effects: Set[LiftedAtom],
-                          delete_effects: Set[LiftedAtom],
-                          param_option: ParameterizedOption,
-                          datastore_idx: int) -> NSRTSampler:
+def _learn_neural_sampler(
+        datastores: List[Datastore], nsrt_name: str,
+        variables: Sequence[Variable], preconditions: Set[LiftedAtom],
+        add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
+        param_option: ParameterizedOption, datastore_idx: int) -> NSRTSampler:
     """Learn a neural network sampler given data.
 
     Transitions are clustered, so that they can be used for generating
@@ -95,14 +90,11 @@ def _learn_neural_sampler(datastores: List[Datastore],
 
 
 def _create_sampler_data(
-        datastores: List[Datastore],
-        variables: Sequence[Variable],
-        preconditions: Set[LiftedAtom],
-        add_effects: Set[LiftedAtom],
-        delete_effects: Set[LiftedAtom],
-        param_option: ParameterizedOption,
-        datastore_idx: int) -> Tuple[List[Tuple[State,
-                                     Dict[Variable, Object], _Option]], ...]:
+        datastores: List[Datastore], variables: Sequence[Variable],
+        preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
+        delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
+        datastore_idx: int
+) -> Tuple[List[Tuple[State, Dict[Variable, Object], _Option]], ...]:
     """Generate positive and negative data for training a sampler."""
     positive_data = []
     negative_data = []
@@ -117,7 +109,8 @@ def _create_sampler_data(
                 continue
             var_types = [var.type for var in variables]
             objects = list(state)
-            for grounding in utils.get_object_combinations(objects, var_types):
+            for grounding in utils.get_object_combinations(
+                    objects, var_types):
                 # If we are currently at the datastore that we're learning a
                 # sampler for, and this datapoint matches the actual grounding,
                 # add it to the positive data and continue.
@@ -125,9 +118,10 @@ def _create_sampler_data(
                     var_to_obj = {v: k for k, v in obj_to_var.items()}
                     actual_grounding = [var_to_obj[var] for var in variables]
                     if grounding == actual_grounding:
-                        assert all(pre.predicate.holds(
-                            state, [var_to_obj[v] for v in pre.variables])
-                                   for pre in preconditions)
+                        assert all(
+                            pre.predicate.holds(
+                                state, [var_to_obj[v] for v in pre.variables])
+                            for pre in preconditions)
                         positive_data.append((state, var_to_obj, option))
                         continue
                 sub = dict(zip(variables, grounding))
@@ -137,7 +131,10 @@ def _create_sampler_data(
                 # negative example, because if Y was achieved, then X was also
                 # achieved. So for now, we just filter out such examples.
                 ground_add_effects = {e.ground(sub) for e in add_effects}
-                ground_delete_effects = {e.ground(sub) for e in delete_effects}
+                ground_delete_effects = {
+                    e.ground(sub)
+                    for e in delete_effects
+                }
                 if ground_add_effects.issubset(trans_add_effects) and \
                    ground_delete_effects.issubset(trans_delete_effects):
                     continue
@@ -166,15 +163,16 @@ class _LearnedSampler:
 
         May be used as the _sampler field in an NSRT.
         """
-        x_lst : List[Any] = [1.0]  # start with bias term
+        x_lst: List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
         x = np.array(x_lst)
         num_rejections = 0
         while num_rejections <= CFG.max_rejection_sampling_tries:
-            params = np.array(self._regressor.predict_sample(x, rng),
-                              dtype=self._param_option.params_space.dtype)
+            params = np.array(
+                self._regressor.predict_sample(x, rng),
+                dtype=self._param_option.params_space.dtype)
             if self._param_option.params_space.contains(params) and \
                self._classifier.classify(np.r_[x, params]):
                 break

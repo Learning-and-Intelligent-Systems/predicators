@@ -1,5 +1,4 @@
-"""Test cases for dataset generation.
-"""
+"""Test cases for dataset generation."""
 
 import pytest
 from predicators.src.datasets import create_dataset
@@ -8,8 +7,7 @@ from predicators.src import utils
 
 
 def test_demo_dataset():
-    """Test demo-only dataset creation with Covers env.
-    """
+    """Test demo-only dataset creation with Covers env."""
     # Test that data does not contain options since
     # option_learner is not "no_learning"
     utils.update_config({
@@ -64,8 +62,7 @@ def test_demo_dataset():
 
 
 def test_demo_replay_dataset():
-    """Test demo+replay dataset creation with Covers env.
-    """
+    """Test demo+replay dataset creation with Covers env."""
     # Test that data contains options since
     # option_learner is "no_learning"
     utils.update_config({

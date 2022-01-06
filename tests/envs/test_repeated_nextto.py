@@ -1,5 +1,4 @@
-"""Test cases for the repeated NextTo environment.
-"""
+"""Test cases for the repeated NextTo environment."""
 
 import pytest
 import numpy as np
@@ -9,8 +8,7 @@ from predicators.src import utils
 
 
 def test_repeated_nextto():
-    """Tests for RepeatedNextTo class.
-    """
+    """Tests for RepeatedNextTo class."""
     env = RepeatedNextToEnv()
     env.seed(123)
     utils.update_config({"env": "repeated_nextto"})
@@ -30,7 +28,7 @@ def test_repeated_nextto():
     assert len(env.types) == 2
     dot_type = [t for t in env.types if t.name == "dot"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
-    assert env.action_space.shape == (3,)
+    assert env.action_space.shape == (3, )
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
         for item in state:
@@ -49,12 +47,14 @@ def test_repeated_nextto():
             state.set(dot1, "grasped", 1.0)
             env.render(state, task)
 
+
 def test_repeated_nextto_simulate():
-    """Tests for the simulate() function
-    """
-    utils.update_config({"env": "repeated_nextto",
-                         "approach": "nsrt_learning",
-                         "seed": 123})
+    """Tests for the simulate() function."""
+    utils.update_config({
+        "env": "repeated_nextto",
+        "approach": "nsrt_learning",
+        "seed": 123
+    })
     env = RepeatedNextToEnv()
     env.seed(123)
     Move = [o for o in env.options if o.name == "Move"][0]
@@ -74,37 +74,37 @@ def test_repeated_nextto_simulate():
     # Move always succeeds, and clips back into bounds
     midpt = (env.env_lb + env.env_ub) / 2
     state.set(dot0, "x", midpt)
-    act = Move.ground([robby, dot0], np.array(
-        [1], dtype=np.float32)).policy(state)
+    act = Move.ground([robby, dot0], np.array([1],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     assert abs(next_state.get(robby, "x") - (midpt + 1)) < 1e-4
     state.set(dot0, "x", env.env_lb)
-    act = Move.ground([robby, dot0], np.array(
-        [-1], dtype=np.float32)).policy(state)
+    act = Move.ground([robby, dot0], np.array([-1],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     assert abs(next_state.get(robby, "x") - env.env_lb) < 1e-4
     state.set(dot0, "x", env.env_ub)
-    act = Move.ground([robby, dot0], np.array(
-        [1], dtype=np.float32)).policy(state)
+    act = Move.ground([robby, dot0], np.array([1],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     assert abs(next_state.get(robby, "x") - env.env_ub) < 1e-4
     # Move to dot1 and change the state
-    act = Move.ground([robby, dot1], np.array(
-        [0], dtype=np.float32)).policy(state)
+    act = Move.ground([robby, dot1], np.array([0],
+                                              dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     state = next_state
     # Grasp success
-    act = Grasp.ground([robby, dot1], np.array(
-        [], dtype=np.float32)).policy(state)
+    act = Grasp.ground([robby, dot1],
+                       np.array([], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Grasp fails if not at the argument dot
-    act = Grasp.ground([robby, dot0], np.array(
-        [], dtype=np.float32)).policy(state)
+    act = Grasp.ground([robby, dot0],
+                       np.array([], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Use Action directly for final failure mode: no dot at desired x
