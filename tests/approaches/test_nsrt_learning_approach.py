@@ -99,7 +99,6 @@ def test_grammar_search_invention_approach():
         "grammar_search_max_predicates": 10,
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
-        "sampler_learner": "random",
     })
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
                    excluded_predicates="Holding", try_solving=False,
@@ -110,4 +109,3 @@ def test_grammar_search_invention_approach():
     _test_approach(env_name="blocks", approach_name="grammar_search_invention",
                    excluded_predicates="GripperOpen", try_solving=False,
                    sampler_learner="random")
-    utils.update_config({"sampler_learner": "neural"})
