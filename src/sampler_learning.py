@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, Partition, STRIPSOperator, OptionSpec, \
+    Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
     NSRTSampler
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
@@ -14,7 +14,7 @@ from predicators.src.settings import CFG
 
 def learn_samplers(
     strips_ops: List[STRIPSOperator],
-    partitions: List[Partition],
+    datastores: List[Datastore],
     option_specs: List[OptionSpec],
     do_sampler_learning: bool
     ) -> List[NSRTSampler]:
@@ -23,25 +23,25 @@ def learn_samplers(
     samplers = []
     for i, op in enumerate(strips_ops):
         sampler = _learn_sampler(
-            partitions, op.name, op.parameters, op.preconditions,
+            datastores, op.name, op.parameters, op.preconditions,
             op.add_effects, op.delete_effects, option_specs[i][0], i,
             do_sampler_learning)
         samplers.append(sampler)
     return samplers
 
 
-def _learn_sampler(partitions: List[Partition],
+def _learn_sampler(datastores: List[Datastore],
                    nsrt_name: str,
                    variables: Sequence[Variable],
                    preconditions: Set[LiftedAtom],
                    add_effects: Set[LiftedAtom],
                    delete_effects: Set[LiftedAtom],
                    param_option: ParameterizedOption,
-                   partition_idx: int, do_sampler_learning: bool
+                   datastore_idx: int, do_sampler_learning: bool
                    ) -> NSRTSampler:
-    """Learn a sampler given data. Transitions are partitioned, so
-    that they can be used for generating negative data. Integer partition_idx
-    represents the index into transitions corresponding to the partition that
+    """Learn a sampler given data. Transitions are clustered, so
+    that they can be used for generating negative data. Integer datastore_idx
+    represents the index into transitions corresponding to the datastore that
     this sampler is being learned for. If do_sampler_learning is False,
     just returns a random sampler.
     """
@@ -50,8 +50,8 @@ def _learn_sampler(partitions: List[Partition],
     print(f"\nLearning sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
-        partitions, variables, preconditions, add_effects, delete_effects,
-        param_option, partition_idx)
+        datastores, variables, preconditions, add_effects, delete_effects,
+        param_option, datastore_idx)
 
     # Fit classifier to data
     print("Fitting classifier...")
@@ -92,20 +92,20 @@ def _learn_sampler(partitions: List[Partition],
 
 
 def _create_sampler_data(
-        partitions: List[Partition],
+        datastores: List[Datastore],
         variables: Sequence[Variable],
         preconditions: Set[LiftedAtom],
         add_effects: Set[LiftedAtom],
         delete_effects: Set[LiftedAtom],
         param_option: ParameterizedOption,
-        partition_idx: int) -> Tuple[List[Tuple[State,
+        datastore_idx: int) -> Tuple[List[Tuple[State,
                                      Dict[Variable, Object], _Option]], ...]:
     """Generate positive and negative data for training a sampler.
     """
     positive_data = []
     negative_data = []
-    for idx, partition in enumerate(partitions):
-        for (segment, obj_to_var) in partition:
+    for idx, datastore in enumerate(datastores):
+        for (segment, obj_to_var) in datastore:
             assert segment.has_option()
             option = segment.get_option()
             state = segment.states[0]
@@ -116,10 +116,10 @@ def _create_sampler_data(
             var_types = [var.type for var in variables]
             objects = list(state)
             for grounding in utils.get_object_combinations(objects, var_types):
-                # If we are currently at the partition that we're learning a
+                # If we are currently at the datastore that we're learning a
                 # sampler for, and this datapoint matches the actual grounding,
                 # add it to the positive data and continue.
-                if idx == partition_idx:
+                if idx == datastore_idx:
                     var_to_obj = {v: k for k, v in obj_to_var.items()}
                     actual_grounding = [var_to_obj[var] for var in variables]
                     if grounding == actual_grounding:
@@ -129,7 +129,7 @@ def _create_sampler_data(
                         positive_data.append((state, var_to_obj, option))
                         continue
                 sub = dict(zip(variables, grounding))
-                # When building data for a partition with effects X, if we
+                # When building data for a datastore with effects X, if we
                 # encounter a transition with effects Y, and if Y is a superset
                 # of X, then we do not want to include the transition as a
                 # negative example, because if Y was achieved, then X was also
@@ -143,7 +143,7 @@ def _create_sampler_data(
                 negative_data.append((state, sub, option))
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
           f"negative examples")
-    assert len(positive_data) == len(partitions[partition_idx])
+    assert len(positive_data) == len(datastores[datastore_idx])
     return positive_data, negative_data
 
 
