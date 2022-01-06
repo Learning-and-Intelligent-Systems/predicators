@@ -106,7 +106,6 @@ class PlayroomEnv(BlocksEnv):
             "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4,)),
             _policy=self._Pick_policy,
-            # _initiable=self._NextToTable_initiable,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
@@ -115,7 +114,6 @@ class PlayroomEnv(BlocksEnv):
             "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4,)),
             _policy=self._Stack_policy,
-            # _initiable=self._NextToTable_initiable,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
@@ -125,7 +123,6 @@ class PlayroomEnv(BlocksEnv):
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
             _policy=self._PutOnTable_policy,
-            # _initiable=self._NextToTable_initiable,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._Move = ParameterizedOption(
