@@ -106,7 +106,7 @@ class PlayroomEnv(BlocksEnv):
             "Pick", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4,)),
             _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
+            _initiable=self._NextToTable_initiable,
             _terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
@@ -114,7 +114,7 @@ class PlayroomEnv(BlocksEnv):
             "Stack", types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4,)),
             _policy=self._Stack_policy,
-            _initiable=utils.always_initiable,
+            _initiable=self._NextToTable_initiable,
             _terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
@@ -142,7 +142,7 @@ class PlayroomEnv(BlocksEnv):
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
-            _initiable=utils.always_initiable,
+            _initiable=self._ToggleDoor_initiable,
             _terminal=utils.onestep_terminal)
         self._CloseDoor = ParameterizedOption(
             # variables: [robot, door]
@@ -151,7 +151,7 @@ class PlayroomEnv(BlocksEnv):
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
-            _initiable=utils.always_initiable,
+            _initiable=self._ToggleDoor_initiable,
             _terminal=utils.onestep_terminal)
         self._TurnOnDial = ParameterizedOption(
             # variables: [robot, dial]
@@ -688,6 +688,14 @@ class PlayroomEnv(BlocksEnv):
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
+    @staticmethod
+    def _NextToTable_initiable(state: State, memory: Dict,
+                               objects: Sequence[Object], params: Array
+                               ) -> bool:
+        del memory, params  # unused
+        robot = objects[0]
+        return PlayroomEnv._NextToTable_holds(state, (robot,))
+
     def _Move_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
@@ -707,6 +715,14 @@ class PlayroomEnv(BlocksEnv):
         arr = np.r_[door_pose+params[:-1], params[-1], 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
+    
+    @staticmethod
+    def _ToggleDoor_initiable(state: State, memory: Dict,
+                              objects: Sequence[Object], params: Array
+                              ) -> bool:
+        del memory, params  # unused
+        # objects: (robot, door)
+        return PlayroomEnv._NextToDoor_holds(state, objects)
 
     def _ToggleDial_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
