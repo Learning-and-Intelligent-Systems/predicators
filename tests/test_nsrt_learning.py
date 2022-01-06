@@ -125,7 +125,7 @@ def test_nsrt_learning_specific_nsrts():
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -157,7 +157,7 @@ def test_nsrt_learning_specific_nsrts():
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
                LowLevelTrajectory([state2, next_state2], [action2])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -193,7 +193,7 @@ def test_nsrt_learning_specific_nsrts():
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
                LowLevelTrajectory([state2, next_state2], [action2])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type, ?x2:cup_type]
@@ -232,7 +232,7 @@ def test_nsrt_learning_specific_nsrts():
     next_state2 = State({cup4: [0.5], cup5: [0.5]})
     dataset = [LowLevelTrajectory([state1, next_state1], [action1]),
                LowLevelTrajectory([state2, next_state2], [action2])]
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     expected = {"Op0": """NSRT-Op0:
     Parameters: [?x0:cup_type, ?x1:cup_type]
@@ -251,13 +251,13 @@ def test_nsrt_learning_specific_nsrts():
         assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
     utils.update_config({"min_data_for_nsrt": 3})
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 0
     # Test sampler giving out-of-bounds outputs
     utils.update_config({"min_data_for_nsrt": 0, "seed": 123,
                          "classifier_max_itr_sampler": 1,
                          "regressor_max_itr": 1})
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):
@@ -266,18 +266,18 @@ def test_nsrt_learning_specific_nsrts():
                     state1, np.random.default_rng(123)).params)
     # Test max_rejection_sampling_tries = 0
     utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=True)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):
             assert option1.parent.params_space.contains(
                 nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
-    # Test do_sampler_learning = False
+    # Test sampler_learner = "random"
     utils.update_config({"seed": 123, "classifier_max_itr_sampler": 100000,
                          "regressor_max_itr": 100000})
     start_time = time.time()
-    nsrts = learn_nsrts_from_data(dataset, preds, do_sampler_learning=False)
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
     assert time.time()-start_time < 0.1  # should be lightning fast
     assert len(nsrts) == 2
     for nsrt in nsrts:
