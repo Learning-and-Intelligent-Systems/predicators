@@ -16,6 +16,9 @@ import heapq as hq
 import imageio
 import matplotlib
 import numpy as np
+from pyperplan.heuristics.heuristic_base import \
+    Heuristic as _PyperplanBaseHeuristic
+from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
@@ -715,11 +718,9 @@ def filter_static_operators(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
     return ground_ops
 
 
-def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                    atoms: Collection[GroundAtom],
-                    goal: Set[GroundAtom]) -> bool:
-    """Quickly check whether the given goal is reachable from the given atoms
-    under the given operators, using a delete relaxation (dr).
+def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                        atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
+    """Get all atoms that are reachable from the init atoms.
     """
     reachables = set(atoms)
     while True:
@@ -731,7 +732,7 @@ def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                     reachables.add(new_reachable_atom)
         if fixed_point_reached:
             break
-    return goal.issubset(reachables)
+    return reachables
 
 
 def get_applicable_operators(
@@ -797,43 +798,122 @@ def ops_and_specs_to_dummy_nsrts(strips_ops: Sequence[STRIPSOperator],
 
 
 def create_heuristic(heuristic_name: str,
+                     all_reachable_atoms: Collection[GroundAtom],
                      init_atoms: Collection[GroundAtom],
                      goal: Collection[GroundAtom],
                      ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                      ) -> Callable[[PyperplanFacts], float]:
-    """Create a task planning heuristic that consumes pyperplan facts and
+    """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go.
     """
-    relaxed_operators = frozenset({RelaxedOperator(
-        (op.name, tuple(op.objects)), atoms_to_tuples(op.preconditions),
-        atoms_to_tuples(op.add_effects)) for op in ground_ops})
-    if heuristic_name == "hadd":
-        return _HAddHeuristic(atoms_to_tuples(init_atoms),
-                              atoms_to_tuples(goal),
-                              relaxed_operators)
-    if heuristic_name == "hmax":
-        return _HMaxHeuristic(atoms_to_tuples(init_atoms),
-                              atoms_to_tuples(goal),
-                              relaxed_operators)
-    if heuristic_name == "hff":
-        return _HFFHeuristic(atoms_to_tuples(init_atoms),
-                             atoms_to_tuples(goal),
-                             relaxed_operators)
+    if heuristic_name in _PYPERPLAN_HEURISTICS:
+        pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
+        pyperplan_task = _create_pyperplan_task(all_reachable_atoms, init_atoms,
+                                                goal, ground_ops)
+        pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
+        pyperplan_goal = _atoms_to_tuples(goal)
+        return _PyperplanHeuristicWrapper(init_atoms, goal, ground_ops,
+                                          pyperplan_heuristic, pyperplan_goal)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
+@dataclass(frozen=True)
+class _Heuristic:
+    """A task planning heuristic.
+    """
+    init_atoms: Collection[GroundAtom]
+    goal: Collection[GroundAtom]
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator]
+
+    def __call__(self, atoms: Collection[GroundAtom]) -> float:
+        return self._evaluate(frozenset(atoms))
+
+    @functools.lru_cache(maxsize=None)
+    def _evaluate(self, atoms: FrozenSet[GroundAtom]) -> float:
+        raise NotImplementedError("Override me!")
+
+
+@dataclass(frozen=True)
+class _PyperplanNode:
+    """Container glue for pyperplan heuristics.
+    """
+    state: PyperplanFacts
+    goal: PyperplanFacts
+
+
+@dataclass(frozen=True)
+class _PyperplanOperator:
+    """Container glue for pyperplan heuristics.
+    """
+    name: str
+    preconditions: PyperplanFacts
+    add_effects: PyperplanFacts
+    del_effects: PyperplanFacts
+
+
+@dataclass(frozen=True)
+class _PyperplanTask:
+    """Container glue for pyperplan heuristics.
+    """
+    facts: PyperplanFacts
+    initial_state: PyperplanFacts
+    goals: PyperplanFacts
+    operators: Collection[_PyperplanOperator]
+
+
+@dataclass(frozen=True)
+class _PyperplanHeuristicWrapper(_Heuristic):
+    """A light wrapper around pyperplan's heuristics.
+    """
+    _pyperplan_heuristic: _PyperplanBaseHeuristic
+    _pyperplan_goal: PyperplanFacts
+
+    @functools.cached_property
+    def _hash(self) -> int:
+        return hash((frozenset(self.init_atoms), frozenset(self.goal),
+                     frozenset(self.ground_ops),
+                     self._pyperplan_heuristic.__class__))
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    @functools.lru_cache(maxsize=None)
+    def _evaluate(self, atoms: FrozenSet[GroundAtom]) -> float:
+        pyperplan_facts = _atoms_to_tuples(atoms)
+        pyperplan_node = _PyperplanNode(pyperplan_facts, self._pyperplan_goal)
+        return self._pyperplan_heuristic(pyperplan_node)
+
+
+def _create_pyperplan_task(all_reachable_atoms: Collection[GroundAtom],
+                           init_atoms: Collection[GroundAtom],
+                           goal: Collection[GroundAtom],
+                           ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                           ) -> _PyperplanTask:
+    """Helper glue for pyperplan heuristics.
+    """
+    pyperplan_facts = _atoms_to_tuples(all_reachable_atoms)
+    pyperplan_state = _atoms_to_tuples(init_atoms)
+    pyperplan_goal = _atoms_to_tuples(goal)
+    pyperplan_operators = {_PyperplanOperator(op.name,
+        _atoms_to_tuples(op.preconditions),
+        _atoms_to_tuples(op.add_effects),
+        _atoms_to_tuples(op.delete_effects)) for op in ground_ops}
+    return _PyperplanTask(pyperplan_facts, pyperplan_state, pyperplan_goal,
+                          pyperplan_operators)
+
+
 @functools.lru_cache(maxsize=None)
-def atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
+def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
     """Convert atom to tuple for caching.
     """
     return (atom.predicate.name,) + tuple(str(o) for o in atom.objects)
 
 
-def atoms_to_tuples(atoms: Collection[GroundAtom]) -> PyperplanFacts:
+def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> PyperplanFacts:
     """Light wrapper around atom_to_tuple() that operates on a
     collection of atoms.
     """
-    return frozenset({atom_to_tuple(atom) for atom in atoms})
+    return frozenset({_atom_to_tuple(atom) for atom in atoms})
 
 
 @dataclass(repr=False, eq=False)

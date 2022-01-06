@@ -13,7 +13,7 @@ import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    PyperplanFacts, Metrics, STRIPSOperator, OptionSpec, Object
+    Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.option_model import _OptionModel
@@ -30,11 +30,6 @@ class _Node:
     skeleton: List[_GroundNSRT]
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
-    pyperplan_facts: PyperplanFacts = field(
-        init=False, default_factory=frozenset)
-
-    def __post_init__(self) -> None:
-        self.pyperplan_facts = utils.atoms_to_tuples(self.atoms)
 
 
 def sesame_plan(task: Task,
@@ -71,14 +66,15 @@ def sesame_plan(task: Task,
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
         nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
                                  if nsrt.add_effects | nsrt.delete_effects]
-        if check_dr_reachable and \
-           not utils.is_dr_reachable(nonempty_ground_nsrts, atoms, task.goal):
+        all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                        atoms)
+        if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
         try:
             new_seed = seed+int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
-                    task, nonempty_ground_nsrts, atoms, new_seed,
-                    timeout-(time.time()-start_time), metrics):
+                    task, nonempty_ground_nsrts, all_reachable_atoms, atoms,
+                    new_seed, timeout-(time.time()-start_time), metrics):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
                     new_seed, timeout-(time.time()-start_time))
@@ -134,6 +130,7 @@ def task_plan(init_atoms: Set[GroundAtom],
 
 def _skeleton_generator(task: Task,
                         ground_nsrts: List[_GroundNSRT],
+                        all_reachable_atoms: Set[GroundAtom],
                         init_atoms: Set[GroundAtom],
                         seed: int,
                         timeout: float,
@@ -149,8 +146,9 @@ def _skeleton_generator(task: Task,
                       atoms_sequence=[init_atoms], parent=None)
     rng_prio = np.random.default_rng(seed)
     heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
-                                       init_atoms, task.goal, ground_nsrts)
-    hq.heappush(queue, (heuristic(root_node.pyperplan_facts),
+                                       all_reachable_atoms, init_atoms,
+                                       task.goal, ground_nsrts)
+    hq.heappush(queue, (heuristic(root_node.atoms),
                         rng_prio.uniform(),
                         root_node))
     # Start search.
@@ -178,7 +176,7 @@ def _skeleton_generator(task: Task,
                     parent=node)
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton)+
-                            heuristic(child_node.pyperplan_facts))
+                            heuristic(child_node.atoms))
                 hq.heappush(queue, (priority,
                                     rng_prio.uniform(),
                                     child_node))
