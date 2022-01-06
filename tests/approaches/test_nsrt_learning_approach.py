@@ -10,7 +10,7 @@ from predicators.src import utils
 
 
 def _test_approach(env_name, approach_name, excluded_predicates="",
-                   try_solving=True, do_sampler_learning=True,
+                   try_solving=True, sampler_learner="neural",
                    learn_side_predicates=False):
     """Integration test for the given approach.
     """
@@ -24,7 +24,7 @@ def _test_approach(env_name, approach_name, excluded_predicates="",
                          "classifier_max_itr_predicate": 200,
                          "excluded_predicates": excluded_predicates,
                          "learn_side_predicates": learn_side_predicates,
-                         "do_sampler_learning": do_sampler_learning})
+                         "sampler_learner": sampler_learner})
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
@@ -63,20 +63,23 @@ def test_nsrt_learning_approach():
     """
     _test_approach(env_name="cover", approach_name="nsrt_learning")
     _test_approach(env_name="cover_multistep_options",
-                   approach_name="nsrt_learning")
+                   approach_name="nsrt_learning", try_solving=False,
+                   sampler_learner="random")
     with pytest.raises(NotImplementedError):
         _test_approach(env_name="repeated_nextto",
                        approach_name="nsrt_learning", try_solving=False,
-                       do_sampler_learning=False, learn_side_predicates=True)
+                       sampler_learner="random", learn_side_predicates=True)
 
 
 def test_iterative_invention_approach():
     """Tests for IterativeInventionApproach class.
     """
-    _test_approach(env_name="blocks", approach_name="iterative_invention",
-                   excluded_predicates="Holding")
     _test_approach(env_name="cover", approach_name="iterative_invention",
-                   excluded_predicates="Holding", try_solving=False)
+                   excluded_predicates="Holding", try_solving=False,
+                   sampler_learner="random")
+    _test_approach(env_name="blocks", approach_name="iterative_invention",
+                   excluded_predicates="Holding", try_solving=False,
+                   sampler_learner="random")
 
 
 def test_grammar_search_invention_approach():
@@ -91,13 +94,15 @@ def test_grammar_search_invention_approach():
         "grammar_search_max_predicates": 10,
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
-        "do_sampler_learning": False,
+        "sampler_learner": "random",
     })
     _test_approach(env_name="cover", approach_name="grammar_search_invention",
-                   excluded_predicates="Holding", try_solving=False)
+                   excluded_predicates="Holding", try_solving=False,
+                   sampler_learner="random")
     # Test that the pipeline doesn't crash when no predicates are learned
     # involving a certain option argument (robot in this case).
     utils.update_config({"grammar_search_max_predicates": 0})
     _test_approach(env_name="blocks", approach_name="grammar_search_invention",
-                   excluded_predicates="GripperOpen", try_solving=False)
-    utils.update_config({"do_sampler_learning": True})
+                   excluded_predicates="GripperOpen", try_solving=False,
+                   sampler_learner="random")
+    utils.update_config({"sampler_learner": "neural"})

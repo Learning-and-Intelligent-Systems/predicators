@@ -80,11 +80,10 @@ class GlobalSettings:
     learn_side_predicates = False
 
     # option learning parameters
-    do_option_learning = False  # if False, uses ground truth options
-    option_learner = "oracle"  # only used if do_option_learning is True
+    option_learner = "no_learning"  # "no_learning" or "oracle"
 
     # sampler learning parameters
-    do_sampler_learning = True  # if False, uses random samplers
+    sampler_learner = "neural"  # "neural" or "random"
     max_rejection_sampling_tries = 100
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
@@ -101,7 +100,7 @@ class GlobalSettings:
     iterative_invention_accept_score = 1-1e-3
 
     # interactive learning parameters
-    interactive_known_predicates = {'HandEmpty', 'Covers'}
+    interactive_known_predicates = {"HandEmpty", "Covers"}
     interactive_num_episodes = 3
     interactive_max_steps = 10
     interactive_relearn_every = 3

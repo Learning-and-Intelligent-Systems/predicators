@@ -64,7 +64,7 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         except EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
-        if CFG.do_option_learning:
+        if CFG.option_learner != "no_learning":
             for act in replay_traj.actions:
                 act.unset_option()
         replay_dataset.append(replay_traj)
