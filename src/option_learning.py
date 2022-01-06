@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 from typing import List
 import numpy as np
-from predicators.src.structs import STRIPSOperator, OptionSpec, NSRTDatastore, \
+from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
     Segment
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
@@ -29,7 +29,7 @@ class _OptionLearnerBase:
     @abc.abstractmethod
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            datastores: List[NSRTDatastore]) -> List[OptionSpec]:
+            datastores: List[Datastore]) -> List[OptionSpec]:
         """Given datastores and STRIPS operators that were fit on them,
         learn option specs, which are tuples of (ParameterizedOption,
         Sequence[Variable]). The returned option specs should be one-to-one
@@ -59,7 +59,7 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            datastores: List[NSRTDatastore]) -> List[OptionSpec]:
+            datastores: List[Datastore]) -> List[OptionSpec]:
         # Since we're not actually doing option learning, the data already
         # contains the options. So, we just extract option specs from the data.
         option_specs = []
@@ -97,7 +97,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
     """
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            datastores: List[NSRTDatastore]) -> List[OptionSpec]:
+            datastores: List[Datastore]) -> List[OptionSpec]:
         env = create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":

@@ -724,9 +724,9 @@ def test_pnad():
     Side Predicates: [On]
     Option Spec: Move()"""
     with pytest.raises(AssertionError):  # no sampler
-        pnad.get_nsrt()
+        pnad.make_nsrt()
     pnad.sampler = lambda _1, _2, _3: Box(0, 1, (1,)).sample()
-    nsrt = pnad.get_nsrt()
+    nsrt = pnad.make_nsrt()
     assert repr(nsrt) == str(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]

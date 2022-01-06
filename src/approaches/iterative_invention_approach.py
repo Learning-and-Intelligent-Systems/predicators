@@ -9,7 +9,7 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Array, STRIPSOperator, NSRTDatastore, \
+    Type, Task, Action, Dataset, Array, STRIPSOperator, Datastore, \
     Segment, LiftedAtom, GroundAtom, OptionSpec
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
@@ -93,7 +93,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
 
     def _invent_for_op(self, op: STRIPSOperator,
                        option_spec: OptionSpec,
-                       datastores: Sequence[NSRTDatastore]
+                       datastores: Sequence[Datastore]
                        ) -> Optional[Predicate]:
         """Go through the data, splitting it into positives and negatives
         based on whether the operator correctly predicts each transition
