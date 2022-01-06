@@ -1302,9 +1302,30 @@ def test_get_config_path_str():
         "env": "dummyenv",
         "approach": "dummyapproach",
         "seed": 321,
+        "excluded_predicates": "all",
     })
     s = utils.get_config_path_str()
-    assert s == "dummyenv__dummyapproach__321"
+    assert s == "dummyenv__dummyapproach__321__all"
+
+
+def test_get_save_path_str():
+    """Tests for get_save_path_str().
+    """
+    dirname = "_fake_tmp_save_dir"
+    old_save_dir = CFG.save_dir
+    utils.update_config({"env": "test_env", "approach": "test_approach",
+                         "seed": 123, "save_dir": dirname,
+                         "excluded_predicates": "test_pred1,test_pred2"})
+    save_path = utils.get_save_path_str()
+    assert save_path == dirname + ("/test_env__test_approach__123__"
+                                   "test_pred1,test_pred2.saved")
+    utils.update_config({"env": "test_env", "approach": "test_approach",
+                         "seed": 123, "save_dir": dirname,
+                         "excluded_predicates": ""})
+    save_path = utils.get_save_path_str()
+    assert save_path == dirname + "/test_env__test_approach__123__.saved"
+    os.rmdir(dirname)
+    utils.update_config({"save_dir": old_save_dir})
 
 
 def test_update_config():
@@ -1410,9 +1431,77 @@ def test_run_gbfs():
     # Test limit on max evals.
     state_sequence, action_sequence = utils.run_gbfs(initial_state,
         _grid_check_goal_fn, _inf_grid_successor_fn, _grid_heuristic_fn,
-        lazy_expansion=True, max_evals=2)
+        max_evals=2)  # note: need lazy_expansion to be False here
     assert state_sequence == [(0, 0), (1, 0)]
     assert action_sequence == ['down']
+
+
+def test_run_hill_climbing():
+    """Tests for run_hill_climbing().
+    """
+    S = Tuple[int, int]  # grid (row, col)
+    A = str  # up, down, left, right
+
+    def _grid_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
+        arrival_costs = np.array([
+            [1, 1, 8, 1, 1],
+            [1, 8, 1, 1, 1],
+            [1, 8, 1, 1, 1],
+            [1, 1, 1, 8, 1],
+            [1, 1, 2, 1, 1],
+        ], dtype=float)
+
+        act_to_delta = {
+            "up": (-1, 0),
+            "down": (1, 0),
+            "left": (0, -1),
+            "right": (0, 1),
+        }
+
+        r, c = state
+
+        for act in sorted(act_to_delta):
+            dr, dc = act_to_delta[act]
+            new_r, new_c = r + dr, c + dc
+            # Check if in bounds
+            if not (0 <= new_r < arrival_costs.shape[0] and \
+                    0 <= new_c < arrival_costs.shape[1]):
+                continue
+            # Valid action
+            yield (act, (new_r, new_c), arrival_costs[new_r, new_c])
+
+    def _grid_check_goal_fn(state: S) -> bool:
+        # Bottom right corner of grid
+        return state == (4, 4)
+
+    def _grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        return float(abs(state[0] - 4) + abs(state[1] - 4))
+
+    initial_state = (0, 0)
+    state_sequence, action_sequence = utils.run_hill_climbing(initial_state,
+        _grid_check_goal_fn, _grid_successor_fn, _grid_heuristic_fn)
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+                              (4, 2), (4, 3), (4, 4)]
+    assert action_sequence == ["down", "down", "down", "down",
+                               "right", "right", "right", "right"]
+
+    # Same, but actually reaching the goal is impossible.
+    state_sequence, action_sequence = utils.run_hill_climbing(initial_state,
+        lambda s: False, _grid_successor_fn, _grid_heuristic_fn)
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+                              (4, 2), (4, 3), (4, 4)]
+    assert action_sequence == ["down", "down", "down", "down",
+                               "right", "right", "right", "right"]
+
+    # Search with no successors
+    def _no_successor_fn(state: S) -> Iterator[Tuple[A, S, float]]:
+        if state == initial_state:
+            yield "dummy_action", (2, 2), 1.0
+    state_sequence, action_sequence = utils.run_hill_climbing(initial_state,
+        lambda s: False, _no_successor_fn, _grid_heuristic_fn)
+    assert state_sequence == [(0, 0), (2, 2)]
+    assert action_sequence == ["dummy_action"]
 
 
 def test_ops_and_specs_to_dummy_nsrts():

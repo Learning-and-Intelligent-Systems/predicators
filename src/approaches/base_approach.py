@@ -74,7 +74,7 @@ class BaseApproach:
         """
 
     def load(self) -> None:
-        """Load anything from CFG.get_save_path().
+        """Load anything from CFG.get_save_path_str().
         Only called if self.is_learning_based.
         """
 
