@@ -336,6 +336,7 @@ def test_option():
     parameterized_option2 = ParameterizedOption("Pick2", [type1], params_space,
                                                 _policy, _initiable, _terminal)
     assert parameterized_option2 > parameterized_option
+    assert parameterized_option < parameterized_option2
     with pytest.raises(AssertionError):
         parameterized_option.ground([], params)  # grounding type mismatch
     with pytest.raises(AssertionError):
