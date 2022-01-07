@@ -596,11 +596,12 @@ def run_gbfs(initial_state: _S,
                                  lazy_expansion)
 
 
-def run_hill_climbing(
-        initial_state: _S, check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float],
-        enforced_depth: int = 0) -> Tuple[List[_S], List[_A]]:
+def run_hill_climbing(initial_state: _S,
+                      check_goal: Callable[[_S], bool],
+                      get_successors: Callable[[_S], Iterator[Tuple[_A, _S,
+                                                                    float]]],
+                      heuristic: Callable[[_S], float],
+                      enforced_depth: int = 0) -> Tuple[List[_S], List[_A]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -617,6 +618,7 @@ def run_hill_climbing(
     states = [initial_state]
     actions = []
     last_heuristic = heuristic(cur_node.state)
+    visited = {initial_state}
     print(f"\n\nStarting hill climbing at state {cur_node.state} "
           f"with heuristic {last_heuristic}")
     while True:
@@ -625,21 +627,34 @@ def run_hill_climbing(
             break
         best_heuristic = float("inf")
         best_child_node = None
-        for depth in range(0, enforced_depth+1):
-            # Note: caching is used, so the successors are not actually
-            # recomputed redundantly.
-            for action, child_state, cost in get_successors_at_depth(cur_node.state, depth):
-                child_path_cost = cur_node.cumulative_cost + cost
-                child_node = _HeuristicSearchNode(state=child_state,
-                                                  edge_cost=cost,
-                                                  cumulative_cost=child_path_cost,
-                                                  parent=cur_node,
-                                                  action=action)
-                child_heuristic = heuristic(child_node.state)
-                if child_heuristic < best_heuristic:
-                    best_heuristic = child_heuristic
-                    best_child_node = child_node
-
+        current_depth_nodes = {cur_node}
+        for depth in range(0, enforced_depth + 1):
+            print(f"Searching for an improvement at depth {depth}")
+            successors_at_depth = set()
+            for parent in current_depth_nodes:
+                for action, child_state, cost in get_successors(parent.state):
+                    if child_state in visited:
+                        continue
+                    visited.add(child_state)
+                    child_path_cost = parent.cumulative_cost + cost
+                    child_node = _HeuristicSearchNode(
+                        state=child_state,
+                        edge_cost=cost,
+                        cumulative_cost=child_path_cost,
+                        parent=parent,
+                        action=action)
+                    successors_at_depth.add(child_node)
+                    child_heuristic = heuristic(child_node.state)
+                    if child_heuristic < best_heuristic:
+                        best_heuristic = child_heuristic
+                        best_child_node = child_node
+            # Some improvement found.
+            if last_heuristic > best_heuristic:
+                print(f"Found an improvement at depth {depth}")
+                break
+            # Continue on to the next depth.
+            current_depth_nodes = successors_at_depth
+            print(f"No improvement found at depth {depth}")
         if best_child_node is None:
             print("\nTerminating hill climbing, no more successors")
             break
