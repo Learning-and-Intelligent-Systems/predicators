@@ -288,8 +288,8 @@ class MLPClassifier(nn.Module):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
-    """A convenience class for holding the model underlying a learned predicate.
-    """
+    """A convenience class for holding the model underlying a learned
+    predicate."""
     _model: MLPClassifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:

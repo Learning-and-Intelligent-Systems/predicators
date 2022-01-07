@@ -22,16 +22,19 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
         env = create_env(CFG.env)
         # We don't need to match ground truth NSRTs with no
         # continuous parameters, so filter them out.
-        gt_nsrts = {nsrt for nsrt in get_gt_nsrts(env.predicates, env.options)
-                    if nsrt.option.params_space.shape != (0,)}
+        gt_nsrts = {
+            nsrt
+            for nsrt in get_gt_nsrts(env.predicates, env.options)
+            if nsrt.option.params_space.shape != (0, )
+        }
     for i, op in enumerate(strips_ops):
         param_option, option_vars = option_specs[i]
         if sampler_learner == "random" or \
            param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
         elif sampler_learner == "oracle":
-            sampler = _extract_oracle_sampler(
-                op, param_option, option_vars, gt_nsrts)
+            sampler = _extract_oracle_sampler(op, param_option, option_vars,
+                                              gt_nsrts)
         elif sampler_learner == "neural":
             sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
                                             op.preconditions, op.add_effects,
@@ -50,8 +53,9 @@ def _extract_oracle_sampler(op: STRIPSOperator,
                             param_option: ParameterizedOption,
                             option_vars: Sequence[Variable],
                             gt_nsrts: Set[NSRT]) -> NSRTSampler:
-    """Extract the oracle sampler matching the given STRIPSOperator
-    from the ground truth operators defined in approaches/oracle_approach.py.
+    """Extract the oracle sampler matching the given STRIPSOperator from the
+    ground truth operators defined in approaches/oracle_approach.py.
+
     If no ground truth operator can be unified with the given one, just
     returns a random sampler.
     """
@@ -59,15 +63,10 @@ def _extract_oracle_sampler(op: STRIPSOperator,
     matching_sub = None
     for nsrt in gt_nsrts:
         suc, sub = utils.unify_preconds_effects_options(
-            frozenset(op.preconditions),
-            frozenset(nsrt.preconditions),
-            frozenset(op.add_effects),
-            frozenset(nsrt.add_effects),
-            frozenset(op.delete_effects),
-            frozenset(nsrt.delete_effects),
-            param_option,
-            nsrt.option,
-            tuple(option_vars),
+            frozenset(op.preconditions), frozenset(nsrt.preconditions),
+            frozenset(op.add_effects), frozenset(nsrt.add_effects),
+            frozenset(op.delete_effects), frozenset(nsrt.delete_effects),
+            param_option, nsrt.option, tuple(option_vars),
             tuple(nsrt.option_vars))
         if suc:
             matching_nsrt = nsrt
@@ -88,12 +87,12 @@ def _extract_oracle_sampler(op: STRIPSOperator,
             idx = op.parameters.index(rev_sub[param])
             reordered_objs.append(objs[idx])
         return matching_nsrt.get_sampler()(state, rng, reordered_objs)
+
     gt_nsrts.remove(matching_nsrt)  # remove this NSRT from the set
     return _reordered_sampler
 
 
-def _learn_neural_sampler(datastores: List[Datastore],
-                          nsrt_name: str,
+def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                           variables: Sequence[Variable],
                           preconditions: Set[LiftedAtom],
                           add_effects: Set[LiftedAtom],
@@ -206,8 +205,8 @@ def _create_sampler_data(
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _LearnedSampler:
-    """A convenience class for holding the models underlying a learned sampler.
-    """
+    """A convenience class for holding the models underlying a learned
+    sampler."""
     _classifier: MLPClassifier
     _regressor: NeuralGaussianRegressor
     _variables: Sequence[Variable]
@@ -243,8 +242,7 @@ class _LearnedSampler:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _RandomSampler:
-    """A convenience class for implementing a random sampler.
-    """
+    """A convenience class for implementing a random sampler."""
     _param_option: ParameterizedOption
 
     def sampler(self, state: State, rng: np.random.Generator,
