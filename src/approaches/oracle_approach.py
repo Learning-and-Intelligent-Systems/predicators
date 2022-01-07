@@ -21,7 +21,7 @@ from predicators.src.envs import get_cached_env_instance
 
 class OracleApproach(TAMPApproach):
     """A TAMP approach that uses hand-specified NSRTs."""
-    
+
     @property
     def is_learning_based(self) -> bool:
         return False
@@ -41,7 +41,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
     elif CFG.env == "blocks":
         nsrts = _get_blocks_gt_nsrts()
     elif CFG.env == "behavior":
-        nsrts = _get_behavior_gt_nsrts() # pragma: no cover
+        nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
     elif CFG.env == "painting":
         nsrts = _get_painting_gt_nsrts()
     elif CFG.env == "playroom":
@@ -1209,9 +1209,8 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
-    """Create ground truth nsrts for BehaviorEnv.
-    """
+def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
+    """Create ground truth nsrts for BehaviorEnv."""
     env = get_cached_env_instance("behavior")
 
     # NOTE: These two methods below are necessary to help instantiate
@@ -1291,12 +1290,10 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                     continue
 
                 origin_obj = Variable("?origin", origin_obj_type)
-                origin_nextto = _get_lifted_atom(
-                    "reachable", [origin_obj, agent_obj]
-                )
-                targ_nextto = _get_lifted_atom(
-                    "reachable", [target_obj, agent_obj]
-                )
+                origin_nextto = _get_lifted_atom("reachable",
+                                                 [origin_obj, agent_obj])
+                targ_nextto = _get_lifted_atom("reachable",
+                                               [target_obj, agent_obj])
                 parameters = [origin_obj, agent_obj, target_obj]
                 option_vars = [target_obj]
                 preconditions = {origin_nextto}
@@ -1332,9 +1329,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                 parameters = [target_obj, agent_obj, surf_obj]
                 option_vars = [target_obj]
                 handempty = _get_lifted_atom("handempty", [])
-                targ_nextto = _get_lifted_atom(
-                    "reachable", [target_obj, agent_obj]
-                )
+                targ_nextto = _get_lifted_atom("reachable",
+                                               [target_obj, agent_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 preconditions = {handempty, targ_nextto}
                 add_effects = {targ_holding}
@@ -1365,36 +1361,38 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]: # pragma: no cover
                 option_vars = [surf_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
-                surf_nextto = _get_lifted_atom(
-                    "reachable", [surf_obj, agent_obj]
-                )
+                surf_nextto = _get_lifted_atom("reachable",
+                                               [surf_obj, agent_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_nextto}
                 add_effects = {ontop, handempty}
                 delete_effects = {held_holding}
                 nsrt = NSRT(
-                  f"{option.name}-{next(op_name_count)}",
-                  parameters,
-                  preconditions,
-                  add_effects,
-                  delete_effects,
-                  set(),
-                  option,
-                  option_vars,
-                  # NOTE: mypy thinks that the env is of type BaseEnv (because
-                  # of the type sig of create_env in __init__.py), and BaseEnv
-                  # doesn't have an object_to_ig_object method
-                  # The first type ignore is necessary because mypy gets
-                  # confused about the type signature of the NSRT itself
-                  # because we're ignoring the env.object_to_ig_object line
-                  lambda s, r, o: place_ontop_obj_pos_sampler( # type: ignore
-                    [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
-                    rng=r,
-                  ),
+                    f"{option.name}-{next(op_name_count)}",
+                    parameters,
+                    preconditions,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    # NOTE: mypy thinks that the env is of type BaseEnv (because
+                    # of the type sig of create_env in __init__.py), and BaseEnv
+                    # doesn't have an object_to_ig_object method
+                    # The first type ignore is necessary because mypy gets
+                    # confused about the type signature of the NSRT itself
+                    # because we're ignoring the env.object_to_ig_object line
+                    lambda s, r, o:
+                    place_ontop_obj_pos_sampler(  # type: ignore
+                        [env.object_to_ig_object(o_i)
+                         for o_i in o],  # type: ignore
+                        rng=r,
+                    ),
                 )
                 nsrts.add(nsrt)
 
         else:
-            raise ValueError(f"Unexpected base option name: {base_option_name}")
+            raise ValueError(
+                f"Unexpected base option name: {base_option_name}")
 
     return nsrts

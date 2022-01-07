@@ -186,7 +186,7 @@ def unify_preconds_effects_options(
                   | f_new_delete_effects2)
     return unify(all_atoms1, all_atoms2)
 
-  
+
 def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
                          prefix: str) -> Set[LiftedOrGroundAtom]:
     """Return a new set of atoms which adds the given prefix string to the name
@@ -360,6 +360,7 @@ def get_object_combinations(objects: Collection[Object],
     for choice in itertools.product(*choices):
         yield list(choice)
 
+
 @functools.lru_cache(maxsize=None)
 def get_all_ground_atoms_for_predicate(
         predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
@@ -444,9 +445,8 @@ def _find_substitution_helper(
         new_sub = partial_sub.copy()
         new_sub[next_sub_var] = super_obj
         # Check if consistent
-        if not _substitution_consistent(
-            new_sub, super_pred_to_tuples, sub_atoms
-        ):
+        if not _substitution_consistent(new_sub, super_pred_to_tuples,
+                                        sub_atoms):
             continue
         # Backtracking search
         solved, final_sub = _find_substitution_helper(sub_atoms,
@@ -481,6 +481,7 @@ def powerset(seq: Sequence, exclude_empty: bool) -> Iterator[Sequence]:
         itertools.combinations(list(seq), r)
         for r in range(start,
                        len(seq) + 1))
+
 
 _S = TypeVar("_S", bound=Hashable)  # state in heuristic search
 _A = TypeVar("_A")  # action in heuristic search
@@ -807,6 +808,7 @@ def get_applicable_operators(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
         atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
     """Iterate over ground operators whose preconditions are satisfied.
+
     Note: the order may be nondeterministic. Users should be invariant.
     """
     for op in ground_ops:
@@ -917,13 +919,16 @@ def _create_pyperplan_heuristic(
                                       ground_ops, static_atoms,
                                       pyperplan_heuristic, pyperplan_goal)
 
+
 _PyperplanFacts = FrozenSet[str]
+
 
 @dataclass(frozen=True)
 class _PyperplanNode:
     """Container glue for pyperplan heuristics."""
     state: _PyperplanFacts
     goal: _PyperplanFacts
+
 
 @dataclass(frozen=True)
 class _PyperplanOperator:
@@ -932,6 +937,7 @@ class _PyperplanOperator:
     preconditions: _PyperplanFacts
     add_effects: _PyperplanFacts
     del_effects: _PyperplanFacts
+
 
 @dataclass(frozen=True)
 class _PyperplanTask:

@@ -180,6 +180,7 @@ class State:
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
+
 DefaultState = State({})
 
 
