@@ -1,5 +1,4 @@
-"""Test cases for dataset generation.
-"""
+"""Test cases for dataset generation."""
 
 import pytest
 from predicators.src.datasets import create_dataset
@@ -8,9 +7,9 @@ from predicators.src import utils
 
 
 def test_demo_dataset():
-    """Test demo-only dataset creation with Covers env.
-    """
-    # Test that data does not contain options since do_option_learning is True
+    """Test demo-only dataset creation with Covers env."""
+    # Test that data does not contain options since
+    # option_learner is not "no_learning"
     utils.update_config({
         "env": "cover",
         "approach": "random_actions",
@@ -20,7 +19,7 @@ def test_demo_dataset():
         "approach": "random_actions",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
-        "do_option_learning": True,
+        "option_learner": "arbitrary_dummy",
         "seed": 123,
         "num_train_tasks": 7,
     })
@@ -34,13 +33,14 @@ def test_demo_dataset():
         assert traj.is_demo
         for action in traj.actions:
             assert not action.has_option()
-    # Test that data contains options since do_option_learning is False
+    # Test that data contains options since
+    # option_learner is "no_learning"
     utils.update_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
-        "do_option_learning": False,
+        "option_learner": "no_learning",
         "seed": 123,
         "num_train_tasks": 7,
     })
@@ -62,16 +62,16 @@ def test_demo_dataset():
 
 
 def test_demo_replay_dataset():
-    """Test demo+replay dataset creation with Covers env.
-    """
-    # Test that data contains options since do_option_learning is False
+    """Test demo+replay dataset creation with Covers env."""
+    # Test that data contains options since
+    # option_learner is "no_learning"
     utils.update_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
-        "do_option_learning": False,
+        "option_learner": "no_learning",
         "seed": 123,
         "num_train_tasks": 5,
     })
@@ -87,14 +87,15 @@ def test_demo_replay_dataset():
         for action in traj.actions:
             assert action.has_option()
     assert num_demos == 5
-    # Test that data does not contain options since do_option_learning is True
+    # Test that data does not contain options since
+    # option_learner is not "no_learning"
     utils.update_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
-        "do_option_learning": True,
+        "option_learner": "arbitrary_dummy",
         "seed": 123,
         "num_train_tasks": 5,
     })

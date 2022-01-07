@@ -1,6 +1,5 @@
-"""Behavior (iGibson) environment.
-"""
-# pylint: disable=import-error,ungrouped-imports
+"""Behavior (iGibson) environment."""
+# pylint: disable=import-error
 
 import functools
 import itertools
@@ -108,6 +107,7 @@ class BehaviorEnv(BaseEnv):
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
+
         self._rng = np.random.default_rng(0)
         self.behavior_env = behavior_env.BehaviorEnv(
             config_file=config_file,

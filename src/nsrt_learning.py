@@ -1,13 +1,11 @@
-"""The core algorithm for learning a collection of NSRT data structures.
-"""
+"""The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet
+from typing import Set, List, Sequence, cast
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
-    GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    LowLevelTrajectory, Segment, PartialNSRTAndDatastore, Object, \
-    GroundAtomTrajectory, DummyOption, ParameterizedOption, State, Action
+    LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption, \
+    State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -15,11 +13,9 @@ from predicators.src.option_learning import create_option_learner
 
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
-                          do_sampler_learning: bool) -> Set[NSRT]:
-    """Learn NSRTs from the given dataset of low-level transitions,
-    using the given set of predicates. If do_sampler_learning is False,
-    the NSRTs have random samplers rather than learned neural ones.
-    """
+                          sampler_learner: str) -> Set[NSRT]:
+    """Learn NSRTs from the given dataset of low-level transitions, using the
+    given set of predicates."""
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
@@ -29,7 +25,9 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     #         either predicates or options. If we are doing option learning,
     #         then the data will not contain options, so this segmenting
     #         procedure only uses the predicates.
-    segmented_trajs = [segment_trajectory(traj) for traj in ground_atom_dataset]
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
+    ]
     segments = [seg for segs in segmented_trajs for seg in segs]
 
     # STEP 3: Cluster the data by effects, jointly producing one STRIPSOperator,
@@ -40,7 +38,8 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    pnads = learn_strips_operators(segments, verbose=CFG.do_option_learning)
+    pnads = learn_strips_operators(
+        segments, verbose=(CFG.option_learner != "no_learning"))
 
     # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
@@ -52,7 +51,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     _learn_pnad_options(pnads)
 
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
-    _learn_pnad_samplers(pnads, do_sampler_learning)
+    _learn_pnad_samplers(pnads, sampler_learner)
 
     # STEP 7: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
@@ -65,17 +64,18 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     """Segment a ground atom trajectory according to abstract state changes.
+
     If options are available, also use them to segment.
     """
     segments = []
     traj, all_atoms = trajectory
     assert len(traj.states) == len(all_atoms)
-    current_segment_states : List[State] = []
-    current_segment_actions : List[Action] = []
+    current_segment_states: List[State] = []
+    current_segment_actions: List[Action] = []
     for t in range(len(traj.actions)):
         current_segment_states.append(traj.states[t])
         current_segment_actions.append(traj.actions[t])
-        switch = all_atoms[t] != all_atoms[t+1]
+        switch = all_atoms[t] != all_atoms[t + 1]
         # Segment based on option specs if we are assuming that options are
         # known. If we do not do this, it can lead to a bug where an option
         # has object arguments that do not appear in the strips operator
@@ -95,7 +95,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             # Check for a change in option specs.
             if t < len(traj.actions) - 1:
                 option_t = traj.actions[t].get_option()
-                option_t1 = traj.actions[t+1].get_option()
+                option_t1 = traj.actions[t + 1].get_option()
                 option_t_spec = (option_t.parent, option_t.objects)
                 option_t1_spec = (option_t1.parent, option_t1.objects)
                 if option_t_spec != option_t1_spec:
@@ -110,18 +110,18 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
-            current_segment_states.append(traj.states[t+1])
-            current_segment_traj = LowLevelTrajectory(
-                current_segment_states, current_segment_actions)
+            current_segment_states.append(traj.states[t + 1])
+            current_segment_traj = LowLevelTrajectory(current_segment_states,
+                                                      current_segment_actions)
             if traj.actions[t].has_option():
-                segment = Segment(current_segment_traj,
-                                  all_atoms[t], all_atoms[t+1],
+                segment = Segment(current_segment_traj, all_atoms[t],
+                                  all_atoms[t + 1],
                                   traj.actions[t].get_option())
             else:
                 # If option learning, include the default option here; replaced
                 # during option learning.
-                segment = Segment(current_segment_traj,
-                                  all_atoms[t], all_atoms[t+1])
+                segment = Segment(current_segment_traj, all_atoms[t],
+                                  all_atoms[t + 1])
             segments.append(segment)
             current_segment_states = []
             current_segment_actions = []
@@ -130,10 +130,14 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
-                           ) -> List[PartialNSRTAndDatastore]:
-    """Learn strips operators on the given data segments. Return a list of
-    PNADs with op (STRIPSOperator), datastore, and option_spec fields filled in.
+def learn_strips_operators(
+    segments: Sequence[Segment],
+    verbose: bool = True,
+) -> List[PartialNSRTAndDatastore]:
+    """Learn strips operators on the given data segments.
+
+    Return a list of PNADs with op (STRIPSOperator), datastore, and
+    option_spec fields filled in.
     """
     # Cluster the segments according to common effects.
     pnads: List[PartialNSRTAndDatastore] = []
@@ -150,7 +154,9 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             # Note that both add and delete effects must unify,
             # and also the objects that are arguments to the options.
             (pnad_param_option, pnad_option_vars) = pnad.option_spec
-            suc, sub = unify_effects_and_options(
+            suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
+                frozenset(),
+                frozenset(),  # no preconditions
                 frozenset(segment.add_effects),
                 frozenset(pnad.op.add_effects),
                 frozenset(segment.delete_effects),
@@ -159,6 +165,7 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                 pnad_param_option,
                 segment_option_objs,
                 tuple(pnad_option_vars))
+            sub = cast(ObjToVarSub, ent_to_ent_sub)
             if suc:
                 # Add to this PNAD.
                 assert set(sub.values()) == set(pnad.op.parameters)
@@ -170,12 +177,16 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
                        segment.delete_effects for o in atom.objects} | \
                       set(segment_option_objs)
             objects_lst = sorted(objects)
-            params = [Variable(f"?x{i}", o.type)
-                      for i, o in enumerate(objects_lst)]
+            params = [
+                Variable(f"?x{i}", o.type) for i, o in enumerate(objects_lst)
+            ]
             preconds: Set[LiftedAtom] = set()  # will be learned later
             sub = dict(zip(objects_lst, params))
             add_effects = {atom.lift(sub) for atom in segment.add_effects}
-            delete_effects = {atom.lift(sub) for atom in segment.delete_effects}
+            delete_effects = {
+                atom.lift(sub)
+                for atom in segment.delete_effects
+            }
             side_predicates: Set[Predicate] = set()  # will be learned later
             op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                 add_effects, delete_effects, side_predicates)
@@ -185,15 +196,19 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
             pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
 
     # Prune PNADs with not enough data.
-    pnads = [pnad for pnad in pnads
-             if len(pnad.datastore) >= CFG.min_data_for_nsrt]
+    pnads = [
+        pnad for pnad in pnads if len(pnad.datastore) >= CFG.min_data_for_nsrt
+    ]
 
     # Learn the preconditions of the operators in the PNADs via intersection.
     for pnad in pnads:
         for i, (segment, sub) in enumerate(pnad.datastore):
             objects = set(sub.keys())
-            atoms = {atom for atom in segment.init_atoms if
-                     all(o in objects for o in atom.objects)}
+            atoms = {
+                atom
+                for atom in segment.init_atoms
+                if all(o in objects for o in atom.objects)
+            }
             lifted_atoms = {atom.lift(sub) for atom in atoms}
             if i == 0:
                 variables = sorted(set(sub.values()))
@@ -206,10 +221,10 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         # Replace the operator with one that contains the newly learned
         # preconditions. We do this because STRIPSOperator objects are
         # frozen, so their fields cannot be modified.
-        pnad.op = STRIPSOperator(
-            pnad.op.name, pnad.op.parameters, preconditions,
-            pnad.op.add_effects, pnad.op.delete_effects,
-            pnad.op.side_predicates)
+        pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters,
+                                 preconditions, pnad.op.add_effects,
+                                 pnad.op.delete_effects,
+                                 pnad.op.side_predicates)
 
     # Print and return the PNADs.
     if verbose:
@@ -250,7 +265,7 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
-                         do_sampler_learning: bool) -> None:
+                         sampler_learner: str) -> None:
     print("\nDoing sampler learning...")
     strips_ops = []
     datastores = []
@@ -260,59 +275,8 @@ def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
         datastores.append(pnad.datastore)
         option_specs.append(pnad.option_spec)
     samplers = learn_samplers(strips_ops, datastores, option_specs,
-                              do_sampler_learning)
+                              sampler_learner)
     assert len(samplers) == len(strips_ops)
     # Replace the samplers in the PNADs.
     for pnad, sampler in zip(pnads, samplers):
         pnad.sampler = sampler
-
-
-@functools.lru_cache(maxsize=None)
-def unify_effects_and_options(
-        ground_add_effects: FrozenSet[GroundAtom],
-        lifted_add_effects: FrozenSet[LiftedAtom],
-        ground_delete_effects: FrozenSet[GroundAtom],
-        lifted_delete_effects: FrozenSet[LiftedAtom],
-        ground_param_option: ParameterizedOption,
-        lifted_param_option: ParameterizedOption,
-        ground_option_args: Tuple[Object, ...],
-        lifted_option_args: Tuple[Variable, ...]
-) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles option arguments, add effects,
-    and delete effects. Changes predicate names so that all are treated
-    differently by utils.unify().
-    """
-    # Can't unify if the parameterized options are different.
-    # Note, of course, we could directly check this in the loop above. But we
-    # want to keep all the unification logic in one place, even if it's trivial
-    # in this case.
-    if ground_param_option != lifted_param_option:
-        return False, {}
-    ground_opt_arg_pred = Predicate("OPT-ARGS",
-                                    [a.type for a in ground_option_args],
-                                    _classifier=lambda s, o: False)  # dummy
-    f_ground_option_args = frozenset({GroundAtom(ground_opt_arg_pred,
-                                                 ground_option_args)})
-    new_ground_add_effects = utils.wrap_atom_predicates(
-        ground_add_effects, "ADD-")
-    f_new_ground_add_effects = frozenset(new_ground_add_effects)
-    new_ground_delete_effects = utils.wrap_atom_predicates(
-        ground_delete_effects, "DEL-")
-    f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
-
-    lifted_opt_arg_pred = Predicate("OPT-ARGS",
-                                    [a.type for a in lifted_option_args],
-                                    _classifier=lambda s, o: False)  # dummy
-    f_lifted_option_args = frozenset({LiftedAtom(lifted_opt_arg_pred,
-                                                 lifted_option_args)})
-    new_lifted_add_effects = utils.wrap_atom_predicates(
-        lifted_add_effects, "ADD-")
-    f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
-    new_lifted_delete_effects = utils.wrap_atom_predicates(
-        lifted_delete_effects, "DEL-")
-    f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
-    return utils.unify(
-        f_ground_option_args | f_new_ground_add_effects | \
-            f_new_ground_delete_effects,
-        f_lifted_option_args | f_new_lifted_add_effects | \
-            f_new_lifted_delete_effects)
