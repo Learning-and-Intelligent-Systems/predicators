@@ -12,6 +12,7 @@ def _test_approach(env_name,
                    approach_name,
                    excluded_predicates="",
                    try_solving=True,
+                   check_solution=False,
                    sampler_learner="neural",
                    learn_side_predicates=False):
     """Integration test for the given approach."""
@@ -54,7 +55,10 @@ def _test_approach(env_name,
     approach.learn_from_offline_dataset(dataset, train_tasks)
     task = env.get_test_tasks()[0]
     if try_solving:
-        approach.solve(task, timeout=CFG.timeout)
+        policy = approach.solve(task, timeout=CFG.timeout)
+        if check_solution:
+            assert utils.policy_solves_task(policy, task, env.simulate,
+                                            env.predicates)
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -62,7 +66,10 @@ def _test_approach(env_name,
                                 env.options, env.types, env.action_space)
     approach2.load()
     if try_solving:
-        approach2.solve(task, timeout=CFG.timeout)
+        policy = approach2.solve(task, timeout=CFG.timeout)
+        if check_solution:
+            assert utils.policy_solves_task(policy, task, env.simulate,
+                                            env.predicates)
 
 
 def test_nsrt_learning_approach():
@@ -83,6 +90,28 @@ def test_nsrt_learning_approach():
                        try_solving=False,
                        sampler_learner="random",
                        learn_side_predicates=True)
+
+
+def test_oracle_samplers():
+    """Test NSRTLearningApproach with oracle samplers."""
+    # Oracle sampler learning should work (and be fast) in cover and blocks.
+    # We can even check that the policy succeeds!
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   check_solution=True)
+    _test_approach(env_name="blocks",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   check_solution=True)
+    with pytest.raises(Exception) as e:
+        # In painting, we learn operators that are different from the
+        # oracle ones, so oracle sampler learning is not possible.
+        _test_approach(env_name="painting",
+                       approach_name="nsrt_learning",
+                       sampler_learner="oracle",
+                       check_solution=True)
+    assert "no match for ground truth NSRT" in str(e)
 
 
 def test_iterative_invention_approach():

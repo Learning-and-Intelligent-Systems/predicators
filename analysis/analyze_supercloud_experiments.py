@@ -1,8 +1,8 @@
 """Script to analyze experiments resulting from running the script
 analysis/run_supercloud_experiments.sh."""
 
-import pickle as pkl
 import glob
+import dill as pkl
 import pandas as pd
 from predicators.src.settings import CFG
 

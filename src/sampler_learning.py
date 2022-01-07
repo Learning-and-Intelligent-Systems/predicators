@@ -5,16 +5,20 @@ from typing import Set, Tuple, List, Sequence, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
-    NSRTSampler
+    NSRTSampler, NSRT, EntToEntSub
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
+from predicators.src.envs import create_env
+from predicators.src.approaches.oracle_approach import get_gt_nsrts
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
                    datastores: List[Datastore], option_specs: List[OptionSpec],
                    sampler_learner: str) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters."""
+    if sampler_learner == "oracle":
+        return _extract_oracle_samplers(strips_ops, option_specs)
     samplers = []
     for i, op in enumerate(strips_ops):
         param_option, _ = option_specs[i]
@@ -30,6 +34,70 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
                                       f"{CFG.sampler_learner}")
         samplers.append(sampler)
     return samplers
+
+
+def _extract_oracle_samplers(
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+) -> List[NSRTSampler]:
+    """Extract the oracle samplers matching the given STRIPSOperator objects
+    from the ground truth operators defined in approaches/oracle_approach.py.
+
+    We require every ground truth operator to match one of the given
+    operators, but some of the given operators can match no ground truth
+    operator, in which case such an operator is given a random sampler.
+    """
+    env = create_env(CFG.env)
+    # We don't need to match ground truth NSRTs with no continuous
+    # parameters, so we filter them out.
+    gt_nsrts = {
+        nsrt
+        for nsrt in get_gt_nsrts(env.predicates, env.options)
+        if nsrt.option.params_space.shape != (0, )
+    }
+    assert len(strips_ops) == len(option_specs)
+    # Initialize all samplers to random.
+    samplers: List[NSRTSampler] = [
+        _RandomSampler(param_option).sampler
+        for param_option, _ in option_specs
+    ]
+    # Go through the ground truth NSRTs. For each one, if we find a
+    # matching to a given operator, extract the NSRT's sampler.
+    for nsrt in gt_nsrts:
+        # Use unification to find a matching.
+        for idx, (op, (param_option,
+                       option_vars)) in enumerate(zip(strips_ops,
+                                                      option_specs)):
+            suc, sub = utils.unify_preconds_effects_options(
+                frozenset(nsrt.preconditions), frozenset(op.preconditions),
+                frozenset(nsrt.add_effects), frozenset(op.add_effects),
+                frozenset(nsrt.delete_effects), frozenset(op.delete_effects),
+                nsrt.option, param_option, tuple(nsrt.option_vars),
+                tuple(option_vars))
+            if suc:  # match found!
+                samplers[idx] = _make_reordered_sampler(nsrt, op, sub)
+                break
+        else:
+            raise Exception("Can't use oracle samplers, no match for "
+                            f"ground truth NSRT: {nsrt}")
+    return samplers
+
+
+def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
+                            sub: EntToEntSub) -> NSRTSampler:
+    """Helper for _extract_oracle_samplers()."""
+
+    def _reordered_sampler(state: State, rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        # Use the sub dictionary to correctly order the arguments
+        # to the NSRT sampler.
+        reordered_objs = []
+        for param in nsrt.parameters:
+            param_idx = op.parameters.index(sub[param])
+            reordered_objs.append(objs[param_idx])
+        return nsrt.sampler(state, rng, reordered_objs)
+
+    return _reordered_sampler
 
 
 def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
@@ -145,10 +213,8 @@ def _create_sampler_data(
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _LearnedSampler:
-    """A convenience class for holding the models underlying a learned sampler.
-
-    Prefer to use this because it is pickleable.
-    """
+    """A convenience class for holding the models underlying a learned
+    sampler."""
     _classifier: MLPClassifier
     _regressor: NeuralGaussianRegressor
     _variables: Sequence[Variable]
@@ -184,10 +250,7 @@ class _LearnedSampler:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _RandomSampler:
-    """A convenience class for implementing a random sampler.
-
-    Prefer to use this over a lambda function because it is pickleable.
-    """
+    """A convenience class for implementing a random sampler."""
     _param_option: ParameterizedOption
 
     def sampler(self, state: State, rng: np.random.Generator,

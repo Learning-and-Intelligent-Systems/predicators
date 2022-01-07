@@ -678,6 +678,11 @@ class NSRT:
         assert isinstance(other, NSRT)
         return str(self) > str(other)
 
+    @property
+    def sampler(self) -> NSRTSampler:
+        """This NSRT's sampler."""
+        return self._sampler
+
     def ground(self, objects: Sequence[Object]) -> _GroundNSRT:
         """Ground into a _GroundNSRT, given objects."""
         assert len(objects) == len(self.parameters)
