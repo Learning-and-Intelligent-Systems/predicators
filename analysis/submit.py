@@ -1,5 +1,4 @@
-"""Script for submitting jobs on supercloud.
-"""
+"""Script for submitting jobs on supercloud."""
 
 import sys
 import subprocess

@@ -1,7 +1,7 @@
 """A TAMP approach that learns NSRTs.
 
-In contrast to other approaches, this approach does not
-attempt to learn new predicates or options.
+In contrast to other approaches, this approach does not attempt to learn
+new predicates or options.
 """
 
 from typing import Callable, Set, List
@@ -16,12 +16,11 @@ from predicators.src import utils
 
 
 class NSRTLearningApproach(TAMPApproach):
-    """A TAMP approach that learns NSRTs.
-    """
+    """A TAMP approach that learns NSRTs."""
+
     def __init__(self, simulator: Callable[[State, Action], State],
                  initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption],
-                 types: Set[Type],
+                 initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
         super().__init__(simulator, initial_predicates, initial_options, types,
                          action_space)
@@ -47,7 +46,8 @@ class NSRTLearningApproach(TAMPApproach):
 
     def _learn_nsrts(self) -> None:
         self._nsrts = learn_nsrts_from_data(
-            self._dataset, self._get_current_predicates(),
+            self._dataset,
+            self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_save_path_str()
         with open(f"{save_path}.NSRTs", "wb") as f:

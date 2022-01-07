@@ -60,3 +60,14 @@ jobs:
     - name: Pylint
       run: |
         pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
+  autoformat:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run YAPF to test if python code is correctly formatted
+      uses: AlexanderMelde/yapf-action@master
+      with:
+        args: --verbose --style .style.yapf

@@ -1,5 +1,4 @@
-"""Test cases for the base approach class.
-"""
+"""Test cases for the base approach class."""
 
 from typing import Callable
 import pytest
@@ -13,8 +12,8 @@ from predicators.src import utils
 
 
 class _DummyApproach(BaseApproach):
-    """Dummy approach for testing.
-    """
+    """Dummy approach for testing."""
+
     @property
     def is_learning_based(self):
         return False
@@ -28,8 +27,7 @@ class _DummyApproach(BaseApproach):
 
 
 def test_base_approach():
-    """Tests for BaseApproach class.
-    """
+    """Tests for BaseApproach class."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)
@@ -39,19 +37,28 @@ def test_base_approach():
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
     state = State({cup: [0.5], plate1: [1.0, 1.2], plate2: [-9.0, 1.0]})
+
     def _simulator(s, a):
         ns = s.copy()
-        assert a.arr.shape == (1,)
+        assert a.arr.shape == (1, )
         ns[cup][0] += a.arr.item()
         return ns
-    action_space = Box(0, 0.5, (1,))
-    params_space = Box(0, 1, (1,))
+
+    action_space = Box(0, 0.5, (1, ))
+    params_space = Box(0, 1, (1, ))
+
     def _policy(_1, _2, _3, p):
         return Action(np.clip(p, a_min=None, a_max=0.45))
+
     predicates = {pred1, pred2}
     types = {cup_type, plate_type}
-    options = {ParameterizedOption(
-        "Move", [], params_space, _policy, _initiable=None, _terminal=None)}
+    options = {
+        ParameterizedOption("Move", [],
+                            params_space,
+                            _policy,
+                            _initiable=None,
+                            _terminal=None)
+    }
     approach = BaseApproach(_simulator, predicates, options, types,
                             action_space)
     approach.seed(123)
@@ -75,19 +82,21 @@ def test_base_approach():
 
 
 def test_create_approach():
-    """Tests for create_approach.
-    """
+    """Tests for create_approach."""
     env = CoverEnv()
-    for name in ["random_actions", "random_options", "oracle",
-                 "nsrt_learning", "interactive_learning",
-                 "iterative_invention"]:
-        utils.update_config({"env": "cover", "approach": name, "seed": 123,
-                             "excluded_predicates": ""})
-        approach = create_approach(
-            name, env.simulate, env.predicates, env.options, env.types,
-            env.action_space)
+    for name in [
+            "random_actions", "random_options", "oracle", "nsrt_learning",
+            "interactive_learning", "iterative_invention"
+    ]:
+        utils.update_config({
+            "env": "cover",
+            "approach": name,
+            "seed": 123,
+            "excluded_predicates": ""
+        })
+        approach = create_approach(name, env.simulate, env.predicates,
+                                   env.options, env.types, env.action_space)
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
-        create_approach(
-            "Not a real approach", env.simulate, env.predicates,
-            env.options, env.types, env.action_space)
+        create_approach("Not a real approach", env.simulate, env.predicates,
+                        env.options, env.types, env.action_space)
