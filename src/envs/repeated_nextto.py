@@ -1,6 +1,7 @@
-"""Toy environment for isolating and testing the issue of multiple
-instances of a predicate being in the effects of options. Here,
-the move option can turn on any number of NextTo predicates.
+"""Toy environment for isolating and testing the issue of multiple instances of
+a predicate being in the effects of options.
+
+Here, the move option can turn on any number of NextTo predicates.
 """
 
 from typing import List, Set, Sequence, Dict, Optional, Iterator
@@ -15,7 +16,9 @@ from predicators.src import utils
 
 
 class RepeatedNextToEnv(BaseEnv):
-    """RepeatedNextToEnv environment definition. Simple 1D problem.
+    """RepeatedNextToEnv environment definition.
+
+    Simple 1D problem.
     """
     env_lb = 0.0
     env_ub = 100.0
@@ -28,22 +31,25 @@ class RepeatedNextToEnv(BaseEnv):
         self._robot_type = Type("robot", ["x"])
         self._dot_type = Type("dot", ["x", "grasped"])
         # Predicates
-        self._NextTo = Predicate(
-            "NextTo", [self._robot_type, self._dot_type], self._NextTo_holds)
-        self._NextToNothing = Predicate(
-            "NextToNothing", [self._robot_type], self._NextToNothing_holds)
-        self._Grasped = Predicate(
-            "Grasped", [self._robot_type, self._dot_type], self._Grasped_holds)
+        self._NextTo = Predicate("NextTo", [self._robot_type, self._dot_type],
+                                 self._NextTo_holds)
+        self._NextToNothing = Predicate("NextToNothing", [self._robot_type],
+                                        self._NextToNothing_holds)
+        self._Grasped = Predicate("Grasped",
+                                  [self._robot_type, self._dot_type],
+                                  self._Grasped_holds)
         # Options
         self._Move = ParameterizedOption(
-            "Move", types=[self._robot_type, self._dot_type],
-            params_space=Box(-1, 1, (1,)),
+            "Move",
+            types=[self._robot_type, self._dot_type],
+            params_space=Box(-1, 1, (1, )),
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
         self._Grasp = ParameterizedOption(
-            "Grasp", types=[self._robot_type, self._dot_type],
-            params_space=Box(0, 1, (0,)),
+            "Grasp",
+            types=[self._robot_type, self._dot_type],
+            params_space=Box(0, 1, (0, )),
             _policy=self._Grasp_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -65,8 +71,9 @@ class RepeatedNextToEnv(BaseEnv):
             # Handle grasp action.
             robot_x = state.get(self._robot, "x")
             desired_x = norm_dot_x * (self.env_ub - self.env_lb) + self.env_lb
-            dot_to_grasp = min(self._dots, key=lambda dot:
-                               abs(state.get(dot, "x") - desired_x))
+            dot_to_grasp = min(
+                self._dots,
+                key=lambda dot: abs(state.get(dot, "x") - desired_x))
             dot_to_grasp_x = state.get(dot_to_grasp, "x")
             if abs(dot_to_grasp_x - desired_x) > 1e-4:
                 # There is no dot near the desired_x action argument.
@@ -105,9 +112,11 @@ class RepeatedNextToEnv(BaseEnv):
         # Second dimension is normalized new robot x (if first dim is move).
         # Third dimension is normalized location of dot to grasp (if second
         # dim is grasp). Normalization is [self.env_lb, self.env_ub] -> [0, 1].
-        return Box(0, 1, (3,))
+        return Box(0, 1, (3, ))
 
-    def render(self, state: State, task: Task,
+    def render(self,
+               state: State,
+               task: Task,
                action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         robot_x = state.get(self._robot, "x")
@@ -133,8 +142,10 @@ class RepeatedNextToEnv(BaseEnv):
         tasks = []
         goal1 = {GroundAtom(self._Grasped, [self._robot, self._dots[0]])}
         goal2 = {GroundAtom(self._Grasped, [self._robot, self._dots[1]])}
-        goal3 = {GroundAtom(self._Grasped, [self._robot, self._dots[0]]),
-                 GroundAtom(self._Grasped, [self._robot, self._dots[1]])}
+        goal3 = {
+            GroundAtom(self._Grasped, [self._robot, self._dots[0]]),
+            GroundAtom(self._Grasped, [self._robot, self._dots[1]])
+        }
         goals = [goal1, goal2, goal3]
         for i in range(num):
             data: Dict[Object, Array] = {}
@@ -143,7 +154,7 @@ class RepeatedNextToEnv(BaseEnv):
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = rng.uniform(self.env_lb, self.env_ub)
             data[self._robot] = np.array([robot_x])
-            tasks.append(Task(State(data), goals[i%len(goals)]))
+            tasks.append(Task(State(data), goals[i % len(goals)]))
         return tasks
 
     def _Move_policy(self, state: State, memory: Dict,
@@ -166,9 +177,9 @@ class RepeatedNextToEnv(BaseEnv):
 
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, dot = objects
-        return (state.get(dot, "grasped") < self.grasped_thresh and
-                abs(state.get(robot, "x") -
-                    state.get(dot, "x")) < self.nextto_thresh)
+        return (state.get(dot, "grasped") < self.grasped_thresh
+                and abs(state.get(robot, "x") - state.get(dot, "x")) <
+                self.nextto_thresh)
 
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
