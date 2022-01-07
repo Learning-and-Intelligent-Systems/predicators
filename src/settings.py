@@ -1,5 +1,7 @@
 """Contains global, immutable settings.
-Anything that varies between runs should be a command-line arg (args.py).
+
+Anything that varies between runs should be a command-line arg
+(args.py).
 """
 
 import os
@@ -10,13 +12,12 @@ import numpy as np
 
 
 class GlobalSettings:
-    """Unchanging settings.
-    """
+    """Unchanging settings."""
     # parameters for all envs
     num_train_tasks = 15
     num_test_tasks = 50
     max_num_steps_check_policy = 100  # maximum number of steps to run a policy
-                                      # when checking whether it solves a task
+    # when checking whether it solves a task
 
     # cover env parameters
     cover_num_blocks = 2
@@ -26,6 +27,7 @@ class GlobalSettings:
 
     # cover_multistep_options parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
+    cover_multistep_use_learned_equivalents = True
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
@@ -45,7 +47,8 @@ class GlobalSettings:
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
-        "examples", "configs",
+        "examples",
+        "configs",
         "njk_re-shelving_library_books_full_obs.yaml",
         # "njk_sorting_books_full_obs.yaml"
     )
@@ -63,26 +66,27 @@ class GlobalSettings:
     max_samples_per_step = 10  # max effort on sampling a single skeleton
 
     # evaluation parameters
+    results_dir = "results"
     save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
 
     # dataset parameters
     offline_data_planning_timeout = 500  # for learning-based approaches, the
-                                         # data collection timeout for planning
+    # data collection timeout for planning
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
+    learn_side_predicates = False
 
     # option learning parameters
-    do_option_learning = False  # if False, uses ground truth options
-    option_learner = "oracle"  # only used if do_option_learning is True
+    option_learner = "no_learning"  # "no_learning" or "oracle"
 
     # sampler learning parameters
-    do_sampler_learning = True  # if False, uses random samplers
+    sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
@@ -96,10 +100,10 @@ class GlobalSettings:
     learning_rate = 1e-3
 
     # iterative invention parameters
-    iterative_invention_accept_score = 1-1e-3
+    iterative_invention_accept_score = 1 - 1e-3
 
     # interactive learning parameters
-    interactive_known_predicates = {'HandEmpty', 'Covers'}
+    interactive_known_predicates = {"HandEmpty", "Covers"}
     interactive_num_episodes = 3
     interactive_max_steps = 10
     interactive_relearn_every = 3
@@ -129,9 +133,8 @@ class GlobalSettings:
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
-        """A workaround for global settings that are
-        derived from the experiment-specific args
-        """
+        """A workaround for global settings that are derived from the
+        experiment-specific args."""
         if "env" not in args:
             args["env"] = ""
         if "approach" not in args:
@@ -140,42 +143,42 @@ class GlobalSettings:
             # Task planning heuristic to use in SeSamE.
             task_planning_heuristic=defaultdict(
                 # Use HAdd by default.
-                lambda: "hadd", {
+                lambda: "hadd",
+                {
                     # In the playroom domain, HFF works better.
                     "playroom": "hff",
-                }
-            )[args["env"]],
+                })[args["env"]],
 
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
                 # Use "immediately" by default.
-                lambda: "immediately", {
+                lambda: "immediately",
+                {
                     # We use a different strategy for cluttered_table because
                     # of the high likelihood of getting cyclic failures if you
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
-                }
-            )[args["env"]],
+                })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
                 # Use both demonstrations and random replays by default.
-                lambda: "demo+replay", {
+                lambda: "demo+replay",
+                {
                     # No replays for active learning project.
                     "interactive_learning": "demo",
-                }
-            )[args["approach"]],
+                })[args["approach"]],
 
             # Number of replays used when offline_data_method is demo+replay.
             offline_data_num_replays=defaultdict(
                 # Default number of random replays.
-                lambda: 500, {
+                lambda: 500,
+                {
                     # For the repeated_nextto environment, too many
                     # replays makes learning slow.
                     "repeated_nextto": 50,
-                }
-            )[args["env"]],
+                })[args["env"]],
         )
 
 
