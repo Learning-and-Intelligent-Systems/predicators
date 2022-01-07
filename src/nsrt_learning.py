@@ -1,11 +1,11 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-from typing import Set, List, Sequence, cast
+from typing import Set, List, Sequence, cast, Tuple
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption, \
-    State, Action
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, State, \
+    Action, Object, _GroundSTRIPSOperator, GroundAtom
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -38,22 +38,32 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    pnads = learn_strips_operators(
-        segments, verbose=(CFG.option_learner != "no_learning"))
+    pnads = learn_strips_operators(segments,
+                                   verbose=(CFG.option_learner != "no_learning"
+                                            or CFG.learn_side_predicates))
 
     # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
-        _learn_pnad_side_predicates(pnads)
+        pnads = _learn_pnad_side_predicates(
+            pnads,
+            segmented_trajs,
+            ground_atom_dataset,
+            verbose=(CFG.option_learner != "no_learning"))
 
-    # STEP 5: Learn options (option_learning.py) and update PNADs.
-    _learn_pnad_options(pnads)
+    # STEP 5: Prune PNADs with not enough data.
+    pnads = [
+        pnad for pnad in pnads if len(pnad.datastore) >= CFG.min_data_for_nsrt
+    ]
 
-    # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
-    _learn_pnad_samplers(pnads, sampler_learner)
+    # STEP 6: Learn options (option_learning.py) and update PNADs.
+    _learn_pnad_options(pnads)  # in-place update
 
-    # STEP 7: Print and return the NSRTs.
+    # STEP 7: Learn samplers (sampler_learning.py) and update PNADs.
+    _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
+
+    # STEP 8: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
     print("\nLearned NSRTs:")
     for nsrt in sorted(nsrts):
@@ -142,20 +152,14 @@ def learn_strips_operators(
     # Cluster the segments according to common effects.
     pnads: List[PartialNSRTAndDatastore] = []
     for segment in segments:
-        if segment.has_option():
-            segment_option = segment.get_option()
-            segment_param_option = segment_option.parent
-            segment_option_objs = tuple(segment_option.objects)
-        else:
-            segment_param_option = DummyOption.parent
-            segment_option_objs = tuple()
+        segment_param_option, segment_option_objs = segment.get_option_spec()
         for pnad in pnads:
             # Try to unify this transition with existing effects.
             # Note that both add and delete effects must unify,
             # and also the objects that are arguments to the options.
             (pnad_param_option, pnad_option_vars) = pnad.option_spec
             suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
-                frozenset(),
+                frozenset(),  # no preconditions
                 frozenset(),  # no preconditions
                 frozenset(segment.add_effects),
                 frozenset(pnad.op.add_effects),
@@ -195,11 +199,6 @@ def learn_strips_operators(
             option_spec = (segment_param_option, option_vars)
             pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
 
-    # Prune PNADs with not enough data.
-    pnads = [
-        pnad for pnad in pnads if len(pnad.datastore) >= CFG.min_data_for_nsrt
-    ]
-
     # Learn the preconditions of the operators in the PNADs via intersection.
     for pnad in pnads:
         for i, (segment, sub) in enumerate(pnad.datastore):
@@ -228,14 +227,168 @@ def learn_strips_operators(
 
     # Print and return the PNADs.
     if verbose:
-        print("\nLearned operators (before option learning):")
+        print("\nLearned operators (before side predicate & option learning):")
         for pnad in pnads:
             print(pnad)
     return pnads
 
 
-def _learn_pnad_side_predicates(pnads: List[PartialNSRTAndDatastore]) -> None:
-    raise NotImplementedError
+def _learn_pnad_side_predicates(
+        pnads: List[PartialNSRTAndDatastore],
+        segmented_trajs: List[List[Segment]],
+        ground_atom_dataset: List[GroundAtomTrajectory],
+        verbose: bool) -> List[PartialNSRTAndDatastore]:
+    print("\nDoing side predicate learning...")
+    # For each demonstration in the data, determine its skeleton under
+    # the operators stored in the PNADs.
+    assert len(segmented_trajs) == len(ground_atom_dataset)
+    all_init_atoms = []
+    all_final_atoms = []
+    skeletons = []
+    for seg_traj, (ll_traj, _) in zip(segmented_trajs, ground_atom_dataset):
+        if not ll_traj.is_demo:
+            continue
+        all_init_atoms.append(seg_traj[0].init_atoms)
+        all_final_atoms.append(ll_traj.goal)
+        skeleton = []
+        for segment in seg_traj:
+            ground_op = _get_ground_operator_for_segment(segment, pnads)
+            skeleton.append((ground_op.operator.name,
+                             tuple(ground_op.objects)))
+        skeletons.append(skeleton)
+    # Try converting each effect in each PNAD to a side predicate.
+    orig_pnad_params = [pnad.op.parameters.copy() for pnad in pnads]
+    for pnad in pnads:
+        _, option_vars = pnad.option_spec
+        for effect_set, add_or_delete in [
+                (pnad.op.add_effects, "add"),
+                (pnad.op.delete_effects, "delete")]:
+            for effect in effect_set:
+                orig_op = pnad.op
+                pnad.op = pnad.op.effect_to_side_predicate(
+                    effect, option_vars, add_or_delete)
+                # If the new operator with this effect turned into a side
+                # predicate does not cover every skeleton, revert the change.
+                if not all(_skeleton_covered(
+                        skeleton, init_atoms, final_atoms,
+                        pnads, orig_pnad_params)
+                       for skeleton, init_atoms, final_atoms in zip(
+                               skeletons, all_init_atoms, all_final_atoms)):
+                    pnad.op = orig_op
+    # Recompute the datastores in the PNADs. We need to do this
+    # because now that we have side predicates, each transition may be
+    # assigned to *multiple* datastores.
+    all_indices = _recompute_datastores_from_segments(segmented_trajs, pnads)
+    # Prune redundant PNADs.
+    final_pnads = []
+    seen_identifiers = set()
+    assert len(pnads) == len(all_indices)
+    for pnad, indices in zip(pnads, all_indices):
+        frozen_indices = frozenset(indices)
+        if frozen_indices in seen_identifiers:
+            continue
+        final_pnads.append(pnad)
+        seen_identifiers.add(frozen_indices)
+    if verbose:
+        print("\nLearned operators with side predicates:")
+        for pnad in final_pnads:
+            print(pnad)
+    return final_pnads
+
+
+def _get_ground_operator_for_segment(
+    segment: Segment, pnads: List[PartialNSRTAndDatastore]
+) -> _GroundSTRIPSOperator:
+    """Helper for side predicate learning.
+
+    Finds a grounding of any operator stored in the PNADs that
+    induces the given segment.
+    """
+    objects = set(segment.states[0])
+    segment_param_option, segment_option_objs = segment.get_option_spec()
+    # Find a matching ground operator.
+    for pnad in pnads:
+        param_opt, opt_vars = pnad.option_spec
+        if param_opt != segment_param_option:
+            continue
+        isub = dict(zip(opt_vars, segment_option_objs))
+        for ground_op in utils.all_ground_operators_given_partial(
+                pnad.op, objects, isub):
+            # Check if preconditions hold.
+            if not ground_op.preconditions.issubset(segment.init_atoms):
+                continue
+            # Check if effects match.
+            if ground_op.add_effects != segment.add_effects or \
+               ground_op.delete_effects != segment.delete_effects:
+                continue
+            # Ground operator covers the segment, we're done.
+            return ground_op
+    raise Exception("Could not find ground operator that matches segment.")
+
+
+def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
+                      init_atoms: Set[GroundAtom],
+                      final_atoms: Set[GroundAtom],
+                      pnads: List[PartialNSRTAndDatastore],
+                      orig_pnad_params: List[List[Variable]]) -> bool:
+    """A skeleton is covered if all preconditions hold and final atoms
+    are predicted from the init atoms.
+    """
+    assert len(pnads) == len(orig_pnad_params)
+    name_to_idx = {pnad.op.name: idx for idx, pnad in enumerate(pnads)}
+    current_atoms = init_atoms
+    for (op_name, orig_objects) in skeleton:
+        idx = name_to_idx[op_name]
+        pnad = pnads[idx]
+        orig_params = orig_pnad_params[idx]
+        # Some parameters may have been removed, but order is preserved.
+        objects = tuple(o for o, v in zip(orig_objects, orig_params)
+                        if v in pnad.op.parameters)
+        ground_op = pnad.op.ground(objects)
+        if not ground_op.preconditions.issubset(current_atoms):
+            return False
+        current_atoms = utils.apply_operator(ground_op, current_atoms)
+    return final_atoms.issubset(current_atoms)
+
+
+def _recompute_datastores_from_segments(
+        segmented_trajs: List[List[Segment]],
+        pnads: List[PartialNSRTAndDatastore]) -> List[Set[Tuple[int, int]]]:
+    for pnad in pnads:
+        pnad.datastore = []  # reset all PNAD datastores
+    all_indices: List[Set[Tuple[int, int]]] = [set() for _ in pnads]
+    for traj_idx, seg_traj in enumerate(segmented_trajs):
+        objects = set(seg_traj[0].states[0])
+        for segment_idx, segment in enumerate(seg_traj):
+            identifier = (traj_idx, segment_idx)
+            (segment_param_option,
+             segment_option_objs) = segment.get_option_spec()
+            # Get ground operators given these objects and option objs.
+            for pnad_idx, pnad in enumerate(pnads):
+                param_opt, opt_vars = pnad.option_spec
+                if param_opt != segment_param_option:
+                    continue
+                isub = dict(zip(opt_vars, segment_option_objs))
+                # Consider adding this segment to each datastore.
+                for ground_op in utils.all_ground_operators_given_partial(
+                        pnad.op, objects, isub):
+                    # Check if preconditions hold.
+                    if not ground_op.preconditions.issubset(segment.init_atoms):
+                        continue
+                    # Check if effects match. Note that we're using the side
+                    # predicates semantics here!
+                    atoms = utils.apply_operator(ground_op, segment.init_atoms)
+                    if not atoms.issubset(segment.final_atoms):
+                        continue
+                    # This segment belongs in this datastore, so add it.
+                    # TODO: this is an edge case we need to fix by changing
+                    # ObjToVarSubs in the partition to VarToObjSubs.
+                    if len(set(ground_op.objects)) != len(ground_op.objects):
+                        continue
+                    sub = dict(zip(ground_op.objects, pnad.op.parameters))
+                    pnad.add_to_datastore((segment, sub))
+                    all_indices[pnad_idx].add(identifier)
+        return all_indices
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:

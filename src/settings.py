@@ -80,7 +80,7 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
-    learn_side_predicates = False
+    learn_side_predicates = True
 
     # option learning parameters
     option_learner = "no_learning"  # "no_learning" or "oracle"
