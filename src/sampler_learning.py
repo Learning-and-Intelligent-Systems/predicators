@@ -21,7 +21,7 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
         return _extract_oracle_samplers(strips_ops, option_specs)
     samplers = []
     for i, op in enumerate(strips_ops):
-        param_option, option_vars = option_specs[i]
+        param_option, _ = option_specs[i]
         if sampler_learner == "random" or \
            param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
@@ -33,6 +33,7 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
         samplers.append(sampler)
+    return samplers
 
 
 def _extract_oracle_samplers(strips_ops: List[STRIPSOperator],
@@ -52,8 +53,8 @@ def _extract_oracle_samplers(strips_ops: List[STRIPSOperator],
                 if nsrt.option.params_space.shape != (0, )}
     assert len(strips_ops) == len(option_specs)
     # Initialize all samplers to random.
-    samplers = [_RandomSampler(param_option).sampler
-                for param_option, _ in option_specs]
+    samplers: List[NSRTSampler] = [_RandomSampler(param_option).sampler
+                                   for param_option, _ in option_specs]
     # Go through the ground truth NSRTs. For each one, if we find a
     # matching to a given operator, extract the NSRT's sampler.
     for nsrt in gt_nsrts:
