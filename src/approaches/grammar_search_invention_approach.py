@@ -466,7 +466,8 @@ def _create_score_function(
                                              train_tasks, candidates)
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+            initial_predicates, atom_dataset, train_tasks, candidates,
+            ["hadd"])
     match = re.match(r"([a-z\,]+)_lookahead_depth(\d+)", score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
@@ -638,6 +639,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     Subclasses must choose the heuristic function and how to evaluate
     against the demonstrations.
     """
+    heuristic_names: Sequence[str]
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
@@ -757,7 +759,6 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with a delete relaxation heuristic like
     hadd, hmax, or hff."""
-    heuristic_names: Sequence[str]
     lookahead_depth: int = field(default=0)
 
     def _generate_heuristic(
@@ -806,6 +807,8 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with task planning."""
+
+    heuristic_names: Sequence[str] = ("exact", )
 
     def _generate_heuristic(
         self,
