@@ -404,6 +404,10 @@ class ParameterizedOption:
         assert isinstance(other, ParameterizedOption)
         return self.name < other.name
 
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name > other.name
+
     def __hash__(self) -> int:
         return self._hash
 

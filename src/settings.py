@@ -61,6 +61,7 @@ class GlobalSettings:
 
     # SeSamE parameters
     option_model_name = "default"
+    max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
 
@@ -178,15 +179,6 @@ class GlobalSettings:
                     # replays makes learning slow.
                     "repeated_nextto": 50,
                 })[args["env"]],
-            max_num_steps_option_rollout=defaultdict(
-                lambda: 100,
-                {
-                    # For the behavior environment, we need
-                    # to execute the options for a larger number of
-                    # timesteps
-                    "behavior": 1000,
-                })[args["env"]])
-
 
 _attr_to_value = {}
 for _attr, _value in GlobalSettings.__dict__.items():
