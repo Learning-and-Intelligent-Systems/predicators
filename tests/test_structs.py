@@ -480,6 +480,7 @@ def test_nsrts():
     assert nsrt == nsrt2
     nsrt3 = strips_operator.make_nsrt(parameterized_option, [], sampler)
     assert nsrt == nsrt3
+    assert nsrt.get_sampler() is sampler
     # _GroundNSRT
     ground_nsrt = nsrt.ground([cup, plate])
     assert isinstance(ground_nsrt, _GroundNSRT)

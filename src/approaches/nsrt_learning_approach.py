@@ -4,8 +4,8 @@ In contrast to other approaches, this approach does not
 attempt to learn new predicates or options.
 """
 
-import pickle as pkl
 from typing import Callable, Set, List
+import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
