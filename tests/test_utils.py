@@ -1483,6 +1483,34 @@ def test_run_hill_climbing():
     assert state_sequence == [(0, 0), (2, 2)]
     assert action_sequence == ["dummy_action"]
 
+    # Tests showing the benefit of enforced hill climbing.
+    def _local_minimum_grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        if state in [(1, 0), (0, 1)]:
+            return float("inf")
+        return float(abs(state[0] - 4) + abs(state[1] - 4))
+
+    # With enforced_depth 0, search fails.
+    state_sequence, action_sequence = utils.run_hill_climbing(
+        initial_state, _grid_check_goal_fn, _grid_successor_fn,
+        _local_minimum_grid_heuristic_fn)
+    assert state_sequence == [(0, 0)]
+    assert not action_sequence
+
+    # With enforced_depth 1, search succeeds.
+    state_sequence, action_sequence = utils.run_hill_climbing(
+        initial_state,
+        _grid_check_goal_fn,
+        _grid_successor_fn,
+        _local_minimum_grid_heuristic_fn,
+        enforced_depth=1)
+    # Note that hill-climbing does not care about costs.
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+                              (4, 2), (4, 3), (4, 4)]
+    assert action_sequence == [
+        "down", "down", "down", "down", "right", "right", "right", "right"
+    ]
+
 
 def test_ops_and_specs_to_dummy_nsrts():
     """Tests fo ops_and_specs_to_dummy_nsrts()."""
@@ -1512,4 +1540,4 @@ def test_ops_and_specs_to_dummy_nsrts():
     assert nsrt.add_effects == add_effects
     assert nsrt.delete_effects == delete_effects
     assert nsrt.option == parameterized_option
-    assert nsrt.option_vars == []
+    assert not nsrt.option_vars
