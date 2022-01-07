@@ -67,4 +67,4 @@ jobs:
     - name: run YAPF to test if python code is correctly formatted
       uses: AlexanderMelde/yapf-action@master
       with:
-        args: --verbose
+        args: --verbose --style .style.yapf
