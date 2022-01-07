@@ -659,7 +659,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
             }
             heuristic_fn = self._generate_heuristic(init_atoms, objects, goal,
                                                     strips_ops, option_specs,
-                                                    ground_ops)
+                                                    ground_ops, predicates)
             score += self._evaluate_atom_trajectory(atoms_sequence,
                                                     heuristic_fn, ground_ops)
         return CFG.grammar_search_heuristic_based_weight * score
@@ -668,7 +668,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         self, init_atoms: Set[GroundAtom], objects: Set[Object],
         goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
-        ground_ops: Set[_GroundSTRIPSOperator]
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate]
     ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
@@ -756,10 +757,17 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
         self, init_atoms: Set[GroundAtom], objects: Set[Object],
         goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
-        ground_ops: Set[_GroundSTRIPSOperator]
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate]
     ) -> Callable[[Set[GroundAtom]], float]:
-        h_fn = utils.create_heuristic(self.heuristic_name, init_atoms, goal,
-                                      ground_ops)
+        all_reachable_atoms = utils.get_reachable_atoms(ground_ops, init_atoms)
+        reachable_ops = [
+            op for op in ground_ops
+            if op.preconditions.issubset(all_reachable_atoms)
+        ]
+        h_fn = utils.create_task_planning_heuristic(
+            self.heuristic_name, init_atoms, goal, reachable_ops,
+            set(predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
         assert self.lookahead_depth >= 0
@@ -771,7 +779,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
             if goal.issubset(atoms):
                 result = 0.0
             elif depth == self.lookahead_depth:
-                result = h_fn(utils.atoms_to_tuples(atoms))
+                result = h_fn(atoms)
             else:
                 successor_hs = [
                     _relaxation_h(next_atoms, depth + 1)
@@ -792,12 +800,16 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
     """Implement _generate_heuristic() with task planning."""
 
     def _generate_heuristic(
-        self, init_atoms: Set[GroundAtom], objects: Set[Object],
-        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        self,
+        init_atoms: Set[GroundAtom],
+        objects: Set[Object],
+        goal: Set[GroundAtom],
+        strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
-        ground_ops: Set[_GroundSTRIPSOperator]
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate],
     ) -> Callable[[Set[GroundAtom]], float]:
-        del init_atoms  # unused
+        del init_atoms, predicates  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
