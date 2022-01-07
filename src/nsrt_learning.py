@@ -388,7 +388,7 @@ def _recompute_datastores_from_segments(
                     sub = dict(zip(ground_op.objects, pnad.op.parameters))
                     pnad.add_to_datastore((segment, sub))
                     all_indices[pnad_idx].add(identifier)
-        return all_indices
+    return all_indices
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
