@@ -259,6 +259,7 @@ def _learn_pnad_side_predicates(
     # Try converting each effect in each PNAD to a side predicate.
     orig_pnad_params = [pnad.op.parameters.copy() for pnad in pnads]
     for pnad in pnads:
+        print("pnad:",pnad)
         _, option_vars = pnad.option_spec
         for effect_set, add_or_delete in [
                 (pnad.op.add_effects, "add"),
@@ -267,6 +268,7 @@ def _learn_pnad_side_predicates(
                 orig_op = pnad.op
                 pnad.op = pnad.op.effect_to_side_predicate(
                     effect, option_vars, add_or_delete)
+                print("effect:",effect)
                 # If the new operator with this effect turned into a side
                 # predicate does not cover every skeleton, revert the change.
                 if not all(_skeleton_covered(
@@ -275,6 +277,11 @@ def _learn_pnad_side_predicates(
                        for skeleton, init_atoms, final_atoms in zip(
                                skeletons, all_init_atoms, all_final_atoms)):
                     pnad.op = orig_op
+                    print("revert")
+                else:
+                    print("ACCEPT")
+        print("final pnad:",pnad)
+        input("!!")
     # Recompute the datastores in the PNADs. We need to do this
     # because now that we have side predicates, each transition may be
     # assigned to *multiple* datastores.
@@ -335,6 +342,10 @@ def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
     are predicted from the init atoms.
     """
     assert len(pnads) == len(orig_pnad_params)
+    print("checking")
+    print(skeleton)
+    print(init_atoms)
+    print(final_atoms)
     name_to_idx = {pnad.op.name: idx for idx, pnad in enumerate(pnads)}
     current_atoms = init_atoms
     for (op_name, orig_objects) in skeleton:
@@ -346,8 +357,10 @@ def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
                         if v in pnad.op.parameters)
         ground_op = pnad.op.ground(objects)
         if not ground_op.preconditions.issubset(current_atoms):
+            print("pre fail")
             return False
         current_atoms = utils.apply_operator(ground_op, current_atoms)
+    print("did eff succeed? ", final_atoms.issubset(current_atoms))
     return final_atoms.issubset(current_atoms)
 
 
@@ -377,6 +390,7 @@ def _recompute_datastores_from_segments(
                         continue
                     # Check if effects match. Note that we're using the side
                     # predicates semantics here!
+                    # TODO: this is wrong. subset diff must only contain side predicates
                     atoms = utils.apply_operator(ground_op, segment.init_atoms)
                     if not atoms.issubset(segment.final_atoms):
                         continue
