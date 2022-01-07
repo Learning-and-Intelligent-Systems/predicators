@@ -1382,10 +1382,12 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     # The first type ignore is necessary because mypy gets
                     # confused about the type signature of the NSRT itself
                     # because we're ignoring the env.object_to_ig_object line
-                    lambda s, r, o:
-                    place_ontop_obj_pos_sampler(  # type: ignore
-                        [env.object_to_ig_object(o_i)
-                         for o_i in o],  # type: ignore
+                    lambda s, r, o:  # type: ignore
+                    place_ontop_obj_pos_sampler(
+                        [
+                            env.object_to_ig_object(o_i)  # type: ignore
+                            for o_i in o
+                        ],
                         rng=r,
                     ),
                 )
