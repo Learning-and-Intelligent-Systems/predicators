@@ -95,7 +95,7 @@ def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
         for param in nsrt.parameters:
             param_idx = op.parameters.index(sub[param])
             reordered_objs.append(objs[param_idx])
-        return nsrt.get_sampler()(state, rng, reordered_objs)
+        return nsrt.sampler(state, rng, reordered_objs)
 
     return _reordered_sampler
 
