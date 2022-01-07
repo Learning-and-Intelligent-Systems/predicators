@@ -8,7 +8,7 @@ from functools import cached_property
 from typing import List, Set
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment, Partition, Variable, ParameterizedOption, Action, Predicate
+    Segment, Variable, ParameterizedOption, Action, Predicate
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, BlocksEnv
@@ -121,11 +121,11 @@ class _SimpleOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(
             self, strips_ops: List[STRIPSOperator],
-            partitions: List[Partition]) -> List[OptionSpec]:
+            datastores: List[Datastore]) -> List[OptionSpec]:
 
         option_specs = []
 
-        for idx, p in enumerate(partitions):
+        for idx, p in enumerate(datastores):
             X_regressor: List[List[Array]] = []
             Y_regressor = []
             op = strips_ops[idx]
