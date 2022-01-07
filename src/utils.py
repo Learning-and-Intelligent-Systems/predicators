@@ -627,10 +627,12 @@ def run_hill_climbing(initial_state: _S,
             break
         best_heuristic = float("inf")
         best_child_node = None
-        current_depth_nodes = {cur_node}
+        current_depth_nodes = [cur_node]
         for depth in range(0, enforced_depth + 1):
             print(f"Searching for an improvement at depth {depth}")
-            successors_at_depth = set()
+            # This is a list to ensure determinism. Note that duplicates are
+            # filtered out in the `child_state in visited` check.
+            successors_at_depth = []
             for parent in current_depth_nodes:
                 for action, child_state, cost in get_successors(parent.state):
                     if child_state in visited:
@@ -643,7 +645,7 @@ def run_hill_climbing(initial_state: _S,
                         cumulative_cost=child_path_cost,
                         parent=parent,
                         action=action)
-                    successors_at_depth.add(child_node)
+                    successors_at_depth.append(child_node)
                     child_heuristic = heuristic(child_node.state)
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
@@ -662,13 +664,10 @@ def run_hill_climbing(initial_state: _S,
             print("\nTerminating hill climbing, could not improve score")
             break
         cur_node = best_child_node
-        states.append(cur_node.state)
-        action = cast(_A, cur_node.action)
-        actions.append(action)
         last_heuristic = best_heuristic
         print(f"\nHill climbing reached new state {cur_node.state} "
               f"with heuristic {last_heuristic}")
-    return states, actions
+    return _finish_plan(cur_node)
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
