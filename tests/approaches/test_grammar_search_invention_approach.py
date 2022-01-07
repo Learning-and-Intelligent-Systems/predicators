@@ -253,7 +253,8 @@ def test_predicate_search_heuristic_base_classes():
     dataset = [LowLevelTrajectory([state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
     heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset,
-                                                      train_tasks, {}, [])
+                                                      train_tasks, {},
+                                                      ["hadd"])
     with pytest.raises(NotImplementedError):
         heuristic_score_fn.evaluate(set())
     hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
@@ -349,7 +350,7 @@ def test_hadd_match_score_function():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     score_function = _RelaxationHeuristicMatchBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+        initial_predicates, atom_dataset, train_tasks, candidates, ["hadd"])
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     none_included_s = score_function.evaluate(set())
     assert handempty_included_s > none_included_s  # this is very bad!
@@ -380,7 +381,7 @@ def test_relaxation_lookahead_score_function():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+        initial_predicates, atom_dataset, train_tasks, candidates, ["hadd"])
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
@@ -436,7 +437,7 @@ def test_relaxation_lookahead_score_function():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+        initial_predicates, atom_dataset, train_tasks, candidates, ["hadd"])
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
     gripperopen_excluded_s = score_function.evaluate(
@@ -460,8 +461,7 @@ def test_relaxation_lookahead_score_function():
         initial_predicates,
         atom_dataset,
         train_tasks,
-        candidates,
-        "hadd",
+        candidates, ["hadd"],
         lookahead_depth=1)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
@@ -491,7 +491,7 @@ def test_relaxation_lookahead_score_function():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
+        initial_predicates, atom_dataset, train_tasks, candidates, ["hadd"])
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
 
@@ -530,8 +530,7 @@ def test_relaxation_lookahead_score_function():
     score_function = _MockHAddLookahead(initial_predicates,
                                         atom_dataset,
                                         train_tasks,
-                                        candidates,
-                                        "hadd",
+                                        candidates, ["hadd"],
                                         lookahead_depth=1)
     assert score_function.evaluate(set(candidates)) == float("inf")
 
