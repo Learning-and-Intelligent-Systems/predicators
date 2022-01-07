@@ -6,10 +6,12 @@ from typing import Set, Tuple, List, Sequence, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
-    NSRTSampler
+    NSRTSampler, NSRT
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
+from predicators.src.envs import create_env
+from predicators.src.approaches.oracle_approach import get_gt_nsrts
 
 
 def learn_samplers(
@@ -21,11 +23,20 @@ def learn_samplers(
     """Learn all samplers for each operator's option parameters.
     """
     samplers = []
+    if sampler_learner == "oracle":
+        env = create_env(CFG.env)
+        # We don't need to match ground truth NSRTs with no
+        # continuous parameters, so filter them out.
+        gt_nsrts = {nsrt for nsrt in get_gt_nsrts(env.predicates, env.options)
+                    if nsrt.option.params_space.shape != (0,)}
     for i, op in enumerate(strips_ops):
-        param_option, _ = option_specs[i]
+        param_option, option_vars = option_specs[i]
         if sampler_learner == "random" or \
            param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
+        elif sampler_learner == "oracle":
+            sampler = _extract_oracle_sampler(
+                op, param_option, option_vars, gt_nsrts)
         elif sampler_learner == "neural":
             sampler = _learn_neural_sampler(
                 datastores, op.name, op.parameters, op.preconditions,
@@ -34,7 +45,55 @@ def learn_samplers(
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
         samplers.append(sampler)
+    if sampler_learner == "oracle":
+        assert not gt_nsrts, f"Can't use oracle samplers, {len(gt_nsrts)} " \
+            "oracle operator(s) were not matched to a learned operator!"
     return samplers
+
+
+def _extract_oracle_sampler(op: STRIPSOperator,
+                            param_option: ParameterizedOption,
+                            option_vars: Sequence[Variable],
+                            gt_nsrts: Set[NSRT]) -> NSRTSampler:
+    """Extract the oracle sampler matching the given STRIPSOperator
+    from the ground truth operators defined in approaches/oracle_approach.py.
+    If no ground truth operator can be unified with the given one, just
+    returns a random sampler.
+    """
+    matching_nsrt = None
+    matching_sub = None
+    for nsrt in gt_nsrts:
+        suc, sub = utils.unify_preconds_effects_options(
+            frozenset(op.preconditions),
+            frozenset(nsrt.preconditions),
+            frozenset(op.add_effects),
+            frozenset(nsrt.add_effects),
+            frozenset(op.delete_effects),
+            frozenset(nsrt.delete_effects),
+            param_option,
+            nsrt.option,
+            tuple(option_vars),
+            tuple(nsrt.option_vars))
+        if suc:
+            matching_nsrt = nsrt
+            matching_sub = sub
+            break
+    if matching_nsrt is None:
+        # Fall back to random sampler.
+        return _RandomSampler(param_option).sampler
+    # We found a matching operator. Use the matching_sub dictionary to
+    # correctly order the arguments to the sampler.
+    def _reordered_sampler(state: State, rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
+        assert matching_nsrt is not None
+        assert matching_sub is not None
+        reordered_objs = []
+        for param in op.parameters:
+            idx = matching_nsrt.parameters.index(matching_sub[param])
+            reordered_objs.append(objs[idx])
+        return matching_nsrt.get_sampler()(state, rng, reordered_objs)
+    gt_nsrts.remove(matching_nsrt)  # remove this NSRT from the set
+    return _reordered_sampler
 
 
 def _learn_neural_sampler(datastores: List[Datastore],
@@ -153,7 +212,6 @@ def _create_sampler_data(
 @dataclass(frozen=True, eq=False, repr=False)
 class _LearnedSampler:
     """A convenience class for holding the models underlying a learned sampler.
-    Prefer to use this because it is pickleable.
     """
     _classifier: MLPClassifier
     _regressor: NeuralGaussianRegressor

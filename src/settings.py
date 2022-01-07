@@ -83,7 +83,7 @@ class GlobalSettings:
     option_learner = "no_learning"  # "no_learning" or "oracle"
 
     # sampler learning parameters
-    sampler_learner = "neural"  # "neural" or "random"
+    sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     normalization_scale_clip = 1
     classifier_hid_sizes = [32, 32]
