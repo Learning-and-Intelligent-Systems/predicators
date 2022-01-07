@@ -247,8 +247,7 @@ class _LearnedSampler:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _RandomSampler:
-    """A convenience class for implementing a random sampler. Prefer
-    to use this over a lambda function because it is pickleable.
+    """A convenience class for implementing a random sampler.
     """
     _param_option: ParameterizedOption
 
