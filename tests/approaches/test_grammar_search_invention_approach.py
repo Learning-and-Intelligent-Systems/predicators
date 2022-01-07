@@ -172,7 +172,7 @@ def test_create_score_function():
     assert isinstance(score_func, _PredictionErrorScoreFunction)
     score_func = _create_score_function("hadd_match", set(), [], [], {})
     assert isinstance(score_func, _RelaxationHeuristicMatchBasedScoreFunction)
-    assert score_func.heuristic_name == "hadd"
+    assert score_func.heuristic_names == ["hadd"]
     score_func = _create_score_function("branching_factor", set(), [], [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
     score_func = _create_score_function("hadd_lookahead_depth0", set(), [], [],
@@ -180,25 +180,25 @@ def test_create_score_function():
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
-    assert score_func.heuristic_name == "hadd"
+    assert score_func.heuristic_names == ["hadd"]
     score_func = _create_score_function("hmax_lookahead_depth0", set(), [], [],
                                         {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
-    assert score_func.heuristic_name == "hmax"
+    assert score_func.heuristic_names == ["hmax"]
     score_func = _create_score_function("hsa_lookahead_depth0", set(), [], [],
                                         {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
-    assert score_func.heuristic_name == "hsa"
+    assert score_func.heuristic_names == ["hsa"]
     score_func = _create_score_function("lmcut_lookahead_depth0", set(), [],
                                         [], {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
-    assert score_func.heuristic_name == "lmcut"
+    assert score_func.heuristic_names == ["lmcut"]
     score_func = _create_score_function("hadd_lookahead_depth1", set(), [], [],
                                         {})
     assert score_func.lookahead_depth == 1
@@ -209,7 +209,13 @@ def test_create_score_function():
                                         {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
-    assert score_func.heuristic_name == "hff"
+    assert score_func.heuristic_names == ["hff"]
+    score_func = _create_score_function("lmcut,hff_lookahead_depth0", set(),
+                                        [], [], {})
+    assert isinstance(score_func,
+                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 0
+    assert score_func.heuristic_names == ["lmcut", "hff"]
     score_func = _create_score_function("exact_lookahead", set(), [], [], {})
     assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], [], {})
@@ -247,11 +253,11 @@ def test_predicate_search_heuristic_base_classes():
     dataset = [LowLevelTrajectory([state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
     heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset,
-                                                      train_tasks, {})
+                                                      train_tasks, {}, [])
     with pytest.raises(NotImplementedError):
         heuristic_score_fn.evaluate(set())
     hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
-        set(), atom_dataset, train_tasks, {}, "hadd")
+        set(), atom_dataset, train_tasks, {}, ["hadd"])
     with pytest.raises(NotImplementedError):
         hadd_score_fn.evaluate(set())
 
@@ -406,7 +412,7 @@ def test_relaxation_lookahead_score_function():
         # Reuse dataset from above.
         score_function = _MockLookahead(initial_predicates, atom_dataset,
                                         train_tasks, candidates,
-                                        heuristic_name)
+                                        [heuristic_name])
         assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
