@@ -171,10 +171,8 @@ def _skeleton_generator(
                 CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
-
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
-        # print(node.skeleton)
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -234,7 +232,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModel,
         option = nsrt.sample_option(state, rng_sampler)
         plan[cur_idx] = option
         if option.initiable(state):
-            # print(f"Trying option {option}")
             try:
                 next_state = option_model.get_next_state(state, option)
                 discovered_failures[cur_idx] = None  # no failure occurred
@@ -263,14 +260,10 @@ def _run_low_level_search(task: Task, option_model: _OptionModel,
                 }
                 if atoms.issuperset(expected_atoms):
                     can_continue_on = True
-                    # print("Option achieved expected high-level state!" +
-                    # "Moving on to next action in skeleton.")
                     if cur_idx == len(skeleton):  # success!
                         result = plan
                         return result
                 else:
-                    # print("Option did not result in expected high-level " +
-                    # "termination state :(. Moving on...")
                     can_continue_on = False
             else:
                 cur_idx += 1  # it's about to be decremented again
