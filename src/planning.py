@@ -8,12 +8,12 @@ from collections import defaultdict
 import heapq as hq
 import time
 from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    PyperplanFacts, Metrics, STRIPSOperator, OptionSpec, Object
+    Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.option_model import _OptionModel
@@ -29,11 +29,6 @@ class _Node:
     skeleton: List[_GroundNSRT]
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
-    pyperplan_facts: PyperplanFacts = field(init=False,
-                                            default_factory=frozenset)
-
-    def __post_init__(self) -> None:
-        self.pyperplan_facts = utils.atoms_to_tuples(self.atoms)
 
 
 def sesame_plan(
@@ -54,7 +49,7 @@ def sesame_plan(
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
-    atoms = utils.abstract(task.init, predicates)
+    init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
     start_time = time.time()
     ground_nsrts = []
@@ -63,7 +58,6 @@ def sesame_plan(
             ground_nsrts.append(ground_nsrt)
             if time.time() - start_time > timeout:
                 raise ApproachTimeout("Planning timed out in grounding!")
-    ground_nsrts = utils.filter_static_operators(ground_nsrts, atoms)
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     while True:
@@ -75,14 +69,19 @@ def sesame_plan(
             nsrt for nsrt in ground_nsrts
             if nsrt.add_effects | nsrt.delete_effects
         ]
-        if check_dr_reachable and \
-           not utils.is_dr_reachable(nonempty_ground_nsrts, atoms, task.goal):
+        all_reachable_atoms = utils.get_reachable_atoms(
+            nonempty_ground_nsrts, init_atoms)
+        if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
+        reachable_nsrts = [
+            nsrt for nsrt in nonempty_ground_nsrts
+            if nsrt.preconditions.issubset(all_reachable_atoms)
+        ]
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
-                    task, nonempty_ground_nsrts, atoms, new_seed,
-                    timeout - (time.time() - start_time), metrics):
+                    task, reachable_nsrts, init_atoms, predicates, objects,
+                    new_seed, timeout - (time.time() - start_time), metrics):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
                     new_seed, timeout - (time.time() - start_time))
@@ -97,8 +96,9 @@ def sesame_plan(
                     return plan, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
-            ground_nsrts = _update_nsrts_with_failure(e.discovered_failure,
-                                                      ground_nsrts)
+            new_predicates, ground_nsrts = _update_nsrts_with_failure(
+                e.discovered_failure, ground_nsrts)
+            predicates |= new_predicates
 
 
 def task_plan(
@@ -123,23 +123,32 @@ def task_plan(
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    ground_nsrts = utils.filter_static_operators(ground_nsrts, init_atoms)
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
     ]
-    if not utils.is_dr_reachable(nonempty_ground_nsrts, init_atoms, goal):
+    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                    init_atoms)
+    if not goal.issubset(all_reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
+    reachable_nsrts = [
+        nsrt for nsrt in nonempty_ground_nsrts
+        if nsrt.preconditions.issubset(all_reachable_atoms)
+    ]
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    generator = _skeleton_generator(dummy_task, nonempty_ground_nsrts,
-                                    init_atoms, seed, timeout, metrics)
+    predicates_dict, _ = utils.extract_preds_and_types(strips_ops)
+    predicates = set(predicates_dict.values())
+    generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
+                                    predicates, objects, seed, timeout,
+                                    metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
 
 def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
-    seed: int, timeout: float, metrics: Metrics
+    predicates: Collection[Predicate], objects: Collection[Object], seed: int,
+    timeout: float, metrics: Metrics
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -151,11 +160,11 @@ def _skeleton_generator(
                       atoms_sequence=[init_atoms],
                       parent=None)
     rng_prio = np.random.default_rng(seed)
-    heuristic = utils.create_heuristic(CFG.task_planning_heuristic, init_atoms,
-                                       task.goal, ground_nsrts)
-    hq.heappush(
-        queue,
-        (heuristic(root_node.pyperplan_facts), rng_prio.uniform(), root_node))
+    heuristic = utils.create_task_planning_heuristic(
+        CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
+        predicates, objects)
+    hq.heappush(queue,
+                (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if (int(metrics["num_skeletons_optimized"]) ==
@@ -181,7 +190,7 @@ def _skeleton_generator(
                                    parent=node)
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
-                            heuristic(child_node.pyperplan_facts))
+                            heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
@@ -288,8 +297,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModel,
 
 
 def _update_nsrts_with_failure(
-        discovered_failure: _DiscoveredFailure,
-        ground_nsrts: List[_GroundNSRT]) -> List[_GroundNSRT]:
+    discovered_failure: _DiscoveredFailure, ground_nsrts: List[_GroundNSRT]
+) -> Tuple[Set[Predicate], List[_GroundNSRT]]:
     """Update the given set of ground_nsrts based on the given
     DiscoveredFailure.
 
@@ -297,11 +306,13 @@ def _update_nsrts_with_failure(
     all ground NSRTs that need modification are replaced with new ones
     (because _GroundNSRTs are frozen).
     """
+    new_predicates = set()
     new_ground_nsrts = []
     for obj in discovered_failure.env_failure.offending_objects:
-        atom = GroundAtom(
-            Predicate(_NOT_CAUSES_FAILURE, [obj.type],
-                      _classifier=lambda s, o: False), [obj])
+        pred = Predicate(_NOT_CAUSES_FAILURE, [obj.type],
+                         _classifier=lambda s, o: False)
+        new_predicates.add(pred)
+        atom = GroundAtom(pred, [obj])
         for ground_nsrt in ground_nsrts:
             # Update the preconditions of the failing NSRT.
             if ground_nsrt == discovered_failure.failing_nsrt:
@@ -317,7 +328,7 @@ def _update_nsrts_with_failure(
             else:
                 new_ground_nsrt = ground_nsrt
             new_ground_nsrts.append(new_ground_nsrt)
-    return new_ground_nsrts
+    return new_predicates, new_ground_nsrts
 
 
 @dataclass(frozen=True, eq=False)
