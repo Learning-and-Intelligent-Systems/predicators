@@ -188,6 +188,8 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
     for op, (_, option_vars) in zip(ops_without_sides, option_specs):
         # Consider converting each add effect.
         # TODO refactor to avoid redundant code.
+        print("pnad:",op)
+        verbose=True
         for effect in op.add_effects:
             if verbose:
                 print(f"Considering add effect: {effect} from {op.name}")
@@ -247,6 +249,8 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
                     print("Skeletons not covered; reverting conversion.")
             elif verbose:
                 print("Skeletons still covered; keeping conversion.")
+        print("final pnad",name_to_strips_op[op.name])
+        # input("!!")
 
     # Replace old operators.
     strips_ops = [name_to_strips_op[op.name] for op in ops_without_sides]
@@ -505,6 +509,9 @@ def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
     """
     # Check preconditions.
     current_atoms = init_atoms
+    print("trying",skeleton)
+    print(init_atoms)
+    print(relevant_final_atoms)
     for (op_name, original_objects) in skeleton:
         # Some parameters may have changed.
         op = name_to_strips_op[op_name]
@@ -513,9 +520,11 @@ def _skeleton_covered(skeleton: Sequence[Tuple[str, Tuple[Object, ...]]],
                         if v in op.parameters)
         ground_op = op.ground(objects)
         if not ground_op.preconditions.issubset(current_atoms):
+            print("failed pre")
             return False
         current_atoms = utils.apply_operator(ground_op, current_atoms)
     # Check final relevant atoms.
+    print("eff success? ", relevant_final_atoms.issubset(current_atoms))
     return relevant_final_atoms.issubset(current_atoms)
 
 
