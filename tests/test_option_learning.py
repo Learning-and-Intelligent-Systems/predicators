@@ -1,5 +1,4 @@
-"""Tests for option learning.
-"""
+"""Tests for option learning."""
 
 import pytest
 import numpy as np
@@ -12,19 +11,22 @@ from predicators.src import utils
 
 
 def test_known_options_option_learner():
-    """Tests for _KnownOptionsOptionLearner.
-    """
+    """Tests for _KnownOptionsOptionLearner."""
     env = create_env("cover")
     # We need to call update_config twice because the first call sets
     # some variables whose values we can then change in the second call.
-    utils.update_config({"env": "cover",
-                         "approach": "nsrt_learning",
-                         "seed": 123})
-    utils.update_config({"env": "cover",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "num_train_tasks": 3,
-                         "do_option_learning": False})
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123
+    })
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "num_train_tasks": 3,
+        "option_learner": "no_learning"
+    })
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -32,8 +34,9 @@ def test_known_options_option_learner():
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert act.has_option()
-    segments = [seg for traj in ground_atom_dataset
-                for seg in segment_trajectory(traj)]
+    segments = [
+        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
+    ]
     pnads = learn_strips_operators(segments)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
@@ -53,27 +56,31 @@ def test_known_options_option_learner():
             assert segment.has_option()
             assert segment.get_option() == option
     # Reset configuration.
-    utils.update_config({"env": "cover",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "do_option_learning": False})
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "option_learner": "no_learning"
+    })
 
 
 def test_oracle_option_learner_cover():
-    """Tests for _OracleOptionLearner for the cover environment.
-    """
+    """Tests for _OracleOptionLearner for the cover environment."""
     env = create_env("cover")
     # We need to call update_config twice because the first call sets
     # some variables whose values we can then change in the second call.
-    utils.update_config({"env": "cover",
-                         "approach": "nsrt_learning",
-                         "seed": 123})
-    utils.update_config({"env": "cover",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "num_train_tasks": 3,
-                         "do_option_learning": True,
-                         "option_learner": "oracle"})
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123
+    })
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "num_train_tasks": 3,
+        "option_learner": "oracle"
+    })
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -81,8 +88,9 @@ def test_oracle_option_learner_cover():
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
-    segments = [seg for traj in ground_atom_dataset
-                for seg in segment_trajectory(traj)]
+    segments = [
+        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
+    ]
     pnads = learn_strips_operators(segments)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
@@ -104,27 +112,31 @@ def test_oracle_option_learner_cover():
             assert option.parent == PickPlace
             assert np.allclose(option.params, segment.actions[0].arr)
     # Reset configuration.
-    utils.update_config({"env": "cover",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "do_option_learning": False})
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "option_learner": "no_learning"
+    })
 
 
 def test_oracle_option_learner_blocks():
-    """Tests for _OracleOptionLearner for the blocks environment.
-    """
+    """Tests for _OracleOptionLearner for the blocks environment."""
     env = create_env("blocks")
     # We need to call update_config twice because the first call sets
     # some variables whose values we can then change in the second call.
-    utils.update_config({"env": "blocks",
-                         "approach": "nsrt_learning",
-                         "seed": 123})
-    utils.update_config({"env": "blocks",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "num_train_tasks": 3,
-                         "do_option_learning": True,
-                         "option_learner": "oracle"})
+    utils.update_config({
+        "env": "blocks",
+        "approach": "nsrt_learning",
+        "seed": 123
+    })
+    utils.update_config({
+        "env": "blocks",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "num_train_tasks": 3,
+        "option_learner": "oracle"
+    })
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -132,8 +144,9 @@ def test_oracle_option_learner_blocks():
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
-    segments = [seg for traj in ground_atom_dataset
-                for seg in segment_trajectory(traj)]
+    segments = [
+        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
+    ]
     pnads = learn_strips_operators(segments)
     strips_ops = [pnad.op for pnad in pnads]
     datastores = [pnad.datastore for pnad in pnads]
@@ -142,12 +155,11 @@ def test_oracle_option_learner_blocks():
     option_specs = option_learner.learn_option_specs(strips_ops, datastores)
     assert len(option_specs) == len(strips_ops) == 4
     assert len(env.options) == 3
-    Pick = [option for option in env.options
-            if option.name == "Pick"][0]
-    Stack = [option for option in env.options
-             if option.name == "Stack"][0]
-    PutOnTable = [option for option in env.options
-                  if option.name == "PutOnTable"][0]
+    Pick = [option for option in env.options if option.name == "Pick"][0]
+    Stack = [option for option in env.options if option.name == "Stack"][0]
+    PutOnTable = [
+        option for option in env.options if option.name == "PutOnTable"
+    ][0]
     param_opts = [spec[0] for spec in option_specs]
     assert param_opts.count(Pick) == 2
     assert param_opts.count(Stack) == 1
@@ -162,28 +174,34 @@ def test_oracle_option_learner_blocks():
             assert option.parent in (Pick, Stack, PutOnTable)
             assert [obj.type for obj in option.objects] == option.parent.types
     # Reset configuration.
-    utils.update_config({"env": "blocks",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "do_option_learning": False})
+    utils.update_config({
+        "env": "blocks",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "option_learner": "no_learning"
+    })
 
 
 def test_create_option_learner():
-    """Tests for create_option_learner().
-    """
-    utils.update_config({"env": "not a real env",
-                         "approach": "nsrt_learning",
-                         "seed": 123})
-    utils.update_config({"env": "blocks",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "num_train_tasks": 3,
-                         "do_option_learning": True,
-                         "option_learner": "not a real option learner"})
+    """Tests for create_option_learner()."""
+    utils.update_config({
+        "env": "not a real env",
+        "approach": "nsrt_learning",
+        "seed": 123
+    })
+    utils.update_config({
+        "env": "blocks",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "num_train_tasks": 3,
+        "option_learner": "not a real option learner"
+    })
     with pytest.raises(NotImplementedError):
         create_option_learner()
     # Reset configuration.
-    utils.update_config({"env": "blocks",
-                         "approach": "nsrt_learning",
-                         "seed": 123,
-                         "do_option_learning": False})
+    utils.update_config({
+        "env": "blocks",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "option_learner": "no_learning"
+    })
