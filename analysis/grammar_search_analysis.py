@@ -106,8 +106,8 @@ def _run_proxy_analysis_for_env(env_name: str,
                                                score_function_names,
                                                run_planning)
         # Save these results.
-        pred_str = ",".join(
-            sorted([str(p.name) for p in non_goal_predicates]))
+        pred_str = ",".join(sorted([str(p.name)
+                                    for p in non_goal_predicates]))
         if not pred_str:
             pred_str = "[none]"
         filename_prefix = f"{env_name}__{pred_str}__"
@@ -121,13 +121,13 @@ def _run_proxy_analysis_for_env(env_name: str,
 
 
 def _run_proxy_analysis_for_predicates(
-        env: BaseEnv,
-        dataset: Dataset,
-        train_tasks: List[Task],
-        initial_predicates: Set[Predicate],
-        predicates: Set[Predicate],
-        score_function_names: List[str],
-        run_planning: bool,
+    env: BaseEnv,
+    dataset: Dataset,
+    train_tasks: List[Task],
+    initial_predicates: Set[Predicate],
+    predicates: Set[Predicate],
+    score_function_names: List[str],
+    run_planning: bool,
 ) -> Dict[str, float]:
     utils.flush_cache()
     candidates = {p: 1.0 for p in predicates}
@@ -136,9 +136,10 @@ def _run_proxy_analysis_for_predicates(
     results = {}
     # Compute scores.
     for score_function_name in score_function_names:
-        score_function = _create_score_function(
-            score_function_name, initial_predicates, atom_dataset,
-            train_tasks, candidates)
+        score_function = _create_score_function(score_function_name,
+                                                initial_predicates,
+                                                atom_dataset, train_tasks,
+                                                candidates)
         start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
         eval_time = time.time() - start_time
@@ -194,8 +195,8 @@ def _main() -> None:
     ]
     run_planning = True
 
-    outdir = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "results")
+    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "results")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
