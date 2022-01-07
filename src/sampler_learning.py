@@ -88,8 +88,9 @@ def _extract_oracle_sampler(op: STRIPSOperator,
         assert matching_nsrt is not None
         assert matching_sub is not None
         reordered_objs = []
-        for param in op.parameters:
-            idx = matching_nsrt.parameters.index(matching_sub[param])
+        rev_sub = {v: k for k, v in matching_sub.items()}
+        for param in matching_nsrt.parameters:
+            idx = op.parameters.index(rev_sub[param])
             reordered_objs.append(objs[idx])
         return matching_nsrt.get_sampler()(state, rng, reordered_objs)
     gt_nsrts.remove(matching_nsrt)  # remove this NSRT from the set
