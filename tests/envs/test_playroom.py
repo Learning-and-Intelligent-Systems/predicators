@@ -1,4 +1,6 @@
-"""Test cases for the boring room vs. playroom environment.
+"""Test cases for the boring room vs.
+
+playroom environment.
 """
 
 import pytest
@@ -7,9 +9,9 @@ from predicators.src.envs import PlayroomEnv, EnvironmentFailure
 from predicators.src import utils
 from predicators.src.structs import Action, State
 
+
 def test_playroom():
-    """Tests for PlayroomEnv class properties.
-    """
+    """Tests for PlayroomEnv class properties."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -27,19 +29,19 @@ def test_playroom():
         {"On", "OnTable", "LightOn", "LightOff"}
     assert len(env.options) == 8
     assert len(env.types) == 5
-    assert env.action_space.shape == (5,)
-    assert abs(env.action_space.low[0]-PlayroomEnv.x_lb) < 1e-3
-    assert abs(env.action_space.high[0]-PlayroomEnv.x_ub) < 1e-3
-    assert abs(env.action_space.low[1]-PlayroomEnv.y_lb) < 1e-3
-    assert abs(env.action_space.high[1]-PlayroomEnv.y_ub) < 1e-3
+    assert env.action_space.shape == (5, )
+    assert abs(env.action_space.low[0] - PlayroomEnv.x_lb) < 1e-3
+    assert abs(env.action_space.high[0] - PlayroomEnv.x_ub) < 1e-3
+    assert abs(env.action_space.low[1] - PlayroomEnv.y_lb) < 1e-3
+    assert abs(env.action_space.high[1] - PlayroomEnv.y_ub) < 1e-3
     assert abs(env.action_space.low[2]) < 1e-3
-    assert abs(env.action_space.high[2]-10) < 1e-3
-    assert abs(env.action_space.low[3]+1) < 1e-3
-    assert abs(env.action_space.high[3]-1) < 1e-3
+    assert abs(env.action_space.high[2] - 10) < 1e-3
+    assert abs(env.action_space.low[3] + 1) < 1e-3
+    assert abs(env.action_space.high[3] - 1) < 1e-3
+
 
 def test_playroom_failure_cases():
-    """Tests for the cases where simulate() is a no-op.
-    """
+    """Tests for the cases where simulate() is a no-op."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -135,10 +137,10 @@ def test_playroom_failure_cases():
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
 
+
 def test_playroom_simulate_blocks():
-    """Tests for the cases where simulate() allows the robot to interact
-    with blocks.
-    """
+    """Tests for the cases where simulate() allows the robot to interact with
+    blocks."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -188,10 +190,10 @@ def test_playroom_simulate_blocks():
     assert np.any(state[block2] != next_state[block2])
     state = next_state
 
+
 def test_playroom_simulate_doors_and_dial():
-    """Tests for the cases where simulate() allows the robot to interact
-    with doors and the dial.
-    """
+    """Tests for the cases where simulate() allows the robot to interact with
+    doors and the dial."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -273,9 +275,9 @@ def test_playroom_simulate_doors_and_dial():
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
 
+
 def test_playroom_options():
-    """Tests for predicate option policies.
-    """
+    """Tests for predicate option policies."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -325,8 +327,8 @@ def test_playroom_options():
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        utils.option_plan_to_policy(plan), task, env.simulate,
-        env.predicates, len(plan), make_video, env.render)
+        utils.option_plan_to_policy(plan), task, env.simulate, env.predicates,
+        len(plan), make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
@@ -338,9 +340,9 @@ def test_playroom_options():
     assert Clear([block1]) not in final_atoms
     assert Clear([block2]) in final_atoms
 
+
 def test_playroom_action_sequence_video():
-    """Test to sanity check rendering.
-    """
+    """Test to sanity check rendering."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -365,12 +367,15 @@ def test_playroom_action_sequence_video():
         np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
+
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
-    traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates,
-        len(action_arrs), make_video, env.render)
+
+    traj, video, _ = utils.run_policy_on_task(policy, task,
+                                              env.simulate, env.predicates,
+                                              len(action_arrs), make_video,
+                                              env.render)
     if make_video:
         outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover

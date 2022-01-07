@@ -1,5 +1,4 @@
-"""Behavior (iGibson) environment.
-"""
+"""Behavior (iGibson) environment."""
 # pylint: disable=import-error
 
 import functools
@@ -30,15 +29,13 @@ from predicators.src.structs import Type, Predicate, State, Task, \
 from predicators.src.settings import CFG
 
 
-
 class BehaviorEnv(BaseEnv):
-    """Behavior (iGibson) environment.
-    """
+    """Behavior (iGibson) environment."""
+
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
-        config_file = os.path.join(igibson.root_path,
-                                   CFG.behavior_config_file)
+        config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
         self._env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
@@ -48,7 +45,7 @@ class BehaviorEnv(BaseEnv):
         )
         self._env.robots[0].initial_z_offset = 0.7
 
-        self._type_name_to_type : Dict[str, Type] = {}
+        self._type_name_to_type: Dict[str, Type] = {}
 
         super().__init__()
 
@@ -69,8 +66,7 @@ class BehaviorEnv(BaseEnv):
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
-    def _get_tasks(self, num: int,
-                   rng: np.random.Generator) -> List[Task]:
+    def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
@@ -92,8 +88,8 @@ class BehaviorEnv(BaseEnv):
             bddl_name = head_expr.terms[0]  # untyped
             ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
-            pred_name = self._create_type_combo_name(
-                bddl_name, [o.type for o in objects])
+            pred_name = self._create_type_combo_name(bddl_name,
+                                                     [o.type for o in objects])
             pred = self._name_to_predicate(pred_name)
             atom = GroundAtom(pred, objects)
             goal.add(atom)
@@ -127,7 +123,8 @@ class BehaviorEnv(BaseEnv):
                 "dusty",
                 "stained",
                 "sliced",
-                "toggled_on",]:
+                "toggled_on",
+        ]:
             bddl_predicate = SUPPORTED_PREDICATES[bddl_name]
             # We will create one predicate for every combination of types.
             # Ideally, we would filter out implausible type combinations
@@ -165,8 +162,9 @@ class BehaviorEnv(BaseEnv):
                 continue
             # In the future, we may need other object attributes,
             # but for the moment, we just need position and orientation.
-            obj_type = Type(type_name, ["pos_x", "pos_y", "pos_z",
-                                        "orn_0", "orn_1", "orn_2", "orn_3"])
+            obj_type = Type(type_name, [
+                "pos_x", "pos_y", "pos_z", "orn_0", "orn_1", "orn_2", "orn_3"
+            ])
             self._type_name_to_type[type_name] = obj_type
         return set(self._type_name_to_type.values())
 
@@ -177,12 +175,14 @@ class BehaviorEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # 17-dimensional, between -1 and 1
-        assert self._env.action_space.shape == (17,)
+        assert self._env.action_space.shape == (17, )
         assert np.all(self._env.action_space.low == -1)
         assert np.all(self._env.action_space.high == 1)
         return self._env.action_space
 
-    def render(self, state: State, task: Task,
+    def render(self,
+               state: State,
+               task: Task,
                action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
@@ -229,8 +229,11 @@ class BehaviorEnv(BaseEnv):
         simulator_state = save_internal_states(self._env.simulator)
         return State(state_data, simulator_state)
 
-    def _create_classifier_from_bddl(self, bddl_predicate: "bddl.AtomicFormula",
-            ) -> Callable[[State, Sequence[Object]], bool]:
+    def _create_classifier_from_bddl(
+        self,
+        bddl_predicate: "bddl.AtomicFormula",
+    ) -> Callable[[State, Sequence[Object]], bool]:
+
         def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
@@ -253,6 +256,7 @@ class BehaviorEnv(BaseEnv):
                 bddl_partial_ground_atom.initialize(self._env.simulator)
                 return bddl_partial_ground_atom.get_value(other_ig_obj)
             raise ValueError("BDDL predicate has unexpected arity.")
+
         return _classifier
 
     def _get_grasped_objects(self, state: State) -> Set[Object]:
@@ -271,7 +275,8 @@ class BehaviorEnv(BaseEnv):
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
-    def _holding_classifier(self, state: State, objs: Sequence[Object]) -> bool:
+    def _holding_classifier(self, state: State,
+                            objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 1

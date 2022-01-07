@@ -1,5 +1,4 @@
-"""Models useful for classification/regression.
-"""
+"""Models useful for classification/regression."""
 
 import os
 from dataclasses import dataclass
@@ -133,8 +132,8 @@ class BasicMLP(nn.Module):
 
 
 class NeuralGaussianRegressor(nn.Module):
-    """NeuralGaussianRegressor definition.
-    """
+    """NeuralGaussianRegressor definition."""
+
     def __init__(self) -> None:  # pylint: disable=useless-super-delegation
         super().__init__()  # type: ignore
         self._input_shift = torch.zeros(1)
@@ -146,6 +145,7 @@ class NeuralGaussianRegressor(nn.Module):
 
     def fit(self, X: Array, Y: Array) -> None:
         """Train regressor on the given data.
+
         Both X and Y are multi-dimensional.
         """
         assert X.ndim == 2
@@ -154,31 +154,32 @@ class NeuralGaussianRegressor(nn.Module):
 
     def predict_mean(self, x: Array) -> Array:
         """Return a mean prediction on the given datapoint.
+
         x is single-dimensional.
         """
         assert x.ndim == 1
         mean, _ = self._predict_mean_var(x)
         return mean
 
-    def predict_sample(self, x: Array,
-                       rng: np.random.Generator) -> Array:
+    def predict_sample(self, x: Array, rng: np.random.Generator) -> Array:
         """Return a sampled prediction on the given datapoint.
+
         x is single-dimensional.
         """
         assert x.ndim == 1
         mean, variance = self._predict_mean_var(x)
         y = []
         for mu, sigma_sq in zip(mean, variance):
-            y_i = truncnorm.rvs(-1.0*CFG.regressor_sample_clip,
+            y_i = truncnorm.rvs(-1.0 * CFG.regressor_sample_clip,
                                 CFG.regressor_sample_clip,
-                                loc=mu, scale=np.sqrt(sigma_sq),
+                                loc=mu,
+                                scale=np.sqrt(sigma_sq),
                                 random_state=rng)
             y.append(y_i)
         return np.array(y)
 
     def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method.
-        """
+        """Pytorch forward method."""
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
@@ -221,7 +222,8 @@ class NeuralGaussianRegressor(nn.Module):
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
                 print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.regressor_max_itr}",
-                      end="\r", flush=True)
+                      end="\r",
+                      flush=True)
             self._optimizer.zero_grad()
             loss.backward()
             self._optimizer.step()
@@ -241,16 +243,17 @@ class NeuralGaussianRegressor(nn.Module):
                         out_size: int) -> None:
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
-        for i in range(len(hid_sizes)-1):
-            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
+        for i in range(len(hid_sizes) - 1):
+            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i + 1]))
         # The 2 here is for mean and variance
-        self._linears.append(nn.Linear(hid_sizes[-1], 2*out_size))
-        self._optimizer = optim.Adam(self.parameters(),  # pylint: disable=attribute-defined-outside-init
-                                     lr=CFG.learning_rate)
+        self._linears.append(nn.Linear(hid_sizes[-1], 2 * out_size))
+        self._optimizer = optim.Adam(  # pylint: disable=attribute-defined-outside-init
+            self.parameters(),
+            lr=CFG.learning_rate)
 
     @staticmethod
     def _split_prediction(x: Tensor) -> Tuple[Tensor, Tensor]:
-        return torch.split(x, x.shape[-1]//2, dim=-1)  # type: ignore
+        return torch.split(x, x.shape[-1] // 2, dim=-1)  # type: ignore
 
     def _predict_mean_var(self, inputs: Array) -> Tuple[Array, Array]:
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
@@ -278,8 +281,8 @@ class NeuralGaussianRegressor(nn.Module):
 
 
 class MLPClassifier(nn.Module):
-    """MLPClassifier definition.
-    """
+    """MLPClassifier definition."""
+
     def __init__(self, in_size: int, max_itr: int) -> None:
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
@@ -287,8 +290,8 @@ class MLPClassifier(nn.Module):
         hid_sizes = CFG.classifier_hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
-        for i in range(len(hid_sizes)-1):
-            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i+1]))
+        for i in range(len(hid_sizes) - 1):
+            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i + 1]))
         self._linears.append(nn.Linear(hid_sizes[-1], 1))
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
@@ -296,6 +299,7 @@ class MLPClassifier(nn.Module):
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
+
         X is multi-dimensional, y is single-dimensional.
         """
         torch.manual_seed(CFG.seed)
@@ -303,17 +307,17 @@ class MLPClassifier(nn.Module):
         assert y.ndim == 1
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
-        if CFG.classifier_balance_data and len(y)//2 > sum(y):
+        if CFG.classifier_balance_data and len(y) // 2 > sum(y):
             old_len = len(y)
             pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
             neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
-            pos_idxs = ([pos_idxs_np.item()] if not pos_idxs_np.shape
-                        else list(pos_idxs_np))
-            neg_idxs = ([neg_idxs_np.item()] if not neg_idxs_np.shape
-                        else list(neg_idxs_np))
+            pos_idxs = ([pos_idxs_np.item()]
+                        if not pos_idxs_np.shape else list(pos_idxs_np))
+            neg_idxs = ([neg_idxs_np.item()]
+                        if not neg_idxs_np.shape else list(neg_idxs_np))
             assert len(pos_idxs) + len(neg_idxs) == len(y) == len(X)
-            keep_neg_idxs = list(self._rng.choice(neg_idxs, replace=False,
-                                 size=len(pos_idxs)))
+            keep_neg_idxs = list(
+                self._rng.choice(neg_idxs, replace=False, size=len(pos_idxs)))
             keep_idxs = pos_idxs + keep_neg_idxs
             X_lst = [X[i] for i in keep_idxs]
             y_lst = [y[i] for i in keep_idxs]
@@ -323,8 +327,7 @@ class MLPClassifier(nn.Module):
         self._fit(X, y)
 
     def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method.
-        """
+        """Pytorch forward method."""
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
@@ -333,6 +336,7 @@ class MLPClassifier(nn.Module):
 
     def classify(self, x: Array) -> bool:
         """Return a classification of the given datapoint.
+
         x is single-dimensional.
         """
         assert x.ndim == 1
@@ -374,14 +378,15 @@ class MLPClassifier(nn.Module):
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
                 print(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}",
-                      end="\r", flush=True)
+                      end="\r",
+                      flush=True)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if itr == self._max_itr:
                 print()
                 break
-            if itr-best_itr > CFG.n_iter_no_change:
+            if itr - best_itr > CFG.n_iter_no_change:
                 print(f"\nLoss did not improve after {CFG.n_iter_no_change} "
                       f"itrs, terminating at itr {itr}.")
                 break
@@ -397,14 +402,17 @@ class MLPClassifier(nn.Module):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
-    """A convenience class for holding the model underlying a learned predicate.
+    """A convenience class for holding the model underlying a learned
+    predicate.
+
     Prefer to use this because it is pickleable.
     """
     _model: MLPClassifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:
-        """The classifier corresponding to the given model. May be used
-        as the _classifier field in a Predicate.
+        """The classifier corresponding to the given model.
+
+        May be used as the _classifier field in a Predicate.
         """
         v = state.vec(objects)
         return self._model.classify(v)
