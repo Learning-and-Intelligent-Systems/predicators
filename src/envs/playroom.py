@@ -1,4 +1,6 @@
-"""Boring room vs. playroom domain.
+"""Boring room vs.
+
+playroom domain.
 """
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional
@@ -13,7 +15,9 @@ from predicators.src import utils
 
 
 class PlayroomEnv(BlocksEnv):
-    """Boring room vs. playroom domain.
+    """Boring room vs.
+
+    playroom domain.
     """
     # Parameters that aren't important enough to need to clog up settings.py
     block_size = 0.5
@@ -52,74 +56,74 @@ class PlayroomEnv(BlocksEnv):
         self._region_type = Type("region",
                                  ["id", "x_lb", "y_lb", "x_ub", "y_ub"])
         # Predicates
-        self._On = Predicate(
-            "On", [self._block_type, self._block_type], self._On_holds)
-        self._OnTable = Predicate(
-            "OnTable", [self._block_type], self._OnTable_holds)
-        self._GripperOpen = Predicate(
-            "GripperOpen", [self._robot_type], self._GripperOpen_holds)
-        self._Holding = Predicate(
-            "Holding", [self._block_type], self._Holding_holds)
-        self._Clear = Predicate(
-            "Clear", [self._block_type], self._Clear_holds)
-        self._NextToTable = Predicate(
-            "NextToTable", [self._robot_type], self._NextToTable_holds)
-        self._NextToDoor = Predicate(
-            "NextToDoor", [self._robot_type, self._door_type],
-            self._NextToDoor_holds)
-        self._NextToDial = Predicate(
-            "NextToDial", [self._robot_type, self._dial_type],
-            self._NextToDial_holds)
-        self._InRegion = Predicate(
-            "InRegion", [self._robot_type, self._region_type],
-            self._InRegion_holds)
+        self._On = Predicate("On", [self._block_type, self._block_type],
+                             self._On_holds)
+        self._OnTable = Predicate("OnTable", [self._block_type],
+                                  self._OnTable_holds)
+        self._GripperOpen = Predicate("GripperOpen", [self._robot_type],
+                                      self._GripperOpen_holds)
+        self._Holding = Predicate("Holding", [self._block_type],
+                                  self._Holding_holds)
+        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
+        self._NextToTable = Predicate("NextToTable", [self._robot_type],
+                                      self._NextToTable_holds)
+        self._NextToDoor = Predicate("NextToDoor",
+                                     [self._robot_type, self._door_type],
+                                     self._NextToDoor_holds)
+        self._NextToDial = Predicate("NextToDial",
+                                     [self._robot_type, self._dial_type],
+                                     self._NextToDial_holds)
+        self._InRegion = Predicate("InRegion",
+                                   [self._robot_type, self._region_type],
+                                   self._InRegion_holds)
         self._Borders = Predicate(
             "Borders", [self._door_type, self._region_type, self._door_type],
             self._Borders_holds)
         self._Connects = Predicate(
-            "Connects", [self._door_type, self._region_type, self._region_type],
+            "Connects",
+            [self._door_type, self._region_type, self._region_type],
             self._Connects_holds)
-        self._IsBoringRoom = Predicate(
-            "IsBoringRoom", [self._region_type],
-            self._IsBoringRoom_holds)
-        self._IsPlayroom = Predicate(
-            "IsPlayroom", [self._region_type],
-            self._IsPlayroom_holds)
-        self._IsBoringRoomDoor = Predicate(
-            "IsBoringRoomDoor", [self._door_type],
-            self._IsBoringRoomDoor_holds)
-        self._IsPlayroomDoor = Predicate(
-            "IsPlayroomDoor", [self._door_type],
-            self._IsPlayroomDoor_holds)
-        self._DoorOpen = Predicate(
-            "DoorOpen", [self._door_type], self._DoorOpen_holds)
-        self._DoorClosed = Predicate(
-            "DoorClosed", [self._door_type], self._DoorClosed_holds)
-        self._LightOn = Predicate(
-            "LightOn", [self._dial_type], self._LightOn_holds)
-        self._LightOff = Predicate(
-            "LightOff", [self._dial_type], self._LightOff_holds)
+        self._IsBoringRoom = Predicate("IsBoringRoom", [self._region_type],
+                                       self._IsBoringRoom_holds)
+        self._IsPlayroom = Predicate("IsPlayroom", [self._region_type],
+                                     self._IsPlayroom_holds)
+        self._IsBoringRoomDoor = Predicate("IsBoringRoomDoor",
+                                           [self._door_type],
+                                           self._IsBoringRoomDoor_holds)
+        self._IsPlayroomDoor = Predicate("IsPlayroomDoor", [self._door_type],
+                                         self._IsPlayroomDoor_holds)
+        self._DoorOpen = Predicate("DoorOpen", [self._door_type],
+                                   self._DoorOpen_holds)
+        self._DoorClosed = Predicate("DoorClosed", [self._door_type],
+                                     self._DoorClosed_holds)
+        self._LightOn = Predicate("LightOn", [self._dial_type],
+                                  self._LightOn_holds)
+        self._LightOff = Predicate("LightOff", [self._dial_type],
+                                   self._LightOff_holds)
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
             # params: [delta x, delta y, delta z, rotation]
-            "Pick", types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4,)),
+            "Pick",
+            types=[self._robot_type, self._block_type],
+            params_space=Box(-1, 1, (4, )),
             _policy=self._Pick_policy,
             _initiable=self._NextToTable_initiable,
             _terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z, rotation]
-            "Stack", types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4,)),
+            "Stack",
+            types=[self._robot_type, self._block_type],
+            params_space=Box(-1, 1, (4, )),
             _policy=self._Stack_policy,
             _initiable=self._NextToTable_initiable,
             _terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
             # params: [x, y, rotation] (normalized coords on table surface)
-            "PutOnTable", types=[self._robot_type],
+            "PutOnTable",
+            types=[self._robot_type],
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
             _policy=self._PutOnTable_policy,
@@ -146,7 +150,8 @@ class PlayroomEnv(BlocksEnv):
         self._OpenDoor = ParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
-            "OpenDoor", types=[self._robot_type, self._door_type],
+            "OpenDoor",
+            types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
@@ -155,7 +160,8 @@ class PlayroomEnv(BlocksEnv):
         self._CloseDoor = ParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
-            "CloseDoor", types=[self._robot_type, self._door_type],
+            "CloseDoor",
+            types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
@@ -164,7 +170,8 @@ class PlayroomEnv(BlocksEnv):
         self._TurnOnDial = ParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
-            "TurnOnDial", types=[self._robot_type, self._dial_type],
+            "TurnOnDial",
+            types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
@@ -173,7 +180,8 @@ class PlayroomEnv(BlocksEnv):
         self._TurnOffDial = ParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
-            "TurnOffDial", types=[self._robot_type, self._dial_type],
+            "TurnOffDial",
+            types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
@@ -187,8 +195,8 @@ class PlayroomEnv(BlocksEnv):
         self._door4 = Object("door4", self._door_type)
         self._door5 = Object("door5", self._door_type)
         self._door6 = Object("door6", self._door_type)
-        self._doors = (self._door1, self._door2, self._door3,
-                       self._door4, self._door5, self._door6)
+        self._doors = (self._door1, self._door2, self._door3, self._door4,
+                       self._door5, self._door6)
         self._region1 = Object("region1", self._region_type)
         self._region2 = Object("region2", self._region_type)
         self._region3 = Object("region3", self._region_type)
@@ -226,8 +234,9 @@ class PlayroomEnv(BlocksEnv):
                 return self._transition_putontable(state, x, y, z, fingers)
             return self._transition_stack(state, x, y, z, fingers)
         # Interact with some door
-        if any(self._NextToDoor_holds(state, (self._robot, door))
-               for door in self._doors):
+        if any(
+                self._NextToDoor_holds(state, (self._robot, door))
+                for door in self._doors):
             door = self._get_door_next_to(state)
             current_region = self._get_region_in(state, x)
             # Robot was already next to this door and did not move through it
@@ -285,12 +294,13 @@ class PlayroomEnv(BlocksEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._On, self._OnTable, self._GripperOpen, self._Holding,
-                self._Clear, self._NextToTable, self._NextToDoor,
-                self._NextToDial, self._InRegion, self._Borders,
-                self._Connects, self._IsBoringRoom, self._IsPlayroom,
-                self._IsBoringRoomDoor, self._IsPlayroomDoor, self._DoorOpen,
-                self._DoorClosed, self._LightOn, self._LightOff}
+        return {
+            self._On, self._OnTable, self._GripperOpen, self._Holding,
+            self._Clear, self._NextToTable, self._NextToDoor, self._NextToDial,
+            self._InRegion, self._Borders, self._Connects, self._IsBoringRoom,
+            self._IsPlayroom, self._IsBoringRoomDoor, self._IsPlayroomDoor,
+            self._DoorOpen, self._DoorClosed, self._LightOn, self._LightOff
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
@@ -298,8 +308,10 @@ class PlayroomEnv(BlocksEnv):
 
     @property
     def types(self) -> Set[Type]:
-        return {self._block_type, self._robot_type, self._door_type,
-                self._dial_type, self._region_type}
+        return {
+            self._block_type, self._robot_type, self._door_type,
+            self._dial_type, self._region_type
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -319,7 +331,9 @@ class PlayroomEnv(BlocksEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self, state: State, task: Task,
+    def render(self,
+               state: State,
+               task: Task,
                action: Optional[Action] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
@@ -331,17 +345,29 @@ class PlayroomEnv(BlocksEnv):
         ax.set_ylim((self.y_lb - 5, self.y_ub + 5))
 
         # Draw rooms and hallway
-        boring_room = patches.Rectangle(
-                (self.x_lb, self.y_lb), 30, 30, zorder=0, linewidth=1,
-                edgecolor='black', facecolor='white')
+        boring_room = patches.Rectangle((self.x_lb, self.y_lb),
+                                        30,
+                                        30,
+                                        zorder=0,
+                                        linewidth=1,
+                                        edgecolor='black',
+                                        facecolor='white')
         ax.add_patch(boring_room)
-        playroom = patches.Rectangle(
-                (110, self.y_lb), 30, 30, zorder=0, linewidth=1,
-                edgecolor='black', facecolor='white')
+        playroom = patches.Rectangle((110, self.y_lb),
+                                     30,
+                                     30,
+                                     zorder=0,
+                                     linewidth=1,
+                                     edgecolor='black',
+                                     facecolor='white')
         ax.add_patch(playroom)
-        hallway = patches.Rectangle(
-                (30, 10), 80, 10, zorder=0, linewidth=1,
-                edgecolor='black', facecolor='white')
+        hallway = patches.Rectangle((30, 10),
+                                    80,
+                                    10,
+                                    zorder=0,
+                                    linewidth=1,
+                                    edgecolor='black',
+                                    facecolor='white')
         ax.add_patch(hallway)
 
         # Draw doors
@@ -349,36 +375,56 @@ class PlayroomEnv(BlocksEnv):
             x = state.get(door, "pose_x")
             y = state.get(door, "pose_y")
             if state.get(door, "open") < self.door_open_thresh:
-                door = patches.Rectangle(
-                        (x-1.0, y-5.0), 1, 10, zorder=1, linewidth=1,
-                        edgecolor='black', facecolor='brown')
+                door = patches.Rectangle((x - 1.0, y - 5.0),
+                                         1,
+                                         10,
+                                         zorder=1,
+                                         linewidth=1,
+                                         edgecolor='black',
+                                         facecolor='brown')
                 ax.add_patch(door)
             else:
-                door = patches.Rectangle(
-                        (x-1.0, y-5.0), 1, 1, zorder=1, linewidth=1,
-                        edgecolor='black', facecolor='brown')
+                door = patches.Rectangle((x - 1.0, y - 5.0),
+                                         1,
+                                         1,
+                                         zorder=1,
+                                         linewidth=1,
+                                         edgecolor='black',
+                                         facecolor='brown')
                 ax.add_patch(door)
 
         # Draw dial
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        dial_face = patches.Circle((dial_x, dial_y), radius=self.dial_r,
-                                   edgecolor='black', facecolor='black')
+        dial_face = patches.Circle((dial_x, dial_y),
+                                   radius=self.dial_r,
+                                   edgecolor='black',
+                                   facecolor='black')
         ax.add_patch(dial_face)
         level = state.get(self._dial, "level")
-        dx = self.dial_r*np.sin(level*2*np.pi)
-        dy = self.dial_r*np.cos(level*2*np.pi)
-        dial_arrow = patches.Arrow(dial_x, dial_y, dx, dy, edgecolor='red',
+        dx = self.dial_r * np.sin(level * 2 * np.pi)
+        dy = self.dial_r * np.cos(level * 2 * np.pi)
+        dial_arrow = patches.Arrow(dial_x,
+                                   dial_y,
+                                   dx,
+                                   dy,
+                                   edgecolor='red',
                                    facecolor='red')
         ax.add_patch(dial_arrow)
 
         # Draw table and blocks
-        table = patches.Rectangle(
-                (10, 10), 10, 10, zorder=self.table_height,
-                linewidth=1, edgecolor='black', facecolor='brown')
+        table = patches.Rectangle((10, 10),
+                                  10,
+                                  10,
+                                  zorder=self.table_height,
+                                  linewidth=1,
+                                  edgecolor='black',
+                                  facecolor='brown')
         ax.add_patch(table)
-        colors = ["red", "blue", "green", "orange", "purple", "yellow",
-                  "brown", "cyan"]
+        colors = [
+            "red", "blue", "green", "orange", "purple", "yellow", "brown",
+            "cyan"
+        ]
         blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
         for i, block in enumerate(sorted(blocks)):
@@ -389,37 +435,50 @@ class PlayroomEnv(BlocksEnv):
             if state.get(block, "held") > self.held_tol:
                 assert held == "None"
                 held = f"{block.name} ({c})"
-            rect = patches.Rectangle(
-                (x - r, y - r), 2*r, 2*r, zorder=self.table_height+z,
-                linewidth=1, edgecolor='black', facecolor=c)
+            rect = patches.Rectangle((x - r, y - r),
+                                     2 * r,
+                                     2 * r,
+                                     zorder=self.table_height + z,
+                                     linewidth=1,
+                                     edgecolor='black',
+                                     facecolor=c)
             ax.add_patch(rect)
 
         # Draw robot
         robot_x = state.get(self._robot, "pose_x")
         robot_y = state.get(self._robot, "pose_y")
         fingers = state.get(self._robot, "fingers")
-        robby = patches.Circle((robot_x, robot_y), radius=1,
-                               edgecolor='black', facecolor='yellow')
+        robby = patches.Circle((robot_x, robot_y),
+                               radius=1,
+                               edgecolor='black',
+                               facecolor='yellow')
         ax.add_patch(robby)
         rotation = state.get(self._robot, "rotation")
-        dx, dy = np.cos(rotation*np.pi), np.sin(rotation*np.pi)
-        robot_arrow = patches.Arrow(robot_x, robot_y, dx, dy,
-            edgecolor='black', facecolor='black', width=0.5)
+        dx, dy = np.cos(rotation * np.pi), np.sin(rotation * np.pi)
+        robot_arrow = patches.Arrow(robot_x,
+                                    robot_y,
+                                    dx,
+                                    dy,
+                                    edgecolor='black',
+                                    facecolor='black',
+                                    width=0.5)
         ax.add_patch(robot_arrow)
 
         # Concatenate with table view of blocks
         xz_ax, yz_ax = plt.subplot(223), plt.subplot(224)
         xz_ax.set_xlabel("x", fontsize=24)
         xz_ax.set_ylabel("z", fontsize=24)
-        xz_ax.set_xlim((self.table_x_lb - 2*r, self.table_x_ub + 2*r))
+        xz_ax.set_xlim((self.table_x_lb - 2 * r, self.table_x_ub + 2 * r))
         xz_ax.set_ylim((self.table_height, r * 16 + 0.1))
         yz_ax.set_xlabel("y", fontsize=24)
         yz_ax.set_ylabel("z", fontsize=24)
-        yz_ax.set_xlim((self.table_y_lb - 2*r, self.table_y_ub + 2*r))
+        yz_ax.set_xlim((self.table_y_lb - 2 * r, self.table_y_ub + 2 * r))
         yz_ax.set_ylim((self.table_height, r * 16 + 0.1))
 
-        colors = ["red", "blue", "green", "orange", "purple", "yellow",
-                  "brown", "cyan"]
+        colors = [
+            "red", "blue", "green", "orange", "purple", "yellow", "brown",
+            "cyan"
+        ]
         blocks = [o for o in state if o.is_instance(self._block_type)]
         held = "None"
         for i, block in enumerate(sorted(blocks)):
@@ -432,15 +491,23 @@ class PlayroomEnv(BlocksEnv):
                 held = f"{block.name} ({c})"
 
             # xz axis
-            xz_rect = patches.Rectangle(
-                (x - r, z - r), 2*r, 2*r, zorder=-y,
-                linewidth=1, edgecolor='black', facecolor=c)
+            xz_rect = patches.Rectangle((x - r, z - r),
+                                        2 * r,
+                                        2 * r,
+                                        zorder=-y,
+                                        linewidth=1,
+                                        edgecolor='black',
+                                        facecolor=c)
             xz_ax.add_patch(xz_rect)
 
             # yz axis
-            yz_rect = patches.Rectangle(
-                (y - r, z - r), 2*r, 2*r, zorder=-x,
-                linewidth=1, edgecolor='black', facecolor=c)
+            yz_rect = patches.Rectangle((y - r, z - r),
+                                        2 * r,
+                                        2 * r,
+                                        zorder=-x,
+                                        linewidth=1,
+                                        edgecolor='black',
+                                        facecolor=c)
             yz_ax.add_patch(yz_rect)
 
         plt.suptitle(f"Held: {held}, Fingers: {fingers}", fontsize=36)
@@ -461,8 +528,7 @@ class PlayroomEnv(BlocksEnv):
             light_is_on = init_state.get(self._dial, "level") > 0.5
             atoms = utils.abstract(init_state, self.predicates)
             while True:  # repeat until goal is not satisfied
-                goal = self._sample_goal(num_blocks, piles,
-                                                    light_is_on, rng)
+                goal = self._sample_goal(num_blocks, piles, light_is_on, rng)
                 if not goal.issubset(atoms):
                     break
             tasks.append(Task(init_state, goal))
@@ -487,9 +553,10 @@ class PlayroomEnv(BlocksEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self.block_size * (0.5 + pile_j)
-            max_j = max(j for i, j in block_to_pile_idx.values() if i == pile_i)
+            max_j = max(j for i, j in block_to_pile_idx.values()
+                        if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
-            data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j)*1.0])
+            data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j) * 1.0])
         # [pose_x, pose_y, rotation, fingers], fingers start off open
         data[self._robot] = np.array([10.0, 15.0, 0.0, 1.0])
         # [pose_x, pose_y, open], all doors start off open except door1
@@ -511,9 +578,9 @@ class PlayroomEnv(BlocksEnv):
         data[self._region7] = np.array([7, 110.0, 0.0, 140.0, 30.0])
         return State(data)
 
-    def _sample_goal(self, num_blocks: int,
-                                piles: List[List[Object]], light_is_on: bool,
-                                rng: np.random.Generator) -> Set[GroundAtom]:
+    def _sample_goal(self, num_blocks: int, piles: List[List[Object]],
+                     light_is_on: bool,
+                     rng: np.random.Generator) -> Set[GroundAtom]:
         # Samples goal pile and light on/off that is different from initial
         while True:
             goal_piles = self._sample_initial_piles(num_blocks, rng)
@@ -532,9 +599,9 @@ class PlayroomEnv(BlocksEnv):
             goal_atoms.add(GroundAtom(self._LightOn, [self._dial]))
         return goal_atoms
 
-    def _sample_initial_pile_xy(self, rng: np.random.Generator,
-                                existing_xys: Set[Tuple[float, float]]
-                                ) -> Tuple[float, float]:
+    def _sample_initial_pile_xy(
+            self, rng: np.random.Generator,
+            existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
         # Differs from blocks because lower and upper bounds are set by table
         while True:
             x = rng.uniform(self.table_x_lb, self.table_x_ub)
@@ -552,16 +619,16 @@ class PlayroomEnv(BlocksEnv):
     def _robot_is_facing_table(action: Action) -> bool:
         x, y, _, rotation, _ = action.arr
         cls = PlayroomEnv
-        table_x = (cls.table_x_lb+cls.table_x_ub)/2
-        table_y = (cls.table_y_lb+cls.table_y_ub)/2
-        theta = np.arctan2(table_y-y, table_x-x)
-        if np.pi*3/4 >= theta >= np.pi/4:  # N
+        table_x = (cls.table_x_lb + cls.table_x_ub) / 2
+        table_y = (cls.table_y_lb + cls.table_y_ub) / 2
+        theta = np.arctan2(table_y - y, table_x - x)
+        if np.pi * 3 / 4 >= theta >= np.pi / 4:  # N
             if 0.75 >= rotation >= 0.25:
                 return True
-        elif np.pi/4 >= theta >= -np.pi/4:  # E
+        elif np.pi / 4 >= theta >= -np.pi / 4:  # E
             if 0.25 >= rotation >= -0.25:
                 return True
-        elif -np.pi/4 >= theta >= -np.pi*3/4:  # S
+        elif -np.pi / 4 >= theta >= -np.pi * 3 / 4:  # S
             if -0.25 >= rotation >= -0.75:
                 return True
         else:  # W
@@ -637,14 +704,13 @@ class PlayroomEnv(BlocksEnv):
                door_x == state.get(from_region, "x_lb"))
 
     @staticmethod
-    def _IsBoringRoomDoor_holds(state: State, objects: Sequence[Object]
-                                ) -> bool:
+    def _IsBoringRoomDoor_holds(state: State,
+                                objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "pose_x") == 30.0
 
     @staticmethod
-    def _IsPlayroomDoor_holds(state: State, objects: Sequence[Object]
-                                ) -> bool:
+    def _IsPlayroomDoor_holds(state: State, objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "pose_x") == 110.0
 
@@ -671,10 +737,13 @@ class PlayroomEnv(BlocksEnv):
         # Differs from blocks because need robot rotation
         del memory  # unused
         _, block = objects
-        block_pose = np.array([state.get(block, "pose_x"),
-                               state.get(block, "pose_y"),
-                               state.get(block, "pose_z")])
-        arr = np.r_[block_pose+params[:-1], params[-1], 0.0].astype(np.float32)
+        block_pose = np.array([
+            state.get(block, "pose_x"),
+            state.get(block, "pose_y"),
+            state.get(block, "pose_z")
+        ])
+        arr = np.r_[block_pose + params[:-1], params[-1],
+                    0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -683,10 +752,13 @@ class PlayroomEnv(BlocksEnv):
         # Differs from blocks because need robot rotation
         del memory  # unused
         _, block = objects
-        block_pose = np.array([state.get(block, "pose_x"),
-                               state.get(block, "pose_y"),
-                               state.get(block, "pose_z")])
-        arr = np.r_[block_pose+params[:-1], params[-1], 1.0].astype(np.float32)
+        block_pose = np.array([
+            state.get(block, "pose_x"),
+            state.get(block, "pose_y"),
+            state.get(block, "pose_z")
+        ])
+        arr = np.r_[block_pose + params[:-1], params[-1],
+                    1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -698,7 +770,7 @@ class PlayroomEnv(BlocksEnv):
         x_norm, y_norm = params[:-1]
         x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
         y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
-        z = self.table_height + 0.5*self.block_size
+        z = self.table_height + 0.5 * self.block_size
         arr = np.array([x, y, z, params[-1], 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
@@ -712,7 +784,7 @@ class PlayroomEnv(BlocksEnv):
         return PlayroomEnv._NextToTable_holds(state, (robot,))
 
     def _Move_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
+                     objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         robot = objects[0]
         fingers = state.get(robot, "fingers")
@@ -737,13 +809,15 @@ class PlayroomEnv(BlocksEnv):
         return PlayroomEnv._NextToDoor_holds(state, objects)
 
     def _ToggleDoor_policy(self, state: State, memory: Dict,
-                         objects: Sequence[Object], params: Array) -> Action:
+                           objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         _, door = objects
-        door_pose = np.array([state.get(door, "pose_x"),
-                              state.get(door, "pose_y"),
-                              self.door_button_z])
-        arr = np.r_[door_pose+params[:-1], params[-1], 1.0].astype(np.float32)
+        door_pose = np.array([
+            state.get(door, "pose_x"),
+            state.get(door, "pose_y"), self.door_button_z
+        ])
+        arr = np.r_[door_pose + params[:-1], params[-1],
+                    1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
     
@@ -759,10 +833,12 @@ class PlayroomEnv(BlocksEnv):
                            objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         _, dial = objects
-        dial_pose = np.array([state.get(dial, "pose_x"),
-                              state.get(dial, "pose_y"),
-                              self.dial_button_z])
-        arr = np.r_[dial_pose+params[:-1], params[-1], 1.0].astype(np.float32)
+        dial_pose = np.array([
+            state.get(dial, "pose_x"),
+            state.get(dial, "pose_y"), self.dial_button_z
+        ])
+        arr = np.r_[dial_pose + params[:-1], params[-1],
+                    1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
     
@@ -778,14 +854,14 @@ class PlayroomEnv(BlocksEnv):
         x, y, _, rotation, _ = action.arr
         dial_x = state.get(self._dial, "pose_x")
         dial_y = state.get(self._dial, "pose_y")
-        theta = np.arctan2(dial_y-y, dial_x-x)
-        if np.pi*3/4 >= theta > np.pi/4:  # N
+        theta = np.arctan2(dial_y - y, dial_x - x)
+        if np.pi * 3 / 4 >= theta > np.pi / 4:  # N
             if 0.75 >= rotation > 0.25:
                 return True
-        elif np.pi/4 >= theta > -np.pi/4:  # E
+        elif np.pi / 4 >= theta > -np.pi / 4:  # E
             if 0.25 >= rotation > -0.25:
                 return True
-        elif -np.pi/4 >= theta > -np.pi*3/4:  # S
+        elif -np.pi / 4 >= theta > -np.pi * 3 / 4:  # S
             if -0.25 >= rotation > -0.75:
                 return True
         else:  # W
@@ -801,8 +877,8 @@ class PlayroomEnv(BlocksEnv):
         # usage should ensure this is never reached
         raise RuntimeError("Robot not next to any door")
 
-    def _robot_is_facing_door(self, state: State, action: Action, door: Object
-                              ) -> bool:
+    def _robot_is_facing_door(self, state: State, action: Action,
+                              door: Object) -> bool:
         assert door.type == self._door_type
         door_x = state.get(door, "pose_x")
         x, _, _, rotation, _ = action.arr
