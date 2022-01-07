@@ -362,11 +362,9 @@ def get_object_combinations(objects: Collection[Object],
 
 
 @functools.lru_cache(maxsize=None)
-def get_all_ground_atoms_for_predicate(predicate: Predicate,
-                                       objects: FrozenSet[Object]
-                                       ) -> Set[GroundAtom]:
-    """Get all groundings of the predicate given objects.
-    """
+def get_all_ground_atoms_for_predicate(
+        predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
+    """Get all groundings of the predicate given objects."""
     ground_atoms = set()
     for args in get_object_combinations(objects, predicate.types):
         ground_atom = GroundAtom(predicate, args)
@@ -376,22 +374,22 @@ def get_all_ground_atoms_for_predicate(predicate: Predicate,
 
 @functools.lru_cache(maxsize=None)
 def get_all_ground_atoms(predicates: FrozenSet[Predicate],
-                         objects: FrozenSet[Object]
-                         ) -> Set[GroundAtom]:
-    """Get all groundings of the predicates given objects.
-    """
+                         objects: FrozenSet[Object]) -> Set[GroundAtom]:
+    """Get all groundings of the predicates given objects."""
     ground_atoms = set()
     for predicate in predicates:
-        ground_atoms.update(get_all_ground_atoms_for_predicate(predicate,
-                                                               objects))
+        ground_atoms.update(
+            get_all_ground_atoms_for_predicate(predicate, objects))
     return ground_atoms
 
 
-def get_random_object_combination(
-        objects: Collection[Object], types: Sequence[Type],
-        rng: np.random.Generator) -> List[Object]:
-    """Get a random list of objects from the given collection that
-    satisfy the given sequence of types. Duplicates are always allowed.
+def get_random_object_combination(objects: Collection[Object],
+                                  types: Sequence[Type],
+                                  rng: np.random.Generator) -> List[Object]:
+    """Get a random list of objects from the given collection that satisfy the
+    given sequence of types.
+
+    Duplicates are always allowed.
     """
     types_to_objs = defaultdict(list)
     for obj in objects:
@@ -771,10 +769,13 @@ def extract_preds_and_types(
     return preds, types
 
 
-def get_static_preds_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                           atoms: Collection[GroundAtom]
-                           ) -> Tuple[Set[Predicate], Set[GroundAtom]]:
-    """Get predicates and atoms that are static w.r.t. the operators.
+def get_static_preds_atoms(
+        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+        atoms: Collection[GroundAtom]
+) -> Tuple[Set[Predicate], Set[GroundAtom]]:
+    """Get predicates and atoms that are static w.r.t.
+
+    the operators.
     """
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
@@ -785,13 +786,13 @@ def get_static_preds_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                 for op in ground_ops):
             continue
         static_preds.add(pred)
+    static_atoms = {atom for atom in atoms if atom.predicate in static_preds}
     return static_preds, static_atoms
 
 
 def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                         atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
-    """Get all atoms that are reachable from the init atoms.
-    """
+    """Get all atoms that are reachable from the init atoms."""
     reachables = set(atoms)
     while True:
         fixed_point_reached = True
@@ -875,10 +876,9 @@ def create_task_planning_heuristic(
     ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
     predicates: Collection[Predicate],
     objects: Collection[Object],
-    ) -> _TaskPlanningHeuristic:
+) -> _TaskPlanningHeuristic:
     """Create a task planning heuristic that consumes ground atoms and
-    estimates the cost-to-go.
-    """
+    estimates the cost-to-go."""
     if heuristic_name in _PYPERPLAN_HEURISTICS:
         return _create_pyperplan_heuristic(heuristic_name, init_atoms, goal,
                                            ground_ops, predicates, objects)
@@ -887,8 +887,7 @@ def create_task_planning_heuristic(
 
 @dataclass(frozen=True)
 class _TaskPlanningHeuristic:
-    """A task planning heuristic.
-    """
+    """A task planning heuristic."""
     name: str
     init_atoms: Collection[GroundAtom]
     goal: Collection[GroundAtom]
@@ -900,6 +899,7 @@ class _TaskPlanningHeuristic:
 
 ############################### Pyperplan Glue ###############################
 
+
 def _create_pyperplan_heuristic(
     heuristic_name: str,
     init_atoms: Set[GroundAtom],
@@ -907,15 +907,14 @@ def _create_pyperplan_heuristic(
     ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
     predicates: Collection[Predicate],
     objects: Collection[Object],
-    ) -> _PyperplanHeuristicWrapper:
-    """Create a pyperplan heuristic that inherits from _TaskPlanningHeuristic.
-    """
+) -> _PyperplanHeuristicWrapper:
+    """Create a pyperplan heuristic that inherits from
+    _TaskPlanningHeuristic."""
     assert heuristic_name in _PYPERPLAN_HEURISTICS
     _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
     pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
     pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
-                                            predicates, objects,
-                                            static_atoms)
+                                            predicates, objects, static_atoms)
     pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
     pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
     return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
@@ -928,16 +927,14 @@ _PyperplanFacts = FrozenSet[Tuple[str, ...]]
 
 @dataclass(frozen=True)
 class _PyperplanNode:
-    """Container glue for pyperplan heuristics.
-    """
+    """Container glue for pyperplan heuristics."""
     state: _PyperplanFacts
     goal: _PyperplanFacts
 
 
 @dataclass(frozen=True)
 class _PyperplanOperator:
-    """Container glue for pyperplan heuristics.
-    """
+    """Container glue for pyperplan heuristics."""
     name: str
     preconditions: _PyperplanFacts
     add_effects: _PyperplanFacts
@@ -946,8 +943,7 @@ class _PyperplanOperator:
 
 @dataclass(frozen=True)
 class _PyperplanTask:
-    """Container glue for pyperplan heuristics.
-    """
+    """Container glue for pyperplan heuristics."""
     facts: _PyperplanFacts
     initial_state: _PyperplanFacts
     goals: _PyperplanFacts
@@ -956,8 +952,7 @@ class _PyperplanTask:
 
 @dataclass(frozen=True)
 class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
-    """A light wrapper around pyperplan's heuristics.
-    """
+    """A light wrapper around pyperplan's heuristics."""
     _static_atoms: Set[GroundAtom]
     _pyperplan_heuristic: _PyperplanBaseHeuristic
     _pyperplan_goal: _PyperplanFacts
@@ -977,15 +972,15 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
         return pyperplan_heuristic(pyperplan_node)
 
 
-def _create_pyperplan_task(init_atoms: Set[GroundAtom],
-                           goal: Set[GroundAtom],
-                           ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                           predicates: Collection[Predicate],
-                           objects: Collection[Object],
-                           static_atoms: Set[GroundAtom],
-                           ) -> _PyperplanTask:
-    """Helper glue for pyperplan heuristics.
-    """
+def _create_pyperplan_task(
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+    static_atoms: Set[GroundAtom],
+) -> _PyperplanTask:
+    """Helper glue for pyperplan heuristics."""
     all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
     # Note: removing static atoms.
     pyperplan_facts = _atoms_to_tuples(all_atoms - static_atoms)
@@ -999,7 +994,8 @@ def _create_pyperplan_task(init_atoms: Set[GroundAtom],
         # be a very nasty bug where two ground operators in the relaxed plan
         # that have different objects are counted as just one.
         name = op.name + "-".join(o.name for o in op.objects)
-        pyperplan_operator = _PyperplanOperator(name,
+        pyperplan_operator = _PyperplanOperator(
+            name,
             # Note: removing static atoms from preconditions.
             _atoms_to_tuples(op.preconditions - static_atoms),
             _atoms_to_tuples(op.add_effects),
@@ -1011,15 +1007,13 @@ def _create_pyperplan_task(init_atoms: Set[GroundAtom],
 
 @functools.lru_cache(maxsize=None)
 def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
-    """Convert atom to tuple for interface with pyperplan.
-    """
-    return (atom.predicate.name,) + tuple(str(o) for o in atom.objects)
+    """Convert atom to tuple for interface with pyperplan."""
+    return (atom.predicate.name, ) + tuple(str(o) for o in atom.objects)
 
 
 def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> _PyperplanFacts:
-    """Light wrapper around atom_to_tuple() that operates on a
-    collection of atoms.
-    """
+    """Light wrapper around atom_to_tuple() that operates on a collection of
+    atoms."""
     return frozenset({_atom_to_tuple(atom) for atom in atoms})
 
 

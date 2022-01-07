@@ -373,25 +373,28 @@ def test_relaxation_lookahead_score_function():
     # Test that the score is inf when the operators make the data impossible.
     # Sanity check this for all heuristic choices.
     class _MockLookahead(_RelaxationHeuristicLookaheadBasedScoreFunction):
-        """Mock class.
-        """
+        """Mock class."""
+
         def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset, predicates | self._initial_predicates)
-            segments = [seg for traj in pruned_atom_data
-                        for seg in segment_trajectory(traj)]
+            segments = [
+                seg for traj in pruned_atom_data
+                for seg in segment_trajectory(traj)
+            ]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
-            return self._evaluate_with_operators(predicates,
-                pruned_atom_data, segments, strips_ops, option_specs)
-
+            return self._evaluate_with_operators(predicates, pruned_atom_data,
+                                                 segments, strips_ops,
+                                                 option_specs)
 
     candidates = {p: 1.0 for p in name_to_pred.values()}
     for heuristic_name in ["hadd", "hmax", "hff"]:
         # Reuse dataset from above.
         score_function = _MockLookahead(initial_predicates, atom_dataset,
-            train_tasks, candidates, heuristic_name)
+                                        train_tasks, candidates,
+                                        heuristic_name)
         assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.

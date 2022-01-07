@@ -887,8 +887,7 @@ def test_create_ground_atom_dataset():
 
 
 def test_get_reachable_atoms():
-    """Tests for get_reachable_atoms().
-    """
+    """Tests for get_reachable_atoms()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     pred1 = Predicate("Pred1", [cup_type, plate_type], lambda s, o: True)
@@ -932,12 +931,22 @@ def test_get_reachable_atoms():
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, atoms)
-    assert {pred1([cup1, plate1]), pred1([cup1, plate2]), pred2([cup1, plate1]),
-            pred2([cup1, plate2])}.issubset(reachable_atoms)
-    assert reachable_atoms & {pred3([cup1, plate1]), pred3([cup1, plate2]),
-                pred1([cup2, plate1]), pred1([cup2, plate2]),
-                pred2([cup2, plate1]), pred2([cup2, plate2]),
-                pred3([cup2, plate1]), pred3([cup2, plate2])} == set()
+    assert {
+        pred1([cup1, plate1]),
+        pred1([cup1, plate2]),
+        pred2([cup1, plate1]),
+        pred2([cup1, plate2])
+    }.issubset(reachable_atoms)
+    assert reachable_atoms & {
+        pred3([cup1, plate1]),
+        pred3([cup1, plate2]),
+        pred1([cup2, plate1]),
+        pred1([cup2, plate2]),
+        pred2([cup2, plate1]),
+        pred2([cup2, plate2]),
+        pred3([cup2, plate1]),
+        pred3([cup2, plate2])
+    } == set()
 
 
 def test_nsrt_application():
@@ -1145,23 +1154,22 @@ def test_operator_application():
 
 
 def test_create_task_planning_heuristic():
-    """Tests for create_task_planning_heuristic().
-    """
-    hadd_heuristic = utils.create_task_planning_heuristic("hadd",
-        set(), set(), set(), set(), set())
+    """Tests for create_task_planning_heuristic()."""
+    hadd_heuristic = utils.create_task_planning_heuristic(
+        "hadd", set(), set(), set(), set(), set())
     assert isinstance(hadd_heuristic, _PyperplanHeuristicWrapper)
     assert hadd_heuristic.name == "hadd"
-    hmax_heuristic = utils.create_task_planning_heuristic("hmax",
-        set(), set(), set(), set(), set())
+    hmax_heuristic = utils.create_task_planning_heuristic(
+        "hmax", set(), set(), set(), set(), set())
     assert hmax_heuristic.name == "hmax"
     assert isinstance(hmax_heuristic, _PyperplanHeuristicWrapper)
-    hff_heuristic = utils.create_task_planning_heuristic("hff",
-        set(), set(), set(), set(), set())
+    hff_heuristic = utils.create_task_planning_heuristic(
+        "hff", set(), set(), set(), set(), set())
     assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
     assert hff_heuristic.name == "hff"
     with pytest.raises(ValueError):
-        utils.create_task_planning_heuristic("not a real heuristic",
-            set(), set(), set(), set(), set())
+        utils.create_task_planning_heuristic("not a real heuristic", set(),
+                                             set(), set(), set(), set())
     # Cover _TaskPlanningHeuristic base class.
     base_heuristic = _TaskPlanningHeuristic("base", set(), set(), set())
     with pytest.raises(NotImplementedError):

@@ -652,23 +652,25 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
             init_atoms = atoms_sequence[0]
             objects = set(traj.states[0])
             goal = traj.goal
-            ground_ops = {op for strips_op in strips_ops for op
-                          in utils.all_ground_operators(strips_op, objects)}
-            heuristic_fn = self._generate_heuristic(
-                init_atoms, objects, goal, strips_ops, option_specs,
-                ground_ops, predicates)
-            score += self._evaluate_atom_trajectory(
-                atoms_sequence, heuristic_fn, ground_ops)
+            ground_ops = {
+                op
+                for strips_op in strips_ops
+                for op in utils.all_ground_operators(strips_op, objects)
+            }
+            heuristic_fn = self._generate_heuristic(init_atoms, objects, goal,
+                                                    strips_ops, option_specs,
+                                                    ground_ops, predicates)
+            score += self._evaluate_atom_trajectory(atoms_sequence,
+                                                    heuristic_fn, ground_ops)
         return CFG.grammar_search_heuristic_based_weight * score
 
-    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
-                            objects: Set[Object],
-                            goal: Set[GroundAtom],
-                            strips_ops: Sequence[STRIPSOperator],
-                            option_specs: Sequence[OptionSpec],
-                            ground_ops: Set[_GroundSTRIPSOperator],
-                            predicates: Collection[Predicate]
-                            ) -> Callable[[Set[GroundAtom]], float]:
+    def _generate_heuristic(
+        self, init_atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate]
+    ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
     def _evaluate_atom_trajectory(
@@ -751,19 +753,20 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
     heuristic_name: str
     lookahead_depth: int = field(default=0)
 
-    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
-                            objects: Set[Object],
-                            goal: Set[GroundAtom],
-                            strips_ops: Sequence[STRIPSOperator],
-                            option_specs: Sequence[OptionSpec],
-                            ground_ops: Set[_GroundSTRIPSOperator],
-                            predicates: Collection[Predicate]
-                            ) -> Callable[[Set[GroundAtom]], float]:
+    def _generate_heuristic(
+        self, init_atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate]
+    ) -> Callable[[Set[GroundAtom]], float]:
         all_reachable_atoms = utils.get_reachable_atoms(ground_ops, init_atoms)
-        reachable_ops = [op for op in ground_ops if
-                         op.preconditions.issubset(all_reachable_atoms)]
-        h_fn = utils.create_task_planning_heuristic(self.heuristic_name,
-            init_atoms, goal, reachable_ops,
+        reachable_ops = [
+            op for op in ground_ops
+            if op.preconditions.issubset(all_reachable_atoms)
+        ]
+        h_fn = utils.create_task_planning_heuristic(
+            self.heuristic_name, init_atoms, goal, reachable_ops,
             set(predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
@@ -794,16 +797,18 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
-    """Implement _generate_heuristic() with task planning.
-    """
-    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
-                            objects: Set[Object],
-                            goal: Set[GroundAtom],
-                            strips_ops: Sequence[STRIPSOperator],
-                            option_specs: Sequence[OptionSpec],
-                            ground_ops: Set[_GroundSTRIPSOperator],
-                            predicates: Collection[Predicate],
-                            ) -> Callable[[Set[GroundAtom]], float]:
+    """Implement _generate_heuristic() with task planning."""
+
+    def _generate_heuristic(
+        self,
+        init_atoms: Set[GroundAtom],
+        objects: Set[Object],
+        goal: Set[GroundAtom],
+        strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate],
+    ) -> Callable[[Set[GroundAtom]], float]:
         del init_atoms, predicates  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
 
