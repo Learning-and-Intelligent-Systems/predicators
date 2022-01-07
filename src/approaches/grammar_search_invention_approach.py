@@ -467,18 +467,21 @@ def _create_score_function(
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    match = re.match(r"(\w+)_lookahead_depth(\d+)", score_function_name)
+    match = re.match(r"([a-z\,]+)_lookahead_depth(\d+)", score_function_name)
     if match is not None:
-        # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"}
-        # depth can be any non-negative integer
-        heuristic_name, depth = match.groups()
+        # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
+        # or it can be multiple heuristic names that are comma-separated, such
+        # as hadd,hmax or hmadd,hmax,lmcut.
+        # depth can be any non-negative integer.
+        heuristic_names_str, depth = match.groups()
+        heuristic_names = heuristic_names_str.split(",")
         depth = int(depth)
         return _RelaxationHeuristicLookaheadBasedScoreFunction(
             initial_predicates,
             atom_dataset,
             train_tasks,
             candidates,
-            heuristic_name,
+            heuristic_names,
             lookahead_depth=depth)
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
@@ -641,7 +644,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
-        score = 0.0  # lower is better
+        # Lower scores are better.
+        scores = {name: 0.0 for name in self.heuristic_names}
         seen_demos = 0
         for traj, atoms_sequence in pruned_atom_data:
             if not traj.is_demo:  # we only care about demonstrations
@@ -657,16 +661,19 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                 for strips_op in strips_ops
                 for op in utils.all_ground_operators(strips_op, objects)
             }
-            heuristic_fn = self._generate_heuristic(init_atoms, objects, goal,
-                                                    strips_ops, option_specs,
-                                                    ground_ops, predicates)
-            score += self._evaluate_atom_trajectory(atoms_sequence,
-                                                    heuristic_fn, ground_ops)
+            for heuristic_name in self.heuristic_names:
+                heuristic_fn = self._generate_heuristic(
+                    heuristic_name, init_atoms, objects, goal, strips_ops,
+                    option_specs, ground_ops, predicates)
+                scores[heuristic_name] += self._evaluate_atom_trajectory(
+                    atoms_sequence, heuristic_fn, ground_ops)
+        score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 
     def _generate_heuristic(
-        self, init_atoms: Set[GroundAtom], objects: Set[Object],
-        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        self, heuristic_name: str, init_atoms: Set[GroundAtom],
+        objects: Set[Object], goal: Set[GroundAtom],
+        strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
         ground_ops: Set[_GroundSTRIPSOperator],
         predicates: Collection[Predicate]
@@ -750,12 +757,13 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with a delete relaxation heuristic like
     hadd, hmax, or hff."""
-    heuristic_name: str
+    heuristic_names: Sequence[str]
     lookahead_depth: int = field(default=0)
 
     def _generate_heuristic(
-        self, init_atoms: Set[GroundAtom], objects: Set[Object],
-        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        self, heuristic_name: str, init_atoms: Set[GroundAtom],
+        objects: Set[Object], goal: Set[GroundAtom],
+        strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
         ground_ops: Set[_GroundSTRIPSOperator],
         predicates: Collection[Predicate]
@@ -766,7 +774,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
             if op.preconditions.issubset(all_reachable_atoms)
         ]
         h_fn = utils.create_task_planning_heuristic(
-            self.heuristic_name, init_atoms, goal, reachable_ops,
+            heuristic_name, init_atoms, goal, reachable_ops,
             set(predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
@@ -801,6 +809,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
     def _generate_heuristic(
         self,
+        heuristic_name: str,
         init_atoms: Set[GroundAtom],
         objects: Set[Object],
         goal: Set[GroundAtom],
@@ -811,6 +820,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
     ) -> Callable[[Set[GroundAtom]], float]:
         del init_atoms, predicates  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
+
+        assert heuristic_name == "exact"
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
