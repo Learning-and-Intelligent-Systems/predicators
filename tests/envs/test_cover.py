@@ -63,8 +63,10 @@ def test_cover():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = utils.option_to_trajectory(
-            state, env.simulate, option, max_num_steps=100)
+        traj = utils.option_to_trajectory(state,
+                                          env.simulate,
+                                          option,
+                                          max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
         assert len(traj.states) == 2
@@ -77,8 +79,10 @@ def test_cover():
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
     option = next(iter(env.options))
-    traj = utils.option_to_trajectory(
-        task.init, env.simulate, option.ground([], [0]), max_num_steps=100)
+    traj = utils.option_to_trajectory(task.init,
+                                      env.simulate,
+                                      option.ground([], [0]),
+                                      max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
 
@@ -136,8 +140,10 @@ def test_cover_typed_options():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = utils.option_to_trajectory(
-            state, env.simulate, option, max_num_steps=100)
+        traj = utils.option_to_trajectory(state,
+                                          env.simulate,
+                                          option,
+                                          max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
         assert len(traj.states) == 2
@@ -150,11 +156,10 @@ def test_cover_typed_options():
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
     option = next(iter(env.options))
-    traj = utils.option_to_trajectory(
-        task.init,
-        env.simulate,
-        place_option.ground([target0], [0]),
-        max_num_steps=100)
+    traj = utils.option_to_trajectory(task.init,
+                                      env.simulate,
+                                      place_option.ground([target0], [0]),
+                                      max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
 

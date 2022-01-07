@@ -175,8 +175,8 @@ class State:
             table_strs.append(tabulate(type_to_table[t], headers=headers))
         ll = max(
             len(line) for table in table_strs for line in table.split("\n"))
-        prefix = "#" * (ll // 2 - 3) + " STATE " + "#" * (
-            ll - ll // 2 - 4) + "\n"
+        prefix = "#" * (ll // 2 - 3) + " STATE " + "#" * (ll - ll // 2 -
+                                                          4) + "\n"
         suffix = "\n" + "#" * ll + "\n"
         return prefix + "\n\n".join(table_strs) + suffix
 
@@ -192,8 +192,8 @@ class Predicate:
     # The classifier takes in a complete state and a sequence of objects
     # representing the arguments. These objects should be the only ones
     # treated "specially" by the classifier.
-    _classifier: Callable[[State, Sequence[Object]], bool] = field(
-        compare=False)
+    _classifier: Callable[[State, Sequence[Object]],
+                          bool] = field(compare=False)
 
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms."""
@@ -238,8 +238,8 @@ class Predicate:
         file."""
         if self.arity == 0:
             return f"({self.name})"
-        vars_str = " ".join(
-            f"?x{i} - {t.name}" for i, t in enumerate(self.types))
+        vars_str = " ".join(f"?x{i} - {t.name}"
+                            for i, t in enumerate(self.types))
         return f"({self.name} {vars_str})"
 
     def get_negation(self) -> Predicate:
@@ -316,8 +316,8 @@ class LiftedAtom(_Atom):
 
     @cached_property
     def _str(self) -> str:
-        return (str(self.predicate) + "(" + ", ".join(
-            map(str, self.variables)) + ")")
+        return (str(self.predicate) + "(" +
+                ", ".join(map(str, self.variables)) + ")")
 
     def ground(self, sub: dict[Variable, Object]) -> GroundAtom:
         """Create a GroundAtom with a given substitution."""
@@ -339,8 +339,8 @@ class GroundAtom(_Atom):
 
     @cached_property
     def _str(self) -> str:
-        return (str(self.predicate) + "(" + ", ".join(map(str, self.objects))
-                + ")")
+        return (str(self.predicate) + "(" +
+                ", ".join(map(str, self.objects)) + ")")
 
     def lift(self, sub: dict[Object, Variable]) -> LiftedAtom:
         """Create a LiftedAtom with a given substitution."""
@@ -377,8 +377,8 @@ class ParameterizedOption:
     # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    _policy: Callable[[State, Dict, Sequence[Object], Array], Action] = field(
-        repr=False)
+    _policy: Callable[[State, Dict, Sequence[Object], Array],
+                      Action] = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
@@ -389,8 +389,8 @@ class ParameterizedOption:
     # parameters to a bool, which is True iff the option should
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
-    _terminal: Callable[[State, Dict, Sequence[Object], Array], bool] = field(
-        repr=False)
+    _terminal: Callable[[State, Dict, Sequence[Object], Array],
+                        bool] = field(repr=False)
 
     @cached_property
     def _hash(self) -> int:
@@ -452,9 +452,9 @@ class _Option:
 
 
 DummyOption: _Option = ParameterizedOption(
-    "DummyOption", [],
-    Box(0, 1, (1, )), lambda s, m, o, p: Action(np.array([0.0])), lambda s, m,
-    o, p: False, lambda s, m, o, p: False).ground([], np.array([0.0]))
+    "DummyOption", [], Box(0, 1, (1, )),
+    lambda s, m, o, p: Action(np.array([0.0])), lambda s, m, o, p: False,
+    lambda s, m, o, p: False).ground([], np.array([0.0]))
 DummyOption.parent.params_space.seed(0)  # for reproducibility
 
 
@@ -471,10 +471,12 @@ class STRIPSOperator:
     delete_effects: Set[LiftedAtom]
     side_predicates: Set[Predicate]
 
-    def make_nsrt(self,
-                  option: ParameterizedOption,
-                  option_vars: Sequence[Variable],
-                  sampler: NSRTSampler = field(repr=False)) -> NSRT:
+    def make_nsrt(
+        self,
+        option: ParameterizedOption,
+        option_vars: Sequence[Variable],
+        sampler: NSRTSampler = field(repr=False)
+    ) -> NSRT:
         """Make an NSRT out of this STRIPSOperator object, given the necessary
         additional fields."""
         return NSRT(self.name, self.parameters, self.preconditions,
@@ -520,12 +522,12 @@ class STRIPSOperator:
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL
         file."""
-        params_str = " ".join(
-            f"{p.name} - {p.type.name}" for p in self.parameters)
+        params_str = " ".join(f"{p.name} - {p.type.name}"
+                              for p in self.parameters)
         preconds_str = "\n        ".join(
             atom.pddl_str() for atom in sorted(self.preconditions))
-        effects_str = "\n        ".join(
-            atom.pddl_str() for atom in sorted(self.add_effects))
+        effects_str = "\n        ".join(atom.pddl_str()
+                                        for atom in sorted(self.add_effects))
         if self.delete_effects:
             effects_str += "\n        "
             effects_str += "\n        ".join(
@@ -785,15 +787,14 @@ class _GroundNSRT:
     def copy_with(self, **kwargs: Any) -> _GroundNSRT:
         """Create a copy of the ground NSRT, optionally while replacing any of
         the arguments."""
-        default_kwargs = dict(
-            nsrt=self.nsrt,
-            objects=self.objects,
-            preconditions=self.preconditions,
-            add_effects=self.add_effects,
-            delete_effects=self.delete_effects,
-            option=self.option,
-            option_objs=self.option_objs,
-            _sampler=self._sampler)
+        default_kwargs = dict(nsrt=self.nsrt,
+                              objects=self.objects,
+                              preconditions=self.preconditions,
+                              add_effects=self.add_effects,
+                              delete_effects=self.delete_effects,
+                              option=self.option,
+                              option_objs=self.option_objs,
+                              _sampler=self._sampler)
         assert set(kwargs.keys()).issubset(default_kwargs.keys())
         default_kwargs.update(kwargs)
         # mypy is known to have issues with this pattern:

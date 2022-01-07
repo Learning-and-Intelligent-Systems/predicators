@@ -72,39 +72,34 @@ def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
     _test_approach(env_name="blocks", approach_name="nsrt_learning")
     with pytest.raises(NotImplementedError):  # bad sampler_learner
-        _test_approach(
-            env_name="cover_multistep_options",
-            approach_name="nsrt_learning",
-            try_solving=False,
-            sampler_learner="not a real sampler learner")
-    _test_approach(
-        env_name="cover_multistep_options",
-        approach_name="nsrt_learning",
-        try_solving=False,
-        sampler_learner="random")
+        _test_approach(env_name="cover_multistep_options",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="not a real sampler learner")
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random")
     with pytest.raises(NotImplementedError):
-        _test_approach(
-            env_name="repeated_nextto",
-            approach_name="nsrt_learning",
-            try_solving=False,
-            sampler_learner="random",
-            learn_side_predicates=True)
+        _test_approach(env_name="repeated_nextto",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       learn_side_predicates=True)
 
 
 def test_iterative_invention_approach():
     """Tests for IterativeInventionApproach class."""
-    _test_approach(
-        env_name="cover",
-        approach_name="iterative_invention",
-        excluded_predicates="Holding",
-        try_solving=False,
-        sampler_learner="random")
-    _test_approach(
-        env_name="blocks",
-        approach_name="iterative_invention",
-        excluded_predicates="Holding",
-        try_solving=False,
-        sampler_learner="random")
+    _test_approach(env_name="cover",
+                   approach_name="iterative_invention",
+                   excluded_predicates="Holding",
+                   try_solving=False,
+                   sampler_learner="random")
+    _test_approach(env_name="blocks",
+                   approach_name="iterative_invention",
+                   excluded_predicates="Holding",
+                   try_solving=False,
+                   sampler_learner="random")
 
 
 def test_grammar_search_invention_approach():
@@ -121,18 +116,16 @@ def test_grammar_search_invention_approach():
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
     })
-    _test_approach(
-        env_name="cover",
-        approach_name="grammar_search_invention",
-        excluded_predicates="Holding",
-        try_solving=False,
-        sampler_learner="random")
+    _test_approach(env_name="cover",
+                   approach_name="grammar_search_invention",
+                   excluded_predicates="Holding",
+                   try_solving=False,
+                   sampler_learner="random")
     # Test that the pipeline doesn't crash when no predicates are learned
     # involving a certain option argument (robot in this case).
     utils.update_config({"grammar_search_max_predicates": 0})
-    _test_approach(
-        env_name="blocks",
-        approach_name="grammar_search_invention",
-        excluded_predicates="GripperOpen",
-        try_solving=False,
-        sampler_learner="random")
+    _test_approach(env_name="blocks",
+                   approach_name="grammar_search_invention",
+                   excluded_predicates="GripperOpen",
+                   try_solving=False,
+                   sampler_learner="random")

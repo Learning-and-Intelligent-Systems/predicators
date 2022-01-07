@@ -20,8 +20,12 @@ def test_sesame_plan():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
     option_model = create_option_model(CFG.option_model_name, env.simulate)
-    plan, _ = sesame_plan(
-        task, option_model, nsrts, env.predicates, timeout=1, seed=123)
+    plan, _ = sesame_plan(task,
+                          option_model,
+                          nsrts,
+                          env.predicates,
+                          timeout=1,
+                          seed=123)
     assert len(plan) == 2
     assert isinstance(plan[0], _Option)
     assert isinstance(plan[1], _Option)
@@ -43,14 +47,13 @@ def test_task_plan():
                            nsrt.add_effects, nsrt.delete_effects,
                            nsrt.side_predicates))
         option_specs.append((nsrt.option, nsrt.option_vars))
-    skeleton, _, _ = task_plan(
-        init_atoms,
-        objects,
-        task.goal,
-        strips_ops,
-        option_specs,
-        timeout=1,
-        seed=123)
+    skeleton, _, _ = task_plan(init_atoms,
+                               objects,
+                               task.goal,
+                               strips_ops,
+                               option_specs,
+                               timeout=1,
+                               seed=123)
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
@@ -99,19 +102,22 @@ def test_sesame_plan_failures():
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, should fail fast.
-        sesame_plan(
-            task, option_model, nsrts, env.predicates, timeout=500, seed=123)
+        sesame_plan(task,
+                    option_model,
+                    nsrts,
+                    env.predicates,
+                    timeout=500,
+                    seed=123)
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
-        sesame_plan(
-            task,
-            option_model,
-            nsrts,
-            env.predicates,
-            timeout=500,
-            seed=123,
-            check_dr_reachable=False)
+        sesame_plan(task,
+                    option_model,
+                    nsrts,
+                    env.predicates,
+                    timeout=500,
+                    seed=123,
+                    check_dr_reachable=False)
 
 
 def test_sesame_plan_uninitiable_option():
@@ -125,9 +131,10 @@ def test_sesame_plan_uninitiable_option():
     initiable = lambda s, m, o, p: False
     nsrts = get_gt_nsrts(env.predicates, env.options)
     old_option = next(iter(env.options))
-    new_option = ParameterizedOption(
-        old_option.name, old_option.types, old_option.params_space,
-        old_option._policy, initiable, old_option._terminal)
+    new_option = ParameterizedOption(old_option.name, old_option.types,
+                                     old_option.params_space,
+                                     old_option._policy, initiable,
+                                     old_option._terminal)
     new_nsrts = set()
     for nsrt in nsrts:
         new_nsrts.add(
@@ -138,11 +145,10 @@ def test_sesame_plan_uninitiable_option():
     task = next(env.train_tasks_generator())[0]
     with pytest.raises(ApproachFailure) as e:
         # Planning should reach max_skeletons_optimized
-        sesame_plan(
-            task,
-            option_model,
-            new_nsrts,
-            env.predicates,
-            timeout=500,
-            seed=123)
+        sesame_plan(task,
+                    option_model,
+                    new_nsrts,
+                    env.predicates,
+                    timeout=500,
+                    seed=123)
     assert "Planning reached max_skeletons_optimized!" in str(e.value)

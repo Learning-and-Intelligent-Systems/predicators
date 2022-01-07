@@ -30,12 +30,11 @@ class ClutteredTableEnv(BaseEnv):
         self._Untrashed = Predicate("Untrashed", [self._can_type],
                                     self._Untrashed_holds)
         # Options
-        self._Grasp = ParameterizedOption(
-            "Grasp", [self._can_type],
-            params_space=Box(0, 1, (4, )),
-            _policy=self._Grasp_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+        self._Grasp = ParameterizedOption("Grasp", [self._can_type],
+                                          params_space=Box(0, 1, (4, )),
+                                          _policy=self._Grasp_policy,
+                                          _initiable=utils.always_initiable,
+                                          _terminal=utils.onestep_terminal)
         self._Dump = ParameterizedOption(
             "Dump",
             [],
@@ -199,8 +198,8 @@ class ClutteredTableEnv(BaseEnv):
         tasks = []
         goal = {GroundAtom(self._Holding, [self._cans[0]])}
         for _ in range(num):
-            tasks.append(
-                Task(self._create_initial_state(train_or_test), goal))
+            tasks.append(Task(self._create_initial_state(train_or_test),
+                              goal))
         return tasks
 
     def _create_initial_state(self, train_or_test: str) -> State:
@@ -217,8 +216,8 @@ class ClutteredTableEnv(BaseEnv):
             can = self._cans[i]
             while True:
                 # keep cans near center of table to allow grasps from all angles
-                pose = np.array(
-                    rng.uniform(0.25, 0.75, size=2), dtype=np.float32)
+                pose = np.array(rng.uniform(0.25, 0.75, size=2),
+                                dtype=np.float32)
                 if not self._any_intersection(pose, radius, data):
                     break
             # [pose_x, pose_y, radius, is_grasped, is_trashed]

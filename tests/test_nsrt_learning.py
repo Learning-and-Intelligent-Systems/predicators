@@ -17,8 +17,8 @@ def test_segment_trajectory():
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     pred0 = Predicate("Pred0", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
-    pred1 = Predicate("Pred1",
-                      [cup_type, cup_type], lambda s, o: s[o[0]][0] > 0.5)
+    pred1 = Predicate("Pred1", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
     pred2 = Predicate("Pred2", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state0 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
@@ -26,8 +26,10 @@ def test_segment_trajectory():
     state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     atoms1 = utils.abstract(state1, preds)
     # Tests with known options.
-    param_option = ParameterizedOption("dummy", [cup_type], Box(
-        0.1, 1, (1, )), lambda s, m, o, p: Action(p), lambda s, m, o, p: True,
+    param_option = ParameterizedOption("dummy", [cup_type],
+                                       Box(0.1, 1, (1, )),
+                                       lambda s, m, o, p: Action(p),
+                                       lambda s, m, o, p: True,
                                        lambda s, m, o, p: True)
     option0 = param_option.ground([cup0], np.array([0.2]))
     action0 = option0.policy(state0)
@@ -107,14 +109,15 @@ def test_nsrt_learning_specific_nsrts():
     cup4 = cup_type("cup4")
     cup5 = cup_type("cup5")
     pred0 = Predicate("Pred0", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
-    pred1 = Predicate("Pred1",
-                      [cup_type, cup_type], lambda s, o: s[o[0]][0] > 0.5)
+    pred1 = Predicate("Pred1", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
     pred2 = Predicate("Pred2", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
     option1 = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p), lambda
-        s, m, o, p: True, lambda s, m, o, p: True).ground([], np.array([0.2]))
+        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True).ground([], np.array([0.2]))
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
@@ -136,8 +139,8 @@ def test_nsrt_learning_specific_nsrts():
                 state1, np.random.default_rng(123)).params - 0.2) < 0.01
     # The following test was used to manually check that unify caches correctly.
     pred0 = Predicate("Pred0", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
-    pred1 = Predicate("Pred1",
-                      [cup_type, cup_type], lambda s, o: s[o[0]][0] > 0.5)
+    pred1 = Predicate("Pred1", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.5)
     pred2 = Predicate("Pred2", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
@@ -167,21 +170,22 @@ def test_nsrt_learning_specific_nsrts():
     # to unify both of them together, not separately, which requires changing
     # the predicates so that unification does not try to unify add ones with
     # delete ones.
-    pred0 = Predicate("Pred0",
-                      [cup_type, cup_type
-                       ], lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
+    pred0 = Predicate("Pred0", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     option1 = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p), lambda
-        s, m, o, p: True, lambda s, m, o, p: True).ground([], np.array([0.3]))
+        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True).ground([], np.array([0.3]))
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p), lambda
-        s, m, o, p: True, lambda s, m, o, p: True).ground([], np.array([0.7]))
+        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p),
+        lambda s, m, o, p: True,
+        lambda s, m, o, p: True).ground([], np.array([0.7]))
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
@@ -224,9 +228,8 @@ def test_nsrt_learning_specific_nsrts():
                     nsrt.ground([cup2, cup3, cup4, cup5]).sample_option(
                         state2, np.random.default_rng(123)).params -
                     0.7) < 0.01
-    pred0 = Predicate("Pred0",
-                      [cup_type, cup_type
-                       ], lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
+    pred0 = Predicate("Pred0", [cup_type, cup_type],
+                      lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
     state1 = State({cup0: [0.5], cup1: [0.5]})
     action1 = option2.policy(state1)

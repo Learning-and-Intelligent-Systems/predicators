@@ -148,8 +148,8 @@ def test_interactive_learning_approach_ask_strategies():
     states = []
     for traj in dataset:
         states.extend(traj.states)
-    assert len(states_to_ask) == int(
-        CFG.interactive_ask_strategy_pct / 100. * len(states))
+    assert len(states_to_ask) == int(CFG.interactive_ask_strategy_pct / 100. *
+                                     len(states))
 
     utils.update_config({"interactive_ask_strategy": "foo"})
     with pytest.raises(NotImplementedError):

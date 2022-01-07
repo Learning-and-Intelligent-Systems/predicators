@@ -289,8 +289,8 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
         # both pose_x and pose_y will be -999.
         end_x = max(0.0, state.get(can, "pose_x"))
         end_y = max(0.0, state.get(can, "pose_y"))
-        start_x, start_y = rng.uniform(
-            0.0, 1.0, size=2)  # start from anywhere
+        start_x, start_y = rng.uniform(0.0, 1.0,
+                                       size=2)  # start from anywhere
         return np.array([start_x, start_y, end_x, end_y], dtype=np.float32)
 
     grasp_nsrt = NSRT("Grasp",
@@ -309,9 +309,9 @@ def _get_cluttered_table_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Holding, [can]),
         LiftedAtom(Untrashed, [can])
     }
-    dump_nsrt = NSRT(
-        "Dump", parameters, preconditions, add_effects, delete_effects, set(),
-        option, option_vars, lambda s, r, o: np.array([], dtype=np.float32))
+    dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
+                     delete_effects, set(), option, option_vars,
+                     lambda s, r, o: np.array([], dtype=np.float32))
     nsrts.add(dump_nsrt)
 
     return nsrts
@@ -378,9 +378,9 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Clear, [block]),
         LiftedAtom(GripperOpen, [robot])
     }
-    unstack_nsrt = NSRT(
-        "Unstack", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, pick_sampler)
+    unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
+                        delete_effects, set(), option, option_vars,
+                        pick_sampler)
     nsrts.add(unstack_nsrt)
 
     # Stack
@@ -435,9 +435,9 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         y = rng.uniform()
         return np.array([x, y], dtype=np.float32)
 
-    putontable_nsrt = NSRT(
-        "PutOnTable", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, putontable_sampler)
+    putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, putontable_sampler)
     nsrts.add(putontable_nsrt)
 
     return nsrts
@@ -481,9 +481,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         del state, rng, objs  # unused
         return np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
 
-    pickfromtop_nsrt = NSRT(
-        "PickFromTop", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, pickfromtop_sampler)
+    pickfromtop_nsrt = NSRT("PickFromTop", parameters, preconditions,
+                            add_effects, delete_effects, set(), option,
+                            option_vars, pickfromtop_sampler)
     nsrts.add(pickfromtop_nsrt)
 
     # PickFromSide
@@ -575,9 +575,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         box_color = state.get(objs[1], "color")
         return np.array([box_color], dtype=np.float32)
 
-    painttobox_nsrt = NSRT(
-        "PaintToBox", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, painttobox_sampler)
+    painttobox_nsrt = NSRT("PaintToBox", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, painttobox_sampler)
     nsrts.add(painttobox_nsrt)
 
     # PaintToShelf
@@ -634,9 +634,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         z = state.get(objs[0], "pose_z")
         return np.array([x, y, z], dtype=np.float32)
 
-    placeinbox_nsrt = NSRT(
-        "PlaceInBox", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, placeinbox_sampler)
+    placeinbox_nsrt = NSRT("PlaceInBox", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, placeinbox_sampler)
     nsrts.add(placeinbox_nsrt)
 
     # PlaceInShelf
@@ -687,9 +687,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         del state, rng, objs  # unused
         return np.array([], dtype=np.float32)
 
-    openlid_nsrt = NSRT(
-        "OpenLid", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, openlid_sampler)
+    openlid_nsrt = NSRT("OpenLid", parameters, preconditions, add_effects,
+                        delete_effects, set(), option, option_vars,
+                        openlid_sampler)
     nsrts.add(openlid_nsrt)
 
     return nsrts
@@ -793,9 +793,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
         return np.array([0, 0, 0, rotation], dtype=np.float32)
 
-    unstack_nsrt = NSRT(
-        "Unstack", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, unstack_sampler)
+    unstack_nsrt = NSRT("Unstack", parameters, preconditions, add_effects,
+                        delete_effects, set(), option, option_vars,
+                        unstack_sampler)
     nsrts.add(unstack_nsrt)
 
     # Stack
@@ -827,8 +827,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         _, otherblock, _ = objs
         assert otherblock.is_instance(block_type)
         # find rotation of robot that faces the table
-        x, y = state.get(otherblock, "pose_x"), state.get(
-            otherblock, "pose_y")
+        x, y = state.get(otherblock,
+                         "pose_x"), state.get(otherblock, "pose_y")
         cls = PlayroomEnv
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
@@ -870,9 +870,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
         return np.array([x, y, rotation], dtype=np.float32)
 
-    putontable_nsrt = NSRT(
-        "PutOnTable", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, putontable_sampler)
+    putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, putontable_sampler)
     nsrts.add(putontable_nsrt)
 
     # AdvanceThroughDoor
@@ -1095,9 +1095,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         dx = -0.2 if x < door_x else 0.2
         return np.array([dx, 0, 0, rotation], dtype=np.float32)
 
-    opendoor_nsrt = NSRT(
-        "OpenDoor", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, toggledoor_sampler)
+    opendoor_nsrt = NSRT("OpenDoor", parameters, preconditions, add_effects,
+                         delete_effects, set(), option, option_vars,
+                         toggledoor_sampler)
     nsrts.add(opendoor_nsrt)
 
     # CloseDoor
@@ -1113,9 +1113,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     }
     add_effects = {LiftedAtom(DoorClosed, [door])}
     delete_effects = {LiftedAtom(DoorOpen, [door])}
-    closedoor_nsrt = NSRT(
-        "CloseDoor", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, toggledoor_sampler)
+    closedoor_nsrt = NSRT("CloseDoor", parameters, preconditions, add_effects,
+                          delete_effects, set(), option, option_vars,
+                          toggledoor_sampler)
     nsrts.add(closedoor_nsrt)
 
     # TurnOnDial
@@ -1137,9 +1137,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         del state, rng, objs  # unused
         return np.array([-0.2, 0, 0, 0.0], dtype=np.float32)
 
-    turnondial_nsrt = NSRT(
-        "TurnOnDial", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, toggledial_sampler)
+    turnondial_nsrt = NSRT("TurnOnDial", parameters, preconditions,
+                           add_effects, delete_effects, set(), option,
+                           option_vars, toggledial_sampler)
     nsrts.add(turnondial_nsrt)
 
     # TurnOffDial
@@ -1155,9 +1155,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     }
     add_effects = {LiftedAtom(LightOff, [dial])}
     delete_effects = {LiftedAtom(LightOn, [dial])}
-    turnoffdial_nsrt = NSRT(
-        "TurnOffDial", parameters, preconditions, add_effects, delete_effects,
-        set(), option, option_vars, toggledial_sampler)
+    turnoffdial_nsrt = NSRT("TurnOffDial", parameters, preconditions,
+                            add_effects, delete_effects, set(), option,
+                            option_vars, toggledial_sampler)
     nsrts.add(turnoffdial_nsrt)
 
     return nsrts
@@ -1186,10 +1186,9 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
     side_predicates = {NextTo, NextToNothing}
-    move_nsrt = NSRT(
-        "Move", parameters, preconditions, add_effects, delete_effects,
-        side_predicates, option,
-        option_vars, lambda s, rng, o: np.zeros(1, dtype=np.float32))
+    move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
+                     delete_effects, side_predicates, option, option_vars,
+                     lambda s, rng, o: np.zeros(1, dtype=np.float32))
     nsrts.add(move_nsrt)
 
     # Grasp
@@ -1207,10 +1206,9 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     # something we'd be unsure about for any object. For every object we
     # are NextTo but did not grasp, we will stay NextTo it.
     side_predicates = {NextToNothing}
-    grasp_nsrt = NSRT(
-        "Grasp", parameters, preconditions, add_effects, delete_effects,
-        side_predicates, option,
-        option_vars, lambda s, rng, o: np.zeros(0, dtype=np.float32))
+    grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
+                      delete_effects, side_predicates, option, option_vars,
+                      lambda s, rng, o: np.zeros(0, dtype=np.float32))
     nsrts.add(grasp_nsrt)
 
     return nsrts

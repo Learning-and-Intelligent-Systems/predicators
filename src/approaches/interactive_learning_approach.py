@@ -238,10 +238,9 @@ def create_teacher_dataset(preds: Collection[Predicate],
             n_samples = int(len(ground_atoms) * ratio)
             subset_atoms = set()
             if n_samples > 0:
-                subset = rng.choice(
-                    np.arange(len(ground_atoms)),
-                    size=(n_samples, ),
-                    replace=False)
+                subset = rng.choice(np.arange(len(ground_atoms)),
+                                    size=(n_samples, ),
+                                    replace=False)
                 subset_atoms = {ground_atoms[j] for j in subset}
             ground_atoms_traj.append(subset_atoms)
         assert len(traj.states) == len(ground_atoms_traj)
@@ -251,9 +250,9 @@ def create_teacher_dataset(preds: Collection[Predicate],
 
 
 def glib_sample(
-        initial_state: State,
-        predicates: Set[Predicate],
-        dataset_with_atoms: List[GroundAtomTrajectory],
+    initial_state: State,
+    predicates: Set[Predicate],
+    dataset_with_atoms: List[GroundAtomTrajectory],
 ) -> List[Task]:
     """Sample some tasks via the GLIB approach."""
     print("Sampling a task using GLIB approach...")
@@ -265,8 +264,9 @@ def glib_sample(
         # Sample num atoms to babble
         num_atoms = 1 + rng.choice(CFG.interactive_max_num_atoms_babbled)
         # Sample goal (a set of atoms)
-        idxs = rng.choice(
-            np.arange(len(ground_atoms)), size=(num_atoms, ), replace=False)
+        idxs = rng.choice(np.arange(len(ground_atoms)),
+                          size=(num_atoms, ),
+                          replace=False)
         goal = {ground_atoms[i] for i in idxs}
         goals.append((goal, score_goal(dataset_with_atoms, goal)))
     goals.sort(key=lambda tup: tup[1], reverse=True)

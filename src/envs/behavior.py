@@ -234,9 +234,10 @@ class BehaviorEnv(BaseEnv):
         return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(
-            self,
-            bddl_predicate: "bddl.AtomicFormula",
+        self,
+        bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
+
         def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the

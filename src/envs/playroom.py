@@ -125,9 +125,8 @@ class PlayroomEnv(BlocksEnv):
             # params: [x, y, rotation] (normalized coords on table surface)
             "PutOnTable",
             types=[self._robot_type],
-            params_space=Box(
-                low=np.array([0.0, 0.0, -1.0]),
-                high=np.array([1.0, 1.0, 1.0])),
+            params_space=Box(low=np.array([0.0, 0.0, -1.0]),
+                             high=np.array([1.0, 1.0, 1.0])),
             _policy=self._PutOnTable_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -136,9 +135,8 @@ class PlayroomEnv(BlocksEnv):
             # params: [x, y, rotation]
             "Move",
             types=[self._robot_type, self._door_type, self._region_type],
-            params_space=Box(
-                low=np.array([self.x_lb, self.y_lb, -1.0]),
-                high=np.array([self.x_ub, self.y_ub, 1.0])),
+            params_space=Box(low=np.array([self.x_lb, self.y_lb, -1.0]),
+                             high=np.array([self.x_ub, self.y_ub, 1.0])),
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -147,9 +145,8 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "OpenDoor",
             types=[self._robot_type, self._door_type],
-            params_space=Box(
-                low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                high=np.array([5.0, 5.0, 5.0, 1.0])),
+            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -158,9 +155,8 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "CloseDoor",
             types=[self._robot_type, self._door_type],
-            params_space=Box(
-                low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                high=np.array([5.0, 5.0, 5.0, 1.0])),
+            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDoor_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -169,9 +165,8 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "TurnOnDial",
             types=[self._robot_type, self._dial_type],
-            params_space=Box(
-                low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                high=np.array([5.0, 5.0, 5.0, 1.0])),
+            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -180,9 +175,8 @@ class PlayroomEnv(BlocksEnv):
             # params: [dx, dy, dz, rotation]
             "TurnOffDial",
             types=[self._robot_type, self._dial_type],
-            params_space=Box(
-                low=np.array([-5.0, -5.0, -5.0, -1.0]),
-                high=np.array([5.0, 5.0, 5.0, 1.0])),
+            params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
+                             high=np.array([5.0, 5.0, 5.0, 1.0])),
             _policy=self._ToggleDial_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
@@ -404,8 +398,12 @@ class PlayroomEnv(BlocksEnv):
         level = state.get(self._dial, "level")
         dx = self.dial_r * np.sin(level * 2 * np.pi)
         dy = self.dial_r * np.cos(level * 2 * np.pi)
-        dial_arrow = patches.Arrow(
-            dial_x, dial_y, dx, dy, edgecolor='red', facecolor='red')
+        dial_arrow = patches.Arrow(dial_x,
+                                   dial_y,
+                                   dx,
+                                   dy,
+                                   edgecolor='red',
+                                   facecolor='red')
         ax.add_patch(dial_arrow)
 
         # Draw table and blocks
@@ -451,14 +449,13 @@ class PlayroomEnv(BlocksEnv):
         ax.add_patch(robby)
         rotation = state.get(self._robot, "rotation")
         dx, dy = np.cos(rotation * np.pi), np.sin(rotation * np.pi)
-        robot_arrow = patches.Arrow(
-            robot_x,
-            robot_y,
-            dx,
-            dy,
-            edgecolor='black',
-            facecolor='black',
-            width=0.5)
+        robot_arrow = patches.Arrow(robot_x,
+                                    robot_y,
+                                    dx,
+                                    dy,
+                                    edgecolor='black',
+                                    facecolor='black',
+                                    width=0.5)
         ax.add_patch(robot_arrow)
 
         # Concatenate with table view of blocks
@@ -550,8 +547,8 @@ class PlayroomEnv(BlocksEnv):
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
             z = self.table_height + self.block_size * (0.5 + pile_j)
-            max_j = max(
-                j for i, j in block_to_pile_idx.values() if i == pile_i)
+            max_j = max(j for i, j in block_to_pile_idx.values()
+                        if i == pile_i)
             # [pose_x, pose_y, pose_z, held, clear]
             data[block] = np.array([x, y, z, 0.0, int(pile_j == max_j) * 1.0])
         # [pose_x, pose_y, rotation, fingers], fingers start off open
@@ -736,8 +733,8 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1], 0.0].astype(
-            np.float32)
+        arr = np.r_[block_pose + params[:-1], params[-1],
+                    0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -751,8 +748,8 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1], 1.0].astype(
-            np.float32)
+        arr = np.r_[block_pose + params[:-1], params[-1],
+                    1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -788,8 +785,8 @@ class PlayroomEnv(BlocksEnv):
             state.get(door, "pose_x"),
             state.get(door, "pose_y"), self.door_button_z
         ])
-        arr = np.r_[door_pose + params[:-1], params[-1], 1.0].astype(
-            np.float32)
+        arr = np.r_[door_pose + params[:-1], params[-1],
+                    1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -802,8 +799,8 @@ class PlayroomEnv(BlocksEnv):
             state.get(dial, "pose_x"),
             state.get(dial, "pose_y"), self.dial_button_z
         ])
-        arr = np.r_[dial_pose + params[:-1], params[-1], 1.0].astype(
-            np.float32)
+        arr = np.r_[dial_pose + params[:-1], params[-1],
+                    1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
