@@ -1495,7 +1495,7 @@ def test_run_hill_climbing():
         initial_state, _grid_check_goal_fn, _grid_successor_fn,
         _local_minimum_grid_heuristic_fn)
     assert state_sequence == [(0, 0)]
-    assert action_sequence == []
+    assert not action_sequence
 
     # With enforced_dept 1, search succeeds.
     state_sequence, action_sequence = utils.run_hill_climbing(
@@ -1540,4 +1540,4 @@ def test_ops_and_specs_to_dummy_nsrts():
     assert nsrt.add_effects == add_effects
     assert nsrt.delete_effects == delete_effects
     assert nsrt.option == parameterized_option
-    assert nsrt.option_vars == []
+    assert not nsrt.option_vars
