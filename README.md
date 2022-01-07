@@ -39,18 +39,9 @@ A simple implementation of search-then-sample task and motion planning is provid
 
 ## Instructions For Contributing
 * You can't push directly to master. Make a PR and merge that in.
-* To merge a PR, you have to pass 3 checks, all defined in `.github/workflows/predicators.yml`.
+* To merge a PR, you have to pass 4 checks, all defined in `.github/workflows/predicators.yml`.
 * The unit testing check verifies that tests pass and that code is adequately covered. To run locally: `pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered`, which will print out the lines that are uncovered in every file. The "100" here means that all lines in every file must be covered.
 * The static typing check uses Mypy to verify type annotations. To run locally: `mypy . --config-file mypy.ini`. If this doesn't work due to import errors, try `mypy -p predicators --config-file predicators/mypy.ini` from one directory up.
 * The linter check runs pylint with the custom config file `.predicators_pylintrc` in the root of this repository. Feel free to edit this file as necessary. To run locally: `pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc`.
-* In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1` and `pytest-pylint>=0.18.0`. Also, install `mypy` from source: `pip install -U git+git://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31`. (Note: if [this mypy issue](https://github.com/python/mypy/issues/5485) gets resolved, we can install from head again.)
-
-### Keeping up Formatting and Stylistic Conventions
-This repository follows a number of code formatting and style conventions beyond those checked by the linter to streamline development. To make it easy for developers to adhere to this, we provide a way to auto-format your code with [yapf](https://github.com/google/yapf) and [docformatter](https://github.com/myint/docformatter). While the use of these autoformatters is not necessary, it is highly recommended, especially to make the PR review process easier (as an added benefit, use of these hooks should make it easier to pass the linter check!). To use these locally, simply:
-
-1. install them:
-    1. `pip install yapf`
-    1. `pip install docformatter`
-1. from **the root of the repo** call them on the file of your choice:
-    1. `yapf -i <path-to-file>`
-    1. `docformatter -i <path-to-file>`
+* The autoformatting check uses the custom `.style.yapf` in this repo and checks for both . You can run the autoformatter locally with `yapf -i --style .style.yapf <path-to-specific-file>` and then run `docformatter -i <path-to-specific-file>` (we encourage you to do this on any changed files!). You can also run the autoformatter recursively on a folder with: `yapf -i -r --style .style.yapf <path-to-specific-folder>` followed by `docformatter -i -r <path-to-specific-file>`.
+* In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1`, `pytest-pylint>=0.18.0`, `yapf` and `docformatter`. Also, install `mypy` from source: `pip install -U git+git://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31`. (Note: if [this mypy issue](https://github.com/python/mypy/issues/5485) gets resolved, we can install from head again.)
