@@ -8,8 +8,9 @@ from predicators.src.structs import State, Action, _Option
 from predicators.src.settings import CFG
 
 
-def create_option_model(name: str, simulator: Callable[[State, Action], State]
-                        ) -> _OptionModel:
+def create_option_model(
+        name: str, simulator: Callable[[State, Action],
+                                       State]) -> _OptionModel:
     """Create an option model given its name."""
     if name == "default":
         return _DefaultOptionModel(simulator)

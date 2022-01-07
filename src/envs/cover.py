@@ -149,14 +149,13 @@ class CoverEnv(BaseEnv):
                      lw=8.,
                      label=label)
         # Draw hand
-        plt.scatter(
-            state.get(self._robot, "hand"),
-            0.05,
-            color="r",
-            s=100,
-            alpha=1.,
-            zorder=10,
-            label="Hand")
+        plt.scatter(state.get(self._robot, "hand"),
+                    0.05,
+                    color="r",
+                    s=100,
+                    alpha=1.,
+                    zorder=10,
+                    label="Hand")
         lw = 3
         height = 0.1
         cs = ["blue", "purple", "green", "yellow"]
@@ -326,13 +325,12 @@ class CoverEnvTypedOptions(CoverEnv):
     def __init__(self) -> None:
         super().__init__()
         del self._PickPlace
-        self._Pick = ParameterizedOption(
-            "Pick",
-            types=[self._block_type],
-            params_space=Box(-0.1, 0.1, (1, )),
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+        self._Pick = ParameterizedOption("Pick",
+                                         types=[self._block_type],
+                                         params_space=Box(-0.1, 0.1, (1, )),
+                                         _policy=self._Pick_policy,
+                                         _initiable=utils.always_initiable,
+                                         _terminal=utils.onestep_terminal)
         self._Place = ParameterizedOption(
             "Place",
             types=[self._target_type],
@@ -440,23 +438,21 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             self._targets.append(Object(f"target{i}", self._target_type))
         self._robot = Object("robby", self._robot_type)
         # Override the original options to make them multi-step.
-        self._Pick = ParameterizedOption(
-            "Pick",
-            types=[self._block_type],
-            params_space=Box(-1.0, 1.0, (1, )),
-            _policy=self._Pick_policy,
-            _initiable=self._Pick_initiable,
-            _terminal=self._Pick_terminal)
+        self._Pick = ParameterizedOption("Pick",
+                                         types=[self._block_type],
+                                         params_space=Box(-1.0, 1.0, (1, )),
+                                         _policy=self._Pick_policy,
+                                         _initiable=self._Pick_initiable,
+                                         _terminal=self._Pick_terminal)
         # Note: there is a change here -- the parameter space is now
         # relative to the target. In the parent env, the parameter
         # space is absolute, and the state of the target is not used.
-        self._Place = ParameterizedOption(
-            "Place",
-            types=[self._target_type],
-            params_space=Box(-1.0, 1.0, (1, )),
-            _policy=self._Place_policy,
-            _initiable=self._Place_initiable,
-            _terminal=self._Place_terminal)
+        self._Place = ParameterizedOption("Place",
+                                          types=[self._target_type],
+                                          params_space=Box(-1.0, 1.0, (1, )),
+                                          _policy=self._Place_policy,
+                                          _initiable=self._Place_initiable,
+                                          _terminal=self._Place_terminal)
         # We also add two ground truth options that correspond to the options
         # learned by the _SimpleOptionLearner. The parameter for these options
         # is a concatenation of several vectors, where each vector corresponds
@@ -538,8 +534,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                                by - ct)),  # top
                 ((bx + bw / 2 - ct, by - ct), (bx + bw / 2 - ct,
                                                by - bh)),  # right
-                ((bx - bw / 2 + ct, by - ct), (bx - bw / 2 + ct,
-                                               by - bh))  # left
+                ((bx - bw / 2 + ct, by - ct), (bx - bw / 2 + ct, by - bh)
+                 )  # left
             ]
             # Check if the robot collides with a block.
             if held_block is not None and block == held_block:
@@ -639,14 +635,13 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                      lw=8.,
                      label=label)
         # Draw hand
-        plt.scatter(
-            state.get(self._robot, "x"),
-            state.get(self._robot, "y"),
-            color="r",
-            s=100,
-            alpha=1.,
-            zorder=10,
-            label="Hand")
+        plt.scatter(state.get(self._robot, "x"),
+                    state.get(self._robot, "y"),
+                    color="r",
+                    s=100,
+                    alpha=1.,
+                    zorder=10,
+                    label="Hand")
         plt.plot([state.get(self._robot, "x"),
                   state.get(self._robot, "x")],
                  [1, state.get(self._robot, "y")],
@@ -725,8 +720,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         for target, width in zip(self._targets, CFG.cover_target_widths):
             while True:
                 x = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(
-                        x, width, data, larger_gap=True):
+                if not self._any_intersection(x, width, data,
+                                              larger_gap=True):
                     break
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])
@@ -821,8 +816,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Pick is done when we're holding the desired object.
         return self._Holding_holds(s, [block, self._robot])
 
-    def _Pick_learned_equivalent_terminal(
-            self, s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+    def _Pick_learned_equivalent_terminal(self, s: State, m: Dict,
+                                          o: Sequence[Object],
+                                          p: Array) -> bool:
         del m  # unused
         block, robot = o
         # Pick is done when we're holding the desired object.
@@ -840,8 +836,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         del m, o, p  # unused
         return not self._HandEmpty_holds(s, [])
 
-    def _Place_learned_equivalent_initiable(
-            self, s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+    def _Place_learned_equivalent_initiable(self, s: State, m: Dict,
+                                            o: Sequence[Object],
+                                            p: Array) -> bool:
         # Place is initiable if we're holding the object.
         del m, p  # unused
         block, robot, _ = o
@@ -930,8 +927,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Place is done when the hand is empty.
         return self._HandEmpty_holds(s, [])
 
-    def _Place_learned_equivalent_terminal(
-            self, s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+    def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
+                                           o: Sequence[Object],
+                                           p: Array) -> bool:
         del m  # unused
         block, robot, _ = o
         # Place is done when the hand is empty.

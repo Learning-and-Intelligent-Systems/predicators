@@ -29,21 +29,21 @@ class _Node:
     skeleton: List[_GroundNSRT]
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
-    pyperplan_facts: PyperplanFacts = field(
-        init=False, default_factory=frozenset)
+    pyperplan_facts: PyperplanFacts = field(init=False,
+                                            default_factory=frozenset)
 
     def __post_init__(self) -> None:
         self.pyperplan_facts = utils.atoms_to_tuples(self.atoms)
 
 
 def sesame_plan(
-        task: Task,
-        option_model: _OptionModel,
-        nsrts: Set[NSRT],
-        initial_predicates: Set[Predicate],
-        timeout: float,
-        seed: int,
-        check_dr_reachable: bool = True,
+    task: Task,
+    option_model: _OptionModel,
+    nsrts: Set[NSRT],
+    initial_predicates: Set[Predicate],
+    timeout: float,
+    seed: int,
+    check_dr_reachable: bool = True,
 ) -> Tuple[List[_Option], Metrics]:
     """Run TAMP.
 
@@ -102,13 +102,13 @@ def sesame_plan(
 
 
 def task_plan(
-        init_atoms: Set[GroundAtom],
-        objects: Set[Object],
-        goal: Set[GroundAtom],
-        strips_ops: Sequence[STRIPSOperator],
-        option_specs: Sequence[OptionSpec],
-        seed: int,
-        timeout: float,
+    init_atoms: Set[GroundAtom],
+    objects: Set[Object],
+    goal: Set[GroundAtom],
+    strips_ops: Sequence[STRIPSOperator],
+    option_specs: Sequence[OptionSpec],
+    seed: int,
+    timeout: float,
 ) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
     """Run only the task planning portion of SeSamE. A* search is run, and the
     first skeleton that achieves the goal symbolically is returned. Returns a
@@ -139,20 +139,18 @@ def task_plan(
 
 
 def _skeleton_generator(
-        task: Task, ground_nsrts: List[_GroundNSRT],
-        init_atoms: Set[GroundAtom], seed: int, timeout: float,
-        metrics: Metrics
+    task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
+    seed: int, timeout: float, metrics: Metrics
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
     start_time = time.time()
     queue: List[Tuple[float, float, _Node]] = []
-    root_node = _Node(
-        atoms=init_atoms,
-        skeleton=[],
-        atoms_sequence=[init_atoms],
-        parent=None)
+    root_node = _Node(atoms=init_atoms,
+                      skeleton=[],
+                      atoms_sequence=[init_atoms],
+                      parent=None)
     rng_prio = np.random.default_rng(seed)
     heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
                                        init_atoms, task.goal, ground_nsrts)
@@ -177,14 +175,14 @@ def _skeleton_generator(
             for nsrt in utils.get_applicable_operators(
                     ground_nsrts, node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
-                child_node = _Node(
-                    atoms=child_atoms,
-                    skeleton=node.skeleton + [nsrt],
-                    atoms_sequence=node.atoms_sequence + [child_atoms],
-                    parent=node)
+                child_node = _Node(atoms=child_atoms,
+                                   skeleton=node.skeleton + [nsrt],
+                                   atoms_sequence=node.atoms_sequence +
+                                   [child_atoms],
+                                   parent=node)
                 # priority is g [plan length] plus h [heuristic]
-                priority = (len(child_node.skeleton) + heuristic(
-                    child_node.pyperplan_facts))
+                priority = (len(child_node.skeleton) +
+                            heuristic(child_node.pyperplan_facts))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
@@ -303,9 +301,8 @@ def _update_nsrts_with_failure(
     new_ground_nsrts = []
     for obj in discovered_failure.env_failure.offending_objects:
         atom = GroundAtom(
-            Predicate(
-                _NOT_CAUSES_FAILURE, [obj.type],
-                _classifier=lambda s, o: False), [obj])
+            Predicate(_NOT_CAUSES_FAILURE, [obj.type],
+                      _classifier=lambda s, o: False), [obj])
         for ground_nsrt in ground_nsrts:
             # Update the preconditions of the failing NSRT.
             if ground_nsrt == discovered_failure.failing_nsrt:

@@ -161,9 +161,8 @@ class PaintingEnv(BaseEnv):
         # Infer which transition function to follow
         wash_affinity = 0 if arr[5] > 0.5 else abs(arr[5] - 0.5)
         dry_affinity = 0 if arr[6] > 0.5 else abs(arr[6] - 0.5)
-        paint_affinity = min(
-            abs(arr[7] - state.get(self._box, "color")),
-            abs(arr[7] - state.get(self._shelf, "color")))
+        paint_affinity = min(abs(arr[7] - state.get(self._box, "color")),
+                             abs(arr[7] - state.get(self._shelf, "color")))
         affinities = [
             (abs(1 - arr[4]), self._transition_pick_or_openlid),
             (wash_affinity, self._transition_wash),
@@ -285,29 +284,25 @@ class PaintingEnv(BaseEnv):
         num_tasks = CFG.num_train_tasks // len(CFG.painting_train_families)
         for family_name in CFG.painting_train_families:
             if family_name == "box_only":
-                yield self._get_tasks(
-                    num_tasks=num_tasks,
-                    num_objs_lst=[1],
-                    rng=self._train_rng)
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=[1],
+                                      rng=self._train_rng)
             elif family_name == "shelf_only":
-                yield self._get_tasks(
-                    num_tasks=num_tasks,
-                    num_objs_lst=self.num_objs_train,
-                    rng=self._train_rng,
-                    use_box=False)
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=self.num_objs_train,
+                                      rng=self._train_rng,
+                                      use_box=False)
             elif family_name == "box_and_shelf":
-                yield self._get_tasks(
-                    num_tasks=num_tasks,
-                    num_objs_lst=self.num_objs_train,
-                    rng=self._train_rng)
+                yield self._get_tasks(num_tasks=num_tasks,
+                                      num_objs_lst=self.num_objs_train,
+                                      rng=self._train_rng)
             else:
                 raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(
-            num_tasks=CFG.num_test_tasks,
-            num_objs_lst=self.num_objs_test,
-            rng=self._test_rng)
+        return self._get_tasks(num_tasks=CFG.num_test_tasks,
+                               num_objs_lst=self.num_objs_test,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:

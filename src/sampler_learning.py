@@ -23,9 +23,10 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
            param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
         elif sampler_learner == "neural":
-            sampler = _learn_neural_sampler(
-                datastores, op.name, op.parameters, op.preconditions,
-                op.add_effects, op.delete_effects, param_option, i)
+            sampler = _learn_neural_sampler(datastores, op.name,
+                                            op.parameters, op.preconditions,
+                                            op.add_effects, op.delete_effects,
+                                            param_option, i)
         else:
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
@@ -33,11 +34,13 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
     return samplers
 
 
-def _learn_neural_sampler(
-        datastores: List[Datastore], nsrt_name: str,
-        variables: Sequence[Variable], preconditions: Set[LiftedAtom],
-        add_effects: Set[LiftedAtom], delete_effects: Set[LiftedAtom],
-        param_option: ParameterizedOption, datastore_idx: int) -> NSRTSampler:
+def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
+                          variables: Sequence[Variable],
+                          preconditions: Set[LiftedAtom],
+                          add_effects: Set[LiftedAtom],
+                          delete_effects: Set[LiftedAtom],
+                          param_option: ParameterizedOption,
+                          datastore_idx: int) -> NSRTSampler:
     """Learn a neural network sampler given data.
 
     Transitions are clustered, so that they can be used for generating
@@ -90,10 +93,10 @@ def _learn_neural_sampler(
 
 
 def _create_sampler_data(
-        datastores: List[Datastore], variables: Sequence[Variable],
-        preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
-        delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
-        datastore_idx: int
+    datastores: List[Datastore], variables: Sequence[Variable],
+    preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
+    delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
+    datastore_idx: int
 ) -> Tuple[List[Tuple[State, Dict[Variable, Object], _Option]], ...]:
     """Generate positive and negative data for training a sampler."""
     positive_data = []
@@ -170,9 +173,8 @@ class _LearnedSampler:
         x = np.array(x_lst)
         num_rejections = 0
         while num_rejections <= CFG.max_rejection_sampling_tries:
-            params = np.array(
-                self._regressor.predict_sample(x, rng),
-                dtype=self._param_option.params_space.dtype)
+            params = np.array(self._regressor.predict_sample(x, rng),
+                              dtype=self._param_option.params_space.dtype)
             if self._param_option.params_space.contains(params) and \
                self._classifier.classify(np.r_[x, params]):
                 break

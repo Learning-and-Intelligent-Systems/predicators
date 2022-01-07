@@ -13,6 +13,7 @@ class RandomActionsApproach(BaseApproach):
         return False
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
         def _policy(_: State) -> Action:
             return Action(self._action_space.sample())
 

@@ -62,9 +62,10 @@ def test_random_options_approach():
             break
     assert solved
     # Test what happens when there's no initializable option.
-    parameterized_option2 = ParameterizedOption(
-        "Move", [], params_space, _policy, lambda _1, _2, _3, _4: False,
-        _terminal)
+    parameterized_option2 = ParameterizedOption("Move", [], params_space,
+                                                _policy,
+                                                lambda _1, _2, _3, _4: False,
+                                                _terminal)
     approach = RandomOptionsApproach(_simulator, {Solved},
                                      {parameterized_option2}, {cup_type},
                                      params_space)
@@ -74,9 +75,9 @@ def test_random_options_approach():
     act = policy(state)
     assert not act.has_option()  # should have fallen back to random action
     # Test what happens when the option is always terminal.
-    parameterized_option3 = ParameterizedOption(
-        "Move", [], params_space, _policy,
-        _initiable, lambda _1, _2, _3, _4: True)
+    parameterized_option3 = ParameterizedOption("Move", [], params_space,
+                                                _policy, _initiable,
+                                                lambda _1, _2, _3, _4: True)
     approach = RandomOptionsApproach(_simulator, {Solved},
                                      {parameterized_option3}, {cup_type},
                                      params_space)

@@ -56,12 +56,11 @@ class NeuralGaussianRegressor(nn.Module):
         mean, variance = self._predict_mean_var(x)
         y = []
         for mu, sigma_sq in zip(mean, variance):
-            y_i = truncnorm.rvs(
-                -1.0 * CFG.regressor_sample_clip,
-                CFG.regressor_sample_clip,
-                loc=mu,
-                scale=np.sqrt(sigma_sq),
-                random_state=rng)
+            y_i = truncnorm.rvs(-1.0 * CFG.regressor_sample_clip,
+                                CFG.regressor_sample_clip,
+                                loc=mu,
+                                scale=np.sqrt(sigma_sq),
+                                random_state=rng)
             y.append(y_i)
         return np.array(y)
 
@@ -266,10 +265,9 @@ class MLPClassifier(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(
-                    f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}",
-                    end="\r",
-                    flush=True)
+                print(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}",
+                      end="\r",
+                      flush=True)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

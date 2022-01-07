@@ -181,8 +181,8 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
 
     def _classify_object(self, s: State, obj: Object) -> bool:
         assert obj.type == self.body.types[self.free_variable_idx]
-        for o in utils.get_object_combinations(
-                set(s), self._quantified_types):
+        for o in utils.get_object_combinations(set(s),
+                                               self._quantified_types):
             o_lst = list(o)
             o_lst.insert(self.free_variable_idx, obj)
             if not self.body.holds(s, o_lst):
@@ -248,8 +248,10 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
         raise NotImplementedError("Override me!")
 
 
-def _halving_constant_generator(lo: float, hi: float, cost: float = 1.0
-                                ) -> Iterator[Tuple[float, float]]:
+def _halving_constant_generator(
+        lo: float,
+        hi: float,
+        cost: float = 1.0) -> Iterator[Tuple[float, float]]:
     """The second element of the tuple is a cost. For example, the first
     several tuples yielded will be:
 
@@ -294,8 +296,8 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     types = [t]
                     pred = Predicate(name, types, classifier)
                     assert pred.arity == 1
-                    yield (pred,
-                           1 + cost)  # cost = arity + cost from constant
+                    yield (pred, 1 + cost
+                           )  # cost = arity + cost from constant
 
     def _get_feature_ranges(
             self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -312,8 +314,8 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                         for f in obj.type.feature_names:
                             mn, mx = feature_ranges[obj.type][f]
                             v = state.get(obj, f)
-                            feature_ranges[obj.type][f] = (min(mn, v),
-                                                           max(mx, v))
+                            feature_ranges[obj.type][f] = (min(mn,
+                                                               v), max(mx, v))
         return feature_ranges
 
 
@@ -333,8 +335,8 @@ class _ChainPredicateGrammar(_PredicateGrammar):
     base_grammars: Sequence[_PredicateGrammar]
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
-        return itertools.chain.from_iterable(
-            g.enumerate() for g in self.base_grammars)
+        return itertools.chain.from_iterable(g.enumerate()
+                                             for g in self.base_grammars)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -373,7 +375,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             yield (predicate, cost)
 
     def _get_predicate_identifier(
-            self, predicate: Predicate
+        self, predicate: Predicate
     ) -> FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]]:
         """Returns frozensets of groundatoms for each data point."""
         # Get atoms for this predicate alone on the dataset.
@@ -396,8 +398,8 @@ class _NegationPredicateGrammarWrapper(_PredicateGrammar):
         for (predicate, cost) in self.base_grammar.enumerate():
             yield (predicate, cost)
             classifier = _NegationClassifier(predicate)
-            negated_predicate = Predicate(
-                str(classifier), predicate.types, classifier)
+            negated_predicate = Predicate(str(classifier), predicate.types,
+                                          classifier)
             # No change to costs when negating.
             yield (negated_predicate, cost)
 
@@ -419,15 +421,15 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                 continue
             # Generate Forall(x)
             forall_classifier = _ForallClassifier(predicate)
-            forall_predicate = Predicate(
-                str(forall_classifier), [], forall_classifier)
+            forall_predicate = Predicate(str(forall_classifier), [],
+                                         forall_classifier)
             assert forall_predicate.arity == 0
             yield (forall_predicate, cost + 1)  # add arity + 1 to cost
             # Generate NOT-Forall(x)
             notforall_classifier = _NegationClassifier(forall_predicate)
-            notforall_predicate = Predicate(
-                str(notforall_classifier), forall_predicate.types,
-                notforall_classifier)
+            notforall_predicate = Predicate(str(notforall_classifier),
+                                            forall_predicate.types,
+                                            notforall_classifier)
             assert notforall_predicate.arity == 0
             yield (notforall_predicate, cost + 1)  # add arity + 1 to cost
             # Generate UFFs
@@ -436,19 +438,19 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                     # Positive UFF
                     uff_classifier = _UnaryFreeForallClassifier(
                         predicate, idx)
-                    uff_predicate = Predicate(
-                        str(uff_classifier), [predicate.types[idx]],
-                        uff_classifier)
+                    uff_predicate = Predicate(str(uff_classifier),
+                                              [predicate.types[idx]],
+                                              uff_classifier)
                     assert uff_predicate.arity == 1
                     yield (uff_predicate, cost + 2)  # add arity + 1 to cost
                     # Negated UFF
                     notuff_classifier = _NegationClassifier(uff_predicate)
-                    notuff_predicate = Predicate(
-                        str(notuff_classifier), uff_predicate.types,
-                        notuff_classifier)
+                    notuff_predicate = Predicate(str(notuff_classifier),
+                                                 uff_predicate.types,
+                                                 notuff_classifier)
                     assert notuff_predicate.arity == 1
-                    yield (notuff_predicate,
-                           cost + 2)  # add arity + 1 to cost
+                    yield (notuff_predicate, cost + 2
+                           )  # add arity + 1 to cost
 
 
 ################################################################################
@@ -532,8 +534,9 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         pnads = learn_strips_operators(segments, verbose=False)
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
-        op_score = self._evaluate_with_operators(
-            predicates, pruned_atom_data, segments, strips_ops, option_specs)
+        op_score = self._evaluate_with_operators(predicates, pruned_atom_data,
+                                                 segments, strips_ops,
+                                                 option_specs)
         pred_penalty = self._get_predicate_penalty(predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
@@ -666,12 +669,12 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                                                     heuristic_fn, ground_ops)
         return CFG.grammar_search_heuristic_based_weight * score
 
-    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
-                            objects: Set[Object], goal: Set[GroundAtom],
-                            strips_ops: Sequence[STRIPSOperator],
-                            option_specs: Sequence[OptionSpec],
-                            ground_ops: Set[_GroundSTRIPSOperator]
-                            ) -> Callable[[Set[GroundAtom]], float]:
+    def _generate_heuristic(
+        self, init_atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator]
+    ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
     def _evaluate_atom_trajectory(
@@ -754,12 +757,12 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
     heuristic_name: str
     lookahead_depth: int = field(default=0)
 
-    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
-                            objects: Set[Object], goal: Set[GroundAtom],
-                            strips_ops: Sequence[STRIPSOperator],
-                            option_specs: Sequence[OptionSpec],
-                            ground_ops: Set[_GroundSTRIPSOperator]
-                            ) -> Callable[[Set[GroundAtom]], float]:
+    def _generate_heuristic(
+        self, init_atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator]
+    ) -> Callable[[Set[GroundAtom]], float]:
         h_fn = utils.create_heuristic(self.heuristic_name, init_atoms, goal,
                                       ground_ops)
         del init_atoms  # unused after this
@@ -793,12 +796,12 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with task planning."""
 
-    def _generate_heuristic(self, init_atoms: Set[GroundAtom],
-                            objects: Set[Object], goal: Set[GroundAtom],
-                            strips_ops: Sequence[STRIPSOperator],
-                            option_specs: Sequence[OptionSpec],
-                            ground_ops: Set[_GroundSTRIPSOperator]
-                            ) -> Callable[[Set[GroundAtom]], float]:
+    def _generate_heuristic(
+        self, init_atoms: Set[GroundAtom], objects: Set[Object],
+        goal: Set[GroundAtom], strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator]
+    ) -> Callable[[Set[GroundAtom]], float]:
         del init_atoms  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
 
@@ -909,7 +912,7 @@ def _select_predicates_to_keep(
 
     # Successively consider larger predicate sets.
     def _get_successors(
-            s: FrozenSet[Predicate]
+        s: FrozenSet[Predicate]
     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
         for predicate in sorted(set(candidates) - s):  # determinism
             # Actions not needed. Frozensets for hashing.
@@ -935,9 +938,9 @@ def _select_predicates_to_keep(
 
 
 def _count_positives_for_ops(
-        strips_ops: List[STRIPSOperator],
-        option_specs: List[OptionSpec],
-        segments: List[Segment],
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+    segments: List[Segment],
 ) -> Tuple[int, int, List[Set[int]], List[Set[int]]]:
     """Returns num true positives, num false positives, and for each strips op,
     lists of segment indices that contribute true or false positives.
@@ -957,8 +960,8 @@ def _count_positives_for_ops(
         option_objects = segment_option.objects
         covered_by_some_op = False
         # Ground only the operators with a matching option spec.
-        for op_idx, (op, option_spec) in enumerate(
-                zip(strips_ops, option_specs)):
+        for op_idx, (op,
+                     option_spec) in enumerate(zip(strips_ops, option_specs)):
             # If the parameterized options are different, not relevant.
             if option_spec[0] != segment_option.parent:
                 continue

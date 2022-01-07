@@ -169,16 +169,14 @@ class BlocksEnv(BaseEnv):
         return next_state
 
     def train_tasks_generator(self) -> Iterator[List[Task]]:
-        yield self._get_tasks(
-            num_tasks=CFG.num_train_tasks,
-            possible_num_blocks=self.num_blocks_train,
-            rng=self._train_rng)
+        yield self._get_tasks(num_tasks=CFG.num_train_tasks,
+                              possible_num_blocks=self.num_blocks_train,
+                              rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(
-            num_tasks=CFG.num_test_tasks,
-            possible_num_blocks=self.num_blocks_test,
-            rng=self._test_rng)
+        return self._get_tasks(num_tasks=CFG.num_test_tasks,
+                               possible_num_blocks=self.num_blocks_test,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:

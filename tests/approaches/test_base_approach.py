@@ -31,8 +31,8 @@ def test_base_approach():
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)
-    pred2 = Predicate(
-        "Is", [cup_type, plate_type, plate_type], _classifier=None)
+    pred2 = Predicate("Is", [cup_type, plate_type, plate_type],
+                      _classifier=None)
     cup = cup_type("cup")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
@@ -53,12 +53,11 @@ def test_base_approach():
     predicates = {pred1, pred2}
     types = {cup_type, plate_type}
     options = {
-        ParameterizedOption(
-            "Move", [],
-            params_space,
-            _policy,
-            _initiable=None,
-            _terminal=None)
+        ParameterizedOption("Move", [],
+                            params_space,
+                            _policy,
+                            _initiable=None,
+                            _terminal=None)
     }
     approach = BaseApproach(_simulator, predicates, options, types,
                             action_space)

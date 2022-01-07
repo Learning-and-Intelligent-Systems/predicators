@@ -138,8 +138,8 @@ def test_halving_constant_generator():
 def test_forall_classifier():
     """Tests for _ForallClassifier()."""
     cup_type = Type("cup_type", ["feat1"])
-    pred = Predicate("Pred",
-                     [cup_type], lambda s, o: s.get(o[0], "feat1") > 0.5)
+    pred = Predicate("Pred", [cup_type],
+                     lambda s, o: s.get(o[0], "feat1") > 0.5)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     state0 = State({cup1: [0.], cup2: [0.]})
@@ -267,8 +267,9 @@ def test_prediction_error_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _PredictionErrorScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _PredictionErrorScoreFunction(initial_predicates,
+                                                   atom_dataset, train_tasks,
+                                                   candidates)
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate(
         {name_to_pred["HandEmpty"]})
@@ -297,8 +298,9 @@ def test_prediction_error_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _PredictionErrorScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _PredictionErrorScoreFunction(initial_predicates,
+                                                   atom_dataset, train_tasks,
+                                                   candidates)
     all_included_s = score_function.evaluate(set(candidates))
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
     clear_included_s = score_function.evaluate({name_to_pred["Clear"]})
@@ -503,13 +505,12 @@ def test_relaxation_lookahead_score_function():
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
 
-    score_function = _MockHAddLookahead(
-        initial_predicates,
-        atom_dataset,
-        train_tasks,
-        candidates,
-        "hadd",
-        lookahead_depth=1)
+    score_function = _MockHAddLookahead(initial_predicates,
+                                        atom_dataset,
+                                        train_tasks,
+                                        candidates,
+                                        "hadd",
+                                        lookahead_depth=1)
     assert score_function.evaluate(set(candidates)) == float("inf")
 
 
@@ -605,8 +606,9 @@ def test_branching_factor_score_function():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.goal_predicates | set(candidates))
-    score_function = _BranchingFactorScoreFunction(
-        env.goal_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _BranchingFactorScoreFunction(env.goal_predicates,
+                                                   atom_dataset, train_tasks,
+                                                   candidates)
     holding_s = score_function.evaluate({Holding})
     forall_not_covers_s = score_function.evaluate(
         {forall_not_covers0, forall_not_covers1})
@@ -640,8 +642,9 @@ def test_task_planning_score_function():
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.goal_predicates | set(candidates))
-    score_function = _TaskPlanningScoreFunction(
-        env.goal_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _TaskPlanningScoreFunction(env.goal_predicates,
+                                                atom_dataset, train_tasks,
+                                                candidates)
     all_included_s = score_function.evaluate({Holding, HandEmpty})
     none_included_s = score_function.evaluate(set())
     # This is terrible!

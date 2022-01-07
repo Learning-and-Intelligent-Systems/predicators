@@ -360,9 +360,9 @@ def test_option_memory_incorrect():
             value += p[0]  # add the param to value
             return Action(p)
 
-        return ParameterizedOption("Dummy", [], Box(
-            0, 1, (1, )), _policy, lambda s, m, o, p: True, lambda s, m, o, p:
-                                   value > 1.0)  # terminate when value > 1.0
+        return ParameterizedOption(
+            "Dummy", [], Box(0, 1, (1, )), _policy, lambda s, m, o, p: True,
+            lambda s, m, o, p: value > 1.0)  # terminate when value > 1.0
 
     param_opt = _make_option()
     opt1 = param_opt.ground([], [0.7])
@@ -384,6 +384,7 @@ def test_option_memory_correct():
     """
 
     def _make_option():
+
         def _initiable(s, m, o, p):
             del s, o, p  # unused
             m["value"] = 0.0  # initialize value
@@ -395,9 +396,9 @@ def test_option_memory_correct():
             m["value"] += p[0]  # add the param to value
             return Action(p)
 
-        return ParameterizedOption("Dummy", [], Box(0, 1, (1, )), _policy,
-                                   _initiable, lambda s, m, o, p: m["value"] >
-                                   1.0)  # terminate when value > 1.0
+        return ParameterizedOption(
+            "Dummy", [], Box(0, 1, (1, )), _policy, _initiable,
+            lambda s, m, o, p: m["value"] > 1.0)  # terminate when value > 1.0
 
     param_opt = _make_option()
     opt1 = param_opt.ground([], [0.7])
@@ -438,9 +439,10 @@ def test_nsrts():
     delete_effects = {not_on([cup_var, plate_var])}
     side_predicates = {on}
     params_space = Box(-10, 10, (2, ))
-    parameterized_option = ParameterizedOption(
-        "Pick", [], params_space, lambda s, m, o, p: 2 * p, lambda s, m, o, p:
-        True, lambda s, m, o, p: True)
+    parameterized_option = ParameterizedOption("Pick", [], params_space,
+                                               lambda s, m, o, p: 2 * p,
+                                               lambda s, m, o, p: True,
+                                               lambda s, m, o, p: True)
 
     def sampler(s, rng, objs):
         del s  # unused
@@ -601,8 +603,10 @@ def test_action():
                                                _policy, _initiable, _terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    traj = utils.option_to_trajectory(
-        state, _simulator, option, max_num_steps=5)
+    traj = utils.option_to_trajectory(state,
+                                      _simulator,
+                                      option,
+                                      max_num_steps=5)
     assert len(traj.actions) == len(traj.states) - 1 == 5
     for act in traj.actions:
         assert act.has_option()
@@ -620,8 +624,8 @@ def test_low_level_trajectory():
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
     plate = plate_type("plate")
-    on = Predicate(
-        "On", [cup_type, plate_type], lambda s, o: s.get(o[1], "feat1") < 1.3)
+    on = Predicate("On", [cup_type, plate_type],
+                   lambda s, o: s.get(o[1], "feat1") < 1.3)
     state0 = State({cup: [0.5], plate: [1.0, 1.2]})
     state1 = State({cup: [0.5], plate: [1.1, 1.2]})
     state2 = State({cup: [0.8], plate: [1.5, 1.2]})
@@ -667,8 +671,9 @@ def test_segment():
     traj = LowLevelTrajectory(states, actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
-    parameterized_option = ParameterizedOption("Move", [], Box(
-        0, 1, (1, )), lambda s, m, o, p: Action(p), lambda s, m, o, p: True,
+    parameterized_option = ParameterizedOption("Move", [], Box(0, 1, (1, )),
+                                               lambda s, m, o, p: Action(p),
+                                               lambda s, m, o, p: True,
                                                lambda s, m, o, p: True)
     params = [0.5]
     option = parameterized_option.ground([], params)
@@ -711,8 +716,9 @@ def test_pnad():
     traj = LowLevelTrajectory(states, actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
-    parameterized_option = ParameterizedOption("Move", [], Box(
-        0, 1, (1, )), lambda s, m, o, p: Action(p), lambda s, m, o, p: True,
+    parameterized_option = ParameterizedOption("Move", [], Box(0, 1, (1, )),
+                                               lambda s, m, o, p: Action(p),
+                                               lambda s, m, o, p: True,
                                                lambda s, m, o, p: True)
     params = [0.5]
     option = parameterized_option.ground([], params)

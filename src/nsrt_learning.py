@@ -132,8 +132,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
 
 
 def learn_strips_operators(
-        segments: Sequence[Segment],
-        verbose: bool = True,
+    segments: Sequence[Segment],
+    verbose: bool = True,
 ) -> List[PartialNSRTAndDatastore]:
     """Learn strips operators on the given data segments.
 

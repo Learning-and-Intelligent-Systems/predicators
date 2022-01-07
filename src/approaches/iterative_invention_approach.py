@@ -105,9 +105,9 @@ class IterativeInventionApproach(NSRTLearningApproach):
             # states would be empty, i.e. the X matrix has no features.
             return None
         param_option, option_vars = option_spec
-        opt_arg_pred = Predicate(
-            "OPT-ARGS", param_option.types,
-            _classifier=lambda s, o: False)  # dummy
+        opt_arg_pred = Predicate("OPT-ARGS",
+                                 param_option.types,
+                                 _classifier=lambda s, o: False)  # dummy
         lifted_opt_atom = LiftedAtom(opt_arg_pred, option_vars)
         op_pre = utils.wrap_atom_predicates(op.preconditions, "PRE-")
         op_add_effs = utils.wrap_atom_predicates(op.add_effects, "ADD-")
