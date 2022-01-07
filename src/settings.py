@@ -179,6 +179,8 @@ class GlobalSettings:
                     # replays makes learning slow.
                     "repeated_nextto": 50,
                 })[args["env"]],
+        )
+
 
 _attr_to_value = {}
 for _attr, _value in GlobalSettings.__dict__.items():
