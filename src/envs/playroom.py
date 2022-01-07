@@ -47,7 +47,7 @@ class PlayroomEnv(BlocksEnv):
             "block", ["pose_x", "pose_y", "pose_z", "held", "clear"])
         self._robot_type = Type("robot", ["pose_x", "pose_y", "rotation",
                                           "fingers"])
-        self._door_type = Type("door", ["pose_x", "pose_y", "open"])
+        self._door_type = Type("door", ["id", "pose_x", "pose_y", "open"])
         self._dial_type = Type("dial", ["pose_x", "pose_y", "level"])
         self._region_type = Type("region",
                                  ["id", "x_lb", "y_lb", "x_ub", "y_ub"])
@@ -205,14 +205,14 @@ class PlayroomEnv(BlocksEnv):
         was_next_to_door = {door: self._NextToDoor_holds(
                                     state, (self._robot, door))
                             for door in self._doors}
+        prev_region = self._get_region_in(state,
+                                          state.get(self._robot, "pose_x"))
         was_next_to_dial = self._NextToDial_holds(
                                     state, (self._robot, self._dial))
-        # Update robot position
-        if not self._is_valid_loc(x, y):
+        if not self._is_valid_loc(x, y) or not self._robot_can_move(state, action):
             return state.copy()
-        if self._robot_can_move(state, action):
-            state = self._transition_move(state, action)
-
+        # Update robot position
+        state = self._transition_move(state, action)
         x = state.get(self._robot, "pose_x")
         y = state.get(self._robot, "pose_y")
         # Interact with blocks if robot was already next to table
@@ -229,7 +229,9 @@ class PlayroomEnv(BlocksEnv):
         if any(self._NextToDoor_holds(state, (self._robot, door))
                for door in self._doors):
             door = self._get_door_next_to(state)
-            if was_next_to_door[door]:  # Robot was already next to this door
+            current_region = self._get_region_in(state, x)
+            # Robot was already next to this door and did not move through it
+            if was_next_to_door[door] and prev_region == current_region:
                 door_x = state.get(door, "pose_x")
                 door_y = state.get(door, "pose_y")
                 if (door_x-self.door_tol < x < door_x+self.door_tol) \
@@ -491,12 +493,12 @@ class PlayroomEnv(BlocksEnv):
         # [pose_x, pose_y, rotation, fingers], fingers start off open
         data[self._robot] = np.array([10.0, 15.0, 0.0, 1.0])
         # [pose_x, pose_y, open], all doors start off open except door1
-        data[self._door1] = np.array([30.0, 15.0, 0.0])
-        data[self._door2] = np.array([50.0, 15.0, 1.0])
-        data[self._door3] = np.array([60.0, 15.0, 1.0])
-        data[self._door4] = np.array([80.0, 15.0, 1.0])
-        data[self._door5] = np.array([100.0, 15.0, 1.0])
-        data[self._door6] = np.array([110.0, 15.0, 1.0])
+        data[self._door1] = np.array([1, 30.0, 15.0, 0.0])
+        data[self._door2] = np.array([2, 50.0, 15.0, 1.0])
+        data[self._door3] = np.array([3, 60.0, 15.0, 1.0])
+        data[self._door4] = np.array([4, 80.0, 15.0, 1.0])
+        data[self._door5] = np.array([5, 100.0, 15.0, 1.0])
+        data[self._door6] = np.array([6, 110.0, 15.0, 1.0])
         # [pose_x, pose_y, level], light starts on/off randomly
         data[self._dial] = np.array([125.0, 15.0, rng.uniform(0.0, 1.0)])
         # [id, x_lb, y_lb, x_ub, y_ub], regions left to right
@@ -620,15 +622,19 @@ class PlayroomEnv(BlocksEnv):
     @staticmethod
     def _Borders_holds(state: State, objects: Sequence[Object]) -> bool:
         door1, region, door2 = objects
-        return state.get(door1, "pose_x") == state.get(region, "x_lb") and \
-               state.get(door2, "pose_x") == state.get(region, "x_ub")
+        return (state.get(door1, "pose_x") == state.get(region, "x_lb") and \
+               state.get(door2, "pose_x") == state.get(region, "x_ub")) or \
+               (state.get(door2, "pose_x") == state.get(region, "x_lb") and \
+               state.get(door1, "pose_x") == state.get(region, "x_ub"))
 
     @staticmethod
     def _Connects_holds(state: State, objects: Sequence[Object]) -> bool:
         door, from_region, to_region = objects
         door_x = state.get(door, "pose_x")
-        return door_x == state.get(from_region, "x_ub") and \
-               door_x == state.get(to_region, "x_lb")
+        return (door_x == state.get(from_region, "x_ub") and \
+               door_x == state.get(to_region, "x_lb")) or \
+               (door_x == state.get(to_region, "x_ub") and \
+               door_x == state.get(from_region, "x_lb"))
 
     @staticmethod
     def _IsBoringRoomDoor_holds(state: State, objects: Sequence[Object]
@@ -803,13 +809,41 @@ class PlayroomEnv(BlocksEnv):
         return (x < door_x and 0.25 >= rotation >= -0.25) \
             or (x >= door_x and (rotation >= 0.75 or rotation <= -0.75))
 
+    def _get_region_in(self, state: State, x: float) -> int:
+        # return the id of the region that x-coordinate `x` is located in
+        assert self.x_lb <= x <= self.x_ub
+        for obj in state:
+            if obj.type == self._region_type and \
+                    state.get(obj, "x_lb") <= x <= state.get(obj, "x_ub"):
+                return state.get(obj, "id")
+
     def _robot_can_move(self, state: State, action: Action) -> bool:
-        # Any doors along the path must be open
         prev_x = state.get(self._robot, "pose_x")
-        x = action.arr[0]
+        x, y, _, _, _ = action.arr
+        prev_region = self._get_region_in(state, prev_x)
+        region = self._get_region_in(state, x)
+        if region == prev_region:  # Robot can stay in same region
+            return True
+        if abs(region-prev_region) > 1:  # Robot may not "skip over" regions
+            return False
+        # The only remaining possibility is that the robot moves to an
+        # adjacent region, which can only happen if it was next to a door.
+        if not any(self._NextToDoor_holds(state, (self._robot, door))
+                   for door in self._doors):
+            return False
+        # Any doors along the path must be open
         for door in self._doors:
             door_x = state.get(door, "pose_x")
             if x <= door_x <= prev_x or prev_x <= door_x <= x:
                 if state.get(door, "open") < self.door_open_thresh:
                     raise EnvironmentFailure("collision", {door})
-        return True
+        door = self._get_door_next_to(state)
+        next_state = state.copy()
+        next_state.set(self._robot, "pose_x", x)
+        next_state.set(self._robot, "pose_y", y)
+        # After the robot moves through the door, it must still be next to
+        # that same door.
+        if any(self._NextToDoor_holds(next_state, (self._robot, door))
+                for door in self._doors):
+            return door == self._get_door_next_to(next_state)
+        return False
