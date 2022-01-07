@@ -61,8 +61,6 @@ def _extract_oracle_samplers(strips_ops: List[STRIPSOperator],
         # Use unification to find a matching.
         for idx, (op, (param_option, option_vars)) in enumerate(
                 zip(strips_ops, option_specs)):
-            if isinstance(samplers[idx], _RandomSampler):
-                continue
             suc, sub = utils.unify_preconds_effects_options(
                 frozenset(nsrt.preconditions), frozenset(op.preconditions),
                 frozenset(nsrt.add_effects), frozenset(op.add_effects),
