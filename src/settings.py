@@ -177,19 +177,15 @@ class GlobalSettings:
                     # For the repeated_nextto environment, too many
                     # replays makes learning slow.
                     "repeated_nextto": 50,
-                }
-            )[args["env"]],
-
+                })[args["env"]],
             max_num_steps_option_rollout=defaultdict(
-                lambda: 100, {
+                lambda: 100,
+                {
                     # For the behavior environment, we need
                     # to execute the options for a larger number of
                     # timesteps
                     "behavior": 1000,
-                }
-            )[args["env"]]
-
-        )
+                })[args["env"]])
 
 
 _attr_to_value = {}

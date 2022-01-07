@@ -30,6 +30,7 @@ class _Node:
     atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
 
+
 def sesame_plan(
     task: Task,
     option_model: _OptionModel,
