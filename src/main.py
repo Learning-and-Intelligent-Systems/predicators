@@ -19,8 +19,8 @@ To exclude predicates:
          --excluded_predicates Holding
 
 To run grammar search predicate invention (example):
-    python src/main.py --env blocks --approach grammar_search_invention \
-        --seed 0 --excluded_predicates Holding,Clear,GripperOpen
+    python src/main.py --env cover --approach grammar_search_invention \
+        --seed 0 --excluded_predicates all
 """
 
 from collections import defaultdict
