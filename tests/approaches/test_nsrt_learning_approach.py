@@ -57,8 +57,8 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(
-                policy, task, env.simulate, env.predicates)
+            assert utils.policy_solves_task(policy, task, env.simulate,
+                                            env.predicates)
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -68,8 +68,8 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(
-                policy, task, env.simulate, env.predicates)
+            assert utils.policy_solves_task(policy, task, env.simulate,
+                                            env.predicates)
 
 
 def test_nsrt_learning_approach():
@@ -93,19 +93,24 @@ def test_nsrt_learning_approach():
 
 
 def test_oracle_samplers():
-    """Test NSRTLearningApproach with oracle samplers.
-    """
+    """Test NSRTLearningApproach with oracle samplers."""
     # Oracle sampler learning should work (and be fast) in cover and blocks.
     # We can even check that the policy succeeds!
-    _test_approach(env_name="cover", approach_name="nsrt_learning",
-                   sampler_learner="oracle", check_solution=True)
-    _test_approach(env_name="blocks", approach_name="nsrt_learning",
-                   sampler_learner="oracle", check_solution=True)
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   check_solution=True)
+    _test_approach(env_name="blocks",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   check_solution=True)
     with pytest.raises(AssertionError) as e:
         # In painting, we learn operators that are different from the
         # oracle ones, so oracle sampler learning is not possible.
-        _test_approach(env_name="painting", approach_name="nsrt_learning",
-                       sampler_learner="oracle", check_solution=True)
+        _test_approach(env_name="painting",
+                       approach_name="nsrt_learning",
+                       sampler_learner="oracle",
+                       check_solution=True)
     assert "were not matched to a learned operator" in str(e)
 
 
