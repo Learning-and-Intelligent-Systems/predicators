@@ -1157,6 +1157,10 @@ def test_create_task_planning_heuristic():
         "hff", set(), set(), set(), set(), set())
     assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
     assert hff_heuristic.name == "hff"
+    lmcut_heuristic = utils.create_task_planning_heuristic(
+        "lmcut", set(), set(), set(), set(), set())
+    assert isinstance(lmcut_heuristic, _PyperplanHeuristicWrapper)
+    assert lmcut_heuristic.name == "lmcut"
     with pytest.raises(ValueError):
         utils.create_task_planning_heuristic("not a real heuristic", set(),
                                              set(), set(), set(), set())

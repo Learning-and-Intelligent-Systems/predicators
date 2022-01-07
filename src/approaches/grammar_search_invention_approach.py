@@ -469,7 +469,7 @@ def _create_score_function(
             initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     match = re.match(r"(\w+)_lookahead_depth(\d+)", score_function_name)
     if match is not None:
-        # heuristic_name can be any of {"hadd", "hmax", "hff"}
+        # heuristic_name can be any of {"hadd", "hmax", "hff", "lmcut"}
         # depth can be any non-negative integer
         heuristic_name, depth = match.groups()
         depth = int(depth)
