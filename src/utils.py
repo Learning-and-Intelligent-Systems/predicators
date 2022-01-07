@@ -615,8 +615,6 @@ def run_hill_climbing(initial_state: _S,
     assert enforced_depth >= 0
     cur_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
         initial_state, 0, 0)
-    states = [initial_state]
-    actions = []
     last_heuristic = heuristic(cur_node.state)
     visited = {initial_state}
     print(f"\n\nStarting hill climbing at state {cur_node.state} "
