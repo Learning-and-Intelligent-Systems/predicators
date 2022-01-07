@@ -19,8 +19,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
-    ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, predicates)
+    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
 
     # STEP 2: Segment each trajectory in the dataset based on changes in
     #         either predicates or options. If we are doing option learning,
@@ -112,8 +111,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         if switch:
             # Include the final state as the end of this segment.
             current_segment_states.append(traj.states[t + 1])
-            current_segment_traj = LowLevelTrajectory(
-                current_segment_states, current_segment_actions)
+            current_segment_traj = LowLevelTrajectory(current_segment_states,
+                                                      current_segment_actions)
             if traj.actions[t].has_option():
                 segment = Segment(current_segment_traj, all_atoms[t],
                                   all_atoms[t + 1],

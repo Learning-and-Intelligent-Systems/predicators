@@ -22,8 +22,8 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                         run_planning: bool, outdir: str) -> None:
     if "cover" in env_names:
         env_name = "cover"
-        HandEmpty, Holding = _get_predicates_by_names(
-            env_name, ["HandEmpty", "Holding"])
+        HandEmpty, Holding = _get_predicates_by_names(env_name,
+                                                      ["HandEmpty", "Holding"])
         covers_pred_sets: List[Set[Predicate]] = [
             set(),
             {HandEmpty},
@@ -31,8 +31,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             {HandEmpty, Holding},
         ]
         _run_proxy_analysis_for_env(env_name, covers_pred_sets,
-                                    score_function_names, run_planning,
-                                    outdir)
+                                    score_function_names, run_planning, outdir)
 
     if "blocks" in env_names:
         env_name = "blocks"
@@ -49,8 +48,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             {Clear, GripperOpen, Holding},
         ]
         _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
-                                    score_function_names, run_planning,
-                                    outdir)
+                                    score_function_names, run_planning, outdir)
 
     if "painting" in env_names:
         env_name = "painting"
@@ -72,8 +70,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             all_predicates,
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
-                                    score_function_names, run_planning,
-                                    outdir)
+                                    score_function_names, run_planning, outdir)
 
 
 def _run_proxy_analysis_for_env(env_name: str,
@@ -106,8 +103,7 @@ def _run_proxy_analysis_for_env(env_name: str,
                                                score_function_names,
                                                run_planning)
         # Save these results.
-        pred_str = ",".join(sorted([str(p.name)
-                                    for p in non_goal_predicates]))
+        pred_str = ",".join(sorted([str(p.name) for p in non_goal_predicates]))
         if not pred_str:
             pred_str = "[none]"
         filename_prefix = f"{env_name}__{pred_str}__"

@@ -22,8 +22,8 @@ class NSRTLearningApproach(TAMPApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options,
-                         types, action_space)
+        super().__init__(simulator, initial_predicates, initial_options, types,
+                         action_space)
         self._nsrts: Set[NSRT] = set()
         self._dataset: Dataset = []
 

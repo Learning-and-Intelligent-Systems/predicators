@@ -35,8 +35,7 @@ def test_known_options_option_learner():
         for act in traj.actions:
             assert act.has_option()
     segments = [
-        seg for traj in ground_atom_dataset
-        for seg in segment_trajectory(traj)
+        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
     ]
     pnads = learn_strips_operators(segments)
     strips_ops = [pnad.op for pnad in pnads]
@@ -90,8 +89,7 @@ def test_oracle_option_learner_cover():
         for act in traj.actions:
             assert not act.has_option()
     segments = [
-        seg for traj in ground_atom_dataset
-        for seg in segment_trajectory(traj)
+        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
     ]
     pnads = learn_strips_operators(segments)
     strips_ops = [pnad.op for pnad in pnads]
@@ -147,8 +145,7 @@ def test_oracle_option_learner_blocks():
         for act in traj.actions:
             assert not act.has_option()
     segments = [
-        seg for traj in ground_atom_dataset
-        for seg in segment_trajectory(traj)
+        seg for traj in ground_atom_dataset for seg in segment_trajectory(traj)
     ]
     pnads = learn_strips_operators(segments)
     strips_ops = [pnad.op for pnad in pnads]

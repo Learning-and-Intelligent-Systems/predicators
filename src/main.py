@@ -141,8 +141,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
     return {"test": test_metrics, "approach": approach.metrics.copy()}
 
 
-def _save_test_results(results: Dict[str, Metrics],
-                       start_time: float) -> None:
+def _save_test_results(results: Dict[str, Metrics], start_time: float) -> None:
     test_tasks_solved = results["test"]["test_tasks_solved"]
     test_tasks_total = results["test"]["test_tasks_total"]
     total_test_time = results["test"]["total_test_time"]

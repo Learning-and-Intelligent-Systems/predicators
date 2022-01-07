@@ -59,8 +59,7 @@ def create_approach(name: str, simulator: Callable[[State, Action], State],
                                            action_space)
     if name == "iterative_invention":
         return IterativeInventionApproach(simulator, initial_predicates,
-                                          initial_options, types,
-                                          action_space)
+                                          initial_options, types, action_space)
     if name == "grammar_search_invention":
         return GrammarSearchInventionApproach(simulator, initial_predicates,
                                               initial_options, types,

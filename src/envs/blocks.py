@@ -51,8 +51,7 @@ class BlocksEnv(BaseEnv):
                                       self._GripperOpen_holds)
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
-        self._Clear = Predicate("Clear", [self._block_type],
-                                self._Clear_holds)
+        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
@@ -432,8 +431,7 @@ class BlocksEnv(BaseEnv):
         return Action(arr)
 
     def _PutOnTable_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object],
-                           params: Array) -> Action:
+                           objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
         # Un-normalize parameters to actual table coordinates
         x_norm, y_norm = params

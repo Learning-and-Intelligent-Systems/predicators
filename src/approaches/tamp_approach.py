@@ -23,8 +23,8 @@ class TAMPApproach(BaseApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options,
-                         types, action_space)
+        super().__init__(simulator, initial_predicates, initial_options, types,
+                         action_space)
         self._option_model = create_option_model(CFG.option_model_name,
                                                  self._simulator)
         self._num_calls = 0

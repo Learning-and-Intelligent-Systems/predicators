@@ -198,8 +198,7 @@ class ClutteredTableEnv(BaseEnv):
         tasks = []
         goal = {GroundAtom(self._Holding, [self._cans[0]])}
         for _ in range(num):
-            tasks.append(Task(self._create_initial_state(train_or_test),
-                              goal))
+            tasks.append(Task(self._create_initial_state(train_or_test), goal))
         return tasks
 
     def _create_initial_state(self, train_or_test: str) -> State:

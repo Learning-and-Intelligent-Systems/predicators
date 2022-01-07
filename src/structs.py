@@ -339,8 +339,8 @@ class GroundAtom(_Atom):
 
     @cached_property
     def _str(self) -> str:
-        return (str(self.predicate) + "(" +
-                ", ".join(map(str, self.objects)) + ")")
+        return (str(self.predicate) + "(" + ", ".join(map(str, self.objects)) +
+                ")")
 
     def lift(self, sub: dict[Object, Variable]) -> LiftedAtom:
         """Create a LiftedAtom with a given substitution."""
@@ -452,9 +452,10 @@ class _Option:
 
 
 DummyOption: _Option = ParameterizedOption(
-    "DummyOption", [], Box(0, 1, (1, )),
-    lambda s, m, o, p: Action(np.array([0.0])), lambda s, m, o, p: False,
-    lambda s, m, o, p: False).ground([], np.array([0.0]))
+    "DummyOption", [], Box(0, 1,
+                           (1, )), lambda s, m, o, p: Action(np.array([0.0])),
+    lambda s, m, o, p: False, lambda s, m, o, p: False).ground([],
+                                                               np.array([0.0]))
 DummyOption.parent.params_space.seed(0)  # for reproducibility
 
 
@@ -771,8 +772,7 @@ class _GroundNSRT:
         assert isinstance(other, _GroundNSRT)
         return str(self) > str(other)
 
-    def sample_option(self, state: State,
-                      rng: np.random.Generator) -> _Option:
+    def sample_option(self, state: State, rng: np.random.Generator) -> _Option:
         """Sample an _Option for this ground NSRT, by invoking the contained
         sampler.
 
@@ -1017,5 +1017,5 @@ NSRTSampler = Callable[[State, np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
-GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator",
-                                     _GroundNSRT, _GroundSTRIPSOperator)
+GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
+                                     _GroundSTRIPSOperator)

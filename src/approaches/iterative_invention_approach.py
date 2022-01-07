@@ -24,8 +24,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options,
-                         types, action_space)
+        super().__init__(simulator, initial_predicates, initial_options, types,
+                         action_space)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
@@ -91,9 +91,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 return new_predicate
         return None
 
-    def _invent_for_op(
-            self, op: STRIPSOperator, option_spec: OptionSpec,
-            datastores: Sequence[Datastore]) -> Optional[Predicate]:
+    def _invent_for_op(self, op: STRIPSOperator, option_spec: OptionSpec,
+                       datastores: Sequence[Datastore]) -> Optional[Predicate]:
         """Go through the data, splitting it into positives and negatives based
         on whether the operator correctly predicts each transition or not.
 
@@ -192,8 +191,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
             X = np.array(params_data["pos"] + params_data["neg"])
             Y = np.array([1 for _ in params_data["pos"]] +
                          [0 for _ in params_data["neg"]])
-            model = MLPClassifier(X.shape[1],
-                                  CFG.classifier_max_itr_predicate)
+            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
             model.fit(X, Y)
             fit_score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
             if fit_score < CFG.iterative_invention_accept_score:

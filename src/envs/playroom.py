@@ -64,8 +64,7 @@ class PlayroomEnv(BlocksEnv):
                                       self._GripperOpen_holds)
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
-        self._Clear = Predicate("Clear", [self._block_type],
-                                self._Clear_holds)
+        self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         self._NextToTable = Predicate("NextToTable", [self._robot_type],
                                       self._NextToTable_holds)
         self._NextToDoor = Predicate("NextToDoor",
@@ -288,11 +287,10 @@ class PlayroomEnv(BlocksEnv):
     def predicates(self) -> Set[Predicate]:
         return {
             self._On, self._OnTable, self._GripperOpen, self._Holding,
-            self._Clear, self._NextToTable, self._NextToDoor,
-            self._NextToDial, self._InRegion, self._Borders, self._Connects,
-            self._IsBoringRoom, self._IsPlayroom, self._IsBoringRoomDoor,
-            self._IsPlayroomDoor, self._DoorOpen, self._DoorClosed,
-            self._LightOn, self._LightOff
+            self._Clear, self._NextToTable, self._NextToDoor, self._NextToDial,
+            self._InRegion, self._Borders, self._Connects, self._IsBoringRoom,
+            self._IsPlayroom, self._IsBoringRoomDoor, self._IsPlayroomDoor,
+            self._DoorOpen, self._DoorClosed, self._LightOn, self._LightOff
         }
 
     @property
@@ -700,8 +698,7 @@ class PlayroomEnv(BlocksEnv):
         return state.get(door, "pose_x") == 30.0
 
     @staticmethod
-    def _IsPlayroomDoor_holds(state: State,
-                              objects: Sequence[Object]) -> bool:
+    def _IsPlayroomDoor_holds(state: State, objects: Sequence[Object]) -> bool:
         door, = objects
         return state.get(door, "pose_x") == 110.0
 
@@ -754,8 +751,7 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _PutOnTable_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object],
-                           params: Array) -> Action:
+                           objects: Sequence[Object], params: Array) -> Action:
         # Differs from blocks because need robot rotation, table bounds
         del state, memory, objects  # unused
         # Un-normalize parameters to actual table coordinates
@@ -777,8 +773,7 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _ToggleDoor_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object],
-                           params: Array) -> Action:
+                           objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         _, door = objects
         door_pose = np.array([
@@ -791,8 +786,7 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _ToggleDial_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object],
-                           params: Array) -> Action:
+                           objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         _, dial = objects
         dial_pose = np.array([

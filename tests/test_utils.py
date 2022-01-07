@@ -410,8 +410,7 @@ def test_unify_preconds_effects_options():
                                                     frozenset(), frozenset(),
                                                     param_option0,
                                                     param_option0,
-                                                    (cup0, cup1),
-                                                    (cup0, cup1))
+                                                    (cup0, cup1), (cup0, cup1))
     assert suc
     assert sub == {cup0: cup0, cup1: cup1}
     # Now, a unify that should fail because of different parameterized options.
@@ -425,8 +424,7 @@ def test_unify_preconds_effects_options():
                                                     frozenset(), frozenset(),
                                                     param_option0,
                                                     param_option1,
-                                                    (cup0, cup1),
-                                                    (cup0, cup1))
+                                                    (cup0, cup1), (cup0, cup1))
     assert not suc
     assert not sub
 
@@ -843,8 +841,7 @@ def test_ground_atom_methods():
     ground_atoms = sorted(on_ground | not_on_ground)
     assert utils.all_ground_predicates(on, objects) == on_ground
     assert utils.all_ground_predicates(not_on, objects) == not_on_ground
-    assert utils.all_possible_ground_atoms(state,
-                                           {on, not_on}) == ground_atoms
+    assert utils.all_possible_ground_atoms(state, {on, not_on}) == ground_atoms
     assert not utils.abstract(state, {on, not_on})
 
 
@@ -1246,8 +1243,8 @@ def test_hadd_heuristic():
     """Tests for _HAddHeuristic."""
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
-                               ("IsTarget", "target1:target"),
-                               ("HandEmpty", ), ("IsBlock", "block1:block")})
+                               ("IsTarget", "target1:target"), ("HandEmpty", ),
+                               ("IsBlock", "block1:block")})
     operators = [
         utils.RelaxedOperator(
             "Pick", frozenset({("HandEmpty", ), ("IsBlock", "block1:block")}),
@@ -1300,8 +1297,8 @@ def test_hmax_heuristic():
     """Tests for _HMaxHeuristic."""
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
-                               ("IsTarget", "target1:target"),
-                               ("HandEmpty", ), ("IsBlock", "block1:block")})
+                               ("IsTarget", "target1:target"), ("HandEmpty", ),
+                               ("IsBlock", "block1:block")})
     operators = [
         utils.RelaxedOperator(
             "Pick", frozenset({("HandEmpty", ), ("IsBlock", "block1:block")}),
@@ -1363,8 +1360,8 @@ def test_hff_heuristic():
     """Tests for _HFFHeuristic."""
     initial_state = frozenset({("IsBlock", "block0:block"),
                                ("IsTarget", "target0:target"),
-                               ("IsTarget", "target1:target"),
-                               ("HandEmpty", ), ("IsBlock", "block1:block")})
+                               ("IsTarget", "target1:target"), ("HandEmpty", ),
+                               ("IsBlock", "block1:block")})
     operators = [
         utils.RelaxedOperator(
             "Pick", frozenset({("HandEmpty", ), ("IsBlock", "block1:block")}),
@@ -1431,8 +1428,8 @@ def test_create_pddl():
     goal = train_task.goal
     domain_str = utils.create_pddl_domain(nsrts, env.predicates, env.types,
                                           "cover")
-    problem_str = utils.create_pddl_problem(objects, init_atoms, goal,
-                                            "cover", "cover-problem0")
+    problem_str = utils.create_pddl_problem(objects, init_atoms, goal, "cover",
+                                            "cover-problem0")
     assert domain_str == """(define (domain cover)
   (:requirements :typing)
   (:types block robot target)
@@ -1709,8 +1706,7 @@ def test_run_hill_climbing():
 
     # Same, but actually reaching the goal is impossible.
     state_sequence, action_sequence = utils.run_hill_climbing(
-        initial_state, lambda s: False, _grid_successor_fn,
-        _grid_heuristic_fn)
+        initial_state, lambda s: False, _grid_successor_fn, _grid_heuristic_fn)
     assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
                               (4, 2), (4, 3), (4, 4)]
     assert action_sequence == [

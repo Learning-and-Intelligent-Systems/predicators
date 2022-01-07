@@ -416,8 +416,8 @@ class PaintingEnv(BaseEnv):
                 grip_rot = state.get(self._robot, "gripper_rot")
                 assert grip_rot < self.side_grasp_thresh or \
                     grip_rot > self.top_grasp_thresh
-                edgecolor = ("yellow" if grip_rot < self.side_grasp_thresh
-                             else "orange")
+                edgecolor = ("yellow" if grip_rot < self.side_grasp_thresh else
+                             "orange")
             else:
                 edgecolor = "gray"
             # Normalize poses to [0, 1]
@@ -496,8 +496,8 @@ class PaintingEnv(BaseEnv):
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
-                    goal.add(
-                        GroundAtom(self._IsShelfColor, [obj, self._shelf]))
+                    goal.add(GroundAtom(self._IsShelfColor,
+                                        [obj, self._shelf]))
             tasks.append(Task(State(data), goal))
         return tasks
 
@@ -580,8 +580,7 @@ class PaintingEnv(BaseEnv):
         return self._get_held_object(state) is not None
 
     def _handempty_initiable(self, state: State, memory: Dict,
-                             objects: Sequence[Object],
-                             params: Array) -> bool:
+                             objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding nothing.
         del memory, objects, params  # unused
         return self._get_held_object(state) is None

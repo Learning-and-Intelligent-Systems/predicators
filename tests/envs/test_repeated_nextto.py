@@ -98,13 +98,13 @@ def test_repeated_nextto_simulate():
     assert not state.allclose(next_state)
     state = next_state
     # Grasp success
-    act = Grasp.ground([robby, dot1],
-                       np.array([], dtype=np.float32)).policy(state)
+    act = Grasp.ground([robby, dot1], np.array([],
+                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Grasp fails if not at the argument dot
-    act = Grasp.ground([robby, dot0],
-                       np.array([], dtype=np.float32)).policy(state)
+    act = Grasp.ground([robby, dot0], np.array([],
+                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Use Action directly for final failure mode: no dot at desired x

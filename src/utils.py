@@ -146,9 +146,8 @@ def unify_preconds_effects_options(
         add_effects2: FrozenSet[LiftedOrGroundAtom],
         delete_effects1: FrozenSet[LiftedOrGroundAtom],
         delete_effects2: FrozenSet[LiftedOrGroundAtom],
-        param_option1: ParameterizedOption,
-        param_option2: ParameterizedOption, option_args1: Tuple[_TypedEntity,
-                                                                ...],
+        param_option1: ParameterizedOption, param_option2: ParameterizedOption,
+        option_args1: Tuple[_TypedEntity, ...],
         option_args2: Tuple[_TypedEntity, ...]) -> Tuple[bool, EntToEntSub]:
     """Wrapper around unify() that handles option arguments, preconditions, add
     effects, and delete effects.
@@ -371,9 +370,7 @@ def get_random_object_combination(objects: Collection[Object],
     types_to_objs = defaultdict(list)
     for obj in objects:
         types_to_objs[obj.type].append(obj)
-    return [
-        types_to_objs[t][rng.choice(len(types_to_objs[t]))] for t in types
-    ]
+    return [types_to_objs[t][rng.choice(len(types_to_objs[t]))] for t in types]
 
 
 def find_substitution(
@@ -428,9 +425,11 @@ def _find_substitution_helper(
                                         sub_atoms):
             continue
         # Backtracking search
-        solved, final_sub = _find_substitution_helper(
-            sub_atoms, super_entities_by_type, remaining_sub_variables,
-            super_pred_to_tuples, new_sub, allow_redundant)
+        solved, final_sub = _find_substitution_helper(sub_atoms,
+                                                      super_entities_by_type,
+                                                      remaining_sub_variables,
+                                                      super_pred_to_tuples,
+                                                      new_sub, allow_redundant)
         if solved:
             return solved, final_sub
     # Failure
@@ -789,8 +788,7 @@ def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
 
 def get_applicable_operators(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        atoms: Collection[GroundAtom]
-) -> Iterator[GroundNSRTOrSTRIPSOperator]:
+        atoms: Collection[GroundAtom]) -> Iterator[GroundNSRTOrSTRIPSOperator]:
     """Iterate over ground operators whose preconditions are satisfied.
 
     Note: the order may be nondeterministic. Users should be invariant.

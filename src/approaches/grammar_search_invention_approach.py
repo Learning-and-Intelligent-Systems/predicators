@@ -181,8 +181,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
 
     def _classify_object(self, s: State, obj: Object) -> bool:
         assert obj.type == self.body.types[self.free_variable_idx]
-        for o in utils.get_object_combinations(set(s),
-                                               self._quantified_types):
+        for o in utils.get_object_combinations(set(s), self._quantified_types):
             o_lst = list(o)
             o_lst.insert(self.free_variable_idx, obj)
             if not self.body.holds(s, o_lst):
@@ -296,8 +295,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     types = [t]
                     pred = Predicate(name, types, classifier)
                     assert pred.arity == 1
-                    yield (pred, 1 + cost
-                           )  # cost = arity + cost from constant
+                    yield (pred, 1 + cost)  # cost = arity + cost from constant
 
     def _get_feature_ranges(
             self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
@@ -436,8 +434,7 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
             if predicate.arity >= 2:
                 for idx in range(predicate.arity):
                     # Positive UFF
-                    uff_classifier = _UnaryFreeForallClassifier(
-                        predicate, idx)
+                    uff_classifier = _UnaryFreeForallClassifier(predicate, idx)
                     uff_predicate = Predicate(str(uff_classifier),
                                               [predicate.types[idx]],
                                               uff_classifier)
@@ -449,8 +446,7 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
                                                  uff_predicate.types,
                                                  notuff_classifier)
                     assert notuff_predicate.arity == 1
-                    yield (notuff_predicate, cost + 2
-                           )  # add arity + 1 to cost
+                    yield (notuff_predicate, cost + 2)  # add arity + 1 to cost
 
 
 ################################################################################
@@ -555,8 +551,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         raise NotImplementedError("Override me!")
 
     @staticmethod
-    def _get_operator_penalty(
-            strips_ops: Collection[STRIPSOperator]) -> float:
+    def _get_operator_penalty(strips_ops: Collection[STRIPSOperator]) -> float:
         """Get a score penalty based on the operator complexities."""
         size = 0
         for op in strips_ops:
@@ -861,8 +856,8 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                  initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options,
-                         types, action_space)
+        super().__init__(simulator, initial_predicates, initial_options, types,
+                         action_space)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 

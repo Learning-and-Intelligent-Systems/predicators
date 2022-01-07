@@ -489,9 +489,8 @@ def test_nsrts():
     assert ground_op3 > ground_op
     assert hash(ground_op) == hash(ground_op2)
     # NSRT
-    nsrt = NSRT("Pick", parameters, preconditions, add_effects,
-                delete_effects, side_predicates, parameterized_option, [],
-                sampler)
+    nsrt = NSRT("Pick", parameters, preconditions, add_effects, delete_effects,
+                side_predicates, parameterized_option, [], sampler)
     assert str(nsrt) == repr(nsrt) == """NSRT-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]

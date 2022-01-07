@@ -35,8 +35,7 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
-        config_file = os.path.join(igibson.root_path,
-                                   CFG.behavior_config_file)
+        config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
         self._env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
@@ -87,12 +86,10 @@ class BehaviorEnv(BaseEnv):
         assert len(self._env.task.ground_goal_state_options) == 1
         for head_expr in self._env.task.ground_goal_state_options[0]:
             bddl_name = head_expr.terms[0]  # untyped
-            ig_objs = [
-                self._name_to_ig_object(t) for t in head_expr.terms[1:]
-            ]
+            ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
-            pred_name = self._create_type_combo_name(
-                bddl_name, [o.type for o in objects])
+            pred_name = self._create_type_combo_name(bddl_name,
+                                                     [o.type for o in objects])
             pred = self._name_to_predicate(pred_name)
             atom = GroundAtom(pred, objects)
             goal.add(atom)
@@ -135,8 +132,7 @@ class BehaviorEnv(BaseEnv):
             # go to collect data and do NSRT learning.
             arity = self._bddl_predicate_arity(bddl_predicate)
             for type_combo in itertools.product(types_lst, repeat=arity):
-                pred_name = self._create_type_combo_name(
-                    bddl_name, type_combo)
+                pred_name = self._create_type_combo_name(bddl_name, type_combo)
                 classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
