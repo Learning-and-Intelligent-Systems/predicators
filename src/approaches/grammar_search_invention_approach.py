@@ -472,7 +472,7 @@ def _create_score_function(
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
-        # as hadd,hmax or hmadd,hmax,lmcut.
+        # as hadd,hmax or hadd,hmax,lmcut.
         # depth can be any non-negative integer.
         heuristic_names_str, depth = match.groups()
         heuristic_names = heuristic_names_str.split(",")
@@ -808,7 +808,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with task planning."""
 
-    heuristic_names: Sequence[str] = ("exact", )
+    heuristic_names: Sequence[str] = field(default=("exact", ), init=False)
 
     def _generate_heuristic(
         self,
