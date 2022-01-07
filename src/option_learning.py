@@ -111,15 +111,13 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 option_specs.append((PickPlace, []))
         elif CFG.env == "blocks":
             assert len(strips_ops) == 4
-            Pick = [
-                option for option in env.options if option.name == "Pick"
-            ][0]
+            Pick = [option for option in env.options
+                    if option.name == "Pick"][0]
             Stack = [
                 option for option in env.options if option.name == "Stack"
             ][0]
             PutOnTable = [
-                option for option in env.options
-                if option.name == "PutOnTable"
+                option for option in env.options if option.name == "PutOnTable"
             ][0]
             for op in strips_ops:
                 if {atom.predicate.name for atom in op.preconditions} in \

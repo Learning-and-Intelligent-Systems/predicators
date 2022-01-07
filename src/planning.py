@@ -125,8 +125,7 @@ def task_plan(
             ground_nsrts.append(ground_nsrt)
     ground_nsrts = utils.filter_static_operators(ground_nsrts, init_atoms)
     nonempty_ground_nsrts = [
-        nsrt for nsrt in ground_nsrts
-        if nsrt.add_effects | nsrt.delete_effects
+        nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
     ]
     if not utils.is_dr_reachable(nonempty_ground_nsrts, init_atoms, goal):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
@@ -152,8 +151,8 @@ def _skeleton_generator(
                       atoms_sequence=[init_atoms],
                       parent=None)
     rng_prio = np.random.default_rng(seed)
-    heuristic = utils.create_heuristic(CFG.task_planning_heuristic,
-                                       init_atoms, task.goal, ground_nsrts)
+    heuristic = utils.create_heuristic(CFG.task_planning_heuristic, init_atoms,
+                                       task.goal, ground_nsrts)
     hq.heappush(
         queue,
         (heuristic(root_node.pyperplan_facts), rng_prio.uniform(), root_node))
@@ -172,8 +171,8 @@ def _skeleton_generator(
         else:
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
-            for nsrt in utils.get_applicable_operators(
-                    ground_nsrts, node.atoms):
+            for nsrt in utils.get_applicable_operators(ground_nsrts,
+                                                       node.atoms):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 child_node = _Node(atoms=child_atoms,
                                    skeleton=node.skeleton + [nsrt],

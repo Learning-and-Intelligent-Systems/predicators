@@ -164,10 +164,9 @@ def test_painting_failure_cases():
     # Cannot place outside of shelf/box
     act = Place.ground(
         [robot],
-        np.array([
-            PaintingEnv.obj_x, PaintingEnv.shelf_lb - 0.1, PaintingEnv.obj_z
-        ],
-                 dtype=np.float32)).policy(state)
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.shelf_lb - 0.1, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     # Cannot place because gripper_rot is 0.5
     act = Place.ground(

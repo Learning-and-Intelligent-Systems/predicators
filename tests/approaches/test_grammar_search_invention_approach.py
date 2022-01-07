@@ -10,8 +10,7 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _UnaryFreeForallClassifier, _create_score_function,
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction,
     _HeuristicBasedScoreFunction, _RelaxationHeuristicBasedScoreFunction,
-    _RelaxationHeuristicMatchBasedScoreFunction,
-    _PredictionErrorScoreFunction,
+    _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
     _RelaxationHeuristicLookaheadBasedScoreFunction,
     _TaskPlanningScoreFunction, _ExactHeuristicLookaheadBasedScoreFunction,
     _BranchingFactorScoreFunction)
@@ -69,8 +68,7 @@ def test_predicate_grammar():
     empty_data_grammar = _create_grammar([], env.predicates)
     assert len(empty_data_grammar.generate(max_num=10)) == 0
     # Reset to default just in case.
-    utils.update_config(
-        {"grammar_search_predicate_cost_upper_bound": default})
+    utils.update_config({"grammar_search_predicate_cost_upper_bound": default})
 
 
 def test_count_positives_for_ops():
@@ -177,23 +175,23 @@ def test_create_score_function():
     assert score_func.heuristic_name == "hadd"
     score_func = _create_score_function("branching_factor", set(), [], [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
-    score_func = _create_score_function("hadd_lookahead_depth0", set(), [],
-                                        [], {})
+    score_func = _create_score_function("hadd_lookahead_depth0", set(), [], [],
+                                        {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_name == "hadd"
-    score_func = _create_score_function("hmax_lookahead_depth0", set(), [],
-                                        [], {})
+    score_func = _create_score_function("hmax_lookahead_depth0", set(), [], [],
+                                        {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_name == "hmax"
-    score_func = _create_score_function("hadd_lookahead_depth1", set(), [],
-                                        [], {})
+    score_func = _create_score_function("hadd_lookahead_depth1", set(), [], [],
+                                        {})
     assert score_func.lookahead_depth == 1
-    score_func = _create_score_function("hadd_lookahead_depth2", set(), [],
-                                        [], {})
+    score_func = _create_score_function("hadd_lookahead_depth2", set(), [], [],
+                                        {})
     assert score_func.lookahead_depth == 2
     score_func = _create_score_function("hff_lookahead_depth0", set(), [], [],
                                         {})
@@ -271,8 +269,7 @@ def test_prediction_error_score_function():
                                                    atom_dataset, train_tasks,
                                                    candidates)
     all_included_s = score_function.evaluate(set(candidates))
-    handempty_included_s = score_function.evaluate(
-        {name_to_pred["HandEmpty"]})
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
     none_included_s = score_function.evaluate(set())
     assert all_included_s < holding_included_s < none_included_s
@@ -335,8 +332,7 @@ def test_hadd_match_score_function():
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
     score_function = _RelaxationHeuristicMatchBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
-    handempty_included_s = score_function.evaluate(
-        {name_to_pred["HandEmpty"]})
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     none_included_s = score_function.evaluate(set())
     assert handempty_included_s > none_included_s  # this is very bad!
 
@@ -368,8 +364,7 @@ def test_relaxation_lookahead_score_function():
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
-    handempty_included_s = score_function.evaluate(
-        {name_to_pred["HandEmpty"]})
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
     none_included_s = score_function.evaluate(set())
     assert all_included_s < holding_included_s < none_included_s
@@ -565,10 +560,8 @@ def test_exact_lookahead_score_function():
     assert score_function.evaluate(set()) == float("inf")
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
     utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
-    assert abs(score_function.evaluate(set()) -
-               0.39) < 0.11  # only op penalty
-    utils.update_config(
-        {"grammar_search_heuristic_based_max_demos": old_hbmd})
+    assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
+    utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
 
 
 def test_branching_factor_score_function():

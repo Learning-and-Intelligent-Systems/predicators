@@ -12,8 +12,7 @@ from predicators.src.settings import CFG
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
-                   datastores: List[Datastore],
-                   option_specs: List[OptionSpec],
+                   datastores: List[Datastore], option_specs: List[OptionSpec],
                    sampler_learner: str) -> List[NSRTSampler]:
     """Learn all samplers for each operator's option parameters."""
     samplers = []
@@ -23,10 +22,9 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
            param_option.params_space.shape == (0,):
             sampler: NSRTSampler = _RandomSampler(param_option).sampler
         elif sampler_learner == "neural":
-            sampler = _learn_neural_sampler(datastores, op.name,
-                                            op.parameters, op.preconditions,
-                                            op.add_effects, op.delete_effects,
-                                            param_option, i)
+            sampler = _learn_neural_sampler(datastores, op.name, op.parameters,
+                                            op.preconditions, op.add_effects,
+                                            op.delete_effects, param_option, i)
         else:
             raise NotImplementedError("Unknown sampler_learner: "
                                       f"{CFG.sampler_learner}")
@@ -112,8 +110,7 @@ def _create_sampler_data(
                 continue
             var_types = [var.type for var in variables]
             objects = list(state)
-            for grounding in utils.get_object_combinations(
-                    objects, var_types):
+            for grounding in utils.get_object_combinations(objects, var_types):
                 # If we are currently at the datastore that we're learning a
                 # sampler for, and this datapoint matches the actual grounding,
                 # add it to the positive data and continue.
@@ -134,10 +131,7 @@ def _create_sampler_data(
                 # negative example, because if Y was achieved, then X was also
                 # achieved. So for now, we just filter out such examples.
                 ground_add_effects = {e.ground(sub) for e in add_effects}
-                ground_delete_effects = {
-                    e.ground(sub)
-                    for e in delete_effects
-                }
+                ground_delete_effects = {e.ground(sub) for e in delete_effects}
                 if ground_add_effects.issubset(trans_add_effects) and \
                    ground_delete_effects.issubset(trans_delete_effects):
                     continue

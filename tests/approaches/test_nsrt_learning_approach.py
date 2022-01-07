@@ -41,16 +41,13 @@ def _test_approach(env_name,
         excludeds = set(CFG.excluded_predicates.split(","))
         assert excludeds.issubset({pred.name for pred in env.predicates}), \
             "Unrecognized excluded_predicates!"
-        preds = {
-            pred
-            for pred in env.predicates if pred.name not in excludeds
-        }
+        preds = {pred for pred in env.predicates if pred.name not in excludeds}
         assert env.goal_predicates.issubset(preds), \
             "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    approach = create_approach(approach_name, env.simulate, preds,
-                               env.options, env.types, env.action_space)
+    approach = create_approach(approach_name, env.simulate, preds, env.options,
+                               env.types, env.action_space)
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based

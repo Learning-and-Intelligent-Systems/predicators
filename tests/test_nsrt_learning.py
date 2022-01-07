@@ -26,8 +26,7 @@ def test_segment_trajectory():
     state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     atoms1 = utils.abstract(state1, preds)
     # Tests with known options.
-    param_option = ParameterizedOption("dummy", [cup_type],
-                                       Box(0.1, 1, (1, )),
+    param_option = ParameterizedOption("dummy", [cup_type], Box(0.1, 1, (1, )),
                                        lambda s, m, o, p: Action(p),
                                        lambda s, m, o, p: True,
                                        lambda s, m, o, p: True)

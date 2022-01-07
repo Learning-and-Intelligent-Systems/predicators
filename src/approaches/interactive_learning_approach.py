@@ -41,8 +41,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         }
         del initial_predicates
         del predicates_to_learn
-        super().__init__(simulator, self._predicates_to_learn,
-                         initial_options, types, action_space)
+        super().__init__(simulator, self._predicates_to_learn, initial_options,
+                         types, action_space)
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
@@ -154,8 +154,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             X = np.array(positive_examples + negative_examples)
             Y = np.array([1 for _ in positive_examples] +
                          [0 for _ in negative_examples])
-            model = MLPClassifier(X.shape[1],
-                                  CFG.classifier_max_itr_predicate)
+            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it

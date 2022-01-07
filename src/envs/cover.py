@@ -70,10 +70,8 @@ class CoverEnv(BaseEnv):
             if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
-            block_lb = state.get(block,
-                                 "pose") - state.get(block, "width") / 2
-            block_ub = state.get(block,
-                                 "pose") + state.get(block, "width") / 2
+            block_lb = state.get(block, "pose") - state.get(block, "width") / 2
+            block_ub = state.get(block, "pose") + state.get(block, "width") / 2
             if state.get(block,
                          "grasp") == -1 and block_lb <= pose <= block_ub:
                 assert above_block is None
@@ -220,12 +218,8 @@ class CoverEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        goal1 = {
-            GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])
-        }
-        goal2 = {
-            GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])
-        }
+        goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
+        goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
         goal3 = {
             GroundAtom(self._Covers, [self._blocks[0], self._targets[0]]),
             GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])
@@ -720,8 +714,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         for target, width in zip(self._targets, CFG.cover_target_widths):
             while True:
                 x = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(x, width, data,
-                                              larger_gap=True):
+                if not self._any_intersection(x, width, data, larger_gap=True):
                     break
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])

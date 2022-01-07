@@ -107,10 +107,9 @@ class NeuralGaussianRegressor(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(
-                    f"Loss: {loss:.5f}, iter: {itr}/{CFG.regressor_max_itr}",
-                    end="\r",
-                    flush=True)
+                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.regressor_max_itr}",
+                      end="\r",
+                      flush=True)
             self._optimizer.zero_grad()
             loss.backward()
             self._optimizer.step()
@@ -247,8 +246,7 @@ class MLPClassifier(nn.Module):
         X = torch.from_numpy(np.array(inputs, dtype=np.float32))
         y = torch.from_numpy(np.array(outputs, dtype=np.float32))
         # Train
-        print(
-            f"Training {self.__class__.__name__} on {X.shape[0]} datapoints")
+        print(f"Training {self.__class__.__name__} on {X.shape[0]} datapoints")
         self.train()  # switch to train mode
         itr = 0
         best_loss = float("inf")
