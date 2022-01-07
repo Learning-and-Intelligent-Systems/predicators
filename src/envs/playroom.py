@@ -234,9 +234,8 @@ class PlayroomEnv(BlocksEnv):
                 return self._transition_putontable(state, x, y, z, fingers)
             return self._transition_stack(state, x, y, z, fingers)
         # Interact with some door
-        if any(
-                self._NextToDoor_holds(state, (self._robot, door))
-                for door in self._doors):
+        if any(self._NextToDoor_holds(state, (self._robot, door))
+               for door in self._doors):
             door = self._get_door_next_to(state)
             current_region = self._get_region_in(state, x)
             # Robot was already next to this door and did not move through it
@@ -898,6 +897,15 @@ class PlayroomEnv(BlocksEnv):
         x, y, _, _, _ = action.arr
         prev_region = self._get_region_in(state, prev_x)
         region = self._get_region_in(state, x)
+        next_state = state.copy()
+        next_state.set(self._robot, "pose_x", x)
+        next_state.set(self._robot, "pose_y", y)
+        # Robot must end up next to something
+        if not (self._NextToTable_holds(next_state, (self._robot,)) or 
+                self._NextToDial_holds(next_state, (self._robot, self._dial)) or
+                any(self._NextToDoor_holds(next_state, (self._robot, door))
+                    for door in self._doors)):
+            return False
         if region == prev_region:  # Robot can stay in same region
             return True
         if abs(region-prev_region) > 1:  # Robot may not "skip over" regions
@@ -914,9 +922,6 @@ class PlayroomEnv(BlocksEnv):
                 if state.get(door, "open") < self.door_open_thresh:
                     raise EnvironmentFailure("collision", {door})
         door = self._get_door_next_to(state)
-        next_state = state.copy()
-        next_state.set(self._robot, "pose_x", x)
-        next_state.set(self._robot, "pose_y", y)
         # After the robot moves through the door, it must still be next to
         # that same door.
         if any(self._NextToDoor_holds(next_state, (self._robot, door))
