@@ -106,6 +106,42 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
     approach.reset_metrics()
     start = time.time()
     for i, task in enumerate(test_tasks):
+        print(f"Task {i}, Goal: {task.goal}")
+        print(end="", flush=True)
+        try:
+            policy = approach.solve(task, timeout=CFG.timeout)
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
+                  f"solve with error: {e}")
+            continue
+        try:
+            _, video, solved = utils.run_policy_on_task(
+                policy, task, env.simulate, env.predicates,
+                CFG.max_num_steps_check_policy, CFG.make_videos, env.render)
+        except EnvironmentFailure as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
+                  f"with error: {e}")
+            continue
+        if solved:
+            print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
+            num_solved += 1
+        else:
+            print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
+        if CFG.make_videos:
+            outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
+            utils.save_video(outfile, video)
+    print(f"Tasks solved: {num_solved} / {len(test_tasks)}")
+    print(f"Approach metrics: {approach.metrics}")
+    print(f"Total test time: {time.time()-start:.5f} seconds")
+
+
+def _run_test_on_training_set(tasks, env: BaseEnv, approach: BaseApproach) -> None:
+    test_tasks = tasks
+    num_solved = 0
+    approach.reset_metrics()
+    start = time.time()
+    for i, task in enumerate(test_tasks):
+        print(f"Task {i}, Goal: {task.goal}")
         print(end="", flush=True)
         try:
             policy = approach.solve(task, timeout=CFG.timeout)

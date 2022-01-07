@@ -218,6 +218,7 @@ def _run_low_level_search(
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
         num_tries[cur_idx] += 1
+        # print("NUM TRIES: ", num_tries)
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
