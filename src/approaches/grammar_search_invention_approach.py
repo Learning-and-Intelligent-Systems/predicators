@@ -945,8 +945,12 @@ def _select_predicates_to_keep(
     init: FrozenSet[Predicate] = frozenset()
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(init, _check_goal, _get_successors,
-                                      score_function.evaluate)
+    path, _ = utils.run_hill_climbing(
+        init,
+        _check_goal,
+        _get_successors,
+        score_function.evaluate,
+        enforced_depth=CFG.grammar_search_hill_climbing_depth)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
