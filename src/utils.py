@@ -1,8 +1,7 @@
 """General utility methods."""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-import abc
+from dataclasses import dataclass
 import argparse
 import functools
 import gc
@@ -10,16 +9,19 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
 import heapq as hq
 import imageio
 import matplotlib
 import numpy as np
+from pyperplan.heuristics.heuristic_base import \
+    Heuristic as _PyperplanBaseHeuristic
+from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
 from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
-    LiftedAtom, Image, Video, _TypedEntity, PyperplanFacts, EntToEntSub, \
-    VarToObjSub, Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
+    Dataset, GroundAtomTrajectory, STRIPSOperator, \
     _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
     NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
@@ -357,6 +359,28 @@ def get_object_combinations(objects: Collection[Object],
         choices.append(this_choices)
     for choice in itertools.product(*choices):
         yield list(choice)
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_ground_atoms_for_predicate(
+        predicate: Predicate, objects: FrozenSet[Object]) -> Set[GroundAtom]:
+    """Get all groundings of the predicate given objects."""
+    ground_atoms = set()
+    for args in get_object_combinations(objects, predicate.types):
+        ground_atom = GroundAtom(predicate, args)
+        ground_atoms.add(ground_atom)
+    return ground_atoms
+
+
+@functools.lru_cache(maxsize=None)
+def get_all_ground_atoms(predicates: FrozenSet[Predicate],
+                         objects: FrozenSet[Object]) -> Set[GroundAtom]:
+    """Get all groundings of the predicates given objects."""
+    ground_atoms = set()
+    for predicate in predicates:
+        ground_atoms.update(
+            get_all_ground_atoms_for_predicate(predicate, objects))
+    return ground_atoms
 
 
 def get_random_object_combination(objects: Collection[Object],
@@ -745,10 +769,12 @@ def extract_preds_and_types(
     return preds, types
 
 
-def filter_static_operators(
+def get_static_preds_atoms(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        atoms: Collection[GroundAtom]) -> List[GroundNSRTOrSTRIPSOperator]:
-    """Filter out ground operators that don't satisfy static facts."""
+        atoms: Collection[GroundAtom]
+) -> Tuple[Set[Predicate], Set[GroundAtom]]:
+    """Get predicates and atoms that are static with respect to the
+    operators."""
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
         # This predicate is not static if it appears in any op's effects.
@@ -758,21 +784,13 @@ def filter_static_operators(
                 for op in ground_ops):
             continue
         static_preds.add(pred)
-    static_facts = {atom for atom in atoms if atom.predicate in static_preds}
-    # Perform filtering.
-    ground_ops = [
-        op for op in ground_ops
-        if not any(atom.predicate in static_preds and atom not in static_facts
-                   for atom in op.preconditions)
-    ]
-    return ground_ops
+    static_atoms = {atom for atom in atoms if atom.predicate in static_preds}
+    return static_preds, static_atoms
 
 
-def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-                    atoms: Collection[GroundAtom],
-                    goal: Set[GroundAtom]) -> bool:
-    """Quickly check whether the given goal is reachable from the given atoms
-    under the given operators, using a delete relaxation (dr)."""
+def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                        atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
+    """Get all atoms that are reachable from the init atoms."""
     reachables = set(atoms)
     while True:
         fixed_point_reached = True
@@ -783,7 +801,7 @@ def is_dr_reachable(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                     reachables.add(new_reachable_atom)
         if fixed_point_reached:
             break
-    return goal.issubset(reachables)
+    return reachables
 
 
 def get_applicable_operators(
@@ -849,304 +867,155 @@ def ops_and_specs_to_dummy_nsrts(
     return nsrts
 
 
-def create_heuristic(
+def create_task_planning_heuristic(
     heuristic_name: str,
-    init_atoms: Collection[GroundAtom],
-    goal: Collection[GroundAtom],
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
     ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-) -> Callable[[PyperplanFacts], float]:
-    """Create a task planning heuristic that consumes pyperplan facts and
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+) -> _TaskPlanningHeuristic:
+    """Create a task planning heuristic that consumes ground atoms and
     estimates the cost-to-go."""
-    relaxed_operators = frozenset({
-        RelaxedOperator((op.name, tuple(op.objects)),
-                        atoms_to_tuples(op.preconditions),
-                        atoms_to_tuples(op.add_effects))
-        for op in ground_ops
-    })
-    if heuristic_name == "hadd":
-        return _HAddHeuristic(atoms_to_tuples(init_atoms),
-                              atoms_to_tuples(goal), relaxed_operators)
-    if heuristic_name == "hmax":
-        return _HMaxHeuristic(atoms_to_tuples(init_atoms),
-                              atoms_to_tuples(goal), relaxed_operators)
-    if heuristic_name == "hff":
-        return _HFFHeuristic(atoms_to_tuples(init_atoms),
-                             atoms_to_tuples(goal), relaxed_operators)
+    if heuristic_name in _PYPERPLAN_HEURISTICS:
+        return _create_pyperplan_heuristic(heuristic_name, init_atoms, goal,
+                                           ground_ops, predicates, objects)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
+@dataclass(frozen=True)
+class _TaskPlanningHeuristic:
+    """A task planning heuristic."""
+    name: str
+    init_atoms: Collection[GroundAtom]
+    goal: Collection[GroundAtom]
+    ground_ops: Collection[Union[_GroundNSRT, _GroundSTRIPSOperator]]
+
+    def __call__(self, atoms: Collection[GroundAtom]) -> float:
+        raise NotImplementedError("Override me!")
+
+
+############################### Pyperplan Glue ###############################
+
+
+def _create_pyperplan_heuristic(
+    heuristic_name: str,
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+) -> _PyperplanHeuristicWrapper:
+    """Create a pyperplan heuristic that inherits from
+    _TaskPlanningHeuristic."""
+    assert heuristic_name in _PYPERPLAN_HEURISTICS
+    _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
+    pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
+    pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
+                                            predicates, objects, static_atoms)
+    pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
+    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
+                                      ground_ops, static_atoms,
+                                      pyperplan_heuristic, pyperplan_goal)
+
+
+_PyperplanFacts = FrozenSet[Tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class _PyperplanNode:
+    """Container glue for pyperplan heuristics."""
+    state: _PyperplanFacts
+    goal: _PyperplanFacts
+
+
+@dataclass(frozen=True)
+class _PyperplanOperator:
+    """Container glue for pyperplan heuristics."""
+    name: str
+    preconditions: _PyperplanFacts
+    add_effects: _PyperplanFacts
+    del_effects: _PyperplanFacts
+
+
+@dataclass(frozen=True)
+class _PyperplanTask:
+    """Container glue for pyperplan heuristics."""
+    facts: _PyperplanFacts
+    initial_state: _PyperplanFacts
+    goals: _PyperplanFacts
+    operators: Collection[_PyperplanOperator]
+
+
+@dataclass(frozen=True)
+class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
+    """A light wrapper around pyperplan's heuristics."""
+    _static_atoms: Set[GroundAtom]
+    _pyperplan_heuristic: _PyperplanBaseHeuristic
+    _pyperplan_goal: _PyperplanFacts
+
+    def __call__(self, atoms: Collection[GroundAtom]) -> float:
+        # Note: filtering out static atoms.
+        pyperplan_facts = _atoms_to_tuples(set(atoms) - self._static_atoms)
+        return self._evaluate(pyperplan_facts, self._pyperplan_goal,
+                              self._pyperplan_heuristic)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=None)
+    def _evaluate(pyperplan_facts: _PyperplanFacts,
+                  pyperplan_goal: _PyperplanFacts,
+                  pyperplan_heuristic: _PyperplanBaseHeuristic) -> float:
+        pyperplan_node = _PyperplanNode(pyperplan_facts, pyperplan_goal)
+        return pyperplan_heuristic(pyperplan_node)
+
+
+def _create_pyperplan_task(
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+    predicates: Collection[Predicate],
+    objects: Collection[Object],
+    static_atoms: Set[GroundAtom],
+) -> _PyperplanTask:
+    """Helper glue for pyperplan heuristics."""
+    all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
+    # Note: removing static atoms.
+    pyperplan_facts = _atoms_to_tuples(all_atoms - static_atoms)
+    pyperplan_state = _atoms_to_tuples(init_atoms - static_atoms)
+    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    pyperplan_operators = set()
+    for op in ground_ops:
+        # Note: the pyperplan operator must include the objects, because hFF
+        # uses the operator name in constructing the relaxed plan, and the
+        # relaxed plan is a set. If we instead just used op.name, there would
+        # be a very nasty bug where two ground operators in the relaxed plan
+        # that have different objects are counted as just one.
+        name = op.name + "-".join(o.name for o in op.objects)
+        pyperplan_operator = _PyperplanOperator(
+            name,
+            # Note: removing static atoms from preconditions.
+            _atoms_to_tuples(op.preconditions - static_atoms),
+            _atoms_to_tuples(op.add_effects),
+            _atoms_to_tuples(op.delete_effects))
+        pyperplan_operators.add(pyperplan_operator)
+    return _PyperplanTask(pyperplan_facts, pyperplan_state, pyperplan_goal,
+                          pyperplan_operators)
+
+
 @functools.lru_cache(maxsize=None)
-def atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
-    """Convert atom to tuple for caching."""
+def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
+    """Convert atom to tuple for interface with pyperplan."""
     return (atom.predicate.name, ) + tuple(str(o) for o in atom.objects)
 
 
-def atoms_to_tuples(atoms: Collection[GroundAtom]) -> PyperplanFacts:
+def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> _PyperplanFacts:
     """Light wrapper around atom_to_tuple() that operates on a collection of
     atoms."""
-    return frozenset({atom_to_tuple(atom) for atom in atoms})
+    return frozenset({_atom_to_tuple(atom) for atom in atoms})
 
 
-@dataclass(repr=False, eq=False)
-class RelaxedFact:
-    """This class represents a relaxed fact.
-
-    Lightly modified from pyperplan's heuristics/relaxation.py.
-    """
-    name: Tuple[str, ...]
-    # A list that contains all operators this fact is a precondition of.
-    precondition_of: List[RelaxedOperator] = field(init=False,
-                                                   default_factory=list)
-    # Whether this fact has been expanded during the Dijkstra forward pass.
-    expanded: bool = field(init=False, default=False)
-    # The heuristic distance value.
-    distance: float = field(init=False, default=float("inf"))
-    # The cheapest operator that was applied to reach this fact, for HFF.
-    cheapest_achiever: Optional[RelaxedOperator] = None
-
-
-@dataclass(repr=False, eq=False)
-class RelaxedOperator:
-    """This class represents a relaxed operator (no delete effects).
-
-    Lightly modified from pyperplan's heuristics/relaxation.py.
-    """
-    name: Tuple[str, Tuple[Object, ...]]  # operator name, objects
-    preconditions: PyperplanFacts
-    add_effects: PyperplanFacts
-    # Cost of applying this operator.
-    cost: int = field(default=1)
-    # Alternative method to check whether all preconditions are True.
-    counter: int = field(init=False, default=0)
-
-    def __post_init__(self) -> None:
-        self.counter = len(self.preconditions)  # properly initialize counter
-
-
-class _RelaxationHeuristic:
-    """This class is an implementation of delete relaxation heuristics such as
-    HMax and HAdd.
-
-    Lightly modified from pyperplan's heuristics/relaxation.py.
-    """
-
-    def __init__(self, initial_state: PyperplanFacts, goals: PyperplanFacts,
-                 operators: FrozenSet[RelaxedOperator]) -> None:
-        self.facts = {}
-        self.operators = []
-        self.goals = goals
-        self.init = initial_state
-        self.tie_breaker = 0
-        self.start_state = RelaxedFact(("start", ))
-
-        all_facts = initial_state | goals
-        for op in operators:
-            all_facts |= op.preconditions
-            all_facts |= op.add_effects
-
-        # Create relaxed facts for all facts in the task description.
-        for fact in all_facts:
-            self.facts[fact] = RelaxedFact(fact)
-
-        for ro in sorted(operators, key=lambda o: o.name):
-            # Add operators to operator list.
-            self.operators.append(ro)
-
-            # Initialize precondition_of-list for each fact
-            for var in ro.preconditions:
-                self.facts[var].precondition_of.append(ro)
-
-            # Handle operators that have no preconditions.
-            if not ro.preconditions:
-                # We add this operator to the precondtion_of list of the start
-                # state. This way it can be applied to the start state. This
-                # helps also when the initial state is empty.
-                self.start_state.precondition_of.append(ro)
-
-    @functools.lru_cache(maxsize=None)
-    def __call__(self, state: PyperplanFacts) -> float:
-        """Compute heuristic value."""
-        # Reset distance and set to default values.
-        self.init_distance(state)
-
-        # Construct the priority queue.
-        heap: List[Tuple[float, float, RelaxedFact]] = []
-        # Add a dedicated start state, to cope with operators without
-        # preconditions and empty initial state.
-        hq.heappush(heap, (0, self.tie_breaker, self.start_state))
-        self.tie_breaker += 1
-
-        for fact in state:
-            # Order is determined by the distance of the facts.
-            # As a tie breaker we use a simple counter.
-            hq.heappush(heap, (self.facts[fact].distance, self.tie_breaker,
-                               self.facts[fact]))
-            self.tie_breaker += 1
-
-        # Call the Dijkstra search that performs the forward pass.
-        self.dijkstra(heap)
-
-        # Extract the goal heuristic.
-        h_value = self.calc_goal_h()
-
-        return h_value
-
-    @staticmethod
-    @abc.abstractmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        """Combine distances to goal facts.
-
-        Distinguishes different relaxation heuristics, e.g., hmax uses a
-        max and hadd uses a sum.
-        """
-        raise NotImplementedError("Override me!")
-
-    def init_distance(self, state: PyperplanFacts) -> None:
-        """This function resets all member variables that store information
-        that needs to be recomputed for each call of the heuristic."""
-
-        def _reset_fact(fact: RelaxedFact) -> None:
-            fact.expanded = False
-            fact.cheapest_achiever = None
-            if fact.name in state:
-                fact.distance = 0
-            else:
-                fact.distance = float("inf")
-
-        # Reset start state.
-        _reset_fact(self.start_state)
-
-        # Reset facts.
-        for fact in self.facts.values():
-            _reset_fact(fact)
-
-        # Reset operators.
-        for operator in self.operators:
-            operator.counter = len(operator.preconditions)
-
-    def get_cost(self, operator: RelaxedOperator) -> float:
-        """This function calculates the cost of applying an operator."""
-        # Accumulate the heuristic values of all preconditions.
-        cost = self._accumulate(
-            [self.facts[pre].distance for pre in operator.preconditions])
-        # Add on operator application cost.
-        return cost + operator.cost
-
-    def calc_goal_h(self) -> float:
-        """This function calculates the heuristic value of the whole goal."""
-        return self._accumulate(
-            [self.facts[fact].distance for fact in self.goals])
-
-    def finished(self, achieved_goals: Set[Tuple[str, ...]],
-                 queue: List[Tuple[float, float, RelaxedFact]]) -> bool:
-        """This function gives a stopping criterion for the Dijkstra search."""
-        return achieved_goals == self.goals or not queue
-
-    def dijkstra(self, queue: List[Tuple[float, float, RelaxedFact]]) -> None:
-        """This function is an implementation of a Dijkstra search.
-
-        For efficiency reasons, it is used instead of an explicit graph
-        representation of the problem.
-        """
-        # Stores the achieved subgoals.
-        achieved_goals: Set[Tuple[str, ...]] = set()
-        while not self.finished(achieved_goals, queue):
-            # Get the fact with the lowest heuristic value.
-            (_dist, _tie, fact) = hq.heappop(queue)
-            # If this node is part of the goal, we add to the goal set, which
-            # is used as an abort criterion.
-            if fact.name in self.goals:
-                achieved_goals.add(fact.name)
-            # Check whether we already expanded this fact.
-            if not fact.expanded:
-                # Iterate over all operators this fact is a precondition of.
-                for operator in fact.precondition_of:
-                    # Decrease the precondition counter.
-                    operator.counter -= 1
-                    # Check whether all preconditions are True and we can apply
-                    # this operator.
-                    if operator.counter <= 0:
-                        for n in operator.add_effects:
-                            neighbor = self.facts[n]
-                            # Calculate the cost of applying this operator.
-                            tmp_dist = self.get_cost(operator)
-                            if tmp_dist < neighbor.distance:
-                                # If the new costs are cheaper than the old
-                                # costs, we change the neighbor's heuristic
-                                # values.
-                                neighbor.distance = tmp_dist
-                                neighbor.cheapest_achiever = operator
-                                # And push it on the queue.
-                                hq.heappush(
-                                    queue,
-                                    (tmp_dist, self.tie_breaker, neighbor))
-                                self.tie_breaker += 1
-                # Finally the fact is marked as expanded.
-                fact.expanded = True
-
-
-class _HAddHeuristic(_RelaxationHeuristic):
-    """Implements the HAdd delete relaxation heuristic."""
-
-    @staticmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        return sum(distances)
-
-
-class _HMaxHeuristic(_RelaxationHeuristic):
-    """Implements the HMax delete relaxation heuristic."""
-
-    @staticmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        if not distances:
-            return 0.0
-        return max(distances)
-
-
-class _HFFHeuristic(_RelaxationHeuristic):
-    """Implements the HFF delete relaxation heuristic."""
-
-    @staticmethod
-    def _accumulate(distances: Collection[float]) -> float:
-        return sum(distances)
-
-    def calc_goal_h(self) -> float:
-        """This function has to be overwritten, because the HFF heuristic needs
-        an additional backward pass.
-
-        This is mostly copied from pyperplan, with a few style changes.
-        """
-        relaxed_plan = set()
-        # Check whether we achieved all subgoals.
-        all_subgoals_achieved = not any(self.facts[g].distance == float("inf")
-                                        for g in self.goals)
-        if not all_subgoals_achieved:
-            return float("inf")
-
-        # Initialize a queue and push all goal nodes.
-        q = []
-        closed_list = set()
-        for g in self.goals:
-            q.append(self.facts[g])
-            closed_list.add(g)
-
-        # Do backward pass.
-        while q:
-            fact = q.pop()
-            # Check whether this fact has a cheapest achiever and that it
-            # is not already expanded
-            if (fact.cheapest_achiever is not None
-                    and not fact.cheapest_achiever in relaxed_plan):
-                # Add all preconditions of the cheapest achiever to the
-                # queue.
-                for pre in fact.cheapest_achiever.preconditions:
-                    if pre not in closed_list:
-                        q.append(self.facts[pre])
-                        closed_list.add(pre)
-                relaxed_plan.add(fact.cheapest_achiever.name)
-
-        # Extract FF value.
-        return len(relaxed_plan)
+############################## End Pyperplan Glue ##############################
 
 
 def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
