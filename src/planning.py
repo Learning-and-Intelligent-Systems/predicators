@@ -65,20 +65,23 @@ def sesame_plan(
         # slow down search significantly, so we exclude them. Note however
         # that we need to do this inside the while True here, because an NSRT
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
-        nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
-                                 if nsrt.add_effects | nsrt.delete_effects]
-        all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                        init_atoms)
+        nonempty_ground_nsrts = [
+            nsrt for nsrt in ground_nsrts
+            if nsrt.add_effects | nsrt.delete_effects
+        ]
+        all_reachable_atoms = utils.get_reachable_atoms(
+            nonempty_ground_nsrts, init_atoms)
         if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
             raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
-        reachable_nsrts = [nsrt for nsrt in nonempty_ground_nsrts if
-                           nsrt.preconditions.issubset(all_reachable_atoms)]
+        reachable_nsrts = [
+            nsrt for nsrt in nonempty_ground_nsrts
+            if nsrt.preconditions.issubset(all_reachable_atoms)
+        ]
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
-                    task, reachable_nsrts, init_atoms,
-                    predicates, objects, new_seed,
-                    timeout-(time.time()-start_time), metrics):
+                    task, reachable_nsrts, init_atoms, predicates, objects,
+                    new_seed, timeout - (time.time() - start_time), metrics):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
                     new_seed, timeout - (time.time() - start_time))
@@ -120,35 +123,33 @@ def task_plan(
     for nsrt in nsrts:
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
-    nonempty_ground_nsrts = [nsrt for nsrt in ground_nsrts
-                             if nsrt.add_effects | nsrt.delete_effects]
+    nonempty_ground_nsrts = [
+        nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
+    ]
     all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
                                                     init_atoms)
     if not goal.issubset(all_reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
-    reachable_nsrts = [nsrt for nsrt in nonempty_ground_nsrts if
-                       nsrt.preconditions.issubset(all_reachable_atoms)]
+    reachable_nsrts = [
+        nsrt for nsrt in nonempty_ground_nsrts
+        if nsrt.preconditions.issubset(all_reachable_atoms)
+    ]
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
     predicates_dict, _ = utils.extract_preds_and_types(strips_ops)
     predicates = set(predicates_dict.values())
-    generator = _skeleton_generator(dummy_task, reachable_nsrts,
-                                    init_atoms, predicates,
-                                    objects, seed, timeout, metrics)
+    generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
+                                    predicates, objects, seed, timeout,
+                                    metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
 
-def _skeleton_generator(task: Task,
-                        ground_nsrts: List[_GroundNSRT],
-                        init_atoms: Set[GroundAtom],
-                        predicates: Collection[Predicate],
-                        objects: Collection[Object],
-                        seed: int,
-                        timeout: float,
-                        metrics: Metrics) -> Iterator[
-                            Tuple[List[_GroundNSRT],
-                                  List[Collection[GroundAtom]]]]:
+def _skeleton_generator(
+    task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
+    predicates: Collection[Predicate], objects: Collection[Object], seed: int,
+    timeout: float, metrics: Metrics
+) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
@@ -162,9 +163,8 @@ def _skeleton_generator(task: Task,
     heuristic = utils.create_task_planning_heuristic(
         CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
         predicates, objects)
-    hq.heappush(queue, (heuristic(root_node.atoms),
-                        rng_prio.uniform(),
-                        root_node))
+    hq.heappush(queue,
+                (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
     while queue and (time.time() - start_time < timeout):
         if (int(metrics["num_skeletons_optimized"]) ==
@@ -189,11 +189,9 @@ def _skeleton_generator(task: Task,
                                    [child_atoms],
                                    parent=node)
                 # priority is g [plan length] plus h [heuristic]
-                priority = (len(child_node.skeleton)+
+                priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
-                hq.heappush(queue, (priority,
-                                    rng_prio.uniform(),
-                                    child_node))
+                hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
@@ -299,9 +297,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModel,
 
 
 def _update_nsrts_with_failure(
-        discovered_failure: _DiscoveredFailure,
-        ground_nsrts: List[_GroundNSRT]
-        ) -> Tuple[Set[Predicate], List[_GroundNSRT]]:
+    discovered_failure: _DiscoveredFailure, ground_nsrts: List[_GroundNSRT]
+) -> Tuple[Set[Predicate], List[_GroundNSRT]]:
     """Update the given set of ground_nsrts based on the given
     DiscoveredFailure.
 
