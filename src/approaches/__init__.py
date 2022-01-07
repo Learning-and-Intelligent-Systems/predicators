@@ -1,5 +1,4 @@
-"""Default imports for approaches folder.
-"""
+"""Default imports for approaches folder."""
 
 from typing import Set, Callable, List
 from gym.spaces import Box
@@ -22,7 +21,6 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action
 
-
 __all__ = [
     "BaseApproach",
     "OracleApproach",
@@ -38,17 +36,14 @@ __all__ = [
 ]
 
 
-def create_approach(name: str,
-                    simulator: Callable[[State, Action], State],
+def create_approach(name: str, simulator: Callable[[State, Action], State],
                     initial_predicates: Set[Predicate],
                     initial_options: Set[ParameterizedOption],
-                    types: Set[Type],
-                    action_space: Box) -> BaseApproach:
-    """Create an approach given its name.
-    """
+                    types: Set[Type], action_space: Box) -> BaseApproach:
+    """Create an approach given its name."""
     if name == "oracle":
-        return OracleApproach(simulator, initial_predicates,
-                              initial_options, types, action_space)
+        return OracleApproach(simulator, initial_predicates, initial_options,
+                              types, action_space)
     if name == "random_actions":
         return RandomActionsApproach(simulator, initial_predicates,
                                      initial_options, types, action_space)
@@ -60,7 +55,8 @@ def create_approach(name: str,
                                     initial_options, types, action_space)
     if name == "interactive_learning":
         return InteractiveLearningApproach(simulator, initial_predicates,
-                                           initial_options, types, action_space)
+                                           initial_options, types,
+                                           action_space)
     if name == "iterative_invention":
         return IterativeInventionApproach(simulator, initial_predicates,
                                           initial_options, types, action_space)

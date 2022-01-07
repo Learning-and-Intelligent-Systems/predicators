@@ -1,5 +1,4 @@
-"""Test cases for the grammar search invention approach.
-"""
+"""Test cases for the grammar search invention approach."""
 
 from typing import Callable, FrozenSet, List, Set
 import pytest
@@ -12,8 +11,9 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction,
     _HeuristicBasedScoreFunction, _RelaxationHeuristicBasedScoreFunction,
     _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
-    _RelaxationHeuristicLookaheadBasedScoreFunction, _TaskPlanningScoreFunction,
-    _ExactHeuristicLookaheadBasedScoreFunction, _BranchingFactorScoreFunction)
+    _RelaxationHeuristicLookaheadBasedScoreFunction,
+    _TaskPlanningScoreFunction, _ExactHeuristicLookaheadBasedScoreFunction,
+    _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -25,8 +25,7 @@ from predicators.src import utils
 
 
 def test_predicate_grammar():
-    """Tests for _PredicateGrammar class.
-    """
+    """Tests for _PredicateGrammar class."""
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     train_task = next(env.train_tasks_generator())[0]
@@ -35,8 +34,10 @@ def test_predicate_grammar():
     robby = [o for o in state if o.type.name == "robot"][0]
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
-    dataset = [LowLevelTrajectory(
-        [state, other_state], [np.zeros(1, dtype=np.float32)])]
+    dataset = [
+        LowLevelTrajectory([state, other_state],
+                           [np.zeros(1, dtype=np.float32)])
+    ]
     base_grammar = _PredicateGrammar()
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
@@ -71,8 +72,7 @@ def test_predicate_grammar():
 
 
 def test_count_positives_for_ops():
-    """Tests for _count_positives_for_ops().
-    """
+    """Tests for _count_positives_for_ops()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
@@ -88,8 +88,8 @@ def test_count_positives_for_ops():
     cup = cup_type("cup")
     plate = plate_type("plate")
     parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1, (1,)),
-        lambda s, m, o, p: Action(np.array([0.0])),
+        "Dummy", [], Box(0, 1,
+                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     option = parameterized_option.ground([], np.array([0.0]))
     state = State({cup: [0.5], plate: [1.0]})
@@ -103,25 +103,27 @@ def test_count_positives_for_ops():
         # Test empty sequence.
         (LowLevelTrajectory([state], []), [{on([cup, plate])}]),
         # Test not positive.
-        (LowLevelTrajectory(states, actions), [{on([cup, plate])}, set()]),
+        (LowLevelTrajectory(states, actions), [{on([cup, plate])},
+                                               set()]),
         # Test true positive.
         (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
                                                {on([cup, plate])}]),
         # Test false positive.
-        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])}, set()]),
+        (LowLevelTrajectory(states, actions), [{not_on([cup, plate])},
+                                               set()]),
     ]
-    segments = [seg for traj in pruned_atom_data
-                for seg in segment_trajectory(traj)]
+    segments = [
+        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
+    ]
 
-    num_true, num_false, _, _ = _count_positives_for_ops(strips_ops,
-         option_specs, segments)
+    num_true, num_false, _, _ = _count_positives_for_ops(
+        strips_ops, option_specs, segments)
     assert num_true == 1
     assert num_false == 1
 
 
 def test_halving_constant_generator():
-    """Tests for _halving_constant_generator().
-    """
+    """Tests for _halving_constant_generator()."""
     expected_constants = [0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875]
     expected_costs = [1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0]
     generator = _halving_constant_generator(0., 1.)
@@ -132,11 +134,10 @@ def test_halving_constant_generator():
 
 
 def test_forall_classifier():
-    """Tests for _ForallClassifier().
-    """
+    """Tests for _ForallClassifier()."""
     cup_type = Type("cup_type", ["feat1"])
     pred = Predicate("Pred", [cup_type],
-        lambda s, o: s.get(o[0], "feat1") > 0.5)
+                     lambda s, o: s.get(o[0], "feat1") > 0.5)
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     state0 = State({cup1: [0.], cup2: [0.]})
@@ -150,8 +151,7 @@ def test_forall_classifier():
 
 
 def test_unary_free_forall_classifier():
-    """Tests for _UnaryFreeForallClassifier().
-    """
+    """Tests for _UnaryFreeForallClassifier()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
@@ -167,8 +167,7 @@ def test_unary_free_forall_classifier():
 
 
 def test_create_score_function():
-    """Tests for _create_score_function().
-    """
+    """Tests for _create_score_function()."""
     score_func = _create_score_function("prediction_error", set(), [], [], {})
     assert isinstance(score_func, _PredictionErrorScoreFunction)
     score_func = _create_score_function("hadd_match", set(), [], [], {})
@@ -208,8 +207,8 @@ def test_create_score_function():
 
 
 def test_predicate_search_heuristic_base_classes():
-    """Cover the abstract methods for _PredicateSearchScoreFunction & subclasses
-    """
+    """Cover the abstract methods for _PredicateSearchScoreFunction &
+    subclasses."""
     pred_search_score_function = _PredicateSearchScoreFunction(
         set(), [], [], {})
     with pytest.raises(NotImplementedError):
@@ -227,17 +226,16 @@ def test_predicate_search_heuristic_base_classes():
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
     parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1, (1,)),
-        lambda s, m, o, p: Action(np.array([0.0])),
+        "Dummy", [], Box(0, 1,
+                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     option = parameterized_option.ground([], np.array([0.0]))
     action = Action(np.zeros(1, dtype=np.float32))
     action.set_option(option)
-    dataset = [LowLevelTrajectory(
-        [state, other_state], [action], set())]
+    dataset = [LowLevelTrajectory([state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
-    heuristic_score_fn = _HeuristicBasedScoreFunction(
-        set(), atom_dataset, train_tasks, {})
+    heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset,
+                                                      train_tasks, {})
     with pytest.raises(NotImplementedError):
         heuristic_score_fn.evaluate(set())
     hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
@@ -247,8 +245,7 @@ def test_predicate_search_heuristic_base_classes():
 
 
 def test_prediction_error_score_function():
-    """Tests for _PredictionErrorScoreFunction().
-    """
+    """Tests for _PredictionErrorScoreFunction()."""
     # Tests for CoverEnv.
     utils.update_config({
         "env": "cover",
@@ -268,8 +265,9 @@ def test_prediction_error_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _PredictionErrorScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _PredictionErrorScoreFunction(initial_predicates,
+                                                   atom_dataset, train_tasks,
+                                                   candidates)
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
@@ -297,8 +295,9 @@ def test_prediction_error_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _PredictionErrorScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates)
+    score_function = _PredictionErrorScoreFunction(initial_predicates,
+                                                   atom_dataset, train_tasks,
+                                                   candidates)
     all_included_s = score_function.evaluate(set(candidates))
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
     clear_included_s = score_function.evaluate({name_to_pred["Clear"]})
@@ -311,8 +310,7 @@ def test_prediction_error_score_function():
 
 
 def test_hadd_match_score_function():
-    """Tests for _RelaxationHeuristicMatchBasedScoreFunction() with hAdd..
-    """
+    """Tests for _RelaxationHeuristicMatchBasedScoreFunction() with hAdd.."""
     # We know that this score function is bad, and this test shows why.
     utils.update_config({
         "env": "cover",
@@ -336,12 +334,11 @@ def test_hadd_match_score_function():
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     none_included_s = score_function.evaluate(set())
-    assert handempty_included_s > none_included_s # this is very bad!
+    assert handempty_included_s > none_included_s  # this is very bad!
 
 
 def test_relaxation_lookahead_score_function():
-    """Tests for _RelaxationHeuristicLookaheadBasedScoreFunction().
-    """
+    """Tests for _RelaxationHeuristicLookaheadBasedScoreFunction()."""
     # Tests for CoverEnv.
     utils.update_config({
         "env": "cover",
@@ -367,8 +364,7 @@ def test_relaxation_lookahead_score_function():
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
-    handempty_included_s = score_function.evaluate(
-        {name_to_pred["HandEmpty"]})
+    handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
     holding_included_s = score_function.evaluate({name_to_pred["Holding"]})
     none_included_s = score_function.evaluate(set())
     assert all_included_s < holding_included_s < none_included_s
@@ -422,8 +418,8 @@ def test_relaxation_lookahead_score_function():
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
-    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
-                                                      name_to_pred["Clear"]})
+    gripperopen_excluded_s = score_function.evaluate(
+        {name_to_pred["Holding"], name_to_pred["Clear"]})
     assert all_included_s < none_included_s  # good!
     # The fact that there is not a monotonic improvement shows a downside of
     # this score function. But we do see that learning works well in the end.
@@ -440,12 +436,16 @@ def test_relaxation_lookahead_score_function():
 
     # Tests for lookahead_depth > 0.
     score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
-        initial_predicates, atom_dataset, train_tasks, candidates, "hadd",
+        initial_predicates,
+        atom_dataset,
+        train_tasks,
+        candidates,
+        "hadd",
         lookahead_depth=1)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
-    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
-                                                      name_to_pred["Clear"]})
+    gripperopen_excluded_s = score_function.evaluate(
+        {name_to_pred["Holding"], name_to_pred["Clear"]})
     assert all_included_s < none_included_s  # good!
 
     # Tests for PaintingEnv.
@@ -473,6 +473,7 @@ def test_relaxation_lookahead_score_function():
         initial_predicates, atom_dataset, train_tasks, candidates, "hadd")
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
+
     # Comment out this test because it's flaky.
     # assert all_included_s < none_included_s  # hooray!
 
@@ -482,35 +483,40 @@ def test_relaxation_lookahead_score_function():
     # simpler way. One tricky part is that if there are no ground operators,
     # the heuristic will never get called (see evaluate_atom_trajectory).
     class _MockHAddLookahead(_RelaxationHeuristicLookaheadBasedScoreFunction):
-        """Mock class.
-        """
+        """Mock class."""
 
         def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset, predicates | self._initial_predicates)
-            segments = [seg for traj in pruned_atom_data
-                        for seg in segment_trajectory(traj)]
+            segments = [
+                seg for traj in pruned_atom_data
+                for seg in segment_trajectory(traj)
+            ]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
-            return self._evaluate_with_operators(predicates,
-                pruned_atom_data, segments, strips_ops, option_specs)
+            return self._evaluate_with_operators(predicates, pruned_atom_data,
+                                                 segments, strips_ops,
+                                                 option_specs)
 
         def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+                self, atoms_sequence: List[Set[GroundAtom]],
+                heuristic_fn: Callable[[Set[GroundAtom]], float],
+                ground_ops: Set[_GroundSTRIPSOperator]) -> float:
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
 
-    score_function = _MockHAddLookahead(initial_predicates, atom_dataset,
-        train_tasks, candidates, "hadd", lookahead_depth=1)
+    score_function = _MockHAddLookahead(initial_predicates,
+                                        atom_dataset,
+                                        train_tasks,
+                                        candidates,
+                                        "hadd",
+                                        lookahead_depth=1)
     assert score_function.evaluate(set(candidates)) == float("inf")
 
 
 def test_exact_lookahead_score_function():
-    """Tests for _ExactHeuristicLookaheadBasedScoreFunction().
-    """
+    """Tests for _ExactHeuristicLookaheadBasedScoreFunction()."""
     # Just test this on BlocksEnv, since that's a known problem case
     # for hadd_lookahead_depth*.
     utils.flush_cache()
@@ -540,8 +546,8 @@ def test_exact_lookahead_score_function():
         initial_predicates, atom_dataset, train_tasks, candidates)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
-    gripperopen_excluded_s = score_function.evaluate({name_to_pred["Holding"],
-                                                      name_to_pred["Clear"]})
+    gripperopen_excluded_s = score_function.evaluate(
+        {name_to_pred["Holding"], name_to_pred["Clear"]})
     assert all_included_s < none_included_s  # good!
     assert all_included_s < gripperopen_excluded_s  # good!
     # Test that the score is inf when the operators make the data impossible.
@@ -559,16 +565,13 @@ def test_exact_lookahead_score_function():
         initial_predicates, atom_dataset, train_tasks, candidates)
     assert score_function.evaluate(set()) == float("inf")
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
-    utils.update_config({
-        "grammar_search_heuristic_based_max_demos": 0})
+    utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
     assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
-    utils.update_config({
-        "grammar_search_heuristic_based_max_demos": old_hbmd})
+    utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
 
 
 def test_branching_factor_score_function():
-    """Tests for _BranchingFactorScoreFunction().
-    """
+    """Tests for _BranchingFactorScoreFunction()."""
     # We know that this score function is bad, because it prefers predicates
     # that make segmentation collapse demo actions into one.
     utils.update_config({
@@ -581,21 +584,17 @@ def test_branching_factor_score_function():
     })
     env = CoverEnv()
 
-    name_to_pred = {p.name : p for p in env.predicates}
+    name_to_pred = {p.name: p for p in env.predicates}
     Covers = name_to_pred["Covers"]
     Holding = name_to_pred["Holding"]
 
     forall_not_covers0 = Predicate(
-        "Forall[0:block].[NOT-Covers(0,1)]",
-        [Covers.types[1]],
-        _UnaryFreeForallClassifier(Covers.get_negation(), 1)
-    )
+        "Forall[0:block].[NOT-Covers(0,1)]", [Covers.types[1]],
+        _UnaryFreeForallClassifier(Covers.get_negation(), 1))
 
     forall_not_covers1 = Predicate(
-        "Forall[1:target].[NOT-Covers(0,1)]",
-        [Covers.types[0]],
-        _UnaryFreeForallClassifier(Covers.get_negation(), 0)
-    )
+        "Forall[1:target].[NOT-Covers(0,1)]", [Covers.types[0]],
+        _UnaryFreeForallClassifier(Covers.get_negation(), 0))
 
     candidates = {
         forall_not_covers0: 1.0,
@@ -604,10 +603,11 @@ def test_branching_factor_score_function():
     }
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
-    atom_dataset = utils.create_ground_atom_dataset(dataset,
-        env.goal_predicates | set(candidates))
-    score_function = _BranchingFactorScoreFunction(
-        env.goal_predicates, atom_dataset, train_tasks, candidates)
+    atom_dataset = utils.create_ground_atom_dataset(
+        dataset, env.goal_predicates | set(candidates))
+    score_function = _BranchingFactorScoreFunction(env.goal_predicates,
+                                                   atom_dataset, train_tasks,
+                                                   candidates)
     holding_s = score_function.evaluate({Holding})
     forall_not_covers_s = score_function.evaluate(
         {forall_not_covers0, forall_not_covers1})
@@ -615,8 +615,7 @@ def test_branching_factor_score_function():
 
 
 def test_task_planning_score_function():
-    """Tests for _TaskPlanningScoreFunction().
-    """
+    """Tests for _TaskPlanningScoreFunction()."""
     # We know that this score function is bad, because it's way too
     # optimistic: it thinks that any valid sequence of operators can
     # be refined into a plan. This unit test illustrates that pitfall.
@@ -630,7 +629,7 @@ def test_task_planning_score_function():
     })
     env = CoverEnv()
 
-    name_to_pred = {p.name : p for p in env.predicates}
+    name_to_pred = {p.name: p for p in env.predicates}
     Holding = name_to_pred["Holding"]
     HandEmpty = name_to_pred["HandEmpty"]
 
@@ -640,10 +639,11 @@ def test_task_planning_score_function():
     }
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
-    atom_dataset = utils.create_ground_atom_dataset(dataset,
-        env.goal_predicates | set(candidates))
-    score_function = _TaskPlanningScoreFunction(
-        env.goal_predicates, atom_dataset, train_tasks, candidates)
+    atom_dataset = utils.create_ground_atom_dataset(
+        dataset, env.goal_predicates | set(candidates))
+    score_function = _TaskPlanningScoreFunction(env.goal_predicates,
+                                                atom_dataset, train_tasks,
+                                                candidates)
     all_included_s = score_function.evaluate({Holding, HandEmpty})
     none_included_s = score_function.evaluate(set())
     # This is terrible!

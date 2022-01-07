@@ -1,5 +1,4 @@
-"""Create offline datasets by collecting demonstrations and replaying.
-"""
+"""Create offline datasets by collecting demonstrations and replaying."""
 
 from typing import List
 import numpy as np
@@ -12,8 +11,7 @@ from predicators.src import utils
 
 
 def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
-    """Create offline datasets by collecting demos and replaying.
-    """
+    """Create offline datasets by collecting demos and replaying."""
     demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
@@ -47,7 +45,7 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         # because there's no guarantee that an initiable option exists
         # from that state
         assert len(traj_states) > 1
-        state = traj_states[rng.choice(len(traj_states)-1)]
+        state = traj_states[rng.choice(len(traj_states) - 1)]
         # Sample a random option that is initiable
         nsrts = ground_nsrts[traj_idx]
         assert len(nsrts) > 0
@@ -59,7 +57,9 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         # Execute the option
         try:
             replay_traj = utils.option_to_trajectory(
-                state, env.simulate, option,
+                state,
+                env.simulate,
+                option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         except EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
