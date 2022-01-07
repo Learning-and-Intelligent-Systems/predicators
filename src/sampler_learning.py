@@ -36,9 +36,10 @@ def learn_samplers(strips_ops: List[STRIPSOperator],
     return samplers
 
 
-def _extract_oracle_samplers(strips_ops: List[STRIPSOperator],
-                             option_specs: List[OptionSpec],
-                             ) -> List[NSRTSampler]:
+def _extract_oracle_samplers(
+    strips_ops: List[STRIPSOperator],
+    option_specs: List[OptionSpec],
+) -> List[NSRTSampler]:
     """Extract the oracle samplers matching the given STRIPSOperator objects
     from the ground truth operators defined in approaches/oracle_approach.py.
 
@@ -49,18 +50,24 @@ def _extract_oracle_samplers(strips_ops: List[STRIPSOperator],
     env = create_env(CFG.env)
     # We don't need to match ground truth NSRTs with no continuous
     # parameters, so we filter them out.
-    gt_nsrts = {nsrt for nsrt in get_gt_nsrts(env.predicates, env.options)
-                if nsrt.option.params_space.shape != (0, )}
+    gt_nsrts = {
+        nsrt
+        for nsrt in get_gt_nsrts(env.predicates, env.options)
+        if nsrt.option.params_space.shape != (0, )
+    }
     assert len(strips_ops) == len(option_specs)
     # Initialize all samplers to random.
-    samplers: List[NSRTSampler] = [_RandomSampler(param_option).sampler
-                                   for param_option, _ in option_specs]
+    samplers: List[NSRTSampler] = [
+        _RandomSampler(param_option).sampler
+        for param_option, _ in option_specs
+    ]
     # Go through the ground truth NSRTs. For each one, if we find a
     # matching to a given operator, extract the NSRT's sampler.
     for nsrt in gt_nsrts:
         # Use unification to find a matching.
-        for idx, (op, (param_option, option_vars)) in enumerate(
-                zip(strips_ops, option_specs)):
+        for idx, (op, (param_option,
+                       option_vars)) in enumerate(zip(strips_ops,
+                                                      option_specs)):
             suc, sub = utils.unify_preconds_effects_options(
                 frozenset(nsrt.preconditions), frozenset(op.preconditions),
                 frozenset(nsrt.add_effects), frozenset(op.add_effects),
@@ -76,10 +83,10 @@ def _extract_oracle_samplers(strips_ops: List[STRIPSOperator],
     return samplers
 
 
-def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator, sub: EntToEntSub
-                            ) -> NSRTSampler:
-    """Helper for _extract_oracle_samplers().
-    """
+def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
+                            sub: EntToEntSub) -> NSRTSampler:
+    """Helper for _extract_oracle_samplers()."""
+
     def _reordered_sampler(state: State, rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
         # Use the sub dictionary to correctly order the arguments
@@ -89,6 +96,7 @@ def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator, sub: EntToEntSub
             param_idx = op.parameters.index(sub[param])
             reordered_objs.append(objs[param_idx])
         return nsrt.get_sampler()(state, rng, reordered_objs)
+
     return _reordered_sampler
 
 
