@@ -773,10 +773,8 @@ def get_static_preds_atoms(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
         atoms: Collection[GroundAtom]
 ) -> Tuple[Set[Predicate], Set[GroundAtom]]:
-    """Get predicates and atoms that are static w.r.t.
-
-    the operators.
-    """
+    """Get predicates and atoms that are static with respect to the
+    operators."""
     static_preds = set()
     for pred in {atom.predicate for atom in atoms}:
         # This predicate is not static if it appears in any op's effects.

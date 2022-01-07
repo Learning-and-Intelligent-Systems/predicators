@@ -931,22 +931,12 @@ def test_get_reachable_atoms():
     assert len(ground_nsrts) == 8
     atoms = {pred1([cup1, plate1]), pred1([cup1, plate2])}
     reachable_atoms = utils.get_reachable_atoms(ground_nsrts, atoms)
-    assert {
+    assert reachable_atoms == {
         pred1([cup1, plate1]),
         pred1([cup1, plate2]),
         pred2([cup1, plate1]),
         pred2([cup1, plate2])
-    }.issubset(reachable_atoms)
-    assert reachable_atoms & {
-        pred3([cup1, plate1]),
-        pred3([cup1, plate2]),
-        pred1([cup2, plate1]),
-        pred1([cup2, plate2]),
-        pred2([cup2, plate1]),
-        pred2([cup2, plate2]),
-        pred3([cup2, plate1]),
-        pred3([cup2, plate2])
-    } == set()
+    }
 
 
 def test_nsrt_application():
