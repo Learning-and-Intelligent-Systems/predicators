@@ -1497,7 +1497,7 @@ def test_run_hill_climbing():
     assert state_sequence == [(0, 0)]
     assert not action_sequence
 
-    # With enforced_dept 1, search succeeds.
+    # With enforced_depth 1, search succeeds.
     state_sequence, action_sequence = utils.run_hill_climbing(
         initial_state,
         _grid_check_goal_fn,
