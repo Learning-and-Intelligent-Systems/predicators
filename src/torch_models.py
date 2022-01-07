@@ -289,10 +289,7 @@ class MLPClassifier(nn.Module):
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
     """A convenience class for holding the model underlying a learned
-    predicate.
-
-    Prefer to use this because it is pickleable.
-    """
+    predicate."""
     _model: MLPClassifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:

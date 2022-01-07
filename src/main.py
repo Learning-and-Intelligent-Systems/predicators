@@ -27,8 +27,8 @@ from collections import defaultdict
 import os
 import subprocess
 import time
-import pickle as pkl
 from typing import Dict
+import dill as pkl
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
