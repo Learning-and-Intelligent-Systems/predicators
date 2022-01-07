@@ -914,13 +914,13 @@ def _create_pyperplan_heuristic(
     pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
                                             predicates, objects, static_atoms)
     pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
-    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    pyperplan_goal = _atoms_to_pyperplan_facts(goal - static_atoms)
     return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
                                       ground_ops, static_atoms,
                                       pyperplan_heuristic, pyperplan_goal)
 
 
-_PyperplanFacts = FrozenSet[Tuple[str, ...]]
+_PyperplanFacts = FrozenSet[str]
 
 
 @dataclass(frozen=True)
@@ -957,7 +957,8 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         # Note: filtering out static atoms.
-        pyperplan_facts = _atoms_to_tuples(set(atoms) - self._static_atoms)
+        pyperplan_facts = _atoms_to_pyperplan_facts(set(atoms) \
+                                                    - self._static_atoms)
         return self._evaluate(pyperplan_facts, self._pyperplan_goal,
                               self._pyperplan_heuristic)
 
@@ -981,9 +982,9 @@ def _create_pyperplan_task(
     """Helper glue for pyperplan heuristics."""
     all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
     # Note: removing static atoms.
-    pyperplan_facts = _atoms_to_tuples(all_atoms - static_atoms)
-    pyperplan_state = _atoms_to_tuples(init_atoms - static_atoms)
-    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    pyperplan_facts = _atoms_to_pyperplan_facts(all_atoms - static_atoms)
+    pyperplan_state = _atoms_to_pyperplan_facts(init_atoms - static_atoms)
+    pyperplan_goal = _atoms_to_pyperplan_facts(goal - static_atoms)
     pyperplan_operators = set()
     for op in ground_ops:
         # Note: the pyperplan operator must include the objects, because hFF
@@ -995,24 +996,26 @@ def _create_pyperplan_task(
         pyperplan_operator = _PyperplanOperator(
             name,
             # Note: removing static atoms from preconditions.
-            _atoms_to_tuples(op.preconditions - static_atoms),
-            _atoms_to_tuples(op.add_effects),
-            _atoms_to_tuples(op.delete_effects))
+            _atoms_to_pyperplan_facts(op.preconditions - static_atoms),
+            _atoms_to_pyperplan_facts(op.add_effects),
+            _atoms_to_pyperplan_facts(op.delete_effects))
         pyperplan_operators.add(pyperplan_operator)
     return _PyperplanTask(pyperplan_facts, pyperplan_state, pyperplan_goal,
                           pyperplan_operators)
 
 
 @functools.lru_cache(maxsize=None)
-def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
+def _atom_to_pyperplan_fact(atom: GroundAtom) -> str:
     """Convert atom to tuple for interface with pyperplan."""
-    return (atom.predicate.name, ) + tuple(str(o) for o in atom.objects)
+    arg_str = " ".join(o.name for o in atom.objects)
+    return f"({atom.predicate.name} {arg_str})"
 
 
-def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> _PyperplanFacts:
-    """Light wrapper around atom_to_tuple() that operates on a collection of
-    atoms."""
-    return frozenset({_atom_to_tuple(atom) for atom in atoms})
+def _atoms_to_pyperplan_facts(
+        atoms: Collection[GroundAtom]) -> _PyperplanFacts:
+    """Light wrapper around _atom_to_pyperplan_fact() that operates on a
+    collection of atoms."""
+    return frozenset({_atom_to_pyperplan_fact(atom) for atom in atoms})
 
 
 ############################## End Pyperplan Glue ##############################

@@ -187,6 +187,18 @@ def test_create_score_function():
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_name == "hmax"
+    score_func = _create_score_function("hsa_lookahead_depth0", set(), [], [],
+                                        {})
+    assert isinstance(score_func,
+                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 0
+    assert score_func.heuristic_name == "hsa"
+    score_func = _create_score_function("lmcut_lookahead_depth0", set(), [],
+                                        [], {})
+    assert isinstance(score_func,
+                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 0
+    assert score_func.heuristic_name == "lmcut"
     score_func = _create_score_function("hadd_lookahead_depth1", set(), [], [],
                                         {})
     assert score_func.lookahead_depth == 1
@@ -390,7 +402,7 @@ def test_relaxation_lookahead_score_function():
                                                  option_specs)
 
     candidates = {p: 1.0 for p in name_to_pred.values()}
-    for heuristic_name in ["hadd", "hmax", "hff"]:
+    for heuristic_name in ["hadd", "hmax", "hff", "hsa", "lmcut"]:
         # Reuse dataset from above.
         score_function = _MockLookahead(initial_predicates, atom_dataset,
                                         train_tasks, candidates,
