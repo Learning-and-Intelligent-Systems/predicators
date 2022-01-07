@@ -104,14 +104,14 @@ def test_oracle_samplers():
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
                    check_solution=True)
-    with pytest.raises(AssertionError) as e:
+    with pytest.raises(Exception) as e:
         # In painting, we learn operators that are different from the
         # oracle ones, so oracle sampler learning is not possible.
         _test_approach(env_name="painting",
                        approach_name="nsrt_learning",
                        sampler_learner="oracle",
                        check_solution=True)
-    assert "were not matched to a learned operator" in str(e)
+    assert "no match for ground truth NSRT" in str(e)
 
 
 def test_iterative_invention_approach():
