@@ -1,5 +1,5 @@
 """Behavior (iGibson) environment."""
-# pylint: disable=import-error
+# pylint: disable=import-error,ungrouped-imports
 
 import functools
 import itertools
