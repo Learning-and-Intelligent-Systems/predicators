@@ -187,6 +187,8 @@ def test_oracle_approach_cover_multistep_options():
     """Tests for OracleApproach class with CoverMultistepOptions.
     """
     utils.update_config({"env": "cover_multistep_options"})
+    utils.update_config({"env": "cover_multistep_options",
+                         "cover_multistep_use_learned_equivalents": False})
     env = CoverMultistepOptions()
     env.seed(123)
     approach = OracleApproach(
@@ -209,6 +211,26 @@ def test_oracle_approach_cover_multistep_options():
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(
             lambda s: random_action, task, env.simulate, env.predicates)
+    utils.update_config({"env": "cover_multistep_options"})
+    utils.update_config({"env": "cover_multistep_options",
+                         "cover_multistep_use_learned_equivalents": True,
+                         "sampler_learner": "neural"})
+    env = CoverMultistepOptions()
+    env.seed(123)
+    approach = OracleApproach(
+        env.simulate, env.predicates, env.options, env.types,
+        env.action_space)
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    approach.seed(123)
+    for task in next(env.train_tasks_generator()):
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(
+            policy, task, env.simulate, env.predicates)
 
 
 def test_cluttered_table_get_gt_nsrts():
