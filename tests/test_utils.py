@@ -1157,6 +1157,10 @@ def test_create_task_planning_heuristic():
         "hff", set(), set(), set(), set(), set())
     assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
     assert hff_heuristic.name == "hff"
+    hsa_heuristic = utils.create_task_planning_heuristic(
+        "hsa", set(), set(), set(), set(), set())
+    assert hsa_heuristic.name == "hsa"
+    assert isinstance(hsa_heuristic, _PyperplanHeuristicWrapper)
     lmcut_heuristic = utils.create_task_planning_heuristic(
         "lmcut", set(), set(), set(), set(), set())
     assert isinstance(lmcut_heuristic, _PyperplanHeuristicWrapper)
