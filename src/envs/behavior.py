@@ -27,9 +27,9 @@ except ModuleNotFoundError as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
+import pybullet as pyb
 from predicators.src.envs.behavior_options import navigate_to_obj_pos,\
         grasp_obj_at_pos,place_ontop_obj_pos
-import pybullet as pyb
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task,\
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
@@ -44,7 +44,7 @@ class BehaviorEnv(BaseEnv):
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
-        super().__init__() # To ensure self._seed is defined.
+        super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
         self.behavior_env = behavior_env.BehaviorEnv(
             config_file=config_file,
@@ -81,7 +81,6 @@ class BehaviorEnv(BaseEnv):
                     rng=self._rng,
                 )
                 self._options.add(option)
-
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
