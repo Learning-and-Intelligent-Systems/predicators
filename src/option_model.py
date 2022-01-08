@@ -34,12 +34,15 @@ class _OptionModel:
         raise NotImplementedError("Override me!")
 
 
+
+
 class _DefaultOptionModel(_OptionModel):
     """A default option model that just runs options through the simulator
     to figure out the next state.
     """
     def get_next_state(self, state: State, option: _Option) -> State:
-        traj = utils.option_to_trajectory(
-                state, self._simulator, option,
-                max_num_steps=CFG.max_num_steps_option_rollout)
-        return traj.states[-1]
+        #traj = utils.option_to_trajectory(
+        #        state, self._simulator, option,
+        #        max_num_steps=CFG.max_num_steps_option_rollout)
+        #return traj.states[-1]
+        return utils.option_to_next_state(state, self._simulator, option)

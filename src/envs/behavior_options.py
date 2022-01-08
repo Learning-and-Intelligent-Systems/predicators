@@ -217,6 +217,7 @@ def navigate_to_obj_pos( # type: ignore
     env,
     obj,
     pos_offset: np.ndarray,
+    option_model: bool = True, #bool = False,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
     """
@@ -307,79 +308,107 @@ def navigate_to_obj_pos( # type: ignore
         p.restoreState(state)
 
         if plan is not None:
+            if not option_model:
 
-            def navigateToOption(
-                _state: State, env: BehaviorEnv
-            ) -> Tuple[np.ndarray, bool]:
+                def navigateToOption(
+                    _state: State, env: BehaviorEnv
+                ) -> Tuple[np.ndarray, bool]:
 
-                atol_xy = 1e-2
-                atol_theta = 1e-3
-                atol_vel = 1e-4
+                    atol_xy = 1e-2
+                    atol_theta = 1e-3
+                    atol_vel = 1e-4
 
-                # 1. Get current position and orientation
-                current_pos = list(env.robots[0].get_position()[0:2])
-                current_orn = p.getEulerFromQuaternion(
-                    env.robots[0].get_orientation()
-                )[2]
+                    # 1. Get current position and orientation
+                    current_pos = list(env.robots[0].get_position()[0:2])
+                    current_orn = p.getEulerFromQuaternion(
+                        env.robots[0].get_orientation()
+                    )[2]
 
-                expected_pos = np.array(plan[0][0:2])
-                expected_orn = np.array(plan[0][2])
+                    expected_pos = np.array(plan[0][0:2])
+                    expected_orn = np.array(plan[0][2])
 
-                # 2. if error is greater that MAX_ERROR
-                if not np.allclose(
-                    current_pos, expected_pos, atol=atol_xy
-                ) or not np.allclose(
-                    current_orn, expected_orn, atol=atol_theta
-                ):
-                    # 2.a take a corrective action
-                    if len(plan) <= 1:
-                        done_bit = True
-                        return np.zeros(17), done_bit
-                    low_level_action = get_delta_low_level_base_action(
-                        env,
-                        original_orientation,
-                        np.array(current_pos + [current_orn]),
-                        np.array(plan[0]),
-                    )
-
-                    # But if the corrective action is 0
-                    if np.allclose(
-                        low_level_action, np.zeros((17, 1)), atol=atol_vel
+                    # 2. if error is greater that MAX_ERROR
+                    if not np.allclose(
+                        current_pos, expected_pos, atol=atol_xy
+                    ) or not np.allclose(
+                        current_orn, expected_orn, atol=atol_theta
                     ):
+                        # 2.a take a corrective action
+                        if len(plan) <= 1:
+                            done_bit = True
+                            return np.zeros(17), done_bit
                         low_level_action = get_delta_low_level_base_action(
                             env,
                             original_orientation,
                             np.array(current_pos + [current_orn]),
+                            np.array(plan[0]),
+                        )
+
+                        # But if the corrective action is 0
+                        if np.allclose(
+                            low_level_action, np.zeros((17, 1)), atol=atol_vel
+                        ):
+                            low_level_action = get_delta_low_level_base_action(
+                                env,
+                                original_orientation,
+                                np.array(current_pos + [current_orn]),
+                                np.array(plan[1]),
+                            )
+                            plan.pop(0)
+
+                        return low_level_action, False
+
+                    if (
+                        len(plan) == 1
+                    ):  # In this case, we're at the final position we wanted
+                        # to reach
+                        low_level_action = np.zeros(17, dtype=float)
+                        done_bit = True
+
+                    else:
+                        low_level_action = get_delta_low_level_base_action(
+                            env,
+                            original_orientation,
+                            np.array(plan[0]),
                             np.array(plan[1]),
                         )
-                        plan.pop(0)
+                        done_bit = False
 
-                    return low_level_action, False
+                    plan.pop(0)
 
-                if (
-                    len(plan) == 1
-                ):  # In this case, we're at the final position we wanted
-                    # to reach
-                    low_level_action = np.zeros(17, dtype=float)
-                    done_bit = True
+                    return low_level_action, done_bit
 
-                else:
-                    low_level_action = get_delta_low_level_base_action(
-                        env,
-                        original_orientation,
-                        np.array(plan[0]),
-                        np.array(plan[1]),
-                    )
-                    done_bit = False
+                p.restoreState(state)
+                p.removeState(state)
 
-                plan.pop(0)
+                return navigateToOption
 
-                return low_level_action, done_bit
+            else:
+                # Finishe (TODO wmcclinton)
+                def navigateToOptionModel(
+                        _init_state: State, env: BehaviorEnv
+                    ) -> Tuple[Dict, bool]:
+                        robot_z = env.robots[0].get_position()[2]
+                        target_pos = np.array([plan[-1][0], plan[-1][1], robot_z])
 
-            p.restoreState(state)
-            p.removeState(state)
+                        robot_orn = p.getEulerFromQuaternion(
+                            env.robots[0].get_orientation()
+                        )
+                        target_orn = p.getQuaternionFromEuler(
+                            np.array(
+                                [robot_orn[0], robot_orn[1], plan[-1][2]]
+                            )
+                        )
 
-            return navigateToOption
+                        env.robots[0].set_position_orientation(
+                            target_pos, target_orn
+                        )
+                        
+
+                        final_state = env.get_state()
+                        return final_state, True
+
+                return navigateToOptionModel
 
         p.restoreState(state)
         p.removeState(state)
@@ -834,7 +863,7 @@ def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-st
     obj,
     place_rel_pos: np.ndarray,
     place_orn: Optional[np.ndarray] = None,
-    option_model: bool = False,
+    option_model: bool = True, #bool = False,
     rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
     """

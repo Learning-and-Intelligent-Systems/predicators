@@ -212,6 +212,21 @@ def policy_solves_task(
     )
     return solved
 
+def option_to_next_state(
+        init: State,
+        simulator: Callable[[State, Action], State],
+        option: _Option) -> LowLevelTrajectory:
+    """Convert an option into next state, starting at init, by invoking
+    the option model.
+    """
+    actions = []
+    assert option.initiable(init)
+    state = init
+    states = [state]
+    next_state = option.policy(state)
+    # (TODO) wmcclinton might have to set simulator to next_state
+    return next_state
+
 
 def option_to_trajectory(
         init: State,
