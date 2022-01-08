@@ -1,5 +1,5 @@
 """Hardcoded options for BehaviorEnv."""
-# pylint: disable=import-error,ungrouped-imports
+# pylint: disable=import-error
 
 from typing import Callable, Dict, List, Sequence, Tuple, Union, Optional
 import numpy as np
@@ -9,7 +9,7 @@ from predicators.src.structs import State
 from predicators.src.utils import get_aabb_volume
 
 try:
-    import pybullet as p  # type: ignore
+    import pybullet as p
     from igibson import object_states
     from igibson.envs.behavior_env import BehaviorEnv
     from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
