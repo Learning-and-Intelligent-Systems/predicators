@@ -89,11 +89,11 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         assert str(not_fingers) == "NOT-((0:robot).fingers<=0.5)"
 
         painting_pred_sets: List[Set[Predicate]] = [
-            # set(),
-            # all_predicates - {IsWet, IsDry},
-            # all_predicates - {IsClean, IsDirty},
-            # all_predicates - {OnTable},
-            # all_predicates - {HoldingTop, HoldingSide, Holding},
+            set(),
+            all_predicates - {IsWet, IsDry},
+            all_predicates - {IsClean, IsDirty},
+            all_predicates - {OnTable},
+            all_predicates - {HoldingTop, HoldingSide, Holding},
             {not_held, not_gripper_rot, not_fingers},
             all_predicates,
         ]
@@ -212,9 +212,9 @@ def _main() -> None:
     score_function_names = [
         # "prediction_error",
         # "hadd_lookahead_depth0",
-        # "exact_lookahead",
         # "hadd_lookahead_depth1",
         # "hadd_lookahead_depth2",
+        "exact_lookahead",
         "fast_exact_lookahead",
     ]
     run_planning = False

@@ -6,6 +6,7 @@ import argparse
 import functools
 import gc
 import itertools
+import pathos.multiprocessing as mp
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
@@ -632,6 +633,7 @@ def run_hill_climbing(initial_state: _S,
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
             for parent in current_depth_nodes:
+                child_nodes = []
                 for action, child_state, cost in get_successors(parent.state):
                     if child_state in visited:
                         continue
@@ -644,10 +646,23 @@ def run_hill_climbing(initial_state: _S,
                         parent=parent,
                         action=action)
                     successors_at_depth.append(child_node)
-                    child_heuristic = heuristic(child_node.state)
+
+
+            if not successors_at_depth:
+                print("\nTerminating hill climbing, no more successors")
+                break
+
+            num_cpus = mp.cpu_count()
+            fn = lambda n: (heuristic(n.state), n)
+            for child_heuristic, child_node in map(fn, successors_at_depth):
+
+            with mp.Pool(processes = num_cpus) as p:
+                for child_heuristic, child_node in p.imap_unordered(fn,
+                    successors_at_depth, chunksize=50**(depth+1)//num_cpus):
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
                         best_child_node = child_node
+
             # Some improvement found.
             if last_heuristic > best_heuristic:
                 print(f"Found an improvement at depth {depth}")
@@ -655,9 +670,6 @@ def run_hill_climbing(initial_state: _S,
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
             print(f"No improvement found at depth {depth}")
-        if best_child_node is None:
-            print("\nTerminating hill climbing, no more successors")
-            break
         if last_heuristic <= best_heuristic:
             print("\nTerminating hill climbing, could not improve score")
             break

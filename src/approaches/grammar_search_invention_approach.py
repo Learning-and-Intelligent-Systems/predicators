@@ -732,7 +732,7 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             heuristic_fn: Callable[[Set[GroundAtom]], float],
             ground_ops: Set[_GroundSTRIPSOperator]) -> float:
         score = 0.0
-        for i in range(len(atoms_sequence) - 2, -1, -1):
+        for i in range(len(atoms_sequence) - 1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
             ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
             ground_op_total_lpm = -np.inf  # total log prob mass for all actions
@@ -906,12 +906,13 @@ class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 
 
         def _early_termination_fn(atoms: Set[GroundAtom], skeleton: Sequence[_GroundSTRIPSOperator],
-            atoms_sequence: Sequence[GroundAtom]) -> bool:
-            frozen_atoms = frozenset(atoms)
-            if frozen_atoms in cache:
-                raise _EarlyTermination("Found path to cached goal.",
-                    skeleton, atoms_sequence, frozen_atoms)
+            atoms_sequence: Sequence[GroundAtom], lowest_heur_in_queue) -> bool:
             return False
+            # frozen_atoms = frozenset(atoms)
+            # if frozen_atoms not in cache or lowest_heur_in_queue < len(skeleton) + cache[frozen_atoms]:
+            #     return False
+            # raise _EarlyTermination("Found path to cached goal.",
+            #     skeleton, atoms_sequence, frozen_atoms)
 
 
         skeleton, atoms_sequence, metrics = task_plan(
@@ -941,6 +942,16 @@ class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
                 skeleton = e.skeleton
                 atoms_sequence = e.atoms_sequence
                 suffix_cost = cache[e.cached_goal]
+
+                # exact_skeleton, exact_atoms_sequence, _ = task_plan(
+                #     atoms, objects, goal, strips_ops, option_specs, CFG.seed,
+                #     CFG.grammar_search_task_planning_timeout,
+                #     lambda _1,_2,_3,_4: False, reachable_nsrts, heuristic)
+                # if len(skeleton) + suffix_cost != len(exact_skeleton):
+                #     for nn in exact_skeleton: print(nn.option.name, nn.option_objs)
+                #     import ipdb; ipdb.set_trace()
+
+
             assert atoms_sequence[0] == atoms
             for i, actual_atoms in enumerate(atoms_sequence):
                 cache[frozenset(actual_atoms)] = len(skeleton) - i + suffix_cost

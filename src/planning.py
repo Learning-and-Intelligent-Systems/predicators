@@ -82,7 +82,7 @@ def sesame_plan(
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, predicates, objects,
                     new_seed, timeout - (time.time() - start_time), metrics,
-                    lambda _1,_2,_3: False):
+                    lambda _1,_2,_3,_4: False):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
                     new_seed, timeout - (time.time() - start_time))
@@ -176,17 +176,22 @@ def _skeleton_generator(
         heuristic = utils.create_task_planning_heuristic(
             CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
             predicates, objects)
+    root_h = heuristic(root_node.atoms)
     hq.heappush(queue,
-                (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
+                (root_h, rng_prio.uniform(), root_h, root_node))
     # Start search.
     while queue and (time.time() - start_time < timeout) and metrics["num_nodes_expanded"] < max_node_expansions:
         if (int(metrics["num_skeletons_optimized"]) ==
                 CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
-        _, _, node = hq.heappop(queue)
+        _, _, _, node = hq.heappop(queue)
         # This needs to be here, not in expansion loop!
+        if not queue:
+            lowest_heur_in_queue = float("inf")
+        else:
+            lowest_heur_in_queue = min(h for _, _, h, _ in queue)  # TODO
         if early_termination_fn and early_termination_fn(node.atoms, node.skeleton,
-            node.atoms_sequence):
+            node.atoms_sequence, lowest_heur_in_queue):
             raise ApproachFailure("Early termination function was true.")
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
@@ -206,9 +211,9 @@ def _skeleton_generator(
                                    [child_atoms],
                                    parent=node)
                 # priority is g [plan length] plus h [heuristic]
-                priority = (len(child_node.skeleton) +
-                            heuristic(child_node.atoms))
-                hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
+                child_h = heuristic(child_node.atoms)
+                priority = len(child_node.skeleton) + child_h
+                hq.heappush(queue, (priority, rng_prio.uniform(), child_h, child_node))
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout or metrics["num_nodes_expanded"] >= max_node_expansions
