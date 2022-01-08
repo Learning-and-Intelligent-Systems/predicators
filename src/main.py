@@ -143,10 +143,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics: Metrics = defaultdict(float)
     metrics["num_solved"] = num_solved
     metrics["num_total"] = len(test_tasks)
-    metrics["avg_suc_time"] = (total_suc_time / num_solved
-                               if num_solved > 0 else float("inf"))
+    metrics["avg_suc_time"] = (total_suc_time /
+                               num_solved if num_solved > 0 else float("inf"))
     total_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
-    metrics["avg_nodes_expanded"] = (total_num_nodes_expanded / num_found_policy
+    metrics["avg_nodes_expanded"] = (total_num_nodes_expanded /
+                                     num_found_policy
                                      if num_found_policy > 0 else float("inf"))
     total_plan_length = approach.metrics["total_plan_length"]
     metrics["avg_plan_length"] = (total_plan_length / num_found_policy
