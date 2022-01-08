@@ -5,8 +5,8 @@ from typing import Callable, Dict, List, Sequence, Tuple, Union, Optional
 import numpy as np
 from numpy.random._generator import Generator
 import scipy
-from predicators.src.structs import State
-from predicators.src.utils import get_aabb_volume
+from predicators.src.structs import State, Array
+from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
     import pybullet as p
@@ -86,24 +86,6 @@ def detect_robot_collision(robot) -> bool:  # type: ignore
                                 object_in_hand))
 
 
-def get_closest_point_on_aabb(xyz: List, lo: np.ndarray,\
-    hi: np.ndarray) -> List[float]:
-    """Get the closest point on an aabb from a particular xyz coordinate."""
-    closest_point_on_aabb = [0.0, 0.0, 0.0]
-    for i in range(3):
-        # if the coordinate is between the min and max of the aabb, then
-        # use that coordinate directly
-        if xyz[i] < hi[i] and xyz[i] > lo[i]:
-            closest_point_on_aabb[i] = xyz[i]
-        else:
-            if abs(xyz[i] - hi[i]) < abs(xyz[i] - lo[i]):
-                closest_point_on_aabb[i] = hi[i]
-            else:
-                closest_point_on_aabb[i] = lo[i]
-
-    return closest_point_on_aabb
-
-
 def reset_and_release_hand(env) -> None:  # type: ignore
     """Resets the state of the right hand."""
     env.robots[0].set_position_orientation(env.robots[0].get_position(),
@@ -117,11 +99,11 @@ def reset_and_release_hand(env) -> None:  # type: ignore
 def get_delta_low_level_base_action(  # type: ignore
     env,
     original_orientation: Tuple,
-    old_xytheta: np.ndarray,
-    new_xytheta: np.ndarray,
-) -> np.ndarray:
+    old_xytheta: Array,
+    new_xytheta: Array,
+) -> Array:
     """Get low-level actions from base movement plan."""
-    ret_action = np.zeros(17)
+    ret_action = np.zeros(17, dtype=np.float32)
 
     robot_z = env.robots[0].get_position()[2]
 
@@ -160,7 +142,7 @@ def get_delta_low_level_base_action(  # type: ignore
 
 # Navigate To #
 def navigate_to_param_sampler(  # type: ignore
-        rng: Generator, objects) -> np.ndarray:
+        rng: Generator, objects) -> Array:
     """Sampler for navigateTo option."""
     assert len(objects) in [2, 3]
     # The navigation nsrts are designed such that this is true (the target
@@ -197,9 +179,9 @@ def navigate_to_param_sampler(  # type: ignore
 def navigate_to_obj_pos(  # type: ignore
         env,
         obj,
-        pos_offset: np.ndarray,
+        pos_offset: Array,
         rng: Generator = np.random.default_rng(23),
-) -> Union[None, Callable]:
+) -> Optional[Callable]:
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
@@ -283,7 +265,7 @@ def navigate_to_obj_pos(  # type: ignore
         if plan is not None:
 
             def navigateToOption(_state: State,
-                                 env: BehaviorEnv) -> Tuple[np.ndarray, bool]:
+                                 env: BehaviorEnv) -> Tuple[Array, bool]:
 
                 atol_xy = 1e-2
                 atol_theta = 1e-3
@@ -305,7 +287,7 @@ def navigate_to_obj_pos(  # type: ignore
                     # 2.a take a corrective action
                     if len(plan) <= 1:
                         done_bit = True
-                        return np.zeros(17), done_bit
+                        return np.zeros(17, dtype=np.float32), done_bit
                     low_level_action = get_delta_low_level_base_action(
                         env,
                         original_orientation,
@@ -370,7 +352,7 @@ def navigate_to_obj_pos(  # type: ignore
 
 
 # Sampler for grasp continuous params
-def grasp_obj_param_sampler(rng: Generator) -> np.ndarray:
+def grasp_obj_param_sampler(rng: Generator) -> Array:
     """Sampler for grasp option."""
     x_offset = (rng.random() * 0.4) - 0.2
     y_offset = (rng.random() * 0.4) - 0.2
@@ -380,11 +362,11 @@ def grasp_obj_param_sampler(rng: Generator) -> np.ndarray:
 
 def get_delta_low_level_hand_action(  # type: ignore
     env,
-    old_pos: Union[Sequence[float], np.ndarray],
-    old_orn: Union[Sequence[float], np.ndarray],
-    new_pos: Union[Sequence[float], np.ndarray],
-    new_orn: Union[Sequence[float], np.ndarray],
-) -> np.ndarray:
+    old_pos: Union[Sequence[float], Array],
+    old_orn: Union[Sequence[float], Array],
+    new_pos: Union[Sequence[float], Array],
+    new_orn: Union[Sequence[float], Array],
+) -> Array:
     """Function to get low level actions from hand-movement plan."""
     # First, convert the supplied orientations to quaternions
     old_orn = p.getQuaternionFromEuler(old_orn)
@@ -423,12 +405,13 @@ def get_delta_low_level_hand_action(  # type: ignore
     delta_trig_frac = 0
     action = np.concatenate(  # type: ignore
         [
-            np.zeros((10)),
-            np.array(delta_pos),
-            np.array(p.getEulerFromQuaternion(delta_orn)),
-            np.array([delta_trig_frac]),
+            np.zeros((10), dtype=np.float32),
+            np.array(delta_pos, dtype=np.float32),
+            np.array(p.getEulerFromQuaternion(delta_orn), dtype=np.float32),
+            np.array([delta_trig_frac], dtype=np.float32),
         ],
         axis=0,
+        dtype=np.float32
     )
 
     return action
@@ -437,9 +420,9 @@ def get_delta_low_level_hand_action(  # type: ignore
 def grasp_obj_at_pos(  # type: ignore
         env,
         obj,
-        grasp_offset: np.ndarray,
+        grasp_offset: Array,
         rng: Generator = np.random.default_rng(23),
-) -> Union[None, Callable]:
+) -> Optional[Callable[[State, BehaviorEnv], Tuple[Array, bool]]]:
     """Parameterized controller for grasping.
 
     Runs motion planning to find a feasible trajectory to a certain
@@ -593,7 +576,7 @@ def grasp_obj_at_pos(  # type: ignore
 
                         def graspObjectOption(
                                 _state: State,
-                                env: BehaviorEnv) -> Tuple[np.ndarray, bool]:
+                                env: BehaviorEnv) -> Tuple[Array, bool]:
                             nonlocal plan_executed_forwards
                             nonlocal tried_closing_gripper
                             done_bit = False
@@ -667,7 +650,7 @@ def place_obj_plan(  # type: ignore
         env,
         obj,
         original_state: int,
-        place_rel_pos: np.ndarray,
+        place_rel_pos: Array,
         rng: Generator = np.random.default_rng(23),
 ) -> List[List[float]]:
     """Function to return an RRT plan for placing an object."""
@@ -720,7 +703,7 @@ def place_ontop_obj_pos_sampler(  # type: ignore
     obj,
     return_orn: bool = False,
     rng: Generator = np.random.default_rng(23),
-) -> Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
+) -> Optional[Union[Array, Tuple[Array, Array]]]:
     """Sampler for placeOnTop option."""
     # objA is the object the robot is currently holding, and objB
     # is the surface that it must place onto.
@@ -757,11 +740,11 @@ def place_ontop_obj_pos_sampler(  # type: ignore
 def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-statements
         env,
         obj,
-        place_rel_pos: np.ndarray,
-        place_orn: Optional[np.ndarray] = None,
+        place_rel_pos: Array,
+        place_orn: Optional[Array] = None,
         option_model: bool = False,
         rng: Generator = np.random.default_rng(23),
-) -> Union[None, Callable]:
+) -> Optional[Callable]:
     """Parameterized controller for placeOnTop.
 
     Runs motion planning to find a feasible trajectory to a certain
@@ -809,7 +792,7 @@ def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-s
 
                     def placeOntopObjectOption(
                             _state: State,
-                            env: BehaviorEnv) -> Tuple[np.ndarray, bool]:
+                            env: BehaviorEnv) -> Tuple[Array, bool]:
                         nonlocal plan
                         nonlocal plan_executed_forwards
                         nonlocal tried_opening_gripper
@@ -850,7 +833,7 @@ def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-s
                                 if len(plan) <= 1:
                                     done_bit = False
                                     plan_executed_forwards = True
-                                    low_level_action = np.zeros(17)
+                                    low_level_action = np.zeros(17, dtype=np.float32)
                                     return low_level_action, done_bit
 
                                 low_level_action = (
@@ -927,7 +910,7 @@ def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-s
                                 # 2.a take a corrective action
                                 if len(plan) <= 1:
                                     done_bit = True
-                                    return np.zeros(17), done_bit
+                                    return np.zeros(17, dtype=np.float32), done_bit
                                 low_level_action = (
                                     get_delta_low_level_hand_action(
                                         env,
