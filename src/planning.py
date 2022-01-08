@@ -114,6 +114,7 @@ def task_plan(
                                     Sequence[Set[GroundAtom]]], bool] = None,
     reachable_nsrts = None,
     heuristic=None,
+    max_node_expansions: int = 10000000000,
 ) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
     """Run only the task planning portion of SeSamE. A* search is run, and the
     first skeleton that achieves the goal symbolically is returned. Returns a
@@ -146,7 +147,8 @@ def task_plan(
     predicates = set(predicates_dict.values())
     generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
                                     predicates, objects, seed, timeout,
-                                    metrics, early_termination_fn, heuristic)
+                                    metrics, early_termination_fn, heuristic,
+                                    max_node_expansions)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
@@ -158,6 +160,7 @@ def _skeleton_generator(
     early_termination_fn: Callable[[Set[GroundAtom], Sequence[_GroundNSRT],
                                     Sequence[Set[GroundAtom]]], bool] = None,
     heuristic=None,
+    max_node_expansions: int = 10000000000,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -178,7 +181,7 @@ def _skeleton_generator(
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
-    while queue and (time.time() - start_time < timeout):
+    while queue and (time.time() - start_time < timeout) and metrics["num_nodes_expanded"] < max_node_expansions:
         if (int(metrics["num_skeletons_optimized"]) ==
                 CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
@@ -209,7 +212,7 @@ def _skeleton_generator(
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
     if not queue:
         raise ApproachFailure("Planning ran out of skeletons!")
-    assert time.time() - start_time >= timeout
+    assert time.time() - start_time >= timeout or metrics["num_nodes_expanded"] >= max_node_expansions
     raise ApproachTimeout("Planning timed out in skeleton search!")
 
 

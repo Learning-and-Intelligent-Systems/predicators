@@ -911,6 +911,15 @@ class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             return False
 
 
+        skeleton, atoms_sequence, metrics = task_plan(
+            init_atoms, objects, goal, strips_ops, option_specs, CFG.seed,
+            CFG.grammar_search_task_planning_timeout,
+            _early_termination_fn, reachable_nsrts, heuristic)
+        assert goal.issubset(atoms_sequence[-1])
+        # TODO should we be more forgiving?
+        max_node_expansions = metrics["num_nodes_expanded"] + 1
+
+
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
             if no skeleton is found."""
@@ -920,7 +929,8 @@ class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
                 skeleton, atoms_sequence, _ = task_plan(
                     atoms, objects, goal, strips_ops, option_specs, CFG.seed,
                     CFG.grammar_search_task_planning_timeout,
-                    _early_termination_fn, reachable_nsrts, heuristic)
+                    _early_termination_fn, reachable_nsrts, heuristic,
+                    max_node_expansions)
                 suffix_cost = 0.0
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")

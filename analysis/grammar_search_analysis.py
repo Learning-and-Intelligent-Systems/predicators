@@ -37,15 +37,17 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         env_name = "blocks"
         Holding, Clear, GripperOpen = _get_predicates_by_names(
             env_name, ["Holding", "Clear", "GripperOpen"])
+        NotGripperOpen = GripperOpen.get_negation()
         blocks_pred_sets: List[Set[Predicate]] = [
-            set(),
-            {Holding},
-            {Clear},
-            {GripperOpen},
-            {Holding, Clear},
-            {Clear, GripperOpen},
-            {GripperOpen, Holding},
-            {Clear, GripperOpen, Holding},
+            # set(),
+            # {Holding},
+            # {Clear},
+            {NotGripperOpen},
+            # {GripperOpen},
+            # {Holding, Clear},
+            # {Clear, GripperOpen},
+            # {GripperOpen, Holding},
+            # {Clear, GripperOpen, Holding},
         ]
         _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -177,18 +179,19 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        "cover",
+        # "cover",
         "blocks",
-        "painting",
+        # "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_lookahead_depth0",
-        "exact_lookahead",
-        "hadd_lookahead_depth1",
-        "hadd_lookahead_depth2",
+        # "prediction_error",
+        # "hadd_lookahead_depth0",
+        # "exact_lookahead",
+        # "hadd_lookahead_depth1",
+        # "hadd_lookahead_depth2",
+        "fast_exact_lookahead",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
