@@ -654,7 +654,6 @@ def run_hill_climbing(initial_state: _S,
 
             num_cpus = mp.cpu_count()
             fn = lambda n: (heuristic(n.state), n)
-            for child_heuristic, child_node in map(fn, successors_at_depth):
 
             with mp.Pool(processes = num_cpus) as p:
                 for child_heuristic, child_node in p.imap_unordered(fn,
