@@ -9,6 +9,7 @@ import numpy as np
 from numpy.random._generator import Generator
 
 try:
+    import pybullet as pyb
     import bddl
     import igibson
     from igibson import object_states
@@ -27,7 +28,6 @@ except ModuleNotFoundError as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
-import pybullet as pyb
 from predicators.src.envs.behavior_options import navigate_to_obj_pos,\
         grasp_obj_at_pos,place_ontop_obj_pos
 from predicators.src.envs import BaseEnv
