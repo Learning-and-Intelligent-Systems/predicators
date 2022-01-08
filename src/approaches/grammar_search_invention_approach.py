@@ -729,7 +729,7 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             heuristic_fn: Callable[[Set[GroundAtom]], float],
             ground_ops: Set[_GroundSTRIPSOperator]) -> float:
         score = 0.0
-        for i in range(len(atoms_sequence) - 1):
+        for i in range(len(atoms_sequence) - 2, -1, -1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
             ground_op_demo_lpm = -np.inf  # total log prob mass for demo actions
             ground_op_total_lpm = -np.inf  # total log prob mass for all actions
