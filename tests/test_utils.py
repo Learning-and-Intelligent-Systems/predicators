@@ -17,6 +17,13 @@ from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper
 
 
+def test_aabb_volume():
+    """Tests for get_aabb_volume."""
+    lo = np.array([1.0, 1.5, -1.0])
+    hi = np.array([2.0, 2.5, 0.0])
+    assert utils.get_aabb_volume(lo, hi) == 1.0
+
+
 def test_intersects():
     """Tests for intersects()."""
     p1, p2 = (2, 5), (7, 6)
