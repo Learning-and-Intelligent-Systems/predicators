@@ -10,10 +10,13 @@ from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
 from predicators.src.approaches import TAMPApproach
-from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, PlayroomEnv, BehaviorEnv
-from predicators.src.structs import NSRT, Predicate, State, ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
+from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
+    PlayroomEnv, BehaviorEnv
+from predicators.src.structs import NSRT, Predicate, State, \
+    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.envs.behavior_options import navigate_to_param_sampler, grasp_obj_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs.behavior_options import navigate_to_param_sampler,\
+    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs import get_cached_env_instance
 
 
@@ -107,7 +110,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
-    if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and\
+        CFG.cover_multistep_use_learned_equivalents:
         LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
             CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
 
@@ -126,14 +130,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     if CFG.env in ("cover", "cover_hierarchical_types"):
         option = PickPlace
         option_vars = []
-    elif CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
+    elif CFG.env == "cover_multistep_options" and\
+        CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Pick
         option_vars = [block]
 
-    if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and\
+        CFG.cover_multistep_use_learned_equivalents:
 
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
@@ -204,11 +210,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Place
         option_vars = [target]
-        if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
+        if CFG.env == "cover_multistep_options" and\
+            CFG.cover_multistep_use_learned_equivalents:
             option = LearnedEquivalentPlace
             option_vars = [block, robot, target]
 
-    if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and\
+        CFG.cover_multistep_use_learned_equivalents:
 
         def place_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
@@ -689,10 +697,14 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
 
 def _get_playroom_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for Playroom Env."""
-    block_type, robot_type, door_type, dial_type, region_type = _get_types_by_names(
+    block_type, robot_type, door_type, dial_type, region_type = \
+        _get_types_by_names(
         CFG.env, ["block", "robot", "door", "dial", "region"])
 
-    On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, NextToDial, InRegion, Borders, Connects, IsBoringRoom, IsPlayroom, IsBoringRoomDoor, IsPlayroomDoor, DoorOpen, DoorClosed, LightOn, LightOff = _get_predicates_by_names(
+    On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, \
+        NextToDial, InRegion, Borders, Connects, IsBoringRoom,\
+            IsPlayroom, IsBoringRoomDoor,IsPlayroomDoor, DoorOpen,\
+                DoorClosed, LightOn, LightOff = _get_predicates_by_names(
         "playroom", [
             "On", "OnTable", "GripperOpen", "Holding", "Clear", "NextToTable",
             "NextToDoor", "NextToDial", "InRegion", "Borders", "Connects",
@@ -700,7 +712,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
             "DoorOpen", "DoorClosed", "LightOn", "LightOff"
         ])
 
-    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial, TurnOffDial = _get_options_by_names(
+    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial,\
+        TurnOffDial = _get_options_by_names(
         "playroom", [
             "Pick", "Stack", "PutOnTable", "Move", "OpenDoor", "CloseDoor",
             "TurnOnDial", "TurnOffDial"
@@ -1230,7 +1243,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     # for navigateTo operators
     reachable_predicates = set()
     for reachable_pred_types in itertools.product(env.types, env.types):
-        reachable_predicates.add(_get_predicate("reachable", reachable_pred_types))
+        reachable_predicates.add(
+            _get_predicate("reachable", reachable_pred_types))
 
     agent_type = type_name_to_type["agent.n.01"]
     agent_obj = Variable("?agent", agent_type)
@@ -1252,7 +1266,8 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             target_obj = Variable("?targ", target_obj_type)
 
             # Navigate to from nothing reachable.
-            reachable_nothing = _get_lifted_atom("reachable-nothing", [agent_obj])
+            reachable_nothing = _get_lifted_atom("reachable-nothing",
+                                                 [agent_obj])
             parameters = [agent_obj, target_obj]
             option_vars = [target_obj]
             preconditions = {reachable_nothing}
@@ -1262,8 +1277,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             delete_effects = {reachable_nothing}
             nsrt = NSRT(
                 f"{option.name}-{next(op_name_count_nav)}", parameters,
-                preconditions, add_effects, delete_effects, reachable_predicates,
-                option, option_vars, lambda s, r, o: navigate_to_param_sampler(
+                preconditions, add_effects, delete_effects,
+                reachable_predicates, option, option_vars,
+                lambda s, r, o: navigate_to_param_sampler(
                     r,
                     [env.object_to_ig_object(o_i) for o_i in o],
                 ))
@@ -1276,9 +1292,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
 
                 origin_obj = Variable("?origin", origin_obj_type)
                 origin_reachable = _get_lifted_atom("reachable",
-                                                 [origin_obj, agent_obj])
+                                                    [origin_obj, agent_obj])
                 targ_reachable = _get_lifted_atom("reachable",
-                                               [target_obj, agent_obj])
+                                                  [target_obj, agent_obj])
                 parameters = [origin_obj, agent_obj, target_obj]
                 option_vars = [target_obj]
                 preconditions = {origin_reachable}
@@ -1305,7 +1321,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 option_vars = [target_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 targ_reachable = _get_lifted_atom("reachable",
-                                               [target_obj, agent_obj])
+                                                  [target_obj, agent_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
                 preconditions = {handempty, targ_reachable}
                 add_effects = {targ_holding}
@@ -1337,7 +1353,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
                 surf_reachable = _get_lifted_atom("reachable",
-                                               [surf_obj, agent_obj])
+                                                  [surf_obj, agent_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
                 preconditions = {held_holding, surf_reachable}
                 add_effects = {ontop, handempty}
