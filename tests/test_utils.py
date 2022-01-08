@@ -24,6 +24,14 @@ def test_aabb_volume():
     assert utils.get_aabb_volume(lo, hi) == 1.0
 
 
+def test_aabb_closest_point():
+    """Tests for get_closest_point_on_aabb."""
+    xyz = [1.5, 3.0, -2.5]
+    lo = np.array([1.0, 1.5, -1.0])
+    hi = np.array([2.0, 2.5, 0.0])
+    assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
+
+
 def test_intersects():
     """Tests for intersects()."""
     p1, p2 = (2, 5), (7, 6)

@@ -29,10 +29,30 @@ from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
 
-def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
-    """Simple utility function to compute the volume of an aabb."""
+def get_aabb_volume(lo: Array, hi: Array) -> float:
+    """Simple utility function to compute the volume of an aabb.
+
+    lo refers to the minimum values of the bbox in the x,y and z axes,
+    while hi refers to the highest values
+    """
     dimension = hi - lo
     return dimension[0] * dimension[1] * dimension[2]
+
+def get_closest_point_on_aabb(xyz: List, lo: Array,\
+    hi: Array) -> List[float]:
+    """Get the closest point on an aabb from a particular xyz coordinate."""
+    closest_point_on_aabb = [0.0, 0.0, 0.0]
+    for i in range(3):
+        # if the coordinate is between the min and max of the aabb, then
+        # use that coordinate directly
+        if xyz[i] < hi[i] and xyz[i] > lo[i]:
+            closest_point_on_aabb[i] = xyz[i]
+        else:
+            if abs(xyz[i] - hi[i]) < abs(xyz[i] - lo[i]):
+                closest_point_on_aabb[i] = hi[i]
+            else:
+                closest_point_on_aabb[i] = lo[i]
+    return closest_point_on_aabb
 
 
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
