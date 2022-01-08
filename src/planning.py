@@ -81,7 +81,8 @@ def sesame_plan(
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, predicates, objects,
-                    new_seed, timeout - (time.time() - start_time), metrics):
+                    new_seed, timeout - (time.time() - start_time), metrics,
+                    lambda _1,_2,_3: False):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
                     new_seed, timeout - (time.time() - start_time))
@@ -109,6 +110,10 @@ def task_plan(
     option_specs: Sequence[OptionSpec],
     seed: int,
     timeout: float,
+    early_termination_fn: Callable[[Set[GroundAtom], Sequence[_GroundNSRT],
+                                    Sequence[Set[GroundAtom]]], bool] = None,
+    reachable_nsrts = None,
+    heuristic=None,
 ) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
     """Run only the task planning portion of SeSamE. A* search is run, and the
     first skeleton that achieves the goal symbolically is returned. Returns a
@@ -118,29 +123,30 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
     """
-    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-    ground_nsrts = []
-    for nsrt in nsrts:
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-    nonempty_ground_nsrts = [
-        nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
-    ]
-    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                    init_atoms)
-    if not goal.issubset(all_reachable_atoms):
-        raise ApproachFailure(f"Goal {goal} not dr-reachable")
-    reachable_nsrts = [
-        nsrt for nsrt in nonempty_ground_nsrts
-        if nsrt.preconditions.issubset(all_reachable_atoms)
-    ]
+    if reachable_nsrts is None:
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        ground_nsrts = []
+        for nsrt in nsrts:
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+        nonempty_ground_nsrts = [
+            nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
+        ]
+        all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                        init_atoms)
+        if not goal.issubset(all_reachable_atoms):
+            raise ApproachFailure(f"Goal {goal} not dr-reachable")
+        reachable_nsrts = [
+            nsrt for nsrt in nonempty_ground_nsrts
+            if nsrt.preconditions.issubset(all_reachable_atoms)
+        ]
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
     predicates_dict, _ = utils.extract_preds_and_types(strips_ops)
     predicates = set(predicates_dict.values())
     generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
                                     predicates, objects, seed, timeout,
-                                    metrics)
+                                    metrics, early_termination_fn, heuristic)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
@@ -148,11 +154,16 @@ def task_plan(
 def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
     predicates: Collection[Predicate], objects: Collection[Object], seed: int,
-    timeout: float, metrics: Metrics
+    timeout: float, metrics: Metrics,
+    early_termination_fn: Callable[[Set[GroundAtom], Sequence[_GroundNSRT],
+                                    Sequence[Set[GroundAtom]]], bool] = None,
+    heuristic=None,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
+    if early_termination_fn and early_termination_fn(init_atoms, [], [init_atoms]):
+        raise ApproachFailure("Early termination function was true.")
     start_time = time.time()
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
@@ -160,9 +171,10 @@ def _skeleton_generator(
                       atoms_sequence=[init_atoms],
                       parent=None)
     rng_prio = np.random.default_rng(seed)
-    heuristic = utils.create_task_planning_heuristic(
-        CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
-        predicates, objects)
+    if heuristic is None:
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
+            predicates, objects)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
@@ -188,6 +200,9 @@ def _skeleton_generator(
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node)
+                if early_termination_fn and early_termination_fn(child_atoms, child_node.skeleton,
+                    child_node.atoms_sequence):
+                    raise ApproachFailure("Early termination function was true.")
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))

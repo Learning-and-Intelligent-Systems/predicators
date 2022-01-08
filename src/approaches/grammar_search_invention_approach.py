@@ -487,6 +487,9 @@ def _create_score_function(
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, train_tasks, candidates)
+    if score_function_name == "fast_exact_lookahead":
+        return _FastExactHeuristicLookaheadBasedScoreFunction(
+            initial_predicates, atom_dataset, train_tasks, candidates)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           train_tasks, candidates)
@@ -846,6 +849,94 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+    """Implement _generate_heuristic() with task planning."""
+
+    heuristic_names: Sequence[str] = field(default=("fast_exact", ),
+                                           init=False)
+
+    def _generate_heuristic(
+        self,
+        heuristic_name: str,
+        init_atoms: Set[GroundAtom],
+        objects: Set[Object],
+        goal: Set[GroundAtom],
+        strips_ops: Sequence[STRIPSOperator],
+        option_specs: Sequence[OptionSpec],
+        ground_ops: Set[_GroundSTRIPSOperator],
+        predicates: Collection[Predicate],
+    ) -> Callable[[Set[GroundAtom]], float]:
+
+        assert heuristic_name == "fast_exact"
+
+        cache: Dict[FrozenSet[GroundAtom], float] = {}
+
+        # Make these only once!!
+        # TODO: refactor
+        nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+        ground_nsrts = []
+        for nsrt in nsrts:
+            for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+                ground_nsrts.append(ground_nsrt)
+        nonempty_ground_nsrts = [
+            nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
+        ]
+        all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                        init_atoms)
+        assert goal.issubset(all_reachable_atoms)
+        reachable_nsrts = [
+            nsrt for nsrt in nonempty_ground_nsrts
+            if nsrt.preconditions.issubset(all_reachable_atoms)
+        ]
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.task_planning_heuristic, init_atoms, goal, reachable_nsrts,
+            predicates | self._initial_predicates, objects)
+
+
+        class _EarlyTermination(Exception):
+            def __init__(self, message: str, skeleton: Sequence[_GroundSTRIPSOperator],
+                atoms_sequence: Sequence[GroundAtom], cached_goal: FrozenSet[GroundAtom]):
+                super().__init__(message)
+                self.skeleton = skeleton
+                self.atoms_sequence = atoms_sequence
+                self.cached_goal = cached_goal
+
+
+        def _early_termination_fn(atoms: Set[GroundAtom], skeleton: Sequence[_GroundSTRIPSOperator],
+            atoms_sequence: Sequence[GroundAtom]) -> bool:
+            frozen_atoms = frozenset(atoms)
+            if frozen_atoms in cache:
+                raise _EarlyTermination("Found path to cached goal.",
+                    skeleton, atoms_sequence, frozen_atoms)
+            return False
+
+
+        def _task_planning_h(atoms: Set[GroundAtom]) -> float:
+            """Run task planning and return the length of the skeleton, or inf
+            if no skeleton is found."""
+            if frozenset(atoms) in cache:
+                return cache[frozenset(atoms)]
+            try:
+                skeleton, atoms_sequence, _ = task_plan(
+                    atoms, objects, goal, strips_ops, option_specs, CFG.seed,
+                    CFG.grammar_search_task_planning_timeout,
+                    _early_termination_fn, reachable_nsrts, heuristic)
+                suffix_cost = 0.0
+            except (ApproachFailure, ApproachTimeout):
+                return float("inf")
+            except _EarlyTermination as e:
+                skeleton = e.skeleton
+                atoms_sequence = e.atoms_sequence
+                suffix_cost = cache[e.cached_goal]
+            assert atoms_sequence[0] == atoms
+            for i, actual_atoms in enumerate(atoms_sequence):
+                cache[frozenset(actual_atoms)] = len(skeleton) - i + suffix_cost
+            return cache[frozenset(atoms)]
+
+        return _task_planning_h
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _RelaxationHeuristicMatchBasedScoreFunction(
         _RelaxationHeuristicBasedScoreFunction,
         _HeuristicMatchBasedScoreFunction):
@@ -864,6 +955,14 @@ class _RelaxationHeuristicLookaheadBasedScoreFunction(
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExactHeuristicLookaheadBasedScoreFunction(
         _ExactHeuristicBasedScoreFunction,
+        _HeuristicLookaheadBasedScoreFunction):
+    """Implement _generate_heuristic() with task planning and
+    _evaluate_atom_trajectory() with a lookahead-based policy."""
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _FastExactHeuristicLookaheadBasedScoreFunction(
+        _FastExactHeuristicBasedScoreFunction,
         _HeuristicLookaheadBasedScoreFunction):
     """Implement _generate_heuristic() with task planning and
     _evaluate_atom_trajectory() with a lookahead-based policy."""
