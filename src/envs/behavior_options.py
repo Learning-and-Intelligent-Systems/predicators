@@ -6,6 +6,7 @@ import numpy as np
 from numpy.random._generator import Generator
 import scipy
 from predicators.src.structs import State
+from predicators.src.utils import get_aabb_volume
 
 try:
     import pybullet as p  # type: ignore
@@ -83,12 +84,6 @@ def detect_robot_collision(robot) -> bool:  # type: ignore
             or detect_collision(robot.parts["left_hand"].body_id)
             or detect_collision(robot.parts["right_hand"].body_id,
                                 object_in_hand))
-
-
-def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
-    """Simple utility function to compute the volume of an aabb."""
-    dimension = hi - lo
-    return dimension[0] * dimension[1] * dimension[2]
 
 
 def get_closest_point_on_aabb(xyz: List, lo: np.ndarray,\

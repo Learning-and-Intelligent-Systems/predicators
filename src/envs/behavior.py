@@ -20,9 +20,6 @@ try:
     from igibson.robots.behavior_robot import BRBody
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES,\
         ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
-    from predicators.src.envs.behavior_options import navigate_to_obj_pos,\
-        grasp_obj_at_pos,place_ontop_obj_pos
-    import pybullet as pyb  # type: ignore
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -30,63 +27,14 @@ except ModuleNotFoundError as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
+from predicators.src.envs.behavior_options import navigate_to_obj_pos,\
+        grasp_obj_at_pos,place_ontop_obj_pos
+import pybullet as pyb
 from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type,Predicate,State,Task,\
-    ParameterizedOption,Object,Action,GroundAtom,Image,Array
+from predicators.src.structs import Type, Predicate, State, Task,\
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
-
-
-def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
-    """Simple utility function to compute the volume of an aabb."""
-    dimension = hi - lo
-    return dimension[0] * dimension[1] * dimension[2]
-
-
-def make_behavior_option(  # type: ignore
-        name: str, types: Sequence[Type], params_space: Box, env,
-        controller_fn: Callable, object_to_ig_object: Callable,
-        rng: Generator) -> ParameterizedOption:
-    """Makes an option for a BEHAVIOR env using custom implemented
-    controller_fn."""
-
-    def _policy(state: State, memory: Dict, _objects: Sequence[Object],\
-        _params: Array) -> Action:
-        assert "has_terminated" in memory
-        assert ("controller" in memory and memory["controller"] is not None
-                )  # must call initiable() first, and it must return True
-        assert not memory["has_terminated"]
-        action_arr, memory["has_terminated"] = memory["controller"](state, env)
-        return Action(action_arr)
-
-    def _initiable(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> bool:
-        igo = [object_to_ig_object(o) for o in objects]
-        assert len(igo) == 1
-        if memory.get("controller") is None:
-            # We want to reset the state of the environmenet to
-            # the state in the init state so that our options can
-            # run RRT/plan from here as intended!
-            if state.simulator_state is not None:
-                env.task.reset_scene(state.simulator_state)
-            controller = controller_fn(env, igo[0], params, rng=rng)
-            memory["controller"] = controller
-            memory["has_terminated"] = False
-            return controller is not None
-        return True
-
-    def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
-                  _params: Array) -> bool:
-        assert "has_terminated" in memory
-        return memory["has_terminated"]
-
-    return ParameterizedOption(
-        name,
-        types=types,
-        params_space=params_space,
-        _policy=_policy,
-        _initiable=_initiable,
-        _terminal=_terminal,
-    )
+from predicators.src.utils import get_aabb_volume
 
 
 class BehaviorEnv(BaseEnv):
@@ -96,8 +44,8 @@ class BehaviorEnv(BaseEnv):
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
-
-        self._rng = np.random.default_rng(0)
+        super().__init__() # To ensure self._seed is defined.
+        self._rng = np.random.default_rng(self._seed)
         self.behavior_env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
@@ -110,18 +58,39 @@ class BehaviorEnv(BaseEnv):
 
         self._type_name_to_type: Dict[str, Type] = {}
 
-        super().__init__()
+        # name, controller_fn, param_dim, arity
+        controllers = [
+            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-5.0, 5.0)),
+            ("Grasp", grasp_obj_at_pos, 3, 1, (-np.pi, np.pi)),
+            ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
+        ]
+        self._options: Set[ParameterizedOption] = set()
+        for (name, controller_fn, param_dim, num_args, parameter_limits\
+            ) in controllers:
+            # Create a different option for each type combo
+            for types in itertools.product(self.types, repeat=num_args):
+                option_name = self._create_type_combo_name(name, types)
+                option = make_behavior_option(
+                    option_name,
+                    types=list(types),
+                    params_space=Box(parameter_limits[0], parameter_limits[1],
+                                     (param_dim, )),
+                    env=self.behavior_env,
+                    controller_fn=controller_fn,  # type: ignore
+                    object_to_ig_object=self.object_to_ig_object,
+                    rng=self._rng,
+                )
+                self._options.add(option)
+
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
         self.behavior_env.task.reset_scene(state.simulator_state)
-        # We can remove this after we're confident in it
-        # loaded_state = self._current_ig_state_to_state()
-        # assert loaded_state.allclose(state)
         a = action.arr
         self.behavior_env.step(a)
-        # print(a)
-
+        # a[16] is used to indicate whether to grasp or release the currently-
+        # held object. 1.0 indicates that the object should be grasped, and
+        # -1.0 indicates it should be released
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
             assisted_grasp_action[26] = 1.0
@@ -139,7 +108,6 @@ class BehaviorEnv(BaseEnv):
                 linearVelocity=[0, 0, 0],
                 angularVelocity=[0, 0, 0],
             )
-
         next_state = self._current_ig_state_to_state()
         return next_state
 
@@ -194,10 +162,6 @@ class BehaviorEnv(BaseEnv):
                 # it uses geometry, and the behaviorbot actually floats
                 # and doesn't touch the floor. But it doesn't matter.
                 "onfloor",
-                # NOTE: these three are currently disabled because there
-                # is a behavior bug in evaluating the respective low-level
-                # attributes. When moving to tasks involving these, we
-                # will need to reactivate them.
                 # "cooked",
                 # "burnt",
                 # "frozen",
@@ -273,33 +237,7 @@ class BehaviorEnv(BaseEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        # name, controller_fn, param_dim, arity
-        controllers = [
-            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-5.0, 5.0)),
-            ("Grasp", grasp_obj_at_pos, 3, 1, (-np.pi, np.pi)),
-            ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
-        ]
-
-        options: Set[ParameterizedOption] = set()
-
-        for (name,controller_fn,param_dim,num_args,parameter_limits\
-            ) in controllers:
-            # Create a different option for each type combo
-            for types in itertools.product(self.types, repeat=num_args):
-                option_name = self._create_type_combo_name(name, types)
-                option = make_behavior_option(
-                    option_name,
-                    types=list(types),
-                    params_space=Box(parameter_limits[0], parameter_limits[1],
-                                     (param_dim, )),
-                    env=self.behavior_env,
-                    controller_fn=controller_fn,  # type: ignore
-                    object_to_ig_object=self.object_to_ig_object,
-                    rng=self._rng,
-                )
-                options.add(option)
-
-        return options
+        return self._options
 
     @property
     def action_space(self) -> Box:
@@ -361,13 +299,13 @@ class BehaviorEnv(BaseEnv):
         bddl_predicate: "bddl.AtomicFormula",\
     ) -> Callable[[State, Sequence[Object]], bool]:
 
-        def _classifier(_s: State, o: Sequence[Object]) -> bool:
+        def _classifier(s: State, o: Sequence[Object]) -> bool:
             # Behavior's predicates store the current object states
             # internally and use them to classify groundings of the
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            # assert s.allclose(self._current_ig_state_to_state())
+            assert s.allclose(self._current_ig_state_to_state())
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
@@ -388,13 +326,13 @@ class BehaviorEnv(BaseEnv):
 
         return _classifier
 
-    def _graspable_classifier(self, _state: State,\
+    def _graspable_classifier(self, state: State,\
         objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
+        assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 1
         ig_obj = self.object_to_ig_object(objs[0])
-
         lo, hi = ig_obj.states[object_states.AABB].get_value()
         volume = get_aabb_volume(lo, hi)
         return volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed
@@ -405,11 +343,9 @@ class BehaviorEnv(BaseEnv):
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
-
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
-
         return (np.linalg.norm(  # type: ignore
             np.array(ig_obj.get_position()) -
             np.array(ig_other_obj.get_position())) < 2)
@@ -510,3 +446,51 @@ class BehaviorEnv(BaseEnv):
         type_combo: Sequence[Type]) -> str:
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
+
+
+def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
+                         env: behavior_env.BehaviorEnv,
+                         controller_fn: Callable,
+                         object_to_ig_object: Callable,
+                         rng: Generator) -> ParameterizedOption:
+    """Makes an option for a BEHAVIOR env using custom implemented
+    controller_fn."""
+
+    def _policy(state: State, memory: Dict, _objects: Sequence[Object],\
+        _params: Array) -> Action:
+        assert "has_terminated" in memory
+        assert ("controller" in memory and memory["controller"] is not None
+                )  # must call initiable() first, and it must return True
+        assert not memory["has_terminated"]
+        action_arr, memory["has_terminated"] = memory["controller"](state, env)
+        return Action(action_arr)
+
+    def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> bool:
+        igo = [object_to_ig_object(o) for o in objects]
+        assert len(igo) == 1
+        if memory.get("controller") is None:
+            # We want to reset the state of the environmenet to
+            # the state in the init state so that our options can
+            # run RRT/plan from here as intended!
+            if state.simulator_state is not None:
+                env.task.reset_scene(state.simulator_state)
+            controller = controller_fn(env, igo[0], params, rng=rng)
+            memory["controller"] = controller
+            memory["has_terminated"] = False
+            return controller is not None
+        return True
+
+    def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
+                  _params: Array) -> bool:
+        assert "has_terminated" in memory
+        return memory["has_terminated"]
+
+    return ParameterizedOption(
+        name,
+        types=types,
+        params_space=params_space,
+        _policy=_policy,
+        _initiable=_initiable,
+        _terminal=_terminal,
+    )

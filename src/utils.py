@@ -29,6 +29,12 @@ from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
 
+def get_aabb_volume(lo: np.ndarray, hi: np.ndarray) -> float:
+    """Simple utility function to compute the volume of an aabb."""
+    dimension = hi - lo
+    return dimension[0] * dimension[1] * dimension[2]
+
+
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
