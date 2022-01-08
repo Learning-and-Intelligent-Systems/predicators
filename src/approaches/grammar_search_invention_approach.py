@@ -893,6 +893,24 @@ class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             predicates | self._initial_predicates, objects)
 
 
+        class _EarlyTermination(Exception):
+            def __init__(self, message: str, skeleton: Sequence[_GroundSTRIPSOperator],
+                atoms_sequence: Sequence[GroundAtom], cached_goal: FrozenSet[GroundAtom]):
+                super().__init__(message)
+                self.skeleton = skeleton
+                self.atoms_sequence = atoms_sequence
+                self.cached_goal = cached_goal
+
+
+        def _early_termination_fn(atoms: Set[GroundAtom], skeleton: Sequence[_GroundSTRIPSOperator],
+            atoms_sequence: Sequence[GroundAtom]) -> bool:
+            frozen_atoms = frozenset(atoms)
+            if frozen_atoms in cache:
+                raise _EarlyTermination("Found path to cached goal.",
+                    skeleton, atoms_sequence, frozen_atoms)
+            return False
+
+
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
             if no skeleton is found."""
@@ -902,12 +920,17 @@ class _FastExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
                 skeleton, atoms_sequence, _ = task_plan(
                     atoms, objects, goal, strips_ops, option_specs, CFG.seed,
                     CFG.grammar_search_task_planning_timeout,
-                    reachable_nsrts, heuristic)
+                    _early_termination_fn, reachable_nsrts, heuristic)
+                suffix_cost = 0.0
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
+            except _EarlyTermination as e:
+                skeleton = e.skeleton
+                atoms_sequence = e.atoms_sequence
+                suffix_cost = cache[e.cached_goal]
             assert atoms_sequence[0] == atoms
             for i, actual_atoms in enumerate(atoms_sequence):
-                cache[frozenset(actual_atoms)] = len(skeleton) - i
+                cache[frozenset(actual_atoms)] = len(skeleton) - i + suffix_cost
             return cache[frozenset(atoms)]
 
         return _task_planning_h
@@ -1027,6 +1050,12 @@ def _select_predicates_to_keep(
         _get_successors,
         score_function.evaluate,
         enforced_depth=CFG.grammar_search_hill_climbing_depth)
+    # path, _ = utils.run_gbfs(
+    #     init,
+    #     _check_goal,
+    #     _get_successors,
+    #     score_function.evaluate,
+    #     max_evals=250)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
