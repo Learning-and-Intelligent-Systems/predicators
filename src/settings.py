@@ -14,7 +14,7 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings."""
     # parameters for all envs
-    num_train_tasks = 15
+    num_train_tasks = 50
     num_test_tasks = 50
     max_num_steps_check_policy = 100  # maximum number of steps to run a policy
     # when checking whether it solves a task
@@ -83,7 +83,7 @@ class GlobalSettings:
     learn_side_predicates = False
 
     # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle"
+    option_learner = "no_learning"  # "no_learning" or "oracle" or "simple"
     basic_mlp_max_itr = 10000
     basic_mlp_hid_sizes = [32, 32]
     clip_gradients = False

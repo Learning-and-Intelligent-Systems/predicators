@@ -28,15 +28,15 @@ import os
 import subprocess
 import time
 import pickle as pkl
-from typing import Dict
+from typing import Dict, List
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Metrics
+from predicators.src.structs import Metrics, Task
 from predicators.src import utils
-
+import numpy as np
 
 def main() -> None:
     """Main entry point for running approaches in environments."""
@@ -77,35 +77,53 @@ def main() -> None:
         preds = env.predicates
     approach = create_approach(CFG.approach, env.simulate, preds, env.options,
                                env.types, env.action_space)
-    env.seed(CFG.seed)
-    approach.seed(CFG.seed)
-    env.action_space.seed(CFG.seed)
-    for option in env.options:
-        option.params_space.seed(CFG.seed)
-    # If approach is learning-based, get training datasets and do learning,
-    # testing after each learning call. Otherwise, just do testing.
-    if approach.is_learning_based:
-        if CFG.load:
-            approach.load()
-            results = _run_testing(env, approach)
-            _save_test_results(results, start)
-        else:
-            # Iterate over the train_tasks lists coming from the generator.
-            dataset_idx = 0
-            for train_tasks in env.train_tasks_generator():
-                dataset = create_dataset(env, train_tasks)
-                print(f"\n\nDATASET INDEX: {dataset_idx}")
-                dataset_idx += 1
-                approach.learn_from_offline_dataset(dataset, train_tasks)
+
+    N = 10  # Number of evaluations
+    # Create N initial independent states
+    all_results = []
+    for i in range(N):
+        seed = np.random.randint(0, 1000)
+        print(f"Seed for run {i}: ", seed)
+        env.seed(seed)
+        approach.seed(seed)
+        env.action_space.seed(seed)
+        for option in env.options:
+            option.params_space.seed(seed)
+        # If approach is learning-based, get training datasets and do learning,
+        # testing after each learning call. Otherwise, just do testing.
+        if approach.is_learning_based:
+            if CFG.load:
+                approach.load()
                 results = _run_testing(env, approach)
                 _save_test_results(results, start)
-    else:
-        results = _run_testing(env, approach)
-        _save_test_results(results, start)
+            else:
+                # Iterate over the train_tasks lists coming from the generator.
+                dataset_idx = 0
+                for train_tasks in env.train_tasks_generator():
+                    dataset = create_dataset(env, train_tasks)
+                    # print(f"\n\nDATASET INDEX: {dataset_idx}")
+                    dataset_idx += 1
+                    approach.learn_from_offline_dataset(dataset, train_tasks)
+                    test_tasks = env.get_test_tasks()
+                    results = _run_testing(train_tasks, env, approach)
+                    all_results.append(results)
+                    _save_test_results(results, start)
+        else:
+            test_tasks = env.get_test_tasks()
+            results = _run_testing(test_tasks, env, approach)
+            _save_test_results(results, start)
+        print(f"\n\nMain script terminated in {time.time()-start:.5f} seconds")
+
+    tasks_solved = []
+    for r in all_results:
+        tasks_solved.append(r["test"]["test_tasks_solved"])
+    solved = np.array(tasks_solved)
+    print("Average tasks solved: ", np.mean(solved))
+    print("Test tasks solved: ", solved.tolist())
 
 
-def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
-    test_tasks = env.get_test_tasks()
+def _run_testing(tasks: List[Task], env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
+    test_tasks = tasks
     num_solved = 0
     approach.reset_metrics()
     start = time.time()
@@ -139,6 +157,16 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Dict[str, Metrics]:
     test_metrics["test_tasks_total"] = len(test_tasks)
     test_metrics["total_test_time"] = total_test_time
     return {"test": test_metrics, "approach": approach.metrics.copy()}
+
+
+# def _print_test_results(results: Dict[str, Metrics]) -> None:
+#     test_tasks_solved = results["test"]["test_tasks_solved"]
+#     test_tasks_total = results["test"]["test_tasks_total"]
+#     total_test_time = results["test"]["total_test_time"]
+#     approach_metrics = results["approach"]
+#     print(f"Tasks solved: {test_tasks_solved} / {test_tasks_total}")
+#     print(f"Approach metrics: {approach_metrics}")
+#     print(f"Total test time: {total_test_time:.5f} seconds")
 
 
 def _save_test_results(results: Dict[str, Metrics], start_time: float) -> None:

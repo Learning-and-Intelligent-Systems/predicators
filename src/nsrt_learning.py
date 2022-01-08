@@ -10,7 +10,8 @@ from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
 from predicators.src.option_learning import create_option_learner
-
+from predicators.src.envs import create_env, CoverMultistepOptions
+import numpy as np
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
@@ -51,7 +52,57 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     _learn_pnad_options(pnads)
 
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
-    _learn_pnad_samplers(pnads, sampler_learner)
+    # _learn_pnad_samplers(pnads, sampler_learner)
+    env = create_env(CFG.env)
+    block_type = env._block_type
+    robot_type = env._robot_type
+    target_type = env._target_type
+    def pick_sampler(state: State, rng: np.random.Generator,
+                     objs: Sequence[Object]) -> Array:
+        assert len(objs) == 2
+        block, robot = objs
+        assert block.is_instance(block_type)
+        assert robot.is_instance(robot_type)
+        bx, by = state.get(block, "x"), state.get(block, "y")
+        bw, bh = state.get(block, "width"), state.get(block, "height")
+        desired_x = rng.uniform(bx-bw/2, bx+bw/2)
+        desired_x = float(bx)
+        # is_block, is_target, width, x, grasp, y, height
+        # grasp changes from -1 to 1
+        block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
+        # x, y, grip, holding
+        # grip changes from -1.0 to 1.0
+        # holding changes from -1 to 1
+        robot_param = [desired_x, by, 1.0, 1.0]
+        param = block_param + robot_param
+        return np.array(param, dtype=np.float32)
+    def place_sampler(state: State, rng: np.random.Generator,
+                      objs: Sequence[Object]) -> Array:
+        assert len(objs) == 3
+        block, robot, target = objs
+        assert block.is_instance(block_type)
+        assert robot.is_instance(robot_type)
+        assert target.is_instance(target_type)
+        tx, tw = state.get(target, "x"), state.get(target, "width")
+        desired_x = rng.uniform(tx-tw/2, tx+tw/2)
+        desired_x = float(tx)
+        bw, bh = state.get(block, "width"), state.get(block, "height")
+        desired_y = bh + 1e-2
+        # is_block, is_target, width, x, grasp, y, height
+        # grasp changes from 1 to -1
+        block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
+        # x, y, grip, holding
+        # grip changes from 1.0 to -1.0
+        # holding changes from 1 to -1
+        robot_param = [desired_x, desired_y, -1.0, -1.0]
+        param = block_param + robot_param
+        return np.array(param, dtype=np.float32)
+    if len(pnads[0].op.parameters) == 2:
+        pnads[0].sampler = pick_sampler
+        pnads[1].sampler = place_sampler
+    elif len(pnads[0].op.parameters) == 3:
+        pnads[1].sampler = pick_sampler
+        pnads[0].sampler = place_sampler
 
     # STEP 7: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]

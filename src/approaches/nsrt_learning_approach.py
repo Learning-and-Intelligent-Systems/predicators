@@ -49,9 +49,9 @@ class NSRTLearningApproach(TAMPApproach):
             self._dataset,
             self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
-        save_path = utils.get_save_path_str()
-        with open(f"{save_path}.NSRTs", "wb") as f:
-            pkl.dump(self._nsrts, f)
+        # save_path = utils.get_save_path_str()
+        # with open(f"{save_path}.NSRTs", "wb") as f:
+        #     pkl.dump(self._nsrts, f)
 
     def load(self) -> None:
         save_path = utils.get_save_path_str()
