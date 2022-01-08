@@ -667,11 +667,14 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                 for op in utils.all_ground_operators(strips_op, objects)
             }
             for heuristic_name in self.heuristic_names:
-                heuristic_fn = self._generate_heuristic(
-                    heuristic_name, init_atoms, objects, goal, strips_ops,
-                    option_specs, ground_ops, predicates)
-                scores[heuristic_name] += self._evaluate_atom_trajectory(
-                    atoms_sequence, heuristic_fn, ground_ops)
+                try:
+                    heuristic_fn = self._generate_heuristic(
+                        heuristic_name, init_atoms, objects, goal, strips_ops,
+                        option_specs, ground_ops, predicates)
+                    scores[heuristic_name] += self._evaluate_atom_trajectory(
+                        atoms_sequence, heuristic_fn, ground_ops)
+                except ApproachTimeout:
+                    return float("inf")
         score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 
