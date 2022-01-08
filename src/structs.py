@@ -379,6 +379,11 @@ class ParameterizedOption:
     # will be contained in params_space.
     _policy: Callable[[State, Dict, Sequence[Object], Array],
                       Action] = field(repr=False)
+    # A policy maps a state, memory dict, objects, and parameters to a state.
+    # The objects' types will match those in self.types. The parameters
+    # will be contained in params_space.
+    _model: Callable[[State, Dict, Sequence[Object], Array],
+                      State] = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
@@ -419,12 +424,17 @@ class ParameterizedOption:
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
 
-        assert self.params_space.contains(params)
+        try:
+            assert self.params_space.contains(params)
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
+
 
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name,
             lambda s: self._policy(s, memory, objects, params),
+            lambda s: self._model(s, memory, objects, params),
             initiable=lambda s: self._initiable(s, memory, objects, params),
             terminal=lambda s: self._terminal(s, memory, objects, params),
             parent=self,
@@ -442,6 +452,8 @@ class _Option:
     name: str
     # A policy maps a state to an action.
     _policy: Callable[[State], Action] = field(repr=False)
+    # A option model maps a state to a next_state.
+    _model: Callable[[State], [State]] = field(repr=False)
     # An initiation classifier maps a state to a bool, which is True
     # iff the option can start now.
     initiable: Callable[[State], bool] = field(repr=False)
@@ -461,10 +473,16 @@ class _Option:
         action.set_option(self)
         return action
 
+    def model(self, state: State) -> State:
+        """Call the model and returns the option's model."""
+        next_state = self._model(state)
+        return next_state
+
 
 DummyOption: _Option = ParameterizedOption(
     "DummyOption", [], Box(0, 1,
                            (1, )), lambda s, m, o, p: Action(np.array([0.0])),
+    lambda s, m, o, p: False,
     lambda s, m, o, p: False, lambda s, m, o, p: False).ground([],
                                                                np.array([0.0]))
 DummyOption.parent.params_space.seed(0)  # for reproducibility

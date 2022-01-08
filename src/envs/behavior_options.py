@@ -199,20 +199,12 @@ def navigate_to_param_sampler(  # type: ignore
     return np.array([x, y])
 
 
-<<<<<<< HEAD
 def navigate_to_obj_pos( # type: ignore
     env,
     obj,
     pos_offset: np.ndarray,
     option_model: bool = True, #bool = False,
     rng: Generator = np.random.default_rng(23),
-=======
-def navigate_to_obj_pos(  # type: ignore
-        env,
-        obj,
-        pos_offset: np.ndarray,
-        rng: Generator = np.random.default_rng(23),
->>>>>>> 3644824040dc3786e015160c0db3f125d266f728
 ) -> Union[None, Callable]:
     """Parameterized controller for navigation.
 
@@ -226,7 +218,7 @@ def navigate_to_obj_pos(  # type: ignore
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
     valid_position = None  # ((x,y,z),(roll, pitch, yaw))
-    original_orientation = env.robots[0].get_orientation()
+    original_orientation = env._env.robots[0].get_orientation()
 
     state = p.saveState()
 
@@ -246,22 +238,22 @@ def navigate_to_obj_pos(  # type: ignore
         pos = [
             pos_offset[0] + obj_pos[0],
             pos_offset[1] + obj_pos[1],
-            env.robots[0].initial_z_offset,
+            env._env.robots[0].initial_z_offset,
         ]
         yaw_angle = np.arctan2(pos_offset[1], pos_offset[0]) - np.pi
         orn = [0, 0, yaw_angle]
-        env.robots[0].set_position_orientation(pos,
+        env._env.robots[0].set_position_orientation(pos,
                                                p.getQuaternionFromEuler(orn))
-        eye_pos = env.robots[0].parts["eye"].get_position()
+        eye_pos = env._env.robots[0].parts["eye"].get_position()
         ray_test_res = p.rayTest(eye_pos, obj_pos)
         # Test to see if the robot is obstructed by some object, but make sure
         # that object is not either the robot's body or the object we want to
         # pick up!
         blocked = len(ray_test_res) > 0 and (ray_test_res[0][0] not in (
-            env.robots[0].parts["body"].get_body_id(),
+            env._env.robots[0].parts["body"].get_body_id(),
             obj.get_body_id(),
         ))
-        if not detect_robot_collision(env.robots[0]) and not blocked:
+        if not detect_robot_collision(env._env.robots[0]) and not blocked:
             valid_position = (pos, orn)
     else:
         print("ERROR! Object to navigate to is not valid (not an instance of" +
@@ -276,11 +268,11 @@ def navigate_to_obj_pos(  # type: ignore
         p.restoreState(state)
         p.removeState(state)
         state = p.saveState()
-        obstacles = get_body_ids(env)
-        if env.robots[0].parts["right_hand"].object_in_hand is not None:
+        obstacles = get_body_ids(env._env)
+        if env._env.robots[0].parts["right_hand"].object_in_hand is not None:
             obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
         plan = plan_base_motion_br(
-            robot=env.robots[0],
+            robot=env._env.robots[0],
             end_conf=[
                 valid_position[0][0],
                 valid_position[0][1],
@@ -288,7 +280,7 @@ def navigate_to_obj_pos(  # type: ignore
             ],
             base_limits=(),
             obstacles=obstacles,
-            override_sample_fn=lambda: sample_fn(env, rng),
+            override_sample_fn=lambda: sample_fn(env._env, rng),
             rng=rng,
         )
 
@@ -306,9 +298,9 @@ def navigate_to_obj_pos(  # type: ignore
                     atol_vel = 1e-4
 
                     # 1. Get current position and orientation
-                    current_pos = list(env.robots[0].get_position()[0:2])
+                    current_pos = list(env._env.robots[0].get_position()[0:2])
                     current_orn = p.getEulerFromQuaternion(
-                        env.robots[0].get_orientation()
+                        env._env.robots[0].get_orientation()
                     )[2]
 
                     expected_pos = np.array(plan[0][0:2])
@@ -325,84 +317,32 @@ def navigate_to_obj_pos(  # type: ignore
                             done_bit = True
                             return np.zeros(17), done_bit
                         low_level_action = get_delta_low_level_base_action(
-                            env,
+                            env._env,
                             original_orientation,
                             np.array(current_pos + [current_orn]),
                             np.array(plan[0]),
                         )
 
-<<<<<<< HEAD
                         # But if the corrective action is 0
                         if np.allclose(
                             low_level_action, np.zeros((17, 1)), atol=atol_vel
                         ):
                             low_level_action = get_delta_low_level_base_action(
-                                env,
+                                env._env,
                                 original_orientation,
                                 np.array(current_pos + [current_orn]),
                                 np.array(plan[1]),
                             )
                             plan.pop(0)
-=======
-            def navigateToOption(_state: State,
-                                 env: BehaviorEnv) -> Tuple[np.ndarray, bool]:
-
-                atol_xy = 1e-2
-                atol_theta = 1e-3
-                atol_vel = 1e-4
-
-                # 1. Get current position and orientation
-                current_pos = list(env.robots[0].get_position()[0:2])
-                current_orn = p.getEulerFromQuaternion(
-                    env.robots[0].get_orientation())[2]
->>>>>>> 3644824040dc3786e015160c0db3f125d266f728
 
                         return low_level_action, False
 
-<<<<<<< HEAD
                     if (
                         len(plan) == 1
                     ):  # In this case, we're at the final position we wanted
                         # to reach
                         low_level_action = np.zeros(17, dtype=float)
-=======
-                # 2. if error is greater that MAX_ERROR
-                if not np.allclose(
-                        current_pos, expected_pos,
-                        atol=atol_xy) or not np.allclose(
-                            current_orn, expected_orn, atol=atol_theta):
-                    # 2.a take a corrective action
-                    if len(plan) <= 1:
->>>>>>> 3644824040dc3786e015160c0db3f125d266f728
                         done_bit = True
-
-<<<<<<< HEAD
-                    else:
-=======
-                    # But if the corrective action is 0
-                    if np.allclose(low_level_action,
-                                   np.zeros((17, 1)),
-                                   atol=atol_vel):
->>>>>>> 3644824040dc3786e015160c0db3f125d266f728
-                        low_level_action = get_delta_low_level_base_action(
-                            env,
-                            original_orientation,
-                            np.array(plan[0]),
-                            np.array(plan[1]),
-                        )
-                        done_bit = False
-
-                    plan.pop(0)
-
-<<<<<<< HEAD
-                    return low_level_action, done_bit
-=======
-                if (len(plan) == 1
-                    ):  # In this case, we're at the final position we wanted
-                    # to reach
-                    low_level_action = np.zeros(17, dtype=float)
-                    done_bit = True
->>>>>>> 3644824040dc3786e015160c0db3f125d266f728
 
                 p.restoreState(state)
                 p.removeState(state)
@@ -414,11 +354,11 @@ def navigate_to_obj_pos(  # type: ignore
                 def navigateToOptionModel(
                         _init_state: State, env: BehaviorEnv
                     ) -> Tuple[Dict, bool]:
-                        robot_z = env.robots[0].get_position()[2]
+                        robot_z = env._env.robots[0].get_position()[2]
                         target_pos = np.array([plan[-1][0], plan[-1][1], robot_z])
 
                         robot_orn = p.getEulerFromQuaternion(
-                            env.robots[0].get_orientation()
+                            env._env.robots[0].get_orientation()
                         )
                         target_orn = p.getQuaternionFromEuler(
                             np.array(
@@ -426,13 +366,19 @@ def navigate_to_obj_pos(  # type: ignore
                             )
                         )
 
-                        env.robots[0].set_position_orientation(
+                        env._env.robots[0].set_position_orientation(
                             target_pos, target_orn
                         )
                         
+                        # this is running a zero action to step simulator
+                        env._env.step(np.zeros(17))
 
-                        final_state = env.get_state()
+                        final_state = env._current_ig_state_to_state()
+
                         return final_state, True
+
+                p.restoreState(state)
+                p.removeState(state)
 
                 return navigateToOptionModel
 
@@ -523,6 +469,7 @@ def grasp_obj_at_pos(  # type: ignore
         env,
         obj,
         grasp_offset: np.ndarray,
+        option_model: bool = False,
         rng: Generator = np.random.default_rng(23),
 ) -> Union[None, Callable]:
     """Parameterized controller for grasping.
@@ -534,6 +481,7 @@ def grasp_obj_at_pos(  # type: ignore
     that can be stepped like an option to output actions at each
     timestep.
     """
+    env = env._env
     obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
     if obj_in_hand is None:
         reset_and_release_hand(env)  # first reset the hand's internal states
@@ -625,6 +573,8 @@ def grasp_obj_at_pos(  # type: ignore
                                                grasping_with_right=True),
                         rng=rng,
                     )
+                    rh_final_grasp_postion = env.robots[0].parts["right_hand"].get_position()
+                    lh_final_grasp_position = env.robots[0].parts["left_hand"].get_position()
                     p.restoreState(state)
 
                     # NOTE: This below line is *VERY* important after the
@@ -642,89 +592,127 @@ def grasp_obj_at_pos(  # type: ignore
                     # then try to grasp.
 
                     if plan is not None:
-                        hand_pos = plan[-1][0:3]
-                        hand_orn = plan[-1][3:6]
-                        # Get the closest point on the object's bounding
-                        # box at which we can try to put the hand
-                        closest_point_on_aabb = get_closest_point_on_aabb(
-                            hand_pos, lo, hi)
+                        if not option_model:
+                            hand_pos = plan[-1][0:3]
+                            hand_orn = plan[-1][3:6]
+                            # Get the closest point on the object's bounding
+                            # box at which we can try to put the hand
+                            closest_point_on_aabb = get_closest_point_on_aabb(
+                                hand_pos, lo, hi)
 
-                        delta_pos_to_obj = [
-                            closest_point_on_aabb[0] - hand_pos[0],
-                            closest_point_on_aabb[1] - hand_pos[1],
-                            closest_point_on_aabb[2] - hand_pos[2],
-                        ]
-                        delta_step_to_obj = [
-                            delta_pos / 25.0 for delta_pos in delta_pos_to_obj
-                        ]  # we want to accomplish the motion in 25 timesteps
-
-                        # move the hand along the vector to the object until it
-                        # touches the object
-                        for _ in range(25):
-                            new_hand_pos = [
-                                hand_pos[0] + delta_step_to_obj[0],
-                                hand_pos[1] + delta_step_to_obj[1],
-                                hand_pos[2] + delta_step_to_obj[2],
+                            delta_pos_to_obj = [
+                                closest_point_on_aabb[0] - hand_pos[0],
+                                closest_point_on_aabb[1] - hand_pos[1],
+                                closest_point_on_aabb[2] - hand_pos[2],
                             ]
-                            plan.append(new_hand_pos + list(hand_orn))
-                            hand_pos = new_hand_pos
+                            delta_step_to_obj = [
+                                delta_pos / 25.0 for delta_pos in delta_pos_to_obj
+                            ]  # we want to accomplish the motion in 25 timesteps
 
-                        # Setup two booleans to be used as 'memory', as well as
-                        # a 'reversed' plan to be used
-                        # for our option that's defined below
-                        reversed_plan = list(reversed(plan[:]))
-                        plan_executed_forwards = False
-                        tried_closing_gripper = False
+                            # move the hand along the vector to the object until it
+                            # touches the object
+                            for _ in range(25):
+                                new_hand_pos = [
+                                    hand_pos[0] + delta_step_to_obj[0],
+                                    hand_pos[1] + delta_step_to_obj[1],
+                                    hand_pos[2] + delta_step_to_obj[2],
+                                ]
+                                plan.append(new_hand_pos + list(hand_orn))
+                                hand_pos = new_hand_pos
 
-                        def graspObjectOption(
-                                _state: State,
-                                env: BehaviorEnv) -> Tuple[np.ndarray, bool]:
-                            nonlocal plan_executed_forwards
-                            nonlocal tried_closing_gripper
-                            done_bit = False
-                            if (not plan_executed_forwards
+                            # Setup two booleans to be used as 'memory', as well as
+                            # a 'reversed' plan to be used
+                            # for our option that's defined below
+                            reversed_plan = list(reversed(plan[:]))
+                            plan_executed_forwards = False
+                            tried_closing_gripper = False
+
+                            def graspObjectOption(
+                                    _state: State,
+                                    env: BehaviorEnv) -> Tuple[np.ndarray, bool]:
+                                nonlocal plan_executed_forwards
+                                nonlocal tried_closing_gripper
+                                done_bit = False
+                                if (not plan_executed_forwards
+                                        and not tried_closing_gripper):
+                                    # Step thru the plan to execute Grasping
+                                    # phases 1 and 2
+                                    ret_action = get_delta_low_level_hand_action(
+                                        env,
+                                        plan[0][0:3],
+                                        plan[0][3:6],
+                                        plan[1][0:3],
+                                        plan[1][3:6],
+                                    )
+                                    plan.pop(0)
+                                    if len(plan) == 1:
+                                        plan_executed_forwards = True
+
+                                elif (plan_executed_forwards
                                     and not tried_closing_gripper):
-                                # Step thru the plan to execute Grasping
-                                # phases 1 and 2
-                                ret_action = get_delta_low_level_hand_action(
-                                    env,
-                                    plan[0][0:3],
-                                    plan[0][3:6],
-                                    plan[1][0:3],
-                                    plan[1][3:6],
-                                )
-                                plan.pop(0)
-                                if len(plan) == 1:
-                                    plan_executed_forwards = True
+                                    # Close the gripper to see if you've gotten the
+                                    # object
+                                    ret_action = np.zeros(17, dtype=float)
+                                    ret_action[16] = 1.0
+                                    tried_closing_gripper = True
 
-                            elif (plan_executed_forwards
-                                  and not tried_closing_gripper):
-                                # Close the gripper to see if you've gotten the
-                                # object
-                                ret_action = np.zeros(17, dtype=float)
-                                ret_action[16] = 1.0
-                                tried_closing_gripper = True
+                                else:
+                                    # Grasping Phase 3: getting the hand back to
+                                    # resting position near the robot.
+                                    ret_action = get_delta_low_level_hand_action(
+                                        env,
+                                        reversed_plan[0][0:3],
+                                        reversed_plan[0][3:6],
+                                        reversed_plan[1][0:3],
+                                        reversed_plan[1][3:6],
+                                    )
+                                    reversed_plan.pop(0)
+                                    if len(reversed_plan) == 1:
+                                        done_bit = True
 
-                            else:
-                                # Grasping Phase 3: getting the hand back to
-                                # resting position near the robot.
-                                ret_action = get_delta_low_level_hand_action(
-                                    env,
-                                    reversed_plan[0][0:3],
-                                    reversed_plan[0][3:6],
-                                    reversed_plan[1][0:3],
-                                    reversed_plan[1][3:6],
-                                )
-                                reversed_plan.pop(0)
-                                if len(reversed_plan) == 1:
-                                    done_bit = True
+                                return ret_action, done_bit
 
-                            return ret_action, done_bit
+                            p.restoreState(state)
+                            p.removeState(state)
 
-                        p.restoreState(state)
-                        p.removeState(state)
+                            return graspObjectOption
+                        else:
+                            def graspObjectOptionModel(
+                                    _state: State,
+                                    env: BehaviorEnv) -> Tuple[Dict, bool]:
 
-                        return graspObjectOption
+                                rh_org_grasp_postion = env.robots[0].parts["right_hand"].get_position()
+                                lh_org_grasp_position = env.robots[0].parts["left_hand"].get_position()
+                                # 1 Move Hand to Grasp Location
+                                env.robots[0].parts["right_hand"].set_position(
+                                    rh_final_grasp_postion)
+                                env.robots[0].parts["left_hand"].set_position(
+                                    lh_final_grasp_position)
+
+                                # 2 Simulate Grasp
+                                # (TODO)
+                                exit11
+
+                                # 3 Move Hand to Original Location
+                                env.robots[0].parts["right_hand"].set_position(
+                                    rh_org_grasp_postion)
+                                env.robots[0].parts["left_hand"].set_position(
+                                    lh_org_grasp_position)
+
+
+                                # this is running a zero action to step simulator
+                                env._env.step(np.zeros(17))
+
+                                final_state = env._current_ig_state_to_state()
+                                return final_state, True
+                                
+
+                            p.restoreState(state)
+                            p.removeState(state)
+
+                            return graspObjectOptionModel
+
+
 
                     print(f"PRIMITIVE: grasp {obj.name} fail, failed" +
                           " to find plan to continuous params" +
@@ -839,7 +827,6 @@ def place_ontop_obj_pos_sampler(  # type: ignore
     return rnd_params
 
 
-<<<<<<< HEAD
 def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-statements
     env,
     obj,
@@ -847,15 +834,6 @@ def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-st
     place_orn: Optional[np.ndarray] = None,
     option_model: bool = True, #bool = False,
     rng: Generator = np.random.default_rng(23),
-=======
-def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-statements
-        env,
-        obj,
-        place_rel_pos: np.ndarray,
-        place_orn: Optional[np.ndarray] = None,
-        option_model: bool = False,
-        rng: Generator = np.random.default_rng(23),
->>>>>>> 3644824040dc3786e015160c0db3f125d266f728
 ) -> Union[None, Callable]:
     """Parameterized controller for placeOnTop.
 
@@ -1079,11 +1057,15 @@ def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-s
                             env: BehaviorEnv) -> Tuple[Dict, bool]:
                         target_pos = place_rel_pos
                         target_orn = place_orn
-                        env.robots[0].parts["right_hand"].force_release_obj()
+                        env._env.robots[0].parts["right_hand"].force_release_obj()
                         obj_in_hand.set_position_orientation(
                             target_pos, target_orn)
 
-                        final_state = env.get_state()
+
+                        # this is running a zero action to step simulator
+                        env._env.step(np.zeros(17))
+
+                        final_state = env._current_ig_state_to_state()
                         return final_state, True
 
                 if option_model:

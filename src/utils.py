@@ -272,7 +272,7 @@ def option_to_next_state(
     assert option.initiable(init)
     state = init
     states = [state]
-    next_state = option.policy(state)
+    next_state = option.model(state)
     # (TODO) wmcclinton might have to set simulator to next_state
     return next_state
 

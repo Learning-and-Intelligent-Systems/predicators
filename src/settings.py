@@ -60,7 +60,7 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    option_model_name = "default"
+    option_model_name = "behavior" #"default"
     max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
