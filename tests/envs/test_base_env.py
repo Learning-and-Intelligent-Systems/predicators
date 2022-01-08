@@ -1,14 +1,13 @@
-"""Test cases for the base environment class.
-"""
+"""Test cases for the base environment class."""
 
 import pytest
-from predicators.src.envs import BaseEnv, create_env, EnvironmentFailure
+from predicators.src.envs import BaseEnv, create_env, EnvironmentFailure, \
+    get_cached_env_instance
 from predicators.src.structs import State, Type, Task
 
 
 def test_base_env():
-    """Tests for BaseEnv class.
-    """
+    """Tests for BaseEnv class."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -39,20 +38,22 @@ def test_base_env():
 
 
 def test_create_env():
-    """Tests for create_env.
-    """
-    for name in ["cover", "cover_typed_options", "cover_hierarchical_types",
-                 "cluttered_table", "blocks", "playroom", "painting",
-                 "repeated_nextto"]:
+    """Tests for create_env() and get_cached_env_instance()."""
+    for name in [
+            "cover", "cover_typed_options", "cover_hierarchical_types",
+            "cluttered_table", "blocks", "playroom", "painting",
+            "repeated_nextto"
+    ]:
         env = create_env(name)
         assert isinstance(env, BaseEnv)
+        other_env = get_cached_env_instance(name)
+        assert env is other_env
     with pytest.raises(NotImplementedError):
         create_env("Not a real env")
 
 
 def test_env_failure():
-    """Tests for EnvironmentFailure class.
-    """
+    """Tests for EnvironmentFailure class."""
     cup_type = Type("cup_type", ["feat1"])
     cup = cup_type("cup")
     try:

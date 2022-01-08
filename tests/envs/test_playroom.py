@@ -1,4 +1,6 @@
-"""Test cases for the boring room vs. playroom environment.
+"""Test cases for the boring room vs.
+
+playroom environment.
 """
 
 import pytest
@@ -7,9 +9,9 @@ from predicators.src.envs import PlayroomEnv, EnvironmentFailure
 from predicators.src import utils
 from predicators.src.structs import Action, State
 
+
 def test_playroom():
-    """Tests for PlayroomEnv class properties.
-    """
+    """Tests for PlayroomEnv class properties."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -27,19 +29,19 @@ def test_playroom():
         {"On", "OnTable", "LightOn", "LightOff"}
     assert len(env.options) == 8
     assert len(env.types) == 5
-    assert env.action_space.shape == (5,)
-    assert abs(env.action_space.low[0]-PlayroomEnv.x_lb) < 1e-3
-    assert abs(env.action_space.high[0]-PlayroomEnv.x_ub) < 1e-3
-    assert abs(env.action_space.low[1]-PlayroomEnv.y_lb) < 1e-3
-    assert abs(env.action_space.high[1]-PlayroomEnv.y_ub) < 1e-3
+    assert env.action_space.shape == (5, )
+    assert abs(env.action_space.low[0] - PlayroomEnv.x_lb) < 1e-3
+    assert abs(env.action_space.high[0] - PlayroomEnv.x_ub) < 1e-3
+    assert abs(env.action_space.low[1] - PlayroomEnv.y_lb) < 1e-3
+    assert abs(env.action_space.high[1] - PlayroomEnv.y_ub) < 1e-3
     assert abs(env.action_space.low[2]) < 1e-3
-    assert abs(env.action_space.high[2]-10) < 1e-3
-    assert abs(env.action_space.low[3]+1) < 1e-3
-    assert abs(env.action_space.high[3]-1) < 1e-3
+    assert abs(env.action_space.high[2] - 10) < 1e-3
+    assert abs(env.action_space.low[3] + 1) < 1e-3
+    assert abs(env.action_space.high[3] - 1) < 1e-3
+
 
 def test_playroom_failure_cases():
-    """Tests for the cases where simulate() is a no-op.
-    """
+    """Tests for the cases where simulate() is a no-op."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -135,10 +137,10 @@ def test_playroom_failure_cases():
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
 
+
 def test_playroom_simulate_blocks():
-    """Tests for the cases where simulate() allows the robot to interact
-    with blocks.
-    """
+    """Tests for the cases where simulate() allows the robot to interact with
+    blocks."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -154,6 +156,17 @@ def test_playroom_simulate_blocks():
             robot = item
             break
     assert robot is not None
+    # Move away from table
+    act = Action(np.array([5, 5, 1, 1, 0]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert np.any(state[robot] != next_state[robot])
+    state = next_state
+    # Move to table but do not pick block 1
+    act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    assert np.any(state[robot] != next_state[robot])
+    assert np.allclose(state[block1], next_state[block1])
+    state = next_state
     # Perform valid pick of block 1
     act = Action(np.array([12, 11.8, 0.95, 0.35, 0]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -177,10 +190,10 @@ def test_playroom_simulate_blocks():
     assert np.any(state[block2] != next_state[block2])
     state = next_state
 
+
 def test_playroom_simulate_doors_and_dial():
-    """Tests for the cases where simulate() allows the robot to interact
-    with doors and the dial.
-    """
+    """Tests for the cases where simulate() allows the robot to interact with
+    doors and the dial."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -200,8 +213,8 @@ def test_playroom_simulate_doors_and_dial():
             dial = item
     assert robot is not None
     assert dial is not None
-    # Move somewhere without interacting with anything
-    act = Action(np.array([25, 25, 1, 0, 1]).astype(np.float32))
+    # Move to boring room door but do not open it
+    act = Action(np.array([29.8, 15, 3, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
     for o in state:
         if o.type != robot_type:
@@ -210,8 +223,16 @@ def test_playroom_simulate_doors_and_dial():
     # Open boring room door
     act = Action(np.array([29.8, 15, 3, 0, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
-    assert np.any(state[robot] != next_state[robot])
     assert np.any(state[door1] != next_state[door1])
+    state = next_state
+    # Move to playroom door but do not shut it
+    act = Action(np.array([110.2, 15, 3, 1, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        if o.type != robot_type:
+            assert np.allclose(state[o], next_state[o])
+        else:
+            assert not np.allclose(state[o], next_state[o])
     state = next_state
     # Shut door to playroom
     act = Action(np.array([110.2, 15, 3, 1, 1]).astype(np.float32))
@@ -222,6 +243,15 @@ def test_playroom_simulate_doors_and_dial():
     act = Action(np.array([105, 15, 3, 1, 1]).astype(np.float32))
     with pytest.raises(EnvironmentFailure):
         next_state = env.simulate(state, act)
+    # Move to dial but do not toggle it
+    act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
+    next_state = env.simulate(state, act)
+    for o in state:
+        if o.type != robot_type:
+            assert np.allclose(state[o], next_state[o])
+        else:
+            assert not np.allclose(state[o], next_state[o])
+    state = next_state
     # Turn dial on, facing S
     act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
     next_state = env.simulate(state, act)
@@ -245,9 +275,9 @@ def test_playroom_simulate_doors_and_dial():
         if o.type != robot_type:
             assert np.all(state[o] == next_state[o])
 
+
 def test_playroom_options():
-    """Tests for predicate option policies.
-    """
+    """Tests for predicate option policies."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -255,6 +285,7 @@ def test_playroom_options():
     block_type = [t for t in env.types if t.name == "block"][0]
     door_type = [t for t in env.types if t.name == "door"][0]
     dial_type = [t for t in env.types if t.name == "dial"][0]
+    region_type = [t for t in env.types if t.name == "region"][0]
     On = [p for p in env.predicates if p.name == "On"][0]
     OnTable = [p for p in env.predicates if p.name == "OnTable"][0]
     Clear = [p for p in env.predicates if p.name == "Clear"][0]
@@ -266,6 +297,8 @@ def test_playroom_options():
     door1 = door_type("door1")
     door6 = door_type("door6")
     dial = dial_type("dial")
+    region1 = region_type("region1")
+    region7 = region_type("region7")
     task = next(env.train_tasks_generator())[0]
     state = task.init
     # Run through a specific plan of options.
@@ -278,23 +311,24 @@ def test_playroom_options():
     TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
     TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
     plan = [
-        Move.ground([robot], [2.0, 30.0, 0.0]),
         Pick.ground([robot, block1], [0.0, 0.0, 0.0, 0.35]),
         PutOnTable.ground([robot], [0.1, 0.5, 0.0]),  # put block1 on table
         Pick.ground([robot, block2], [0.0, 0.0, 0.0, -0.15]),
         # stack block2 on block1
         Stack.ground([robot, block1], [0.0, 0.0, 1.0, 0.0]),
-        OpenDoor.ground([door1], [-0.2, 0.0, 0.0, 0.0]),
-        Move.ground([robot], [115.0, 15.0, -0.5]),
-        CloseDoor.ground([door6], [0.2, 0.0, 0.0, 1.0]),
-        TurnOffDial.ground([dial], [0.0, -0.2, 0.0, 0.5]),
-        TurnOnDial.ground([dial], [-0.2, 0.0, 0.0, 0.0])
+        Move.ground([robot, door1, region1], [29.6, 15.0, 0.0]),
+        OpenDoor.ground([robot, door1], [-0.2, 0.0, 0.0, 0.0]),
+        Move.ground([robot, door6, region7], [110.3, 15.0, -0.5]),
+        CloseDoor.ground([robot, door6], [0.2, 0.0, 0.0, 1.0]),
+        Move.ground([robot, door6, region7], [124.0, 15.0, 0.0]),
+        TurnOffDial.ground([robot, dial], [0.0, -0.2, 0.0, 0.5]),
+        TurnOnDial.ground([robot, dial], [-0.2, 0.0, 0.0, 0.0])
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        utils.option_plan_to_policy(plan), task, env.simulate,
-        env.predicates, len(plan), make_video, env.render)
+        utils.option_plan_to_policy(plan), task, env.simulate, env.predicates,
+        len(plan), make_video, env.render)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
@@ -306,9 +340,9 @@ def test_playroom_options():
     assert Clear([block1]) not in final_atoms
     assert Clear([block2]) in final_atoms
 
+
 def test_playroom_action_sequence_video():
-    """Test to sanity check rendering.
-    """
+    """Test to sanity check rendering."""
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
@@ -317,22 +351,31 @@ def test_playroom_action_sequence_video():
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),
+        # Stack block
+        np.array([12.2, 11.8, 2, 0.35, 1]).astype(np.float32),
+        # Move to door1
+        np.array([29.6, 16, 3, 0, 1]).astype(np.float32),
         # Open door1
         np.array([29.8, 15, 3, 0, 1]).astype(np.float32),
         # Move down hallway to playroom
-        np.array([115, 15, 3, 0, 1]).astype(np.float32),
+        np.array([110.2, 15, 3, 0.5, 1]).astype(np.float32),
         # Shut playroom door
         np.array([110.2, 15, 3, -1, 1]).astype(np.float32),
+        # Move to dial
+        np.array([127, 15, 1, -1, 1]).astype(np.float32),
         # Turn dial on
-        np.array([125, 15.1, 1, -1, 1]).astype(np.float32),
+        np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
+
     def policy(s: State) -> Action:
         del s  # unused
         return Action(action_arrs.pop(0))
-    traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates,
-        len(action_arrs), make_video, env.render)
+
+    traj, video, _ = utils.run_policy_on_task(policy, task,
+                                              env.simulate, env.predicates,
+                                              len(action_arrs), make_video,
+                                              env.render)
     if make_video:
         outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover

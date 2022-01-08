@@ -1,13 +1,8 @@
-"""Default imports for envs folder.
-"""
+"""Default imports for envs folder."""
 
 from predicators.src.envs.base_env import BaseEnv, EnvironmentFailure
-from predicators.src.envs.cover import (
-    CoverEnv,
-    CoverEnvTypedOptions,
-    CoverEnvHierarchicalTypes,
-    CoverMultistepOptions,
-)
+from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
+    CoverEnvHierarchicalTypes, CoverMultistepOptions
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.envs.blocks import BlocksEnv
@@ -30,40 +25,46 @@ __all__ = [
     "RepeatedNextToEnv",
 ]
 
-
 _MOST_RECENT_ENV_INSTANCE = {}
 
-def create_env(name: str) -> BaseEnv:
-    """Create an environment given its name."""
-    if name == "cover":
-        env = CoverEnv() # type: ignore
-    elif name == "cover_typed_options":
-        env = CoverEnvTypedOptions() # type: ignore
-    elif name == "cover_multistep_options":
-        env = CoverMultistepOptions() # type: ignore
-    elif name == "cover_hierarchical_types":
-        env = CoverEnvHierarchicalTypes() # type: ignore
-    elif name == "cluttered_table":
-        env = ClutteredTableEnv() # type: ignore
-    elif name == "blocks":
-        env = BlocksEnv() # type: ignore
-    elif name == "painting":
-        env = PaintingEnv() # type: ignore
-    elif name == "behavior":
-        env = BehaviorEnv() # type: ignore # pragma: no cover
-    elif name == "playroom":
-        env = PlayroomEnv() # type: ignore
-    elif name == "repeated_nextto":
-        return RepeatedNextToEnv() # type: ignore
-    else:
-        raise NotImplementedError(f"Unknown env: {name}")
 
+def _create_new_env_instance(name: str) -> BaseEnv:
+    """Create a new instance of an environment from its name.
+
+    Note that this env instance will not be cached.
+    """
+    if name == "cover":
+        return CoverEnv()
+    if name == "cover_typed_options":
+        return CoverEnvTypedOptions()
+    if name == "cover_hierarchical_types":
+        return CoverEnvHierarchicalTypes()
+    if name == "cover_multistep_options":
+        return CoverMultistepOptions()
+    if name == "cluttered_table":
+        return ClutteredTableEnv()
+    if name == "blocks":
+        return BlocksEnv()
+    if name == "painting":
+        return PaintingEnv()
+    if name == "playroom":
+        return PlayroomEnv()
+    if name == "behavior":
+        return BehaviorEnv()  # pragma: no cover
+    if name == "repeated_nextto":
+        return RepeatedNextToEnv()
+    raise NotImplementedError(f"Unknown env: {name}")
+
+
+def create_env(name: str) -> BaseEnv:
+    """Create an environment instance given its name and cache it."""
+    env = _create_new_env_instance(name)
     _MOST_RECENT_ENV_INSTANCE[name] = env
     return env
 
 
-def get_env_instance(name: str) -> BaseEnv: # pragma: no cover
-    """Get the most recent env instance, or make a new one."""
-    if name in _MOST_RECENT_ENV_INSTANCE:
-        return _MOST_RECENT_ENV_INSTANCE[name]
-    return create_env(name)
+def get_cached_env_instance(name: str) -> BaseEnv:
+    """Get the most recent cached env instance (env must have been previously
+    created with create_env() to exist in the cache)."""
+    assert name in _MOST_RECENT_ENV_INSTANCE
+    return _MOST_RECENT_ENV_INSTANCE[name]

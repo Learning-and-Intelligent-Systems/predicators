@@ -1,12 +1,11 @@
-"""Algorithms for learning the various components of NSRT objects.
-"""
+"""The core algorithm for learning a collection of NSRT data structures."""
 
-import functools
-from typing import Set, Tuple, List, Sequence, FrozenSet
+from __future__ import annotations
+from typing import Set, List, Sequence, cast
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
-    GroundAtom, LiftedAtom, Variable, Predicate, ObjToVarSub, \
-    LowLevelTrajectory, Segment, Partition, Object, GroundAtomTrajectory, \
-    DummyOption, ParameterizedOption, State, Action
+    LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption, \
+    State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -14,67 +13,52 @@ from predicators.src.option_learning import create_option_learner
 
 
 def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
-                          do_sampler_learning: bool) -> Set[NSRT]:
-    """Learn NSRTs from the given dataset of transitions.
-    States are abstracted using the given set of predicates.
-    """
+                          sampler_learner: str) -> Set[NSRT]:
+    """Learn NSRTs from the given dataset of low-level transitions, using the
+    given set of predicates."""
     print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
 
-    # Apply predicates to dataset.
+    # STEP 1: Apply predicates to data, producing a dataset of abstract states.
     ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
 
-    # Segment transitions based on changes in predicates.
-    segments = [seg for traj in ground_atom_dataset
-                for seg in segment_trajectory(traj)]
+    # STEP 2: Segment each trajectory in the dataset based on changes in
+    #         either predicates or options. If we are doing option learning,
+    #         then the data will not contain options, so this segmenting
+    #         procedure only uses the predicates.
+    segmented_trajs = [
+        segment_trajectory(traj) for traj in ground_atom_dataset
+    ]
+    segments = [seg for segs in segmented_trajs for seg in segs]
 
-    # Learn strips operators.
-    strips_ops, partitions = learn_strips_operators(segments,
-        verbose=CFG.do_option_learning)
-    assert len(strips_ops) == len(partitions)
+    # STEP 3: Cluster the data by effects, jointly producing one STRIPSOperator,
+    #         Datastore, and OptionSpec per cluster. These items are then
+    #         used to initialize PartialNSRTAndDatastore objects (PNADs).
+    #         Note: The OptionSpecs here are extracted directly from the data.
+    #         If we are doing option learning, then the data will not contain
+    #         options, and so the option_spec fields are just the specs of a
+    #         DummyOption. We need a default dummy because future steps require
+    #         the option_spec field to be populated, even if just with a dummy.
+    pnads = learn_strips_operators(
+        segments, verbose=(CFG.option_learner != "no_learning"))
 
-    # Learn option specs, or if known, just look them up. The order of
-    # the options corresponds to the strips_ops. Each spec is a
-    # (ParameterizedOption, Sequence[Variable]) tuple with the latter
-    # holding the option_vars. After learning the specs, update the
-    # segments to include which option is being executed within each
-    # segment, so that sampler learning can utilize this.
-    option_learner = create_option_learner()
-    option_specs = option_learner.learn_option_specs(strips_ops, partitions)
-    assert len(option_specs) == len(strips_ops)
-    # Seed the new parameterized option parameter spaces.
-    for parameterized_option, _ in option_specs:
-        parameterized_option.params_space.seed(CFG.seed)
-    # Update the segments to include which option is being executed.
-    for partition, spec in zip(partitions, option_specs):
-        for (segment, _) in partition:
-            # Modifies segment in-place.
-            option_learner.update_segment_from_option_spec(segment, spec)
+    # STEP 4: Learn side predicates for the operators and update PNADs. These
+    #         are predicates whose truth value becomes unknown (for *any*
+    #         grounding not explicitly in effects) upon operator application.
+    if CFG.learn_side_predicates:
+        _learn_pnad_side_predicates(pnads)
 
-    # For the impatient, print out the STRIPSOperators with their option specs.
-    print("\nLearned operators with option specs:")
-    for strips_op, (option, option_vars) in zip(strips_ops, option_specs):
-        print(strips_op)
-        option_var_str = ", ".join([str(v) for v in option_vars])
-        print(f"    Option Spec: {option.name}({option_var_str})")
+    # STEP 5: Learn options (option_learning.py) and update PNADs.
+    _learn_pnad_options(pnads)
 
-    # Learn samplers.
-    # The order of the samplers also corresponds to strips_ops.
-    samplers = learn_samplers(strips_ops, partitions, option_specs,
-                              do_sampler_learning)
-    assert len(samplers) == len(strips_ops)
+    # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
+    _learn_pnad_samplers(pnads, sampler_learner)
 
-    # Create final NSRTs.
-    nsrts = []
-    for op, option_spec, sampler in zip(strips_ops, option_specs, samplers):
-        param_option, option_vars = option_spec
-        nsrt = op.make_nsrt(param_option, option_vars, sampler)
-        nsrts.append(nsrt)
-
+    # STEP 7: Print and return the NSRTs.
+    nsrts = [pnad.make_nsrt() for pnad in pnads]
     print("\nLearned NSRTs:")
     for nsrt in sorted(nsrts):
         print(nsrt)
     print()
-
     return set(nsrts)
 
 
@@ -86,12 +70,12 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     segments = []
     traj, all_atoms = trajectory
     assert len(traj.states) == len(all_atoms)
-    current_segment_states : List[State] = []
-    current_segment_actions : List[Action] = []
+    current_segment_states: List[State] = []
+    current_segment_actions: List[Action] = []
     for t in range(len(traj.actions)):
         current_segment_states.append(traj.states[t])
         current_segment_actions.append(traj.actions[t])
-        switch = all_atoms[t] != all_atoms[t+1]
+        switch = all_atoms[t] != all_atoms[t + 1]
         # Segment based on option specs if we are assuming that options are
         # known. If we do not do this, it can lead to a bug where an option
         # has object arguments that do not appear in the strips operator
@@ -111,7 +95,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             # Check for a change in option specs.
             if t < len(traj.actions) - 1:
                 option_t = traj.actions[t].get_option()
-                option_t1 = traj.actions[t+1].get_option()
+                option_t1 = traj.actions[t + 1].get_option()
                 option_t_spec = (option_t.parent, option_t.objects)
                 option_t1_spec = (option_t1.parent, option_t1.objects)
                 if option_t_spec != option_t1_spec:
@@ -126,18 +110,18 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
-            current_segment_states.append(traj.states[t+1])
-            current_segment_traj = LowLevelTrajectory(
-                current_segment_states, current_segment_actions)
+            current_segment_states.append(traj.states[t + 1])
+            current_segment_traj = LowLevelTrajectory(current_segment_states,
+                                                      current_segment_actions)
             if traj.actions[t].has_option():
-                segment = Segment(current_segment_traj,
-                                  all_atoms[t], all_atoms[t+1],
+                segment = Segment(current_segment_traj, all_atoms[t],
+                                  all_atoms[t + 1],
                                   traj.actions[t].get_option())
             else:
                 # If option learning, include the default option here; replaced
                 # during option learning.
-                segment = Segment(current_segment_traj,
-                                  all_atoms[t], all_atoms[t+1])
+                segment = Segment(current_segment_traj, all_atoms[t],
+                                  all_atoms[t + 1])
             segments.append(segment)
             current_segment_states = []
             current_segment_actions = []
@@ -146,17 +130,17 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
     return segments
 
 
-def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
-        ) -> Tuple[List[STRIPSOperator], List[Partition]]:
-    """Learn operators given the segmented transitions.
+def learn_strips_operators(
+    segments: Sequence[Segment],
+    verbose: bool = True,
+) -> List[PartialNSRTAndDatastore]:
+    """Learn strips operators on the given data segments.
+
+    Return a list of PNADs with op (STRIPSOperator), datastore, and
+    option_spec fields filled in.
     """
-    # Partition the segments according to common effects.
-    params: List[Sequence[Variable]] = []
-    parameterized_options: List[ParameterizedOption] = []
-    option_vars: List[Tuple[Variable, ...]] = []
-    add_effects: List[Set[LiftedAtom]] = []
-    delete_effects: List[Set[LiftedAtom]] = []
-    partitions: List[Partition] = []
+    # Cluster the segments according to common effects.
+    pnads: List[PartialNSRTAndDatastore] = []
     for segment in segments:
         if segment.has_option():
             segment_option = segment.get_option()
@@ -165,147 +149,134 @@ def learn_strips_operators(segments: Sequence[Segment], verbose: bool = True,
         else:
             segment_param_option = DummyOption.parent
             segment_option_objs = tuple()
-        for i in range(len(partitions)):
+        for pnad in pnads:
             # Try to unify this transition with existing effects.
             # Note that both add and delete effects must unify,
             # and also the objects that are arguments to the options.
-            part_param_option = parameterized_options[i]
-            part_option_vars = option_vars[i]
-            part_add_effects = add_effects[i]
-            part_delete_effects = delete_effects[i]
-            suc, sub = unify_effects_and_options(
+            (pnad_param_option, pnad_option_vars) = pnad.option_spec
+            suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
+                frozenset(),
+                frozenset(),  # no preconditions
                 frozenset(segment.add_effects),
-                frozenset(part_add_effects),
+                frozenset(pnad.op.add_effects),
                 frozenset(segment.delete_effects),
-                frozenset(part_delete_effects),
+                frozenset(pnad.op.delete_effects),
                 segment_param_option,
-                part_param_option,
+                pnad_param_option,
                 segment_option_objs,
-                part_option_vars)
+                tuple(pnad_option_vars))
+            sub = cast(ObjToVarSub, ent_to_ent_sub)
             if suc:
-                # Add to this partition.
-                assert set(sub.values()) == set(params[i])
-                partitions[i].add((segment, sub))
+                # Add to this PNAD.
+                assert set(sub.values()) == set(pnad.op.parameters)
+                pnad.add_to_datastore((segment, sub))
                 break
-        # Otherwise, create a new group.
         else:
-            # Get new lifted effects.
+            # Otherwise, create a new PNAD.
             objects = {o for atom in segment.add_effects |
                        segment.delete_effects for o in atom.objects} | \
                       set(segment_option_objs)
             objects_lst = sorted(objects)
-            variables = [Variable(f"?x{i}", o.type)
-                         for i, o in enumerate(objects_lst)]
-            sub = dict(zip(objects_lst, variables))
-            params.append(variables)
-            parameterized_options.append(segment_param_option)
-            option_vars.append(tuple(sub[o] for o in segment_option_objs))
-            add_effects.append({atom.lift(sub) for atom
-                                in segment.add_effects})
-            delete_effects.append({atom.lift(sub) for atom
-                                   in segment.delete_effects})
-            new_partition = Partition([(segment, sub)])
-            partitions.append(new_partition)
+            params = [
+                Variable(f"?x{i}", o.type) for i, o in enumerate(objects_lst)
+            ]
+            preconds: Set[LiftedAtom] = set()  # will be learned later
+            sub = dict(zip(objects_lst, params))
+            add_effects = {atom.lift(sub) for atom in segment.add_effects}
+            delete_effects = {
+                atom.lift(sub)
+                for atom in segment.delete_effects
+            }
+            side_predicates: Set[Predicate] = set()  # will be learned later
+            op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
+                                add_effects, delete_effects, side_predicates)
+            datastore = [(segment, sub)]
+            option_vars = [sub[o] for o in segment_option_objs]
+            option_spec = (segment_param_option, option_vars)
+            pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
 
-    # We don't need option_vars anymore; we'll recover them later when we call
-    # `learn_option_specs`. The only reason to include them here is to make sure
-    # that params include the option_vars when options are available.
-    del option_vars
+    # Prune PNADs with not enough data.
+    pnads = [
+        pnad for pnad in pnads if len(pnad.datastore) >= CFG.min_data_for_nsrt
+    ]
 
-    assert len(params) == len(add_effects) == \
-           len(delete_effects) == len(partitions)
+    # Learn the preconditions of the operators in the PNADs via intersection.
+    for pnad in pnads:
+        for i, (segment, sub) in enumerate(pnad.datastore):
+            objects = set(sub.keys())
+            atoms = {
+                atom
+                for atom in segment.init_atoms
+                if all(o in objects for o in atom.objects)
+            }
+            lifted_atoms = {atom.lift(sub) for atom in atoms}
+            if i == 0:
+                variables = sorted(set(sub.values()))
+            else:
+                assert variables == sorted(set(sub.values()))
+            if i == 0:
+                preconditions = lifted_atoms
+            else:
+                preconditions &= lifted_atoms
+        # Replace the operator with one that contains the newly learned
+        # preconditions. We do this because STRIPSOperator objects are
+        # frozen, so their fields cannot be modified.
+        pnad.op = STRIPSOperator(pnad.op.name, pnad.op.parameters,
+                                 preconditions, pnad.op.add_effects,
+                                 pnad.op.delete_effects,
+                                 pnad.op.side_predicates)
 
-    # Prune partitions with not enough data.
-    kept_idxs = []
-    for idx, partition in enumerate(partitions):
-        if len(partition) >= CFG.min_data_for_nsrt:
-            kept_idxs.append(idx)
-    params = [params[i] for i in kept_idxs]
-    add_effects = [add_effects[i] for i in kept_idxs]
-    delete_effects = [delete_effects[i] for i in kept_idxs]
-    partitions = [partitions[i] for i in kept_idxs]
-
-    # Learn preconditions.
-    preconds = [_learn_preconditions(p) for p in partitions]
-
-    # Finalize the operators.
-    ops = []
-    for i in range(len(params)):
-        name = f"Op{i}"
-        op = STRIPSOperator(name, params[i], preconds[i], add_effects[i],
-                            delete_effects[i], set())
-        if verbose:
-            print("Learned STRIPSOperator:")
-            print(op)
-        ops.append(op)
-
-    return ops, partitions
-
-
-def  _learn_preconditions(partition: Partition) -> Set[LiftedAtom]:
-    for i, (segment, sub) in enumerate(partition):
-        atoms = segment.init_atoms
-        objects = set(sub.keys())
-        atoms = {atom for atom in atoms if
-                 all(o in objects for o in atom.objects)}
-        lifted_atoms = {atom.lift(sub) for atom in atoms}
-        if i == 0:
-            variables = sorted(set(sub.values()))
-        else:
-            assert variables == sorted(set(sub.values()))
-        if i == 0:
-            preconditions = lifted_atoms
-        else:
-            preconditions &= lifted_atoms
-    return preconditions
+    # Print and return the PNADs.
+    if verbose:
+        print("\nLearned operators (before option learning):")
+        for pnad in pnads:
+            print(pnad)
+    return pnads
 
 
-@functools.lru_cache(maxsize=None)
-def unify_effects_and_options(
-        ground_add_effects: FrozenSet[GroundAtom],
-        lifted_add_effects: FrozenSet[LiftedAtom],
-        ground_delete_effects: FrozenSet[GroundAtom],
-        lifted_delete_effects: FrozenSet[LiftedAtom],
-        ground_param_option: ParameterizedOption,
-        lifted_param_option: ParameterizedOption,
-        ground_option_args: Tuple[Object, ...],
-        lifted_option_args: Tuple[Variable, ...]
-) -> Tuple[bool, ObjToVarSub]:
-    """Wrapper around utils.unify() that handles option arguments, add effects,
-    and delete effects. Changes predicate names so that all are treated
-    differently by utils.unify().
-    """
-    # Can't unify if the parameterized options are different.
-    # Note, of course, we could directly check this in the loop above. But we
-    # want to keep all the unification logic in one place, even if it's trivial
-    # in this case.
-    if ground_param_option != lifted_param_option:
-        return False, {}
-    ground_opt_arg_pred = Predicate("OPT-ARGS",
-                                    [a.type for a in ground_option_args],
-                                    _classifier=lambda s, o: False)  # dummy
-    f_ground_option_args = frozenset({GroundAtom(ground_opt_arg_pred,
-                                                 ground_option_args)})
-    new_ground_add_effects = utils.wrap_atom_predicates(
-        ground_add_effects, "ADD-")
-    f_new_ground_add_effects = frozenset(new_ground_add_effects)
-    new_ground_delete_effects = utils.wrap_atom_predicates(
-        ground_delete_effects, "DEL-")
-    f_new_ground_delete_effects = frozenset(new_ground_delete_effects)
+def _learn_pnad_side_predicates(pnads: List[PartialNSRTAndDatastore]) -> None:
+    raise NotImplementedError
 
-    lifted_opt_arg_pred = Predicate("OPT-ARGS",
-                                    [a.type for a in lifted_option_args],
-                                    _classifier=lambda s, o: False)  # dummy
-    f_lifted_option_args = frozenset({LiftedAtom(lifted_opt_arg_pred,
-                                                 lifted_option_args)})
-    new_lifted_add_effects = utils.wrap_atom_predicates(
-        lifted_add_effects, "ADD-")
-    f_new_lifted_add_effects = frozenset(new_lifted_add_effects)
-    new_lifted_delete_effects = utils.wrap_atom_predicates(
-        lifted_delete_effects, "DEL-")
-    f_new_lifted_delete_effects = frozenset(new_lifted_delete_effects)
-    return utils.unify(
-        f_ground_option_args | f_new_ground_add_effects | \
-            f_new_ground_delete_effects,
-        f_lifted_option_args | f_new_lifted_add_effects | \
-            f_new_lifted_delete_effects)
+
+def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
+    print("\nDoing option learning...")
+    option_learner = create_option_learner()
+    strips_ops = []
+    datastores = []
+    for pnad in pnads:
+        strips_ops.append(pnad.op)
+        datastores.append(pnad.datastore)
+    option_specs = option_learner.learn_option_specs(strips_ops, datastores)
+    assert len(option_specs) == len(pnads)
+    # Replace the option_specs in the PNADs.
+    for pnad, option_spec in zip(pnads, option_specs):
+        pnad.option_spec = option_spec
+    # Seed the new parameterized option parameter spaces.
+    for parameterized_option, _ in option_specs:
+        parameterized_option.params_space.seed(CFG.seed)
+    # Update the segments to include which option is being executed.
+    for datastore, spec in zip(datastores, option_specs):
+        for (segment, _) in datastore:
+            # Modifies segment in-place.
+            option_learner.update_segment_from_option_spec(segment, spec)
+    print("\nLearned operators with option specs:")
+    for pnad in pnads:
+        print(pnad)
+
+
+def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
+                         sampler_learner: str) -> None:
+    print("\nDoing sampler learning...")
+    strips_ops = []
+    datastores = []
+    option_specs = []
+    for pnad in pnads:
+        strips_ops.append(pnad.op)
+        datastores.append(pnad.datastore)
+        option_specs.append(pnad.option_spec)
+    samplers = learn_samplers(strips_ops, datastores, option_specs,
+                              sampler_learner)
+    assert len(samplers) == len(strips_ops)
+    # Replace the samplers in the PNADs.
+    for pnad, sampler in zip(pnads, samplers):
+        pnad.sampler = sampler
