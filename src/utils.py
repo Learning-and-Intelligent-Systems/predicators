@@ -657,7 +657,7 @@ def run_hill_climbing(initial_state: _S,
 
             with mp.Pool(processes = num_cpus) as p:
                 for child_heuristic, child_node in p.imap_unordered(fn,
-                    successors_at_depth, chunksize=50**(depth+1)//num_cpus):
+                    successors_at_depth):
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
                         best_child_node = child_node
