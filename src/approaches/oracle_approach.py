@@ -6,16 +6,14 @@ truth NSRTs. If an NSRT's option is not included, that NSRT will not be
 generated at all.
 """
 
-from typing import List, Sequence, Set
+from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
 from predicators.src.approaches import TAMPApproach
-from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, PlayroomEnv
-from predicators.src.structs import NSRT, Predicate, State, \
-    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
+from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, PlayroomEnv, BehaviorEnv
+from predicators.src.structs import NSRT, Predicate, State, ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
-    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, grasp_obj_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs import get_cached_env_instance
 
 
@@ -101,17 +99,15 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     target = Variable("?target", target_type)
 
     # Predicates
-    IsBlock, IsTarget, Covers, HandEmpty, Holding = \
-        _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
-                                           "HandEmpty", "Holding"])
+    IsBlock, IsTarget, Covers, HandEmpty, Holding = _get_predicates_by_names(
+        CFG.env, ["IsBlock", "IsTarget", "Covers", "HandEmpty", "Holding"])
 
     # Options
     if CFG.env in ("cover", "cover_hierarchical_types"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
-    if CFG.env == "cover_multistep_options" and \
-        CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
         LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
             CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
 
@@ -130,16 +126,14 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     if CFG.env in ("cover", "cover_hierarchical_types"):
         option = PickPlace
         option_vars = []
-    elif CFG.env == "cover_multistep_options" and \
-        CFG.cover_multistep_use_learned_equivalents:
+    elif CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Pick
         option_vars = [block]
 
-    if CFG.env == "cover_multistep_options" and \
-        CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
 
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
@@ -210,13 +204,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Place
         option_vars = [target]
-        if CFG.env == "cover_multistep_options" and \
-            CFG.cover_multistep_use_learned_equivalents:
+        if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
             option = LearnedEquivalentPlace
             option_vars = [block, robot, target]
 
-    if CFG.env == "cover_multistep_options" and \
-        CFG.cover_multistep_use_learned_equivalents:
+    if CFG.env == "cover_multistep_options" and CFG.cover_multistep_use_learned_equivalents:
 
         def place_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
@@ -447,15 +439,16 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
 
 def _get_painting_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for PaintingEnv."""
-    obj_type, box_type, lid_type, shelf_type, robot_type = \
-        _get_types_by_names("painting", ["obj", "box", "lid", "shelf", "robot"])
+    obj_type, box_type, lid_type, shelf_type, robot_type = _get_types_by_names(
+        "painting", ["obj", "box", "lid", "shelf", "robot"])
 
     (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable,
-     HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean) = \
-         _get_predicates_by_names(
-             "painting", ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
-                          "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-                          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+     HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty,
+     IsClean) = _get_predicates_by_names("painting", [
+         "InBox", "InShelf", "IsBoxColor", "IsShelfColor", "GripperOpen",
+         "OnTable", "HoldingTop", "HoldingSide", "Holding", "IsWet", "IsDry",
+         "IsDirty", "IsClean"
+     ])
 
     Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
         "painting", ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
@@ -696,24 +689,22 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
 
 def _get_playroom_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for Playroom Env."""
-    block_type, robot_type, door_type, dial_type, region_type = \
-        _get_types_by_names(CFG.env,
-            ["block", "robot", "door", "dial", "region"])
+    block_type, robot_type, door_type, dial_type, region_type = _get_types_by_names(
+        CFG.env, ["block", "robot", "door", "dial", "region"])
 
-    On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, \
-        NextToDial, InRegion, Borders, Connects, IsBoringRoom, IsPlayroom, \
-        IsBoringRoomDoor, IsPlayroomDoor, DoorOpen, DoorClosed, LightOn, \
-        LightOff = \
-            _get_predicates_by_names(
-            "playroom", ["On", "OnTable", "GripperOpen", "Holding", "Clear",
-            "NextToTable", "NextToDoor", "NextToDial", "InRegion", "Borders",
-            "Connects", "IsBoringRoom", "IsPlayroom", "IsBoringRoomDoor",
-            "IsPlayroomDoor", "DoorOpen", "DoorClosed", "LightOn", "LightOff"])
+    On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, NextToDial, InRegion, Borders, Connects, IsBoringRoom, IsPlayroom, IsBoringRoomDoor, IsPlayroomDoor, DoorOpen, DoorClosed, LightOn, LightOff = _get_predicates_by_names(
+        "playroom", [
+            "On", "OnTable", "GripperOpen", "Holding", "Clear", "NextToTable",
+            "NextToDoor", "NextToDial", "InRegion", "Borders", "Connects",
+            "IsBoringRoom", "IsPlayroom", "IsBoringRoomDoor", "IsPlayroomDoor",
+            "DoorOpen", "DoorClosed", "LightOn", "LightOff"
+        ])
 
-    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial, \
-        TurnOffDial = _get_options_by_names("playroom",
-        ["Pick", "Stack", "PutOnTable", "Move", "OpenDoor", "CloseDoor",
-         "TurnOnDial", "TurnOffDial"])
+    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial, TurnOffDial = _get_options_by_names(
+        "playroom", [
+            "Pick", "Stack", "PutOnTable", "Move", "OpenDoor", "CloseDoor",
+            "TurnOnDial", "TurnOffDial"
+        ])
 
     nsrts = set()
 
@@ -1211,40 +1202,43 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
 
 def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     """Create ground truth nsrts for BehaviorEnv."""
-    env = get_cached_env_instance("behavior")
+    env_base_type = get_cached_env_instance("behavior")
+    env = cast(BehaviorEnv, env_base_type)
 
     # NOTE: These two methods below are necessary to help instantiate
-    # all combinations of types for predicates (e.g. nextTo(robot, book),
-    # nextTo(robot, fridge), etc). If we had support for hierarchical types
+    # all combinations of types for predicates (e.g. reachable(robot, book),
+    # reachable(robot, fridge), etc). If we had support for hierarchical types
     # such that all types could inherit from 'object' we would not need
     # to perform this combinatorial enumeration.
 
     type_name_to_type = {t.name: t for t in env.types}
     pred_name_to_pred = {p.name: p for p in env.predicates}
 
-    def _get_lifted_atom(base_pred_name: str,\
-        objects: Sequence[Variable]) -> LiftedAtom:
+    def _get_lifted_atom(base_pred_name: str,
+                         objects: Sequence[Variable]) -> LiftedAtom:
         pred = _get_predicate(base_pred_name, [o.type for o in objects])
         return LiftedAtom(pred, objects)
 
-    def _get_predicate(base_pred_name: str,\
-        types: Sequence[Type]) -> Predicate:
+    def _get_predicate(base_pred_name: str,
+                       types: Sequence[Type]) -> Predicate:
         type_names = "-".join(t.name for t in types)
         pred_name = f"{base_pred_name}-{type_names}"
         return pred_name_to_pred[pred_name]
 
-    # We start by creating NextTo predicates for all possible type
+    # We start by creating reachable predicates for all possible type
     # combinations. These predicates will be used as side predicates
     # for navigateTo operators
-    nextto_predicates = set()
-    for nextto_pred_types in itertools.product(env.types, env.types):
-        nextto_predicates.add(_get_predicate("reachable", nextto_pred_types))
+    reachable_predicates = set()
+    for reachable_pred_types in itertools.product(env.types, env.types):
+        reachable_predicates.add(_get_predicate("reachable", reachable_pred_types))
 
     agent_type = type_name_to_type["agent.n.01"]
     agent_obj = Variable("?agent", agent_type)
 
     nsrts = set()
-    op_name_count = itertools.count()
+    op_name_count_nav = itertools.count()
+    op_name_count_pick = itertools.count()
+    op_name_count_place = itertools.count()
 
     for option in env.options:
         split_name = option.name.split("-")
@@ -1257,64 +1251,45 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
             target_obj_type = type_name_to_type[target_obj_type_name]
             target_obj = Variable("?targ", target_obj_type)
 
-            # Navigate to from nextto nothing.
-            nextto_nothing = _get_lifted_atom("reachable-nothing", [agent_obj])
+            # Navigate to from nothing reachable.
+            reachable_nothing = _get_lifted_atom("reachable-nothing", [agent_obj])
             parameters = [agent_obj, target_obj]
             option_vars = [target_obj]
-            preconditions = {nextto_nothing}
+            preconditions = {reachable_nothing}
             add_effects = {
                 _get_lifted_atom("reachable", [target_obj, agent_obj])
             }
-            delete_effects = {nextto_nothing}
+            delete_effects = {reachable_nothing}
             nsrt = NSRT(
-                f"{option.name}-{next(op_name_count)}",
-                parameters,
-                preconditions,
-                add_effects,
-                delete_effects,
-                nextto_predicates,
-                option,
-                option_vars,
-                # NOTE: mypy thinks that the env is of type BaseEnv (because
-                # of the type sig of create_env in __init__.py), and BaseEnv
-                # doesn't have an object_to_ig_object method
-                lambda s, r, o: navigate_to_param_sampler(r,\
-                    [env.object_to_ig_object(o_i) for o_i in o], # type: ignore
-                )
-            )
+                f"{option.name}-{next(op_name_count_nav)}", parameters,
+                preconditions, add_effects, delete_effects, reachable_predicates,
+                option, option_vars, lambda s, r, o: navigate_to_param_sampler(
+                    r,
+                    [env.object_to_ig_object(o_i) for o_i in o],
+                ))
             nsrts.add(nsrt)
 
-            # Navigate to while nextto something.
+            # Navigate to while something is reachable.
             for origin_obj_type in sorted(env.types):
                 if agent_type in [origin_obj_type, target_obj_type]:
                     continue
 
                 origin_obj = Variable("?origin", origin_obj_type)
-                origin_nextto = _get_lifted_atom("reachable",
+                origin_reachable = _get_lifted_atom("reachable",
                                                  [origin_obj, agent_obj])
-                targ_nextto = _get_lifted_atom("reachable",
+                targ_reachable = _get_lifted_atom("reachable",
                                                [target_obj, agent_obj])
                 parameters = [origin_obj, agent_obj, target_obj]
                 option_vars = [target_obj]
-                preconditions = {origin_nextto}
-                add_effects = {targ_nextto}
-                delete_effects = {origin_nextto}
+                preconditions = {origin_reachable}
+                add_effects = {targ_reachable}
+                delete_effects = {origin_reachable}
                 nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count)}",
-                    parameters,
-                    preconditions,
-                    add_effects,
-                    delete_effects,
-                    nextto_predicates,
-                    option,
-                    option_vars,
-                    # NOTE: mypy thinks that the env is of type BaseEnv (because
-                    # of the type sig of create_env in __init__.py), and BaseEnv
-                    # doesn't have an object_to_ig_object method
-                    lambda s, r, o: navigate_to_param_sampler(r,\
-                    [env.object_to_ig_object(o_i) for o_i in o] # type: ignore
-                    )
-                )
+                    f"{option.name}-{next(op_name_count_nav)}", parameters,
+                    preconditions, add_effects, delete_effects,
+                    reachable_predicates, option, option_vars,
+                    lambda s, r, o: navigate_to_param_sampler(
+                        r, [env.object_to_ig_object(o_i) for o_i in o]))
                 nsrts.add(nsrt)
 
         elif base_option_name == "Grasp":
@@ -1329,14 +1304,14 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 parameters = [target_obj, agent_obj, surf_obj]
                 option_vars = [target_obj]
                 handempty = _get_lifted_atom("handempty", [])
-                targ_nextto = _get_lifted_atom("reachable",
+                targ_reachable = _get_lifted_atom("reachable",
                                                [target_obj, agent_obj])
                 targ_holding = _get_lifted_atom("holding", [target_obj])
-                preconditions = {handempty, targ_nextto}
+                preconditions = {handempty, targ_reachable}
                 add_effects = {targ_holding}
                 delete_effects = {handempty}
                 nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count)}",
+                    f"{option.name}-{next(op_name_count_pick)}",
                     parameters,
                     preconditions,
                     add_effects,
@@ -1361,14 +1336,14 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 option_vars = [surf_obj]
                 handempty = _get_lifted_atom("handempty", [])
                 held_holding = _get_lifted_atom("holding", [held_obj])
-                surf_nextto = _get_lifted_atom("reachable",
+                surf_reachable = _get_lifted_atom("reachable",
                                                [surf_obj, agent_obj])
                 ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
-                preconditions = {held_holding, surf_nextto}
+                preconditions = {held_holding, surf_reachable}
                 add_effects = {ontop, handempty}
                 delete_effects = {held_holding}
                 nsrt = NSRT(
-                    f"{option.name}-{next(op_name_count)}",
+                    f"{option.name}-{next(op_name_count_place)}",
                     parameters,
                     preconditions,
                     add_effects,
@@ -1376,18 +1351,9 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     set(),
                     option,
                     option_vars,
-                    # NOTE: mypy thinks that the env is of type BaseEnv (because
-                    # of the type sig of create_env in __init__.py), and BaseEnv
-                    # doesn't have an object_to_ig_object method
-                    # The first type ignore is necessary because mypy gets
-                    # confused about the type signature of the NSRT itself
-                    # because we're ignoring the env.object_to_ig_object line
                     lambda s, r, o:  # type: ignore
-                    place_ontop_obj_pos_sampler(
-                        [
-                            env.object_to_ig_object(o_i)  # type: ignore
-                            for o_i in o
-                        ],
+                    place_ontop_obj_pos_sampler(  # type: ignore
+                        [env.object_to_ig_object(o_i) for o_i in o],
                         rng=r,
                     ),
                 )
