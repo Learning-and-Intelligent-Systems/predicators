@@ -165,8 +165,6 @@ def _skeleton_generator(
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
-    if early_termination_fn and early_termination_fn(init_atoms, [], [init_atoms]):
-        raise ApproachFailure("Early termination function was true.")
     start_time = time.time()
     queue: List[Tuple[float, float, _Node]] = []
     root_node = _Node(atoms=init_atoms,
@@ -186,6 +184,10 @@ def _skeleton_generator(
                 CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
+        # This needs to be here, not in expansion loop!
+        if early_termination_fn and early_termination_fn(node.atoms, node.skeleton,
+            node.atoms_sequence):
+            raise ApproachFailure("Early termination function was true.")
         # Good debug point #1: print node.skeleton here to see what
         # the high-level search is doing.
         if task.goal.issubset(node.atoms):
@@ -203,9 +205,6 @@ def _skeleton_generator(
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node)
-                if early_termination_fn and early_termination_fn(child_atoms, child_node.skeleton,
-                    child_node.atoms_sequence):
-                    raise ApproachFailure("Early termination function was true.")
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))

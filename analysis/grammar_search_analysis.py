@@ -3,6 +3,7 @@
 import time
 from collections import defaultdict
 import glob
+from operator import le
 import os
 from typing import Dict, DefaultDict, Set, List, Tuple
 import pandas as pd
@@ -10,7 +11,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_score_function
+    _create_score_function, _SingleAttributeCompareClassifier
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -63,12 +64,37 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet,
             IsDry, IsDirty, IsClean
         }
+
+        # NOT-((0:obj).held<=0.5)
+        obj_type = Holding.types[0]
+        classifier = _SingleAttributeCompareClassifier(0, obj_type, "held",
+            0.5, le, "<=")
+        pred = Predicate(str(classifier), [obj_type], classifier)
+        not_held = pred.get_negation()
+        assert str(not_held) == "NOT-((0:obj).held<=0.5)"
+
+        # NOT-((0:robot).gripper_rot<=0.5)
+        robot_type = HoldingTop.types[0]
+        classifier = _SingleAttributeCompareClassifier(0, robot_type, "gripper_rot",
+            0.5, le, "<=")
+        pred = Predicate(str(classifier), [robot_type], classifier)
+        not_gripper_rot = pred.get_negation()
+        assert str(not_gripper_rot) == "NOT-((0:robot).gripper_rot<=0.5)"
+
+        # NOT-((0:robot).fingers<=0.5)
+        classifier = _SingleAttributeCompareClassifier(0, robot_type, "fingers",
+            0.5, le, "<=")
+        pred = Predicate(str(classifier), [robot_type], classifier)
+        not_fingers = pred.get_negation()
+        assert str(not_fingers) == "NOT-((0:robot).fingers<=0.5)"
+
         painting_pred_sets: List[Set[Predicate]] = [
-            set(),
-            all_predicates - {IsWet, IsDry},
-            all_predicates - {IsClean, IsDirty},
-            all_predicates - {OnTable},
-            all_predicates - {HoldingTop, HoldingSide, Holding},
+            # set(),
+            # all_predicates - {IsWet, IsDry},
+            # all_predicates - {IsClean, IsDirty},
+            # all_predicates - {OnTable},
+            # all_predicates - {HoldingTop, HoldingSide, Holding},
+            {not_held, not_gripper_rot, not_fingers},
             all_predicates,
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
@@ -180,8 +206,8 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 def _main() -> None:
     env_names = [
         # "cover",
-        "blocks",
-        # "painting",
+        # "blocks",
+        "painting",
     ]
     score_function_names = [
         # "prediction_error",
