@@ -229,10 +229,18 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
     """
     _operator: STRIPSOperator
     _regressor: MLPRegressor
+    _changing_parameter_idxs: Sequence[int]
 
     def __init__(self, name: str, operator: STRIPSOperator,
-                 regressor: MLPRegressor, option_param_dim: int) -> None:
+                 regressor: MLPRegressor,
+                 changing_parameters: Sequence[Variable]) -> None:
+        assert set(changing_parameters).issubset(set(operator.parameters))
+        changing_parameter_idxs = [
+            i for i, v in enumerate(operator.parameters)
+            if v in changing_parameters
+        ]
         types = [v.type for v in operator.parameters]
+        option_param_dim = sum(v.type.dim for v in changing_parameters)
         params_space = Box(low=-np.inf,
                            high=np.inf,
                            shape=(option_param_dim, ),
@@ -240,6 +248,8 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         # Dataclass is frozen, so we have to do these hacks.
         object.__setattr__(self, "_operator", operator)
         object.__setattr__(self, "_regressor", regressor)
+        object.__setattr__(self, "_changing_parameter_idxs",
+                           changing_parameter_idxs)
         super().__init__(name,
                          types,
                          params_space,
@@ -253,33 +263,50 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         return {a.predicate for a in self._operator.preconditions | \
                 self._operator.add_effects | self._operator.delete_effects}
 
-    def _regressor_based_policy(self, state: State, memory: Dict,
-                                objects: Sequence[Object],
-                                params: Array) -> Action:
-        # TODO handle relative stuff.
-        del memory  # unused
-        x = np.hstack(([1.0], state.vec(objects), params))
-        action_arr = self._regressor.predict(x)
-        assert not np.isnan(action_arr).any()
-        return Action(np.array(action_arr, dtype=np.float32))
-
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
                                       params: Array) -> bool:
-        del memory, params  # unused
+        # The memory here is used to store the absolute params, based on
+        # the relative params and the object states.
+        memory["params"] = params  # store for sanity checking in policy
+        changing_objects = [objects[i] for i in self._changing_parameter_idxs]
+        memory["absolute_goal_vec"] = state.vec(changing_objects) + params
+        # Check if initiable based on preconditions.
         grounded_op = self._operator.ground(tuple(objects))
         preconditions = grounded_op.preconditions
         abs_state = utils.abstract(state, self._predicates)
         return preconditions.issubset(abs_state)
 
+    def _regressor_based_policy(self, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+        # Compute the updated relative goal.
+        assert np.allclose(params, memory["params"])
+        changing_objects = [objects[i] for i in self._changing_parameter_idxs]
+        relative_goal_vec = memory["absolute_goal_vec"] - state.vec(
+            changing_objects)
+        x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
+        action_arr = self._regressor.predict(x)
+        assert not np.isnan(action_arr).any()
+        return Action(np.array(action_arr, dtype=np.float32))
+
     def _effect_based_terminal(self, state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
         del memory, params  # unused
+        # The hope is that we terminate in the effects.
         grounded_op = self._operator.ground(tuple(objects))
         abs_state = utils.abstract(state, self._predicates)
-        return grounded_op.add_effects.issubset(abs_state) and \
-            not grounded_op.delete_effects & abs_state
+        if grounded_op.add_effects.issubset(abs_state) and \
+            not grounded_op.delete_effects & abs_state:
+            return True
+        # If we fall outside of the space where the preconditions hold, also
+        # terminate. The assumption is that the option should take us from one
+        # abstract state to another without hitting any others in between.
+        if not grounded_op.preconditions.issubset(abs_state):
+            return True
+        # Not yet done.
+        return False
 
 
 class _SimpleOptionLearner(_OptionLearnerBase):
@@ -319,7 +346,6 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             # option params is op.parameters. But we only want to include
             # those objects that have state changes (in at least some data).
             changing_parameter_set = self._get_changing_parameters(datastore)
-            option_param_dim = sum(v.type.dim for v in changing_parameter_set)
             # Just to avoid confusion, we will insist that the order of the
             # changing parameters is consistent with the order of the original.
             changing_parameters = sorted(changing_parameter_set,
@@ -331,32 +357,36 @@ class _SimpleOptionLearner(_OptionLearnerBase):
 
             for segment, sub in datastore:
                 inv_sub = {v: o for o, v in sub.items()}
-
-                # First, determine the continuous option parameterization for
-                # this segment.
-                changing_objects = [inv_sub[v] for v in changing_parameters]
-                option_param = self._get_option_parameterization(
-                    segment, changing_objects)
-                assert len(option_param) == option_param_dim
-                del changing_objects  # not used after this
-
-                # Next, create the input vectors from all object states named
-                # in the operator parameters (not just the changing ones).
                 all_objects_in_operator = [inv_sub[v] for v in op.parameters]
-                # Note that each segment contributions multiple data points,
-                # one per action.
-                assert len(segment.states) == len(segment.actions) + 1
-                for state, action in zip(segment.states, segment.actions):
-                    state_features = state.vec(all_objects_in_operator)
-                    # Add a bias term for regression.
-                    x = np.hstack(([1.0], state_features, option_param))
-                    X_regressor.append(x)
-                    Y_regressor.append(action.arr)
+
+                # First, determine the absolute goal vector for this segment.
+                changing_objects = [inv_sub[v] for v in changing_parameters]
+                initial_state = segment.states[0]
+                final_state = segment.states[-1]
+                absolute_goal_vec = final_state.vec(changing_objects)
+                option_param = absolute_goal_vec - initial_state.vec(
+                    changing_objects)
 
                 # Store the option parameterization for this segment so we can
                 # use it in update_segment_from_option_spec.
                 self._segment_to_grounding[segment] = (all_objects_in_operator,
                                                        option_param)
+                del option_param  # not used after this
+
+                # Next, create the input vectors from all object states named
+                # in the operator parameters (not just the changing ones).
+                # Note that each segment contributions multiple data points,
+                # one per action.
+                assert len(segment.states) == len(segment.actions) + 1
+                for state, action in zip(segment.states, segment.actions):
+                    state_features = state.vec(all_objects_in_operator)
+                    # Compute the relative goal vector this segment.
+                    relative_goal_vec = absolute_goal_vec - state.vec(
+                        changing_objects)
+                    # Add a bias term for regression.
+                    x = np.hstack(([1.0], state_features, relative_goal_vec))
+                    X_regressor.append(x)
+                    Y_regressor.append(action.arr)
 
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
@@ -368,7 +398,7 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             # Construct the ParameterizedOption for this operator.
             name = f"{op.name}LearnedOption"
             parameterized_option = _LearnedSimpleParameterizedOption(
-                name, op, regressor, option_param_dim)
+                name, op, regressor, changing_parameters)
             option_specs.append((parameterized_option, list(op.parameters)))
 
         return option_specs
@@ -383,18 +413,6 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                 if not np.array_equal(start[o], end[o]):
                     all_changing_variables.add(v)
         return all_changing_variables
-
-    @staticmethod
-    def _get_option_parameterization(
-            segment: Segment, changing_objects: Sequence[Object]) -> Array:
-        # # Parameterization is ABSOLUTE change in object states.
-        end = segment.states[-1]
-        return end.vec(changing_objects)
-
-        # Parameterization is RELATIVE change in object states.
-        # start = segment.states[0]
-        # end = segment.states[-1]
-        # return end.vec(changing_objects) - start.vec(changing_objects)
 
     def update_segment_from_option_spec(self, segment: Segment,
                                         option_spec: OptionSpec) -> None:
