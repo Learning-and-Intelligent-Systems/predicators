@@ -129,23 +129,38 @@ class PlayroomEnv(BlocksEnv):
             _policy=self._PutOnTable_policy,
             _initiable=self._NextToTable_initiable,
             _terminal=utils.onestep_terminal)
-        self._MoveFromRegion = ParameterizedOption(
-            # variables: [robot, region]
-            # params: [x, y, rotation]
-            "MoveFromRegion", types=[self._robot_type, self._region_type],
-            params_space=Box(low=np.array([self.x_lb, self.y_lb, -1.0]),
-                             high=np.array([self.x_ub, self.y_ub, 1.0])),
-            _policy=self._Move_policy,
-            _initiable=self._MoveFromRegion_initiable,
-            _terminal=utils.onestep_terminal)
-        self._MoveFromDoor = ParameterizedOption(
+        self._AdvanceThroughDoor = ParameterizedOption(
             # variables: [robot, door]
-            # params: [x, y, rotation]
-            "MoveFromDoor", types=[self._robot_type, self._door_type],
-            params_space=Box(low=np.array([self.x_lb, self.y_lb, -1.0]),
-                             high=np.array([self.x_ub, self.y_ub, 1.0])),
-            _policy=self._Move_policy,
-            _initiable=self._MoveFromDoor_initiable,
+            # params: [dx, dy, rotation]
+            "AdvanceThroughDoor", types=[self._robot_type, self._door_type],
+            params_space=Box(-1, 1, (3,)),
+            _policy=self._MoveToDoor_policy,  # uses robot, door
+            _initiable=self._MoveFromDoor_initiable,  # uses robot, door
+            _terminal=utils.onestep_terminal)
+        self._MoveToDoor = ParameterizedOption(
+            # variables: [robot, region, door]
+            # params: [dx, dy, rotation]
+            "MoveToDoor", types=[self._robot_type, self._region_type, self._door_type],
+            params_space=Box(-1, 1, (3,)),
+            _policy=self._MoveToDoor_policy,  # uses robot, door
+            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            _terminal=utils.onestep_terminal)
+        self._MoveDoorToTable = ParameterizedOption(
+            # variables: [robot, region]
+            # params: [x, y, rotation] (x, y normalized)
+            "MoveDoorToTable", types=[self._robot_type, self._region_type],
+            params_space=Box(-1, 1, (3,)),
+            _policy=self._MoveToTable_policy,  # uses robot
+            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            _terminal=utils.onestep_terminal)
+        self._MoveDoorToDial = ParameterizedOption(
+            # variables: [robot, region, dial]
+            # params: [dx, dy, rotation]
+            "MoveDoorToDial", types=[self._robot_type, self._region_type, self._dial_type],
+            params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
+                             high=np.array([4.0, 4.0, 1.0])),
+            _policy=self._MoveToDial_policy,  # uses robot, dial
+            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
             _terminal=utils.onestep_terminal)
         self._OpenDoor = ParameterizedOption(
             # variables: [robot, door]
@@ -315,7 +330,8 @@ class PlayroomEnv(BlocksEnv):
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {self._Pick, self._Stack, self._PutOnTable,
-                self._MoveFromRegion, self._MoveFromDoor,
+                self._AdvanceThroughDoor, self._MoveToDoor,
+                self._MoveDoorToTable, self._MoveDoorToDial,
                 self._OpenDoor, self._CloseDoor, self._TurnOnDial,
                 self._TurnOffDial}
 
@@ -796,8 +812,8 @@ class PlayroomEnv(BlocksEnv):
                                   objects: Sequence[Object], params: Array
                                   ) -> bool:
         del memory, params  # unused
-        # objects: (robot, region)
-        return PlayroomEnv._InRegion_holds(state, objects)
+        # objects: robot, region, ...
+        return PlayroomEnv._InRegion_holds(state, objects[:2])
 
     @staticmethod
     def _MoveFromDoor_initiable(state: State, memory: Dict,
@@ -806,6 +822,49 @@ class PlayroomEnv(BlocksEnv):
         del memory, params  # unused
         # objects: (robot, door)
         return PlayroomEnv._NextToDoor_holds(state, objects)
+    
+    def _MoveToDoor_policy(self, state: State, memory: Dict,
+                             objects: Sequence[Object], params: Array) -> Action:
+        del memory  # unused
+        # params: [dx, dy, rotation]
+        robot, door = objects[0], objects[-1]
+        fingers = state.get(robot, "fingers")
+        door_pose = np.array([
+            state.get(door, "pose_x"),
+            state.get(door, "pose_y"),
+        ])
+        arr = np.r_[door_pose + params[:-1], 1.0, params[-1],
+                    fingers].astype(np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
+
+    def _MoveToTable_policy(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+        del memory  # unused
+        # params: [x, y, rotation] (x, y in normalized coords)
+        robot = objects[0]
+        fingers = state.get(robot, "fingers")
+        x_norm, y_norm = params[:-1]
+        x = self.table_x_lb + (self.table_x_ub - self.table_x_lb) * x_norm
+        y = self.table_y_lb + (self.table_y_ub - self.table_y_lb) * y_norm
+        arr = np.array([x, y, 1.0, params[-1], fingers], dtype=np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
+
+    def _MoveToDial_policy(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+        del memory  # unused
+        # params: [dx, dy, rotation]
+        robot, _, dial = objects
+        fingers = state.get(robot, "fingers")
+        dial_pose = np.array([
+            state.get(dial, "pose_x"),
+            state.get(dial, "pose_y")
+        ])
+        arr = np.r_[dial_pose + params[:-1], 1.0, params[-1],
+                    fingers].astype(np.float32)
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
 
     def _ToggleDoor_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
