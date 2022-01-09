@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 import abc
-from typing import List, Sequence, Dict, Tuple
+from dataclasses import dataclass
+from functools import cached_property
+from typing import List, Sequence, Dict, Tuple, Set
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment, Array, ParameterizedOption, Object
+    Segment, Array, ParameterizedOption, Object, Variable, Box, Predicate, \
+    State, Action
 from predicators.src.settings import CFG
-from predicators.src.torch_models import BasicMLP
+from predicators.src.torch_models import MLPRegressor
 from predicators.src.envs import create_env, BlocksEnv
+from predicators.src import utils
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -217,12 +221,75 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 segment.set_option(option)
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class _LearnedSimpleParameterizedOption(ParameterizedOption):
+    """A convenience class for holding a learned parameterized option.
+
+    Prefer to use this because it is pickleable.
+    """
+    _operator: STRIPSOperator
+    _regressor: MLPRegressor
+
+    def __init__(self, name: str, operator: STRIPSOperator,
+                 regressor: MLPRegressor, option_param_dim: int) -> None:
+        types = [v.type for v in operator.parameters]
+        params_space = Box(low=-np.inf,
+                           high=np.inf,
+                           shape=(option_param_dim, ),
+                           dtype=np.float32)
+        # Dataclass is frozen, so we have to do these hacks.
+        object.__setattr__(self, "_operator", operator)
+        object.__setattr__(self, "_regressor", regressor)
+        super().__init__(name,
+                         types,
+                         params_space,
+                         _policy=self._regressor_based_policy,
+                         _initiable=self._precondition_based_initiable,
+                         _terminal=self._effect_based_terminal)
+
+    @cached_property
+    def _predicates(self) -> Set[Predicate]:
+        """Helper for initiable and terminal."""
+        return {a.predicate for a in self._operator.preconditions | \
+                self._operator.add_effects | self._operator.delete_effects}
+
+    def _regressor_based_policy(self, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+        # TODO handle relative stuff.
+        del memory  # unused
+        x = np.hstack(([1.0], state.vec(objects), params))
+        action_arr = self._regressor.predict(x)
+        assert not np.isnan(action_arr).any()
+        return Action(np.array(action_arr, dtype=np.float32))
+
+    def _precondition_based_initiable(self, state: State, memory: Dict,
+                                      objects: Sequence[Object],
+                                      params: Array) -> bool:
+        del memory, params  # unused
+        grounded_op = self._operator.ground(tuple(objects))
+        preconditions = grounded_op.preconditions
+        abs_state = utils.abstract(state, self._predicates)
+        return preconditions.issubset(abs_state)
+
+    def _effect_based_terminal(self, state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+        del memory, params  # unused
+        grounded_op = self._operator.ground(tuple(objects))
+        abs_state = utils.abstract(state, self._predicates)
+        return grounded_op.add_effects.issubset(abs_state) and \
+            not grounded_op.delete_effects & abs_state
+
+
 class _SimpleOptionLearner(_OptionLearnerBase):
     """The option learner that learns options from fixed-length input vectors.
-    That is, the the input data only includes objects whose state changes from
-    the first state in the segment to the last state in the segment. The input
-    data does not include data from other objects in the scene, where the number
-    of other objects would differ across different instiantiations of the env.
+
+    That is, the the input data only includes objects whose state
+    changes from the first state in the segment to the last state in the
+    segment. The input data does not include data from other objects in
+    the scene, where the number of other objects would differ across
+    different instiantiations of the env.
     """
 
     def __init__(self) -> None:
@@ -230,21 +297,22 @@ class _SimpleOptionLearner(_OptionLearnerBase):
         # While learning the policy, we record the map from each segment to
         # the option parameterization, so we don't need to recompute it in
         # update_segment_from_option_spec.
-        self._segment_to_grounding: Dict[Segment, Tuple[Sequence[Object], Array]] = {}
+        self._segment_to_grounding: Dict[Segment, Tuple[Sequence[Object],
+                                                        Array]] = {}
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
         # In this paradigm, the option initiable and termination are determined
         # from the operators, so the main thing that needs to be learned is the
         # option policy.
-        option_specs = []
+        option_specs: List[Tuple[ParameterizedOption, List[Variable]]] = []
 
         assert len(strips_ops) == len(datastores)
 
         for op, datastore in zip(strips_ops, datastores):
             print(f"\nLearning option for NSRT {op.name}")
 
-            X_regressor: List[List[Array]] = []
+            X_regressor: List[Array] = []
             Y_regressor = []
 
             # The superset of all objects whose states we may include in the
@@ -254,9 +322,12 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             option_param_dim = sum(v.type.dim for v in changing_parameter_set)
             # Just to avoid confusion, we will insist that the order of the
             # changing parameters is consistent with the order of the original.
-            changing_parameters = sorted(changing_parameter_set, key=op.parameters.index)
+            changing_parameters = sorted(changing_parameter_set,
+                                         key=op.parameters.index)
             del changing_parameter_set  # not used after this
-            assert changing_parameters == [v for v in op.parameters if v in changing_parameters]
+            assert changing_parameters == [
+                v for v in op.parameters if v in changing_parameters
+            ]
 
             for segment, sub in datastore:
                 inv_sub = {v: o for o, v in sub.items()}
@@ -264,11 +335,9 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                 # First, determine the continuous option parameterization for
                 # this segment.
                 changing_objects = [inv_sub[v] for v in changing_parameters]
-                option_param = self._get_option_parameterization(segment, changing_objects)
+                option_param = self._get_option_parameterization(
+                    segment, changing_objects)
                 assert len(option_param) == option_param_dim
-                # Store the option parameterization for this segment so we can
-                # use it in update_segment_from_option_spec.
-                self._segment_to_grounding[segment] = (changing_objects, option_param)
                 del changing_objects  # not used after this
 
                 # Next, create the input vectors from all object states named
@@ -284,16 +353,23 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                     X_regressor.append(x)
                     Y_regressor.append(action.arr)
 
+                # Store the option parameterization for this segment so we can
+                # use it in update_segment_from_option_spec.
+                self._segment_to_grounding[segment] = (all_objects_in_operator,
+                                                       option_param)
+
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
-            regressor = BasicMLP()
-            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, Y shape: {X_arr_regressor.shape}.")
+            regressor = MLPRegressor()
+            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, "
+                  f"Y shape: {Y_arr_regressor.shape}.")
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this operator.
-            parameterized_option = self._construct_parameterized_option(name, op, regressor,
-                option_param_dim)
-            option_specs.append((parameterized_option, operator.parameters))
+            name = f"{op.name}LearnedOption"
+            parameterized_option = _LearnedSimpleParameterizedOption(
+                name, op, regressor, option_param_dim)
+            option_specs.append((parameterized_option, list(op.parameters)))
 
         return option_specs
 
@@ -309,20 +385,21 @@ class _SimpleOptionLearner(_OptionLearnerBase):
         return all_changing_variables
 
     @staticmethod
-    def _get_option_parameterization(segment: Segment, changing_objects: Sequence[Object]) -> Array:
-        # Parameterization is RELATIVE change in object states.
-        start = segment.states[0]
+    def _get_option_parameterization(
+            segment: Segment, changing_objects: Sequence[Object]) -> Array:
+        # # Parameterization is ABSOLUTE change in object states.
         end = segment.states[-1]
-        return end.vec(changing_objects) - start.vec(changing_objects)
+        return end.vec(changing_objects)
 
-    @staticmethod
-    def _construct_parameterized_option(name: str, op: STRIPSOperator, regressor: BasicMLP,
-        option_param_dim: int) -> ParameterizedOption:
-        import ipdb; ipdb.set_trace()
+        # Parameterization is RELATIVE change in object states.
+        # start = segment.states[0]
+        # end = segment.states[-1]
+        # return end.vec(changing_objects) - start.vec(changing_objects)
 
-    def update_segment_from_option_spec(
-            self, segment: Segment, option_spec: OptionSpec) -> None:
+    def update_segment_from_option_spec(self, segment: Segment,
+                                        option_spec: OptionSpec) -> None:
         objects, params = self._segment_to_grounding[segment]
         param_opt, opt_vars = option_spec
+        assert all(o.type == v.type for o, v in zip(objects, opt_vars))
         option = param_opt.ground(objects, params)
         segment.set_option(option)
