@@ -47,7 +47,7 @@ class MLPRegressor(nn.Module):
         return x
 
     def predict(self, inputs: Array) -> Array:
-        """Normalize, predict, and convert to array."""
+        """Normalize, predict, un-normalize, and convert to array."""
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         x = x.unsqueeze(dim=0)
         # Normalize input
@@ -167,8 +167,8 @@ class NeuralGaussianRegressor(nn.Module):
         mean, variance = self._predict_mean_var(x)
         y = []
         for mu, sigma_sq in zip(mean, variance):
-            y_i = truncnorm.rvs(-1.0 * CFG.regressor_sample_clip,
-                                CFG.regressor_sample_clip,
+            y_i = truncnorm.rvs(-1.0 * CFG.neural_gaus_regressor_sample_clip,
+                                CFG.neural_gaus_regressor_sample_clip,
                                 loc=mu,
                                 scale=np.sqrt(sigma_sq),
                                 random_state=rng)
@@ -196,7 +196,7 @@ class NeuralGaussianRegressor(nn.Module):
         num_data, input_size = inputs.shape
         _, output_size = outputs.shape
         # Initialize net
-        hid_sizes = CFG.regressor_hid_sizes
+        hid_sizes = CFG.neural_gaus_regressor_hid_sizes
         self._initialize_net(input_size, hid_sizes, output_size)
         # Convert data to torch
         X = torch.from_numpy(np.array(inputs, dtype=np.float32))
@@ -208,6 +208,7 @@ class NeuralGaussianRegressor(nn.Module):
         print(f"Training {self.__class__.__name__} on {num_data} datapoints")
         self.train()  # switch to train mode
         itr = 0
+        max_itrs = CFG.neural_gaus_regressor_max_itr
         best_loss = float("inf")
         model_name = tempfile.NamedTemporaryFile(delete=False).name
         while True:
@@ -218,13 +219,13 @@ class NeuralGaussianRegressor(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.regressor_max_itr}",
+                print(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}",
                       end="\r",
                       flush=True)
             self._optimizer.zero_grad()
             loss.backward()
             self._optimizer.step()
-            if itr == CFG.regressor_max_itr:
+            if itr == max_itrs:
                 print()
                 break
             itr += 1
@@ -284,7 +285,7 @@ class MLPClassifier(nn.Module):
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
         torch.manual_seed(CFG.seed)
-        hid_sizes = CFG.classifier_hid_sizes
+        hid_sizes = CFG.mlp_classifier_hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
         for i in range(len(hid_sizes) - 1):
@@ -304,7 +305,7 @@ class MLPClassifier(nn.Module):
         assert y.ndim == 1
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
-        if CFG.classifier_balance_data and len(y) // 2 > sum(y):
+        if CFG.mlp_classifier_balance_data and len(y) // 2 > sum(y):
             old_len = len(y)
             pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
             neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
@@ -362,6 +363,7 @@ class MLPClassifier(nn.Module):
         itr = 0
         best_loss = float("inf")
         best_itr = 0
+        n_iter_no_change = CFG.mlp_classifier_n_iter_no_change
         model_name = tempfile.NamedTemporaryFile(delete=False).name
         loss_fn = nn.BCELoss()
         optimizer = optim.Adam(self.parameters(), lr=CFG.learning_rate)
@@ -383,8 +385,8 @@ class MLPClassifier(nn.Module):
             if itr == self._max_itr:
                 print()
                 break
-            if itr - best_itr > CFG.n_iter_no_change:
-                print(f"\nLoss did not improve after {CFG.n_iter_no_change} "
+            if itr - best_itr > n_iter_no_change:
+                print(f"\nLoss did not improve after {n_iter_no_change} "
                       f"itrs, terminating at itr {itr}.")
                 break
             itr += 1
