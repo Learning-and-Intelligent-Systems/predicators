@@ -66,8 +66,8 @@ class MLPRegressor(nn.Module):
         for i in range(len(hid_sizes) - 1):
             self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i + 1]))
         self._linears.append(nn.Linear(hid_sizes[-1], out_size))
-        self._optimizer = optim.Adam(
-            self.parameters(),  # pylint: disable=attribute-defined-outside-init
+        self._optimizer = optim.Adam(  # pylint: disable=attribute-defined-outside-init
+            self.parameters(),
             lr=CFG.learning_rate)
 
     @staticmethod
