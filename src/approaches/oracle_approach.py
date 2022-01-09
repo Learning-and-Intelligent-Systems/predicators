@@ -143,10 +143,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert robot.is_instance(robot_type)
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw, bh = state.get(block, "width"), state.get(block, "height")
-
-            # TODO change back before merge
-            # desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
-            desired_x = bx
+            desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
 
             desired_x = float(bx)
             # is_block, is_target, width, x, grasp, y, height
@@ -224,10 +221,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
             tx, tw = state.get(target, "x"), state.get(target, "width")
-
-            # TODO change back before merge
-            # desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
-            desired_x = tx
+            desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
 
             desired_x = float(tx)
             bw, bh = state.get(block, "width"), state.get(block, "height")
