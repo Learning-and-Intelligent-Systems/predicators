@@ -28,7 +28,9 @@ def test_aabb_volume():
     with pytest.raises(AssertionError):
         # Test assertion error when lower bound is
         # greater than upper bound
-        assert utils.get_aabb_volume(hi, lo)
+        lo1 = np.array([10.0, 12.5, 10.0])
+        hi1 = np.array([-10.0, -12.5, -10.0])
+        assert utils.get_aabb_volume(lo1, hi1)
 
 
 def test_aabb_closest_point():
@@ -38,9 +40,11 @@ def test_aabb_closest_point():
     lo = np.array([1.0, 1.5, -1.0])
     hi = np.array([2.0, 2.5, 0.0])
     assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
-    # Test error where lower bound is greater than upper bound.
     with pytest.raises(AssertionError):
-        utils.get_closest_point_on_aabb(xyz, hi, lo)
+        # Test error where lower bound is greater than upper bound.
+        lo1 = np.array([10.0, 12.5, 10.0])
+        hi1 = np.array([-10.0, -12.5, -10.0])
+        utils.get_closest_point_on_aabb(xyz, lo1, hi1)
 
 
 def test_intersects():
