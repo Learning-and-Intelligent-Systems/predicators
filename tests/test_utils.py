@@ -21,15 +21,26 @@ def test_aabb_volume():
     """Tests for get_aabb_volume."""
     lo = np.array([1.0, 1.5, -1.0])
     hi = np.array([2.0, 2.5, 0.0])
+    # Test zero volume calculation
+    assert utils.get_aabb_volume(lo, lo) == 0.0
+    # Test ordinary calculation
     assert utils.get_aabb_volume(lo, hi) == 1.0
+    with pytest.raises(AssertionError):
+        # Test assertion error when lower bound is
+        # greater than upper bound
+        assert utils.get_aabb_volume(hi, lo)
 
 
 def test_aabb_closest_point():
     """Tests for get_closest_point_on_aabb."""
+    # Test ordinary usage
     xyz = [1.5, 3.0, -2.5]
     lo = np.array([1.0, 1.5, -1.0])
     hi = np.array([2.0, 2.5, 0.0])
     assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
+    # Test error where lower bound is greater than upper bound.
+    with pytest.raises(AssertionError):
+        utils.get_closest_point_on_aabb(xyz, hi, lo)
 
 
 def test_intersects():

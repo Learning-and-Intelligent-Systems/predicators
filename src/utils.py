@@ -32,15 +32,18 @@ matplotlib.use("Agg")
 def get_aabb_volume(lo: Array, hi: Array) -> float:
     """Simple utility function to compute the volume of an aabb.
 
-    lo refers to the minimum values of the bbox in the x,y and z axes,
-    while hi refers to the highest values
+    lo refers to the minimum values of the bbox in the x, y and z axes,
+    while hi refers to the highest values. Both lo and hi must be three-
+    dimensional.
     """
+    assert np.all(hi >= lo)
     dimension = hi - lo
     return dimension[0] * dimension[1] * dimension[2]
 
-def get_closest_point_on_aabb(xyz: List, lo: Array,\
-    hi: Array) -> List[float]:
+
+def get_closest_point_on_aabb(xyz: List, lo: Array, hi: Array) -> List[float]:
     """Get the closest point on an aabb from a particular xyz coordinate."""
+    assert np.all(hi >= lo)
     closest_point_on_aabb = [0.0, 0.0, 0.0]
     for i in range(3):
         # if the coordinate is between the min and max of the aabb, then
