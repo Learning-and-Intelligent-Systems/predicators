@@ -116,6 +116,17 @@ def test_option_to_trajectory():
                                       max_num_steps=10)
     assert len(traj.actions) == len(traj.states) - 1 == 10
 
+    # Test that option terminates early if it's stuck in a loop.
+    def _simulator(s, a):
+        del a  # unused
+        return s.copy()
+
+    traj = utils.option_to_trajectory(state,
+                                      _simulator,
+                                      option,
+                                      max_num_steps=100)
+    assert len(traj.actions) == len(traj.states) - 1 == 1
+
 
 def test_option_plan_to_policy():
     """Tests for option_plan_to_policy()."""
