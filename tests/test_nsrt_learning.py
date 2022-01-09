@@ -97,8 +97,8 @@ def test_nsrt_learning_specific_nsrts():
     utils.update_config({
         "min_data_for_nsrt": 0,
         "seed": 123,
-        "classifier_max_itr_sampler": 1000,
-        "regressor_max_itr": 1000
+        "sampler_mlp_classifier_max_itr": 1000,
+        "neural_gaus_regressor_max_itr": 1000
     })
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
@@ -275,8 +275,8 @@ def test_nsrt_learning_specific_nsrts():
     utils.update_config({
         "min_data_for_nsrt": 0,
         "seed": 123,
-        "classifier_max_itr_sampler": 1,
-        "regressor_max_itr": 1
+        "sampler_mlp_classifier_max_itr": 1,
+        "neural_gaus_regressor_max_itr": 1
     })
     nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
@@ -297,8 +297,8 @@ def test_nsrt_learning_specific_nsrts():
     # Test sampler_learner = "random"
     utils.update_config({
         "seed": 123,
-        "classifier_max_itr_sampler": 100000,
-        "regressor_max_itr": 100000
+        "sampler_mlp_classifier_max_itr": 100000,
+        "neural_gaus_regressor_max_itr": 100000
     })
     start_time = time.time()
     nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
