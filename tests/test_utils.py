@@ -118,6 +118,7 @@ def test_option_to_trajectory():
 
     # Test that option terminates early if it's stuck in a loop.
     def _simulator(s, a):
+        del a  # unused
         return s.copy()
 
     traj = utils.option_to_trajectory(state,
