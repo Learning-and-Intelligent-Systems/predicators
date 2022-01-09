@@ -1364,8 +1364,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     set(),
                     option,
                     option_vars,
-                    lambda s, r, o:  # type: ignore
-                    place_ontop_obj_pos_sampler(  # type: ignore
+                    lambda s, r, o: place_ontop_obj_pos_sampler(
                         [env.object_to_ig_object(o_i) for o_i in o],
                         rng=r,
                     ),

@@ -704,12 +704,11 @@ def place_obj_plan(  # type: ignore
 
 # NOTE: we need a type:ignore because we can't specify the type of obj because
 # it would be dependent on an optional igibson import which won't get imported
-# on CI
+# on CI.
 def place_ontop_obj_pos_sampler(  # type: ignore
-    obj,
-    return_orn: bool = False,
-    rng: Generator = np.random.default_rng(23),
-) -> Optional[Union[Array, Tuple[Array, Array]]]:
+        obj,
+        rng: Generator = np.random.default_rng(23),
+) -> Array:
     """Sampler for placeOnTop option."""
     # objA is the object the robot is currently holding, and objB
     # is the surface that it must place onto.
@@ -733,12 +732,16 @@ def place_ontop_obj_pos_sampler(  # type: ignore
     )
 
     if sampling_results[0] is None or sampling_results[0][0] is None:
-        return None
+        # If sampling fails, returns a particular constant set of params
+        return np.array([0.0, 0.0, 0.5])
 
     rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
 
-    if return_orn:
-        return rnd_params, sampling_results[0][2]
+    # NOTE: The below block returns the orientation of the object in addition
+    # to the rnd_params, which is useful for the option model implementation.
+    # return_orn can be passed in as an argument to the function
+    # if return_orn:
+    #     return rnd_params, sampling_results[0][2]
 
     return rnd_params
 

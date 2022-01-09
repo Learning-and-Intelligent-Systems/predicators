@@ -1,5 +1,5 @@
 """Behavior (iGibson) environment."""
-# pylint: disable=import-error,ungrouped-imports
+# pylint: disable=import-error
 
 import functools
 import itertools
@@ -92,14 +92,18 @@ class BehaviorEnv(BaseEnv):
         # -1.0 indicates it should be released
         if a[16] == 1.0:
             assisted_grasp_action = np.zeros(28, dtype=float)
+            # We now need to create a 28-dimensional action to pass to
+            # the assisted grasping code. Here, the 26th dimension dictates
+            # whether to close the hand or not (1.0 indicates that the
+            # hand should be closed)
             assisted_grasp_action[26] = 1.0
             _ = (self.behavior_env.robots[0].parts["right_hand"].
                  handle_assisted_grasping(assisted_grasp_action))
         elif a[16] == -1.0:
             released_obj = self.behavior_env.scene.get_objects()[
                 self.behavior_env.robots[0].parts["right_hand"].object_in_hand]
-            # force release object to avoid dealing with stateful AG
-            # release mechanism
+            # force release object to avoid dealing with stateful assisted
+            # grasping release mechanism
             self.behavior_env.robots[0].parts["right_hand"].force_release_obj()
             # reset the released object to zero velocity
             pyb.resetBaseVelocity(
@@ -393,22 +397,6 @@ class BehaviorEnv(BaseEnv):
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
-
-    def _nextto_nothing_classifier(self, state: State,\
-        objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
-        assert len(objs) == 1
-        ig_obj = self.object_to_ig_object(objs[0])
-        bddl_predicate = SUPPORTED_PREDICATES["nextto"]
-        for obj in state:
-            other_ig_obj = self.object_to_ig_object(obj)
-            bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
-            bddl_ground_atom.initialize(self.behavior_env.simulator)
-            if bddl_ground_atom.get_value(other_ig_obj):
-                return False
-        return True
 
     @staticmethod
     def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
