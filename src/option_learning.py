@@ -270,7 +270,12 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         # the relative params and the object states.
         memory["params"] = params  # store for sanity checking in policy
         changing_objects = [objects[i] for i in self._changing_parameter_idxs]
-        memory["absolute_goal_vec"] = state.vec(changing_objects) + params
+        # TODO remove before merging. This is just because the current oracle
+        # is parameterized absolutely.
+        if CFG.sampler_learner == "oracle":
+            memory["absolute_goal_vec"] = params
+        else:
+            memory["absolute_goal_vec"] = state.vec(changing_objects) + params
         # Check if initiable based on preconditions.
         grounded_op = self._operator.ground(tuple(objects))
         preconditions = grounded_op.preconditions
