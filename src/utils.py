@@ -284,7 +284,7 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
         states.append(state)
         if option.terminal(state):
             break
-        # Detect loops and skip potentially expensive simulation.
+        # Detect if the option is stuck; skip potentially expensive simulation.
         if state.allclose(last_state):
             break
         last_state = state
