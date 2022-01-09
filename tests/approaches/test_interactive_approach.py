@@ -70,9 +70,9 @@ def test_interactive_learning_approach():
         "timeout": 10,
         "max_samples_per_step": 10,
         "seed": 12345,
-        "classifier_max_itr_sampler": 500,
-        "classifier_max_itr_predicate": 500,
-        "regressor_max_itr": 500,
+        "sampler_mlp_classifier_max_itr": 500,
+        "predicate_mlp_classifier_max_itr": 500,
+        "neural_gaus_regressor_max_itr": 500,
         "interactive_num_episodes": 1,
         "interactive_relearn_every": 1,
         "interactive_ask_strategy": "all_seen_states"
