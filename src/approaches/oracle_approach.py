@@ -231,10 +231,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
             desired_x = float(tx)
             bw, bh = state.get(block, "width"), state.get(block, "height")
-            desired_y = bh + 1e-2
+            desired_y = bh + 1e-2  # This is the desired y for the robot.
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from 1 to -1
-            block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
+            block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y - 1e-2, bh]
             # x, y, grip, holding
             # grip changes from 1.0 to -1.0
             # holding changes from 1 to -1

@@ -823,7 +823,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(p, param_from_terminal, atol=1e-03)
+            assert np.allclose(p, param_from_terminal, atol=1e-05)
         return terminal
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -934,12 +934,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
-            # Note that here we require a tolerance of no less than 1e-02
-            # because before letting go of the block, the robot holds the block
-            # block_height + 1e-02 above the ground before dropping it, so the
-            # difference of the param_from_terminal and p will differ by 1e-02
-            # in the block's y value.
-            assert np.allclose(p, param_from_terminal, atol=1e-02)
+            assert np.allclose(p, param_from_terminal, atol=1e-5)
         return terminal
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
