@@ -175,7 +175,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
                 ub = min(ub, 1.0)
-            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+            return np.array([(ub + lb) / 2.], dtype=np.float32)
+            # return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
     pick_nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                      delete_effects, set(), option, option_vars, pick_sampler)
@@ -251,7 +252,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 lb = max(lb, 0.0)
                 ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
                 ub = min(ub, 1.0)
-            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+            return np.array([(ub + lb) / 2.], dtype=np.float32)
+            # return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
     place_nsrt = NSRT("Place",
                       parameters, preconditions, add_effects, delete_effects,
