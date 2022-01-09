@@ -231,6 +231,10 @@ class CoverEnv(BaseEnv):
         return tasks
 
     def _create_initial_state(self, rng: np.random.Generator) -> State:
+
+        # TODO delete before merge. this is for debugging with 1 initial state.
+        rng = np.random.default_rng(0)
+
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_block_widths) == len(self._blocks)
         for block, width in zip(self._blocks, CFG.cover_block_widths):
@@ -779,7 +783,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         y = s.get(self._robot, "y")
         by = s.get(obj, "y")
         desired_x = p[7]
-        desired_y = by
+        desired_y = by + 1e-3
         at_desired_x = abs(desired_x - x) < 1e-5
         at_desired_y = abs(desired_y - y) < 1e-5
 

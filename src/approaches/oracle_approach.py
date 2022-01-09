@@ -143,7 +143,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert robot.is_instance(robot_type)
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw, bh = state.get(block, "width"), state.get(block, "height")
-            desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
+
+            # TODO change back before merge
+            # desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
+            desired_x = bx
+
             desired_x = float(bx)
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from -1 to 1
@@ -175,8 +179,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
                 ub = min(ub, 1.0)
-            return np.array([(ub + lb) / 2.], dtype=np.float32)
-            # return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
     pick_nsrt = NSRT("Pick", parameters, preconditions, add_effects,
                      delete_effects, set(), option, option_vars, pick_sampler)
@@ -221,7 +224,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
             tx, tw = state.get(target, "x"), state.get(target, "width")
-            desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
+
+            # TODO change back before merge
+            # desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
+            desired_x = tx
+
             desired_x = float(tx)
             bw, bh = state.get(block, "width"), state.get(block, "height")
             desired_y = bh + 1e-2
@@ -252,8 +259,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 lb = max(lb, 0.0)
                 ub = float(state.get(t, "pose") + state.get(t, "width") / 10)
                 ub = min(ub, 1.0)
-            return np.array([(ub + lb) / 2.], dtype=np.float32)
-            # return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
 
     place_nsrt = NSRT("Place",
                       parameters, preconditions, add_effects, delete_effects,
