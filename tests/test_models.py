@@ -2,9 +2,31 @@
 
 import time
 import numpy as np
-from predicators.src.torch_models import NeuralGaussianRegressor, MLPClassifier
+from predicators.src.torch_models import (NeuralGaussianRegressor,
+                                          MLPClassifier, MLPRegressor)
 from predicators.src.settings import CFG
 from predicators.src import utils
+
+
+def test_basic_mlp_regressor():
+    """Tests for MLPRegressor."""
+    utils.update_config({
+        "seed": 123,
+        "mlp_regressor_max_itr": 100,
+        "mlp_regressor_clip_gradients": True
+    })
+    input_size = 3
+    output_size = 2
+    num_samples = 5
+    model = MLPRegressor()
+    X = np.ones((num_samples, input_size))
+    Y = np.zeros((num_samples, output_size))
+    model.fit(X, Y)
+    x = np.ones(input_size)
+    mean = model.predict(x)
+    expected_y = np.zeros(output_size)
+    assert mean.shape == expected_y.shape
+    assert np.allclose(mean, expected_y, atol=1e-2)
 
 
 def test_neural_gaussian_regressor():
