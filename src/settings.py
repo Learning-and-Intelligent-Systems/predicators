@@ -82,25 +82,31 @@ class GlobalSettings:
     min_data_for_nsrt = 3
     learn_side_predicates = False
 
+    # torch model parameters
+    normalization_scale_clip = 1
+    learning_rate = 1e-3
+    mlp_regressor_max_itr = 10000
+    mlp_regressor_hid_sizes = [32, 32]
+    mlp_regressor_clip_gradients = False
+    mlp_regressor_gradient_clip_value = 5
+    mlp_classifier_hid_sizes = [32, 32]
+    mlp_classifier_balance_data = True
+    neural_gaus_regressor_hid_sizes = [32, 32]
+    neural_gaus_regressor_max_itr = 10000
+    neural_gaus_regressor_sample_clip = 1
+    mlp_classifier_n_iter_no_change = 5000
+
     # option learning parameters
     option_learner = "no_learning"  # "no_learning" or "oracle"
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
-    normalization_scale_clip = 1
-    classifier_hid_sizes = [32, 32]
-    classifier_max_itr_sampler = 10000
-    classifier_max_itr_predicate = 1000
-    classifier_balance_data = True
-    regressor_hid_sizes = [32, 32]
-    regressor_max_itr = 10000
-    regressor_sample_clip = 1
-    n_iter_no_change = 5000
-    learning_rate = 1e-3
+    sampler_mlp_classifier_max_itr = 10000
 
     # iterative invention parameters
     iterative_invention_accept_score = 1 - 1e-3
+    predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
     interactive_known_predicates = {"HandEmpty", "Covers"}
