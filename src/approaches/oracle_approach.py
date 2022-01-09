@@ -102,15 +102,16 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     target = Variable("?target", target_type)
 
     # Predicates
-    IsBlock, IsTarget, Covers, HandEmpty, Holding = _get_predicates_by_names(
-        CFG.env, ["IsBlock", "IsTarget", "Covers", "HandEmpty", "Holding"])
+    IsBlock, IsTarget, Covers, HandEmpty, Holding = \
+        _get_predicates_by_names(CFG.env, ["IsBlock", "IsTarget", "Covers",
+                                           "HandEmpty", "Holding"])
 
     # Options
     if CFG.env in ("cover", "cover_hierarchical_types"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         Pick, Place = _get_options_by_names(CFG.env, ["Pick", "Place"])
-    if CFG.env == "cover_multistep_options" and\
+    if CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
         LearnedEquivalentPick, LearnedEquivalentPlace = _get_options_by_names(
             CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
@@ -130,7 +131,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     if CFG.env in ("cover", "cover_hierarchical_types"):
         option = PickPlace
         option_vars = []
-    elif CFG.env == "cover_multistep_options" and\
+    elif CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
         option = LearnedEquivalentPick
         option_vars = [block, robot]
@@ -138,7 +139,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         option = Pick
         option_vars = [block]
 
-    if CFG.env == "cover_multistep_options" and\
+    if CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def pick_sampler(state: State, rng: np.random.Generator,
@@ -210,12 +211,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     elif CFG.env in ("cover_typed_options", "cover_multistep_options"):
         option = Place
         option_vars = [target]
-        if CFG.env == "cover_multistep_options" and\
+        if CFG.env == "cover_multistep_options" and \
             CFG.cover_multistep_use_learned_equivalents:
             option = LearnedEquivalentPlace
             option_vars = [block, robot, target]
 
-    if CFG.env == "cover_multistep_options" and\
+    if CFG.env == "cover_multistep_options" and \
         CFG.cover_multistep_use_learned_equivalents:
 
         def place_sampler(state: State, rng: np.random.Generator,
@@ -447,16 +448,15 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
 
 def _get_painting_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for PaintingEnv."""
-    obj_type, box_type, lid_type, shelf_type, robot_type = _get_types_by_names(
-        "painting", ["obj", "box", "lid", "shelf", "robot"])
+    obj_type, box_type, lid_type, shelf_type, robot_type = \
+        _get_types_by_names("painting", ["obj", "box", "lid", "shelf", "robot"])
 
     (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable,
-     HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty,
-     IsClean) = _get_predicates_by_names("painting", [
-         "InBox", "InShelf", "IsBoxColor", "IsShelfColor", "GripperOpen",
-         "OnTable", "HoldingTop", "HoldingSide", "Holding", "IsWet", "IsDry",
-         "IsDirty", "IsClean"
-     ])
+     HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean) = \
+         _get_predicates_by_names(
+             "painting", ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
+                          "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+                          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
 
     Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
         "painting", ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
@@ -698,26 +698,23 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
 def _get_playroom_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for Playroom Env."""
     block_type, robot_type, door_type, dial_type, region_type = \
-        _get_types_by_names(
-        CFG.env, ["block", "robot", "door", "dial", "region"])
+        _get_types_by_names(CFG.env,
+            ["block", "robot", "door", "dial", "region"])
 
     On, OnTable, GripperOpen, Holding, Clear, NextToTable, NextToDoor, \
-        NextToDial, InRegion, Borders, Connects, IsBoringRoom,\
-            IsPlayroom, IsBoringRoomDoor,IsPlayroomDoor, DoorOpen,\
-                DoorClosed, LightOn, LightOff = _get_predicates_by_names(
-        "playroom", [
-            "On", "OnTable", "GripperOpen", "Holding", "Clear", "NextToTable",
-            "NextToDoor", "NextToDial", "InRegion", "Borders", "Connects",
-            "IsBoringRoom", "IsPlayroom", "IsBoringRoomDoor", "IsPlayroomDoor",
-            "DoorOpen", "DoorClosed", "LightOn", "LightOff"
-        ])
+        NextToDial, InRegion, Borders, Connects, IsBoringRoom, IsPlayroom, \
+        IsBoringRoomDoor, IsPlayroomDoor, DoorOpen, DoorClosed, LightOn, \
+        LightOff = \
+            _get_predicates_by_names(
+            "playroom", ["On", "OnTable", "GripperOpen", "Holding", "Clear",
+            "NextToTable", "NextToDoor", "NextToDial", "InRegion", "Borders",
+            "Connects", "IsBoringRoom", "IsPlayroom", "IsBoringRoomDoor",
+            "IsPlayroomDoor", "DoorOpen", "DoorClosed", "LightOn", "LightOff"])
 
-    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial,\
-        TurnOffDial = _get_options_by_names(
-        "playroom", [
-            "Pick", "Stack", "PutOnTable", "Move", "OpenDoor", "CloseDoor",
-            "TurnOnDial", "TurnOffDial"
-        ])
+    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial, \
+        TurnOffDial = _get_options_by_names("playroom",
+        ["Pick", "Stack", "PutOnTable", "Move", "OpenDoor", "CloseDoor",
+         "TurnOnDial", "TurnOffDial"])
 
     nsrts = set()
 
