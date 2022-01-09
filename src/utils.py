@@ -275,6 +275,7 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
     actions = []
     assert option.initiable(init)
     state = init
+    last_state = state
     states = [state]
     for _ in range(max_num_steps):
         act = option.policy(state)
@@ -283,6 +284,10 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
         states.append(state)
         if option.terminal(state):
             break
+        # Detect loops and skip potentially expensive simulation.
+        if state.allclose(last_state):
+            break
+        last_state = state
     return LowLevelTrajectory(states, actions)
 
 
