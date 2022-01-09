@@ -129,14 +129,6 @@ class PlayroomEnv(BlocksEnv):
             _policy=self._PutOnTable_policy,
             _initiable=self._NextToTable_initiable,
             _terminal=utils.onestep_terminal)
-        self._AdvanceThroughDoor = ParameterizedOption(
-            # variables: [robot, door]
-            # params: [dx, dy, rotation]
-            "AdvanceThroughDoor", types=[self._robot_type, self._door_type],
-            params_space=Box(-1, 1, (3,)),
-            _policy=self._MoveToDoor_policy,  # uses robot, door
-            _initiable=self._MoveFromDoor_initiable,  # uses robot, door
-            _terminal=utils.onestep_terminal)
         self._MoveToDoor = ParameterizedOption(
             # variables: [robot, region, door]
             # params: [dx, dy, rotation]
@@ -241,8 +233,7 @@ class PlayroomEnv(BlocksEnv):
         # Interact with blocks if robot was already next to table
         if was_next_to_table \
             and (self.table_x_lb < x < self.table_x_ub) \
-            and (self.table_y_lb < y < self.table_y_ub) \
-            and self._robot_is_facing_table(action):
+            and (self.table_y_lb < y < self.table_y_ub):
             if fingers < 0.5:
                 return self._transition_pick(state, x, y, z, fingers)
             if z < self.table_height + self.block_size:
@@ -261,8 +252,7 @@ class PlayroomEnv(BlocksEnv):
                     and (door_y-self.door_tol < y < door_y+self.door_tol) \
                     and (self.door_button_z-self.door_tol < z
                             < self.door_button_z+self.door_tol) \
-                    and fingers >= self.open_fingers \
-                    and self._robot_is_facing_door(state, action, door):
+                    and fingers >= self.open_fingers:
                     return self._transition_door(state, door)
         # Interact with dial if robot was already next to dial
         dial_x = state.get(self._dial, "pose_x")
@@ -274,8 +264,7 @@ class PlayroomEnv(BlocksEnv):
                     < dial_y+self.dial_button_tol) \
             and (self.dial_button_z-self.dial_button_tol < z
                     < self.dial_button_z+self.dial_button_tol) \
-            and fingers >= self.open_fingers \
-            and self._robot_is_facing_dial(state, action):
+            and fingers >= self.open_fingers:
             return self._transition_dial(state)
 
         return state.copy()
@@ -289,7 +278,7 @@ class PlayroomEnv(BlocksEnv):
         return next_state
 
     def _transition_door(self, state: State, door: Object) -> State:
-        # opens/closes a door that the robot is next to and facing
+        # opens/closes a door that the robot is next to
         assert door.type == self._door_type
         next_state = state.copy()
         if state.get(door, "open") < self.door_open_thresh:
@@ -329,8 +318,7 @@ class PlayroomEnv(BlocksEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Stack, self._PutOnTable,
-                self._AdvanceThroughDoor, self._MoveToDoor,
+        return {self._Pick, self._Stack, self._PutOnTable, self._MoveToDoor,
                 self._MoveDoorToTable, self._MoveDoorToDial,
                 self._OpenDoor, self._CloseDoor, self._TurnOnDial,
                 self._TurnOffDial}
@@ -631,27 +619,6 @@ class PlayroomEnv(BlocksEnv):
                (110 <= x <= 140 and 0 <= y <= 30)
 
     @staticmethod
-    def _robot_is_facing_table(action: Action) -> bool:
-        x, y, _, rotation, _ = action.arr
-        cls = PlayroomEnv
-        table_x = (cls.table_x_lb + cls.table_x_ub) / 2
-        table_y = (cls.table_y_lb + cls.table_y_ub) / 2
-        theta = np.arctan2(table_y - y, table_x - x)
-        if np.pi * 3 / 4 >= theta >= np.pi / 4:  # N
-            if 0.75 >= rotation >= 0.25:
-                return True
-        elif np.pi / 4 >= theta >= -np.pi / 4:  # E
-            if 0.25 >= rotation >= -0.25:
-                return True
-        elif -np.pi / 4 >= theta >= -np.pi * 3 / 4:  # S
-            if -0.25 >= rotation >= -0.75:
-                return True
-        else:  # W
-            if rotation >= 0.75 or rotation <= -0.75:
-                return True
-        return False
-
-    @staticmethod
     def _NextToTable_holds(state: State, objects: Sequence[Object]) -> bool:
         # Being "in" the table also counts as next to table
         robot, = objects
@@ -908,25 +875,6 @@ class PlayroomEnv(BlocksEnv):
         # objects: (robot, dial)
         return PlayroomEnv._NextToDial_holds(state, objects)
 
-    def _robot_is_facing_dial(self, state: State, action: Action) -> bool:
-        x, y, _, rotation, _ = action.arr
-        dial_x = state.get(self._dial, "pose_x")
-        dial_y = state.get(self._dial, "pose_y")
-        theta = np.arctan2(dial_y - y, dial_x - x)
-        if np.pi * 3 / 4 >= theta > np.pi / 4:  # N
-            if 0.75 >= rotation > 0.25:
-                return True
-        elif np.pi / 4 >= theta > -np.pi / 4:  # E
-            if 0.25 >= rotation > -0.25:
-                return True
-        elif -np.pi / 4 >= theta > -np.pi * 3 / 4:  # S
-            if -0.25 >= rotation > -0.75:
-                return True
-        else:  # W
-            if rotation > 0.75 or rotation <= -0.75:
-                return True
-        return False
-
     def _get_door_next_to(self, state: State) -> Object:
         # cannot be next to multiple doors at once
         for door in self._doors:
@@ -934,14 +882,6 @@ class PlayroomEnv(BlocksEnv):
                 return door
         # usage should ensure this is never reached
         raise RuntimeError("Robot not next to any door")
-
-    def _robot_is_facing_door(self, state: State, action: Action,
-                              door: Object) -> bool:
-        assert door.type == self._door_type
-        door_x = state.get(door, "pose_x")
-        x, _, _, rotation, _ = action.arr
-        return (x < door_x and 0.25 >= rotation >= -0.25) \
-            or (x >= door_x and (rotation >= 0.75 or rotation <= -0.75))
 
     def _get_region_in(self, state: State, x: float) -> int:
         # return the id of the region that x-coordinate `x` is located in
