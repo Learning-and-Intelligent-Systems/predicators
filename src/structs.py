@@ -414,13 +414,10 @@ class ParameterizedOption:
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
         assert len(objects) == len(self.types)
-
         for obj, t in zip(objects, self.types):
             assert obj.is_instance(t)
         params = np.array(params, dtype=self.params_space.dtype)
-
         assert self.params_space.contains(params)
-
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name,
