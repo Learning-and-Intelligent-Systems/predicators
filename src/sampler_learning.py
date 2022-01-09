@@ -68,6 +68,11 @@ def _extract_oracle_samplers(
         for idx, (op, (param_option,
                        option_vars)) in enumerate(zip(strips_ops,
                                                       option_specs)):
+            # If option learning, the names of the option will not match.
+            # Ignore this by allowing the learned NSRT option to just be
+            # the ground truth one.
+            if CFG.option_learner != "no_learning":
+                param_option = nsrt.option
             suc, sub = utils.unify_preconds_effects_options(
                 frozenset(nsrt.preconditions), frozenset(op.preconditions),
                 frozenset(nsrt.add_effects), frozenset(op.add_effects),
