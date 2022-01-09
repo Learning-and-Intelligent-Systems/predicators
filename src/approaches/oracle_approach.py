@@ -155,7 +155,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             # x, y, grip, holding
             # grip changes from -1.0 to 1.0
             # holding changes from -1 to 1
-            robot_param = [desired_x, by, 1.0, 1.0]
+            robot_param = [desired_x, by + 1e-3, 1.0, 1.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
