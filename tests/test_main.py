@@ -92,8 +92,9 @@ def test_main():
     # Try learning (with too low hyperparameters to actually work).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--sampler_learner", "neural", "--classifier_max_itr_sampler",
-        "10", "--regressor_max_itr", "10", "--timeout", "0.01"
+        "123", "--sampler_learner", "neural",
+        "--sampler_mlp_classifier_max_itr", "10",
+        "--neural_gaus_regressor_max_itr", "10", "--timeout", "0.01"
     ]
     main()  # correct usage
     # Try predicate exclusion.
