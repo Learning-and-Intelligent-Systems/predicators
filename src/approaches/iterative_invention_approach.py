@@ -191,7 +191,8 @@ class IterativeInventionApproach(NSRTLearningApproach):
             X = np.array(params_data["pos"] + params_data["neg"])
             Y = np.array([1 for _ in params_data["pos"]] +
                          [0 for _ in params_data["neg"]])
-            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
+            model = MLPClassifier(X.shape[1],
+                                  CFG.predicate_mlp_classifier_max_itr)
             model.fit(X, Y)
             fit_score = np.sum([model.classify(x) for x in X] == Y) / len(Y)
             if fit_score < CFG.iterative_invention_accept_score:
