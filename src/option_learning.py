@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 import abc
-from typing import List
+from typing import List, Sequence, Dict, Tuple
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment
+    Segment, Array, ParameterizedOption, Object
 from predicators.src.settings import CFG
+from predicators.src.torch_models import BasicMLP
 from predicators.src.envs import create_env, BlocksEnv
 
 
@@ -16,6 +17,8 @@ def create_option_learner() -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
+    if CFG.option_learner == "simple":
+        return _SimpleOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -212,3 +215,114 @@ class _OracleOptionLearner(_OptionLearnerBase):
                                   dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
+
+
+class _SimpleOptionLearner(_OptionLearnerBase):
+    """The option learner that learns options from fixed-length input vectors.
+    That is, the the input data only includes objects whose state changes from
+    the first state in the segment to the last state in the segment. The input
+    data does not include data from other objects in the scene, where the number
+    of other objects would differ across different instiantiations of the env.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        # While learning the policy, we record the map from each segment to
+        # the option parameterization, so we don't need to recompute it in
+        # update_segment_from_option_spec.
+        self._segment_to_grounding: Dict[Segment, Tuple[Sequence[Object], Array]] = {}
+
+    def learn_option_specs(self, strips_ops: List[STRIPSOperator],
+                           datastores: List[Datastore]) -> List[OptionSpec]:
+        # In this paradigm, the option initiable and termination are determined
+        # from the operators, so the main thing that needs to be learned is the
+        # option policy.
+        option_specs = []
+
+        assert len(strips_ops) == len(datastores)
+
+        for op, datastore in zip(strips_ops, datastores):
+            print(f"\nLearning option for NSRT {op.name}")
+
+            X_regressor: List[List[Array]] = []
+            Y_regressor = []
+
+            # The superset of all objects whose states we may include in the
+            # option params is op.parameters. But we only want to include
+            # those objects that have state changes (in at least some data).
+            changing_parameter_set = self._get_changing_parameters(datastore)
+            option_param_dim = sum(v.type.dim for v in changing_parameter_set)
+            # Just to avoid confusion, we will insist that the order of the
+            # changing parameters is consistent with the order of the original.
+            changing_parameters = sorted(changing_parameter_set, key=op.parameters.index)
+            del changing_parameter_set  # not used after this
+            assert changing_parameters == [v for v in op.parameters if v in changing_parameters]
+
+            for segment, sub in datastore:
+                inv_sub = {v: o for o, v in sub.items()}
+
+                # First, determine the continuous option parameterization for
+                # this segment.
+                changing_objects = [inv_sub[v] for v in changing_parameters]
+                option_param = self._get_option_parameterization(segment, changing_objects)
+                assert len(option_param) == option_param_dim
+                # Store the option parameterization for this segment so we can
+                # use it in update_segment_from_option_spec.
+                self._segment_to_grounding[segment] = (changing_objects, option_param)
+                del changing_objects  # not used after this
+
+                # Next, create the input vectors from all object states named
+                # in the operator parameters (not just the changing ones).
+                all_objects_in_operator = [inv_sub[v] for v in op.parameters]
+                # Note that each segment contributions multiple data points,
+                # one per action.
+                assert len(segment.states) == len(segment.actions) + 1
+                for state, action in zip(segment.states, segment.actions):
+                    state_features = state.vec(all_objects_in_operator)
+                    # Add a bias term for regression.
+                    x = np.hstack(([1.0], state_features, option_param))
+                    X_regressor.append(x)
+                    Y_regressor.append(action.arr)
+
+            X_arr_regressor = np.array(X_regressor, dtype=np.float32)
+            Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
+            regressor = BasicMLP()
+            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, Y shape: {X_arr_regressor.shape}.")
+            regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+            # Construct the ParameterizedOption for this operator.
+            parameterized_option = self._construct_parameterized_option(name, op, regressor,
+                option_param_dim)
+            option_specs.append((parameterized_option, operator.parameters))
+
+        return option_specs
+
+    @staticmethod
+    def _get_changing_parameters(datastore: Datastore) -> Set[Variable]:
+        all_changing_variables = set()
+        for segment, sub in datastore:
+            start = segment.states[0]
+            end = segment.states[-1]
+            for o, v in sub.items():
+                if not np.array_equal(start[o], end[o]):
+                    all_changing_variables.add(v)
+        return all_changing_variables
+
+    @staticmethod
+    def _get_option_parameterization(segment: Segment, changing_objects: Sequence[Object]) -> Array:
+        # Parameterization is RELATIVE change in object states.
+        start = segment.states[0]
+        end = segment.states[-1]
+        return end.vec(changing_objects) - start.vec(changing_objects)
+
+    @staticmethod
+    def _construct_parameterized_option(name: str, op: STRIPSOperator, regressor: BasicMLP,
+        option_param_dim: int) -> ParameterizedOption:
+        import ipdb; ipdb.set_trace()
+
+    def update_segment_from_option_spec(
+            self, segment: Segment, option_spec: OptionSpec) -> None:
+        objects, params = self._segment_to_grounding[segment]
+        param_opt, opt_vars = option_spec
+        option = param_opt.ground(objects, params)
+        segment.set_option(option)

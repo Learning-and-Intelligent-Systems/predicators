@@ -83,7 +83,7 @@ class GlobalSettings:
     learn_side_predicates = False
 
     # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle"
+    option_learner = "no_learning"  # "no_learning" or "oracle" or "simple"
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
