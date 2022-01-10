@@ -158,7 +158,7 @@ def learn_strips_operators(ground_atom_dataset: Sequence[GroundAtomTrajectory],
     ops_without_sides, option_specs = _learn_operators_no_side_predicates(
         all_segments)
 
-    if verbose:
+    if True:#verbose:
         print("Learned operators without side predicates:")
         for op, (option, option_vars) in zip(ops_without_sides, option_specs):
             option_var_str = ", ".join([str(v) for v in option_vars])
