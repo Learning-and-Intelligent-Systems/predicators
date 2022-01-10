@@ -249,6 +249,9 @@ def test_predicate_and_atom():
     atom = _Atom(pred, [cup1, plate])
     with pytest.raises(NotImplementedError):
         str(atom)  # abstract class
+    zero_arity_pred = Predicate("NoArity", [], _classifier)
+    with pytest.raises(ValueError):
+        zero_arity_pred([])  # ambiguous whether lifted or ground
 
 
 def test_task():
