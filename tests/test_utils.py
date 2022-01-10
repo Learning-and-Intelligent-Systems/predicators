@@ -17,6 +17,36 @@ from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper
 
 
+def test_aabb_volume():
+    """Tests for get_aabb_volume."""
+    lo = np.array([1.0, 1.5, -1.0])
+    hi = np.array([2.0, 2.5, 0.0])
+    # Test zero volume calculation
+    assert utils.get_aabb_volume(lo, lo) == 0.0
+    # Test ordinary calculation
+    assert utils.get_aabb_volume(lo, hi) == 1.0
+    with pytest.raises(AssertionError):
+        # Test assertion error when lower bound is
+        # greater than upper bound
+        lo1 = np.array([10.0, 12.5, 10.0])
+        hi1 = np.array([-10.0, -12.5, -10.0])
+        assert utils.get_aabb_volume(lo1, hi1)
+
+
+def test_aabb_closest_point():
+    """Tests for get_closest_point_on_aabb."""
+    # Test ordinary usage
+    xyz = [1.5, 3.0, -2.5]
+    lo = np.array([1.0, 1.5, -1.0])
+    hi = np.array([2.0, 2.5, 0.0])
+    assert utils.get_closest_point_on_aabb(xyz, lo, hi) == [1.5, 2.5, -1.0]
+    with pytest.raises(AssertionError):
+        # Test error where lower bound is greater than upper bound.
+        lo1 = np.array([10.0, 12.5, 10.0])
+        hi1 = np.array([-10.0, -12.5, -10.0])
+        utils.get_closest_point_on_aabb(xyz, lo1, hi1)
+
+
 def test_intersects():
     """Tests for intersects()."""
     p1, p2 = (2, 5), (7, 6)
@@ -115,6 +145,17 @@ def test_option_to_trajectory():
                                       option,
                                       max_num_steps=10)
     assert len(traj.actions) == len(traj.states) - 1 == 10
+
+    # Test that option terminates early if it's stuck.
+    def _simulator(s, a):
+        del a  # unused
+        return s.copy()
+
+    traj = utils.option_to_trajectory(state,
+                                      _simulator,
+                                      option,
+                                      max_num_steps=100)
+    assert len(traj.actions) == len(traj.states) - 1 == 1
 
 
 def test_option_plan_to_policy():
@@ -1157,6 +1198,14 @@ def test_create_task_planning_heuristic():
         "hff", set(), set(), set(), set(), set())
     assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
     assert hff_heuristic.name == "hff"
+    hsa_heuristic = utils.create_task_planning_heuristic(
+        "hsa", set(), set(), set(), set(), set())
+    assert hsa_heuristic.name == "hsa"
+    assert isinstance(hsa_heuristic, _PyperplanHeuristicWrapper)
+    lmcut_heuristic = utils.create_task_planning_heuristic(
+        "lmcut", set(), set(), set(), set(), set())
+    assert isinstance(lmcut_heuristic, _PyperplanHeuristicWrapper)
+    assert lmcut_heuristic.name == "lmcut"
     with pytest.raises(ValueError):
         utils.create_task_planning_heuristic("not a real heuristic", set(),
                                              set(), set(), set(), set())
@@ -1475,6 +1524,34 @@ def test_run_hill_climbing():
     assert state_sequence == [(0, 0), (2, 2)]
     assert action_sequence == ["dummy_action"]
 
+    # Tests showing the benefit of enforced hill climbing.
+    def _local_minimum_grid_heuristic_fn(state: S) -> float:
+        # Manhattan distance
+        if state in [(1, 0), (0, 1)]:
+            return float("inf")
+        return float(abs(state[0] - 4) + abs(state[1] - 4))
+
+    # With enforced_depth 0, search fails.
+    state_sequence, action_sequence = utils.run_hill_climbing(
+        initial_state, _grid_check_goal_fn, _grid_successor_fn,
+        _local_minimum_grid_heuristic_fn)
+    assert state_sequence == [(0, 0)]
+    assert not action_sequence
+
+    # With enforced_depth 1, search succeeds.
+    state_sequence, action_sequence = utils.run_hill_climbing(
+        initial_state,
+        _grid_check_goal_fn,
+        _grid_successor_fn,
+        _local_minimum_grid_heuristic_fn,
+        enforced_depth=1)
+    # Note that hill-climbing does not care about costs.
+    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
+                              (4, 2), (4, 3), (4, 4)]
+    assert action_sequence == [
+        "down", "down", "down", "down", "right", "right", "right", "right"
+    ]
+
 
 def test_ops_and_specs_to_dummy_nsrts():
     """Tests fo ops_and_specs_to_dummy_nsrts()."""
@@ -1504,4 +1581,4 @@ def test_ops_and_specs_to_dummy_nsrts():
     assert nsrt.add_effects == add_effects
     assert nsrt.delete_effects == delete_effects
     assert nsrt.option == parameterized_option
-    assert nsrt.option_vars == []
+    assert not nsrt.option_vars

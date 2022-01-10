@@ -29,6 +29,35 @@ from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
 
+def get_aabb_volume(lo: Array, hi: Array) -> float:
+    """Simple utility function to compute the volume of an aabb.
+
+    lo refers to the minimum values of the bbox in the x, y and z axes,
+    while hi refers to the highest values. Both lo and hi must be three-
+    dimensional.
+    """
+    assert np.all(hi >= lo)
+    dimension = hi - lo
+    return dimension[0] * dimension[1] * dimension[2]
+
+
+def get_closest_point_on_aabb(xyz: List, lo: Array, hi: Array) -> List[float]:
+    """Get the closest point on an aabb from a particular xyz coordinate."""
+    assert np.all(hi >= lo)
+    closest_point_on_aabb = [0.0, 0.0, 0.0]
+    for i in range(3):
+        # if the coordinate is between the min and max of the aabb, then
+        # use that coordinate directly
+        if xyz[i] < hi[i] and xyz[i] > lo[i]:
+            closest_point_on_aabb[i] = xyz[i]
+        else:
+            if abs(xyz[i] - hi[i]) < abs(xyz[i] - lo[i]):
+                closest_point_on_aabb[i] = hi[i]
+            else:
+                closest_point_on_aabb[i] = lo[i]
+    return closest_point_on_aabb
+
+
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
@@ -275,6 +304,7 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
     actions = []
     assert option.initiable(init)
     state = init
+    last_state = state
     states = [state]
     for _ in range(max_num_steps):
         act = option.policy(state)
@@ -283,6 +313,10 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
         states.append(state)
         if option.terminal(state):
             break
+        # Detect if the option is stuck; skip potentially expensive simulation.
+        if state.allclose(last_state):
+            break
+        last_state = state
     return LowLevelTrajectory(states, actions)
 
 
@@ -596,19 +630,27 @@ def run_gbfs(initial_state: _S,
                                  lazy_expansion)
 
 
-def run_hill_climbing(
-        initial_state: _S, check_goal: Callable[[_S], bool],
-        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
-        heuristic: Callable[[_S], float]) -> Tuple[List[_S], List[_A]]:
-    """Simple hill climbing local search.
+def run_hill_climbing(initial_state: _S,
+                      check_goal: Callable[[_S], bool],
+                      get_successors: Callable[[_S], Iterator[Tuple[_A, _S,
+                                                                    float]]],
+                      heuristic: Callable[[_S], float],
+                      enforced_depth: int = 0) -> Tuple[List[_S], List[_A]]:
+    """Enforced hill climbing local search.
+
+    For each node, the best child node is always selected, if that child is
+    an improvement over the node. If no children improve on the node, look
+    at the children's children, etc., up to enforced_depth, where enforced_depth
+    0 corresponds to simple hill climbing. Terminate when no improvement can
+    be found.
 
     Lower heuristic is better.
     """
+    assert enforced_depth >= 0
     cur_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
         initial_state, 0, 0)
-    states = [initial_state]
-    actions = []
     last_heuristic = heuristic(cur_node.state)
+    visited = {initial_state}
     print(f"\n\nStarting hill climbing at state {cur_node.state} "
           f"with heuristic {last_heuristic}")
     while True:
@@ -617,17 +659,36 @@ def run_hill_climbing(
             break
         best_heuristic = float("inf")
         best_child_node = None
-        for action, child_state, cost in get_successors(cur_node.state):
-            child_path_cost = cur_node.cumulative_cost + cost
-            child_node = _HeuristicSearchNode(state=child_state,
-                                              edge_cost=cost,
-                                              cumulative_cost=child_path_cost,
-                                              parent=cur_node,
-                                              action=action)
-            child_heuristic = heuristic(child_node.state)
-            if child_heuristic < best_heuristic:
-                best_heuristic = child_heuristic
-                best_child_node = child_node
+        current_depth_nodes = [cur_node]
+        for depth in range(0, enforced_depth + 1):
+            print(f"Searching for an improvement at depth {depth}")
+            # This is a list to ensure determinism. Note that duplicates are
+            # filtered out in the `child_state in visited` check.
+            successors_at_depth = []
+            for parent in current_depth_nodes:
+                for action, child_state, cost in get_successors(parent.state):
+                    if child_state in visited:
+                        continue
+                    visited.add(child_state)
+                    child_path_cost = parent.cumulative_cost + cost
+                    child_node = _HeuristicSearchNode(
+                        state=child_state,
+                        edge_cost=cost,
+                        cumulative_cost=child_path_cost,
+                        parent=parent,
+                        action=action)
+                    successors_at_depth.append(child_node)
+                    child_heuristic = heuristic(child_node.state)
+                    if child_heuristic < best_heuristic:
+                        best_heuristic = child_heuristic
+                        best_child_node = child_node
+            # Some improvement found.
+            if last_heuristic > best_heuristic:
+                print(f"Found an improvement at depth {depth}")
+                break
+            # Continue on to the next depth.
+            current_depth_nodes = successors_at_depth
+            print(f"No improvement found at depth {depth}")
         if best_child_node is None:
             print("\nTerminating hill climbing, no more successors")
             break
@@ -635,13 +696,10 @@ def run_hill_climbing(
             print("\nTerminating hill climbing, could not improve score")
             break
         cur_node = best_child_node
-        states.append(cur_node.state)
-        action = cast(_A, cur_node.action)
-        actions.append(action)
         last_heuristic = best_heuristic
         print(f"\nHill climbing reached new state {cur_node.state} "
               f"with heuristic {last_heuristic}")
-    return states, actions
+    return _finish_plan(cur_node)
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
@@ -914,13 +972,13 @@ def _create_pyperplan_heuristic(
     pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
                                             predicates, objects, static_atoms)
     pyperplan_heuristic = pyperplan_heuristic_cls(pyperplan_task)
-    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    pyperplan_goal = _atoms_to_pyperplan_facts(goal - static_atoms)
     return _PyperplanHeuristicWrapper(heuristic_name, init_atoms, goal,
                                       ground_ops, static_atoms,
                                       pyperplan_heuristic, pyperplan_goal)
 
 
-_PyperplanFacts = FrozenSet[Tuple[str, ...]]
+_PyperplanFacts = FrozenSet[str]
 
 
 @dataclass(frozen=True)
@@ -957,7 +1015,8 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         # Note: filtering out static atoms.
-        pyperplan_facts = _atoms_to_tuples(set(atoms) - self._static_atoms)
+        pyperplan_facts = _atoms_to_pyperplan_facts(set(atoms) \
+                                                    - self._static_atoms)
         return self._evaluate(pyperplan_facts, self._pyperplan_goal,
                               self._pyperplan_heuristic)
 
@@ -981,9 +1040,9 @@ def _create_pyperplan_task(
     """Helper glue for pyperplan heuristics."""
     all_atoms = get_all_ground_atoms(frozenset(predicates), frozenset(objects))
     # Note: removing static atoms.
-    pyperplan_facts = _atoms_to_tuples(all_atoms - static_atoms)
-    pyperplan_state = _atoms_to_tuples(init_atoms - static_atoms)
-    pyperplan_goal = _atoms_to_tuples(goal - static_atoms)
+    pyperplan_facts = _atoms_to_pyperplan_facts(all_atoms - static_atoms)
+    pyperplan_state = _atoms_to_pyperplan_facts(init_atoms - static_atoms)
+    pyperplan_goal = _atoms_to_pyperplan_facts(goal - static_atoms)
     pyperplan_operators = set()
     for op in ground_ops:
         # Note: the pyperplan operator must include the objects, because hFF
@@ -995,24 +1054,26 @@ def _create_pyperplan_task(
         pyperplan_operator = _PyperplanOperator(
             name,
             # Note: removing static atoms from preconditions.
-            _atoms_to_tuples(op.preconditions - static_atoms),
-            _atoms_to_tuples(op.add_effects),
-            _atoms_to_tuples(op.delete_effects))
+            _atoms_to_pyperplan_facts(op.preconditions - static_atoms),
+            _atoms_to_pyperplan_facts(op.add_effects),
+            _atoms_to_pyperplan_facts(op.delete_effects))
         pyperplan_operators.add(pyperplan_operator)
     return _PyperplanTask(pyperplan_facts, pyperplan_state, pyperplan_goal,
                           pyperplan_operators)
 
 
 @functools.lru_cache(maxsize=None)
-def _atom_to_tuple(atom: GroundAtom) -> Tuple[str, ...]:
+def _atom_to_pyperplan_fact(atom: GroundAtom) -> str:
     """Convert atom to tuple for interface with pyperplan."""
-    return (atom.predicate.name, ) + tuple(str(o) for o in atom.objects)
+    arg_str = " ".join(o.name for o in atom.objects)
+    return f"({atom.predicate.name} {arg_str})"
 
 
-def _atoms_to_tuples(atoms: Collection[GroundAtom]) -> _PyperplanFacts:
-    """Light wrapper around atom_to_tuple() that operates on a collection of
-    atoms."""
-    return frozenset({_atom_to_tuple(atom) for atom in atoms})
+def _atoms_to_pyperplan_facts(
+        atoms: Collection[GroundAtom]) -> _PyperplanFacts:
+    """Light wrapper around _atom_to_pyperplan_fact() that operates on a
+    collection of atoms."""
+    return frozenset({_atom_to_pyperplan_fact(atom) for atom in atoms})
 
 
 ############################## End Pyperplan Glue ##############################

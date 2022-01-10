@@ -17,6 +17,117 @@ from predicators.src.settings import CFG
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 
 
+class MLPRegressor(nn.Module):
+    """A basic multilayer perceptron regressor."""
+
+    def __init__(self) -> None:  # pylint: disable=useless-super-delegation
+        super().__init__()  # type: ignore
+        self._input_shift = torch.zeros(1)
+        self._input_scale = torch.zeros(1)
+        self._output_shift = torch.zeros(1)
+        self._output_scale = torch.zeros(1)
+        self._linears = nn.ModuleList()
+        self._loss_fn = nn.MSELoss()
+
+    def fit(self, X: Array, Y: Array) -> None:
+        """Train regressor on the given data.
+
+        Both X and Y are multi-dimensional.
+        """
+        assert X.ndim == 2
+        assert Y.ndim == 2
+        return self._fit(X, Y)
+
+    def forward(self, inputs: Array) -> Tensor:
+        """Pytorch forward method."""
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        for _, linear in enumerate(self._linears[:-1]):
+            x = F.relu(linear(x))
+        x = self._linears[-1](x)
+        return x
+
+    def predict(self, inputs: Array) -> Array:
+        """Normalize, predict, un-normalize, and convert to array."""
+        x = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        x = x.unsqueeze(dim=0)
+        # Normalize input
+        x = (x - self._input_shift) / self._input_scale
+        y = self(x)
+        # Un-normalize output
+        y = (y * self._output_scale) + self._output_shift
+        y = y.squeeze(dim=0)
+        y = y.detach()  # type: ignore
+        return y.numpy()
+
+    def _initialize_net(self, in_size: int, hid_sizes: List[int],
+                        out_size: int) -> None:
+        self._linears = nn.ModuleList()
+        self._linears.append(nn.Linear(in_size, hid_sizes[0]))
+        for i in range(len(hid_sizes) - 1):
+            self._linears.append(nn.Linear(hid_sizes[i], hid_sizes[i + 1]))
+        self._linears.append(nn.Linear(hid_sizes[-1], out_size))
+        self._optimizer = optim.Adam(  # pylint: disable=attribute-defined-outside-init
+            self.parameters(),
+            lr=CFG.learning_rate)
+
+    @staticmethod
+    def _normalize_data(data: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        shift = torch.min(data, dim=0, keepdim=True).values
+        scale = torch.max(data - shift, dim=0, keepdim=True).values
+        scale = torch.clip(scale, min=CFG.normalization_scale_clip)
+        return (data - shift) / scale, shift, scale
+
+    def _fit(self, inputs: Array, outputs: Array) -> None:
+        torch.manual_seed(CFG.seed)
+        # Infer input and output sizes from data
+        num_data, input_size = inputs.shape
+        _, output_size = outputs.shape
+        # Initialize net
+        hid_sizes = CFG.mlp_regressor_hid_sizes
+        self._initialize_net(input_size, hid_sizes, output_size)
+        # Convert data to torch
+        X = torch.from_numpy(np.array(inputs, dtype=np.float32))
+        Y = torch.from_numpy(np.array(outputs, dtype=np.float32))
+        # Normalize data
+        X, self._input_shift, self._input_scale = self._normalize_data(X)
+        Y, self._output_shift, self._output_scale = self._normalize_data(Y)
+        # Train
+        print(f"Training MLPRegressor on {num_data} datapoints")
+        self.train()  # switch to train mode
+        itr = 0
+        max_itrs = CFG.mlp_regressor_max_itr
+        best_loss = float("inf")
+        model_name = tempfile.NamedTemporaryFile(delete=False).name
+        while True:
+            yhat = self(X)
+            loss = self._loss_fn(yhat, Y)
+            if loss.item() < best_loss:
+                best_loss = loss.item()
+                # Save this best model
+                torch.save(self.state_dict(), model_name)
+            if itr % 100 == 0:
+                print(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}",
+                      end="\r",
+                      flush=True)
+            self._optimizer.zero_grad()
+            loss.backward()
+            if CFG.mlp_regressor_clip_gradients:
+                torch.nn.utils.clip_grad_norm_(
+                    self.parameters(), CFG.mlp_regressor_gradient_clip_value)
+            self._optimizer.step()
+            if itr == max_itrs:
+                print()
+                break
+            itr += 1
+        # Load best model
+        self.load_state_dict(torch.load(model_name))  # type: ignore
+        os.remove(model_name)
+        self.eval()  # switch to eval mode
+        yhat = self(X)
+        loss = self._loss_fn(yhat, Y)
+        print(f"Loaded best model with loss: {loss:.5f}")
+
+
 class NeuralGaussianRegressor(nn.Module):
     """NeuralGaussianRegressor definition."""
 
@@ -56,8 +167,8 @@ class NeuralGaussianRegressor(nn.Module):
         mean, variance = self._predict_mean_var(x)
         y = []
         for mu, sigma_sq in zip(mean, variance):
-            y_i = truncnorm.rvs(-1.0 * CFG.regressor_sample_clip,
-                                CFG.regressor_sample_clip,
+            y_i = truncnorm.rvs(-1.0 * CFG.neural_gaus_regressor_sample_clip,
+                                CFG.neural_gaus_regressor_sample_clip,
                                 loc=mu,
                                 scale=np.sqrt(sigma_sq),
                                 random_state=rng)
@@ -85,7 +196,7 @@ class NeuralGaussianRegressor(nn.Module):
         num_data, input_size = inputs.shape
         _, output_size = outputs.shape
         # Initialize net
-        hid_sizes = CFG.regressor_hid_sizes
+        hid_sizes = CFG.neural_gaus_regressor_hid_sizes
         self._initialize_net(input_size, hid_sizes, output_size)
         # Convert data to torch
         X = torch.from_numpy(np.array(inputs, dtype=np.float32))
@@ -97,6 +208,7 @@ class NeuralGaussianRegressor(nn.Module):
         print(f"Training {self.__class__.__name__} on {num_data} datapoints")
         self.train()  # switch to train mode
         itr = 0
+        max_itrs = CFG.neural_gaus_regressor_max_itr
         best_loss = float("inf")
         model_name = tempfile.NamedTemporaryFile(delete=False).name
         while True:
@@ -107,13 +219,13 @@ class NeuralGaussianRegressor(nn.Module):
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
             if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{CFG.regressor_max_itr}",
+                print(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}",
                       end="\r",
                       flush=True)
             self._optimizer.zero_grad()
             loss.backward()
             self._optimizer.step()
-            if itr == CFG.regressor_max_itr:
+            if itr == max_itrs:
                 print()
                 break
             itr += 1
@@ -173,7 +285,7 @@ class MLPClassifier(nn.Module):
         super().__init__()  # type: ignore
         self._rng = np.random.default_rng(CFG.seed)
         torch.manual_seed(CFG.seed)
-        hid_sizes = CFG.classifier_hid_sizes
+        hid_sizes = CFG.mlp_classifier_hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
         for i in range(len(hid_sizes) - 1):
@@ -193,7 +305,7 @@ class MLPClassifier(nn.Module):
         assert y.ndim == 1
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
-        if CFG.classifier_balance_data and len(y) // 2 > sum(y):
+        if CFG.mlp_classifier_balance_data and len(y) // 2 > sum(y):
             old_len = len(y)
             pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
             neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
@@ -251,6 +363,7 @@ class MLPClassifier(nn.Module):
         itr = 0
         best_loss = float("inf")
         best_itr = 0
+        n_iter_no_change = CFG.mlp_classifier_n_iter_no_change
         model_name = tempfile.NamedTemporaryFile(delete=False).name
         loss_fn = nn.BCELoss()
         optimizer = optim.Adam(self.parameters(), lr=CFG.learning_rate)
@@ -272,8 +385,8 @@ class MLPClassifier(nn.Module):
             if itr == self._max_itr:
                 print()
                 break
-            if itr - best_itr > CFG.n_iter_no_change:
-                print(f"\nLoss did not improve after {CFG.n_iter_no_change} "
+            if itr - best_itr > n_iter_no_change:
+                print(f"\nLoss did not improve after {n_iter_no_change} "
                       f"itrs, terminating at itr {itr}.")
                 break
             itr += 1

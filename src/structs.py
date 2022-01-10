@@ -400,6 +400,14 @@ class ParameterizedOption:
         assert isinstance(other, ParameterizedOption)
         return self.name == other.name
 
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name < other.name
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name > other.name
+
     def __hash__(self) -> int:
         return self._hash
 
@@ -848,9 +856,9 @@ class LowLevelTrajectory:
     sequence, action sequence, and optional goal.
 
     Invariant 1: If a goal is included, the trajectory achieves that
-    goal.              We call such a trajectory a "demonstration".
-    Invariant 2: The length of the state sequence is always one greater
-    than the length of the action sequence.
+    goal. We call such a trajectory a "demonstration". Invariant 2: The
+    length of the state sequence is always one greater than the length
+    of the action sequence.
     """
     _states: List[State]
     _actions: List[Action]
