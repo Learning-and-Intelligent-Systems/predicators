@@ -35,17 +35,14 @@ _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
 }
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def get_body_ids(  # type: ignore
-    env,
+def get_body_ids(
+    env: "BehaviorEnv",
     include_self: bool = False,
-    grasping_with_right: bool = False,
+    include_right_hand: bool = False,
 ) -> List[int]:
-    """Function to return list of body_ids for all objects for collision
-    checking depending on whether navigation or grasping/placing is being
-    done."""
+    """Function to return a list of body_ids for all objects in the scene
+    for collision checking depending on whether navigation or grasping/
+    placing is being done."""
     ids = []
     for obj in env.scene.get_objects():
         if isinstance(obj, URDFObject):
@@ -59,14 +56,14 @@ def get_body_ids(  # type: ignore
         ids.append(env.robots[0].parts["left_hand"].get_body_id())
         ids.append(env.robots[0].parts["body"].get_body_id())
         ids.append(env.robots[0].parts["eye"].get_body_id())
-        if not grasping_with_right:
+        if not include_right_hand:
             ids.append(env.robots[0].parts["right_hand"].get_body_id())
 
     return ids
 
 
-def detect_collision(bodyA: int, object_in_hand: int = None) -> bool:
-    """Detects collisions between objects in the scene (except for the object
+def detect_collision(bodyA: int, object_in_hand: Optional[int] = None) -> bool:
+    """Detects collisions between bodyA in the scene (except for the object
     in the robot's hand)"""
     collision = False
     for body_id in range(p.getNumBodies()):
@@ -92,10 +89,7 @@ def detect_robot_collision(robot) -> bool:  # type: ignore
                                 object_in_hand))
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def reset_and_release_hand(env) -> None:  # type: ignore
+def reset_and_release_hand(env: "BehaviorEnv") -> None:  # type: ignore
     """Resets the state of the right hand."""
     env.robots[0].set_position_orientation(env.robots[0].get_position(),
                                            env.robots[0].get_orientation())
@@ -105,11 +99,8 @@ def reset_and_release_hand(env) -> None:  # type: ignore
         p.stepSimulation()
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def get_delta_low_level_base_action(  # type: ignore
-    env,
+def get_delta_low_level_base_action(
+    env: "BehaviorEnv",
     original_orientation: Tuple,
     old_xytheta: Array,
     new_xytheta: Array,
@@ -190,7 +181,7 @@ def navigate_to_param_sampler(  # type: ignore
 # it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
 # import and won't get imported on CI
 def navigate_to_obj_pos(  # type: ignore
-        env,
+        env: "BehaviorEnv",
         obj,
         pos_offset: Array,
         rng: Generator = np.random.default_rng(23),
@@ -362,11 +353,8 @@ def grasp_obj_param_sampler(rng: Generator) -> Array:
     return np.array([x_offset, y_offset, z_offset])
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def get_delta_low_level_hand_action(  # type: ignore
-    env,
+def get_delta_low_level_hand_action(
+    env: "BehaviorEnv",
     old_pos: Union[Sequence[float], Array],
     old_orn: Union[Sequence[float], Array],
     new_pos: Union[Sequence[float], Array],
@@ -425,7 +413,7 @@ def get_delta_low_level_hand_action(  # type: ignore
 # it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
 # import and won't get imported on CI
 def grasp_obj_at_pos(  # type: ignore
-        env,
+        env: "BehaviorEnv",
         obj,
         grasp_offset: Array,
         rng: Generator = np.random.default_rng(23),
@@ -542,7 +530,7 @@ def grasp_obj_at_pos(  # type: ignore
         hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
         obstacles=get_body_ids(env,
                                include_self=True,
-                               grasping_with_right=True),
+                               include_right_hand=True),
         rng=rng,
     )
     p.restoreState(state)
@@ -650,7 +638,7 @@ def grasp_obj_at_pos(  # type: ignore
 # it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
 # import and won't get imported on CI
 def place_obj_plan(  # type: ignore
-        env,
+        env: "BehaviorEnv",
         obj,
         original_state: int,
         place_rel_pos: Array,
@@ -750,7 +738,7 @@ def place_ontop_obj_pos_sampler(  # type: ignore
 # it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
 # import and won't get imported on CI
 def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-statements
-        env,
+        env: "BehaviorEnv",
         obj,
         place_rel_pos: Array,
         place_orn: Optional[Array] = None,
