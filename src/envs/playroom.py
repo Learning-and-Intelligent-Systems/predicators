@@ -765,15 +765,6 @@ class PlayroomEnv(BlocksEnv):
         robot = objects[0]
         return PlayroomEnv._NextToTable_holds(state, (robot,))
 
-    def _Move_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        robot = objects[0]
-        fingers = state.get(robot, "fingers")
-        arr = np.r_[params[:-1], 1.0, params[-1], fingers].astype(np.float32)
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
     @staticmethod
     def _MoveFromRegion_initiable(state: State, memory: Dict,
                                   objects: Sequence[Object], params: Array
@@ -781,14 +772,6 @@ class PlayroomEnv(BlocksEnv):
         del memory, params  # unused
         # objects: robot, region, ...
         return PlayroomEnv._InRegion_holds(state, objects[:2])
-
-    @staticmethod
-    def _MoveFromDoor_initiable(state: State, memory: Dict,
-                                objects: Sequence[Object], params: Array
-                                ) -> bool:
-        del memory, params  # unused
-        # objects: (robot, door)
-        return PlayroomEnv._NextToDoor_holds(state, objects)
     
     def _MoveToDoor_policy(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> Action:
