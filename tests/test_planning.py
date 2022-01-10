@@ -5,7 +5,7 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan, task_plan
+from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
 from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator
@@ -47,11 +47,15 @@ def test_task_plan():
                            nsrt.add_effects, nsrt.delete_effects,
                            nsrt.side_predicates))
         option_specs.append((nsrt.option, nsrt.option_vars))
+    ground_nsrts = task_plan_grounding(init_atoms, objects, task.goal,
+                                       strips_ops, option_specs)
+    heuristic = utils.create_task_planning_heuristic("hadd", init_atoms,
+                                                     task.goal, ground_nsrts,
+                                                     env.predicates, objects)
     skeleton, _, _ = task_plan(init_atoms,
-                               objects,
                                task.goal,
-                               strips_ops,
-                               option_specs,
+                               ground_nsrts,
+                               heuristic,
                                timeout=1,
                                seed=123)
     assert len(skeleton) == 2

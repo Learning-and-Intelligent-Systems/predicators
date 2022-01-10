@@ -182,13 +182,13 @@ def _main() -> None:
         "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_lookahead_depth0",
+        # "prediction_error",
+        # "hadd_lookahead_depth0",
         "exact_lookahead",
-        "hadd_lookahead_depth1",
-        "hadd_lookahead_depth2",
+        # "hadd_lookahead_depth1",
+        # "hadd_lookahead_depth2",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
