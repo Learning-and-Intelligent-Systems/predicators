@@ -253,6 +253,7 @@ def navigate_to_obj_pos(
             f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} fail")
         return None
 
+    p.restoreState(state)
     obstacles = get_body_ids(env)
     if env.robots[0].parts["right_hand"].object_in_hand is not None:
         obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
