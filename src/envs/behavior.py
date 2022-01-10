@@ -362,7 +362,7 @@ class BehaviorEnv(BaseEnv):
                 assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
 
-            if any(self.behavior_env.robots[0].is_grasping(ig_obj.body_id)):
+            if np.any(self.behavior_env.robots[0].is_grasping(ig_obj.body_id)):
                 grasped_objs.add(obj)
 
         return grasped_objs

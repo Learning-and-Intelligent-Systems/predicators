@@ -99,15 +99,20 @@ def reset_and_release_hand(env: "BehaviorEnv") -> None:
 
 
 def get_delta_low_level_base_action(
-    env: "BehaviorEnv",
+    robot_z: float,
     original_orientation: Tuple,
     old_xytheta: Array,
     new_xytheta: Array,
 ) -> Array:
-    """Get low-level actions from base movement plan."""
-    ret_action = np.zeros(17, dtype=np.float32)
+    """Given a base movement plan that is a series of waypoints in world-frame
+    position space, convert pairs of these points to a base movement action in
+    velocity space.
 
-    robot_z = env.robots[0].get_position()[2]
+    Note that we cannot simply subtract subsequent positions because the
+    velocity action space used by BEHAVIOR is not defined in the world
+    frame, but rather in the frame of the previous position.
+    """
+    ret_action = np.zeros(17, dtype=np.float32)
 
     # First, get the old and new position and orientation in the world
     # frame as numpy arrays
@@ -145,14 +150,14 @@ def navigate_to_param_sampler(rng: Generator,
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit = max(
+    closeness_limit: float = max(
         [
             1.5,
             np.linalg.norm(np.array(\
                 obj_to_sample_near.bounding_box[:2])) + 0.5,  # type: ignore
         ]
     )
-    distance = (closeness_limit - 0.01) * rng.random() + 0.03  # type: ignore
+    distance = (closeness_limit - 0.01) * rng.random() + 0.03
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
@@ -163,9 +168,7 @@ def navigate_to_param_sampler(rng: Generator,
     # tries to move there.
     while (abs(x) <= obj_to_sample_near.bounding_box[0]
            and abs(y) <= obj_to_sample_near.bounding_box[1]):
-        distance = (
-            closeness_limit -  # type: ignore
-            0.01) * rng.random() + 0.03
+        distance = (closeness_limit - 0.01) * rng.random() + 0.03
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
@@ -174,11 +177,11 @@ def navigate_to_param_sampler(rng: Generator,
 
 
 def navigate_to_obj_pos(
-        env: "BehaviorEnv",
-        obj: Union["URDFObject", "RoomFloor"],
-        pos_offset: Array,
-        rng: Generator = np.random.default_rng(23),
-) -> Optional[Callable]:
+    env: "BehaviorEnv",
+    obj: Union["URDFObject", "RoomFloor"],
+    pos_offset: Array,
+    rng: Optional[Generator] = None
+) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
@@ -188,6 +191,8 @@ def navigate_to_obj_pos(
     that can be stepped like an option to output actions at each
     timestep.
     """
+    if rng is None:
+        rng = np.random.default_rng(23)
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
     valid_position = None  # ((x,y,z),(roll, pitch, yaw))
@@ -244,9 +249,6 @@ def navigate_to_obj_pos(
             f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} fail")
         return None
 
-    p.restoreState(state)
-    p.removeState(state)
-    state = p.saveState()
     obstacles = get_body_ids(env)
     if env.robots[0].parts["right_hand"].object_in_hand is not None:
         obstacles.remove(env.robots[0].parts["right_hand"].object_in_hand)
@@ -294,7 +296,7 @@ def navigate_to_obj_pos(
                 done_bit = True
                 return np.zeros(17, dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
-                env,
+                env.robots[0].get_position()[2],
                 original_orientation,
                 np.array(current_pos + [current_orn]),
                 np.array(plan[0]),
@@ -303,7 +305,7 @@ def navigate_to_obj_pos(
             # But if the corrective action is 0
             if np.allclose(low_level_action, np.zeros((17, 1)), atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
-                    env,
+                    env.robots[0].get_position()[2],
                     original_orientation,
                     np.array(current_pos + [current_orn]),
                     np.array(plan[1]),
@@ -320,7 +322,7 @@ def navigate_to_obj_pos(
 
         else:
             low_level_action = get_delta_low_level_base_action(
-                env,
+                env.robots[0].get_position()[2],
                 original_orientation,
                 np.array(plan[0]),
                 np.array(plan[1]),
@@ -353,7 +355,14 @@ def get_delta_low_level_hand_action(
     new_pos: Union[Sequence[float], Array],
     new_orn: Union[Sequence[float], Array],
 ) -> Array:
-    """Function to get low level actions from hand-movement plan."""
+    """Given a hand movement plan that is a series of waypoints for the hand in
+    position space, convert pairs of these points to a hand movement action in
+    velocity space.
+
+    Note that we cannot simply subtract subsequent positions because the
+    velocity action space used by BEHAVIOR is not defined in the world
+    frame, but rather in the frame of the previous position.
+    """
     # First, convert the supplied orientations to quaternions
     old_orn = p.getQuaternionFromEuler(old_orn)
     new_orn = p.getQuaternionFromEuler(new_orn)
@@ -403,11 +412,11 @@ def get_delta_low_level_hand_action(
 
 
 def grasp_obj_at_pos(
-        env: "BehaviorEnv",
-        obj: Union["URDFObject", "RoomFloor"],
-        grasp_offset: Array,
-        rng: Generator = np.random.default_rng(23),
-) -> Optional[Callable]:
+    env: "BehaviorEnv",
+    obj: Union["URDFObject", "RoomFloor"],
+    grasp_offset: Array,
+    rng: Optional[Generator] = None,
+) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
     """Parameterized controller for grasping.
 
     Runs motion planning to find a feasible trajectory to a certain
@@ -417,6 +426,8 @@ def grasp_obj_at_pos(
     that can be stepped like an option to output actions at each
     timestep.
     """
+    if rng is None:
+        rng = np.random.default_rng(23)
     obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
     # If we're holding something, fail and return None
     if obj_in_hand is not None:
@@ -569,9 +580,11 @@ def grasp_obj_at_pos(
         hand_pos = new_hand_pos
 
     # Setup two booleans to be used as 'memory', as well as
-    # a 'reversed' plan to be used
-    # for our option that's defined below
-    reversed_plan = list(reversed(plan[:]))
+    # a 'reversed' plan to be used for our option that's
+    # defined below. Note that the reversed plan makes a
+    # copy of the list instead of just assigning by reference,
+    # and this is critical to the functioning of our option
+    reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_closing_gripper = False
 
@@ -624,13 +637,15 @@ def grasp_obj_at_pos(
 
 
 def place_obj_plan(
-        env: "BehaviorEnv",
-        obj: Union["URDFObject", "RoomFloor"],
-        original_state: int,
-        place_rel_pos: Array,
-        rng: Generator = np.random.default_rng(23),
+    env: "BehaviorEnv",
+    obj: Union["URDFObject", "RoomFloor"],
+    original_state: int,
+    place_rel_pos: Array,
+    rng: Optional[Generator] = None,
 ) -> List[List[float]]:
     """Function to return an RRT plan for placing an object."""
+    if rng is None:
+        rng = np.random.default_rng(23)
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
     x, y, z = np.add(place_rel_pos, obj.get_position())
@@ -677,10 +692,12 @@ def place_obj_plan(
 
 
 def place_ontop_obj_pos_sampler(
-        obj: Union["URDFObject", "RoomFloor"],
-        rng: Generator = np.random.default_rng(23),
+    obj: Union["URDFObject", "RoomFloor"],
+    rng: Optional[Generator] = None,
 ) -> Array:
     """Sampler for placeOnTop option."""
+    if rng is None:
+        rng = np.random.default_rng(23)
     # objA is the object the robot is currently holding, and objB
     # is the surface that it must place onto.
     # The BEHAVIOR NSRT's are designed such that objA is the 0th
@@ -710,12 +727,12 @@ def place_ontop_obj_pos_sampler(
     return rnd_params
 
 
-def place_ontop_obj_pos(  # pylint: disable=inconsistent-return-statements
-        env: "BehaviorEnv",
-        obj: Union["URDFObject", "RoomFloor"],
-        place_rel_pos: Array,
-        rng: Generator = np.random.default_rng(23),
-) -> Optional[Callable]:
+def place_ontop_obj_pos(
+    env: "BehaviorEnv",
+    obj: Union["URDFObject", "RoomFloor"],
+    place_rel_pos: Array,
+    rng: Optional[Generator] = None,
+) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
     """Parameterized controller for placeOnTop.
 
     Runs motion planning to find a feasible trajectory to a certain
@@ -724,6 +741,9 @@ def place_ontop_obj_pos(  # pylint: disable=inconsistent-return-statements
     indication to this effect (None). Otherwise, returns a function that
     can be stepped like an option to output actions at each timestep.
     """
+    if rng is None:
+        rng = np.random.default_rng(23)
+
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
 
@@ -756,7 +776,10 @@ def place_ontop_obj_pos(  # pylint: disable=inconsistent-return-statements
         env.robots[0].parts["left_hand"].get_position())
 
     plan = place_obj_plan(env, obj, state, place_rel_pos, rng=rng)
-    reversed_plan = list(reversed(plan[:]))
+    # Note that the reversed plan code below makes a
+    # copy of the list instead of just assigning by reference,
+    # and this is critical to the functioning of our option
+    reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_opening_gripper = False
 
@@ -825,7 +848,7 @@ def place_ontop_obj_pos(  # pylint: disable=inconsistent-return-statements
 
                 return low_level_action, False
 
-            if (len(plan) <= 1):  # In this case, we're at the final position
+            if len(plan) <= 1:  # In this case, we're at the final position
                 low_level_action = np.zeros(17, dtype=float)
                 done_bit = False
                 plan_executed_forwards = True
