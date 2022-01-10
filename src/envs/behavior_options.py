@@ -193,6 +193,10 @@ def navigate_to_obj_pos(
     """
     if rng is None:
         rng = np.random.default_rng(23)
+
+    print(f"PRIMITIVE: Attempting to navigate to {obj.name} with params" +
+          f"{pos_offset}")
+
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
     valid_position = None  # ((x,y,z),(roll, pitch, yaw))
@@ -428,6 +432,10 @@ def grasp_obj_at_pos(
     """
     if rng is None:
         rng = np.random.default_rng(23)
+
+    print(f"PRIMITIVE: Attempting to grasp {obj.name} with params" +
+          f"{grasp_offset}")
+
     obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
     # If we're holding something, fail and return None
     if obj_in_hand is not None:
@@ -744,6 +752,9 @@ def place_ontop_obj_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
+    print("PRIMITIVE:attempt to place {obj_in_hand.name} ontop {obj.name}" +
+          f"with params {place_rel_pos}")
+
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
 
@@ -759,8 +770,6 @@ def place_ontop_obj_pos(
         print(f"PRIMITIVE: place {obj_in_hand.name} ontop" +
               f"{obj.name} fail, too far")
         return None
-
-    print("PRIMITIVE:attempt to place {obj_in_hand.name} ontop {obj.name}")
 
     state = p.saveState()
     # To check if object fits on place location
