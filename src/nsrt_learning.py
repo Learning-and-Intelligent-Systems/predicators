@@ -281,7 +281,7 @@ def _learn_pnad_side_predicates(
                 else:
                     print("ACCEPT")
         print("final pnad:",pnad)
-        input("!!")
+        # input("!!")
     # Recompute the datastores in the PNADs. We need to do this
     # because now that we have side predicates, each transition may be
     # assigned to *multiple* datastores.
