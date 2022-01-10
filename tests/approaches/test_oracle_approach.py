@@ -349,7 +349,8 @@ def test_oracle_approach_playroom():
     train_task = next(env.train_tasks_generator())[0]
     state = train_task.init
     objs = list(state)
-    robot, dial, door5, door6, region6, region7 = objs[17], objs[3], objs[8], objs[9], objs[15], objs[16]
+    robot, dial, door5, door6, region6, region7 = objs[17], objs[3], objs[
+        8], objs[9], objs[15], objs[16]
     assert robot.name == "robby"
     assert dial.name == "dial"
     assert door5.name == "door5"
@@ -361,8 +362,8 @@ def test_oracle_approach_playroom():
     movetodoor_option = movedialtodoor_nsrt.sample_option(state, rng)
     movetodoor_action = movetodoor_option.policy(state)
     assert env.action_space.contains(movetodoor_action.arr)
-    assert np.all(
-        movetodoor_action.arr == np.array([110.1, 15, 1, -1, 1], dtype=np.float32))
+    assert np.all(movetodoor_action.arr == np.array([110.1, 15, 1, -1, 1],
+                                                    dtype=np.float32))
     # Test MoveDoorToTable for coverage.
     movedoortotable = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDoorToTable"][0]
@@ -371,9 +372,11 @@ def test_oracle_approach_playroom():
     movedoortotable_action = movedoortotable_option.policy(state)
     assert env.action_space.contains(movedoortotable_action.arr)
     # Test AdvanceThroughDoor (moving left) for coverage.
+    state.set(robot, "pose_x", 110.3)
     advancethroughdoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "AdvanceThroughDoor"][0]
-    advancethroughdoor_nsrt = advancethroughdoor.ground([robot, door6, region7, region6])
+    advancethroughdoor_nsrt = advancethroughdoor.ground(
+        [robot, door6, region7, region6])
     movetodoor_option2 = advancethroughdoor_nsrt.sample_option(state, rng)
     movetodoor_action2 = movetodoor_option2.policy(state)
     assert env.action_space.contains(movetodoor_action2.arr)
