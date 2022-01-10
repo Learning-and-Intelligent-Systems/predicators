@@ -171,16 +171,15 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     neg_params_space = Box(-0.75, -0.25, (1, ))
-    parameterized_option = ParameterizedOption(
+    sleep_option = ParameterizedOption(
         "Sleep", [robot_type], neg_params_space,
         lambda s, m, o, p: Action(p - int(o[0] == robby)),
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
                               delete_effects, side_predicates)
-    sleep_nsrt = NSRT("Sleep", parameters, preconditions, add_effects,
-                      delete_effects, side_predicates, parameterized_option,
-                      [robot_var],
-                      lambda s, rng, objs: neg_params_space.sample())
+    sleep_nsrt = sleep_op.make_nsrt(
+        sleep_option, [robot_var],
+        lambda s, rng, objs: neg_params_space.sample())
     cried = Predicate("Cried", [robot_type], lambda s, o: s[o[0]][1])
     parameters = [robot_var]
     preconditions = set()
@@ -188,16 +187,14 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     pos_params_space = Box(0.25, 0.75, (1, ))
-    parameterized_option = ParameterizedOption(
+    cry_option = ParameterizedOption(
         "Cry", [robot_type], pos_params_space,
         lambda s, m, o, p: Action(p + int(o[0] == robby)),
         lambda s, m, o, p: True, lambda s, m, o, p: True)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
-    cry_nsrt = NSRT("Cry", parameters, preconditions, add_effects,
-                    delete_effects, side_predicates, parameterized_option,
-                    [robot_var],
-                    lambda s, rng, objs: pos_params_space.sample())
+    cry_nsrt = cry_op.make_nsrt(cry_option, [robot_var],
+                                lambda s, rng, objs: pos_params_space.sample())
 
     def _simulator(s, a):
         ns = s.copy()
