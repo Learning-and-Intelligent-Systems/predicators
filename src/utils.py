@@ -594,8 +594,10 @@ def all_ground_operators(operator: STRIPSOperator,
     """Get all possible groundings of the given operator with the given objects.
     """
     types = [p.type for p in operator.parameters]
+    ground_operators = set()
     for choice in get_object_combinations(objects, types):
-        yield operator.ground(tuple(choice))
+        ground_operators.add(operator.ground(tuple(choice)))
+    return ground_operators
 
 
 def all_ground_operators_given_partial(operator: STRIPSOperator,
@@ -627,8 +629,10 @@ def all_ground_nsrts(
     """Get all possible groundings of the given NSRT with the given objects.
     """
     types = [p.type for p in nsrt.parameters]
+    ground_nsrts = set()
     for choice in get_object_combinations(objects, types):
-        yield nsrt.ground(choice)
+        ground_nsrts.add(nsrt.ground(choice))
+    return ground_nsrts
 
 
 def all_ground_predicates(pred: Predicate,
