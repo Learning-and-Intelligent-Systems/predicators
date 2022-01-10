@@ -1212,8 +1212,8 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
 
 def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     """Create ground truth nsrts for BehaviorEnv."""
-    env_base_type = get_cached_env_instance("behavior")
-    env = cast(BehaviorEnv, env_base_type)
+    env_base = get_cached_env_instance("behavior")
+    env = cast(BehaviorEnv, env_base)
 
     # NOTE: These two methods below are necessary to help instantiate
     # all combinations of types for predicates (e.g. reachable(robot, book),
