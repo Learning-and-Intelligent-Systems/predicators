@@ -47,8 +47,8 @@ def test_task_plan():
                            nsrt.add_effects, nsrt.delete_effects,
                            nsrt.side_predicates))
         option_specs.append((nsrt.option, nsrt.option_vars))
-    ground_nsrts = task_plan_grounding(init_atoms, objects, task.goal,
-                                       strips_ops, option_specs)
+    ground_nsrts = task_plan_grounding(init_atoms, objects, strips_ops,
+                                       option_specs)
     heuristic = utils.create_task_planning_heuristic("hadd", init_atoms,
                                                      task.goal, ground_nsrts,
                                                      env.predicates, objects)

@@ -619,8 +619,8 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
             init_atoms = utils.abstract(task.init,
                                         predicates | self._initial_predicates)
             objects = set(task.init)
-            ground_nsrts = task_plan_grounding(init_atoms, objects, task.goal,
-                                               strips_ops, option_specs)
+            ground_nsrts = task_plan_grounding(init_atoms, objects, strips_ops,
+                                               option_specs)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.task_planning_heuristic, init_atoms, task.goal,
                 ground_nsrts, predicates | self._initial_predicates, objects)
@@ -832,8 +832,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
         # It's important for efficiency that we only ground once, and create
         # the heuristic once, for every task.
-        ground_nsrts = task_plan_grounding(init_atoms, objects, goal,
-                                           strips_ops, option_specs)
+        ground_nsrts = task_plan_grounding(init_atoms, objects, strips_ops,
+                                           option_specs)
         heuristic = utils.create_task_planning_heuristic(
             CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
             set(predicates) | self._initial_predicates, objects)
