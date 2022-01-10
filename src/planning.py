@@ -53,7 +53,7 @@ def sesame_plan(
     objects = list(task.init)
     start_time = time.time()
     ground_nsrts = []
-    for nsrt in nsrts:
+    for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
             if time.time() - start_time > timeout:
@@ -120,7 +120,7 @@ def task_plan(
     """
     nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
-    for nsrt in nsrts:
+    for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
     nonempty_ground_nsrts = [
