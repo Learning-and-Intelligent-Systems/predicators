@@ -154,7 +154,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             X = np.array(positive_examples + negative_examples)
             Y = np.array([1 for _ in positive_examples] +
                          [0 for _ in negative_examples])
-            model = MLPClassifier(X.shape[1], CFG.classifier_max_itr_predicate)
+            model = MLPClassifier(X.shape[1],
+                                  CFG.predicate_mlp_classifier_max_itr)
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it

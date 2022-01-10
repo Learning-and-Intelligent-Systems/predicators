@@ -150,8 +150,7 @@ def _run_proxy_analysis_for_predicates(
         approach.learn_from_offline_dataset(dataset, train_tasks)
         approach.seed(CFG.seed)
         planning_result = _run_testing(env, approach)
-        results.update(planning_result["test"])
-        results.update(planning_result["approach"])
+        results.update(planning_result)
     return results
 
 
