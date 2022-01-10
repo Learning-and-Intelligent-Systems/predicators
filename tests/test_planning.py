@@ -9,8 +9,7 @@ from predicators.src.envs import CoverEnv
 from predicators.src.planning import sesame_plan, task_plan
 from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
-    _GroundNSRT, STRIPSOperator, Predicate, State, GroundAtom, LiftedAtom, \
-    Type, Action
+    _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
 
