@@ -1,7 +1,7 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
-from typing import Callable, Dict, List, Sequence, Tuple, Union, Optional
+from typing import Callable, List, Sequence, Tuple, Union, Optional
 import numpy as np
 from numpy.random._generator import Generator
 import scipy
@@ -14,6 +14,7 @@ try:
     from igibson.envs.behavior_env import BehaviorEnv
     from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
     from igibson.objects.articulated_object import URDFObject
+    from igibson.object_states.on_floor import RoomFloor  # pylint: disable=unused-import
     from igibson.utils.behavior_robot_planning_utils import (
         plan_base_motion_br,
         plan_hand_motion_br,
@@ -23,6 +24,7 @@ try:
         get_aabb,
         get_aabb_extent,
     )
+    from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
 except ModuleNotFoundError as e:
     print(e)
 
@@ -40,9 +42,9 @@ def get_body_ids(
     include_self: bool = False,
     include_right_hand: bool = False,
 ) -> List[int]:
-    """Function to return a list of body_ids for all objects in the scene
-    for collision checking depending on whether navigation or grasping/
-    placing is being done."""
+    """Function to return a list of body_ids for all objects in the scene for
+    collision checking depending on whether navigation or grasping/ placing is
+    being done."""
     ids = []
     for obj in env.scene.get_objects():
         if isinstance(obj, URDFObject):
@@ -63,8 +65,8 @@ def get_body_ids(
 
 
 def detect_collision(bodyA: int, object_in_hand: Optional[int] = None) -> bool:
-    """Detects collisions between bodyA in the scene (except for the object
-    in the robot's hand)"""
+    """Detects collisions between bodyA in the scene (except for the object in
+    the robot's hand)"""
     collision = False
     for body_id in range(p.getNumBodies()):
         if body_id in [bodyA, object_in_hand]:
@@ -76,10 +78,7 @@ def detect_collision(bodyA: int, object_in_hand: Optional[int] = None) -> bool:
     return collision
 
 
-# NOTE: we need a type:ignore because we can't specify the type of robot because
-# it would be dependent on an optional igibson import which won't get imported
-# on CI
-def detect_robot_collision(robot) -> bool:  # type: ignore
+def detect_robot_collision(robot: "BaseRobot") -> bool:
     """Function to detect whether the robot is currently colliding with any
     object in the scene."""
     object_in_hand = robot.parts["right_hand"].object_in_hand
@@ -89,7 +88,7 @@ def detect_robot_collision(robot) -> bool:  # type: ignore
                                 object_in_hand))
 
 
-def reset_and_release_hand(env: "BehaviorEnv") -> None:  # type: ignore
+def reset_and_release_hand(env: "BehaviorEnv") -> None:
     """Resets the state of the right hand."""
     env.robots[0].set_position_orientation(env.robots[0].get_position(),
                                            env.robots[0].get_orientation())
@@ -139,11 +138,8 @@ def get_delta_low_level_base_action(
     return ret_action
 
 
-# NOTE: we need a type:ignore because we can't specify the type of objects
-# because it would be dependent on an optional igibson import which won't
-# get imported on CI
-def navigate_to_param_sampler(  # type: ignore
-        rng: Generator, objects) -> Array:
+def navigate_to_param_sampler(rng: Generator,
+                              objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
     assert len(objects) in [2, 3]
     # The navigation nsrts are designed such that this is true (the target
@@ -177,12 +173,9 @@ def navigate_to_param_sampler(  # type: ignore
     return np.array([x, y])
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def navigate_to_obj_pos(  # type: ignore
+def navigate_to_obj_pos(
         env: "BehaviorEnv",
-        obj,
+        obj: Union["URDFObject", "RoomFloor"],
         pos_offset: Array,
         rng: Generator = np.random.default_rng(23),
 ) -> Optional[Callable]:
@@ -409,12 +402,9 @@ def get_delta_low_level_hand_action(
     return action
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def grasp_obj_at_pos(  # type: ignore
+def grasp_obj_at_pos(
         env: "BehaviorEnv",
-        obj,
+        obj: Union["URDFObject", "RoomFloor"],
         grasp_offset: Array,
         rng: Generator = np.random.default_rng(23),
 ) -> Optional[Callable]:
@@ -528,8 +518,7 @@ def grasp_obj_at_pos(  # type: ignore
             euler_angles[2],
         ],
         hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-        obstacles=get_body_ids(env,
-                               include_self=True,
+        obstacles=get_body_ids(env, include_self=True,
                                include_right_hand=True),
         rng=rng,
     )
@@ -634,12 +623,9 @@ def grasp_obj_at_pos(  # type: ignore
     return graspObjectOption
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def place_obj_plan(  # type: ignore
+def place_obj_plan(
         env: "BehaviorEnv",
-        obj,
+        obj: Union["URDFObject", "RoomFloor"],
         original_state: int,
         place_rel_pos: Array,
         rng: Generator = np.random.default_rng(23),
@@ -690,11 +676,8 @@ def place_obj_plan(  # type: ignore
     return plan
 
 
-# NOTE: we need a type:ignore because we can't specify the type of obj because
-# it would be dependent on an optional igibson import which won't get imported
-# on CI.
-def place_ontop_obj_pos_sampler(  # type: ignore
-        obj,
+def place_ontop_obj_pos_sampler(
+        obj: Union["URDFObject", "RoomFloor"],
         rng: Generator = np.random.default_rng(23),
 ) -> Array:
     """Sampler for placeOnTop option."""
@@ -724,25 +707,13 @@ def place_ontop_obj_pos_sampler(  # type: ignore
         return np.array([0.0, 0.0, 0.5])
 
     rnd_params = np.subtract(sampling_results[0][0], objB.get_position())
-
-    # NOTE: The below block returns the orientation of the object in addition
-    # to the rnd_params, which is useful for the option model implementation.
-    # return_orn can be passed in as an argument to the function
-    # if return_orn:
-    #     return rnd_params, sampling_results[0][2]
-
     return rnd_params
 
 
-# NOTE: we need a type:ignore because we can't specify the type of env because
-# it would be a igibson.envs.behavior_env.BehaviorEnv, which is an optional
-# import and won't get imported on CI
-def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-statements
+def place_ontop_obj_pos(  # pylint: disable=inconsistent-return-statements
         env: "BehaviorEnv",
-        obj,
+        obj: Union["URDFObject", "RoomFloor"],
         place_rel_pos: Array,
-        place_orn: Optional[Array] = None,
-        option_model: bool = False,
         rng: Generator = np.random.default_rng(23),
 ) -> Optional[Callable]:
     """Parameterized controller for placeOnTop.
@@ -784,181 +755,162 @@ def place_ontop_obj_pos(  # type: ignore # pylint: disable=inconsistent-return-s
     env.robots[0].parts["left_hand"].set_position(
         env.robots[0].parts["left_hand"].get_position())
 
-    if not option_model:
-        plan = place_obj_plan(env, obj, state, place_rel_pos, rng=rng)
-        reversed_plan = list(reversed(plan[:]))
-        plan_executed_forwards = False
-        tried_opening_gripper = False
+    plan = place_obj_plan(env, obj, state, place_rel_pos, rng=rng)
+    reversed_plan = list(reversed(plan[:]))
+    plan_executed_forwards = False
+    tried_opening_gripper = False
 
-        print(f"PRIMITIVE: place {obj_in_hand.name} ontop" +
-              f"{obj.name} success")
+    print(f"PRIMITIVE: place {obj_in_hand.name} ontop" + f"{obj.name} success")
 
-        def placeOntopObjectOption(_state: State,
-                                   env: BehaviorEnv) -> Tuple[Array, bool]:
-            nonlocal plan
-            nonlocal plan_executed_forwards
-            nonlocal tried_opening_gripper
+    def placeOntopObjectOption(_state: State,
+                               env: BehaviorEnv) -> Tuple[Array, bool]:
+        nonlocal plan
+        nonlocal plan_executed_forwards
+        nonlocal tried_opening_gripper
 
-            done_bit = False
+        done_bit = False
 
-            atol_xy = 0.1
-            atol_theta = 0.1
-            atol_vel = 2.5
+        atol_xy = 0.1
+        atol_theta = 0.1
+        atol_vel = 2.5
 
-            # 1. Get current position and orientation
-            current_pos, current_orn_quat = p.multiplyTransforms(
-                env.robots[0].parts["right_hand"].parent.parts["body"].new_pos,
-                env.robots[0].parts["right_hand"].parent.parts["body"].new_orn,
-                env.robots[0].parts["right_hand"].local_pos,
-                env.robots[0].parts["right_hand"].local_orn,
-            )
-            current_orn = p.getEulerFromQuaternion(current_orn_quat)
+        # 1. Get current position and orientation
+        current_pos, current_orn_quat = p.multiplyTransforms(
+            env.robots[0].parts["right_hand"].parent.parts["body"].new_pos,
+            env.robots[0].parts["right_hand"].parent.parts["body"].new_orn,
+            env.robots[0].parts["right_hand"].local_pos,
+            env.robots[0].parts["right_hand"].local_orn,
+        )
+        current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
-            expected_pos = np.array(plan[0][0:3])
-            expected_orn = np.array(plan[0][3:])
+        expected_pos = np.array(plan[0][0:3])
+        expected_orn = np.array(plan[0][3:])
 
-            if (  # pylint:disable=no-else-return
-                    not plan_executed_forwards and not tried_opening_gripper):
-                ###
-                # 2. if error is greater that MAX_ERROR
-                if not np.allclose(
-                        current_pos, expected_pos,
-                        atol=atol_xy) or not np.allclose(
-                            current_orn, expected_orn, atol=atol_theta):
-                    # 2.a take a corrective action
-                    if len(plan) <= 1:
-                        done_bit = False
-                        plan_executed_forwards = True
-                        low_level_action = np.zeros(17, dtype=np.float32)
-                        return low_level_action, done_bit
-
-                    low_level_action = (get_delta_low_level_hand_action(
-                        env,
-                        np.array(current_pos),
-                        np.array(current_orn),
-                        np.array(plan[0][0:3]),
-                        np.array(plan[0][3:]),
-                    ))
-
-                    # But if the corrective action is 0
-                    if np.allclose(
-                            low_level_action,
-                            np.zeros((17, 1)),
-                            atol=atol_vel,
-                    ):
-                        low_level_action = (get_delta_low_level_hand_action(
-                            env,
-                            np.array(current_pos),
-                            np.array(current_orn),
-                            np.array(plan[1][0:3]),
-                            np.array(plan[1][3:]),
-                        ))
-                        plan.pop(0)
-
-                    return low_level_action, False
-
-                if (len(plan) <=
-                        1):  # In this case, we're at the final position
-                    low_level_action = np.zeros(17, dtype=float)
+        if (  # pylint:disable=no-else-return
+                not plan_executed_forwards and not tried_opening_gripper):
+            ###
+            # 2. if error is greater that MAX_ERROR
+            if not np.allclose(current_pos, expected_pos,
+                               atol=atol_xy) or not np.allclose(
+                                   current_orn, expected_orn, atol=atol_theta):
+                # 2.a take a corrective action
+                if len(plan) <= 1:
                     done_bit = False
                     plan_executed_forwards = True
+                    low_level_action = np.zeros(17, dtype=np.float32)
+                    return low_level_action, done_bit
 
-                else:
-                    # Step thru the plan to execute placing
-                    # phases 1 and 2
-                    low_level_action = (get_delta_low_level_hand_action(
-                        env,
-                        plan[0][0:3],
-                        plan[0][3:],
-                        plan[1][0:3],
-                        plan[1][3:],
-                    ))
-                    if len(plan) == 1:
-                        plan_executed_forwards = True
+                low_level_action = (get_delta_low_level_hand_action(
+                    env,
+                    np.array(current_pos),
+                    np.array(current_orn),
+                    np.array(plan[0][0:3]),
+                    np.array(plan[0][3:]),
+                ))
 
-                plan.pop(0)
-                return low_level_action, done_bit
-
-                ###
-
-            elif (plan_executed_forwards and not tried_opening_gripper):
-                # Open the gripper to see if you've gotten the
-                # object
-                low_level_action = np.zeros(17, dtype=float)
-                low_level_action[16] = -1.0
-                tried_opening_gripper = True
-                return low_level_action, False
-
-            else:
-                plan = reversed_plan
-                ###
-                # 2. if error is greater that MAX_ERROR
-                if not np.allclose(
-                        current_pos, expected_pos,
-                        atol=atol_xy) or not np.allclose(
-                            current_orn, expected_orn, atol=atol_theta):
-                    # 2.a take a corrective action
-                    if len(plan) <= 1:
-                        done_bit = True
-                        return np.zeros(17, dtype=np.float32), done_bit
+                # But if the corrective action is 0
+                if np.allclose(
+                        low_level_action,
+                        np.zeros((17, 1)),
+                        atol=atol_vel,
+                ):
                     low_level_action = (get_delta_low_level_hand_action(
                         env,
                         np.array(current_pos),
                         np.array(current_orn),
-                        np.array(plan[0][0:3]),
-                        np.array(plan[0][3:]),
+                        np.array(plan[1][0:3]),
+                        np.array(plan[1][3:]),
                     ))
+                    plan.pop(0)
 
-                    # But if the corrective action is 0
-                    if np.allclose(
-                            low_level_action,
-                            np.zeros((17, 1)),
-                            atol=atol_vel,
-                    ):
-                        low_level_action = (get_delta_low_level_hand_action(
-                            env,
-                            np.array(current_pos),
-                            np.array(current_orn),
-                            np.array(plan[1][0:3]),
-                            np.array(plan[1][3:]),
-                        ))
-                        plan.pop(0)
+                return low_level_action, False
 
-                    return low_level_action, False
-
-            if len(plan) == 1:  # In this case, we're at the final position
+            if (len(plan) <= 1):  # In this case, we're at the final position
                 low_level_action = np.zeros(17, dtype=float)
-                done_bit = True
+                done_bit = False
+                plan_executed_forwards = True
 
             else:
-                # Placing Phase 3: getting the hand back to
-                # resting position near the robot.
-                low_level_action = get_delta_low_level_hand_action(
+                # Step thru the plan to execute placing
+                # phases 1 and 2
+                low_level_action = (get_delta_low_level_hand_action(
                     env,
-                    reversed_plan[0][0:3],
-                    reversed_plan[0][3:],
-                    reversed_plan[1][0:3],
-                    reversed_plan[1][3:],
-                )
-                if len(reversed_plan) == 1:
-                    done_bit = True
+                    plan[0][0:3],
+                    plan[0][3:],
+                    plan[1][0:3],
+                    plan[1][3:],
+                ))
+                if len(plan) == 1:
+                    plan_executed_forwards = True
 
-            reversed_plan.pop(0)
-
+            plan.pop(0)
             return low_level_action, done_bit
 
-    else:
+            ###
 
-        def placeOntopObjectOptionModel(_init_state: State,
-                                        env: BehaviorEnv) -> Tuple[Dict, bool]:
-            target_pos = place_rel_pos
-            target_orn = place_orn
-            env.robots[0].parts["right_hand"].force_release_obj()
-            obj_in_hand.set_position_orientation(target_pos, target_orn)
+        elif (plan_executed_forwards and not tried_opening_gripper):
+            # Open the gripper to see if you've gotten the
+            # object
+            low_level_action = np.zeros(17, dtype=float)
+            low_level_action[16] = -1.0
+            tried_opening_gripper = True
+            return low_level_action, False
 
-            final_state = env.get_state()
-            return final_state, True
+        else:
+            plan = reversed_plan
+            ###
+            # 2. if error is greater that MAX_ERROR
+            if not np.allclose(current_pos, expected_pos,
+                               atol=atol_xy) or not np.allclose(
+                                   current_orn, expected_orn, atol=atol_theta):
+                # 2.a take a corrective action
+                if len(plan) <= 1:
+                    done_bit = True
+                    return np.zeros(17, dtype=np.float32), done_bit
+                low_level_action = (get_delta_low_level_hand_action(
+                    env,
+                    np.array(current_pos),
+                    np.array(current_orn),
+                    np.array(plan[0][0:3]),
+                    np.array(plan[0][3:]),
+                ))
 
-    if option_model:
-        return placeOntopObjectOptionModel
+                # But if the corrective action is 0
+                if np.allclose(
+                        low_level_action,
+                        np.zeros((17, 1)),
+                        atol=atol_vel,
+                ):
+                    low_level_action = (get_delta_low_level_hand_action(
+                        env,
+                        np.array(current_pos),
+                        np.array(current_orn),
+                        np.array(plan[1][0:3]),
+                        np.array(plan[1][3:]),
+                    ))
+                    plan.pop(0)
+
+                return low_level_action, False
+
+        if len(plan) == 1:  # In this case, we're at the final position
+            low_level_action = np.zeros(17, dtype=float)
+            done_bit = True
+
+        else:
+            # Placing Phase 3: getting the hand back to
+            # resting position near the robot.
+            low_level_action = get_delta_low_level_hand_action(
+                env,
+                reversed_plan[0][0:3],
+                reversed_plan[0][3:],
+                reversed_plan[1][0:3],
+                reversed_plan[1][3:],
+            )
+            if len(reversed_plan) == 1:
+                done_bit = True
+
+        reversed_plan.pop(0)
+
+        return low_level_action, done_bit
+
     return placeOntopObjectOption
