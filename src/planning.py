@@ -168,8 +168,8 @@ def _skeleton_generator(task: Task,
         else:
             # Generate successors.
             metrics["num_nodes_expanded"] += 1
-            for nsrt in utils.get_applicable_operators(
-                    ground_nsrts, node.atoms):
+            for nsrt in sorted(utils.get_applicable_operators(
+                    ground_nsrts, node.atoms)):
                 child_atoms = utils.apply_operator(nsrt, set(node.atoms))
                 child_node = _Node(
                     atoms=child_atoms,
