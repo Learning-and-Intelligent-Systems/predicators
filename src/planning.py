@@ -108,7 +108,6 @@ def sesame_plan(
 def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    goal: Set[GroundAtom],
     strips_ops: Sequence[STRIPSOperator],
     option_specs: Sequence[OptionSpec],
 ) -> List[_GroundNSRT]:
@@ -122,10 +121,7 @@ def task_plan_grounding(
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
     ]
-    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                    init_atoms)
-    if not goal.issubset(all_reachable_atoms):
-        raise ApproachFailure(f"Goal {goal} not dr-reachable")
+    all_reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
     reachable_nsrts = [
         nsrt for nsrt in nonempty_ground_nsrts
         if nsrt.preconditions.issubset(all_reachable_atoms)
@@ -149,6 +145,9 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
     """
+    all_reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
+    if not goal.issubset(all_reachable_atoms):
+        raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
