@@ -12,7 +12,6 @@ try:
     import pybullet as pyb
     import bddl
     import igibson
-    from igibson import object_states
     from igibson.envs import behavior_env
     from igibson.objects.articulated_object import (  # pylint: disable=unused-import
         ArticulatedObject, )
@@ -34,7 +33,6 @@ from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task,\
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
-from predicators.src.utils import get_aabb_volume
 
 
 class BehaviorEnv(BaseEnv):
@@ -58,7 +56,8 @@ class BehaviorEnv(BaseEnv):
 
         self._type_name_to_type: Dict[str, Type] = {}
 
-        # name, controller_fn, param_dim, arity
+        # name, controller_fn, param_dim, arity, parameter upper and
+        # lower bounds
         controllers = [
             ("NavigateTo", navigate_to_obj_pos, 2, 1, (-5.0, 5.0)),
             ("Grasp", grasp_obj_at_pos, 3, 1, (-np.pi, np.pi)),
@@ -191,7 +190,6 @@ class BehaviorEnv(BaseEnv):
             ("handempty", self._handempty_classifier, 0),
             ("holding", self._holding_classifier, 1),
             ("reachable", self._reachable_classifier, 2),
-            ("graspable", self._graspable_classifier, 1),
         ]
 
         for name, classifier, arity in custom_predicate_specs:
@@ -329,17 +327,6 @@ class BehaviorEnv(BaseEnv):
 
         return _classifier
 
-    def _graspable_classifier(self, state: State,\
-        objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
-        assert len(objs) == 1
-        ig_obj = self.object_to_ig_object(objs[0])
-        lo, hi = ig_obj.states[object_states.AABB].get_value()
-        volume = get_aabb_volume(lo, hi)
-        return volume < 0.3 * 0.3 * 0.3 and not ig_obj.main_body_is_fixed
-
 
     def _reachable_classifier(self, state: State,\
         objs: Sequence[Object]) -> bool:
@@ -439,10 +426,11 @@ class BehaviorEnv(BaseEnv):
 # If we try to specify the type as env: behavior_env.BehaviorEnv, the problem
 # is that on CI, behavior_env might not get imported, which will cause a number
 # of testing and linting failures...
-def make_behavior_option(  # type: ignore
-        name: str, types: Sequence[Type], params_space: Box, env,
-        controller_fn: Callable, object_to_ig_object: Callable,
-        rng: Generator) -> ParameterizedOption:
+def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
+                         env: "behavior_env.BehaviorEnv",
+                         controller_fn: Callable,
+                         object_to_ig_object: Callable,
+                         rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
