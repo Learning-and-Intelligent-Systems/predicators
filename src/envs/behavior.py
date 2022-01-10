@@ -422,10 +422,6 @@ class BehaviorEnv(BaseEnv):
         return f"{original_name}-{type_names}"
 
 
-# NOTE: This function must be type ignored because the env argument is untyped.
-# If we try to specify the type as env: behavior_env.BehaviorEnv, the problem
-# is that on CI, behavior_env might not get imported, which will cause a number
-# of testing and linting failures...
 def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                          env: "behavior_env.BehaviorEnv",
                          controller_fn: Callable,
