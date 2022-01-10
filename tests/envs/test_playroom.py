@@ -64,6 +64,9 @@ def test_playroom_failure_cases():
     # Check robot is not next to any door
     with pytest.raises(RuntimeError):
         env._get_door_next_to(state)  # pylint: disable=protected-access
+    # Test failure case for _get_region_in() helper
+    with pytest.raises(RuntimeError):
+        env._get_region_in(state, 150)  # pylint: disable=protected-access
     # block1 is on block0 is on the table, block2 is on the table
     assert OnTable([block0]) in atoms
     assert OnTable([block1]) not in atoms
@@ -239,7 +242,7 @@ def test_playroom_simulate_doors_and_dial():
         np.array([80.3, 15, 3, 0, 1]).astype(np.float32),
         np.array([99.8, 15, 3, 0, 1]).astype(np.float32),
         np.array([100.3, 15, 3, 0, 1]).astype(np.float32),
-        np.array( [109.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([109.8, 15, 3, 0, 1]).astype(np.float32),
     ]
     for arr in actions:
         act = Action(arr)
@@ -247,7 +250,9 @@ def test_playroom_simulate_doors_and_dial():
         assert not np.allclose(state[robot], next_state[robot])
         for o in state:
             if o.type != robot_type:
-                assert np.allclose(state[o], next_state[o]), f"obj {o} in state {state} and \nnext state {next_state}"
+                assert np.allclose(
+                    state[o], next_state[o]
+                ), f"obj {o} in state {state} and \nnext state {next_state}"
         state = next_state
     # Can't directly move through door6 to the dial
     act = Action(np.array([126, 15, 1, 0, 1]).astype(np.float32))
@@ -341,7 +346,6 @@ def test_playroom_options():
     Stack = [o for o in env.options if o.name == "Stack"][0]
     PutOnTable = [o for o in env.options if o.name == "PutOnTable"][0]
     MoveToDoor = [o for o in env.options if o.name == "MoveToDoor"][0]
-    MoveDoorToTable = [o for o in env.options if o.name == "MoveDoorToTable"][0]
     MoveDoorToDial = [o for o in env.options if o.name == "MoveDoorToDial"][0]
     OpenDoor = [o for o in env.options if o.name == "OpenDoor"][0]
     CloseDoor = [o for o in env.options if o.name == "CloseDoor"][0]
@@ -417,7 +421,7 @@ def test_playroom_action_sequence_video():
         np.array([80.3, 15, 3, 0, 1]).astype(np.float32),
         np.array([99.8, 15, 3, 0, 1]).astype(np.float32),
         np.array([100.3, 15, 3, 0, 1]).astype(np.float32),
-        np.array( [109.8, 15, 3, 0, 1]).astype(np.float32),
+        np.array([109.8, 15, 3, 0, 1]).astype(np.float32),
         np.array([110.2, 15, 3, 0.5, 1]).astype(np.float32),
         # Shut playroom door
         np.array([110.2, 15, 3, -1, 1]).astype(np.float32),

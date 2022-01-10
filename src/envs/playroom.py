@@ -49,8 +49,8 @@ class PlayroomEnv(BlocksEnv):
         # Types
         self._block_type = Type(
             "block", ["pose_x", "pose_y", "pose_z", "held", "clear"])
-        self._robot_type = Type("robot", ["pose_x", "pose_y", "rotation",
-                                          "fingers"])
+        self._robot_type = Type("robot",
+                                ["pose_x", "pose_y", "rotation", "fingers"])
         self._door_type = Type("door", ["id", "pose_x", "pose_y", "open"])
         self._dial_type = Type("dial", ["pose_x", "pose_y", "level"])
         self._region_type = Type("region",
@@ -132,23 +132,26 @@ class PlayroomEnv(BlocksEnv):
         self._MoveToDoor = ParameterizedOption(
             # variables: [robot, region, door]
             # params: [dx, dy, rotation]
-            "MoveToDoor", types=[self._robot_type, self._region_type, self._door_type],
-            params_space=Box(-1, 1, (3,)),
+            "MoveToDoor",
+            types=[self._robot_type, self._region_type, self._door_type],
+            params_space=Box(-1, 1, (3, )),
             _policy=self._MoveToDoor_policy,  # uses robot, door
             _initiable=self._MoveFromRegion_initiable,  # uses robot, region
             _terminal=utils.onestep_terminal)
         self._MoveDoorToTable = ParameterizedOption(
             # variables: [robot, region]
             # params: [x, y, rotation] (x, y normalized)
-            "MoveDoorToTable", types=[self._robot_type, self._region_type],
-            params_space=Box(-1, 1, (3,)),
+            "MoveDoorToTable",
+            types=[self._robot_type, self._region_type],
+            params_space=Box(-1, 1, (3, )),
             _policy=self._MoveToTable_policy,  # uses robot
             _initiable=self._MoveFromRegion_initiable,  # uses robot, region
             _terminal=utils.onestep_terminal)
         self._MoveDoorToDial = ParameterizedOption(
             # variables: [robot, region, dial]
             # params: [dx, dy, rotation]
-            "MoveDoorToDial", types=[self._robot_type, self._region_type, self._dial_type],
+            "MoveDoorToDial",
+            types=[self._robot_type, self._region_type, self._dial_type],
             params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
                              high=np.array([4.0, 4.0, 1.0])),
             _policy=self._MoveToDial_policy,  # uses robot, dial
@@ -216,15 +219,17 @@ class PlayroomEnv(BlocksEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
-        was_next_to_table = self._NextToTable_holds(state, (self._robot,))
-        was_next_to_door = {door: self._NextToDoor_holds(
-                                    state, (self._robot, door))
-                            for door in self._doors}
+        was_next_to_table = self._NextToTable_holds(state, (self._robot, ))
+        was_next_to_door = {
+            door: self._NextToDoor_holds(state, (self._robot, door))
+            for door in self._doors
+        }
         prev_region = self._get_region_in(state,
                                           state.get(self._robot, "pose_x"))
-        was_next_to_dial = self._NextToDial_holds(
-                                    state, (self._robot, self._dial))
-        if not self._is_valid_loc(x, y) or not self._robot_can_move(state, action):
+        was_next_to_dial = self._NextToDial_holds(state,
+                                                  (self._robot, self._dial))
+        if not self._is_valid_loc(x, y) or not self._robot_can_move(
+                state, action):
             return state.copy()
         # Update robot position
         state = self._transition_move(state, action)
@@ -240,8 +245,9 @@ class PlayroomEnv(BlocksEnv):
                 return self._transition_putontable(state, x, y, z, fingers)
             return self._transition_stack(state, x, y, z, fingers)
         # Interact with some door
-        if any(self._NextToDoor_holds(state, (self._robot, door))
-               for door in self._doors):
+        if any(
+                self._NextToDoor_holds(state, (self._robot, door))
+                for door in self._doors):
             door = self._get_door_next_to(state)
             current_region = self._get_region_in(state, x)
             # Robot was already next to this door and did not move through it
@@ -318,10 +324,11 @@ class PlayroomEnv(BlocksEnv):
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._Pick, self._Stack, self._PutOnTable, self._MoveToDoor,
-                self._MoveDoorToTable, self._MoveDoorToDial,
-                self._OpenDoor, self._CloseDoor, self._TurnOnDial,
-                self._TurnOffDial}
+        return {
+            self._Pick, self._Stack, self._PutOnTable, self._MoveToDoor,
+            self._MoveDoorToTable, self._MoveDoorToDial, self._OpenDoor,
+            self._CloseDoor, self._TurnOnDial, self._TurnOffDial
+        }
 
     @property
     def action_space(self) -> Box:
@@ -759,22 +766,22 @@ class PlayroomEnv(BlocksEnv):
 
     @staticmethod
     def _NextToTable_initiable(state: State, memory: Dict,
-                               objects: Sequence[Object], params: Array
-                               ) -> bool:
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
         del memory, params  # unused
         robot = objects[0]
-        return PlayroomEnv._NextToTable_holds(state, (robot,))
+        return PlayroomEnv._NextToTable_holds(state, (robot, ))
 
     @staticmethod
     def _MoveFromRegion_initiable(state: State, memory: Dict,
-                                  objects: Sequence[Object], params: Array
-                                  ) -> bool:
+                                  objects: Sequence[Object],
+                                  params: Array) -> bool:
         del memory, params  # unused
         # objects: robot, region, ...
         return PlayroomEnv._InRegion_holds(state, objects[:2])
-    
+
     def _MoveToDoor_policy(self, state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> Action:
+                           objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
         # params: [dx, dy, rotation]
         robot, door = objects[0], objects[-1]
@@ -789,7 +796,8 @@ class PlayroomEnv(BlocksEnv):
         return Action(arr)
 
     def _MoveToTable_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
+                            objects: Sequence[Object],
+                            params: Array) -> Action:
         del memory  # unused
         # params: [x, y, rotation] (x, y in normalized coords)
         robot = objects[0]
@@ -807,10 +815,9 @@ class PlayroomEnv(BlocksEnv):
         # params: [dx, dy, rotation]
         robot, _, dial = objects
         fingers = state.get(robot, "fingers")
-        dial_pose = np.array([
-            state.get(dial, "pose_x"),
-            state.get(dial, "pose_y")
-        ])
+        dial_pose = np.array(
+            [state.get(dial, "pose_x"),
+             state.get(dial, "pose_y")])
         arr = np.r_[dial_pose + params[:-1], 1.0, params[-1],
                     fingers].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
@@ -828,11 +835,11 @@ class PlayroomEnv(BlocksEnv):
                     1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-    
+
     @staticmethod
     def _ToggleDoor_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object], params: Array
-                              ) -> bool:
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
         del memory, params  # unused
         # objects: (robot, door)
         return PlayroomEnv._NextToDoor_holds(state, objects)
@@ -849,11 +856,11 @@ class PlayroomEnv(BlocksEnv):
                     1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
-    
+
     @staticmethod
     def _ToggleDial_initiable(state: State, memory: Dict,
-                              objects: Sequence[Object], params: Array
-                              ) -> bool:
+                              objects: Sequence[Object],
+                              params: Array) -> bool:
         del memory, params  # unused
         # objects: (robot, dial)
         return PlayroomEnv._NextToDial_holds(state, objects)
@@ -863,16 +870,15 @@ class PlayroomEnv(BlocksEnv):
         for door in self._doors:
             if self._NextToDoor_holds(state, (self._robot, door)):
                 return door
-        # usage should ensure this is never reached
         raise RuntimeError("Robot not next to any door")
 
     def _get_region_in(self, state: State, x: float) -> int:
         # return the id of the region that x-coordinate `x` is located in
-        assert self.x_lb <= x <= self.x_ub
         for obj in state:
             if obj.type == self._region_type and \
                     state.get(obj, "x_lb") <= x <= state.get(obj, "x_ub"):
                 return state.get(obj, "id")
+        raise RuntimeError(f"x-coord {x} not part of any region")
 
     def _robot_can_move(self, state: State, action: Action) -> bool:
         prev_x = state.get(self._robot, "pose_x")
@@ -883,19 +889,22 @@ class PlayroomEnv(BlocksEnv):
         next_state.set(self._robot, "pose_x", x)
         next_state.set(self._robot, "pose_y", y)
         # Robot must end up next to something
-        if not (self._NextToTable_holds(next_state, (self._robot,)) or 
-                self._NextToDial_holds(next_state, (self._robot, self._dial)) or
-                any(self._NextToDoor_holds(next_state, (self._robot, door))
+        if not (self._NextToTable_holds(next_state, (self._robot, ))
+                or self._NextToDial_holds(next_state,
+                                          (self._robot, self._dial))
+                or any(
+                    self._NextToDoor_holds(next_state, (self._robot, door))
                     for door in self._doors)):
             return False
         if region == prev_region:  # Robot can stay in same region
             return True
-        if abs(region-prev_region) > 1:  # Robot may not "skip over" regions
+        if abs(region - prev_region) > 1:  # Robot may not "skip over" regions
             return False
         # The only remaining possibility is that the robot moves to an
         # adjacent region, which can only happen if it was next to a door.
-        if not any(self._NextToDoor_holds(state, (self._robot, door))
-                   for door in self._doors):
+        if not any(
+                self._NextToDoor_holds(state, (self._robot, door))
+                for door in self._doors):
             return False
         # Any doors along the path must be open
         for door in self._doors:
@@ -906,7 +915,8 @@ class PlayroomEnv(BlocksEnv):
         door = self._get_door_next_to(state)
         # After the robot moves through the door, it must still be next to
         # that same door.
-        if any(self._NextToDoor_holds(next_state, (self._robot, door))
+        if any(
+                self._NextToDoor_holds(next_state, (self._robot, door))
                 for door in self._doors):
             return door == self._get_door_next_to(next_state)
         return False
