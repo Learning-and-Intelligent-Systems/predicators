@@ -135,10 +135,9 @@ def task_plan_grounding(
 
 def task_plan(
     init_atoms: Set[GroundAtom],
-    objects: Set[Object],
     goal: Set[GroundAtom],
-    strips_ops: Sequence[STRIPSOperator],
-    option_specs: Sequence[OptionSpec],
+    ground_nsrts: List[_GroundNSRT],
+    heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
 ) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
@@ -150,16 +149,9 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
     """
-    reachable_nsrts = task_plan_grounding(init_atoms, objects, goal,
-                                          strips_ops, option_specs)
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    predicates_dict, _ = utils.extract_preds_and_types(strips_ops)
-    predicates = set(predicates_dict.values())
-    heuristic = utils.create_task_planning_heuristic(
-        CFG.task_planning_heuristic, init_atoms, goal, reachable_nsrts,
-        predicates, objects)
-    generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
+    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
