@@ -297,7 +297,7 @@ def navigate_to_obj_pos(
                 return np.zeros(17, dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                original_orientation,
+                original_orientation[0:2],
                 np.array(current_pos + [current_orn]),
                 np.array(plan[0]),
             )
@@ -306,7 +306,7 @@ def navigate_to_obj_pos(
             if np.allclose(low_level_action, np.zeros((17, 1)), atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
                     env.robots[0].get_position()[2],
-                    original_orientation,
+                    original_orientation[0:2],
                     np.array(current_pos + [current_orn]),
                     np.array(plan[1]),
                 )
@@ -323,7 +323,7 @@ def navigate_to_obj_pos(
         else:
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                original_orientation,
+                original_orientation[0:2],
                 np.array(plan[0]),
                 np.array(plan[1]),
             )
