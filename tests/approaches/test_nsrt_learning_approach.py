@@ -14,6 +14,7 @@ def _test_approach(env_name,
                    try_solving=True,
                    check_solution=False,
                    sampler_learner="neural",
+                   option_learner="no_learning",
                    learn_side_predicates=False):
     """Integration test for the given approach."""
     utils.flush_cache()  # Some extremely nasty bugs arise without this.
@@ -28,12 +29,12 @@ def _test_approach(env_name,
         "timeout": 10,
         "max_samples_per_step": 10,
         "seed": 12345,
-        "regressor_max_itr": 200,
-        "classifier_max_itr_sampler": 200,
-        "classifier_max_itr_predicate": 200,
+        "neural_gaus_regressor_max_itr": 200,
+        "sampler_mlp_classifier_max_itr": 200,
+        "predicate_mlp_classifier_max_itr": 200,
         "excluded_predicates": excluded_predicates,
         "learn_side_predicates": learn_side_predicates,
-        "option_learner": "no_learning",
+        "option_learner": option_learner,
         "sampler_learner": sampler_learner
     })
     env = create_env(env_name)
@@ -103,6 +104,12 @@ def test_oracle_samplers():
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
+                   check_solution=True)
+    # Test oracle samplers + option learning.
+    _test_approach(env_name="cover",
+                   approach_name="nsrt_learning",
+                   sampler_learner="oracle",
+                   option_learner="oracle",
                    check_solution=True)
     with pytest.raises(Exception) as e:
         # In painting, we learn operators that are different from the

@@ -249,6 +249,9 @@ def test_predicate_and_atom():
     atom = _Atom(pred, [cup1, plate])
     with pytest.raises(NotImplementedError):
         str(atom)  # abstract class
+    zero_arity_pred = Predicate("NoArity", [], _classifier)
+    with pytest.raises(ValueError):
+        zero_arity_pred([])  # ambiguous whether lifted or ground
 
 
 def test_task():
@@ -333,6 +336,10 @@ def test_option():
                                                _policy, _initiable, _terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
             "ParameterizedOption(name='Pick', types=[Type(name='type1')])")
+    parameterized_option2 = ParameterizedOption("Pick2", [type1], params_space,
+                                                _policy, _initiable, _terminal)
+    assert parameterized_option2 > parameterized_option
+    assert parameterized_option < parameterized_option2
     with pytest.raises(AssertionError):
         parameterized_option.ground([], params)  # grounding type mismatch
     with pytest.raises(AssertionError):

@@ -197,6 +197,11 @@ class Predicate:
 
     def __call__(self, entities: Sequence[_TypedEntity]) -> _Atom:
         """Convenience method for generating Atoms."""
+        if self.arity == 0:
+            raise ValueError("Cannot use __call__ on a 0-arity predicate, "
+                             "since we can't determine whether it becomes a "
+                             "LiftedAtom or a GroundAtom. Use the LiftedAtom "
+                             "or GroundAtom constructors directly instead")
         if all(isinstance(ent, Variable) for ent in entities):
             return LiftedAtom(self, entities)
         if all(isinstance(ent, Object) for ent in entities):
@@ -399,6 +404,14 @@ class ParameterizedOption:
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, ParameterizedOption)
         return self.name == other.name
+
+    def __lt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name < other.name
+
+    def __gt__(self, other: object) -> bool:
+        assert isinstance(other, ParameterizedOption)
+        return self.name > other.name
 
     def __hash__(self) -> int:
         return self._hash

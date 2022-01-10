@@ -11,8 +11,9 @@ def _main() -> None:
     # Gather data.
     all_data = []
     column_names = [
-        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "SEED", "TEST_TASKS_SOLVED",
-        "TEST_TASKS_TOTAL", "TOTAL_TEST_TIME", "TOTAL_TIME"
+        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "SEED", "NUM_SOLVED",
+        "NUM_TOTAL", "AVG_TEST_TIME", "AVG_NUM_NODES", "AVG_PLAN_LEN",
+        "LEARNING_TIME"
     ]
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
@@ -21,9 +22,10 @@ def _main() -> None:
         if not excluded_predicates:
             excluded_predicates = "none"
         data = [
-            env, approach, excluded_predicates, seed,
-            run_data["test_tasks_solved"], run_data["test_tasks_total"],
-            run_data["total_test_time"], run_data["total_time"]
+            env, approach, excluded_predicates, seed, run_data["num_solved"],
+            run_data["num_total"], run_data["avg_suc_time"],
+            run_data["avg_nodes_expanded"], run_data["avg_plan_length"],
+            run_data["learning_time"]
         ]
         assert len(data) == len(column_names)
         all_data.append(data)
