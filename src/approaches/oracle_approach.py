@@ -15,7 +15,7 @@ from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
 from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.envs.behavior_options import navigate_to_param_sampler,\
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
     grasp_obj_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs import get_cached_env_instance
 
