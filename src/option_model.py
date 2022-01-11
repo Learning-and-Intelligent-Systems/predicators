@@ -57,6 +57,6 @@ class _BehaviorOptionModel(_OptionModel):
     def get_next_state(self, state: State,
                        option: _Option) -> State:  # pragma: no cover
         env = get_cached_env_instance("behavior")
-        assert option.memory["model_controller"] is not None
-        final_state = option.memory["model_controller"](state, env)
-        return final_state
+        assert option.memory.get("model_controller") is not None
+        next_state = option.memory["model_controller"](state, env)
+        return next_state
