@@ -46,12 +46,12 @@ def sesame_plan(
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
     planning, then Execution.
     """
+    start_time = time.time()
     nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
     predicates = initial_predicates | set(nsrt_preds.values())
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
-    start_time = time.time()
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
@@ -118,11 +118,14 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
     """
+    start_time = time.time()
     nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
+            if time.time() - start_time > timeout:
+                raise ApproachTimeout("Planning timed out in grounding!")
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
     ]
@@ -138,9 +141,9 @@ def task_plan(
     metrics: Metrics = defaultdict(float)
     predicates_dict, _ = utils.extract_preds_and_types(strips_ops)
     predicates = set(predicates_dict.values())
-    generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
-                                    predicates, objects, seed, timeout,
-                                    metrics)
+    generator = _skeleton_generator(
+        dummy_task, reachable_nsrts, init_atoms, predicates, objects, seed,
+        timeout - (time.time() - start_time), metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 

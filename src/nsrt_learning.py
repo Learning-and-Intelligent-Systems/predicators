@@ -5,14 +5,18 @@ from typing import Set, List, Sequence, cast, Tuple
 from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
     LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, State, \
-    Action, Object, _GroundSTRIPSOperator, GroundAtom
+    Action, Object, _GroundSTRIPSOperator, GroundAtom, Task
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
 from predicators.src.option_learning import create_option_learner
+from predicators.src.planning import task_plan
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
 
 
-def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
+def learn_nsrts_from_data(dataset: Dataset,
+                          train_tasks: List[Task],
+                          predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
@@ -47,9 +51,7 @@ def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
         pnads = _learn_pnad_side_predicates(
-            pnads,
-            segmented_trajs,
-            ground_atom_dataset,
+            pnads, segmented_trajs, train_tasks, predicates,
             verbose=(CFG.option_learner != "no_learning"))
 
     # STEP 5: Prune PNADs with not enough data.
@@ -236,51 +238,33 @@ def learn_strips_operators(
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
         segmented_trajs: List[List[Segment]],
-        ground_atom_dataset: List[GroundAtomTrajectory],
+        train_tasks: List[Task],
+        predicates: Set[Predicate],
         verbose: bool) -> List[PartialNSRTAndDatastore]:
     print("\nDoing side predicate learning...")
     # For each demonstration in the data, determine its skeleton under
     # the operators stored in the PNADs.
-    assert len(segmented_trajs) == len(ground_atom_dataset)
-    all_init_atoms = []
-    all_final_atoms = []
-    skeletons = []
-    for seg_traj, (ll_traj, _) in zip(segmented_trajs, ground_atom_dataset):
-        if not ll_traj.is_demo:
-            continue
-        all_init_atoms.append(seg_traj[0].init_atoms)
-        all_final_atoms.append(ll_traj.goal)
-        skeleton = []
-        for segment in seg_traj:
-            ground_op = _get_ground_operator_for_segment(segment, pnads)
-            skeleton.append((ground_op.operator.name,
-                             tuple(ground_op.objects)))
-        skeletons.append(skeleton)
+    # assert len(segmented_trajs) == len(ground_atom_dataset)
+    # all_init_atoms = []
+    # all_final_atoms = []
+    # skeletons = []
+    # for seg_traj, (ll_traj, _) in zip(segmented_trajs, ground_atom_dataset):
+    #     if not ll_traj.is_demo:
+    #         continue
+    #     all_init_atoms.append(seg_traj[0].init_atoms)
+    #     all_final_atoms.append(ll_traj.goal)
+    #     skeleton = []
+    #     for segment in seg_traj:
+    #         ground_op = _get_ground_operator_for_segment(segment, pnads)
+    #         skeleton.append((ground_op.operator.name,
+    #                          tuple(ground_op.objects)))
+    #     skeletons.append(skeleton)
     # Try converting each effect in each PNAD to a side predicate.
     orig_pnad_params = [pnad.op.parameters.copy() for pnad in pnads]
     for pnad in pnads:
         print("pnad:",pnad)
-        _, option_vars = pnad.option_spec
-        for effect_set, add_or_delete in [
-                (pnad.op.add_effects, "add"),
-                (pnad.op.delete_effects, "delete")]:
-            for effect in effect_set:
-                orig_op = pnad.op
-                pnad.op = pnad.op.effect_to_side_predicate(
-                    effect, option_vars, add_or_delete)
-                print("effect:",effect)
-                # If the new operator with this effect turned into a side
-                # predicate does not cover every skeleton, revert the change.
-                if not all(_skeleton_covered(
-                        skeleton, init_atoms, final_atoms,
-                        pnads, orig_pnad_params)
-                       for skeleton, init_atoms, final_atoms in zip(
-                               skeletons, all_init_atoms, all_final_atoms)):
-                    pnad.op = orig_op
-                    print("revert")
-                else:
-                    print("ACCEPT")
-        print("final pnad:",pnad)
+        _update_pnad(pnad, pnads, train_tasks, predicates)
+        print("updated pnad:",pnad)
         # input("!!")
     # Recompute the datastores in the PNADs. We need to do this
     # because now that we have side predicates, each transition may be
@@ -301,6 +285,45 @@ def _learn_pnad_side_predicates(
         for pnad in final_pnads:
             print(pnad)
     return final_pnads
+
+
+def _update_pnad(pnad: PartialNSRTAndDatastore,
+                 pnads: List[PartialNSRTAndDatastore],
+                 train_tasks: List[Task], predicates: Set[Predicate]) -> None:
+    _, option_vars = pnad.option_spec
+    for effect_set, add_or_delete in [
+            (pnad.op.add_effects, "add"),
+            (pnad.op.delete_effects, "delete")]:
+        for effect in effect_set:
+            orig_op = pnad.op
+            pnad.op = pnad.op.effect_to_side_predicate(
+                effect, option_vars, add_or_delete)
+            # If the new operator with this effect turned into a side
+            # predicate does not cover every skeleton, revert the change.
+            if not all(_task_planning_succeeds(pnads, task, predicates)
+                       for task in train_tasks):
+                pnad.op = orig_op
+                print("revert")
+            else:
+                print("ACCEPT")
+                return
+
+
+def _task_planning_succeeds(pnads: List[PartialNSRTAndDatastore],
+                            task: Task, predicates: Set[Predicate]) -> bool:
+    init_atoms = utils.abstract(task.init, predicates)
+    objects = list(task.init)
+    goal = task.goal
+    strips_ops = []
+    option_specs = []
+    for pnad in pnads:
+        strips_ops.append(pnad.op)
+        option_specs.append(pnad.option_spec)
+    try:
+        print(task_plan(init_atoms, objects, goal, strips_ops, option_specs, seed=123, timeout=0.5))
+    except (ApproachTimeout, ApproachFailure):
+        return False
+    return True
 
 
 def _get_ground_operator_for_segment(
