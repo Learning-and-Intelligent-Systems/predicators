@@ -7,6 +7,7 @@ import os
 from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
 import numpy as np
 from numpy.random._generator import Generator
+from dataclasses import dataclass
 
 try:
     import pybullet as pyb
@@ -33,6 +34,11 @@ from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _BehaviorParameterizedOption(ParameterizedOption):
+    pass
 
 
 class BehaviorEnv(BaseEnv):
