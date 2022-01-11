@@ -248,12 +248,34 @@ def create_navigate_policy(
     return navigateToOptionPolicy
 
 
+def create_navigate_option_model(
+    plan: List[Tuple[float, float, float]]
+) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
+    """Instantiates and returns a navigation option model function given an RRT
+    plan."""
+
+    def navigateToOptionModel(_init_state: State, env: BehaviorEnv) -> None:
+        robot_z = env.robots[0].get_position()[2]
+        target_pos = np.array([plan[-1][0], plan[-1][1], robot_z])
+        robot_orn = p.getEulerFromQuaternion(env.robots[0].get_orientation())
+        target_orn = p.getQuaternionFromEuler(
+            np.array([robot_orn[0], robot_orn[1], plan[-1][2]]))
+        env.robots[0].set_position_orientation(target_pos, target_orn)
+        # this is running a zero action to step simulator so
+        # the environment updates to the correct final position
+        env.step(np.zeros(17))
+
+    return navigateToOptionModel
+
+
 def navigate_to_obj_pos(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     pos_offset: Array,
+    ret_option_model: bool = False,
     rng: Optional[Generator] = None
-) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
+) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
+                    Callable[[State, "BehaviorEnv"], None]]]:
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
@@ -353,9 +375,12 @@ def navigate_to_obj_pos(
     p.restoreState(state)
     p.removeState(state)
 
-    print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
-          f"continuous params {pos_offset}. Executing now.")
-    return create_navigate_policy(plan, original_orientation)
+    if not ret_option_model:
+        print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
+              f"continuous params {pos_offset}. Executing now.")
+        return create_navigate_policy(plan, original_orientation)
+
+    return create_navigate_option_model(plan)
 
 
 # Sampler for grasp continuous params
@@ -490,10 +515,74 @@ def create_grasp_policy(
     return graspObjectOptionPolicy
 
 
+# TODO: see how much of this can be merged with the bigger wrapper function
+def create_grasp_option_model(plan: List[List[float]], lo: Array, hi: Array):
+    hand_pos = plan[-1][0:3]
+    hand_orn = plan[-1][3:6]
+    rh_final_grasp_postion = hand_pos[:]
+    rh_final_grasp_orn = hand_orn[:]
+    # Get the closest point on the object's bounding box at which we can try to put the hand
+    closest_point_on_aabb = get_closest_point_on_aabb(hand_pos, lo, hi)
+    # Get the closest point on the object's bounding box at which we can try to put the hand
+    delta_pos_to_obj = [
+        closest_point_on_aabb[0] - hand_pos[0],
+        closest_point_on_aabb[1] - hand_pos[1],
+        closest_point_on_aabb[2] - hand_pos[2]
+    ]
+    delta_step_to_obj = [
+        delta_pos / 25.0 for delta_pos in delta_pos_to_obj
+    ]  # because we want to accomplish the motion in 25 timesteps
+    # lower the hand until it touches the object
+    for _ in range(25):
+        new_hand_pos = [
+            hand_pos[0] + delta_step_to_obj[0],
+            hand_pos[1] + delta_step_to_obj[1],
+            hand_pos[2] + delta_step_to_obj[2]
+        ]
+        plan.append(new_hand_pos + list(hand_orn))
+        hand_pos = new_hand_pos
+
+    def graspObjectOptionModel(_state: State, env: BehaviorEnv) -> None:
+        rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
+        )
+        rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
+
+        # 1 Move Hand to Grasp Location
+        env.robots[0].parts["right_hand"].set_position_orientation(
+            rh_final_grasp_postion,
+            p.getQuaternionFromEuler(rh_final_grasp_orn))
+
+        for i in range(25):
+            ret_action = get_delta_low_level_hand_action(
+                env, plan[i - 26][0:3], plan[i - 26][3:6], plan[i - 25][0:3],
+                plan[i - 25][3:6])
+            env.step(ret_action)
+
+        # 2 Simulate Grasp
+        a = np.zeros(17, dtype=float)
+        a[16] = 1.0
+        assisted_grasp_action = np.zeros(28, dtype=float)
+        assisted_grasp_action[26] = 1.0
+        env.robots[0].parts["right_hand"].handle_assisted_grasping(
+            assisted_grasp_action,
+            override_ag_data=(env.task_relevant_objects[5].body_id[0], -1))
+        env.step(a)
+
+        # 3 Move Hand to Original Location
+        env.robots[0].parts["right_hand"].set_position_orientation(
+            rh_orig_grasp_postion, rh_orig_grasp_orn)
+
+        # this is running a zero action to step simulator
+        env.step(np.zeros(17))
+
+    return graspObjectOptionModel
+
+
 def grasp_obj_at_pos(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     grasp_offset: Array,
+    ret_option_model: bool = False,
     rng: Optional[Generator] = None,
 ) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
     """Parameterized controller for grasping.
@@ -665,9 +754,12 @@ def grasp_obj_at_pos(
     p.restoreState(state)
     p.removeState(state)
 
-    print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
-          f"continuous params {grasp_offset}. Executing now.")
-    return create_grasp_policy(plan)
+    if not ret_option_model:
+        print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
+              f"continuous params {grasp_offset}. Executing now.")
+        return create_grasp_policy(plan)
+    else:
+        return create_grasp_option_model(plan, lo, hi)
 
 
 def place_obj_plan(
@@ -931,10 +1023,34 @@ def create_place_policy(
     return placeOntopObjectOptionPolicy
 
 
+def create_place_option_model(
+        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+
+    def placeOntopObjectOptionModel(_init_state: State,
+                                    env: BehaviorEnv) -> None:
+        rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
+        )
+        rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
+        target_pos = plan[-1][0:3]
+        target_orn = plan[-1][3:6]
+        env.robots[0].parts["right_hand"].set_position_orientation(
+            target_pos, p.getQuaternionFromEuler(target_orn))
+        env.robots[0].parts["right_hand"].force_release_obj()
+        # this is running a zero action to step simulator
+        env.step(np.zeros(17))
+        env.robots[0].parts["right_hand"].set_position_orientation(
+            rh_orig_grasp_postion, rh_orig_grasp_orn)
+        final_state = env._current_ig_state_to_state()
+        return final_state, True
+
+    return placeOntopObjectOptionModel
+
+
 def place_ontop_obj_pos(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     place_rel_pos: Array,
+    ret_option_model: bool = False,
     rng: Optional[Generator] = None,
 ) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
     """Parameterized controller for placeOnTop.
@@ -987,6 +1103,9 @@ def place_ontop_obj_pos(
               " to find plan to continuous params" + f" {place_rel_pos}")
         return None
 
-    print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
-          f"continuous params {place_rel_pos}. Executing now.")
-    return create_place_policy(plan)
+    if not ret_option_model:
+        print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
+              f"continuous params {place_rel_pos}. Executing now.")
+        return create_place_policy(plan)
+
+    return create_place_option_model(plan)
