@@ -89,23 +89,27 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 self._get_current_predicates(),
                 max_steps=CFG.interactive_max_steps)
             # Pick best state seen during exploration
-            abstract_states = [utils.abstract(s, self._get_current_predicates())
-                                         for s in traj.states]
-            best_abstract_state = get_best_goal_by_score(self._dataset_with_atoms,
-                            abstract_states)
+            abstract_states = [
+                utils.abstract(s, self._get_current_predicates())
+                for s in traj.states
+            ]
+            best_abstract_state = get_best_goal_by_score(
+                self._dataset_with_atoms, abstract_states)
             idx = abstract_states.index(best_abstract_state)
             best_state = traj.states[idx]
             # Pick best ground atom in the state
-            ground_atoms = utils.all_possible_ground_atoms(best_state, self._predicates_to_learn)
+            ground_atoms = utils.all_possible_ground_atoms(
+                best_state, self._predicates_to_learn)
             best_atom_set = get_best_goal_by_score(self._dataset_with_atoms,
-                                               [{ga} for ga in ground_atoms])
+                                                   [{ga}
+                                                    for ga in ground_atoms])
             assert len(best_atom_set) == 1
             # For now, ask teacher about every such best atom
             if self._ask_teacher(best_state, list(best_atom_set)[0]):
                 # Add this atom if it's a positive example
                 self._dataset_with_atoms.append(  # pragma: no cover
                     (LowLevelTrajectory([best_state], []), [best_atom_set]))
-                    # Still need to implement a way to use negative examples
+                # Still need to implement a way to use negative examples
             if i % CFG.interactive_relearn_every == 0:
                 self._relearn_predicates_and_nsrts()
 
@@ -256,8 +260,11 @@ def score_goal(dataset_with_atoms: List[GroundAtomTrajectory],
             count += 1 if goal.issubset(ground_atom_set) else 0
     return 1.0 / count
 
+
 def get_best_goal_by_score(dataset_with_atoms: List[GroundAtomTrajectory],
                            goals: List[Set[GroundAtom]]) -> Set[GroundAtom]:
+    """Return the best goal out of `goals` using the score function.
+    """
     scores = [score_goal(dataset_with_atoms, g) for g in goals]
     goals_and_scores = list(zip(goals, scores))
     goals_and_scores.sort(key=lambda tup: tup[1], reverse=True)
