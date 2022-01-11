@@ -64,8 +64,8 @@ class BehaviorEnv(BaseEnv):
             ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
-        for (name, controller_fn, param_dim, num_args, parameter_limits\
-            ) in controllers:
+        for (name, controller_fn, param_dim, num_args,
+             parameter_limits) in controllers:
             # Create a different option for each type combo
             for types in itertools.product(self.types, repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
@@ -248,8 +248,10 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.behavior_env.action_space.high == 1)
         return self.behavior_env.action_space
 
-    def render(self, state: State, task: Task, \
-        action: Optional[Action] = None) -> List[Image]:
+    def render(self,
+               state: State,
+               task: Task,
+               action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
@@ -296,8 +298,9 @@ class BehaviorEnv(BaseEnv):
         simulator_state = self.behavior_env.task.save_scene()
         return State(state_data, simulator_state)
 
-    def _create_classifier_from_bddl(self, \
-        bddl_predicate: "bddl.AtomicFormula", \
+    def _create_classifier_from_bddl(
+        self,
+        bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
 
         def _classifier(s: State, o: Sequence[Object]) -> bool:
@@ -327,9 +330,8 @@ class BehaviorEnv(BaseEnv):
 
         return _classifier
 
-
-    def _reachable_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _reachable_classifier(self, state: State,
+                              objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
@@ -340,8 +342,8 @@ class BehaviorEnv(BaseEnv):
             np.array(ig_obj.get_position()) -
             np.array(ig_other_obj.get_position())) < 2)
 
-    def _reachable_nothing_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _reachable_nothing_classifier(self, state: State,
+                                      objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
         assert len(objs) == 1
@@ -367,8 +369,8 @@ class BehaviorEnv(BaseEnv):
 
         return grasped_objs
 
-    def _handempty_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _handempty_classifier(self, state: State,
+                              objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
@@ -376,8 +378,8 @@ class BehaviorEnv(BaseEnv):
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
-    def _holding_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _holding_classifier(self, state: State,
+                            objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
         assert state.allclose(self._current_ig_state_to_state())
@@ -416,8 +418,8 @@ class BehaviorEnv(BaseEnv):
         raise ValueError("BDDL predicate has unexpected arity.")
 
     @staticmethod
-    def _create_type_combo_name(original_name: str, \
-        type_combo: Sequence[Type]) -> str:
+    def _create_type_combo_name(original_name: str,
+                                type_combo: Sequence[Type]) -> str:
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
 
@@ -430,8 +432,8 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
-    def _policy(state: State, memory: Dict, _objects: Sequence[Object], \
-        _params: Array) -> Action:
+    def _policy(state: State, memory: Dict, _objects: Sequence[Object],
+                _params: Array) -> Action:
         assert "has_terminated" in memory
         assert ("controller" in memory and memory["controller"] is not None
                 )  # must call initiable() first, and it must return True
@@ -444,7 +446,7 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
         if memory.get("controller") is None:
-            # We want to reset the state of the environmenet to
+            # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
             if state.simulator_state is not None:
