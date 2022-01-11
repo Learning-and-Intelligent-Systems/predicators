@@ -15,6 +15,7 @@ from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
     Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
+from predicators.src.utils import _TaskPlanningHeuristic
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.option_model import _OptionModel
 from predicators.src.settings import CFG
@@ -77,11 +78,14 @@ def sesame_plan(
             nsrt for nsrt in nonempty_ground_nsrts
             if nsrt.preconditions.issubset(all_reachable_atoms)
         ]
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.task_planning_heuristic, init_atoms, task.goal,
+            reachable_nsrts, predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
-                    task, reachable_nsrts, init_atoms, predicates, objects,
-                    new_seed, timeout - (time.time() - start_time), metrics):
+                    task, reachable_nsrts, init_atoms, heuristic, new_seed,
+                    timeout - (time.time() - start_time), metrics):
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
                     new_seed, timeout - (time.time() - start_time))
@@ -101,12 +105,43 @@ def sesame_plan(
             predicates |= new_predicates
 
 
-def task_plan(
+def task_plan_grounding(
     init_atoms: Set[GroundAtom],
     objects: Set[Object],
-    goal: Set[GroundAtom],
     strips_ops: Sequence[STRIPSOperator],
     option_specs: Sequence[OptionSpec],
+) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
+    """Ground all operators for task planning into dummy _GroundNSRTs,
+    filtering out ones that are unreachable or have empty effects.
+
+    Also return the set of reachable atoms, which is used by task
+    planning to quickly determine if a goal is unreachable.
+
+    See the task_plan docstring for usage instructions.
+    """
+    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
+    ground_nsrts = []
+    for nsrt in sorted(nsrts):
+        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+            ground_nsrts.append(ground_nsrt)
+    nonempty_ground_nsrts = [
+        nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
+    ]
+    reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                init_atoms)
+    reachable_nsrts = [
+        nsrt for nsrt in nonempty_ground_nsrts
+        if nsrt.preconditions.issubset(reachable_atoms)
+    ]
+    return reachable_nsrts, reachable_atoms
+
+
+def task_plan(
+    init_atoms: Set[GroundAtom],
+    goal: Set[GroundAtom],
+    ground_nsrts: List[_GroundNSRT],
+    reachable_atoms: Set[GroundAtom],
+    heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
 ) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
@@ -117,38 +152,29 @@ def task_plan(
     This method is NOT used by SeSamE, but is instead provided as a
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
+
+    This method is tightly coupled with task_plan_grounding -- the reason they
+    are separate methods is that it is sometimes possible to ground only once
+    and then plan multiple times (e.g. from different initial states, or to
+    different goals). To run task planning once, call task_plan_grounding to
+    get ground_nsrts and reachable_atoms; then create a heuristic using
+    utils.create_task_planning_heuristic; then call this method. See the tests
+    in tests/test_planning for usage examples.
     """
-    nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
-    ground_nsrts = []
-    for nsrt in sorted(nsrts):
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-    nonempty_ground_nsrts = [
-        nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
-    ]
-    all_reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                    init_atoms)
-    if not goal.issubset(all_reachable_atoms):
+    if not goal.issubset(reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
-    reachable_nsrts = [
-        nsrt for nsrt in nonempty_ground_nsrts
-        if nsrt.preconditions.issubset(all_reachable_atoms)
-    ]
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    predicates_dict, _ = utils.extract_preds_and_types(strips_ops)
-    predicates = set(predicates_dict.values())
-    generator = _skeleton_generator(dummy_task, reachable_nsrts, init_atoms,
-                                    predicates, objects, seed, timeout,
-                                    metrics)
+    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
+                                    heuristic, seed, timeout, metrics)
     skeleton, atoms_sequence = next(generator)  # get the first one
     return skeleton, atoms_sequence, metrics
 
 
 def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
-    predicates: Collection[Predicate], objects: Collection[Object], seed: int,
-    timeout: float, metrics: Metrics
+    heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
+    metrics: Metrics
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -160,9 +186,6 @@ def _skeleton_generator(
                       atoms_sequence=[init_atoms],
                       parent=None)
     rng_prio = np.random.default_rng(seed)
-    heuristic = utils.create_task_planning_heuristic(
-        CFG.task_planning_heuristic, init_atoms, task.goal, ground_nsrts,
-        predicates, objects)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
