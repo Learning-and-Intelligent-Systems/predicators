@@ -54,7 +54,8 @@ class _DefaultOptionModel(_OptionModel):
 class _BehaviorOptionModel(_OptionModel):
     """An oracle option model for the BEHAVIOR env."""
 
-    def get_next_state(self, state: State, option: _Option) -> State:  # pragma: no cover
+    def get_next_state(self, state: State,
+                       option: _Option) -> State:  # pragma: no cover
         env = get_cached_env_instance("behavior")
         assert option.memory["model_controller"] is not None
         final_state = option.memory["model_controller"](state, env)
