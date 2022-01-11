@@ -619,14 +619,15 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
             init_atoms = utils.abstract(task.init,
                                         predicates | self._initial_predicates)
             objects = set(task.init)
-            ground_nsrts = task_plan_grounding(init_atoms, objects, strips_ops,
-                                               option_specs)
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, strips_ops, option_specs)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.task_planning_heuristic, init_atoms, task.goal,
                 ground_nsrts, predicates | self._initial_predicates, objects)
             try:
                 _, _, metrics = task_plan(
-                    init_atoms, task.goal, ground_nsrts, heuristic, CFG.seed,
+                    init_atoms, task.goal, ground_nsrts, reachable_atoms,
+                    heuristic, CFG.seed,
                     CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
@@ -832,8 +833,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
         # It's important for efficiency that we only ground once, and create
         # the heuristic once, for every task.
-        ground_nsrts = task_plan_grounding(init_atoms, objects, strips_ops,
-                                           option_specs)
+        ground_nsrts, reachable_atoms = task_plan_grounding(
+            init_atoms, objects, strips_ops, option_specs)
         heuristic = utils.create_task_planning_heuristic(
             CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
             set(predicates) | self._initial_predicates, objects)
@@ -845,8 +846,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = task_plan(
-                    atoms, goal, ground_nsrts, heuristic, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                    atoms, goal, ground_nsrts, reachable_atoms, heuristic,
+                    CFG.seed, CFG.grammar_search_task_planning_timeout)
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
