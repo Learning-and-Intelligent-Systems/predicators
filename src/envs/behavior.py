@@ -5,9 +5,9 @@ import functools
 import itertools
 import os
 from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
+from dataclasses import dataclass, field
 import numpy as np
 from numpy.random._generator import Generator
-from dataclasses import dataclass, field
 
 try:
     import pybullet as pyb
@@ -39,6 +39,11 @@ from predicators.src.settings import CFG
 
 @dataclass(frozen=True, eq=False, repr=False)
 class BehaviorParameterizedOption(ParameterizedOption):
+    """A struct defining a BehaviorParameterizedOption, which is a subclass of
+    a ParameterizedOption and differs from its superclass only in that it
+    contains a model attribute, which allows it to bypass policy rollouts at
+    planning time."""
+
     # A model maps a state, memory dict, objects, and parameters to a state
     # obtained after runnign the option's _policy to completion. This basically
     # enables us to 'fast-forward' the policy to its terminal state.
@@ -61,7 +66,6 @@ class BehaviorParameterizedOption(ParameterizedOption):
         super().__init__(name, types, params_space, policy, initiable,
                          terminal)
 
-
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
         assert len(objects) == len(self.types)
@@ -72,8 +76,8 @@ class BehaviorParameterizedOption(ParameterizedOption):
         memory: Dict = {}  # each option has its own memory dict
         return _BehaviorOption(
             self.name,
-            lambda s: self._policy(s, memory, objects, params),
-            lambda s: self._model(s, memory, objects, params),
+            policy=lambda s: self._policy(s, memory, objects, params),
+            model=lambda s: self._model(s, memory, objects, params),
             initiable=lambda s: self._initiable(s, memory, objects, params),
             terminal=lambda s: self._terminal(s, memory, objects, params),
             parent=self,
@@ -83,24 +87,18 @@ class BehaviorParameterizedOption(ParameterizedOption):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _BehaviorOption(_Option):
-    _model: Callable[[State, Dict, Sequence[Object], Array],
-                     State] = field(repr=False)
+    _model: Callable[[State], State] = field(repr=False)
 
-    def __init__(self, name: str, types: Sequence[Type], params_space: Box,
-                 policy: Callable[[State, Dict, Sequence[Object], Array],
-                                  Action],
-                 model: Callable[[State, Dict, Sequence[Object], Array],
-                                 State],
-                 initiable: Callable[[State, Dict, Sequence[Object], Array],
-                                     bool],
-                 terminal: Callable[[State, Dict, Sequence[Object], Array],
-                                    bool],
-                 parent: _BehaviorParameterizedOption,
+    def __init__(self, name: str, policy: Callable[[State], Action],
+                 model: Callable[[State], State], initiable: Callable[[State],
+                                                                      bool],
+                 terminal: Callable[[State],
+                                    bool], parent: BehaviorParameterizedOption,
                  objects: Sequence[Object], params: Array):
         # Dataclass is frozen, so we have to do this hacks.
         object.__setattr__(self, "_model", model)
-        super().__init__(name, types, params_space, policy, initiable,
-                         terminal, parent, objects, params)
+        super().__init__(name, policy, initiable, terminal, parent, objects,
+                         params)
 
     def model(self, state: State) -> State:
         """Call the model and returns the option's model."""
@@ -512,6 +510,17 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         action_arr, memory["has_terminated"] = memory["controller"](state, env)
         return Action(action_arr)
 
+    # NOTE: for now, this just returns the same state it started in.
+    # This will be changed to call the option model controller fn once that is
+    # implemented and incorporated.
+    def _model(state: State, memory: Dict, _objects: Sequence[Object], \
+        _params: Array) -> State:
+        assert "has_terminated" in memory
+        assert ("controller" in memory and memory["controller"] is not None
+                )  # must call initiable() first, and it must return True
+        assert not memory["has_terminated"]
+        return state
+
     def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
@@ -533,13 +542,12 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         assert "has_terminated" in memory
         return memory["has_terminated"]
 
-    # TODO: model cannot be None here, that'll be a type error!
     return BehaviorParameterizedOption(
         name,
         types=types,
         params_space=params_space,
         policy=_policy,
-        model = None,
+        model=_model,
         initiable=_initiable,
         terminal=_terminal,
     )
