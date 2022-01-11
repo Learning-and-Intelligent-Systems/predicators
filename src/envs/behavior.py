@@ -7,7 +7,7 @@ import os
 from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
 import numpy as np
 from numpy.random._generator import Generator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:
     import pybullet as pyb
@@ -32,13 +32,75 @@ from predicators.src.envs.behavior_options import navigate_to_obj_pos, \
         grasp_obj_at_pos,place_ontop_obj_pos
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array, \
+        _Option
 from predicators.src.settings import CFG
 
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _BehaviorParameterizedOption(ParameterizedOption):
-    pass
+    # A model maps a state, memory dict, objects, and parameters to a state
+    # obtained after runnign the option's _policy to completion. This basically
+    # enables us to 'fast-forward' the policy to its terminal state.
+    # The objects' types will match those in self.types. The parameters
+    # will be contained in params_space.
+    _model: Callable[[State, Dict, Sequence[Object], Array],
+                     State] = field(repr=False)
+
+    def __init__(self, name: str, types: Sequence[Type], params_space: Box,
+                 policy: Callable[[State, Dict, Sequence[Object], Array],
+                                  Action],
+                 model: Callable[[State, Dict, Sequence[Object], Array],
+                                 State],
+                 initiable: Callable[[State, Dict, Sequence[Object], Array],
+                                     bool],
+                 terminal: Callable[[State, Dict, Sequence[Object], Array],
+                                    bool]):
+        # Dataclass is frozen, so we have to do this hacks.
+        object.__setattr__(self, "_model", model)
+        super().__init__(name, types, params_space, policy, initiable,
+                         terminal)
+
+    # TODO: Change this to return a _BehaviorOption once that class is fully-
+    # defined!
+    def ground(self, objects: Sequence[Object], params: Array) -> _Option:
+        """Ground into an Option, given objects and parameter values."""
+        assert len(objects) == len(self.types)
+        for obj, t in zip(objects, self.types):
+            assert obj.is_instance(t)
+        params = np.array(params, dtype=self.params_space.dtype)
+        assert self.params_space.contains(params)
+        memory: Dict = {}  # each option has its own memory dict
+        return _Option(
+            self.name,
+            lambda s: self._policy(s, memory, objects, params),
+            initiable=lambda s: self._initiable(s, memory, objects, params),
+            terminal=lambda s: self._terminal(s, memory, objects, params),
+            parent=self,
+            objects=objects,
+            params=params)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _BehaviorOption(_Option):
+    _model: Callable[[State, Dict, Sequence[Object], Array],
+                     State] = field(repr=False)
+
+    def __init__(self, name: str, types: Sequence[Type], params_space: Box,
+                 policy: Callable[[State, Dict, Sequence[Object], Array],
+                                  Action],
+                 model: Callable[[State, Dict, Sequence[Object], Array],
+                                 State],
+                 initiable: Callable[[State, Dict, Sequence[Object], Array],
+                                     bool],
+                 terminal: Callable[[State, Dict, Sequence[Object], Array],
+                                    bool],
+                 parent: _BehaviorParameterizedOption,
+                 objects: Sequence[Object], params: Array):
+        # Dataclass is frozen, so we have to do this hacks.
+        object.__setattr__(self, "_model", model)
+        super().__init__(name, types, params_space, policy, initiable,
+                         terminal, parent, objects, params)
 
 
 class BehaviorEnv(BaseEnv):
