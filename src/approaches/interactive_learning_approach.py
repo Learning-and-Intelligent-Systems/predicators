@@ -59,7 +59,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # Learn predicates and NSRTs
         self._relearn_predicates_and_nsrts()
         # Active learning
-        new_trajectories: Dataset = []
         for i in range(1, CFG.interactive_num_episodes + 1):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
@@ -89,25 +88,26 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 self._simulator,
                 self._get_current_predicates(),
                 max_steps=CFG.interactive_max_steps)
-            new_trajectories.append(traj)
-            if i % CFG.interactive_relearn_every == 0:
-                print("Asking teacher...")
-                # Pick a state from the new states explored
-                for s in self._get_states_to_ask(new_trajectories):
-                    # For now, pick a random ground atom to ask about
-                    ground_atoms = utils.all_possible_ground_atoms(
-                        s, self._predicates_to_learn)
-                    idx = self._rng.choice(len(ground_atoms))
-                    random_atom = ground_atoms[idx]
-                    # Add this atom if it's a positive example
-                    if self._ask_teacher(s, random_atom):
-                        self._dataset_with_atoms.append(
-                            (LowLevelTrajectory([s], []), [{random_atom}]))
+            # Pick best state seen during exploration
+            abstract_states = [utils.abstract(s, self._get_current_predicates())
+                                         for s in traj.states]
+            best_abstract_state = get_best_goal_by_score(self._dataset_with_atoms,
+                            abstract_states)
+            idx = abstract_states.index(best_abstract_state)
+            best_state = traj.states[idx]
+            # Pick best ground atom in the state
+            ground_atoms = utils.all_possible_ground_atoms(best_state, self._predicates_to_learn)
+            best_atom_set = get_best_goal_by_score(self._dataset_with_atoms,
+                                               [{ga} for ga in ground_atoms])
+            assert len(best_atom_set) == 1
+            # For now, ask teacher about every such best atom
+            if self._ask_teacher(best_state, list(best_atom_set)[0]):
+                # Add this atom if it's a positive example
+                self._dataset_with_atoms.append(  # pragma: no cover
+                    (LowLevelTrajectory([best_state], []), [best_atom_set]))
                     # Still need to implement a way to use negative examples
-                # Relearn predicates and NSRTs
+            if i % CFG.interactive_relearn_every == 0:
                 self._relearn_predicates_and_nsrts()
-                # Reset trajectories list
-                new_trajectories = []
 
     def _relearn_predicates_and_nsrts(self) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
@@ -166,34 +166,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         # Learn NSRTs via superclass
         self._learn_nsrts()
-
-    def _get_states_to_ask(self, trajectories: Dataset) -> List[State]:
-        """Gets set of states to ask about, according to ask_strategy."""
-        new_states = []
-        for traj in trajectories:
-            new_states.extend(traj.states)
-        scores = [
-            score_goal(self._dataset_with_atoms,
-                       utils.abstract(s, self._get_current_predicates()))
-            for s in new_states
-        ]
-        if CFG.interactive_ask_strategy == "all_seen_states":
-            return new_states
-        if CFG.interactive_ask_strategy == "threshold":
-            assert isinstance(CFG.interactive_ask_strategy_threshold, float)
-            return [
-                s for (s, score) in zip(new_states, scores)
-                if score >= CFG.interactive_ask_strategy_threshold
-            ]
-        if CFG.interactive_ask_strategy == "top_k_percent":
-            assert isinstance(CFG.interactive_ask_strategy_pct, float)
-            n = int(CFG.interactive_ask_strategy_pct / 100. * len(new_states))
-            states_and_scores = list(zip(new_states, scores))
-            states_and_scores.sort(key=lambda tup: tup[1], reverse=True)
-            return [s for (s, _) in states_and_scores[:n]]
-        raise NotImplementedError(f"Ask strategy "
-                                  f"{CFG.interactive_ask_strategy} "
-                                  "not supported")
 
     def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state."""
@@ -283,3 +255,10 @@ def score_goal(dataset_with_atoms: List[GroundAtomTrajectory],
         for ground_atom_set in trajectory:
             count += 1 if goal.issubset(ground_atom_set) else 0
     return 1.0 / count
+
+def get_best_goal_by_score(dataset_with_atoms: List[GroundAtomTrajectory],
+                           goals: List[Set[GroundAtom]]) -> Set[GroundAtom]:
+    scores = [score_goal(dataset_with_atoms, g) for g in goals]
+    goals_and_scores = list(zip(goals, scores))
+    goals_and_scores.sort(key=lambda tup: tup[1], reverse=True)
+    return goals_and_scores[0][0]
