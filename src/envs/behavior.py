@@ -61,8 +61,7 @@ class _BehaviorParameterizedOption(ParameterizedOption):
         super().__init__(name, types, params_space, policy, initiable,
                          terminal)
 
-    # TODO: Change this to return a _BehaviorOption once that class is fully-
-    # defined!
+
     def ground(self, objects: Sequence[Object], params: Array) -> _Option:
         """Ground into an Option, given objects and parameter values."""
         assert len(objects) == len(self.types)
@@ -71,9 +70,10 @@ class _BehaviorParameterizedOption(ParameterizedOption):
         params = np.array(params, dtype=self.params_space.dtype)
         assert self.params_space.contains(params)
         memory: Dict = {}  # each option has its own memory dict
-        return _Option(
+        return _BehaviorOption(
             self.name,
             lambda s: self._policy(s, memory, objects, params),
+            lambda s: self._model(s, memory, objects, params),
             initiable=lambda s: self._initiable(s, memory, objects, params),
             terminal=lambda s: self._terminal(s, memory, objects, params),
             parent=self,
@@ -101,6 +101,11 @@ class _BehaviorOption(_Option):
         object.__setattr__(self, "_model", model)
         super().__init__(name, types, params_space, policy, initiable,
                          terminal, parent, objects, params)
+
+    def model(self, state: State) -> State:
+        """Call the model and returns the option's model."""
+        next_state = self._model(state)
+        return next_state
 
 
 class BehaviorEnv(BaseEnv):
