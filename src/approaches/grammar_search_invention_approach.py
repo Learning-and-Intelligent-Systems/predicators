@@ -18,7 +18,7 @@ from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.planning import task_plan
+from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
@@ -619,10 +619,16 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
             init_atoms = utils.abstract(task.init,
                                         predicates | self._initial_predicates)
             objects = set(task.init)
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, strips_ops, option_specs)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.task_planning_heuristic, init_atoms, task.goal,
+                ground_nsrts, predicates | self._initial_predicates, objects)
             try:
                 _, _, metrics = task_plan(
-                    init_atoms, objects, task.goal, strips_ops, option_specs,
-                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                    init_atoms, task.goal, ground_nsrts, reachable_atoms,
+                    heuristic, CFG.seed,
+                    CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -821,10 +827,17 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
         ground_ops: Set[_GroundSTRIPSOperator],
         predicates: Collection[Predicate],
     ) -> Callable[[Set[GroundAtom]], float]:
-        del init_atoms, predicates  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
 
         assert heuristic_name == "exact"
+
+        # It's important for efficiency that we only ground once, and create
+        # the heuristic once, for every task.
+        ground_nsrts, reachable_atoms = task_plan_grounding(
+            init_atoms, objects, strips_ops, option_specs)
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
+            set(predicates) | self._initial_predicates, objects)
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
@@ -833,8 +846,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = task_plan(
-                    atoms, objects, goal, strips_ops, option_specs, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                    atoms, goal, ground_nsrts, reachable_atoms, heuristic,
+                    CFG.seed, CFG.grammar_search_task_planning_timeout)
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms

@@ -6,7 +6,7 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.approaches.oracle_approach import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan, task_plan
+from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
 from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
@@ -48,11 +48,16 @@ def test_task_plan():
                            nsrt.add_effects, nsrt.delete_effects,
                            nsrt.side_predicates))
         option_specs.append((nsrt.option, nsrt.option_vars))
+    ground_nsrts, reachable_atoms = task_plan_grounding(
+        init_atoms, objects, strips_ops, option_specs)
+    heuristic = utils.create_task_planning_heuristic("hadd", init_atoms,
+                                                     task.goal, ground_nsrts,
+                                                     env.predicates, objects)
     skeleton, _, _ = task_plan(init_atoms,
-                               objects,
                                task.goal,
-                               strips_ops,
-                               option_specs,
+                               ground_nsrts,
+                               reachable_atoms,
+                               heuristic,
                                timeout=1,
                                seed=123)
     assert len(skeleton) == 2
@@ -238,30 +243,29 @@ def test_planning_determinism():
                                     seed=123)[0]]
     assert plan1 == plan2 == plan3 == plan4
     # Check that task_plan is deterministic, over both NSRTs and objects.
+    predicates = {asleep, cried}
+    init_atoms = set()
     option_specs = [(sleep_nsrt.option, sleep_nsrt.option_vars),
                     (cry_nsrt.option, cry_nsrt.option_vars)]
-    plan1 = [(act.name, act.objects)
-             for act in task_plan(set(), [robby, robin],
-                                  goal, [sleep_op, cry_op],
-                                  option_specs,
-                                  seed=123,
-                                  timeout=10)[0]]
-    plan2 = [(act.name, act.objects)
-             for act in task_plan(set(), [robby, robin],
-                                  goal, [cry_op, sleep_op],
-                                  option_specs,
-                                  seed=123,
-                                  timeout=10)[0]]
-    plan3 = [(act.name, act.objects)
-             for act in task_plan(set(), [robin, robby],
-                                  goal, [sleep_op, cry_op],
-                                  option_specs,
-                                  seed=123,
-                                  timeout=10)[0]]
-    plan4 = [(act.name, act.objects)
-             for act in task_plan(set(), [robin, robby],
-                                  goal, [cry_op, sleep_op],
-                                  option_specs,
-                                  seed=123,
-                                  timeout=10)[0]]
-    assert plan1 == plan2 == plan3 == plan4
+    nsrt_orders = [[sleep_op, cry_op], [cry_op, sleep_op]]
+    object_orders = [[robby, robin], [robin, robby]]
+
+    all_plans = []
+    for nsrts in nsrt_orders:
+        for objects in object_orders:
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, nsrts, option_specs)
+            heuristic = utils.create_task_planning_heuristic(
+                "hadd", init_atoms, goal, ground_nsrts, predicates, objects)
+            skeleton, _, _ = task_plan(init_atoms,
+                                       goal,
+                                       ground_nsrts,
+                                       reachable_atoms,
+                                       heuristic,
+                                       timeout=10,
+                                       seed=123)
+            all_plans.append([(act.name, act.objects) for act in skeleton])
+
+    assert len(all_plans) == 4
+    for plan in all_plans[1:]:
+        assert plan == all_plans[0]
