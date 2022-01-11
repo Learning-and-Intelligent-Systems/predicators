@@ -6,13 +6,18 @@ truth NSRTs. If an NSRT's option is not included, that NSRT will not be
 generated at all.
 """
 
-from typing import List, Sequence, Set
+from typing import List, Sequence, Set, cast
+import itertools
 import numpy as np
 from predicators.src.approaches import TAMPApproach
-from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, PlayroomEnv
+from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
+    PlayroomEnv, BehaviorEnv
 from predicators.src.structs import NSRT, Predicate, State, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
+    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs import get_cached_env_instance
 
 
 class OracleApproach(TAMPApproach):
@@ -36,6 +41,8 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "blocks":
         nsrts = _get_blocks_gt_nsrts()
+    elif CFG.env == "behavior":
+        nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
     elif CFG.env == "painting":
         nsrts = _get_painting_gt_nsrts()
     elif CFG.env == "playroom":
@@ -704,9 +711,11 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
             "Connects", "IsBoringRoom", "IsPlayroom", "IsBoringRoomDoor",
             "IsPlayroomDoor", "DoorOpen", "DoorClosed", "LightOn", "LightOff"])
 
-    Pick, Stack, PutOnTable, Move, OpenDoor, CloseDoor, TurnOnDial, \
+    Pick, Stack, PutOnTable, MoveToDoor, MoveDoorToTable, \
+        MoveDoorToDial, OpenDoor, CloseDoor, TurnOnDial, \
         TurnOffDial = _get_options_by_names("playroom",
-        ["Pick", "Stack", "PutOnTable", "Move", "OpenDoor", "CloseDoor",
+        ["Pick", "Stack", "PutOnTable", "MoveToDoor",
+         "MoveDoorToTable", "MoveDoorToDial", "OpenDoor", "CloseDoor",
          "TurnOnDial", "TurnOffDial"])
 
     nsrts = set()
@@ -873,8 +882,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     from_region = Variable("?from", region_type)
     to_region = Variable("?to", region_type)
     parameters = [robot, door, from_region, to_region]
-    option_vars = [robot, door, to_region]
-    option = Move
+    option_vars = [robot, from_region, door]
+    option = MoveToDoor
     preconditions = {
         LiftedAtom(InRegion, [robot, from_region]),
         LiftedAtom(Connects, [door, from_region, to_region]),
@@ -891,11 +900,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         robot, door, _, _ = objs
         assert robot.is_instance(robot_type)
         assert door.is_instance(door_type)
-        x = state.get(robot, "pose_x")
-        door_x, door_y = state.get(door, "pose_x"), state.get(door, "pose_y")
-        final_x = door_x + 0.2 if x < door_x else door_x - 0.2
-        rotation = 0.0 if x < door_x else -1.0
-        return np.array([final_x, door_y, rotation], dtype=np.float32)
+        if state.get(robot, "pose_x") < state.get(door, "pose_x"):
+            return np.array([0.2, 0.0, 0.0], dtype=np.float32)
+        return np.array([-0.2, 0.0, -1.0], dtype=np.float32)
 
     advancethroughdoor_nsrt = NSRT("AdvanceThroughDoor", parameters,
                                    preconditions, add_effects, delete_effects,
@@ -908,8 +915,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     door = Variable("?door", door_type)
     region = Variable("?region", region_type)
     parameters = [robot, door, region]
-    option_vars = [robot, door, region]
-    option = Move
+    option_vars = [robot, region, door]
+    option = MoveToDoor
     preconditions = {
         LiftedAtom(IsBoringRoom, [region]),
         LiftedAtom(InRegion, [robot, region]),
@@ -921,12 +928,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
 
     def movetabletodoor_sampler(state: State, rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
-        del rng  # unused
-        assert len(objs) == 3
-        _, door, _ = objs
-        assert door.is_instance(door_type)
-        x, y = state.get(door, "pose_x") - 0.2, state.get(door, "pose_y")
-        return np.array([x, y, 0.0], dtype=np.float32)
+        del state, rng, objs  # unused
+        return np.array([-0.2, 0.0, 0.0], dtype=np.float32)
 
     movetabletodoor_nsrt = NSRT("MoveTableToDoor", parameters,
                                 preconditions, add_effects, delete_effects,
@@ -939,8 +942,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     door = Variable("?door", door_type)
     region = Variable("?region", region_type)
     parameters = [robot, door, region]
-    option_vars = [robot, door, region]
-    option = Move
+    option_vars = [robot, region]
+    option = MoveDoorToTable
     preconditions = {
         LiftedAtom(IsBoringRoom, [region]),
         LiftedAtom(InRegion, [robot, region]),
@@ -953,8 +956,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     def movedoortotable_sampler(state: State, rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
         del state, rng, objs  # unused
-        x, y = PlayroomEnv.table_x_ub, PlayroomEnv.table_y_ub
-        return np.array([x, y, -0.75], dtype=np.float32)
+        return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
     movedoortotable_nsrt = NSRT("MoveDoorToTable", parameters,
                                 preconditions, add_effects, delete_effects,
@@ -968,8 +970,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     todoor = Variable("?todoor", door_type)
     region = Variable("?region", region_type)
     parameters = [robot, fromdoor, todoor, region]
-    option_vars = [robot, todoor, region]
-    option = Move
+    option_vars = [robot, region, todoor]
+    option = MoveToDoor
     preconditions = {
         LiftedAtom(Borders, [fromdoor, region, todoor]),
         LiftedAtom(InRegion, [robot, region]),
@@ -985,11 +987,9 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         _, fromdoor, todoor, _ = objs
         assert fromdoor.is_instance(door_type)
         assert todoor.is_instance(door_type)
-        to_x, to_y = state.get(todoor, "pose_x"), state.get(todoor, "pose_y")
-        from_x = state.get(fromdoor, "pose_x")
-        rotation = 0.0 if from_x < to_x else -1.0
-        x = to_x - 0.1 if from_x < to_x else to_x + 0.1
-        return np.array([x, to_y, rotation], dtype=np.float32)
+        if state.get(fromdoor, "pose_x") < state.get(todoor, "pose_x"):
+            return np.array([-0.1, 0.0, 0.0], dtype=np.float32)
+        return np.array([0.1, 0.0, -1.0], dtype=np.float32)
 
     movedoortodoor_nsrt = NSRT("MoveDoorToDoor", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
@@ -1002,8 +1002,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     dial = Variable("?dial", dial_type)
     region = Variable("?region", region_type)
     parameters = [robot, door, dial, region]
-    option_vars = [robot, door, region]
-    option = Move
+    option_vars = [robot, region, dial]
+    option = MoveDoorToDial
     preconditions = {
         LiftedAtom(IsPlayroom, [region]),
         LiftedAtom(InRegion, [robot, region]),
@@ -1015,12 +1015,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
 
     def movedoortodial_sampler(state: State, rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
-        del rng  # unused
-        assert len(objs) == 4
-        _, _, dial, _ = objs
-        assert dial.is_instance(dial_type)
-        dial_x, dial_y = state.get(dial, "pose_x"), state.get(dial, "pose_y")
-        return np.array([dial_x - 0.2, dial_y, -1.0], dtype=np.float32)
+        del state, rng, objs  # unused
+        return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
     movedoortodial_nsrt = NSRT("MoveDoorToDial", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
@@ -1033,8 +1029,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     door = Variable("?door", door_type)
     region = Variable("?region", region_type)
     parameters = [robot, dial, door, region]
-    option_vars = [robot, door, region]
-    option = Move
+    option_vars = [robot, region, door]
+    option = MoveToDoor
     preconditions = {
         LiftedAtom(IsPlayroom, [region]),
         LiftedAtom(InRegion, [robot, region]),
@@ -1046,12 +1042,8 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
 
     def movedialtodoor_sampler(state: State, rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
-        del rng  # unused
-        assert len(objs) == 4
-        _, _, door, _ = objs
-        assert door.is_instance(door_type)
-        x, y = state.get(door, "pose_x"), state.get(door, "pose_y")
-        return np.array([x + 0.1, y, -1.0], dtype=np.float32)
+        del state, rng, objs  # unused
+        return np.array([0.1, 0.0, -1.0], dtype=np.float32)
 
     movedialtodoor_nsrt = NSRT("MoveDialToDoor", parameters, preconditions,
                                add_effects, delete_effects, set(), option,
@@ -1199,5 +1191,173 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
                       delete_effects, side_predicates, option, option_vars,
                       lambda s, rng, o: np.zeros(0, dtype=np.float32))
     nsrts.add(grasp_nsrt)
+
+    return nsrts
+
+
+def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
+    """Create ground truth nsrts for BehaviorEnv."""
+    env_base = get_cached_env_instance("behavior")
+    env = cast(BehaviorEnv, env_base)
+
+    # NOTE: These two methods below are necessary to help instantiate
+    # all combinations of types for predicates (e.g. reachable(robot, book),
+    # reachable(robot, fridge), etc). If we had support for hierarchical types
+    # such that all types could inherit from 'object' we would not need
+    # to perform this combinatorial enumeration.
+
+    type_name_to_type = {t.name: t for t in env.types}
+    pred_name_to_pred = {p.name: p for p in env.predicates}
+
+    def _get_lifted_atom(base_pred_name: str,
+                         objects: Sequence[Variable]) -> LiftedAtom:
+        pred = _get_predicate(base_pred_name, [o.type for o in objects])
+        return LiftedAtom(pred, objects)
+
+    def _get_predicate(base_pred_name: str,
+                       types: Sequence[Type]) -> Predicate:
+        type_names = "-".join(t.name for t in types)
+        pred_name = f"{base_pred_name}-{type_names}"
+        return pred_name_to_pred[pred_name]
+
+    # We start by creating reachable predicates for all possible type
+    # combinations. These predicates will be used as side predicates
+    # for navigateTo operators
+    reachable_predicates = set()
+    for reachable_pred_types in itertools.product(env.types, env.types):
+        reachable_predicates.add(
+            _get_predicate("reachable", reachable_pred_types))
+
+    agent_type = type_name_to_type["agent.n.01"]
+    agent_obj = Variable("?agent", agent_type)
+
+    nsrts = set()
+    op_name_count_nav = itertools.count()
+    op_name_count_pick = itertools.count()
+    op_name_count_place = itertools.count()
+
+    for option in env.options:
+        split_name = option.name.split("-")
+        base_option_name = split_name[0]
+        option_arg_type_names = split_name[1:]
+
+        if base_option_name == "NavigateTo":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+
+            # Navigate to from nothing reachable.
+            reachable_nothing = _get_lifted_atom("reachable-nothing",
+                                                 [agent_obj])
+            parameters = [agent_obj, target_obj]
+            option_vars = [target_obj]
+            preconditions = {reachable_nothing}
+            add_effects = {
+                _get_lifted_atom("reachable", [target_obj, agent_obj])
+            }
+            delete_effects = {reachable_nothing}
+            nsrt = NSRT(
+                f"{option.name}-{next(op_name_count_nav)}", parameters,
+                preconditions, add_effects, delete_effects,
+                reachable_predicates, option, option_vars,
+                lambda s, r, o: navigate_to_param_sampler(
+                    r,
+                    [env.object_to_ig_object(o_i) for o_i in o],
+                ))
+            nsrts.add(nsrt)
+
+            # Navigate to while something is reachable.
+            for origin_obj_type in sorted(env.types):
+                if agent_type in [origin_obj_type, target_obj_type]:
+                    continue
+
+                origin_obj = Variable("?origin", origin_obj_type)
+                origin_reachable = _get_lifted_atom("reachable",
+                                                    [origin_obj, agent_obj])
+                targ_reachable = _get_lifted_atom("reachable",
+                                                  [target_obj, agent_obj])
+                parameters = [origin_obj, agent_obj, target_obj]
+                option_vars = [target_obj]
+                preconditions = {origin_reachable}
+                add_effects = {targ_reachable}
+                delete_effects = {origin_reachable}
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_nav)}", parameters,
+                    preconditions, add_effects, delete_effects,
+                    reachable_predicates, option, option_vars,
+                    lambda s, r, o: navigate_to_param_sampler(
+                        r, [env.object_to_ig_object(o_i) for o_i in o]))
+                nsrts.add(nsrt)
+
+        elif base_option_name == "Grasp":
+            assert len(option_arg_type_names) == 1
+            target_obj_type_name = option_arg_type_names[0]
+            target_obj_type = type_name_to_type[target_obj_type_name]
+            target_obj = Variable("?targ", target_obj_type)
+
+            # Pick from ontop something
+            for surf_obj_type in sorted(env.types):
+                surf_obj = Variable("?surf", surf_obj_type)
+                parameters = [target_obj, agent_obj, surf_obj]
+                option_vars = [target_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                targ_reachable = _get_lifted_atom("reachable",
+                                                  [target_obj, agent_obj])
+                targ_holding = _get_lifted_atom("holding", [target_obj])
+                preconditions = {handempty, targ_reachable}
+                add_effects = {targ_holding}
+                delete_effects = {handempty}
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_pick)}",
+                    parameters,
+                    preconditions,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    lambda s, r, o: grasp_obj_param_sampler(r),
+                )
+                nsrts.add(nsrt)
+
+        elif base_option_name == "PlaceOnTop":
+            assert len(option_arg_type_names) == 1
+            surf_obj_type_name = option_arg_type_names[0]
+            surf_obj_type = type_name_to_type[surf_obj_type_name]
+            surf_obj = Variable("?surf", surf_obj_type)
+
+            # We need to place the object we're holding!
+            for held_obj_types in sorted(env.types):
+                held_obj = Variable("?held", held_obj_types)
+                parameters = [held_obj, agent_obj, surf_obj]
+                option_vars = [surf_obj]
+                handempty = _get_lifted_atom("handempty", [])
+                held_holding = _get_lifted_atom("holding", [held_obj])
+                surf_reachable = _get_lifted_atom("reachable",
+                                                  [surf_obj, agent_obj])
+                ontop = _get_lifted_atom("ontop", [held_obj, surf_obj])
+                preconditions = {held_holding, surf_reachable}
+                add_effects = {ontop, handempty}
+                delete_effects = {held_holding}
+                nsrt = NSRT(
+                    f"{option.name}-{next(op_name_count_place)}",
+                    parameters,
+                    preconditions,
+                    add_effects,
+                    delete_effects,
+                    set(),
+                    option,
+                    option_vars,
+                    lambda s, r, o: place_ontop_obj_pos_sampler(
+                        [env.object_to_ig_object(o_i) for o_i in o],
+                        rng=r,
+                    ),
+                )
+                nsrts.add(nsrt)
+
+        else:
+            raise ValueError(
+                f"Unexpected base option name: {base_option_name}")
 
     return nsrts
