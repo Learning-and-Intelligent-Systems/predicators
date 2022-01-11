@@ -110,29 +110,35 @@ def task_plan_grounding(
     objects: Set[Object],
     strips_ops: Sequence[STRIPSOperator],
     option_specs: Sequence[OptionSpec],
-) -> List[_GroundNSRT]:
+) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
-    filtering out ones that are unreachable or have empty effects."""
+    filtering out ones that are unreachable or have empty effects.
+
+    Also return the set of reachable atoms, which is used by task
+    planning to quickly determine if a goal is unreachable.
+    """
     nsrts = utils.ops_and_specs_to_dummy_nsrts(strips_ops, option_specs)
     ground_nsrts = []
-    for nsrt in nsrts:
+    for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
             ground_nsrts.append(ground_nsrt)
     nonempty_ground_nsrts = [
         nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
     ]
-    all_reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
+    reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
+                                                init_atoms)
     reachable_nsrts = [
         nsrt for nsrt in nonempty_ground_nsrts
-        if nsrt.preconditions.issubset(all_reachable_atoms)
+        if nsrt.preconditions.issubset(reachable_atoms)
     ]
-    return reachable_nsrts
+    return reachable_nsrts, reachable_atoms
 
 
 def task_plan(
     init_atoms: Set[GroundAtom],
     goal: Set[GroundAtom],
     ground_nsrts: List[_GroundNSRT],
+    reachable_atoms: Set[GroundAtom],
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
@@ -145,8 +151,7 @@ def task_plan(
     convenient wrapper around _skeleton_generator below (which IS used
     by SeSamE) that takes in only the minimal necessary arguments.
     """
-    all_reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
-    if not goal.issubset(all_reachable_atoms):
+    if not goal.issubset(reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
