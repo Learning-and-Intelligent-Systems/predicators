@@ -435,7 +435,7 @@ class ParameterizedOption:
             memory=memory)
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class _Option:
     """Struct defining an option, which is like a parameterized option except
     that its components are not conditioned on objects/parameters.
