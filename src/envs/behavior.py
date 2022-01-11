@@ -468,3 +468,75 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         _initiable=_initiable,
         _terminal=_terminal,
     )
+
+
+class BehaviorOptionAndModel:
+    """A container class storing both an option and a model for a BEHAVIOR env.
+    We use this because there is a lot of common code between the option
+    policies and the option models.
+    """
+    def __init__(self, name: str, types: Sequence[Type], params_space: Box,
+                 env: "behavior_env.BehaviorEnv", controller_fn: Callable,
+                 object_to_ig_object: Callable, rng: Generator):
+        self._name = name
+        self._types = types
+        self._params_space = params_space
+        self._env = env
+        self._controller_fn = controller_fn
+        self._object_to_ig_object = object_to_ig_object
+        self._rng = rng
+        self._param_option = ParameterizedOption(
+            self._name,
+            types=self._types,
+            params_space=self._params_space,
+            _policy=self._policy,
+            _initiable=self._initiable,
+            _terminal=self._terminal,
+        )
+
+    def _policy(self, state: State, memory: Dict, _objects: Sequence[Object],
+                _params: Array) -> Action:
+        assert "has_terminated" in memory
+        assert ("controller" in memory and memory["controller"] is not None
+                )  # must call initiable() first, and it must return True
+        assert not memory["has_terminated"]
+        action_arr, memory["has_terminated"] = memory["controller"](
+            state, self._env)
+        return Action(action_arr)
+
+    def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> bool:
+        igo = [self._object_to_ig_object(o) for o in objects]
+        assert len(igo) == 1
+        if memory.get("controller") is None:
+            # We want to reset the state of the environmenet to
+            # the state in the init state so that our options can
+            # run RRT/plan from here as intended!
+            if state.simulator_state is not None:
+                self._env.task.reset_scene(state.simulator_state)
+            controller = self._controller_fn(self._env, igo[0], params,
+                                             rng=self._rng)
+            memory["controller"] = controller
+            memory["has_terminated"] = False
+            return controller is not None
+        return True
+
+    @staticmethod
+    def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        del state, objects, params  # unused
+        assert "has_terminated" in memory
+        return memory["has_terminated"]
+
+    @property
+    def param_option(self) -> ParameterizedOption:
+        """Return the parameterized option contained in this object.
+        """
+        return self._param_option
+
+    def get_next_state(self, state: State, memory: Dict,
+                       objects: Sequence[Object], params: Array) -> State:
+        """Return the next state resulting from applying self._param_option
+        in the given state with the given grounding of objects and params.
+        """
+        pass  # TODO

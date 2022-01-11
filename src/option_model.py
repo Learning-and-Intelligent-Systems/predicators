@@ -14,6 +14,8 @@ def create_option_model(
     """Create an option model given its name."""
     if name == "default":
         return _DefaultOptionModel(simulator)
+    if name == "behavior":
+        return _BehaviorOptionModel(simulator)
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
@@ -46,3 +48,18 @@ class _DefaultOptionModel(_OptionModel):
             option,
             max_num_steps=CFG.max_num_steps_option_rollout)
         return traj.states[-1]
+
+
+class _BehaviorOptionModel(_OptionModel):
+    """An oracle option model specifically for BEHAVIOR environments.
+    """
+    def __init__(self, simulator: Callable[[State, Action], State]):
+        super().__init__(simulator)
+        self._env = BehaviorEnv()
+
+    def get_next_state(self, state: State, option: _Option) -> State:
+        for optionandmodel in self._env.optionandmodel_objects:
+            if optionandmodel.param_option == option.parent:
+                return optionandmodel.get_next_state(
+                    state, option.memory, option.objects, option.params)
+        raise Exception(f"Unrecognized BEHAVIOR option: {option}")
