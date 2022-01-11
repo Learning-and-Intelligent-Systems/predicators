@@ -38,7 +38,7 @@ from predicators.src.settings import CFG
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _BehaviorParameterizedOption(ParameterizedOption):
+class BehaviorParameterizedOption(ParameterizedOption):
     # A model maps a state, memory dict, objects, and parameters to a state
     # obtained after runnign the option's _policy to completion. This basically
     # enables us to 'fast-forward' the policy to its terminal state.
@@ -533,11 +533,13 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         assert "has_terminated" in memory
         return memory["has_terminated"]
 
-    return ParameterizedOption(
+    # TODO: model cannot be None here, that'll be a type error!
+    return BehaviorParameterizedOption(
         name,
         types=types,
         params_space=params_space,
-        _policy=_policy,
-        _initiable=_initiable,
-        _terminal=_terminal,
+        policy=_policy,
+        model = None,
+        initiable=_initiable,
+        terminal=_terminal,
     )
