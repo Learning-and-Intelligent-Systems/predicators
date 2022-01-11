@@ -50,10 +50,4 @@ class _BehaviorOptionModel(_OptionModel):
     to figure out the next state.
     """
     def get_next_state(self, state: State, option: _Option) -> State:
-        if "Grasp" in option.name:
-            traj = utils.option_to_trajectory(
-                state, self._simulator, option,
-                max_num_steps=CFG.max_num_steps_option_rollout)
-            return traj.states[-1]
-        else:
-            return utils.option_to_next_state(state, self._simulator, option)
+        return utils.option_to_next_state(state, self._simulator, option)

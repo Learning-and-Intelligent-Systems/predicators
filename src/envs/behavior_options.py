@@ -481,10 +481,10 @@ def grasp_obj_at_pos(  # type: ignore
     that can be stepped like an option to output actions at each
     timestep.
     """
-    env = env._env
-    obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
+
+    obj_in_hand = env._env.robots[0].parts["right_hand"].object_in_hand
     if obj_in_hand is None:
-        reset_and_release_hand(env)  # first reset the hand's internal states
+        reset_and_release_hand(env._env)  # first reset the hand's internal states
         if (isinstance(obj, URDFObject) and hasattr(obj, "states")
                 and object_states.AABB in obj.states):
             lo, hi = obj.states[object_states.AABB].get_value()
@@ -493,7 +493,7 @@ def grasp_obj_at_pos(  # type: ignore
                 ):  # say we can only grasp small objects
                 if (np.linalg.norm(  # type: ignore
                         np.array(obj.get_position()) -
-                        np.array(env.robots[0].get_position())) < 2):
+                        np.array(env._env.robots[0].get_position())) < 2):
                     # Grasping Phase 1: Compute the position and orientation of
                     # the hand based on the provided continuous parameters and
                     # try to create a plan to it.
@@ -502,7 +502,7 @@ def grasp_obj_at_pos(  # type: ignore
                     y = obj_pos[1] + grasp_offset[1]
                     z = obj_pos[2] + grasp_offset[2]
                     hand_x, hand_y, hand_z = (
-                        env.robots[0].parts["right_hand"].get_position())
+                        env._env.robots[0].parts["right_hand"].get_position())
 
                     # # add a little randomness to avoid getting stuck
                     minx = min(x, hand_x) - 0.5
@@ -557,7 +557,7 @@ def grasp_obj_at_pos(  # type: ignore
                     # plan a motion to the pose [x, y, z, euler_angles[0],
                     # euler_angles[1], euler_angles[2]]
                     plan = plan_hand_motion_br(
-                        robot=env.robots[0],
+                        robot=env._env.robots[0],
                         obj_in_hand=None,
                         end_conf=[
                             x,
@@ -568,13 +568,13 @@ def grasp_obj_at_pos(  # type: ignore
                             euler_angles[2],
                         ],
                         hand_limits=((minx, miny, minz), (maxx, maxy, maxz)),
-                        obstacles=get_body_ids(env,
+                        obstacles=get_body_ids(env._env,
                                                include_self=True,
                                                grasping_with_right=True),
                         rng=rng,
                     )
-                    rh_final_grasp_postion = env.robots[0].parts["right_hand"].get_position()
-                    lh_final_grasp_position = env.robots[0].parts["left_hand"].get_position()
+                    rh_final_grasp_postion = env._env.robots[0].parts["right_hand"].get_position()
+                    lh_final_grasp_position = env._env.robots[0].parts["left_hand"].get_position()
                     p.restoreState(state)
 
                     # NOTE: This below line is *VERY* important after the
@@ -582,10 +582,10 @@ def grasp_obj_at_pos(  # type: ignore
                     # track of their state, and if we don't reset their this
                     # state to mirror the actual pybullet state, the hand will
                     # think its elsewhere and update incorrectly accordingly
-                    env.robots[0].parts["right_hand"].set_position(
-                        env.robots[0].parts["right_hand"].get_position())
-                    env.robots[0].parts["left_hand"].set_position(
-                        env.robots[0].parts["left_hand"].get_position())
+                    env._env.robots[0].parts["right_hand"].set_position(
+                        env._env.robots[0].parts["right_hand"].get_position())
+                    env._env.robots[0].parts["left_hand"].set_position(
+                        env._env.robots[0].parts["left_hand"].get_position())
 
                     # Grasping Phase 2: Move along the vector from the
                     # position the hand ends up in to the object and
@@ -638,7 +638,7 @@ def grasp_obj_at_pos(  # type: ignore
                                     # Step thru the plan to execute Grasping
                                     # phases 1 and 2
                                     ret_action = get_delta_low_level_hand_action(
-                                        env,
+                                        env._env,
                                         plan[0][0:3],
                                         plan[0][3:6],
                                         plan[1][0:3],
@@ -676,39 +676,62 @@ def grasp_obj_at_pos(  # type: ignore
                             p.removeState(state)
 
                             return graspObjectOption
+                        
                         else:
-                            def graspObjectOptionModel(
-                                    _state: State,
-                                    env: BehaviorEnv) -> Tuple[Dict, bool]:
+                            hand_pos = plan[-1][0:3]
+                            hand_orn = plan[-1][3:6]
+                            rh_final_grasp_postion = hand_pos[:]
+                            rh_final_grasp_orn = hand_orn[:]
+                            # Get the closest point on the object's bounding box at which we can try to put the hand
+                            closest_point_on_aabb = get_closest_point_on_aabb(hand_pos, lo, hi)
+                            # Get the closest point on the object's bounding box at which we can try to put the hand
+                            delta_pos_to_obj = [closest_point_on_aabb[0] - hand_pos[0], closest_point_on_aabb[1] - hand_pos[1], closest_point_on_aabb[2] - hand_pos[2]]
+                            delta_step_to_obj = [delta_pos / 25.0 for delta_pos in delta_pos_to_obj] # because we want to accomplish the motion in 25 timesteps
+                            # lower the hand until it touches the object
+                            for _ in range(25):
+                                new_hand_pos = [hand_pos[0] + delta_step_to_obj[0], hand_pos[1] + delta_step_to_obj[1], hand_pos[2] + delta_step_to_obj[2]]
+                                plan.append(new_hand_pos + list(hand_orn))
+                                hand_pos = new_hand_pos
+                            
+                            def graspObjectOptionModel(_state: State, env: BehaviorEnv) -> Tuple[Dict, bool]:
 
-                                rh_org_grasp_postion = env.robots[0].parts["right_hand"].get_position()
-                                lh_org_grasp_position = env.robots[0].parts["left_hand"].get_position()
+                                # TODO Fix Grasp
+                                rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position()
+                                rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
+                                # lh_org_grasp_position = env.robots[0].parts["left_hand"].get_position()
+
                                 # 1 Move Hand to Grasp Location
-                                env.robots[0].parts["right_hand"].set_position(
-                                    rh_final_grasp_postion)
-                                env.robots[0].parts["left_hand"].set_position(
-                                    lh_final_grasp_position)
+                                env.robots[0].parts["right_hand"].set_position_orientation(
+                                    rh_final_grasp_postion, p.getQuaternionFromEuler(rh_final_grasp_orn))
+                                # env.robots[0].parts["left_hand"].set_position(
+                                #     lh_final_grasp_position)
+
+                                for i in range(25):
+                                    ret_action = get_delta_low_level_hand_action(env, plan[i-26][0:3], plan[i-26][3:6], plan[i-25][0:3], plan[i-25][3:6])
+                                    env.step(ret_action)
 
                                 # 2 Simulate Grasp
                                 # (TODO)
-                                exit11
+                                a = np.zeros(17, dtype=float)
+                                # env.step(a)
+                                a[16] = 1.0
+                                assisted_grasp_action = np.zeros(28, dtype=float)
+                                assisted_grasp_action[26] = 1.0
+                                grasp_success = env.robots[0].parts["right_hand"].handle_assisted_grasping(assisted_grasp_action,override_ag_data=(env.task_relevant_objects[5].body_id[0], -1))
+                                print(grasp_success)
+                                env.step(a)
 
                                 # 3 Move Hand to Original Location
-                                env.robots[0].parts["right_hand"].set_position(
-                                    rh_org_grasp_postion)
-                                env.robots[0].parts["left_hand"].set_position(
-                                    lh_org_grasp_position)
-
+                                env.robots[0].parts["right_hand"].set_position_orientation(
+                                    rh_orig_grasp_postion, rh_orig_grasp_orn)
+                                # env.robots[0].parts["left_hand"].set_position(
+                                #     lh_org_grasp_position)
 
                                 # this is running a zero action to step simulator
-                                env._env.step(np.zeros(17))
+                                env.step(np.zeros(17))
 
                                 final_state = env._current_ig_state_to_state()
                                 return final_state, True
-                                
-
-                            p.restoreState(state)
-                            p.removeState(state)
 
                             return graspObjectOptionModel
 
@@ -866,17 +889,17 @@ def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-st
                     env.robots[0].parts["right_hand"].get_position())
                 env.robots[0].parts["left_hand"].set_position(
                     env.robots[0].parts["left_hand"].get_position())
+                
+                plan = place_obj_plan(env,
+                                        obj,
+                                        state,
+                                        place_rel_pos,
+                                        rng=rng)
+                reversed_plan = list(reversed(plan[:]))
+                plan_executed_forwards = False
+                tried_opening_gripper = False
 
                 if not option_model:
-                    plan = place_obj_plan(env,
-                                          obj,
-                                          state,
-                                          place_rel_pos,
-                                          rng=rng)
-                    reversed_plan = list(reversed(plan[:]))
-                    plan_executed_forwards = False
-                    tried_opening_gripper = False
-
                     print(f"PRIMITIVE: place {obj_in_hand.name} ontop" +
                           f"{obj.name} success")
 
@@ -1049,28 +1072,36 @@ def place_ontop_obj_pos( # type: ignore # pylint: disable=inconsistent-return-st
                         reversed_plan.pop(0)
 
                         return low_level_action, done_bit
+                
+                    return placeOntopObjectOption
 
                 else:
 
                     def placeOntopObjectOptionModel(
                             _init_state: State,
                             env: BehaviorEnv) -> Tuple[Dict, bool]:
-                        target_pos = place_rel_pos
-                        target_orn = place_orn
-                        env._env.robots[0].parts["right_hand"].force_release_obj()
-                        obj_in_hand.set_position_orientation(
-                            target_pos, target_orn)
 
+                        rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position()
+                        rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
+
+                        target_pos = plan[-1][0:3]
+                        target_orn = plan[-1][3:6]
+                        env.robots[0].parts["right_hand"].set_position_orientation(
+                            target_pos, p.getQuaternionFromEuler(target_orn))
+
+                        env.robots[0].parts["right_hand"].force_release_obj()
 
                         # this is running a zero action to step simulator
-                        env._env.step(np.zeros(17))
+                        env.step(np.zeros(17))
+
+                        env.robots[0].parts["right_hand"].set_position_orientation(
+                            rh_orig_grasp_postion, rh_orig_grasp_orn)
 
                         final_state = env._current_ig_state_to_state()
                         return final_state, True
 
-                if option_model:
                     return placeOntopObjectOptionModel
-                return placeOntopObjectOption
+                
 
             print(f"PRIMITIVE: place {obj_in_hand.name} ontop" +
                   f"{obj.name} fail, too far")
