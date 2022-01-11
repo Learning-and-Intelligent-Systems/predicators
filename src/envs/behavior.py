@@ -435,24 +435,26 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
     def _policy(state: State, memory: Dict, _objects: Sequence[Object],
                 _params: Array) -> Action:
         assert "has_terminated" in memory
-        assert ("controller" in memory and memory["controller"] is not None
+        assert ("policy_controller" in memory
+                and memory["policy_controller"] is not None
                 )  # must call initiable() first, and it must return True
         assert not memory["has_terminated"]
-        action_arr, memory["has_terminated"] = memory["controller"](state, env)
+        action_arr, memory["has_terminated"] = memory["policy_controller"](
+            state, env)
         return Action(action_arr)
 
     def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("controller") is None:
+        if memory.get("policy_controller") is None:
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
             if state.simulator_state is not None:
                 env.task.reset_scene(state.simulator_state)
             controller = controller_fn(env, igo[0], params, rng=rng)
-            memory["controller"] = controller
+            memory["policy_controller"] = controller
             memory["has_terminated"] = False
             return controller is not None
         return True
