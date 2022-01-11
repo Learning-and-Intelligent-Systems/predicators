@@ -287,7 +287,8 @@ def test_option():
         return Action(p * 2)
 
     def _initiable(s, m, o, p):
-        del m, o  # unused
+        del o  # unused
+        m["test_key"] = "test_string"
         obj = list(s)[0]
         return p[0] < s[obj][0]
 
@@ -313,10 +314,12 @@ def test_option():
         "_Option(name='Pick', objects=[], "
         "params=array([-5.,  5.], dtype=float32))")
     assert option.name == "Pick"
+    assert option.memory == {}
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
     assert np.all(option.policy(state).arr == np.array(params) * 2)
     assert option.initiable(state)
+    assert option.memory == {"test_key": "test_string"}  # set by initiable()
     assert not option.terminal(state)
     assert option.params[0] == -5 and option.params[1] == 5
     params = [5, -5]
