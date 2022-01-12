@@ -250,7 +250,7 @@ def create_navigate_policy(
 
 def create_navigate_option_model(
     plan: List[Tuple[float, float, float]]
-) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
     plan."""
 
@@ -515,32 +515,15 @@ def create_grasp_policy(
     return graspObjectOptionPolicy
 
 
-# TODO: see how much of this can be merged with the bigger wrapper function
-def create_grasp_option_model(plan: List[List[float]], lo: Array, hi: Array):
-    hand_pos = plan[-1][0:3]
-    hand_orn = plan[-1][3:6]
-    rh_final_grasp_postion = hand_pos[:]
-    rh_final_grasp_orn = hand_orn[:]
-    # Get the closest point on the object's bounding box at which we can try to put the hand
-    closest_point_on_aabb = get_closest_point_on_aabb(hand_pos, lo, hi)
-    # Get the closest point on the object's bounding box at which we can try to put the hand
-    delta_pos_to_obj = [
-        closest_point_on_aabb[0] - hand_pos[0],
-        closest_point_on_aabb[1] - hand_pos[1],
-        closest_point_on_aabb[2] - hand_pos[2]
-    ]
-    delta_step_to_obj = [
-        delta_pos / 25.0 for delta_pos in delta_pos_to_obj
-    ]  # because we want to accomplish the motion in 25 timesteps
-    # lower the hand until it touches the object
-    for _ in range(25):
-        new_hand_pos = [
-            hand_pos[0] + delta_step_to_obj[0],
-            hand_pos[1] + delta_step_to_obj[1],
-            hand_pos[2] + delta_step_to_obj[2]
-        ]
-        plan.append(new_hand_pos + list(hand_orn))
-        hand_pos = new_hand_pos
+def create_grasp_option_model(
+        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    """Instantiates and returns a grasp option model function given an RRT
+    plan."""
+
+    # NOTE: -25 because there are 25 timesteps that we move along the vector
+    # between the hand the object for until finally grasping
+    rh_final_grasp_postion = plan[-25][0:3]
+    rh_final_grasp_orn = plan[-25][3:6]
 
     def graspObjectOptionModel(_state: State, env: BehaviorEnv) -> None:
         rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
@@ -584,7 +567,8 @@ def grasp_obj_at_pos(
     grasp_offset: Array,
     ret_option_model: bool = False,
     rng: Optional[Generator] = None,
-) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
+) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
+                    Callable[[State, "BehaviorEnv"], None]]]:
     """Parameterized controller for grasping.
 
     Runs motion planning to find a feasible trajectory to a certain
@@ -758,8 +742,8 @@ def grasp_obj_at_pos(
         print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
               f"continuous params {grasp_offset}. Executing now.")
         return create_grasp_policy(plan)
-    else:
-        return create_grasp_option_model(plan, lo, hi)
+
+    return create_grasp_option_model(plan)
 
 
 def place_obj_plan(
@@ -1025,6 +1009,8 @@ def create_place_policy(
 
 def create_place_option_model(
         plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    """Instantiates and returns a place option model function given an RRT
+    plan."""
 
     def placeOntopObjectOptionModel(_init_state: State,
                                     env: BehaviorEnv) -> None:
@@ -1040,8 +1026,6 @@ def create_place_option_model(
         env.step(np.zeros(17))
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_postion, rh_orig_grasp_orn)
-        final_state = env._current_ig_state_to_state()
-        return final_state, True
 
     return placeOntopObjectOptionModel
 
@@ -1052,7 +1036,8 @@ def place_ontop_obj_pos(
     place_rel_pos: Array,
     ret_option_model: bool = False,
     rng: Optional[Generator] = None,
-) -> Optional[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]]:
+) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
+                    Callable[[State, "BehaviorEnv"], None]]]:
     """Parameterized controller for placeOnTop.
 
     Runs motion planning to find a feasible trajectory to a certain
