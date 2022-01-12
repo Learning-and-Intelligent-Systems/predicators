@@ -97,6 +97,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 ground_atoms = utils.all_possible_ground_atoms(
                     s, self._predicates_to_learn)
                 for atom in ground_atoms:
+                    # Note: future score functions will use the state s
                     score = score_atom(self._dataset_with_atoms, atom)
                     # Ask about this atom if it is the best seen so far
                     if score > best_score:
