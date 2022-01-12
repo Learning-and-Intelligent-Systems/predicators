@@ -16,7 +16,7 @@ def create_option_model(
     """Create an option model given its name."""
     if name == "default":
         return _DefaultOptionModel(simulator)
-    if name == "behavior_option_model":
+    if name == "behavior":
         return _BehaviorOptionModel(simulator)  # pragma: no cover
     raise NotImplementedError(f"Unknown option model: {name}")
 
@@ -60,6 +60,6 @@ class _BehaviorOptionModel(_OptionModel):
         env_base = get_cached_env_instance("behavior")
         env = cast(BehaviorEnv, env_base)
         assert option.memory.get("model_controller") is not None
-        option.memory["model_controller"](state, env)
+        option.memory["model_controller"](state, env.igibson_behavior_env)
         next_state = env.current_ig_state_to_state()
         return next_state
