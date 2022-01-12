@@ -14,7 +14,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
-from predicators.src.structs import Predicate, Dataset, Task
+from predicators.src.structs import Predicate, Dataset
 from predicators.src.settings import CFG
 
 
@@ -97,7 +97,7 @@ def _run_proxy_analysis_for_env(env_name: str,
 
     for non_goal_predicates in non_goal_predicate_sets:
         results_for_predicates = \
-            _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+            _run_proxy_analysis_for_predicates(env, dataset,
                                                env.goal_predicates,
                                                non_goal_predicates,
                                                score_function_names,
@@ -119,7 +119,6 @@ def _run_proxy_analysis_for_env(env_name: str,
 def _run_proxy_analysis_for_predicates(
     env: BaseEnv,
     dataset: Dataset,
-    train_tasks: List[Task],
     initial_predicates: Set[Predicate],
     predicates: Set[Predicate],
     score_function_names: List[str],
@@ -134,7 +133,7 @@ def _run_proxy_analysis_for_predicates(
     for score_function_name in score_function_names:
         score_function = _create_score_function(score_function_name,
                                                 initial_predicates,
-                                                atom_dataset, train_tasks,
+                                                atom_dataset,
                                                 candidates)
         start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
@@ -147,7 +146,7 @@ def _run_proxy_analysis_for_predicates(
         approach = create_approach("nsrt_learning", env.simulate,
                                    all_predicates, env.options, env.types,
                                    env.action_space)
-        approach.learn_from_offline_dataset(dataset, train_tasks)
+        approach.learn_from_offline_dataset(dataset)
         approach.seed(CFG.seed)
         planning_result = _run_testing(env, approach)
         results.update(planning_result)
