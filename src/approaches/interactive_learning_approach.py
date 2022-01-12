@@ -55,8 +55,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._load_dataset(dataset)
         del dataset
-        demo_idxs = [idx for idx, traj in enumerate(self._dataset)
-                     if traj.is_demo]
+        demo_idxs = [
+            idx for idx, traj in enumerate(self._dataset) if traj.is_demo
+        ]
         # Learn predicates and NSRTs
         self._relearn_predicates_and_nsrts()
         # Active learning
