@@ -466,8 +466,7 @@ def _create_score_function(
                                              candidates)
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, candidates,
-            ["hadd"])
+            initial_predicates, atom_dataset, candidates, ["hadd"])
     match = re.match(r"([a-z\,]+)_lookahead_depth(\d+)", score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},

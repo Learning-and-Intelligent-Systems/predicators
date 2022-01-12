@@ -190,7 +190,8 @@ def test_create_score_function():
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hsa"]
-    score_func = _create_score_function("lmcut_lookahead_depth0", set(), [], {})
+    score_func = _create_score_function("lmcut_lookahead_depth0", set(), [],
+                                        {})
     assert isinstance(score_func,
                       _RelaxationHeuristicLookaheadBasedScoreFunction)
     assert score_func.lookahead_depth == 0
@@ -220,8 +221,7 @@ def test_create_score_function():
 def test_predicate_search_heuristic_base_classes():
     """Cover the abstract methods for _PredicateSearchScoreFunction &
     subclasses."""
-    pred_search_score_function = _PredicateSearchScoreFunction(
-        set(), [], {})
+    pred_search_score_function = _PredicateSearchScoreFunction(set(), [], {})
     with pytest.raises(NotImplementedError):
         pred_search_score_function.evaluate(set())
     op_learning_score_function = _OperatorLearningBasedScoreFunction(
@@ -245,8 +245,8 @@ def test_predicate_search_heuristic_base_classes():
     action.set_option(option)
     dataset = [LowLevelTrajectory([state, other_state], [action], set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
-    heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset,
-                                                      {}, ["hadd"])
+    heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset, {},
+                                                      ["hadd"])
     with pytest.raises(NotImplementedError):
         heuristic_score_fn.evaluate(set())
     hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
