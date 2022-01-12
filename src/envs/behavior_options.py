@@ -184,7 +184,7 @@ def create_navigate_policy(
     plan."""
 
     def navigateToOptionPolicy(_state: State,
-                               env: BehaviorEnv) -> Tuple[Array, bool]:
+                               env: "BehaviorEnv") -> Tuple[Array, bool]:
         atol_xy = 1e-2
         atol_theta = 1e-3
         atol_vel = 1e-4
@@ -254,7 +254,7 @@ def create_navigate_option_model(
     """Instantiates and returns a navigation option model function given an RRT
     plan."""
 
-    def navigateToOptionModel(_init_state: State, env: BehaviorEnv) -> None:
+    def navigateToOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
         robot_z = env.robots[0].get_position()[2]
         target_pos = np.array([plan[-1][0], plan[-1][1], robot_z])
         robot_orn = p.getEulerFromQuaternion(env.robots[0].get_orientation())
@@ -298,7 +298,7 @@ def navigate_to_obj_pos(
         env.robots[0].get_orientation())
     state = p.saveState()
 
-    def sample_fn(env: BehaviorEnv,
+    def sample_fn(env: "BehaviorEnv",
                   rng: Generator) -> Tuple[float, float, float]:
         random_point = env.scene.get_random_point(rng=rng)
         x, y = random_point[1][:2]
@@ -380,6 +380,8 @@ def navigate_to_obj_pos(
               f"continuous params {pos_offset}. Executing now.")
         return create_navigate_policy(plan, original_orientation)
 
+    print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
+              f"continuous params {pos_offset}. Returning option model.")
     return create_navigate_option_model(plan)
 
 
@@ -470,7 +472,7 @@ def create_grasp_policy(
     tried_closing_gripper = False
 
     def graspObjectOptionPolicy(_state: State,
-                                env: BehaviorEnv) -> Tuple[Array, bool]:
+                                env: "BehaviorEnv") -> Tuple[Array, bool]:
         nonlocal plan_executed_forwards
         nonlocal tried_closing_gripper
         done_bit = False
@@ -525,7 +527,7 @@ def create_grasp_option_model(
     rh_final_grasp_postion = plan[-25][0:3]
     rh_final_grasp_orn = plan[-25][3:6]
 
-    def graspObjectOptionModel(_state: State, env: BehaviorEnv) -> None:
+    def graspObjectOptionModel(_state: State, env: "BehaviorEnv") -> None:
         rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
         )
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
@@ -743,6 +745,8 @@ def grasp_obj_at_pos(
               f"continuous params {grasp_offset}. Executing now.")
         return create_grasp_policy(plan)
 
+    print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
+              f"continuous params {grasp_offset}. Returning option model.")
     return create_grasp_option_model(plan)
 
 
@@ -851,7 +855,7 @@ def create_place_policy(
     tried_opening_gripper = False
 
     def placeOntopObjectOptionPolicy(_state: State,
-                                     env: BehaviorEnv) -> Tuple[Array, bool]:
+                                     env: "BehaviorEnv") -> Tuple[Array, bool]:
         nonlocal plan
         nonlocal plan_executed_forwards
         nonlocal tried_opening_gripper
@@ -1013,7 +1017,7 @@ def create_place_option_model(
     plan."""
 
     def placeOntopObjectOptionModel(_init_state: State,
-                                    env: BehaviorEnv) -> None:
+                                    env: "BehaviorEnv") -> None:
         rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
         )
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
@@ -1093,4 +1097,6 @@ def place_ontop_obj_pos(
               f"continuous params {place_rel_pos}. Executing now.")
         return create_place_policy(plan)
 
+    print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
+              f"continuous params {place_rel_pos}. Returning option model.")
     return create_place_option_model(plan)
