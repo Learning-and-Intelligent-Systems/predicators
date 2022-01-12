@@ -60,7 +60,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         ]
         # Learn predicates and NSRTs
         self._relearn_predicates_and_nsrts()
-        # Track score of best state seen so far
+        # Track score of best atom seen so far
         best_score = 0.0
         # Active learning
         for i in range(1, CFG.interactive_num_episodes + 1):
@@ -92,27 +92,20 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 self._simulator,
                 self._get_current_predicates(),
                 max_steps=CFG.interactive_max_steps)
-            # Decide whether to ask at each state during exploration
+            # Decide whether to ask about each possible ground atom during exploration
             for s in traj.states:
-                abstract_state = utils.abstract(s,
-                                                self._get_current_predicates())
-                score = score_goal(self._dataset_with_atoms, abstract_state)
-                # Ask about this state if it is the best seen so far
-                if score > best_score:
-                    # Pick best ground atom in the state
-                    ground_atoms = utils.all_possible_ground_atoms(
+                ground_atoms = utils.all_possible_ground_atoms(
                         s, self._predicates_to_learn)
-                    atom_set = get_best_goal_by_score(self._dataset_with_atoms,
-                                                      [{ga}
-                                                       for ga in ground_atoms])
-                    assert len(atom_set) == 1
-                    atom = atom_set.pop()
-                    if self._ask_teacher(s, atom):
-                        # Add this atom if it's a positive example
-                        self._dataset_with_atoms.append(  # pragma: no cover
-                            (LowLevelTrajectory([s], []), [{atom}]))
-                        # Still need to implement a way to use negative examples
-                    best_score = score
+                for atom in ground_atoms:
+                    score = score_atom(self._dataset_with_atoms, atom)
+                    # Ask about this atom if it is the best seen so far
+                    if score > best_score:
+                        if self._ask_teacher(s, atom):
+                            # Add this atom if it's a positive example
+                            self._dataset_with_atoms.append(
+                                (LowLevelTrajectory([s], []), [{atom}]))
+                            # Still need to implement a way to use negative examples
+                        best_score = score
             if i % CFG.interactive_relearn_every == 0:
                 self._relearn_predicates_and_nsrts()
 
@@ -264,10 +257,12 @@ def score_goal(dataset_with_atoms: List[GroundAtomTrajectory],
     return 1.0 / count
 
 
-def get_best_goal_by_score(dataset_with_atoms: List[GroundAtomTrajectory],
-                           goals: List[Set[GroundAtom]]) -> Set[GroundAtom]:
-    """Return the best goal out of `goals` using the score function."""
-    scores = [score_goal(dataset_with_atoms, g) for g in goals]
-    goals_and_scores = list(zip(goals, scores))
-    goals_and_scores.sort(key=lambda tup: tup[1], reverse=True)
-    return goals_and_scores[0][0]
+def score_atom(dataset_with_atoms: List[GroundAtomTrajectory],
+               atom: GroundAtom) -> float:
+    """Score an atom as inversely proportional to the number of examples seen
+    during training."""
+    count = 1  # Avoid division by 0
+    for (_, trajectory) in dataset_with_atoms:
+        for ground_atom_set in trajectory:
+            count += 1 if atom in ground_atom_set else 0
+    return 1.0 / count
