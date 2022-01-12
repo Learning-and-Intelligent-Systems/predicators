@@ -11,7 +11,7 @@ from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
 try:
     import pybullet as p
     from igibson import object_states
-    from igibson.envs.behavior_env import BehaviorEnv
+    from igibson.envs.behavior_env import BehaviorEnv  # pylint: disable=unused-import
     from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
     from igibson.objects.articulated_object import URDFObject
     from igibson.object_states.on_floor import RoomFloor  # pylint: disable=unused-import
@@ -276,14 +276,24 @@ def navigate_to_obj_pos(
     rng: Optional[Generator] = None
 ) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
                     Callable[[State, "BehaviorEnv"], None]]]:
+
+    # NOTE: The return type is complicated because depending on
+    # ret_option_model, this function will either return (1) a function
+    # that will output an action and done bit at every timestep, or
+    # (2), a function that doesn't return anything, but that will
+    # automatically set the state of the world to the state that the
+    # function from (1) would have terminated in.
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
     position offset from obj and selects an orientation such that the
     robot is facing the object. If the navigation is infeasible, returns
-    an indication to this effect (None). Otherwise, returns a function
-    that can be stepped like an option to output actions at each
-    timestep.
+    an indication to this effect (None). Otherwise, if ret_option model
+    is False, returns a function that can be stepped like an option to
+    output actions at each timestep. If ret_option_model is True,
+    returns a function that when called will 'magic' the world into the
+    final state that the corresponding option policy would have
+    achieved.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -381,7 +391,7 @@ def navigate_to_obj_pos(
         return create_navigate_policy(plan, original_orientation)
 
     print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
-              f"continuous params {pos_offset}. Returning option model.")
+          f"continuous params {pos_offset}. Returning option model.")
     return create_navigate_option_model(plan)
 
 
@@ -571,14 +581,24 @@ def grasp_obj_at_pos(
     rng: Optional[Generator] = None,
 ) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
                     Callable[[State, "BehaviorEnv"], None]]]:
+
+    # NOTE: The return type is complicated because depending on
+    # ret_option_model, this function will either return (1) a function
+    # that will output an action and done bit at every timestep, or
+    # (2), a function that doesn't return anything, but that will
+    # automatically set the state of the world to the state that the
+    # function from (1) would have terminated in.
     """Parameterized controller for grasping.
 
     Runs motion planning to find a feasible trajectory to a certain
     x,y,z position offset from obj and selects an orientation such that
     the palm is facing the object. If the grasp is infeasible, returns
-    an indication to this effect (None). Otherwise, returns a function
-    that can be stepped like an option to output actions at each
-    timestep.
+    an indication to this effect (None). Otherwise, if ret_option model
+    is False, returns a function that can be stepped like an option to
+    output actions at each timestep. If ret_option_model is True,
+    returns a function that when called will 'magic' the world into the
+    final state that the corresponding option policy would have
+    achieved.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -746,7 +766,7 @@ def grasp_obj_at_pos(
         return create_grasp_policy(plan)
 
     print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
-              f"continuous params {grasp_offset}. Returning option model.")
+          f"continuous params {grasp_offset}. Returning option model.")
     return create_grasp_option_model(plan)
 
 
@@ -1042,13 +1062,24 @@ def place_ontop_obj_pos(
     rng: Optional[Generator] = None,
 ) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
                     Callable[[State, "BehaviorEnv"], None]]]:
+
+    # NOTE: The return type is complicated because depending on
+    # ret_option_model, this function will either return (1) a function
+    # that will output an action and done bit at every timestep, or
+    # (2), a function that doesn't return anything, but that will
+    # automatically set the state of the world to the state that the
+    # function from (1) would have terminated in.
     """Parameterized controller for placeOnTop.
 
     Runs motion planning to find a feasible trajectory to a certain
     offset from obj and selects an orientation such that the palm is
     facing the object. If the placement is infeasible, returns an
-    indication to this effect (None). Otherwise, returns a function that
-    can be stepped like an option to output actions at each timestep.
+    indication to this effect (None). Otherwise, if ret_option model is
+    False, returns a function that can be stepped like an option to
+    output actions at each timestep. If ret_option_model is True,
+    returns a function that when called will 'magic' the world into the
+    final state that the corresponding option policy would have
+    achieved.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -1098,5 +1129,5 @@ def place_ontop_obj_pos(
         return create_place_policy(plan)
 
     print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
-              f"continuous params {place_rel_pos}. Returning option model.")
+          f"continuous params {place_rel_pos}. Returning option model.")
     return create_place_option_model(plan)
