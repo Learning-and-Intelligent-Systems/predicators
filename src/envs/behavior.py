@@ -443,9 +443,8 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
     def _policy(state: State, memory: Dict, _objects: Sequence[Object],
                 _params: Array) -> Action:
         assert "has_terminated" in memory
-        assert memory.get(
-            "policy_controller"
-        ) is not None  # must call initiable() first, and it must return True
+        # must call initiable() first, and it must return True
+        assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
         action_arr, memory["has_terminated"] = memory["policy_controller"](
             state, env)
