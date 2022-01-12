@@ -559,8 +559,7 @@ def create_grasp_option_model(
         assisted_grasp_action = np.zeros(28, dtype=float)
         assisted_grasp_action[26] = 1.0
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
-            assisted_grasp_action,
-            override_ag_data=(env.task_relevant_objects[5].body_id[0], -1))
+            assisted_grasp_action)
         env.step(a)
 
         # 3 Move Hand to Original Location
@@ -626,7 +625,7 @@ def grasp_obj_at_pos(
 
     # If the object is too big to be grasped, or bolted to its surface,
     # fail and return None
-    if (volume < 0.3 * 0.3 * 0.3 and
+    if not (volume < 0.3 * 0.3 * 0.3 and
             not obj.main_body_is_fixed):  # say we can only grasp small objects
         print(f"PRIMITIVE: grasp {obj.name} fail, too big or fixed")
         return None
@@ -634,7 +633,7 @@ def grasp_obj_at_pos(
     # If the object is too far away, fail and return None
     if (np.linalg.norm(  # type: ignore
             np.array(obj.get_position()) -
-            np.array(env.robots[0].get_position())) < 2):
+            np.array(env.robots[0].get_position())) > 2):
         print(f"PRIMITIVE: grasp {obj.name} fail, too far")
         return None
 

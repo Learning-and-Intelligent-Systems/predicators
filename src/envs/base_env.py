@@ -12,7 +12,8 @@ class BaseEnv:
     """Base environment."""
 
     def __init__(self) -> None:
-        self.seed(0)
+        self.seed(2309)
+        # self.seed(0)
 
     @abc.abstractmethod
     def simulate(self, state: State, action: Action) -> State:
