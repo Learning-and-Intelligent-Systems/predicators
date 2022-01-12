@@ -50,22 +50,17 @@ def learn_nsrts_from_data(dataset: Dataset,
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
+        assert CFG.option_learner == "no_learning"  # TODO: why?
         pnads = _learn_pnad_side_predicates(
-            pnads, segmented_trajs, train_tasks, predicates,
-            verbose=(CFG.option_learner != "no_learning"))
+            pnads, segmented_trajs, ground_atom_dataset, predicates)
 
-    # STEP 5: Prune PNADs with not enough data.
-    pnads = [
-        pnad for pnad in pnads if len(pnad.datastore) >= CFG.min_data_for_nsrt
-    ]
-
-    # STEP 6: Learn options (option_learning.py) and update PNADs.
+    # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
 
-    # STEP 7: Learn samplers (sampler_learning.py) and update PNADs.
+    # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
-    # STEP 8: Print and return the NSRTs.
+    # STEP 7: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
     print("\nLearned NSRTs:")
     for nsrt in sorted(nsrts):
@@ -201,6 +196,11 @@ def learn_strips_operators(
             option_spec = (segment_param_option, option_vars)
             pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
 
+    # Prune PNADs with not enough data.
+    pnads = [
+        pnad for pnad in pnads if len(pnad.datastore) >= CFG.min_data_for_nsrt
+    ]
+
     # Learn the preconditions of the operators in the PNADs via intersection.
     for pnad in pnads:
         for i, (segment, sub) in enumerate(pnad.datastore):
@@ -238,9 +238,8 @@ def learn_strips_operators(
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
         segmented_trajs: List[List[Segment]],
-        train_tasks: List[Task],
-        predicates: Set[Predicate],
-        verbose: bool) -> List[PartialNSRTAndDatastore]:
+        ground_atom_dataset: List[GroundAtomTrajectory],
+        predicates: Set[Predicate]) -> List[PartialNSRTAndDatastore]:
     print("\nDoing side predicate learning...")
     # For each demonstration in the data, determine its skeleton under
     # the operators stored in the PNADs.
@@ -260,10 +259,10 @@ def _learn_pnad_side_predicates(
     #                          tuple(ground_op.objects)))
     #     skeletons.append(skeleton)
     # Try converting each effect in each PNAD to a side predicate.
-    orig_pnad_params = [pnad.op.parameters.copy() for pnad in pnads]
-    for pnad in pnads:
+    # orig_pnad_params = [pnad.op.parameters.copy() for pnad in pnads]
+    for pnad in sorted(pnads, key=lambda x: len(x.op.parameters), reverse=True):
         print("pnad:",pnad)
-        _update_pnad(pnad, pnads, train_tasks, predicates)
+        _update_pnad(pnad, pnads, segmented_trajs, ground_atom_dataset)
         print("updated pnad:",pnad)
         # input("!!")
     # Recompute the datastores in the PNADs. We need to do this
@@ -280,16 +279,13 @@ def _learn_pnad_side_predicates(
             continue
         final_pnads.append(pnad)
         seen_identifiers.add(frozen_indices)
-    if verbose:
-        print("\nLearned operators with side predicates:")
-        for pnad in final_pnads:
-            print(pnad)
     return final_pnads
 
 
 def _update_pnad(pnad: PartialNSRTAndDatastore,
                  pnads: List[PartialNSRTAndDatastore],
-                 train_tasks: List[Task], predicates: Set[Predicate]) -> None:
+                 segmented_trajs: List[List[Segment]],
+                 ground_atom_dataset: List[GroundAtomTrajectory]) -> None:
     _, option_vars = pnad.option_spec
     for effect_set, add_or_delete in [
             (pnad.op.add_effects, "add"),
@@ -300,13 +296,61 @@ def _update_pnad(pnad: PartialNSRTAndDatastore,
                 effect, option_vars, add_or_delete)
             # If the new operator with this effect turned into a side
             # predicate does not cover every skeleton, revert the change.
-            if not all(_task_planning_succeeds(pnads, task, predicates)
-                       for task in train_tasks):
+            if not pnad.op.add_effects or \
+               not all(_demonstration_covered(pnads, seg_traj, ll_traj)
+                       for seg_traj, (ll_traj, _) in zip(segmented_trajs, ground_atom_dataset)
+                       if ll_traj.is_demo):
                 pnad.op = orig_op
-                print("revert")
+                print("revert, could not sideify",effect)
             else:
                 print("ACCEPT")
-                return
+
+
+def _demonstration_covered(pnads: List[PartialNSRTAndDatastore],
+                           seg_traj: List[Segment],
+                           ll_traj: LowLevelTrajectory):
+    print("demo covered?")
+    assert ll_traj.is_demo
+    init_atoms = seg_traj[0].init_atoms
+    objects = set(seg_traj[0].states[0])
+    assert ll_traj.goal.issubset(seg_traj[-1].final_atoms)
+    option_specs = [segment.get_option_spec() for segment in seg_traj]
+    expecteds = [segment.final_atoms for segment in seg_traj]
+    res= _does_cover_recursive(pnads, init_atoms, ll_traj.goal, objects,
+                               option_specs, expecteds, cur_idx=0)
+    print(res)
+    # if not res:
+    #     import ipdb; ipdb.set_trace()
+    return res
+
+
+def _does_cover_recursive(pnads: List[PartialNSRTAndDatastore],
+                          atoms, goal, objects, option_specs, expecteds, cur_idx) -> bool:
+    assert len(option_specs) == len(expecteds)
+    if goal.issubset(atoms):
+        return True
+    if cur_idx == len(option_specs):
+        return False
+    segment_param_option, segment_option_objs = option_specs[cur_idx]
+    for pnad in pnads:
+        param_opt, opt_vars = pnad.option_spec
+        if param_opt != segment_param_option:
+            continue
+        isub = dict(zip(opt_vars, segment_option_objs))
+        for ground_op in utils.all_ground_operators_given_partial(
+                pnad.op, objects, isub):
+            # Check if preconditions hold.
+            if not ground_op.preconditions.issubset(atoms):
+                continue
+            next_atoms = utils.apply_operator(ground_op, atoms)
+            if not next_atoms.issubset(expecteds[cur_idx]):
+                continue
+            # print("considering",ground_op.name,ground_op.objects,cur_idx)
+            if _does_cover_recursive(pnads, next_atoms, goal, objects,
+                                     option_specs, expecteds, cur_idx=cur_idx+1):
+                # print("DONE",ground_op.name,ground_op.objects,cur_idx)
+                return True
+    return False
 
 
 def _task_planning_succeeds(pnads: List[PartialNSRTAndDatastore],
