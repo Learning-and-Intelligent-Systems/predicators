@@ -92,10 +92,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 self._simulator,
                 self._get_current_predicates(),
                 max_steps=CFG.interactive_max_steps)
-            # Decide whether to ask about each possible ground atom during exploration
+            # Decide whether to ask about each possible atom during exploration
             for s in traj.states:
                 ground_atoms = utils.all_possible_ground_atoms(
-                        s, self._predicates_to_learn)
+                    s, self._predicates_to_learn)
                 for atom in ground_atoms:
                     score = score_atom(self._dataset_with_atoms, atom)
                     # Ask about this atom if it is the best seen so far
@@ -104,7 +104,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                             # Add this atom if it's a positive example
                             self._dataset_with_atoms.append(
                                 (LowLevelTrajectory([s], []), [{atom}]))
-                            # Still need to implement a way to use negative examples
+                            # Still need a way to use negative examples
                         best_score = score
             if i % CFG.interactive_relearn_every == 0:
                 self._relearn_predicates_and_nsrts()
