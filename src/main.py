@@ -96,7 +96,7 @@ def main() -> None:
                 print(f"\n\nDATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 learning_start = time.time()
-                approach.learn_from_offline_dataset(dataset, train_tasks)
+                approach.learn_from_offline_dataset(dataset)
                 learning_time = time.time() - learning_start
                 results = _run_testing(env, approach)
                 _save_test_results(results, learning_time=learning_time)
