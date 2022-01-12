@@ -20,7 +20,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
+    Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
 from predicators.src.settings import CFG
 
@@ -456,18 +456,17 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 
 def _create_score_function(
         score_function_name: str, initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory], train_tasks: List[Task],
+        atom_dataset: List[GroundAtomTrajectory],
         candidates: Dict[Predicate, float]) -> _PredicateSearchScoreFunction:
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
-                                             train_tasks, candidates)
+                                             candidates)
     if score_function_name == "branching_factor":
         return _BranchingFactorScoreFunction(initial_predicates, atom_dataset,
-                                             train_tasks, candidates)
+                                             candidates)
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates,
-            ["hadd"])
+            initial_predicates, atom_dataset, candidates, ["hadd"])
     match = re.match(r"([a-z\,]+)_lookahead_depth(\d+)", score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
@@ -477,19 +476,20 @@ def _create_score_function(
         heuristic_names_str, depth = match.groups()
         heuristic_names = heuristic_names_str.split(",")
         depth = int(depth)
+        assert heuristic_names
+        assert depth >= 0
         return _RelaxationHeuristicLookaheadBasedScoreFunction(
             initial_predicates,
             atom_dataset,
-            train_tasks,
             candidates,
             heuristic_names,
             lookahead_depth=depth)
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates)
+            initial_predicates, atom_dataset, candidates)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
-                                          train_tasks, candidates)
+                                          candidates)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -499,7 +499,6 @@ class _PredicateSearchScoreFunction:
     """A score function for guiding search over predicate sets."""
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
-    _train_tasks: List[Task]  # training tasks that this data was generated on
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
@@ -615,18 +614,20 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
         del pruned_atom_data, segments  # unused
         score = 0.0
         node_expansion_upper_bound = 1e7
-        for task in self._train_tasks:
-            init_atoms = utils.abstract(task.init,
+        for traj, _ in self._atom_dataset:
+            if not traj.is_demo:
+                continue
+            init_atoms = utils.abstract(traj.states[0],
                                         predicates | self._initial_predicates)
-            objects = set(task.init)
+            objects = set(traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
                 init_atoms, objects, strips_ops, option_specs)
             heuristic = utils.create_task_planning_heuristic(
-                CFG.task_planning_heuristic, init_atoms, task.goal,
+                CFG.task_planning_heuristic, init_atoms, traj.goal,
                 ground_nsrts, predicates | self._initial_predicates, objects)
             try:
                 _, _, metrics = task_plan(
-                    init_atoms, task.goal, ground_nsrts, reachable_atoms,
+                    init_atoms, traj.goal, ground_nsrts, reachable_atoms,
                     heuristic, CFG.seed,
                     CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
@@ -785,7 +786,6 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
             set(predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
-        assert self.lookahead_depth >= 0
 
         def _relaxation_h(atoms: Set[GroundAtom], depth: int = 0) -> float:
             cache_key = (frozenset(atoms), depth)
@@ -903,8 +903,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset,
-                                   train_tasks: List[Task]) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._dataset.extend(dataset)
         del dataset
         # Generate a candidate set of predicates.
@@ -924,7 +923,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Create the score function that will be used to guide search.
         score_function = _create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, train_tasks, candidates)
+            atom_dataset, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
