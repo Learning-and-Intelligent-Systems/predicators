@@ -92,7 +92,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 max_steps=CFG.interactive_max_steps)
             # Decide whether to ask at each state during exploration
             for s in traj.states:
-                abstract_state = utils.abstract(s, self._get_current_predicates())
+                abstract_state = utils.abstract(s,
+                                                self._get_current_predicates())
                 score = score_goal(self._dataset_with_atoms, abstract_state)
                 # Ask about this state if it is the best seen so far
                 if score > best_score:
@@ -100,7 +101,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     ground_atoms = utils.all_possible_ground_atoms(
                         s, self._predicates_to_learn)
                     atom_set = get_best_goal_by_score(self._dataset_with_atoms,
-                                                      [{ga} for ga in ground_atoms])
+                                                      [{ga}
+                                                       for ga in ground_atoms])
                     assert len(atom_set) == 1
                     atom = atom_set.pop()
                     if self._ask_teacher(s, atom):
@@ -262,8 +264,7 @@ def score_goal(dataset_with_atoms: List[GroundAtomTrajectory],
 
 def get_best_goal_by_score(dataset_with_atoms: List[GroundAtomTrajectory],
                            goals: List[Set[GroundAtom]]) -> Set[GroundAtom]:
-    """Return the best goal out of `goals` using the score function.
-    """
+    """Return the best goal out of `goals` using the score function."""
     scores = [score_goal(dataset_with_atoms, g) for g in goals]
     goals_and_scores = list(zip(goals, scores))
     goals_and_scores.sort(key=lambda tup: tup[1], reverse=True)
