@@ -44,7 +44,7 @@ class BehaviorEnv(BaseEnv):
         config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
-        self.behavior_env = behavior_env.BehaviorEnv(
+        self.igibson_behavior_env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
             action_timestep=CFG.behavior_action_timestep,
@@ -52,7 +52,7 @@ class BehaviorEnv(BaseEnv):
             action_filter="mobile_manipulation",
             rng=self._rng,
         )
-        self.behavior_env.robots[0].initial_z_offset = 0.7
+        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
 
         self._type_name_to_type: Dict[str, Type] = {}
 
@@ -74,7 +74,7 @@ class BehaviorEnv(BaseEnv):
                     types=list(types),
                     params_space=Box(parameter_limits[0], parameter_limits[1],
                                      (param_dim, )),
-                    env=self.behavior_env,
+                    env=self.igibson_behavior_env,
                     controller_fn=controller_fn,  # type: ignore
                     object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
@@ -83,9 +83,9 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        self.behavior_env.task.reset_scene(state.simulator_state)
+        self.igibson_behavior_env.task.reset_scene(state.simulator_state)
         a = action.arr
-        self.behavior_env.step(a)
+        self.igibson_behavior_env.step(a)
         # a[16] is used to indicate whether to grasp or release the currently-
         # held object. 1.0 indicates that the object should be grasped, and
         # -1.0 indicates it should be released
@@ -96,14 +96,16 @@ class BehaviorEnv(BaseEnv):
             # whether to close the hand or not (1.0 indicates that the
             # hand should be closed)
             assisted_grasp_action[26] = 1.0
-            _ = (self.behavior_env.robots[0].parts["right_hand"].
+            _ = (self.igibson_behavior_env.robots[0].parts["right_hand"].
                  handle_assisted_grasping(assisted_grasp_action))
         elif a[16] == -1.0:
-            released_obj = self.behavior_env.scene.get_objects()[
-                self.behavior_env.robots[0].parts["right_hand"].object_in_hand]
+            released_obj = self.igibson_behavior_env.scene.get_objects()[
+                self.igibson_behavior_env.robots[0].parts["right_hand"].
+                object_in_hand]
             # force release object to avoid dealing with stateful assisted
             # grasping release mechanism
-            self.behavior_env.robots[0].parts["right_hand"].force_release_obj()
+            self.igibson_behavior_env.robots[0].parts[
+                "right_hand"].force_release_obj()
             # reset the released object to zero velocity
             pyb.resetBaseVelocity(
                 released_obj.get_body_id(),
@@ -125,7 +127,7 @@ class BehaviorEnv(BaseEnv):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2**32) - 1))
-            self.behavior_env.reset()
+            self.igibson_behavior_env.reset()
             init_state = self._current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -136,8 +138,10 @@ class BehaviorEnv(BaseEnv):
         # Currently assumes that the goal is a single AND of
         # ground atoms (this is also assumed by the planner).
         goal = set()
-        assert len(self.behavior_env.task.ground_goal_state_options) == 1
-        for head_expr in self.behavior_env.task.ground_goal_state_options[0]:
+        assert len(
+            self.igibson_behavior_env.task.ground_goal_state_options) == 1
+        for head_expr in self.igibson_behavior_env.task.\
+            ground_goal_state_options[0]:
             bddl_name = head_expr.terms[0]  # untyped
             ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
@@ -243,10 +247,10 @@ class BehaviorEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # 17-dimensional, between -1 and 1
-        assert self.behavior_env.action_space.shape == (17, )
-        assert np.all(self.behavior_env.action_space.low == -1)
-        assert np.all(self.behavior_env.action_space.high == 1)
-        return self.behavior_env.action_space
+        assert self.igibson_behavior_env.action_space.shape == (17, )
+        assert np.all(self.igibson_behavior_env.action_space.low == -1)
+        assert np.all(self.igibson_behavior_env.action_space.high == 1)
+        return self.igibson_behavior_env.action_space
 
     def render(self,
                state: State,
@@ -256,7 +260,7 @@ class BehaviorEnv(BaseEnv):
                         "behavior_mode in settings.py instead")
 
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
-        return list(self.behavior_env.task.object_scope.values())
+        return list(self.igibson_behavior_env.task.object_scope.values())
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
@@ -295,7 +299,7 @@ class BehaviorEnv(BaseEnv):
                 ig_obj.get_orientation(),
             ])
             state_data[obj] = obj_state
-        simulator_state = self.behavior_env.task.save_scene()
+        simulator_state = self.igibson_behavior_env.task.save_scene()
         return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(
@@ -315,7 +319,8 @@ class BehaviorEnv(BaseEnv):
                 assert len(o) == 1
                 ig_obj = self.object_to_ig_object(o[0])
                 bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
-                bddl_ground_atom.initialize(self.behavior_env.simulator)
+                bddl_ground_atom.initialize(
+                    self.igibson_behavior_env.simulator)
                 return bddl_ground_atom.get_value()
             if arity == 2:
                 assert len(o) == 2
@@ -323,7 +328,7 @@ class BehaviorEnv(BaseEnv):
                 other_ig_obj = self.object_to_ig_object(o[1])
                 bddl_partial_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
                 bddl_partial_ground_atom.initialize(
-                    self.behavior_env.simulator)
+                    self.igibson_behavior_env.simulator)
                 return bddl_partial_ground_atom.get_value(other_ig_obj)
 
             raise ValueError("BDDL predicate has unexpected arity.")
@@ -364,7 +369,8 @@ class BehaviorEnv(BaseEnv):
                 assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
 
-            if np.any(self.behavior_env.robots[0].is_grasping(ig_obj.body_id)):
+            if np.any(self.igibson_behavior_env.robots[0].is_grasping(
+                    ig_obj.body_id)):
                 grasped_objs.add(obj)
 
         return grasped_objs

@@ -133,7 +133,7 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
-    grammar_search_score_function = "hff_lookahead_depth0"
+    grammar_search_score_function = "task_planning"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5
     grammar_search_lookahead_based_temperature = 10.

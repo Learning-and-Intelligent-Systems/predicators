@@ -903,7 +903,7 @@ class LowLevelTrajectory:
 
         Requires is_demo to be True.
         """
-        assert self._goal is not None
+        assert self._goal is not None, "This trajectory is not a demo!"
         return self._goal
 
 
