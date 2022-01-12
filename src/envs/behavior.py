@@ -112,7 +112,7 @@ class BehaviorEnv(BaseEnv):
                 linearVelocity=[0, 0, 0],
                 angularVelocity=[0, 0, 0],
             )
-        next_state = self._current_ig_state_to_state()
+        next_state = self.current_ig_state_to_state()
         return next_state
 
     def train_tasks_generator(self) -> Iterator[List[Task]]:
@@ -128,7 +128,7 @@ class BehaviorEnv(BaseEnv):
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2**32) - 1))
             self.igibson_behavior_env.reset()
-            init_state = self._current_ig_state_to_state()
+            init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
             tasks.append(task)
@@ -288,7 +288,9 @@ class BehaviorEnv(BaseEnv):
                 return pred
         raise ValueError(f"No predicate found for name {name}.")
 
-    def _current_ig_state_to_state(self) -> State:
+    def current_ig_state_to_state(self) -> State:
+        """Function to create a predicators State from the current underlying
+        iGibson simulator state."""
         state_data = {}
         for ig_obj in self._get_task_relevant_objects():
             obj = self._ig_object_to_object(ig_obj)
@@ -313,7 +315,7 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            assert s.allclose(self._current_ig_state_to_state())
+            assert s.allclose(self.current_ig_state_to_state())
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
@@ -339,7 +341,7 @@ class BehaviorEnv(BaseEnv):
                               objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -350,7 +352,7 @@ class BehaviorEnv(BaseEnv):
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 1
         for obj in state:
             if self._reachable_classifier(
@@ -379,7 +381,7 @@ class BehaviorEnv(BaseEnv):
                               objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
@@ -388,7 +390,7 @@ class BehaviorEnv(BaseEnv):
                             objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -441,26 +443,37 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
     def _policy(state: State, memory: Dict, _objects: Sequence[Object],
                 _params: Array) -> Action:
         assert "has_terminated" in memory
-        assert ("controller" in memory and memory["controller"] is not None
-                )  # must call initiable() first, and it must return True
+        # must call initiable() first, and it must return True
+        assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
-        action_arr, memory["has_terminated"] = memory["controller"](state, env)
+        action_arr, memory["has_terminated"] = memory["policy_controller"](
+            state, env)
         return Action(action_arr)
 
     def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("controller") is None:
+        if memory.get("policy_controller") is None:
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
             if state.simulator_state is not None:
                 env.task.reset_scene(state.simulator_state)
-            controller = controller_fn(env, igo[0], params, rng=rng)
-            memory["controller"] = controller
+            policy_controller = controller_fn(env,
+                                              igo[0],
+                                              params,
+                                              ret_option_model=False,
+                                              rng=rng)
+            memory["policy_controller"] = policy_controller
+            model_controller = controller_fn(env,
+                                             igo[0],
+                                             params,
+                                             ret_option_model=True,
+                                             rng=rng)
+            memory["model_controller"] = model_controller
             memory["has_terminated"] = False
-            return controller is not None
+            return policy_controller is not None
         return True
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
