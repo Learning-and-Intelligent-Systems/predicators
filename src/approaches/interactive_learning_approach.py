@@ -52,10 +52,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset.extend(dataset)
         self._dataset_with_atoms.extend(self._teacher.generate_data(dataset))
 
-    def learn_from_offline_dataset(self, dataset: Dataset,
-                                   train_tasks: List[Task]) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._load_dataset(dataset)
         del dataset
+        demo_idxs = [
+            idx for idx, traj in enumerate(self._dataset) if traj.is_demo
+        ]
         # Learn predicates and NSRTs
         self._relearn_predicates_and_nsrts()
         # Active learning
@@ -63,8 +65,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         for i in range(1, CFG.interactive_num_episodes + 1):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
-            index = self._rng.choice(len(train_tasks))
-            state = train_tasks[index].init
+            index = self._rng.choice(demo_idxs)
+            state = self._dataset[index].states[0]
             # Find policy for exploration
             task_list = glib_sample(state, self._get_current_predicates(),
                                     self._dataset_with_atoms)

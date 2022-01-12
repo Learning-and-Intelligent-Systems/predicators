@@ -72,7 +72,7 @@ def test_base_approach():
     approach = _DummyApproach(_simulator, predicates, options, types,
                               action_space)
     assert not approach.is_learning_based
-    assert approach.learn_from_offline_dataset([], []) is None
+    assert approach.learn_from_offline_dataset([]) is None
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
