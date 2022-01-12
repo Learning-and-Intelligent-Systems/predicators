@@ -53,7 +53,7 @@ def _test_approach(env_name,
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
-    approach.learn_from_offline_dataset(dataset, train_tasks)
+    approach.learn_from_offline_dataset(dataset)
     task = env.get_test_tasks()[0]
     if try_solving:
         policy = approach.solve(task, timeout=CFG.timeout)
