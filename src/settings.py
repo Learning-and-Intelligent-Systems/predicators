@@ -36,7 +36,7 @@ class GlobalSettings:
     cluttered_table_collision_angle_thresh = np.pi / 4
 
     # repeated nextto env parameters
-    repeated_nextto_num_dots = 10
+    repeated_nextto_num_dots = 25
 
     # painting env parameters
     painting_train_families = [
