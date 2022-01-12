@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 import abc
-from typing import Callable
+from typing import Callable, cast
 from predicators.src import utils
 from predicators.src.structs import State, Action, _Option
 from predicators.src.settings import CFG
+from predicators.src.envs import get_cached_env_instance
+from predicators.src.envs.behavior import BehaviorEnv
 
 
 def create_option_model(
@@ -14,6 +16,8 @@ def create_option_model(
     """Create an option model given its name."""
     if name == "default":
         return _DefaultOptionModel(simulator)
+    if name == "behavior":
+        return _BehaviorOptionModel(simulator)  # pragma: no cover
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
@@ -46,3 +50,16 @@ class _DefaultOptionModel(_OptionModel):
             option,
             max_num_steps=CFG.max_num_steps_option_rollout)
         return traj.states[-1]
+
+
+class _BehaviorOptionModel(_OptionModel):
+    """An oracle option model for the BEHAVIOR env."""
+
+    def get_next_state(self, state: State,
+                       option: _Option) -> State:  # pragma: no cover
+        env_base = get_cached_env_instance("behavior")
+        env = cast(BehaviorEnv, env_base)
+        assert option.memory.get("model_controller") is not None
+        option.memory["model_controller"](state, env.igibson_behavior_env)
+        next_state = env.current_ig_state_to_state()
+        return next_state
