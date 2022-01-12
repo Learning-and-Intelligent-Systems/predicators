@@ -58,14 +58,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         del dataset
         # Learn predicates and NSRTs
         self._relearn_predicates_and_nsrts()
+        # Track score of best state seen so far
+        best_score = 0.0
         # Active learning
         for i in range(1, CFG.interactive_num_episodes + 1):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
             index = self._rng.choice(len(train_tasks))
-            state = train_tasks[index].init
+            s = train_tasks[index].init
             # Find policy for exploration
-            task_list = glib_sample(state, self._get_current_predicates(),
+            task_list = glib_sample(s, self._get_current_predicates(),
                                     self._dataset_with_atoms)
             assert task_list
             task = task_list[0]
@@ -88,28 +90,25 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 self._simulator,
                 self._get_current_predicates(),
                 max_steps=CFG.interactive_max_steps)
-            # Pick best state seen during exploration
-            abstract_states = [
-                utils.abstract(s, self._get_current_predicates())
-                for s in traj.states
-            ]
-            best_abstract_state = get_best_goal_by_score(
-                self._dataset_with_atoms, abstract_states)
-            idx = abstract_states.index(best_abstract_state)
-            best_state = traj.states[idx]
-            # Pick best ground atom in the state
-            ground_atoms = utils.all_possible_ground_atoms(
-                best_state, self._predicates_to_learn)
-            best_atom_set = get_best_goal_by_score(self._dataset_with_atoms,
-                                                   [{ga}
-                                                    for ga in ground_atoms])
-            assert len(best_atom_set) == 1
-            # For now, ask teacher about every such best atom
-            if self._ask_teacher(best_state, list(best_atom_set)[0]):
-                # Add this atom if it's a positive example
-                self._dataset_with_atoms.append(  # pragma: no cover
-                    (LowLevelTrajectory([best_state], []), [best_atom_set]))
-                # Still need to implement a way to use negative examples
+            # Decide whether to ask at each state during exploration
+            for s in traj.states:
+                abstract_state = utils.abstract(s, self._get_current_predicates())
+                score = score_goal(self._dataset_with_atoms, abstract_state)
+                # Ask about this state if it is the best seen so far
+                if score > best_score:
+                    # Pick best ground atom in the state
+                    ground_atoms = utils.all_possible_ground_atoms(
+                        s, self._predicates_to_learn)
+                    atom_set = get_best_goal_by_score(self._dataset_with_atoms,
+                                                      [{ga} for ga in ground_atoms])
+                    assert len(atom_set) == 1
+                    atom = atom_set.pop()
+                    if self._ask_teacher(s, atom):
+                        # Add this atom if it's a positive example
+                        self._dataset_with_atoms.append(  # pragma: no cover
+                            (LowLevelTrajectory([s], []), [{atom}]))
+                        # Still need to implement a way to use negative examples
+                    best_score = score
             if i % CFG.interactive_relearn_every == 0:
                 self._relearn_predicates_and_nsrts()
 
