@@ -3,6 +3,8 @@
 from typing import Set, Callable, List, Collection
 import numpy as np
 from gym.spaces import Box
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
@@ -11,6 +13,7 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     LowLevelTrajectory
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
+from predicators.src.scikit_models import GaussianProcessPredicateClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG
 
@@ -155,12 +158,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             X = np.array(positive_examples + negative_examples)
             Y = np.array([1 for _ in positive_examples] +
                          [0 for _ in negative_examples])
-            model = MLPClassifier(X.shape[1],
-                                  CFG.predicate_mlp_classifier_max_itr)
+            # model = MLPClassifier(X.shape[1],
+            #                       CFG.predicate_mlp_classifier_max_itr)
+            kernel = 1.0 * RBF(1.0)
+            model = GaussianProcessClassifier(kernel=kernel, random_state=self._seed)
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it
-            classifier = LearnedPredicateClassifier(model).classifier
+            classifier = GaussianProcessPredicateClassifier(model).classifier
             new_pred = Predicate(pred.name, pred.types, classifier)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
