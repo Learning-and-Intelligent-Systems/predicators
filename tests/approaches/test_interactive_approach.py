@@ -66,7 +66,7 @@ def test_interactive_learning_approach():
         "neural_gaus_regressor_max_itr": 500,
         "interactive_num_episodes": 1,
         "interactive_relearn_every": 1,
-        "interactive_known_predicates": {'HandEmpty', 'Holding', 'Covers'}
+        "interactive_known_predicates": "HandEmpty,Holding,Covers"
     })
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
@@ -104,7 +104,7 @@ def test_interactive_learning_approach_no_ground_atoms():
         "interactive_num_episodes": 0,
         "teacher_dataset_label_ratio": 0.0,
         "interactive_known_predicates":
-        {'HandEmpty', 'IsBlock', 'IsTarget', 'Holding'}
+        "HandEmpty,IsBlock,IsTarget,Holding"
     })
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,

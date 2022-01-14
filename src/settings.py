@@ -109,12 +109,10 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_known_predicates = {
-        "GripperOpen", "Holding", "Clear", "NextToTable", "NextToDoor",
-        "NextToDial", "InRegion", "Borders", "Connects", "IsBoringRoom",
-        "IsPlayroom", "IsBoringRoomDoor", "IsPlayroomDoor", "DoorOpen",
-        "DoorClosed", "LightOn", "LightOff", "On", "OnTable"
-    }
+    interactive_known_predicates = f"GripperOpen,Holding,Clear,NextToTable," \
+        "NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom," \
+        "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
+        "LightOn,LightOff,On,OnTable"
     interactive_num_episodes = 0
     interactive_max_steps = 21
     interactive_relearn_every = 1
