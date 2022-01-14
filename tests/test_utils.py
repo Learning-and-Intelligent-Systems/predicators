@@ -1353,6 +1353,13 @@ def test_update_config():
     assert CFG.seed == 321
     with pytest.raises(ValueError):
         utils.update_config({"not a real setting name": 0})
+    # Test that default seed gets set automatically.
+    del CFG.seed
+    assert "seed" not in CFG.__dict__
+    with pytest.raises(AttributeError):
+        _ = CFG.seed
+    utils.update_config({"env": "cover"})
+    assert CFG.seed == 123
 
 
 def test_run_gbfs():

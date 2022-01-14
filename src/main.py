@@ -53,6 +53,11 @@ def main() -> None:
         os.mkdir(CFG.results_dir)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_env(CFG.env)
+    # The action space and options need to be seeded externally, because
+    # env.action_space and env.options are often created during env __init__().
+    env.action_space.seed(CFG.seed)
+    for option in env.options:
+        option.params_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
         if CFG.excluded_predicates == "all":
