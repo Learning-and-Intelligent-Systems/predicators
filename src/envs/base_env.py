@@ -12,7 +12,7 @@ class BaseEnv:
     """Base environment."""
 
     def __init__(self) -> None:
-        self.seed(2309)
+        self.seed(23)
         # self.seed(0)
 
     @abc.abstractmethod

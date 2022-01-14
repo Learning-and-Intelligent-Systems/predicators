@@ -528,7 +528,7 @@ def create_grasp_policy(
 
 
 def create_grasp_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]], obj: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
     plan."""
 
@@ -547,20 +547,39 @@ def create_grasp_option_model(
             rh_final_grasp_postion,
             p.getQuaternionFromEuler(rh_final_grasp_orn))
 
-        for i in range(25):
-            ret_action = get_delta_low_level_hand_action(
-                env, plan[i - 26][0:3], plan[i - 26][3:6], plan[i - 25][0:3],
-                plan[i - 25][3:6])
+        # NOTE: Temporary hack: we know that the second to last action moves the
+        # hand along the correct velocity vector at 1/25th the speed necessary
+        # to reach the object, so we can just step this till we make contact or hit
+        # 50 steps (at which point we've probably knocked the object over) 
+        ret_action = get_delta_low_level_hand_action(
+                env, plan[-2][0:3], plan[-2][3:6], plan[-1][0:3],
+                plan[-1][3:6])
+        for _ in range(50):
             env.step(ret_action)
+            if env.robots[0].parts["right_hand"].find_hand_contacts() is not None:
+                break
+
+        # for i in range(25):
+        #     ret_action = get_delta_low_level_hand_action(
+        #         env, plan[i - 26][0:3], plan[i - 26][3:6], plan[i - 25][0:3],
+        #         plan[i - 25][3:6])
+        #     env.step(ret_action)
 
         # 2 Simulate Grasp
         a = np.zeros(17, dtype=float)
         a[16] = 1.0
         assisted_grasp_action = np.zeros(28, dtype=float)
         assisted_grasp_action[26] = 1.0
+        if isinstance(obj.body_id, List):
+            grasp_obj_body_id = obj.body_id[0]
+        else:
+            grasp_obj_body_id = obj.body_id
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
-            assisted_grasp_action)
+            assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1))
         env.step(a)
+
+        if env.robots[0].parts["right_hand"].object_in_hand is not None:
+            import ipdb; ipdb.set_trace()
 
         # 3 Move Hand to Original Location
         env.robots[0].parts["right_hand"].set_position_orientation(
@@ -766,7 +785,7 @@ def grasp_obj_at_pos(
 
     print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
           f"continuous params {grasp_offset}. Returning option model.")
-    return create_grasp_option_model(plan)
+    return create_grasp_option_model(plan, obj)
 
 
 def place_obj_plan(
