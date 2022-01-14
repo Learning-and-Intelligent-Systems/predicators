@@ -14,6 +14,10 @@ class BaseEnv:
 
     def __init__(self) -> None:
         self.seed(CFG.seed)
+
+    def __post_init__(self) -> None:
+        # The action space and option spaces should be seeded after __init__
+        # because they may be created during __init__.
         self.action_space.seed(CFG.seed)
         for option in self.options:
             option.params_space.seed(CFG.seed)

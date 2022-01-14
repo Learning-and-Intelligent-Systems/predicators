@@ -51,7 +51,7 @@ def main() -> None:
                                  "HEAD"]).decode("ascii").strip())
     if not os.path.exists(CFG.results_dir):
         os.mkdir(CFG.results_dir)
-    # Create classes. Note that seeding happens in __init__().
+    # Create classes. Note that seeding happens inside the env and approach.
     env = create_env(CFG.env)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
