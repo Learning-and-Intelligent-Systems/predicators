@@ -431,10 +431,11 @@ class ParameterizedOption:
             terminal=lambda s: self._terminal(s, memory, objects, params),
             parent=self,
             objects=objects,
-            params=params)
+            params=params,
+            memory=memory)
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(eq=False)
 class _Option:
     """Struct defining an option, which is like a parameterized option except
     that its components are not conditioned on objects/parameters.
@@ -456,6 +457,8 @@ class _Option:
     objects: Sequence[Object]
     # The parameters that were used to ground this option.
     params: Array
+    # The memory dictionary for this option.
+    memory: Dict = field(repr=False)
 
     def policy(self, state: State) -> Action:
         """Call the policy and set the action's option."""
@@ -900,7 +903,7 @@ class LowLevelTrajectory:
 
         Requires is_demo to be True.
         """
-        assert self._goal is not None
+        assert self._goal is not None, "This trajectory is not a demo!"
         return self._goal
 
 

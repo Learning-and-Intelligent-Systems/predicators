@@ -4,12 +4,12 @@ In contrast to other approaches, this approach does not attempt to learn
 new predicates or options.
 """
 
-from typing import Callable, Set, List
+from typing import Callable, Set
 import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
-    State, Action, Predicate, Type, Task
+    State, Action, Predicate, Type
 from predicators.src.nsrt_learning import learn_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -35,8 +35,7 @@ class NSRTLearningApproach(TAMPApproach):
         assert self._nsrts, "NSRTs not learned"
         return self._nsrts
 
-    def learn_from_offline_dataset(self, dataset: Dataset,
-                                   train_tasks: List[Task]) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
