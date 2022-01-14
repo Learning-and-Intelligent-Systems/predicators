@@ -51,7 +51,7 @@ def main() -> None:
                                  "HEAD"]).decode("ascii").strip())
     if not os.path.exists(CFG.results_dir):
         os.mkdir(CFG.results_dir)
-    # Create & seed classes
+    # Create classes. Note that seeding happens in __init__().
     env = create_env(CFG.env)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
@@ -76,11 +76,6 @@ def main() -> None:
         preds = env.predicates
     approach = create_approach(CFG.approach, env.simulate, preds, env.options,
                                env.types, env.action_space)
-    env.seed(CFG.seed)
-    approach.seed(CFG.seed)
-    env.action_space.seed(CFG.seed)
-    for option in env.options:
-        option.params_space.seed(CFG.seed)
     # If approach is learning-based, get training datasets and do learning,
     # testing after each learning call. Otherwise, just do testing.
     if approach.is_learning_based:

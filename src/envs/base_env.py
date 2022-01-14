@@ -6,13 +6,17 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
     ParameterizedOption, Type, Action, Image, Object
+from predicators.src.settings import CFG
 
 
 class BaseEnv:
     """Base environment."""
 
     def __init__(self) -> None:
-        self.seed(0)
+        self.seed(CFG.seed)
+        self.action_space.seed(CFG.seed)
+        for option in self.options:
+            option.params_space.seed(CFG.seed)
 
     @abc.abstractmethod
     def simulate(self, state: State, action: Action) -> State:
