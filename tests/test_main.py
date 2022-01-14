@@ -159,6 +159,7 @@ def test_tamp_approach_failure():
     env = CoverEnv()
     approach = _DummyApproach(env.simulate, env.predicates, env.options,
                               env.types, env.action_space)
+    assert not approach.is_learning_based
     task = next(env.train_tasks_generator())[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
