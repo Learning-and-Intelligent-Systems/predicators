@@ -28,8 +28,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         known_predicates = set(CFG.interactive_known_predicates.split(","))
         self._known_predicates = {
             p
-            for p in initial_predicates
-            if p.name in known_predicates
+            for p in initial_predicates if p.name in known_predicates
         }
         predicates_to_learn = initial_predicates - self._known_predicates
         self._teacher = _Teacher(initial_predicates, predicates_to_learn)
