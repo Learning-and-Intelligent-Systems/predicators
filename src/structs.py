@@ -352,6 +352,10 @@ class GroundAtom(_Atom):
         assert set(self.objects).issubset(set(sub.keys()))
         return LiftedAtom(self.predicate, [sub[o] for o in self.objects])
 
+    def holds(self, state: State) -> bool:
+        """Check whether this ground atom holds in the given state."""
+        return self.predicate.holds(state, self.objects)
+
 
 @dataclass(frozen=True, eq=False)
 class Task:
