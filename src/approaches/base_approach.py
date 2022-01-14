@@ -7,6 +7,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
     ParameterizedOption, Action, Dataset, Metrics
+from predicators.src.settings import CFG
 
 
 class BaseApproach:
@@ -24,7 +25,7 @@ class BaseApproach:
         self._types = types
         self._action_space = action_space
         self._metrics: Metrics = defaultdict(float)
-        self.seed(0)
+        self.seed(CFG.seed)
 
     @property
     @abc.abstractmethod
