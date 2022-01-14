@@ -131,9 +131,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")
             continue
-        except ApproachFailure as e:
-            print(f"Task {i+1} / {len(test_tasks)}: Approach failed "
-                  f"with error: {e}")
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Approach failed at policy "
+                  f"execution time with error: {e}")
             continue
         if solved:
             print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
