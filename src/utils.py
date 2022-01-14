@@ -1146,7 +1146,7 @@ def save_video(outfile: str, video: Video) -> None:
     print(f"Wrote out to {outpath}")
 
 
-def update_config(args: Dict[str, Any]) -> None:
+def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
     # Only override attributes, don't create new ones
     allowed_args = set(CFG.__dict__)
@@ -1160,6 +1160,12 @@ def update_config(args: Dict[str, Any]) -> None:
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
+    # Maintain the invariant that CFG has some seed set. This is very useful
+    # in unit tests, where there are often no commandline args being passed, so
+    # no seed is being set. We always want a seed set because environments and
+    # approaches use the seed during construction.
+    if "seed" not in CFG.__dict__:
+        CFG.__setattr__("seed", default_seed)
 
 
 def get_config_path_str() -> str:
