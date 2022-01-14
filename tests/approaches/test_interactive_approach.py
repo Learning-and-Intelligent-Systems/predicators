@@ -55,18 +55,30 @@ def test_create_teacher_dataset():
 def test_interactive_learning_approach():
     """Test for InteractiveLearningApproach class, entire pipeline."""
     utils.update_config({
-        "env": "cover",
-        "approach": "interactive_learning",
-        "excluded_predicates": "",
-        "timeout": 10,
-        "max_samples_per_step": 10,
-        "seed": 12345,
-        "sampler_mlp_classifier_max_itr": 500,
-        "predicate_mlp_classifier_max_itr": 500,
-        "neural_gaus_regressor_max_itr": 500,
-        "interactive_num_episodes": 1,
-        "interactive_relearn_every": 1,
-        "interactive_known_predicates": {'HandEmpty', 'Holding', 'Covers'}
+        "env":
+        "cover",
+        "approach":
+        "interactive_learning",
+        "excluded_predicates":
+        "",
+        "timeout":
+        10,
+        "max_samples_per_step":
+        10,
+        "seed":
+        12345,
+        "sampler_mlp_classifier_max_itr":
+        500,
+        "predicate_mlp_classifier_max_itr":
+        500,
+        "neural_gaus_regressor_max_itr":
+        500,
+        "interactive_num_episodes":
+        1,
+        "interactive_relearn_every":
+        1,
+        "interactive_known_predicates":
+        "HandEmpty,Holding,Covers"
     })
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
@@ -96,15 +108,22 @@ def test_interactive_learning_approach_no_ground_atoms():
     """Test for InteractiveLearningApproach class where the dataset contains an
     empty ground atom set."""
     utils.update_config({
-        "env": "cover",
-        "approach": "interactive_learning",
-        "timeout": 10,
-        "max_samples_per_step": 10,
-        "seed": 12345,
-        "interactive_num_episodes": 0,
-        "teacher_dataset_label_ratio": 0.0,
+        "env":
+        "cover",
+        "approach":
+        "interactive_learning",
+        "timeout":
+        10,
+        "max_samples_per_step":
+        10,
+        "seed":
+        12345,
+        "interactive_num_episodes":
+        0,
+        "teacher_dataset_label_ratio":
+        0.0,
         "interactive_known_predicates":
-        {'HandEmpty', 'IsBlock', 'IsTarget', 'Holding'}
+        "HandEmpty,IsBlock,IsTarget,Holding"
     })
     env = CoverEnv()
     approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
