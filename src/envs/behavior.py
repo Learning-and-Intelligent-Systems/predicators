@@ -454,7 +454,10 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("policy_controller") is None:
+
+        # TODO: Revert this policy controller and model controller split statement change
+        # This is just for quick testing and iteration.
+        if memory.get("policy_controller") is None and CFG.option_model_name != "behavior":
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
@@ -466,6 +469,15 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                                               ret_option_model=False,
                                               rng=rng)
             memory["policy_controller"] = policy_controller
+            memory["has_terminated"] = False
+            return policy_controller is not None
+        
+        if memory.get("model_controller") is None and CFG.option_model_name == "behavior":
+            # We want to reset the state of the environment to
+            # the state in the init state so that our options can
+            # run RRT/plan from here as intended!
+            if state.simulator_state is not None:
+                env.task.reset_scene(state.simulator_state)
             model_controller = controller_fn(env,
                                              igo[0],
                                              params,
@@ -473,7 +485,7 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                                              rng=rng)
             memory["model_controller"] = model_controller
             memory["has_terminated"] = False
-            return policy_controller is not None
+            return model_controller is not None
         return True
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
