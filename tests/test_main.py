@@ -1,10 +1,30 @@
 """Tests for main.py."""
 
+from typing import Callable
 import os
 import shutil
 import sys
 import pytest
-from predicators.src.main import main
+from predicators.src.approaches import BaseApproach, ApproachFailure
+from predicators.src.envs import CoverEnv
+from predicators.src.main import main, _run_testing
+from predicators.src.structs import State, Task, Action
+from predicators.src import utils
+
+
+class _DummyApproach(BaseApproach):
+    """Dummy approach that raises ApproachFailure for testing."""
+
+    @property
+    def is_learning_based(self):
+        return False
+
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
+        def _policy(s: State) -> Action:
+            raise ApproachFailure("Option plan exhausted.")
+
+        return _policy
 
 
 def test_main():
@@ -125,3 +145,21 @@ def test_main():
         "123", "--excluded_predicates", "all", "--num_test_tasks", "5"
     ]
     main()  # correct usage
+
+
+def test_tamp_approach_failure():
+    """Test coverage for ApproachFailure raised during policy execution."""
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "timeout": 10,
+        "make_videos": False,
+    })
+    env = CoverEnv()
+    approach = _DummyApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
+    assert not approach.is_learning_based
+    task = next(env.train_tasks_generator())[0]
+    approach.solve(task, timeout=500)
+    _run_testing(env, approach)

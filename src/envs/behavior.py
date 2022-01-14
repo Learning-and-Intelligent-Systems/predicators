@@ -44,7 +44,7 @@ class BehaviorEnv(BaseEnv):
         config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
-        self.behavior_env = behavior_env.BehaviorEnv(
+        self.igibson_behavior_env = behavior_env.BehaviorEnv(
             config_file=config_file,
             mode=CFG.behavior_mode,
             action_timestep=CFG.behavior_action_timestep,
@@ -52,7 +52,7 @@ class BehaviorEnv(BaseEnv):
             action_filter="mobile_manipulation",
             rng=self._rng,
         )
-        self.behavior_env.robots[0].initial_z_offset = 0.7
+        self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
 
         self._type_name_to_type: Dict[str, Type] = {}
 
@@ -64,8 +64,8 @@ class BehaviorEnv(BaseEnv):
             ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
-        for (name, controller_fn, param_dim, num_args, parameter_limits\
-            ) in controllers:
+        for (name, controller_fn, param_dim, num_args,
+             parameter_limits) in controllers:
             # Create a different option for each type combo
             for types in itertools.product(self.types, repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
@@ -74,7 +74,7 @@ class BehaviorEnv(BaseEnv):
                     types=list(types),
                     params_space=Box(parameter_limits[0], parameter_limits[1],
                                      (param_dim, )),
-                    env=self.behavior_env,
+                    env=self.igibson_behavior_env,
                     controller_fn=controller_fn,  # type: ignore
                     object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
@@ -83,9 +83,9 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        self.behavior_env.task.reset_scene(state.simulator_state)
+        self.igibson_behavior_env.task.reset_scene(state.simulator_state)
         a = action.arr
-        self.behavior_env.step(a)
+        self.igibson_behavior_env.step(a)
         # a[16] is used to indicate whether to grasp or release the currently-
         # held object. 1.0 indicates that the object should be grasped, and
         # -1.0 indicates it should be released
@@ -96,21 +96,23 @@ class BehaviorEnv(BaseEnv):
             # whether to close the hand or not (1.0 indicates that the
             # hand should be closed)
             assisted_grasp_action[26] = 1.0
-            _ = (self.behavior_env.robots[0].parts["right_hand"].
+            _ = (self.igibson_behavior_env.robots[0].parts["right_hand"].
                  handle_assisted_grasping(assisted_grasp_action))
         elif a[16] == -1.0:
-            released_obj = self.behavior_env.scene.get_objects()[
-                self.behavior_env.robots[0].parts["right_hand"].object_in_hand]
+            released_obj = self.igibson_behavior_env.scene.get_objects()[
+                self.igibson_behavior_env.robots[0].parts["right_hand"].
+                object_in_hand]
             # force release object to avoid dealing with stateful assisted
             # grasping release mechanism
-            self.behavior_env.robots[0].parts["right_hand"].force_release_obj()
+            self.igibson_behavior_env.robots[0].parts[
+                "right_hand"].force_release_obj()
             # reset the released object to zero velocity
             pyb.resetBaseVelocity(
                 released_obj.get_body_id(),
                 linearVelocity=[0, 0, 0],
                 angularVelocity=[0, 0, 0],
             )
-        next_state = self._current_ig_state_to_state()
+        next_state = self.current_ig_state_to_state()
         return next_state
 
     def train_tasks_generator(self) -> Iterator[List[Task]]:
@@ -125,8 +127,8 @@ class BehaviorEnv(BaseEnv):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2**32) - 1))
-            self.behavior_env.reset()
-            init_state = self._current_ig_state_to_state()
+            self.igibson_behavior_env.reset()
+            init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
             tasks.append(task)
@@ -136,8 +138,10 @@ class BehaviorEnv(BaseEnv):
         # Currently assumes that the goal is a single AND of
         # ground atoms (this is also assumed by the planner).
         goal = set()
-        assert len(self.behavior_env.task.ground_goal_state_options) == 1
-        for head_expr in self.behavior_env.task.ground_goal_state_options[0]:
+        assert len(
+            self.igibson_behavior_env.task.ground_goal_state_options) == 1
+        for head_expr in self.igibson_behavior_env.task.\
+            ground_goal_state_options[0]:
             bddl_name = head_expr.terms[0]  # untyped
             ig_objs = [self._name_to_ig_object(t) for t in head_expr.terms[1:]]
             objects = [self._ig_object_to_object(i) for i in ig_objs]
@@ -243,18 +247,20 @@ class BehaviorEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # 17-dimensional, between -1 and 1
-        assert self.behavior_env.action_space.shape == (17, )
-        assert np.all(self.behavior_env.action_space.low == -1)
-        assert np.all(self.behavior_env.action_space.high == 1)
-        return self.behavior_env.action_space
+        assert self.igibson_behavior_env.action_space.shape == (17, )
+        assert np.all(self.igibson_behavior_env.action_space.low == -1)
+        assert np.all(self.igibson_behavior_env.action_space.high == 1)
+        return self.igibson_behavior_env.action_space
 
-    def render(self, state: State, task: Task, \
-        action: Optional[Action] = None) -> List[Image]:
+    def render(self,
+               state: State,
+               task: Task,
+               action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
-        return list(self.behavior_env.task.object_scope.values())
+        return list(self.igibson_behavior_env.task.object_scope.values())
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
@@ -282,7 +288,9 @@ class BehaviorEnv(BaseEnv):
                 return pred
         raise ValueError(f"No predicate found for name {name}.")
 
-    def _current_ig_state_to_state(self) -> State:
+    def current_ig_state_to_state(self) -> State:
+        """Function to create a predicators State from the current underlying
+        iGibson simulator state."""
         state_data = {}
         for ig_obj in self._get_task_relevant_objects():
             obj = self._ig_object_to_object(ig_obj)
@@ -293,11 +301,12 @@ class BehaviorEnv(BaseEnv):
                 ig_obj.get_orientation(),
             ])
             state_data[obj] = obj_state
-        simulator_state = self.behavior_env.task.save_scene()
+        simulator_state = self.igibson_behavior_env.task.save_scene()
         return State(state_data, simulator_state)
 
-    def _create_classifier_from_bddl(self, \
-        bddl_predicate: "bddl.AtomicFormula", \
+    def _create_classifier_from_bddl(
+        self,
+        bddl_predicate: "bddl.AtomicFormula",
     ) -> Callable[[State, Sequence[Object]], bool]:
 
         def _classifier(s: State, o: Sequence[Object]) -> bool:
@@ -306,13 +315,14 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            assert s.allclose(self._current_ig_state_to_state())
+            assert s.allclose(self.current_ig_state_to_state())
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
                 ig_obj = self.object_to_ig_object(o[0])
                 bddl_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
-                bddl_ground_atom.initialize(self.behavior_env.simulator)
+                bddl_ground_atom.initialize(
+                    self.igibson_behavior_env.simulator)
                 return bddl_ground_atom.get_value()
             if arity == 2:
                 assert len(o) == 2
@@ -320,19 +330,18 @@ class BehaviorEnv(BaseEnv):
                 other_ig_obj = self.object_to_ig_object(o[1])
                 bddl_partial_ground_atom = bddl_predicate.STATE_CLASS(ig_obj)
                 bddl_partial_ground_atom.initialize(
-                    self.behavior_env.simulator)
+                    self.igibson_behavior_env.simulator)
                 return bddl_partial_ground_atom.get_value(other_ig_obj)
 
             raise ValueError("BDDL predicate has unexpected arity.")
 
         return _classifier
 
-
-    def _reachable_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _reachable_classifier(self, state: State,
+                              objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -340,10 +349,10 @@ class BehaviorEnv(BaseEnv):
             np.array(ig_obj.get_position()) -
             np.array(ig_other_obj.get_position())) < 2)
 
-    def _reachable_nothing_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _reachable_nothing_classifier(self, state: State,
+                                      objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 1
         for obj in state:
             if self._reachable_classifier(
@@ -362,25 +371,26 @@ class BehaviorEnv(BaseEnv):
                 assert len(ig_obj.body_id) == 1
                 ig_obj.body_id = ig_obj.body_id[0]
 
-            if np.any(self.behavior_env.robots[0].is_grasping(ig_obj.body_id)):
+            if np.any(self.igibson_behavior_env.robots[0].is_grasping(
+                    ig_obj.body_id)):
                 grasped_objs.add(obj)
 
         return grasped_objs
 
-    def _handempty_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _handempty_classifier(self, state: State,
+                              objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
-    def _holding_classifier(self, state: State, \
-        objs: Sequence[Object]) -> bool:
+    def _holding_classifier(self, state: State,
+                            objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self._current_ig_state_to_state())
+        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -416,8 +426,8 @@ class BehaviorEnv(BaseEnv):
         raise ValueError("BDDL predicate has unexpected arity.")
 
     @staticmethod
-    def _create_type_combo_name(original_name: str, \
-        type_combo: Sequence[Type]) -> str:
+    def _create_type_combo_name(original_name: str,
+                                type_combo: Sequence[Type]) -> str:
         type_names = "-".join(t.name for t in type_combo)
         return f"{original_name}-{type_names}"
 
@@ -430,29 +440,40 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
-    def _policy(state: State, memory: Dict, _objects: Sequence[Object], \
-        _params: Array) -> Action:
+    def _policy(state: State, memory: Dict, _objects: Sequence[Object],
+                _params: Array) -> Action:
         assert "has_terminated" in memory
-        assert ("controller" in memory and memory["controller"] is not None
-                )  # must call initiable() first, and it must return True
+        # must call initiable() first, and it must return True
+        assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
-        action_arr, memory["has_terminated"] = memory["controller"](state, env)
+        action_arr, memory["has_terminated"] = memory["policy_controller"](
+            state, env)
         return Action(action_arr)
 
     def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("controller") is None:
-            # We want to reset the state of the environmenet to
+        if memory.get("policy_controller") is None:
+            # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
             if state.simulator_state is not None:
                 env.task.reset_scene(state.simulator_state)
-            controller = controller_fn(env, igo[0], params, rng=rng)
-            memory["controller"] = controller
+            policy_controller = controller_fn(env,
+                                              igo[0],
+                                              params,
+                                              ret_option_model=False,
+                                              rng=rng)
+            memory["policy_controller"] = policy_controller
+            model_controller = controller_fn(env,
+                                             igo[0],
+                                             params,
+                                             ret_option_model=True,
+                                             rng=rng)
+            memory["model_controller"] = model_controller
             memory["has_terminated"] = False
-            return controller is not None
+            return policy_controller is not None
         return True
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
