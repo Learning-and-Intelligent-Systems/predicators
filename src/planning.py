@@ -87,8 +87,8 @@ def sesame_plan(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics):
                 plan = _run_low_level_search(
-                    task, option_model, skeleton, atoms_sequence, predicates,
-                    new_seed, timeout - (time.time() - start_time))
+                    task, option_model, skeleton, atoms_sequence, new_seed,
+                    timeout - (time.time() - start_time))
                 if plan is not None:
                     print(
                         f"Planning succeeded! Found plan of length "
@@ -224,7 +224,7 @@ def _skeleton_generator(
 def _run_low_level_search(task: Task, option_model: _OptionModel,
                           skeleton: List[_GroundNSRT],
                           atoms_sequence: List[Collection[GroundAtom]],
-                          predicates: Set[Predicate], seed: int,
+                          seed: int,
                           timeout: float) -> Optional[List[_Option]]:
     """Backtracking search over continuous values."""
     start_time = time.time()
@@ -281,8 +281,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModel,
                     if atom.predicate.name != _NOT_CAUSES_FAILURE
                 }
                 # This is equivalent to, but faster than, checking whether
-                # expected_atoms is a subset of utils.abstract(next_state, ...).
-                if all(atom.holds(next_state) for atom in expected_atoms):
+                # expected_atoms is a subset of utils.abstract(traj[cur_idx],
+                # predicates).
+                if all(atom.holds(traj[cur_idx]) for atom in expected_atoms):
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan
