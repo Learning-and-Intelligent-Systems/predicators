@@ -25,10 +25,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # Predicates should not be ablated
         assert not CFG.excluded_predicates
         # Only the teacher is allowed to know about the initial predicates
+        known_predicates = set(CFG.interactive_known_predicates.split(","))
         self._known_predicates = {
             p
-            for p in initial_predicates
-            if p.name in CFG.interactive_known_predicates
+            for p in initial_predicates if p.name in known_predicates
         }
         predicates_to_learn = initial_predicates - self._known_predicates
         self._teacher = _Teacher(initial_predicates, predicates_to_learn)
