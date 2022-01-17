@@ -284,14 +284,14 @@ def run_policy_on_task(
     simulator: Callable[[State, Action], State],
     predicates: Collection[Predicate],
     max_num_steps: int,
-    make_video: bool = False,
     render: Optional[Callable[[State, Task, Optional[Action]],
                               List[Image]]] = None,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """A light wrapper around run_policy_until that takes in a task and uses
     achieving the task's goal as the termination_function.
 
-    Also allows for video generation.
+    Returns the trajectory and whether it achieves the task goal. Also
+    optionally returns a video, if a render function is provided.
     """
 
     def _terminal(state: State) -> bool:
@@ -301,8 +301,7 @@ def run_policy_on_task(
     traj, goal_reached = run_policy_until(policy, simulator, task.init,
                                           _terminal, max_num_steps)
     video: Video = []
-    if make_video:  # step through the trajectory again, making the video
-        assert render is not None
+    if render is not None:  # step through the traj again, making the video
         for i, state in enumerate(traj.states):
             act = traj.actions[i] if i < len(traj.states) - 1 else None
             video.extend(render(state, task, act))
