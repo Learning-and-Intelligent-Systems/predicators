@@ -225,8 +225,8 @@ def test_option_plan_to_policy():
     def _policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
+    def _initiable(s, _2, _3, p):
+        return p > 0.25 and s[cup][0] < 1
 
     def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
