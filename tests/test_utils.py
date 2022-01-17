@@ -1307,33 +1307,33 @@ def test_get_config_path_str():
     assert s == "dummyenv__dummyapproach__321__all__foobar"
 
 
-def test_get_save_path_str():
-    """Tests for get_save_path_str()."""
-    dirname = "_fake_tmp_save_dir"
-    old_save_dir = CFG.save_dir
+def test_get_approach_save_path_str():
+    """Tests for get_approach_save_path_str()."""
+    dirname = "_fake_tmp_approach_dir"
+    old_approach_dir = CFG.approach_dir
     utils.update_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
-        "save_dir": dirname,
+        "approach_dir": dirname,
         "excluded_predicates": "test_pred1,test_pred2",
         "experiment_id": "baz",
     })
-    save_path = utils.get_save_path_str()
+    save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
                                    "test_pred1,test_pred2__baz.saved")
     utils.update_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
-        "save_dir": dirname,
+        "approach_dir": dirname,
         "excluded_predicates": "",
         "experiment_id": "",
     })
-    save_path = utils.get_save_path_str()
+    save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + "/test_env__test_approach__123____.saved"
     os.rmdir(dirname)
-    utils.update_config({"save_dir": old_save_dir})
+    utils.update_config({"approach_dir": old_approach_dir})
 
 
 def test_update_config():
