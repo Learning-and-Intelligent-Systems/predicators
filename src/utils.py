@@ -61,15 +61,21 @@ def get_closest_point_on_aabb(xyz: List, lo: Array, hi: Array) -> List[float]:
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
-    del state, memory, objects, params  # unused
+    del objects, params  # unused
+    memory["start_state"] = state
     return True
 
 
 def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
-    """A termination function for an option that only lasts 1 timestep."""
-    del state, memory, objects, params  # unused
-    return True
+    """A termination function for an option that only lasts 1 timestep.
+    To use this as the terminal function for a policy, the policy's initiable()
+    function must set memory["start_state"], as always_initiable() does above.
+    """
+    del objects, params  # unused
+    if "start_state" not in memory:
+        return False
+    return not state.allclose(memory["start_state"])
 
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
@@ -243,9 +249,8 @@ def run_policy_until(
 
     Terminates when any of these conditions hold:
     (1) the termination_function returns True,
-    (2) the policy throws OptionPlanExhausted,
-    (3) max_num_steps is reached,
-    (4) the state does not change within a single step.
+    (2) max_num_steps is reached,
+    (3) the state does not change within a single step.
 
     Returns a tuple of:
     (1) a LowLevelTrajectory object,
@@ -261,10 +266,7 @@ def run_policy_until(
         term_fn_hit = False
         last_state = state
         for _ in range(max_num_steps):
-            try:
-                act = policy(state)
-            except OptionPlanExhausted:
-                break
+            act = policy(state)
             state = simulator(state, act)
             actions.append(act)
             states.append(state)
@@ -318,17 +320,15 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
     return solved
 
 
-def option_to_trajectory(init: State, simulator: Callable[[State, Action],
-                                                          State],
+def option_to_trajectory(init_state: State,
+                         simulator: Callable[[State, Action], State],
                          option: _Option,
                          max_num_steps: int) -> LowLevelTrajectory:
     """A light wrapper around run_policy_until that takes in an option and uses
     achieving its terminal() condition as the termination_function."""
-    policy = option_plan_to_policy([option])
-    # Don't include a termation condition here because it's automatically
-    # handled by the policy raising OptionPlanExhausted().
-    traj, _ = run_policy_until(policy, simulator, init, lambda s: False,
-                               max_num_steps)
+    assert option.initiable(init_state)
+    traj, _ = run_policy_until(option.policy, simulator, init_state,
+                               option.terminal, max_num_steps)
     return traj
 
 
@@ -338,32 +338,16 @@ class OptionPlanExhausted(Exception):
 
 def option_plan_to_policy(
         plan: Sequence[_Option]) -> Callable[[State], Action]:
-    """Create a policy that executes the options in order.
-
-    The logic for this is somewhat complicated because:
-    * If an option's termination and initiation conditions are
-      always true, we want the option to execute for one step.
-    * After the first step that the option is executed, it
-      should terminate as soon as it sees a state that is
-      terminal; it should not take one more action after.
+    """Create a policy that executes a sequence of options in order.
     """
-    queue = list(plan)  # Don't modify plan, just in case
-    initialized = False  # Special case first step
+    queue = list(plan)  # don't modify plan, just in case
 
     def _policy(state: State) -> Action:
-        nonlocal initialized
-        # On the very first state, check initiation condition, and
-        # take the action no matter what.
-        if not initialized:
-            if not queue:
-                raise OptionPlanExhausted()
-            assert queue[0].initiable(state), "Unsound option plan"
-            initialized = True
-        elif queue[0].terminal(state):
+        while queue and queue[0].terminal(state):
             queue.pop(0)
-            if not queue:
-                raise OptionPlanExhausted()
-            assert queue[0].initiable(state), "Unsound option plan"
+        if not queue:
+            raise OptionPlanExhausted()
+        assert queue[0].initiable(state), "Unsound option plan"
         return queue[0].policy(state)
 
     return _policy
