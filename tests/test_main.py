@@ -109,10 +109,15 @@ def test_main():
         "123", "--load_approach"
     ]
     main()
-    # Try loading datasets.
+    # Force regenerate datasets.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_dataset"
+        "123", "--remake_data"
+    ]
+    # Try loading datasets (this is the default).
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123"
     ]
     main()
     # Try learning (with too low hyperparameters to actually work).

@@ -1174,7 +1174,7 @@ def get_config_path_str() -> str:
 
 
 def get_approach_save_path_str() -> str:
-    """Get a path for saving and loading appproaches."""
+    """Get a path for saving and loading approaches."""
     if not os.path.exists(CFG.approach_dir):
         os.makedirs(CFG.approach_dir)
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"

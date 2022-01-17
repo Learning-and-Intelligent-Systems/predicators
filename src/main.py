@@ -10,9 +10,9 @@ To load a saved approach:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_approach
 
-To load a saved dataset, rather than regenerating it:
+To force regenerate a dataset:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
-        --load_dataset
+        --remake_data
 
 To make videos:
     python src/main.py --env cover --approach oracle --seed 0 \
@@ -104,18 +104,17 @@ def main() -> None:
                     f"{CFG.env}__{dataset_idx}__"
                     f"{CFG.offline_data_method}__{CFG.seed}.data")
                 dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
-                if CFG.load_dataset:
-                    assert os.path.exists(dataset_filepath)
-                    with open(dataset_filepath, "rb") as f:
-                        dataset = pkl.load(f)
-                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
-                else:
+                if CFG.remake_data or not os.path.exists(dataset_filepath):
                     dataset = create_dataset(env, train_tasks)
                     print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
                     if not os.path.exists(CFG.data_dir):
                         os.makedirs(CFG.data_dir)
                     with open(dataset_filepath, "wb") as f:
                         pkl.dump(dataset, f)
+                else:
+                    with open(dataset_filepath, "rb") as f:
+                        dataset = pkl.load(f)
+                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 learning_start = time.time()
                 approach.learn_from_offline_dataset(dataset)
