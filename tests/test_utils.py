@@ -115,8 +115,6 @@ def test_run_policy_until():
         ns[cup][0] += a.arr.item()
         return ns
 
-    params_space = Box(0, 1, (1, ))
-
     def _policy(_):
         return Action(np.array([4]))
 
