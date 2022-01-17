@@ -17,10 +17,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)
         traj, _, solved = utils.run_policy_on_task(
-            policy,
-            task,
-            env.simulate,
-            env.predicates,
+            policy, task, env.simulate, env.predicates,
             CFG.max_num_steps_check_policy)
         assert solved, "Oracle failed on training task."
         traj = LowLevelTrajectory(traj.states, traj.actions, task.goal)
