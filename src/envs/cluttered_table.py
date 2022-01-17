@@ -79,7 +79,7 @@ class ClutteredTableEnv(BaseEnv):
                 desired_can = can
         if desired_can is None:
             return next_state  # end point wasn't at any can
-        self._check_collisions(start_x, start_y, end_x, end_y, state, desired_can=desired_can)
+        self._check_collisions(start_x, start_y, end_x, end_y, state, desired_can)
         # No collisions, update state and return.
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
@@ -243,7 +243,8 @@ class ClutteredTableEnv(BaseEnv):
     would involve the radii somehow, but we don't really care about this.     
     """
     @staticmethod
-    def _check_collisions(start_x, start_y, end_x, end_y, state, desired_can=None):
+    def _check_collisions(start_x: float, start_y: float, end_x: float, 
+                          end_y: float, state: State, desired_can: Optional[Object]=None) -> None:
         vec1 = np.array([end_x-start_x, end_y-start_y])
         colliding_can = None
         colliding_can_max_dist = float("-inf")
@@ -316,7 +317,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             next_state.set(grasped_can, "pose_x", end_x)
             next_state.set(grasped_can, "pose_y", end_y)
             next_state.set(grasped_can, "is_grasped", 0.0)
-            self._check_collisions(start_x, start_y, end_x, end_y, state)
+            self._check_collisions(start_x, start_y, end_x, end_y, state, None)  # (!!) how to type if arg could be None
             return next_state
         # If there is not grasped can, use the action vector to try to grasp a desired can.
         start_x, start_y, end_x, end_y = action.arr
@@ -326,7 +327,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             this_y = state.get(can, "pose_y")
             this_radius = state.get(can, "radius")
             if np.linalg.norm([end_x-this_x,
-                               end_y-this_y]) < this_radius:  # type: ignore  (bc end point wasn't at any can)
+                               end_y-this_y]) < this_radius:  # type: ignore
                 assert desired_can is None
                 desired_can = can
         if desired_can is None:
