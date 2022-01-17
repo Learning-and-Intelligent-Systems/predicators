@@ -1,4 +1,3 @@
-
 """Contains global, immutable settings.
 
 Anything that varies between runs should be a command-line arg

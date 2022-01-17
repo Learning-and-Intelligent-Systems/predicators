@@ -233,18 +233,20 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
 
 
 def run_policy_until(
-        policy: Callable[[State], Action],
-        simulator: Callable[[State, Action], State],
-        init_state: State,
-        termination_function: Callable[[State], Action],
-        max_num_steps: int,
+    policy: Callable[[State], Action],
+    simulator: Callable[[State, Action], State],
+    init_state: State,
+    termination_function: Callable[[State], Action],
+    max_num_steps: int,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """Execute a policy from an initial state, using a simulator.
+
     Terminates when any of these conditions hold:
     (1) the termination_function returns True,
     (2) the policy throws OptionPlanExhausted,
-    (2) max_num_steps is reached,
-    (3) the state does not change within a single step.
+    (3) max_num_steps is reached,
+    (4) the state does not change within a single step.
+
     Returns a tuple of:
     (1) a LowLevelTrajectory object,
     (2) a boolean for whether termination occurred due to termination_function,
@@ -277,21 +279,24 @@ def run_policy_until(
 
 
 def run_policy_on_task(
-        policy: Callable[[State], Action],
-        task: Task,
-        simulator: Callable[[State, Action], State],
-        predicates: Collection[Predicate],
-        max_num_steps: int,
-        make_video: bool = False,
-        render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
+    policy: Callable[[State], Action],
+    task: Task,
+    simulator: Callable[[State, Action], State],
+    predicates: Collection[Predicate],
+    max_num_steps: int,
+    make_video: bool = False,
+    render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """A light wrapper around run_policy_until that takes in a task and uses
-    achieving the task's goal as the termination_function. Also allows for
-    video generation.
+    achieving the task's goal as the termination_function.
+
+    Also allows for video generation.
     """
+
     def _terminal(state):
         atoms = abstract(state, predicates)
         return task.goal.issubset(atoms)
+
     traj, goal_reached = run_policy_until(policy, simulator, task.init,
                                           _terminal, max_num_steps)
     video: Video = []
@@ -306,8 +311,8 @@ def run_policy_on_task(
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate]) -> bool:
-    """A light wrapper around run_policy_on_task that returns whether the
-    given policy solves the given task."""
+    """A light wrapper around run_policy_on_task that returns whether the given
+    policy solves the given task."""
     _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
                                       CFG.max_num_steps_check_policy)
     return solved
@@ -317,9 +322,8 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
                                                           State],
                          option: _Option,
                          max_num_steps: int) -> LowLevelTrajectory:
-    """A light wrapper around run_policy_until that takes in an option and
-    uses achieving its terminal() condition as the termination_function.
-    """
+    """A light wrapper around run_policy_until that takes in an option and uses
+    achieving its terminal() condition as the termination_function."""
     policy = option_plan_to_policy([option])
     # Don't include a termation condition here because it's automatically
     # handled by the policy raising OptionPlanExhausted().
