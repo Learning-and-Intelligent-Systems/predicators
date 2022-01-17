@@ -232,60 +232,82 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy_on_task(
-    policy: Callable[[State], Action],
-    task: Task,
-    simulator: Callable[[State, Action], State],
-    predicates: Collection[Predicate],
-    max_steps: int,
-    make_video: bool = False,
-    render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
-    annotate_traj_with_goal: bool = False,
+def run_policy_until(
+        policy: Callable[[State], Action],
+        simulator: Callable[[State, Action], State],
+        init_state: State,
+        termination_function: Callable[[State], Action],
+        max_num_steps: int,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
-    """Execute a policy on a task until goal or max steps.
-
-    Return the low-level trajectory (optionally annotated with the
-    goal), and a bool for whether the goal was satisfied at the end.
+    """Execute a policy from an initial state, using a simulator.
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True,
+    (2) the policy throws OptionPlanExhausted,
+    (2) max_num_steps is reached,
+    (3) the state does not change within a single step.
+    Returns a tuple of:
+    (1) a LowLevelTrajectory object,
+    (2) a boolean for whether termination occurred due to termination_function,
+        i.e., due to condition (1) rather than any of the others.
     """
-    state = task.init
-    atoms = abstract(state, predicates)
+    state = init_state
     states = [state]
     actions: List[Action] = []
-    video: Video = []
-    if task.goal.issubset(atoms):  # goal is already satisfied
-        goal_reached = True
+    if termination_function(state):
+        term_fn_hit = True
     else:
-        goal_reached = False
-        for _ in range(max_steps):
-            act = policy(state)
-            if make_video:
-                assert render is not None
-                video.extend(render(state, task, act))
+        term_fn_hit = False
+        last_state = state
+        for _ in range(max_num_steps):
+            try:
+                act = policy(state)
+            except OptionPlanExhausted:
+                break
             state = simulator(state, act)
-            atoms = abstract(state, predicates)
             actions.append(act)
             states.append(state)
-            if task.goal.issubset(atoms):
-                goal_reached = True
+            if termination_function(state):
+                term_fn_hit = True
                 break
-    if make_video:
+            # Detect if stuck; skip potentially expensive simulation.
+            if state.allclose(last_state):
+                break
+    traj = LowLevelTrajectory(states, actions)
+    return traj, term_fn_hit
+
+
+def run_policy_on_task(
+        policy: Callable[[State], Action],
+        task: Task,
+        simulator: Callable[[State, Action], State],
+        predicates: Collection[Predicate],
+        max_num_steps: int,
+        make_video: bool = False,
+        render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
+) -> Tuple[LowLevelTrajectory, Video, bool]:
+    """A light wrapper around run_policy_until that takes in a task and uses
+    achieving the task's goal as the termination_function. Also allows for
+    video generation.
+    """
+    def _terminal(state):
+        atoms = abstract(state, predicates)
+        return task.goal.issubset(atoms)
+    traj, goal_reached = run_policy_until(policy, simulator, task.init,
+                                          _terminal, max_num_steps)
+    video: Video = []
+    if make_video:  # step through the trajectory again, making the video
         assert render is not None
-        # Explanation of type ignore: mypy currently does not
-        # support Callables with optional arguments. mypy
-        # extensions does, but for the sake of avoiding an
-        # additional dependency, we'll just ignore this here.
-        video.extend(render(state, task))  # type: ignore
-    if annotate_traj_with_goal:
-        traj = LowLevelTrajectory(states, actions, task.goal)
-    else:
-        traj = LowLevelTrajectory(states, actions)
+        for i, state in enumerate(traj.states):
+            act = traj.actions[i] if i < len(traj.states) - 1 else None
+            video.extend(render(state, task, act))
     return traj, video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State],
                        predicates: Collection[Predicate]) -> bool:
-    """Return whether the given policy solves the given task."""
+    """A light wrapper around run_policy_on_task that returns whether the
+    given policy solves the given task."""
     _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
                                       CFG.max_num_steps_check_policy)
     return solved
@@ -295,29 +317,15 @@ def option_to_trajectory(init: State, simulator: Callable[[State, Action],
                                                           State],
                          option: _Option,
                          max_num_steps: int) -> LowLevelTrajectory:
-    """Convert an option into a trajectory, starting at init, by invoking the
-    option policy.
-
-    This trajectory is a tuple of (state sequence, action sequence),
-    where the state sequence includes init.
+    """A light wrapper around run_policy_until that takes in an option and
+    uses achieving its terminal() condition as the termination_function.
     """
-    actions = []
-    assert option.initiable(init)
-    state = init
-    last_state = state
-    states = [state]
-    for _ in range(max_num_steps):
-        act = option.policy(state)
-        actions.append(act)
-        state = simulator(state, act)
-        states.append(state)
-        if option.terminal(state):
-            break
-        # Detect if the option is stuck; skip potentially expensive simulation.
-        if state.allclose(last_state):
-            break
-        last_state = state
-    return LowLevelTrajectory(states, actions)
+    policy = option_plan_to_policy([option])
+    # Don't include a termation condition here because it's automatically
+    # handled by the policy raising OptionPlanExhausted().
+    traj, _ = run_policy_until(policy, simulator, init, lambda s: False,
+                               max_num_steps)
+    return traj
 
 
 class OptionPlanExhausted(Exception):
@@ -328,7 +336,7 @@ def option_plan_to_policy(
         plan: Sequence[_Option]) -> Callable[[State], Action]:
     """Create a policy that executes the options in order.
 
-    The logic for this is somewhat complicated because we want:
+    The logic for this is somewhat complicated because:
     * If an option's termination and initiation conditions are
       always true, we want the option to execute for one step.
     * After the first step that the option is executed, it
