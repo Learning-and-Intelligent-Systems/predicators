@@ -118,8 +118,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                                   all_atoms[t + 1],
                                   traj.actions[t].get_option())
             else:
-                # If option learning, include the default option here; replaced
-                # during option learning.
+                # If we're in option learning mode, include the default option
+                # here; replaced later during option learning.
                 segment = Segment(current_segment_traj, all_atoms[t],
                                   all_atoms[t + 1])
             segments.append(segment)
