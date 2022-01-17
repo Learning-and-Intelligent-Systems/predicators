@@ -6,6 +6,14 @@ Example usage with learning NSRTs:
 Example usage with oracle NSRTs:
     python src/main.py --env cover --approach oracle --seed 0
 
+To load a saved approach:
+    python src/main.py --env cover --approach nsrt_learning --seed 0 \
+        --load_approach
+
+To force regenerate a dataset:
+    python src/main.py --env cover --approach nsrt_learning --seed 0 \
+        --remake_data
+
 To make videos:
     python src/main.py --env cover --approach oracle --seed 0 \
         --make_videos --num_test_tasks 1
@@ -84,7 +92,7 @@ def main() -> None:
     # If approach is learning-based, get training datasets and do learning,
     # testing after each learning call. Otherwise, just do testing.
     if approach.is_learning_based:
-        if CFG.load:
+        if CFG.load_approach:
             approach.load()
             results = _run_testing(env, approach)
             _save_test_results(results, learning_time=0.0)
@@ -92,8 +100,21 @@ def main() -> None:
             # Iterate over the train_tasks lists coming from the generator.
             dataset_idx = 0
             for train_tasks in env.train_tasks_generator():
-                dataset = create_dataset(env, train_tasks)
-                print(f"\n\nDATASET INDEX: {dataset_idx}")
+                dataset_filename = (
+                    f"{CFG.env}__{dataset_idx}__"
+                    f"{CFG.offline_data_method}__{CFG.seed}.data")
+                dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
+                if CFG.remake_data or not os.path.exists(dataset_filepath):
+                    dataset = create_dataset(env, train_tasks)
+                    print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
+                    if not os.path.exists(CFG.data_dir):
+                        os.makedirs(CFG.data_dir)
+                    with open(dataset_filepath, "wb") as f:
+                        pkl.dump(dataset, f)
+                else:
+                    with open(dataset_filepath, "rb") as f:
+                        dataset = pkl.load(f)
+                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 learning_start = time.time()
                 approach.learn_from_offline_dataset(dataset)
