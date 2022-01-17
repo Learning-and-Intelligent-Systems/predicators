@@ -62,7 +62,8 @@ def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
     del objects, params  # unused
-    memory["start_state"] = state
+    if "start_state" not in memory:
+        memory["start_state"] = state
     return True
 
 
@@ -341,14 +342,16 @@ def option_plan_to_policy(
     """Create a policy that executes a sequence of options in order.
     """
     queue = list(plan)  # don't modify plan, just in case
+    cur_option = None
 
     def _policy(state: State) -> Action:
-        while queue and queue[0].terminal(state):
-            queue.pop(0)
-        if not queue:
-            raise OptionPlanExhausted()
-        assert queue[0].initiable(state), "Unsound option plan"
-        return queue[0].policy(state)
+        nonlocal cur_option
+        if cur_option is None or cur_option.terminal(state):
+            if not queue:
+                raise OptionPlanExhausted()
+            cur_option = queue.pop(0)
+            assert cur_option.initiable(state), "Unsound option plan"
+        return cur_option.policy(state)
 
     return _policy
 
