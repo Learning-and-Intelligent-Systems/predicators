@@ -236,9 +236,9 @@ def run_policy_until(
     policy: Callable[[State], Action],
     simulator: Callable[[State, Action], State],
     init_state: State,
-    termination_function: Callable[[State], Action],
+    termination_function: Callable[[State], bool],
     max_num_steps: int,
-) -> Tuple[LowLevelTrajectory, Video, bool]:
+) -> Tuple[LowLevelTrajectory, bool]:
     """Execute a policy from an initial state, using a simulator.
 
     Terminates when any of these conditions hold:
@@ -285,7 +285,8 @@ def run_policy_on_task(
     predicates: Collection[Predicate],
     max_num_steps: int,
     make_video: bool = False,
-    render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
+    render: Optional[Callable[[State, Task, Optional[Action]],
+                              List[Image]]] = None,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """A light wrapper around run_policy_until that takes in a task and uses
     achieving the task's goal as the termination_function.
@@ -293,7 +294,7 @@ def run_policy_on_task(
     Also allows for video generation.
     """
 
-    def _terminal(state):
+    def _terminal(state: State) -> bool:
         atoms = abstract(state, predicates)
         return task.goal.issubset(atoms)
 
