@@ -4,6 +4,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
+import functools
 from collections import defaultdict
 import heapq as hq
 import time
@@ -12,12 +13,15 @@ from dataclasses import dataclass, field
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
-    GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
+    GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, Video, \
     PyperplanFacts, Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.option_model import _OptionModel
 from predicators.src.settings import CFG
+
+
+## testing right now is on cluttered-place
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -77,9 +81,10 @@ def sesame_plan(task: Task,
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, nonempty_ground_nsrts, atoms, new_seed,
                     timeout-(time.time()-start_time), metrics):
+                save_fail = int(metrics["num_skeletons_optimized"]) == CFG.max_skeletons_optimized #-1 
                 plan = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, predicates,
-                    new_seed, timeout-(time.time()-start_time))
+                    new_seed, timeout-(time.time()-start_time), save_fail)
                 if plan is not None:
                     print(f"Planning succeeded! Found plan of length "
                           f"{len(plan)} after "
@@ -90,7 +95,9 @@ def sesame_plan(task: Task,
                     return plan, metrics
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
-            _update_nsrts_with_failure(e.discovered_failure, ground_nsrts)
+            pred_set = _update_nsrts_with_failure(e.discovered_failure, ground_nsrts)
+            predicates.update(pred_set)
+            atoms.update(utils.abstract(task.init, pred_set))
 
 
 def task_plan(init_atoms: Set[GroundAtom],
@@ -160,6 +167,9 @@ def _skeleton_generator(task: Task,
         # the high-level search is doing.
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
+            print("skeleton:")
+            for nsrt in node.skeleton: 
+                print(nsrt)
             metrics["num_skeletons_optimized"] += 1
             yield node.skeleton, node.atoms_sequence
         else:
@@ -191,9 +201,11 @@ def _run_low_level_search(
         atoms_sequence: List[Collection[GroundAtom]],
         predicates: Set[Predicate],
         seed: int,
-        timeout: float) -> Optional[List[_Option]]:
+        timeout: float,
+        save_fail=False) -> Optional[List[_Option]]:
     """Backtracking search over continuous values.
     """
+    print("save_fail", save_fail)
     start_time = time.time()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
@@ -225,8 +237,9 @@ def _run_low_level_search(
                 next_state = option_model.get_next_state(state, option)
                 discovered_failures[cur_idx] = None  # no failure occurred
             except EnvironmentFailure as e:
+                # errors in the environment, such as a collision 
                 can_continue_on = False
-                failure = _DiscoveredFailure(e, nsrt)
+                failure = _DiscoveredFailure(e, nsrt, state, option)
                 # Remember only the most recent failure.
                 discovered_failures[cur_idx] = failure
                 # If we're immediately propagating failures, raise it now.
@@ -239,14 +252,21 @@ def _run_low_level_search(
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
                 atoms = utils.abstract(traj[cur_idx], predicates)
-                if atoms == {atom for atom in atoms_sequence[cur_idx]
-                             if atom.predicate.name != _NOT_CAUSES_FAILURE}:
+                expected_atoms = {atom for atom in atoms_sequence[cur_idx]}
+                if atoms == expected_atoms:
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan
                         return result
-                else:
-                    can_continue_on = False
+                else:     
+                    # turn one step of skeleton into ground option
+                    # option attempted to hold but did not pick up (maybe blocked) object
+                    can_continue_on = False         # render (!)
+                    if save_fail: 
+                        # print("if save_fail")
+                        # import pdb; pdb.set_trace()
+                        return plan
+                    # import pdb; pdb.set_trace()
             else:
                 cur_idx += 1  # it's about to be decremented again
         else:
@@ -254,6 +274,7 @@ def _run_low_level_search(
             can_continue_on = False
             cur_idx += 1  # it's about to be decremented again
         if not can_continue_on:
+            print("in not can_continue_on")
             # Go back to re-do the step we just did. If necessary, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
@@ -270,6 +291,10 @@ def _run_low_level_search(
                     for earliest_failure in discovered_failures:
                         if (CFG.sesame_propagate_failures == "after_exhaust"
                             and earliest_failure is not None):
+                            print("raise discoverfailure")
+                            # if save_fail: 
+                            #     import pdb; pdb.set_trace()
+                            # failure to refine skeleton because of environment failure; reports first failure
                             raise _DiscoveredFailureException(
                                 "Discovered a failure", earliest_failure)
                     return None
@@ -278,22 +303,38 @@ def _run_low_level_search(
     return []
 
 
+def _failure_classifier(option, state, obj):
+    # import pdb; pdb.set_trace()
+    end_x = option.params[2]
+    end_y = option.params[3]
+    can = obj[0]
+    can_x = state.get(can, "pose_x")
+    can_y = state.get(can, "pose_y")
+
+    dist = ((end_x - can_x) ** 2 + (end_y - can_y) ** 2) ** 0.5
+    return dist > 0.2
+
 def _update_nsrts_with_failure(
         discovered_failure: _DiscoveredFailure,
         ground_nsrts: Collection[_GroundNSRT]) -> None:
     """Update the given set of ground_nsrts based on the given
     DiscoveredFailure.
     """
+    # import pdb; pdb.set_trace()
+    option = discovered_failure.option
+    pred_set = set()
     for obj in discovered_failure.env_failure.offending_objects:
         # import pdb; pdb.set_trace()
-        atom = GroundAtom(Predicate(_NOT_CAUSES_FAILURE, [obj.type],
-                                    _classifier=lambda s, o: False), [obj])
+        pred = Predicate(_NOT_CAUSES_FAILURE, [obj.type], _classifier=functools.partial(_failure_classifier, option))
+        atom = GroundAtom(pred, [obj])
+        pred_set.add(pred)
         # Update the preconditions of the failing NSRT.
         discovered_failure.failing_nsrt.preconditions.add(atom)
         # Update the effects of all nsrts that use this object.
         for nsrt in ground_nsrts:
             if obj in nsrt.objects:
                 nsrt.add_effects.add(atom)
+    return pred_set
 
 
 @dataclass(frozen=True, eq=False)
@@ -304,6 +345,8 @@ class _DiscoveredFailure:
     """
     env_failure: EnvironmentFailure
     failing_nsrt: _GroundNSRT
+    state: State
+    option: _Option
 
 
 class _DiscoveredFailureException(Exception):
