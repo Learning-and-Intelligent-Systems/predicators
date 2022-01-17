@@ -118,33 +118,30 @@ def test_run_policy_until():
     def _policy(_):
         return Action(np.array([4]))
 
-    traj, flag = utils.run_policy_until(_policy,
-                                        _simulator,
-                                        state,
-                                        lambda s: True,
-                                        max_num_steps=5)
-    assert flag
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  lambda s: True,
+                                  max_num_steps=5)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
 
-    traj, flag = utils.run_policy_until(_policy,
-                                        _simulator,
-                                        state,
-                                        lambda s: False,
-                                        max_num_steps=5)
-    assert not flag
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  lambda s: False,
+                                  max_num_steps=5)
     assert len(traj.states) == 6
     assert len(traj.actions) == 5
 
     def _terminal(s):
         return s[cup][0] > 9.9
 
-    traj, flag = utils.run_policy_until(_policy,
-                                        _simulator,
-                                        state,
-                                        _terminal,
-                                        max_num_steps=5)
-    assert flag
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  _terminal,
+                                  max_num_steps=5)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
 
