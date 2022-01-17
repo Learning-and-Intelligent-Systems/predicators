@@ -11,21 +11,22 @@ def _main() -> None:
     # Gather data.
     all_data = []
     column_names = [
-        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "SEED", "NUM_SOLVED",
-        "NUM_TOTAL", "AVG_TEST_TIME", "AVG_NUM_NODES", "AVG_PLAN_LEN",
-        "LEARNING_TIME"
+        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
+        "NUM_SOLVED", "NUM_TOTAL", "AVG_TEST_TIME", "AVG_NUM_NODES",
+        "AVG_PLAN_LEN", "LEARNING_TIME"
     ]
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             run_data = pkl.load(f)
-        env, approach, seed, excluded_predicates = filepath[8:-4].split("__")
+        env, approach, seed, excluded_predicates, experiment_id = filepath[
+            8:-4].split("__")
         if not excluded_predicates:
             excluded_predicates = "none"
         data = [
-            env, approach, excluded_predicates, seed, run_data["num_solved"],
-            run_data["num_total"], run_data["avg_suc_time"],
-            run_data["avg_nodes_expanded"], run_data["avg_plan_length"],
-            run_data["learning_time"]
+            env, approach, excluded_predicates, experiment_id, seed,
+            run_data["num_solved"], run_data["num_total"],
+            run_data["avg_suc_time"], run_data["avg_nodes_expanded"],
+            run_data["avg_plan_length"], run_data["learning_time"]
         ]
         assert len(data) == len(column_names)
         all_data.append(data)
@@ -38,7 +39,8 @@ def _main() -> None:
     df.columns = column_names
     print("RAW DATA:")
     print(df)
-    grouped = df.groupby(["ENV", "APPROACH", "EXCLUDED_PREDICATES"])
+    grouped = df.groupby(
+        ["ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID"])
     means = grouped.mean()
     stds = grouped.std()
     sizes = grouped.size()
