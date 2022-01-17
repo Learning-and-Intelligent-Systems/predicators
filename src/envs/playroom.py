@@ -769,7 +769,8 @@ class PlayroomEnv(BlocksEnv):
                                objects: Sequence[Object],
                                params: Array) -> bool:
         del params  # unused
-        memory["start_state"] = state
+        if "start_state" not in memory:
+            memory["start_state"] = state
         robot = objects[0]
         return PlayroomEnv._NextToTable_holds(state, (robot, ))
 
@@ -778,7 +779,8 @@ class PlayroomEnv(BlocksEnv):
                                   objects: Sequence[Object],
                                   params: Array) -> bool:
         del params  # unused
-        memory["start_state"] = state
+        if "start_state" not in memory:
+            memory["start_state"] = state
         # objects: robot, region, ...
         return PlayroomEnv._InRegion_holds(state, objects[:2])
 
@@ -843,7 +845,8 @@ class PlayroomEnv(BlocksEnv):
                               objects: Sequence[Object],
                               params: Array) -> bool:
         del params  # unused
-        memory["start_state"] = state
+        if "start_state" not in memory:
+            memory["start_state"] = state
         # objects: (robot, door)
         return PlayroomEnv._NextToDoor_holds(state, objects)
 
@@ -865,7 +868,8 @@ class PlayroomEnv(BlocksEnv):
                               objects: Sequence[Object],
                               params: Array) -> bool:
         del params  # unused
-        memory["start_state"] = state
+        if "start_state" not in memory:
+            memory["start_state"] = state
         # objects: (robot, dial)
         return PlayroomEnv._NextToDial_holds(state, objects)
 
