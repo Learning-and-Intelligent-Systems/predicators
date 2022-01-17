@@ -252,7 +252,7 @@ def _get_cluttered_table_gt_nsrts(with_place=False) -> Set[NSRT]:
     if with_place:
         can = Variable("?can", can_type)
         parameters = [can]
-        option_vars = [can]     # not sure about this (?) 
+        option_vars = [can]
         option = Place
         preconditions = {LiftedAtom(Holding, [can]), LiftedAtom(Untrashed, [can])}
         add_effects = {LiftedAtom(HandEmpty, [])}
