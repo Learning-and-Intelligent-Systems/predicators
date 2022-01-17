@@ -1162,14 +1162,15 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
 
 def get_config_path_str() -> str:
     """Get a filename prefix for configuration based on the current CFG."""
-    return f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+    return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+            f"__{CFG.experiment_id}")
 
 
-def get_save_path_str() -> str:
-    """Get a path for saving and loading models."""
-    if not os.path.exists(CFG.save_dir):
-        os.makedirs(CFG.save_dir)
-    return f"{CFG.save_dir}/{get_config_path_str()}.saved"
+def get_approach_save_path_str() -> str:
+    """Get a path for saving and loading approaches."""
+    if not os.path.exists(CFG.approach_dir):
+        os.makedirs(CFG.approach_dir)
+    return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
 def parse_args() -> Dict[str, Any]:
