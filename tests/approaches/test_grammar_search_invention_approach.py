@@ -90,7 +90,7 @@ def test_count_positives_for_ops():
     parameterized_option = ParameterizedOption(
         "Dummy", [], Box(0, 1,
                          (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     option = parameterized_option.ground([], np.array([0.0]))
     state = State({cup: [0.5], plate: [1.0]})
     action = Action(np.zeros(1, dtype=np.float32))
@@ -239,7 +239,7 @@ def test_predicate_search_heuristic_base_classes():
     parameterized_option = ParameterizedOption(
         "Dummy", [], Box(0, 1,
                          (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     option = parameterized_option.ground([], np.array([0.0]))
     action = Action(np.zeros(1, dtype=np.float32))
     action.set_option(option)

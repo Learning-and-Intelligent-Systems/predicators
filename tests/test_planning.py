@@ -12,6 +12,7 @@ from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
+from predicators.src import utils
 
 
 def test_sesame_plan():
@@ -178,7 +179,7 @@ def test_planning_determinism():
     sleep_option = ParameterizedOption(
         "Sleep", [robot_type], neg_params_space,
         lambda s, m, o, p: Action(p - int(o[0] == robby)),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
                               delete_effects, side_predicates)
     sleep_nsrt = sleep_op.make_nsrt(
@@ -194,7 +195,7 @@ def test_planning_determinism():
     cry_option = ParameterizedOption(
         "Cry", [robot_type], pos_params_space,
         lambda s, m, o, p: Action(p + int(o[0] == robby)),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
     cry_nsrt = cry_op.make_nsrt(cry_option, [robot_var],
