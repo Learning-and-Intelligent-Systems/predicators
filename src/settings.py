@@ -67,7 +67,8 @@ class GlobalSettings:
 
     # evaluation parameters
     results_dir = "results"
-    save_dir = "saved_data"
+    approach_dir = "saved_approaches"
+    data_dir = "saved_datasets"
     video_dir = "videos"
     video_fps = 2
 
