@@ -21,7 +21,7 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
-    Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    Dataset, GroundAtomTrajectory, STRIPSOperator, DummyOption, \
     _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
     NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
@@ -239,13 +239,11 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy_until(
-    policy: Callable[[State], Action],
-    simulator: Callable[[State, Action], State],
-    init_state: State,
-    termination_function: Callable[[State], bool],
-    max_num_steps: int,
-) -> Tuple[LowLevelTrajectory, bool]:
+def run_policy_until(policy: Callable[[State], Action],
+                     simulator: Callable[[State, Action], State],
+                     init_state: State, termination_function: Callable[[State],
+                                                                       bool],
+                     max_num_steps: int) -> LowLevelTrajectory:
     """Execute a policy from an initial state, using a simulator.
 
     Terminates when any of these conditions hold:
@@ -253,18 +251,12 @@ def run_policy_until(
     (2) max_num_steps is reached,
     (3) the state does not change within a single step.
 
-    Returns a tuple of:
-    (1) a LowLevelTrajectory object,
-    (2) a boolean for whether termination occurred due to termination_function,
-        i.e., due to condition (1) rather than any of the others.
+    Returns a LowLevelTrajectory object.
     """
     state = init_state
     states = [state]
     actions: List[Action] = []
-    if termination_function(state):
-        term_fn_hit = True
-    else:
-        term_fn_hit = False
+    if not termination_function(state):
         last_state = state
         for _ in range(max_num_steps):
             act = policy(state)
@@ -272,13 +264,12 @@ def run_policy_until(
             actions.append(act)
             states.append(state)
             if termination_function(state):
-                term_fn_hit = True
                 break
             # Detect if stuck; skip potentially expensive simulation.
             if state.allclose(last_state):
                 break
     traj = LowLevelTrajectory(states, actions)
-    return traj, term_fn_hit
+    return traj
 
 
 def run_policy_on_task(
@@ -297,12 +288,13 @@ def run_policy_on_task(
     optionally returns a video, if a render function is provided.
     """
 
-    def _terminal(state: State) -> bool:
+    def _goal_check(state: State) -> bool:
         atoms = abstract(state, predicates)
         return task.goal.issubset(atoms)
 
-    traj, goal_reached = run_policy_until(policy, simulator, task.init,
-                                          _terminal, max_num_steps)
+    traj = run_policy_until(policy, simulator, task.init, _goal_check,
+                            max_num_steps)
+    goal_reached = _goal_check(traj.states[-1])
     video: Video = []
     if render is not None:  # step through the traj again, making the video
         for i, state in enumerate(traj.states):
@@ -322,15 +314,14 @@ def policy_solves_task(policy: Callable[[State], Action], task: Task,
 
 
 def option_to_trajectory(init_state: State,
-                         simulator: Callable[[State, Action], State],
-                         option: _Option,
+                         simulator: Callable[[State, Action],
+                                             State], option: _Option,
                          max_num_steps: int) -> LowLevelTrajectory:
     """A light wrapper around run_policy_until that takes in an option and uses
     achieving its terminal() condition as the termination_function."""
     assert option.initiable(init_state)
-    traj, _ = run_policy_until(option.policy, simulator, init_state,
-                               option.terminal, max_num_steps)
-    return traj
+    return run_policy_until(option.policy, simulator, init_state,
+                            option.terminal, max_num_steps)
 
 
 class OptionPlanExhausted(Exception):
@@ -342,11 +333,11 @@ def option_plan_to_policy(
     """Create a policy that executes a sequence of options in order.
     """
     queue = list(plan)  # don't modify plan, just in case
-    cur_option = None
+    cur_option = DummyOption
 
     def _policy(state: State) -> Action:
         nonlocal cur_option
-        if cur_option is None or cur_option.terminal(state):
+        if cur_option.terminal(state):
             if not queue:
                 raise OptionPlanExhausted()
             cur_option = queue.pop(0)
