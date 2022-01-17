@@ -62,7 +62,9 @@ def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
     del objects, params  # unused
-    if "start_state" not in memory:
+    if "start_state" in memory:
+        assert state.allclose(memory["start_state"])
+    else:
         memory["start_state"] = state
     return True
 

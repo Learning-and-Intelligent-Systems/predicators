@@ -577,7 +577,9 @@ class PaintingEnv(BaseEnv):
                            objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding an object.
         del objects, params  # unused
-        if "start_state" not in memory:
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        else:
             memory["start_state"] = state
         return self._get_held_object(state) is not None
 
@@ -585,7 +587,9 @@ class PaintingEnv(BaseEnv):
                              objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding nothing.
         del objects, params  # unused
-        if "start_state" not in memory:
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        else:
             memory["start_state"] = state
         return self._get_held_object(state) is None
 
