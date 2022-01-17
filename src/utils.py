@@ -1170,7 +1170,7 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
 
 def get_config_path_str() -> str:
     """Get a filename prefix for configuration based on the current CFG."""
-    return f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+    return f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}__{CFG.experiment_id}"
 
 
 def get_save_path_str() -> str:
