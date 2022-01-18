@@ -125,6 +125,7 @@ def _run_proxy_analysis_for_env(env_name: str,
     utils.update_config({
         "env": env_name,
         "seed": 0,
+        "experiment_id": "proxy_analysis",
     })
     utils.update_config({
         "env": env_name,
