@@ -243,10 +243,6 @@ class ClutteredTableEnv(BaseEnv):
                 return True
         return False
 
-    # Handle collision checking. We'll just threshold the angle between
-    # the grasp approach vector and the vector between the desired_can
-    # and any other can. Doing an actually correct geometric computation
-    # would involve the radii somehow, but we don't really care about this.
     @staticmethod
     def _check_collisions(start_x: float,
                           start_y: float,
@@ -254,6 +250,13 @@ class ClutteredTableEnv(BaseEnv):
                           end_y: float,
                           state: State,
                           desired_can: Optional[Object] = None) -> None:
+        """Handle collision checking.
+
+        We'll just threshold the angle between the grasp approach vector
+        and the vector between the desired_can and any other can. Doing
+        an actually correct geometric computation would involve the
+        radii somehow, but we don't really care about this.
+        """
         vec1 = np.array([end_x - start_x, end_y - start_y])
         colliding_can = None
         colliding_can_max_dist = float("-inf")
@@ -280,7 +283,12 @@ class ClutteredTableEnv(BaseEnv):
 
 
 class ClutteredTablePlaceEnv(ClutteredTableEnv):
-    """Toy cluttered table domain."""
+    """Toy cluttered table domain (place version).
+
+    This version places grasped cans instead of dumping them. As an
+    additional challenge, the action space is restricted so that actions
+    can only begin from within a 0.2 x 0.2 corner
+    """
 
     def __init__(self) -> None:
         super().__init__()
