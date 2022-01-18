@@ -2,7 +2,7 @@
 
 from typing import List
 import numpy as np
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
     LowLevelTrajectory
