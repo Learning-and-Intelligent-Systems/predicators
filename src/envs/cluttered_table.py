@@ -333,9 +333,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             next_state.set(grasped_can, "pose_x", end_x)
             next_state.set(grasped_can, "pose_y", end_y)
             next_state.set(grasped_can, "is_grasped", 0.0)
-            self._check_collisions(
-                start_x, start_y, end_x, end_y, state,
-                None)
+            self._check_collisions(start_x, start_y, end_x, end_y, state, None)
             return next_state
         # If no grasped can, use action vector to try to grasp a desired can.
         start_x, start_y, end_x, end_y = action.arr
