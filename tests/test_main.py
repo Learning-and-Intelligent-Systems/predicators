@@ -114,6 +114,7 @@ def test_main():
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--remake_data"
     ]
+    main()
     # Try loading datasets (this is the default).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
