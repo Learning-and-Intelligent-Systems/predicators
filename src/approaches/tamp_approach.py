@@ -28,6 +28,8 @@ class TAMPApproach(BaseApproach):
         self._option_model = create_option_model(CFG.option_model_name,
                                                  self._simulator)
         self._num_calls = 0
+        self._metrics[
+            "min_num_skeletons_optimized"] = CFG.max_skeletons_optimized
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -42,10 +44,14 @@ class TAMPApproach(BaseApproach):
                 "num_nodes_expanded", "plan_length"
         ]:
             self._metrics[f"total_{metric}"] += metrics[metric]
-        if metrics["num_skeletons_optimized"] < self._metrics["min_num_skeletons_optimized"]:
-            self._metrics["min_num_skeletons_optimized"] = metrics["num_skeletons_optimized"]
-        elif metrics["num_skeletons_optimized"] > self._metrics["max_num_skeletons_optimized"]:
-            self._metrics["max_num_skeletons_optimized"] = metrics["num_skeletons_optimized"]
+        if metrics["num_skeletons_optimized"] < self._metrics[
+                "min_num_skeletons_optimized"]:
+            self._metrics["min_num_skeletons_optimized"] = metrics[
+                "num_skeletons_optimized"]
+        if metrics["num_skeletons_optimized"] > self._metrics[
+                "max_num_skeletons_optimized"]:
+            self._metrics["max_num_skeletons_optimized"] = metrics[
+                "num_skeletons_optimized"]
         option_policy = utils.option_plan_to_policy(plan)
 
         def _policy(s: State) -> Action:
