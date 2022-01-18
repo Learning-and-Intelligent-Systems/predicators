@@ -89,6 +89,17 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet,
             IsDry, IsDirty, IsClean
         }
+
+        # ((0:obj).color<=0.125)
+        obj_type = Holding.types[0]
+        color_classifier = _SingleAttributeCompareClassifier(
+            0, obj_type, "color", 0.125, le, "<=")
+        color_pred = Predicate(str(color_classifier), [obj_type],
+                               color_classifier)
+        assert str(color_pred) == "((0:obj).color<=0.125)"
+
+        NotGripperOpen = GripperOpen.get_negation()
+
         painting_pred_sets: List[Set[Predicate]] = [
             set(),
             all_predicates - {IsWet, IsDry},
@@ -96,6 +107,12 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             all_predicates - {OnTable},
             all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
+            {IsClean, GripperOpen, Holding, OnTable},
+            {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
+            {
+                IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
+                color_pred
+            },
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)
