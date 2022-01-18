@@ -2,6 +2,7 @@
 
 import time
 from collections import defaultdict
+from operator import le
 import glob
 import os
 from typing import Dict, DefaultDict, Set, List, Tuple
@@ -10,7 +11,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_score_function
+    _create_score_function, _ForallClassifier, _SingleAttributeCompareClassifier
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -20,15 +21,18 @@ from predicators.src.settings import CFG
 
 def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                         run_planning: bool, outdir: str) -> None:
+    utils.update_config({"seed": 0})
     if "cover" in env_names:
         env_name = "cover"
         HandEmpty, Holding = _get_predicates_by_names(env_name,
                                                       ["HandEmpty", "Holding"])
+        NotHandEmpty = HandEmpty.get_negation()
         covers_pred_sets: List[Set[Predicate]] = [
             set(),
             {HandEmpty},
             {Holding},
             {HandEmpty, Holding},
+            {NotHandEmpty},
         ]
         _run_proxy_analysis_for_env(env_name, covers_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -37,6 +41,28 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         env_name = "blocks"
         Holding, Clear, GripperOpen = _get_predicates_by_names(
             env_name, ["Holding", "Clear", "GripperOpen"])
+
+        # NOT-Forall[0:block].[((0:block).pose_x<=1.33)(0)]
+        block_type = Clear.types[0]
+        pose_x_classifier = _SingleAttributeCompareClassifier(
+            0, block_type, "pose_x", 1.33, le, "<=")
+        pose_x_pred = Predicate(str(pose_x_classifier), [block_type],
+                                pose_x_classifier)
+        forall_pose_x_classifier = _ForallClassifier(pose_x_pred)
+        forall_pose_x_pred = Predicate(str(forall_pose_x_classifier), [],
+                                       forall_pose_x_classifier)
+        not_forall_pose_x_pred = forall_pose_x_pred.get_negation()
+        assert str(not_forall_pose_x_pred) == \
+            "NOT-Forall[0:block].[((0:block).pose_x<=1.33)(0)]"
+
+        # NOT-((0:block).pose_x<=1.35)
+        pose_x35_classifier = _SingleAttributeCompareClassifier(
+            0, block_type, "pose_x", 1.35, le, "<=")
+        pose_x35_pred = Predicate(str(pose_x35_classifier), [block_type],
+                                  pose_x35_classifier)
+        not_pose_x35_pred = pose_x35_pred.get_negation()
+        assert str(not_pose_x35_pred) == "NOT-((0:block).pose_x<=1.35)"
+
         blocks_pred_sets: List[Set[Predicate]] = [
             set(),
             {Holding},
@@ -46,6 +72,8 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             {Clear, GripperOpen},
             {GripperOpen, Holding},
             {Clear, GripperOpen, Holding},
+            {Clear, GripperOpen, Holding, not_forall_pose_x_pred},
+            {Clear, GripperOpen, Holding, not_pose_x35_pred},
         ]
         _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -61,6 +89,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet,
             IsDry, IsDirty, IsClean
         }
+        # Example of how to add an extra predicate.
         painting_pred_sets: List[Set[Predicate]] = [
             set(),
             all_predicates - {IsWet, IsDry},
@@ -88,6 +117,8 @@ def _run_proxy_analysis_for_env(env_name: str,
         "timeout": 1,
         "make_videos": False,
         "grammar_search_max_predicates": 50,
+        "grammar_search_size_weight": 0.,
+        "grammar_search_pred_complexity_weight": 0.,
         "excluded_predicates": "",
     })
     env = create_env(env_name)
@@ -182,15 +213,16 @@ def _main() -> None:
     score_function_names = [
         "prediction_error",
         "hadd_lookahead_depth0",
-        "exact_lookahead",
         "hadd_lookahead_depth1",
         "hadd_lookahead_depth2",
+        "exact_lookahead",
     ]
     run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
-    os.makedirs(outdir, exist_ok=True)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
 
     _run_proxy_analysis(env_names, score_function_names, run_planning, outdir)
     _make_proxy_analysis_results(outdir)
