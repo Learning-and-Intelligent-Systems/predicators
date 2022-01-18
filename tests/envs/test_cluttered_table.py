@@ -5,7 +5,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import ClutteredTableEnv
 from predicators.src import utils
-from predicators.src.structs import Action
+from predicators.src.structs import Action, GroundAtom
 from predicators.src.envs import EnvironmentFailure
 
 
@@ -33,6 +33,11 @@ def test_cluttered_table():
     assert len(env.types) == 1
     # Action space should be 4-dimensional.
     assert env.action_space == Box(0, 1, (4, ))
+    HandEmpty = [pred for pred in env.predicates
+                 if pred.name == "HandEmpty"][0]
+    Untrashed = [pred for pred in env.predicates
+                 if pred.name == "Untrashed"][0]
+    Holding = [pred for pred in env.predicates if pred.name == "Holding"][0]
     # Test init state and simulate()
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
@@ -56,11 +61,20 @@ def test_cluttered_table():
             env.simulate(state, act)
         except EnvironmentFailure:  # pragma: no cover
             pass
+        atoms = utils.abstract(state, env.predicates)
+        assert GroundAtom(HandEmpty, []) in atoms
+        for can1 in state:
+            assert Untrashed([can1]) in atoms
         state.set(can, "is_grasped", 1.0)
         pose_x = state.get(can, "pose_x")
         pose_y = state.get(can, "pose_y")
         act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
         next_state = env.simulate(state, act)  # grasp while already grasping
         assert state.allclose(next_state)
+        atoms = utils.abstract(state, env.predicates)
+        assert GroundAtom(HandEmpty, []) not in atoms
+        assert Holding([can]) in atoms
+        for can1 in state:
+            assert Untrashed([can1]) in atoms
         if i == 0:
             env.render(state, task, act)
