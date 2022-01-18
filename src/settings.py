@@ -1,5 +1,7 @@
 """Contains global, immutable settings.
-Anything that varies between runs should be a command-line arg (args.py).
+
+Anything that varies between runs should be a command-line arg
+(args.py).
 """
 
 import os
@@ -10,13 +12,12 @@ import numpy as np
 
 
 class GlobalSettings:
-    """Unchanging settings.
-    """
+    """Unchanging settings."""
     # parameters for all envs
     num_train_tasks = 15
     num_test_tasks = 50
     max_num_steps_check_policy = 100  # maximum number of steps to run a policy
-                                      # when checking whether it solves a task
+    # when checking whether it solves a task
 
     # cover env parameters
     cover_num_blocks = 2
@@ -26,6 +27,7 @@ class GlobalSettings:
 
     # cover_multistep_options parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
+    cover_multistep_use_learned_equivalents = True
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
@@ -45,7 +47,8 @@ class GlobalSettings:
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
-        "examples", "configs",
+        "examples",
+        "configs",
         "njk_re-shelving_library_books_full_obs.yaml",
         # "njk_sorting_books_full_obs.yaml"
     )
@@ -57,135 +60,134 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    task_planning_heuristic = "hadd"  # hadd or hmax
     option_model_name = "default"
-    max_num_steps_option_rollout = 100
+    max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
 
     # evaluation parameters
+    results_dir = "results"
     save_dir = "saved_data"
     video_dir = "videos"
     video_fps = 2
 
     # dataset parameters
     offline_data_planning_timeout = 500  # for learning-based approaches, the
-                                         # data collection timeout for planning
+    # data collection timeout for planning
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
 
     # NSRT learning parameters
     min_data_for_nsrt = 3
+    learn_side_predicates = False
+
+    # torch model parameters
+    normalization_scale_clip = 1
+    learning_rate = 1e-3
+    mlp_regressor_max_itr = 10000
+    mlp_regressor_hid_sizes = [32, 32]
+    mlp_regressor_clip_gradients = False
+    mlp_regressor_gradient_clip_value = 5
+    mlp_classifier_hid_sizes = [32, 32]
+    mlp_classifier_balance_data = True
+    neural_gaus_regressor_hid_sizes = [32, 32]
+    neural_gaus_regressor_max_itr = 10000
+    neural_gaus_regressor_sample_clip = 1
+    mlp_classifier_n_iter_no_change = 5000
 
     # option learning parameters
-    do_option_learning = False  # if False, uses ground truth options
-    option_learner = "oracle"  # only used if do_option_learning is True
+    option_learner = "no_learning"  # "no_learning" or "oracle"
 
     # sampler learning parameters
-    do_sampler_learning = True  # if False, uses random samplers
+    sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
-    normalization_scale_clip = 1
-    classifier_hid_sizes = [32, 32]
-    classifier_max_itr_sampler = 10000
-    classifier_max_itr_predicate = 1000
-    classifier_balance_data = True
-    regressor_hid_sizes = [32, 32]
-    regressor_max_itr = 10000
-    regressor_sample_clip = 1
-    n_iter_no_change = 5000
-    learning_rate = 1e-3
+    sampler_mlp_classifier_max_itr = 10000
 
     # iterative invention parameters
-    iterative_invention_accept_score = 1-1e-3
+    iterative_invention_accept_score = 1 - 1e-3
+    predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_known_predicates = {'HandEmpty', 'Covers'}
-    interactive_num_episodes = 3
-    interactive_max_steps = 10
-    interactive_relearn_every = 3
+    interactive_known_predicates = "GripperOpen,Holding,Clear,NextToTable," \
+        "NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom," \
+        "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
+        "LightOn,LightOff,On,OnTable"
+    interactive_num_episodes = 0
+    interactive_max_steps = 21
+    interactive_relearn_every = 1
     interactive_num_babbles = 10
     interactive_max_num_atoms_babbled = 1
     interactive_num_tasks_babbled = 5
     interactive_atom_type_babbled = "ground"
-    interactive_ask_strategy = "all_seen_states"
-    interactive_ask_strategy_threshold = 0.0
-    interactive_ask_strategy_pct = 20.0
 
     # grammar search invention parameters
-    grammar_search_max_evals = 250
+    grammar_search_grammar_includes_givens = True
+    grammar_search_grammar_includes_foralls = True
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
     grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
-    grammar_search_grammar_name = "forall_single_feat_ineqs"
     grammar_search_max_predicates = 50
-    grammar_search_score_function = "hadd_lookahead"
+    grammar_search_predicate_cost_upper_bound = 6
+    grammar_search_score_function = "task_planning"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5
     grammar_search_lookahead_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
+    grammar_search_hill_climbing_depth = 0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
-        """A workaround for global settings that are
-        derived from the experiment-specific args
-        """
+        """A workaround for global settings that are derived from the
+        experiment-specific args."""
         if "env" not in args:
             args["env"] = ""
         if "approach" not in args:
             args["approach"] = ""
         return dict(
+            # Task planning heuristic to use in SeSamE.
+            task_planning_heuristic=defaultdict(
+                # Use HAdd by default.
+                lambda: "hadd",
+                {
+                    # In the playroom domain, HFF works better.
+                    "playroom": "hff",
+                })[args["env"]],
+
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
-            sesame_propagate_failures=defaultdict(str, {
-                "cover": "immediately",
-                "cover_typed_options": "immediately",
-                "cover_hierarchical_types": "immediately",
-                "cover_multistep_options": "immediately",
-                # We use a different strategy for cluttered_table because
-                # of the high likelihood of getting cyclic failures if you
-                # immediately raise failures, leading to unsolvable tasks.
-                "cluttered_table": "after_exhaust",
-                "cluttered_table_place": "after_exhaust",
-                "blocks": "immediately",
-                "painting": "immediately",
-                "repeated_nextto": "immediately",
-                "playroom": "immediately",
-                "behavior": "immediately",
-            })[args["env"]],
+            sesame_propagate_failures=defaultdict(
+                # Use "immediately" by default.
+                lambda: "immediately",
+                {
+                    # We use a different strategy for cluttered_table because
+                    # of the high likelihood of getting cyclic failures if you
+                    # immediately raise failures, leading to unsolvable tasks.
+                    "cluttered_table": "after_exhaust",
+                    "cluttered_table_place": "after_exhaust",
+                })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
-            offline_data_method=defaultdict(str, {
-                "nsrt_learning": "demo+replay",
-                "interactive_learning": "demo",  # narrative is active learning
-                "iterative_invention": "demo+replay",
-                "grammar_search_invention": "demo+replay",
-            })[args["approach"]],
+            offline_data_method=defaultdict(
+                # Use both demonstrations and random replays by default.
+                lambda: "demo+replay",
+                {
+                    # No replays for active learning project.
+                    "interactive_learning": "demo",
+                })[args["approach"]],
 
             # Number of replays used when offline_data_method is demo+replay.
-            offline_data_num_replays=defaultdict(int, {
-                "cover": 500,
-                "cover_typed_options": 500,
-                "cover_hierarchical_types": 500,
-                "cover_multistep_options": 500,
-                "cluttered_table": 500,
-                "blocks": 500,
-                "painting": 500,
-                "repeated_nextto": 50,  # too many replays makes learning slow
-            })[args["env"]],
+            offline_data_num_replays=defaultdict(
+                # Default number of random replays.
+                lambda: 500,
+                {
+                    # For the repeated_nextto environment, too many
+                    # replays makes learning slow.
+                    "repeated_nextto": 50,
+                })[args["env"]],
         )
-
-
-def get_save_path() -> str:
-    """Create a path for this experiment that can be used to save
-    and load results.
-    """
-    if not os.path.exists(CFG.save_dir):
-        os.makedirs(CFG.save_dir)
-    return (f"{CFG.save_dir}/{CFG.env}___{CFG.approach}___{CFG.seed}___"
-            f"{CFG.excluded_predicates}.saved")
 
 
 _attr_to_value = {}

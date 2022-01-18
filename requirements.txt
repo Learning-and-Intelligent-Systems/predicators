@@ -8,3 +8,5 @@ pandas
 torch
 scipy
 tabulate
+dill
+pyperplan

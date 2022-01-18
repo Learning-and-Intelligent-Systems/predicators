@@ -1,5 +1,4 @@
-"""Debugging script for grammar search invention approach.
-"""
+"""Debugging script for grammar search invention approach."""
 
 import time
 from collections import defaultdict
@@ -11,23 +10,20 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _PredictionErrorScoreFunction, _HAddHeuristicLookaheadBasedScoreFunction, \
-    _ExactHeuristicLookaheadBasedScoreFunction
+    _create_score_function
 from predicators.src.approaches.oracle_approach import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
-from predicators.src.structs import Predicate, Dataset, Task
+from predicators.src.structs import Predicate, Dataset
 from predicators.src.settings import CFG
 
 
-def _run_proxy_analysis(env_names: List[str],
-                        score_function_names: List[str],
-                        run_planning: bool,
-                        outdir: str) -> None:
+def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
+                        run_planning: bool, outdir: str) -> None:
     if "cover" in env_names:
         env_name = "cover"
-        HandEmpty, Holding = _get_predicates_by_names(
-            env_name, ["HandEmpty", "Holding"])
+        HandEmpty, Holding = _get_predicates_by_names(env_name,
+                                                      ["HandEmpty", "Holding"])
         covers_pred_sets: List[Set[Predicate]] = [
             set(),
             {HandEmpty},
@@ -54,15 +50,17 @@ def _run_proxy_analysis(env_names: List[str],
         _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
                                     score_function_names, run_planning, outdir)
 
-
     if "painting" in env_names:
         env_name = "painting"
         (GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet, IsDry,
-         IsDirty, IsClean) = _get_predicates_by_names("painting",
-                ["GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-                 "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
-        all_predicates = {GripperOpen, OnTable, HoldingTop, HoldingSide,
-                          Holding, IsWet, IsDry, IsDirty, IsClean}
+         IsDirty, IsClean) = _get_predicates_by_names("painting", [
+             "GripperOpen", "OnTable", "HoldingTop", "HoldingSide", "Holding",
+             "IsWet", "IsDry", "IsDirty", "IsClean"
+         ])
+        all_predicates = {
+            GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet,
+            IsDry, IsDirty, IsClean
+        }
         painting_pred_sets: List[Set[Predicate]] = [
             set(),
             all_predicates - {IsWet, IsDry},
@@ -78,8 +76,7 @@ def _run_proxy_analysis(env_names: List[str],
 def _run_proxy_analysis_for_env(env_name: str,
                                 non_goal_predicate_sets: List[Set[Predicate]],
                                 score_function_names: List[str],
-                                run_planning: bool,
-                                outdir: str) -> None:
+                                run_planning: bool, outdir: str) -> None:
     utils.update_config({
         "env": env_name,
         "seed": 0,
@@ -100,7 +97,7 @@ def _run_proxy_analysis_for_env(env_name: str,
 
     for non_goal_predicates in non_goal_predicate_sets:
         results_for_predicates = \
-            _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+            _run_proxy_analysis_for_predicates(env, dataset,
                                                env.goal_predicates,
                                                non_goal_predicates,
                                                score_function_names,
@@ -119,41 +116,39 @@ def _run_proxy_analysis_for_env(env_name: str,
           f"{time.time()-start_time:.3f} seconds")
 
 
-def _run_proxy_analysis_for_predicates(env: BaseEnv,
-                                       dataset: Dataset,
-                                       train_tasks: List[Task],
-                                       initial_predicates: Set[Predicate],
-                                       predicates: Set[Predicate],
-                                       score_function_names: List[str],
-                                       run_planning: bool,
-                                       ) -> Dict[str, float]:
-    score_functions = {
-        "prediction_error": _PredictionErrorScoreFunction,
-        "hadd_lookahead": _HAddHeuristicLookaheadBasedScoreFunction,
-        "exact_lookahead": _ExactHeuristicLookaheadBasedScoreFunction,
-    }
+def _run_proxy_analysis_for_predicates(
+    env: BaseEnv,
+    dataset: Dataset,
+    initial_predicates: Set[Predicate],
+    predicates: Set[Predicate],
+    score_function_names: List[str],
+    run_planning: bool,
+) -> Dict[str, float]:
     utils.flush_cache()
-    candidates = {p : 1.0 for p in predicates}
+    candidates = {p: 1.0 for p in predicates}
     all_predicates = predicates | initial_predicates
     atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
     results = {}
     # Compute scores.
     for score_function_name in score_function_names:
-        score_function_cls = score_functions[score_function_name]
-        score_function = score_function_cls(initial_predicates, atom_dataset,
-                                            train_tasks, candidates)
+        score_function = _create_score_function(score_function_name,
+                                                initial_predicates,
+                                                atom_dataset, candidates)
+        start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
-        results[score_function_name] = score
+        eval_time = time.time() - start_time
+        results[score_function_name + " Score"] = score
+        results[score_function_name + " Time"] = eval_time
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
         approach = create_approach("nsrt_learning", env.simulate,
-            all_predicates, env.options, env.types, env.action_space)
-        approach.learn_from_offline_dataset(dataset, train_tasks)
+                                   all_predicates, env.options, env.types,
+                                   env.action_space)
+        approach.learn_from_offline_dataset(dataset)
         approach.seed(CFG.seed)
         planning_result = _run_testing(env, approach)
-        results.update(planning_result["test"])
-        results.update(planning_result["approach"])
+        results.update(planning_result)
     return results
 
 
@@ -166,8 +161,11 @@ def _make_proxy_analysis_results(outdir: str) -> None:
         _, filename = os.path.split(filepath[:-len(".result")])
         env_name, preds, metric = filename.split("__")
         all_results[(env_name, preds)][metric] = result
-    all_results_table = [{"Env": env_name, "Preds": preds, **metrics}
-                         for (env_name, preds), metrics in all_results.items()]
+    all_results_table = [{
+        "Env": env_name,
+        "Preds": preds,
+        **metrics
+    } for (env_name, preds), metrics in all_results.items()]
     df = pd.DataFrame(all_results_table)
     print(df)
     csv_filepath = os.path.join(outdir, "proxy_analysis.csv")
@@ -183,13 +181,15 @@ def _main() -> None:
     ]
     score_function_names = [
         "prediction_error",
-        "hadd_lookahead",
+        "hadd_lookahead_depth0",
         "exact_lookahead",
+        "hadd_lookahead_depth1",
+        "hadd_lookahead_depth2",
     ]
     run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                          "results")
+                          "results")
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 

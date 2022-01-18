@@ -36,7 +36,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
-        pip install -U git+git://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31
+        pip install -U git+https://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31
       # Note: if mypy issue #5485 gets resolved, we can install from head again.
     - name: Mypy
       run: |
@@ -60,3 +60,14 @@ jobs:
     - name: Pylint
       run: |
         pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
+  autoformat:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run YAPF to test if python code is correctly formatted
+      uses: AlexanderMelde/yapf-action@master
+      with:
+        args: --verbose --style .style.yapf
