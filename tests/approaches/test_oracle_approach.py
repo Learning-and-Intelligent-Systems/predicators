@@ -4,7 +4,7 @@ from typing import Set
 import numpy as np
 import pytest
 from predicators.src.approaches import OracleApproach
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, \
     BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
