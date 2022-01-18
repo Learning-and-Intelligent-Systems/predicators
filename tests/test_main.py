@@ -1,94 +1,165 @@
-"""Tests for main.py.
-"""
+"""Tests for main.py."""
 
+from typing import Callable
 import os
 import shutil
 import sys
 import pytest
-from predicators.src.main import main
+from predicators.src.approaches import BaseApproach, ApproachFailure
+from predicators.src.envs import CoverEnv
+from predicators.src.main import main, _run_testing
+from predicators.src.structs import State, Task, Action
+from predicators.src import utils
+
+
+class _DummyApproach(BaseApproach):
+    """Dummy approach that raises ApproachFailure for testing."""
+
+    @property
+    def is_learning_based(self):
+        return False
+
+    def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+
+        def _policy(s: State) -> Action:
+            raise ApproachFailure("Option plan exhausted.")
+
+        return _policy
 
 
 def test_main():
-    """Tests for main.py.
-    """
-    sys.argv = ["dummy", "--env", "my_env", "--approach", "my_approach",
-                "--seed", "123", "--num_test_tasks", "5"]
+    """Tests for main.py."""
+    sys.argv = [
+        "dummy", "--env", "my_env", "--approach", "my_approach", "--seed",
+        "123", "--num_test_tasks", "5"
+    ]
     with pytest.raises(NotImplementedError):
         main()  # invalid env
-    sys.argv = ["dummy", "--env", "cover", "--approach", "my_approach",
-                "--seed", "123", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "my_approach", "--seed",
+        "123", "--num_test_tasks", "5"
+    ]
     with pytest.raises(NotImplementedError):
         main()  # invalid approach
-    sys.argv = ["dummy", "--env", "cover", "--approach", "random_actions",
-                "--seed", "123", "--not-a-real-flag", "0"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_actions", "--seed",
+        "123", "--not-a-real-flag", "0"
+    ]
     with pytest.raises(ValueError):
         main()  # invalid flag
-    sys.argv = ["dummy", "--env", "cover", "--approach", "random_actions",
-                "--seed", "123", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_actions", "--seed",
+        "123", "--num_test_tasks", "5"
+    ]
     main()
-    sys.argv = ["dummy", "--env", "cover", "--approach", "random_options",
-                "--seed", "123", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--num_test_tasks", "5"
+    ]
     main()
-    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
-                "--seed", "123", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "5"
+    ]
     main()
-    sys.argv = ["dummy", "--env", "cluttered_table", "--approach",
-                "random_actions", "--seed", "123", "--num_test_tasks", "20"]
+    sys.argv = [
+        "dummy", "--env", "cluttered_table", "--approach", "random_actions",
+        "--seed", "123", "--num_test_tasks", "20"
+    ]
     main()
-    sys.argv = ["dummy", "--env", "blocks", "--approach",
-                "random_actions", "--seed", "123", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "blocks", "--approach", "random_actions", "--seed",
+        "123", "--num_test_tasks", "5"
+    ]
     main()
-    sys.argv = ["dummy", "--env", "blocks", "--approach",
-                "random_options", "--seed", "123", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "blocks", "--approach", "random_options", "--seed",
+        "123", "--num_test_tasks", "5"
+    ]
     main()
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
-    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
-                "--seed", "123", "--make_videos", "--num_test_tasks", "1",
-                "--video_dir", video_dir]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
+        "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir
+    ]
     main()
     shutil.rmtree(video_dir)
+    results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "1", "--results_dir", results_dir
+    ]
+    main()
+    shutil.rmtree(results_dir)
     # Try running main with a strong timeout.
-    sys.argv = ["dummy", "--env", "cover", "--approach", "oracle",
-                "--seed", "123", "--timeout", "0.001", "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
+        "--timeout", "0.001", "--num_test_tasks", "5"
+    ]
     main()
     # Run actual main approach, but without sampler learning.
-    sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
-                "--seed", "123", "--do_sampler_learning", "0"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--sampler_learner", "random"
+    ]
     main()
     # Try loading.
-    sys.argv = ["dummy", "--env", "cover", "--approach", "nsrt_learning",
-                "--seed", "123", "--load"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--load"
+    ]
     main()
     # Try learning (with too low hyperparameters to actually work).
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "nsrt_learning", "--seed", "123",
-                "--do_sampler_learning", "1",
-                "--classifier_max_itr_sampler", "10",
-                "--regressor_max_itr", "10",
-                "--timeout", "0.01"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--sampler_learner", "neural",
+        "--sampler_mlp_classifier_max_itr", "10",
+        "--neural_gaus_regressor_max_itr", "10", "--timeout", "0.01"
+    ]
     main()  # correct usage
     # Try predicate exclusion.
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "random_options", "--seed", "123",
-                "--excluded_predicates", "NotARealPredicate"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--excluded_predicates", "NotARealPredicate"
+    ]
     with pytest.raises(AssertionError):
         main()  # can't exclude a non-existent predicate
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "random_options", "--seed", "123",
-                "--excluded_predicates", "Covers"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--excluded_predicates", "Covers"
+    ]
     with pytest.raises(AssertionError):
         main()  # can't exclude a goal predicate
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "random_options", "--seed", "123",
-                "--excluded_predicates", "Holding,HandEmpty"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--excluded_predicates", "Holding,HandEmpty"
+    ]
     main()  # correct usage
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "random_options", "--seed", "123",
-                "--excluded_predicates", "HandEmpty",
-                "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--excluded_predicates", "HandEmpty", "--num_test_tasks", "5"
+    ]
     main()  # correct usage
-    sys.argv = ["dummy", "--env", "cover", "--approach",
-                "random_options", "--seed", "123",
-                "--excluded_predicates", "all",
-                "--num_test_tasks", "5"]
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--excluded_predicates", "all", "--num_test_tasks", "5"
+    ]
     main()  # correct usage
+
+
+def test_tamp_approach_failure():
+    """Test coverage for ApproachFailure raised during policy execution."""
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123,
+        "timeout": 10,
+        "make_videos": False,
+    })
+    env = CoverEnv()
+    approach = _DummyApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
+    assert not approach.is_learning_based
+    task = next(env.train_tasks_generator())[0]
+    approach.solve(task, timeout=500)
+    _run_testing(env, approach)
