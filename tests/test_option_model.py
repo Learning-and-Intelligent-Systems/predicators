@@ -5,6 +5,7 @@ from gym.spaces import Box
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Action, Type, ParameterizedOption
 from predicators.src.option_model import create_option_model, _OptionModel
+from predicators.src import utils
 
 
 def test_default_option_model():
@@ -31,14 +32,15 @@ def test_default_option_model():
         return Action(p * 2)
 
     def _initiable(s, m, o, p):
-        del m, o, p  # unused
+        del o, p  # unused
         obj = list(s)[0]
+        m["start_state"] = s
         return s[obj][0] < 10 or s[obj][0] > 60
 
     def _terminal(s, m, o, p):
-        del m, o, p  # unused
+        del o, p  # unused
         obj = list(s)[0]
-        return s[obj][0] > 50
+        return s[obj][0] > 50 and not s.allclose(m["start_state"])
 
     parameterized_option = ParameterizedOption("Pick", [], params_space,
                                                _policy, _initiable, _terminal)
@@ -69,6 +71,11 @@ def test_default_option_model():
 
 def test_option_model_notimplemented():
     """Tests for various NotImplementedErrors."""
+    utils.update_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+        "seed": 123
+    })
     env = CoverEnv()
     with pytest.raises(NotImplementedError):
         create_option_model("not a real option model", env.simulate)

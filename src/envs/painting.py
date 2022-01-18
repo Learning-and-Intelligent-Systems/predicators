@@ -576,13 +576,23 @@ class PaintingEnv(BaseEnv):
     def _holding_initiable(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding an object.
-        del memory, objects, params  # unused
+        del objects, params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         return self._get_held_object(state) is not None
 
     def _handempty_initiable(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding nothing.
-        del memory, objects, params  # unused
+        del objects, params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         return self._get_held_object(state) is None
 
     def _OpenLid_policy(self, state: State, memory: Dict,
