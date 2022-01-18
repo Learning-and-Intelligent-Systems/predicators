@@ -256,7 +256,7 @@ class ClutteredTableEnv(BaseEnv):
                           desired_can: Optional[Object] = None) -> None:
         vec1 = np.array([end_x - start_x, end_y - start_y])
         colliding_can = None
-        colliding_can_max_dist = float("-inf")
+        colliding_can_max_dist = float("-inf") # type: ignore
         for can in state:
             if can == desired_can:
                 continue
