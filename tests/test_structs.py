@@ -365,7 +365,7 @@ def test_option():
     assert option.initiable(state)
     assert not option.terminal(state)
     assert not option.terminal(state)  # try it again
-    assert option.terminal(state.copy())  # should fail on a copy
+    assert option.terminal(state.copy())  # should be True on a copy
 
 
 def test_option_memory_incorrect():
