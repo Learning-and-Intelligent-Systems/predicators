@@ -147,7 +147,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         try:
             _, video, solved = utils.run_policy_on_task(
                 policy, task, env.simulate, env.predicates,
-                CFG.max_num_steps_check_policy, CFG.make_videos, env.render)
+                CFG.max_num_steps_check_policy,
+                env.render if CFG.make_videos else None)
         except EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")

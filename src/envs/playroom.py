@@ -768,7 +768,12 @@ class PlayroomEnv(BlocksEnv):
     def _NextToTable_initiable(state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         robot = objects[0]
         return PlayroomEnv._NextToTable_holds(state, (robot, ))
 
@@ -776,7 +781,12 @@ class PlayroomEnv(BlocksEnv):
     def _MoveFromRegion_initiable(state: State, memory: Dict,
                                   objects: Sequence[Object],
                                   params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         # objects: robot, region, ...
         return PlayroomEnv._InRegion_holds(state, objects[:2])
 
@@ -840,7 +850,12 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDoor_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         # objects: (robot, door)
         return PlayroomEnv._NextToDoor_holds(state, objects)
 
@@ -861,7 +876,12 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDial_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         # objects: (robot, dial)
         return PlayroomEnv._NextToDial_holds(state, objects)
 
