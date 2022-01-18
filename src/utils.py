@@ -72,8 +72,10 @@ def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
 def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """A termination function for an option that only lasts 1 timestep.
-    To use this as the terminal function for a policy, the policy's initiable()
-    function must set memory["start_state"], as always_initiable() does above.
+
+    To use this as the terminal function for a policy, the policy's
+    initiable() function must set memory["start_state"], as
+    always_initiable() does above.
     """
     del objects, params  # unused
     assert "start_state" in memory, "Must call initiable() before terminal()"
@@ -331,8 +333,7 @@ class OptionPlanExhausted(Exception):
 
 def option_plan_to_policy(
         plan: Sequence[_Option]) -> Callable[[State], Action]:
-    """Create a policy that executes a sequence of options in order.
-    """
+    """Create a policy that executes a sequence of options in order."""
     queue = list(plan)  # don't modify plan, just in case
     cur_option = DummyOption
 
