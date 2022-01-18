@@ -244,7 +244,8 @@ def test_predicate_search_heuristic_base_classes():
     assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))
     action.set_option(option)
-    dataset = [LowLevelTrajectory([state, other_state], [action], set())]
+    dataset = [LowLevelTrajectory([state, other_state], [action],
+                                  _is_demo=True, _goal=set())]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
     heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset, {},
                                                       ["hadd"])
