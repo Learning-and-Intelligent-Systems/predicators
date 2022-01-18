@@ -256,7 +256,7 @@ class ClutteredTableEnv(BaseEnv):
                           desired_can: Optional[Object] = None) -> None:
         vec1 = np.array([end_x - start_x, end_y - start_y])
         colliding_can = None
-        colliding_can_max_dist = float("-inf") # type: ignore
+        colliding_can_max_dist = float("-inf")
         for can in state:
             if can == desired_can:
                 continue
@@ -273,7 +273,7 @@ class ClutteredTableEnv(BaseEnv):
             if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
                 dist = np.linalg.norm(vec2)  # type: ignore
                 if dist > colliding_can_max_dist:
-                    colliding_can_max_dist = dist
+                    colliding_can_max_dist = float(dist)
                     colliding_can = can
         if colliding_can is not None:
             raise EnvironmentFailure("collision", {colliding_can})
