@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
+import pathos.multiprocessing as mp
 import argparse
 import functools
 import gc
@@ -627,7 +628,8 @@ def run_hill_climbing(initial_state: _S,
                       get_successors: Callable[[_S], Iterator[Tuple[_A, _S,
                                                                     float]]],
                       heuristic: Callable[[_S], float],
-                      enforced_depth: int = 0) -> Tuple[List[_S], List[_A]]:
+                      enforced_depth: int = 0,
+                      parallelize: bool = False) -> Tuple[List[_S], List[_A]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -670,10 +672,22 @@ def run_hill_climbing(initial_state: _S,
                         parent=parent,
                         action=action)
                     successors_at_depth.append(child_node)
+                    if parallelize:
+                        continue  # heuristic computation is parallelized later
                     child_heuristic = heuristic(child_node.state)
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
                         best_child_node = child_node
+            if parallelize:
+                # Parallelize the expensive part (heuristic computation).
+                num_cpus = mp.cpu_count()
+                fn = lambda n: (heuristic(n.state), n)
+                with mp.Pool(processes=num_cpus) as p:
+                    for child_heuristic, child_node in p.imap_unordered(
+                            fn, successors_at_depth):
+                        if child_heuristic < best_heuristic:
+                            best_heuristic = child_heuristic
+                            best_child_node = child_node
             # Some improvement found.
             if last_heuristic > best_heuristic:
                 print(f"Found an improvement at depth {depth}")
