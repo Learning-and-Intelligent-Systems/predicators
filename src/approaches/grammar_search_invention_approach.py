@@ -661,11 +661,12 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         max_demos = CFG.grammar_search_heuristic_based_max_demos
         max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
         for traj, atoms_sequence in pruned_atom_data:
-            # Skip this trajectory if it's not a demo and we only want demos,
-            # or if we've exceeded the budget for demos or nondemos.
-            if (self.demos_only and not traj.is_demo) or (
-                    traj.is_demo and seen_demos == max_demos) or (
-                        not traj.is_demo and seen_nondemos == max_nondemos):
+            # Skip this trajectory if it's not a demo and we don't want demos.
+            if self.demos_only and not traj.is_demo:
+                continue
+            # Skip this trajectory if we've exceeded a budget.
+            if (traj.is_demo and seen_demos == max_demos) or (
+                not traj.is_demo and seen_nondemos == max_nondemos):
                 continue
             if traj.is_demo:
                 seen_demos += 1
