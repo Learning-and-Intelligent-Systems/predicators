@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-import pathos.multiprocessing as mp
 import argparse
 import functools
 import gc
@@ -12,6 +11,7 @@ from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
 import heapq as hq
+import pathos.multiprocessing as mp
 import imageio
 import matplotlib
 import numpy as np
