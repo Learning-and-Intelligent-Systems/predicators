@@ -11,7 +11,7 @@ from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _create_score_function
-from predicators.src.approaches.oracle_approach import _get_predicates_by_names
+from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
 from predicators.src.structs import Predicate, Dataset
