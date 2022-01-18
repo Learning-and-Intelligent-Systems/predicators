@@ -10,3 +10,4 @@ scipy
 tabulate
 dill
 pyperplan
+pathos

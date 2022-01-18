@@ -962,7 +962,8 @@ def _select_predicates_to_keep(
         _check_goal,
         _get_successors,
         score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth)
+        enforced_depth=CFG.grammar_search_hill_climbing_depth,
+        parallelize=CFG.grammar_search_parallelize_hill_climbing)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
