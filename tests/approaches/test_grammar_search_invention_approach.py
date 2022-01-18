@@ -513,10 +513,12 @@ def test_relaxation_lookahead_score_function():
                                                  segments, strips_ops,
                                                  option_specs)
 
-        def _evaluate_atom_trajectory(
-                self, atoms_sequence: List[Set[GroundAtom]],
-                heuristic_fn: Callable[[Set[GroundAtom]], float],
-                ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+        def _evaluate_atom_trajectory(self,
+                                      atoms_sequence: List[Set[GroundAtom]],
+                                      heuristic_fn: Callable[[Set[GroundAtom]],
+                                                             float],
+                                      ground_ops: Set[_GroundSTRIPSOperator],
+                                      is_demo: bool) -> float:
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
 
