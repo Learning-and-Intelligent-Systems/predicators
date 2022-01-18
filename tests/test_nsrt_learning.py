@@ -31,15 +31,18 @@ def test_segment_trajectory():
                                        utils.always_initiable,
                                        utils.onestep_terminal)
     option0 = param_option.ground([cup0], np.array([0.2]))
+    assert option0.initiable(state0)
     action0 = option0.policy(state0)
     # Even though the option changes, the option spec stays the same, so we do
     # not want to segment. This is because we are segmenting based on symbolic
     # aspects only, because the strips operators can only depend on symbols.
     option1 = param_option.ground([cup0], np.array([0.1]))
+    assert option1.initiable(state0)
     action1 = option1.policy(state0)
     option2 = param_option.ground([cup1], np.array([0.1]))
+    assert option2.initiable(state0)
     action2 = option2.policy(state0)
-    trajectory = (LowLevelTrajectory([state0, state0, state0, state0, state0],
+    trajectory = (LowLevelTrajectory([state0.copy() for _ in range(5)],
                                      [action0, action1, action2, action0]),
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
     known_option_segments = segment_trajectory(trajectory)
@@ -54,12 +57,12 @@ def test_segment_trajectory():
     action1.unset_option()
     action2 = option1.policy(state0)
     action2.unset_option()
-    trajectory = (LowLevelTrajectory([state0, state0, state0, state0, state0],
+    trajectory = (LowLevelTrajectory([state0.copy() for _ in range(5)],
                                      [action0, action1, action2, action0]),
                   [atoms0, atoms0, atoms0, atoms0, atoms0])
     assert len(segment_trajectory(trajectory)) == 0
     trajectory = (LowLevelTrajectory(
-        [state0, state0, state0, state0, state0, state1],
+        [state0.copy() for _ in range(5)] + [state1],
         [action0, action1, action2, action0, action1]),
                   [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
     unknown_option_segments = segment_trajectory(trajectory)

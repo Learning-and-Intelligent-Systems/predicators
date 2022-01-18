@@ -5,8 +5,9 @@ import os
 import shutil
 import sys
 import pytest
-from predicators.src.approaches import BaseApproach, ApproachFailure
-from predicators.src.envs import CoverEnv
+from predicators.src.approaches import BaseApproach, ApproachFailure, \
+    create_approach
+from predicators.src.envs import CoverEnv, EnvironmentFailure
 from predicators.src.main import main, _run_testing
 from predicators.src.structs import State, Task, Action
 from predicators.src import utils
@@ -25,6 +26,12 @@ class _DummyApproach(BaseApproach):
             raise ApproachFailure("Option plan exhausted.")
 
         return _policy
+
+
+class _DummyCoverEnv(CoverEnv):
+    """Dummy cover environment that raises EnvironmentFailure for testing."""
+    def simulate(self, state, action):
+        raise EnvironmentFailure("", set())
 
 
 def test_main():
@@ -114,6 +121,7 @@ def test_main():
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--remake_data"
     ]
+    main()
     # Try loading datasets (this is the default).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
@@ -159,7 +167,7 @@ def test_main():
 
 
 def test_tamp_approach_failure():
-    """Test coverage for ApproachFailure raised during policy execution."""
+    """Test coverage for ApproachFailure in run_testing()."""
     utils.update_config({
         "env": "cover",
         "approach": "nsrt_learning",
@@ -170,6 +178,24 @@ def test_tamp_approach_failure():
     env = CoverEnv()
     approach = _DummyApproach(env.simulate, env.predicates, env.options,
                               env.types, env.action_space)
+    assert not approach.is_learning_based
+    task = next(env.train_tasks_generator())[0]
+    approach.solve(task, timeout=500)
+    _run_testing(env, approach)
+
+
+def test_env_failure():
+    """Test coverage for EnvironmentFailure in run_testing()."""
+    utils.update_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "seed": 123,
+        "timeout": 10,
+        "make_videos": False,
+    })
+    env = _DummyCoverEnv()
+    approach = create_approach("random_actions", env.simulate, env.predicates,
+                               env.options, env.types, env.action_space)
     assert not approach.is_learning_based
     task = next(env.train_tasks_generator())[0]
     approach.solve(task, timeout=500)
