@@ -101,6 +101,51 @@ def test_overlap():
     assert not utils.overlap(l1, r1, l2, r2)
 
 
+def test_run_policy_until():
+    """Tests for run_policy_until()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = State({cup: [0.5], plate: [1.0, 1.2]})
+
+    def _simulator(s, a):
+        ns = s.copy()
+        assert a.arr.shape == (1, )
+        ns[cup][0] += a.arr.item()
+        return ns
+
+    def _policy(_):
+        return Action(np.array([4]))
+
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  lambda s: True,
+                                  max_num_steps=5)
+    assert len(traj.states) == 1
+    assert len(traj.actions) == 0
+
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  lambda s: False,
+                                  max_num_steps=5)
+    assert len(traj.states) == 6
+    assert len(traj.actions) == 5
+
+    def _terminal(s):
+        return s[cup][0] > 9.9
+
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  _terminal,
+                                  max_num_steps=5)
+    assert len(traj.states) == 4
+    assert len(traj.actions) == 3
+
+
 def test_option_to_trajectory():
     """Tests for option_to_trajectory()."""
     cup_type = Type("cup_type", ["feat1"])
@@ -177,8 +222,8 @@ def test_option_plan_to_policy():
     def _policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
+    def _initiable(s, _2, _3, p):
+        return p > 0.25 and s[cup][0] < 1
 
     def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
