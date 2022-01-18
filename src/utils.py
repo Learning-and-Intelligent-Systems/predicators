@@ -64,8 +64,8 @@ def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
     del objects, params  # unused
     if "start_state" in memory:
         assert state.allclose(memory["start_state"])
-    else:
-        memory["start_state"] = state
+    # Always update the memory dict, due to the "is" check in onestep_terminal.
+    memory["start_state"] = state
     return True
 
 
@@ -76,9 +76,8 @@ def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
     function must set memory["start_state"], as always_initiable() does above.
     """
     del objects, params  # unused
-    if "start_state" not in memory:
-        return False
-    return not state.allclose(memory["start_state"])
+    assert "start_state" in memory
+    return state is not memory["start_state"]
 
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],

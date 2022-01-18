@@ -355,6 +355,13 @@ def test_option():
     assert repr(option) == str(option) == (
         "_Option(name='Pick', objects=[obj7:type1], "
         "params=array([ 5., -5.], dtype=float32))")
+    parameterized_option = ParameterizedOption("Pick", [type1], params_space,
+                                               _policy, utils.always_initiable,
+                                               utils.onestep_terminal)
+    option = parameterized_option.ground([obj7], params)
+    assert option.initiable(state)
+    with pytest.raises(AssertionError):
+        assert option.initiable(state.copy())  # can't do this due to memory
 
 
 def test_option_memory_incorrect():
