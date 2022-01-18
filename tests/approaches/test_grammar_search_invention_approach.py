@@ -244,7 +244,11 @@ def test_predicate_search_heuristic_base_classes():
     assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))
     action.set_option(option)
-    dataset = [LowLevelTrajectory([state, other_state], [action], set())]
+    dataset = [
+        LowLevelTrajectory([state, other_state], [action],
+                           _is_demo=True,
+                           _goal=set())
+    ]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
     heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset, {},
                                                       ["hadd"])
@@ -521,6 +525,30 @@ def test_relaxation_lookahead_score_function():
                                         candidates, ["hadd"],
                                         lookahead_depth=1)
     assert score_function.evaluate(set(candidates)) == float("inf")
+
+    # Test for covering heuristic-based score functions that use nondemos.
+    # When we implement the real such functions that we care about, this test
+    # can probably be removed or replaced.
+    nondemo_score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+        initial_predicates,
+        atom_dataset,
+        candidates, ["hadd"],
+        lookahead_depth=1,
+        demos_only=False)
+    default_max_demos = CFG.grammar_search_heuristic_based_max_demos
+    default_max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
+    utils.update_config({
+        "grammar_search_heuristic_based_max_demos": 1,
+        "grammar_search_heuristic_based_max_nondemos": 1,
+    })
+    assert nondemo_score_function.evaluate(set(candidates)) < float("inf")
+    # Reset to defaults to avoid interaction with other tests.
+    utils.update_config({
+        "grammar_search_heuristic_based_max_demos":
+        default_max_demos,
+        "grammar_search_heuristic_based_max_nondemos":
+        default_max_nondemos,
+    })
 
 
 def test_exact_lookahead_score_function():

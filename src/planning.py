@@ -194,8 +194,9 @@ def _skeleton_generator(
                 CFG.max_skeletons_optimized):
             raise ApproachFailure("Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
-        # Good debug point #1: print node.skeleton here to see what
-        # the high-level search is doing.
+        # Good debug point #1: print out the skeleton here to see what
+        # the high-level search is doing. You can accomplish this via:
+        # print([(act.name, act.objects) for act in node.skeleton])
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1

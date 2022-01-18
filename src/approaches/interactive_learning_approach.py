@@ -90,7 +90,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 policy,
                 task,
                 self._simulator,
-                self._get_current_predicates(),
                 max_num_steps=CFG.interactive_max_num_steps)
             # Decide whether to ask about each possible atom during exploration
             for s in traj.states:
