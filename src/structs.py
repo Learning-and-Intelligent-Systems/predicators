@@ -865,12 +865,13 @@ class Action:
 @dataclass(frozen=True, repr=False, eq=False)
 class LowLevelTrajectory:
     """A structure representing a low-level trajectory, containing a state
-    sequence, action sequence, and optional goal. This trajectory may or
-    may not be a demonstration.
+    sequence, action sequence, and optional goal. This trajectory may or may
+    not be a demonstration.
 
-    Invariant 1: If this trajectory is a demonstration, it must contain a goal
-    and achieve that goal. Invariant 2: The length of the state sequence is
-    always one greater than the length of the action sequence.
+    Invariant 1: If this trajectory is a demonstration, it must contain
+    a goal and achieve that goal. Invariant 2: The length of the state
+    sequence is always one greater than the length of the action
+    sequence.
     """
     _states: List[State]
     _actions: List[Action]
@@ -881,8 +882,8 @@ class LowLevelTrajectory:
         assert len(self._states) == len(self._actions) + 1
         if self._is_demo:
             assert self._goal is not None
-            assert all(goal_atom.holds(self._states[-1])
-                       for goal_atom in self._goal)
+            assert all(
+                goal_atom.holds(self._states[-1]) for goal_atom in self._goal)
 
     @property
     def states(self) -> List[State]:
@@ -901,8 +902,7 @@ class LowLevelTrajectory:
 
     @property
     def goal(self) -> Set[GroundAtom]:
-        """The goal of this trajectory.
-        """
+        """The goal of this trajectory."""
         assert self._goal is not None, "This trajectory doesn't contain a goal!"
         return self._goal
 

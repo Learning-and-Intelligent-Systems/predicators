@@ -669,19 +669,25 @@ def test_low_level_trajectory():
     assert traj.is_demo
     assert traj.goal == set()
     # Goal is not achieved in final state, okay because not demo.
-    traj = LowLevelTrajectory(states, actions, _is_demo=False,
+    traj = LowLevelTrajectory(states,
+                              actions,
+                              _is_demo=False,
                               _goal={on([cup, plate])})
     assert not traj.is_demo
     assert traj.goal == {on([cup, plate])}
     with pytest.raises(AssertionError):
         # Goal is not achieved in final state, bad because demo.
-        traj = LowLevelTrajectory(states, actions, _is_demo=True,
+        traj = LowLevelTrajectory(states,
+                                  actions,
+                                  _is_demo=True,
                                   _goal={on([cup, plate])})
     with pytest.raises(AssertionError):
         # Incompatible lengths of states and actions.
         traj = LowLevelTrajectory(states[:-1], actions, {on([cup, plate])})
     # Goal is achieved in final state, required because demo.
-    traj = LowLevelTrajectory(states[:-1], actions[:-1], _is_demo=True,
+    traj = LowLevelTrajectory(states[:-1],
+                              actions[:-1],
+                              _is_demo=True,
                               _goal={on([cup, plate])})
     assert traj.is_demo
     assert traj.goal == {on([cup, plate])}
