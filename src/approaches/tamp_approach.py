@@ -42,6 +42,10 @@ class TAMPApproach(BaseApproach):
                 "num_nodes_expanded", "plan_length"
         ]:
             self._metrics[f"total_{metric}"] += metrics[metric]
+        if metrics["num_skeletons_optimized"] < self._metrics["min_num_skeletons_optimized"]:
+            self._metrics["min_num_skeletons_optimized"] = metrics["num_skeletons_optimized"]
+        elif metrics["num_skeletons_optimized"] > self._metrics["max_num_skeletons_optimized"]:
+            self._metrics["max_num_skeletons_optimized"] = metrics["num_skeletons_optimized"]
         option_policy = utils.option_plan_to_policy(plan)
 
         def _policy(s: State) -> Action:
