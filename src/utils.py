@@ -76,7 +76,7 @@ def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
     function must set memory["start_state"], as always_initiable() does above.
     """
     del objects, params  # unused
-    assert "start_state" in memory
+    assert "start_state" in memory, "Must call initiable() before terminal()"
     return state is not memory["start_state"]
 
 

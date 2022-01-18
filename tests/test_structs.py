@@ -359,9 +359,13 @@ def test_option():
                                                _policy, utils.always_initiable,
                                                utils.onestep_terminal)
     option = parameterized_option.ground([obj7], params)
-    assert option.initiable(state)
     with pytest.raises(AssertionError):
-        assert option.initiable(state.copy())  # can't do this due to memory
+        assert not option.terminal(state)  # must call initiable() first
+    assert option.initiable(state.copy())
+    assert option.initiable(state)
+    assert not option.terminal(state)
+    assert not option.terminal(state)  # try it again
+    assert option.terminal(state.copy())  # should fail on a copy
 
 
 def test_option_memory_incorrect():

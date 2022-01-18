@@ -12,7 +12,6 @@ from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
-from predicators.src import utils
 
 
 def test_sesame_plan():
