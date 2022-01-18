@@ -348,8 +348,12 @@ def _get_cluttered_table_gt_nsrts(with_place=False) -> Set[NSRT]:
         }
         add_effects = {LiftedAtom(HandEmpty, [])}
         delete_effects = {LiftedAtom(Holding, [can])}
-        place_sampler = lambda s, r, o: np.array([r.uniform(0, 0.2),
-            r.uniform(0, 0.2), r.uniform(0,1.), r.uniform(0,1.)])
+        place_sampler = lambda s, r, o: np.array([
+            r.uniform(0, 0.2),
+            r.uniform(0, 0.2),
+            r.uniform(0, 1.),
+            r.uniform(0, 1.)
+        ])
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
                           delete_effects, set(), option, option_vars,
                           place_sampler)
