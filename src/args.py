@@ -15,5 +15,7 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", required=True, type=int)
     parser.add_argument("--timeout", default=10, type=float)
     parser.add_argument("--make_videos", action="store_true")
-    parser.add_argument("--load", action="store_true")
+    parser.add_argument("--load_approach", action="store_true")
+    parser.add_argument("--remake_data", action="store_true")
+    parser.add_argument("--experiment_id", default="", type=str)
     return parser

@@ -67,7 +67,8 @@ class GlobalSettings:
 
     # evaluation parameters
     results_dir = "results"
-    save_dir = "saved_data"
+    approach_dir = "saved_approaches"
+    data_dir = "saved_datasets"
     video_dir = "videos"
     video_fps = 2
 
@@ -114,7 +115,7 @@ class GlobalSettings:
         "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
         "LightOn,LightOff,On,OnTable"
     interactive_num_episodes = 0
-    interactive_max_steps = 21
+    interactive_max_num_steps = 21
     interactive_relearn_every = 1
     interactive_num_babbles = 10
     interactive_max_num_atoms_babbled = 1
