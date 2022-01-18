@@ -88,8 +88,7 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    assert utils.policy_solves_task(policy, trivial_task, env.simulate,
-                                    env.predicates)
+    assert utils.policy_solves_task(policy, trivial_task, env.simulate)
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]

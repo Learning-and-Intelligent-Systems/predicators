@@ -190,8 +190,7 @@ def _main() -> None:
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    os.makedirs(outdir, exist_ok=True)
 
     _run_proxy_analysis(env_names, score_function_names, run_planning, outdir)
     _make_proxy_analysis_results(outdir)

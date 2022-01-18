@@ -280,7 +280,6 @@ def run_policy_on_task(
     policy: Callable[[State], Action],
     task: Task,
     simulator: Callable[[State, Action], State],
-    predicates: Collection[Predicate],
     max_num_steps: int,
     render: Optional[Callable[[State, Task, Optional[Action]],
                               List[Image]]] = None,
@@ -293,8 +292,7 @@ def run_policy_on_task(
     """
 
     def _goal_check(state: State) -> bool:
-        atoms = abstract(state, predicates)
-        return task.goal.issubset(atoms)
+        return all(goal_atom.holds(state) for goal_atom in task.goal)
 
     traj = run_policy_until(policy, simulator, task.init, _goal_check,
                             max_num_steps)
@@ -308,11 +306,10 @@ def run_policy_on_task(
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
-                       simulator: Callable[[State, Action], State],
-                       predicates: Collection[Predicate]) -> bool:
+                       simulator: Callable[[State, Action], State]) -> bool:
     """A light wrapper around run_policy_on_task that returns whether the given
     policy solves the given task."""
-    _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
+    _, _, solved = run_policy_on_task(policy, task, simulator,
                                       CFG.max_num_steps_check_policy)
     return solved
 
@@ -1145,8 +1142,7 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
 def save_video(outfile: str, video: Video) -> None:
     """Save the video to video_dir/outfile."""
     outdir = CFG.video_dir
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
     print(f"Wrote out to {outpath}")
@@ -1182,8 +1178,7 @@ def get_config_path_str() -> str:
 
 def get_approach_save_path_str() -> str:
     """Get a path for saving and loading approaches."""
-    if not os.path.exists(CFG.approach_dir):
-        os.makedirs(CFG.approach_dir)
+    os.makedirs(CFG.approach_dir, exist_ok=True)
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
