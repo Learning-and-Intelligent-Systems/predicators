@@ -666,7 +666,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                 continue
             # Skip this trajectory if we've exceeded a budget.
             if (traj.is_demo and seen_demos == max_demos) or (
-                not traj.is_demo and seen_nondemos == max_nondemos):
+                    not traj.is_demo and seen_nondemos == max_nondemos):
                 continue
             if traj.is_demo:
                 seen_demos += 1
