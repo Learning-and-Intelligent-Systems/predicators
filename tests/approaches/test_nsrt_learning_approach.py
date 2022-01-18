@@ -58,8 +58,7 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(policy, task, env.simulate,
-                                            env.predicates)
+            assert utils.policy_solves_task(policy, task, env.simulate)
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -69,8 +68,7 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(policy, task, env.simulate,
-                                            env.predicates)
+            assert utils.policy_solves_task(policy, task, env.simulate)
 
 
 def test_nsrt_learning_approach():
