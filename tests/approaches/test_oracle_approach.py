@@ -112,18 +112,16 @@ def test_oracle_approach_cover():
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
 
 
 def test_oracle_approach_cover_typed_options():
@@ -138,18 +136,16 @@ def test_oracle_approach_cover_typed_options():
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
 
 
 def test_oracle_approach_cover_hierarchical_types():
@@ -164,18 +160,16 @@ def test_oracle_approach_cover_hierarchical_types():
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
 
 
 def test_oracle_approach_cover_multistep_options():
@@ -194,18 +188,16 @@ def test_oracle_approach_cover_multistep_options():
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
         # Test that a repeated random action fails.
         assert not utils.policy_solves_task(lambda s: random_action, task,
-                                            env.simulate, env.predicates)
+                                            env.simulate)
     utils.update_config({"env": "cover_multistep_options"})
     utils.update_config({
         "env": "cover_multistep_options",
@@ -221,12 +213,10 @@ def test_oracle_approach_cover_multistep_options():
     approach.seed(123)
     for task in next(env.train_tasks_generator()):
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
-        assert utils.policy_solves_task(policy, task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, task, env.simulate)
 
 
 def test_cluttered_table_get_gt_nsrts():
@@ -276,12 +266,10 @@ def test_oracle_approach_cluttered_table():
     approach.seed(123)
     train_task = next(env.train_tasks_generator())[0]
     policy = approach.solve(train_task, timeout=500)
-    assert utils.policy_solves_task(policy, train_task, env.simulate,
-                                    env.predicates)
+    assert utils.policy_solves_task(policy, train_task, env.simulate)
     for test_task in env.get_test_tasks()[:5]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(policy, test_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate)
 
 
 def test_oracle_approach_blocks():
@@ -297,12 +285,10 @@ def test_oracle_approach_blocks():
     # requires resampling placement poses on the table.
     for train_task in next(env.train_tasks_generator())[:10]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(policy, train_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate)
     test_task = env.get_test_tasks()[0]
     policy = approach.solve(test_task, timeout=500)
-    assert utils.policy_solves_task(policy, test_task, env.simulate,
-                                    env.predicates)
+    assert utils.policy_solves_task(policy, test_task, env.simulate)
 
 
 def test_oracle_approach_painting():
@@ -316,12 +302,10 @@ def test_oracle_approach_painting():
     approach.seed(123)
     for train_task in next(env.train_tasks_generator())[:2]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(policy, train_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate)
     for test_task in env.get_test_tasks()[:2]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(policy, test_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate)
 
 
 def test_oracle_approach_playroom():
@@ -335,12 +319,10 @@ def test_oracle_approach_playroom():
     approach.seed(123)
     for train_task in next(env.train_tasks_generator())[:2]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(policy, train_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate)
     for test_task in env.get_test_tasks()[:2]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(policy, test_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate)
     # Test MoveDialToDoor for coverage.
     nsrts = get_gt_nsrts(env.predicates, env.options)
     movedialtodoor = [nsrt for nsrt in nsrts \
@@ -400,9 +382,7 @@ def test_oracle_approach_repeated_nextto():
     approach.seed(123)
     for train_task in next(env.train_tasks_generator())[:3]:
         policy = approach.solve(train_task, timeout=500)
-        assert utils.policy_solves_task(policy, train_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, train_task, env.simulate)
     for test_task in env.get_test_tasks()[:3]:
         policy = approach.solve(test_task, timeout=500)
-        assert utils.policy_solves_task(policy, test_task, env.simulate,
-                                        env.predicates)
+        assert utils.policy_solves_task(policy, test_task, env.simulate)

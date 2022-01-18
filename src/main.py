@@ -57,8 +57,7 @@ def main() -> None:
         "Git commit hash:",
         subprocess.check_output(["git", "rev-parse",
                                  "HEAD"]).decode("ascii").strip())
-    if not os.path.exists(CFG.results_dir):
-        os.mkdir(CFG.results_dir)
+    os.makedirs(CFG.results_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_env(CFG.env)
     # The action space and options need to be seeded externally, because
@@ -107,8 +106,7 @@ def main() -> None:
                 if CFG.remake_data or not os.path.exists(dataset_filepath):
                     dataset = create_dataset(env, train_tasks)
                     print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
-                    if not os.path.exists(CFG.data_dir):
-                        os.makedirs(CFG.data_dir)
+                    os.makedirs(CFG.data_dir, exist_ok=True)
                     with open(dataset_filepath, "wb") as f:
                         pkl.dump(dataset, f)
                 else:
@@ -146,8 +144,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(
-                policy, task, env.simulate, env.predicates,
-                CFG.max_num_steps_check_policy,
+                policy, task, env.simulate, CFG.max_num_steps_check_policy,
                 env.render if CFG.make_videos else None)
         except EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
