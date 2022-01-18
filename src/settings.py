@@ -140,6 +140,8 @@ class GlobalSettings:
     grammar_search_task_planning_timeout = 1.0
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
+    grammar_search_off_demo_count_penalty = 1.0
+    grammar_search_on_demo_count_penalty = 10.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
