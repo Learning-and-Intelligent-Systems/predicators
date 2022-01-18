@@ -270,7 +270,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     return nsrts
 
 
-def _get_cluttered_table_gt_nsrts(with_place=False) -> Set[NSRT]:
+def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
     """Create ground truth NSRTs for ClutteredTableEnv."""
     can_type, = _get_types_by_names("cluttered_table", ["can"])
 
