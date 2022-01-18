@@ -63,9 +63,10 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
             # Add task goal into the trajectory.
-            replay_traj = LowLevelTrajectory(
-                replay_traj.states, replay_traj.actions,
-                _is_demo=False, _goal=traj.goal)
+            replay_traj = LowLevelTrajectory(replay_traj.states,
+                                             replay_traj.actions,
+                                             _is_demo=False,
+                                             _goal=traj.goal)
         except EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue

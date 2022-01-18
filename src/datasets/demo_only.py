@@ -21,8 +21,10 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             CFG.max_num_steps_check_policy)
         assert solved, "Oracle failed on training task."
         # Add is_demo flag and task goal into the trajectory.
-        traj = LowLevelTrajectory(traj.states, traj.actions,
-                                  _is_demo=True, _goal=task.goal)
+        traj = LowLevelTrajectory(traj.states,
+                                  traj.actions,
+                                  _is_demo=True,
+                                  _goal=task.goal)
         if CFG.option_learner != "no_learning":
             for act in traj.actions:
                 act.unset_option()
