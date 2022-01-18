@@ -106,7 +106,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
             # when using demo+replay with the default 1 option per replay
             # because the replay data which causes no change in the symbolic
             # state would get excluded.
-            elif traj.actions[t].get_option().terminal(traj.states[t+1]):
+            elif traj.actions[t].get_option().terminal(traj.states[t + 1]):
                 switch = True
         if switch:
             # Include the final state as the end of this segment.

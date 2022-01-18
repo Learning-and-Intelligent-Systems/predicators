@@ -30,6 +30,7 @@ class _DummyApproach(BaseApproach):
 
 class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
+
     def simulate(self, state, action):
         raise EnvironmentFailure("", set())
 
