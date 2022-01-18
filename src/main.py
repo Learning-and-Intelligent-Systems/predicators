@@ -206,7 +206,8 @@ def _save_test_results(results: Metrics, learning_time: float) -> None:
     outdata["learning_time"] = learning_time
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
-    print(f"Wrote out results to {outfile}")
+    print(f"Test results: {outdata}")
+    print(f"Wrote out test results to {outfile}")
 
 
 if __name__ == "__main__":  # pragma: no cover
