@@ -241,6 +241,7 @@ def test_predicate_search_heuristic_base_classes():
                          (1, )), lambda s, m, o, p: Action(np.array([0.0])),
         utils.always_initiable, utils.onestep_terminal)
     option = parameterized_option.ground([], np.array([0.0]))
+    assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))
     action.set_option(option)
     dataset = [LowLevelTrajectory([state, other_state], [action], set())]
