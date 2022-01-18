@@ -64,8 +64,13 @@ def test_task_plan():
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
     with pytest.raises(ApproachTimeout):
-        task_plan(init_atoms, task.goal, ground_nsrts, reachable_atoms,
-                   heuristic, timeout=1e-6, seed=123)
+        task_plan(init_atoms,
+                  task.goal,
+                  ground_nsrts,
+                  reachable_atoms,
+                  heuristic,
+                  timeout=1e-6,
+                  seed=123)
 
 
 def test_sesame_plan_failures():
