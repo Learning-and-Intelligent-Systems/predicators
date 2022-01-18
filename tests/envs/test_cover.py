@@ -247,7 +247,7 @@ def test_cover_multistep_options():
         return Action(action_arrs.pop(0))
 
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_com.mp4"  # pragma: no cover
@@ -280,8 +280,8 @@ def test_cover_multistep_options():
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        utils.option_plan_to_policy(plan), task, env.simulate, env.predicates,
-        100, env.render if make_video else None)
+        utils.option_plan_to_policy(plan), task, env.simulate, 100,
+        env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_options_com.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
@@ -314,7 +314,7 @@ def test_cover_multistep_options():
     ]
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_robot_collision1.mp4"  # pragma: no cover
@@ -338,7 +338,7 @@ def test_cover_multistep_options():
     ]
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_robot_collision2.mp4"  # pragma: no cover
@@ -380,7 +380,7 @@ def test_cover_multistep_options():
     ]
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_block_collision1.mp4"  # pragma: no cover
@@ -421,7 +421,7 @@ def test_cover_multistep_options():
     ]
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_block_collision2.mp4"  # pragma: no cover
@@ -462,7 +462,7 @@ def test_cover_multistep_options():
     ]
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_block_collision3.mp4"  # pragma: no cover

@@ -276,10 +276,9 @@ class BlocksEnv(BaseEnv):
             num_blocks = rng.choice(possible_num_blocks)
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
-            atoms = utils.abstract(init_state, self.predicates)
             while True:  # repeat until goal is not satisfied
                 goal = self._sample_goal_from_piles(num_blocks, piles, rng)
-                if not goal.issubset(atoms):
+                if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
             tasks.append(Task(init_state, goal))
         return tasks

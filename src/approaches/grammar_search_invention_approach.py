@@ -647,6 +647,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     against the demonstrations.
     """
     heuristic_names: Sequence[str]
+    demos_only: bool = field(default=True)
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
@@ -656,12 +657,21 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         # Lower scores are better.
         scores = {name: 0.0 for name in self.heuristic_names}
         seen_demos = 0
+        seen_nondemos = 0
+        max_demos = CFG.grammar_search_heuristic_based_max_demos
+        max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
         for traj, atoms_sequence in pruned_atom_data:
-            if not traj.is_demo:  # we only care about demonstrations
+            # Skip this trajectory if it's not a demo and we don't want demos.
+            if self.demos_only and not traj.is_demo:
                 continue
-            if seen_demos == CFG.grammar_search_heuristic_based_max_demos:
-                break
-            seen_demos += 1
+            # Skip this trajectory if we've exceeded a budget.
+            if (traj.is_demo and seen_demos == max_demos) or (
+                    not traj.is_demo and seen_nondemos == max_nondemos):
+                continue
+            if traj.is_demo:
+                seen_demos += 1
+            else:
+                seen_nondemos += 1
             init_atoms = atoms_sequence[0]
             objects = set(traj.states[0])
             goal = traj.goal
@@ -962,7 +972,8 @@ def _select_predicates_to_keep(
         _check_goal,
         _get_successors,
         score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth)
+        enforced_depth=CFG.grammar_search_hill_climbing_depth,
+        parallelize=CFG.grammar_search_parallelize_hill_climbing)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "

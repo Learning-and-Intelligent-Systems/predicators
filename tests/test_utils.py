@@ -9,7 +9,7 @@ from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -1586,26 +1586,31 @@ def test_run_hill_climbing():
             return float("inf")
         return float(abs(state[0] - 4) + abs(state[1] - 4))
 
-    # With enforced_depth 0, search fails.
-    state_sequence, action_sequence = utils.run_hill_climbing(
-        initial_state, _grid_check_goal_fn, _grid_successor_fn,
-        _local_minimum_grid_heuristic_fn)
-    assert state_sequence == [(0, 0)]
-    assert not action_sequence
+    for parallelize in (False, True):
+        # With enforced_depth 0, search fails.
+        state_sequence, action_sequence = utils.run_hill_climbing(
+            initial_state,
+            _grid_check_goal_fn,
+            _grid_successor_fn,
+            _local_minimum_grid_heuristic_fn,
+            parallelize=parallelize)
+        assert state_sequence == [(0, 0)]
+        assert not action_sequence
 
-    # With enforced_depth 1, search succeeds.
-    state_sequence, action_sequence = utils.run_hill_climbing(
-        initial_state,
-        _grid_check_goal_fn,
-        _grid_successor_fn,
-        _local_minimum_grid_heuristic_fn,
-        enforced_depth=1)
-    # Note that hill-climbing does not care about costs.
-    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
-                              (4, 2), (4, 3), (4, 4)]
-    assert action_sequence == [
-        "down", "down", "down", "down", "right", "right", "right", "right"
-    ]
+        # With enforced_depth 1, search succeeds.
+        state_sequence, action_sequence = utils.run_hill_climbing(
+            initial_state,
+            _grid_check_goal_fn,
+            _grid_successor_fn,
+            _local_minimum_grid_heuristic_fn,
+            enforced_depth=1,
+            parallelize=parallelize)
+        # Note that hill-climbing does not care about costs.
+        assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0),
+                                  (4, 1), (4, 2), (4, 3), (4, 4)]
+        assert action_sequence == [
+            "down", "down", "down", "down", "right", "right", "right", "right"
+        ]
 
 
 def test_ops_and_specs_to_dummy_nsrts():

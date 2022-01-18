@@ -865,26 +865,25 @@ class Action:
 @dataclass(frozen=True, repr=False, eq=False)
 class LowLevelTrajectory:
     """A structure representing a low-level trajectory, containing a state
-    sequence, action sequence, and optional goal.
+    sequence, action sequence, and optional goal. This trajectory may or may
+    not be a demonstration.
 
-    Invariant 1: If a goal is included, the trajectory achieves that
-    goal. We call such a trajectory a "demonstration". Invariant 2: The
-    length of the state sequence is always one greater than the length
-    of the action sequence.
+    Invariant 1: If this trajectory is a demonstration, it must contain
+    a goal and achieve that goal. Invariant 2: The length of the state
+    sequence is always one greater than the length of the action
+    sequence.
     """
     _states: List[State]
     _actions: List[Action]
+    _is_demo: bool = field(default=False)
     _goal: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self._states) == len(self._actions) + 1
-        if self._goal is not None:
-            # Verify that goal is achieved.
-            # This import is here due to circular dependencies with utils.py.
-            from predicators.src.utils import abstract  # pylint:disable=import-outside-toplevel
-            goal_preds = {atom.predicate for atom in self._goal}
-            atoms = abstract(self._states[-1], goal_preds)
-            assert self._goal.issubset(atoms)
+        if self._is_demo:
+            assert self._goal is not None
+            assert all(
+                goal_atom.holds(self._states[-1]) for goal_atom in self._goal)
 
     @property
     def states(self) -> List[State]:
@@ -899,15 +898,12 @@ class LowLevelTrajectory:
     @property
     def is_demo(self) -> bool:
         """Whether this trajectory is a demonstration."""
-        return self._goal is not None
+        return self._is_demo
 
     @property
     def goal(self) -> Set[GroundAtom]:
-        """The goal of this trajectory.
-
-        Requires is_demo to be True.
-        """
-        assert self._goal is not None, "This trajectory is not a demo!"
+        """The goal of this trajectory."""
+        assert self._goal is not None, "This trajectory doesn't contain a goal!"
         return self._goal
 
 

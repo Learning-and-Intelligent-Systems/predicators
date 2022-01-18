@@ -536,10 +536,9 @@ class PlayroomEnv(BlocksEnv):
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
             light_is_on = init_state.get(self._dial, "level") > 0.5
-            atoms = utils.abstract(init_state, self.predicates)
             while True:  # repeat until goal is not satisfied
                 goal = self._sample_goal(num_blocks, piles, light_is_on, rng)
-                if not goal.issubset(atoms):
+                if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
             tasks.append(Task(init_state, goal))
         return tasks

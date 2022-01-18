@@ -381,8 +381,8 @@ def test_playroom_options():
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
-        utils.option_plan_to_policy(plan), task, env.simulate, env.predicates,
-        len(plan), env.render if make_video else None)
+        utils.option_plan_to_policy(plan), task, env.simulate, len(plan),
+        env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
         utils.save_video(outfile, video)  # pragma: no cover
@@ -437,7 +437,7 @@ def test_playroom_action_sequence_video():
         return Action(action_arrs.pop(0))
 
     traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, env.predicates, len(action_arrs),
+        policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
         outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
