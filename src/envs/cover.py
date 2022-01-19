@@ -972,3 +972,21 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         return (block_pose-block_width/2 <= target_pose-target_width/2) and \
                (block_pose+block_width/2 >= target_pose+target_width/2) and \
                (by - bh == 0)
+
+
+class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
+    """A variation of CoverMultistepOptions where there is only one possible
+    initial state.
+
+    This environment is useful for debugging option learning.
+
+    Note that like the parent env, there are three possible goals:
+    Cover(block0, target0), Cover(block1, target1), or both.
+    """
+
+    def _create_initial_state(self, rng: np.random.Generator) -> State:
+        # Force one initial state by overriding the rng and using an identical
+        # one on every call, so this method becomes deterministic.
+        del rng
+        zero_rng = np.random.default_rng(0)
+        return super()._create_initial_state(zero_rng)
