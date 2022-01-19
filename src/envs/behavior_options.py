@@ -147,6 +147,7 @@ def navigate_to_param_sampler(rng: Generator,
                               objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
     assert len(objects) in [2, 3]
+    rng = np.random.default_rng()
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
@@ -557,6 +558,7 @@ def create_grasp_option_model(
         for _ in range(50):
             env.step(ret_action)
             if env.robots[0].parts["right_hand"].find_hand_contacts() is not None:
+                print("CONTACT!")
                 break
 
         # for i in range(25):
@@ -574,12 +576,12 @@ def create_grasp_option_model(
             grasp_obj_body_id = obj.body_id[0]
         else:
             grasp_obj_body_id = obj.body_id
+
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
             assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1))
-        env.step(a)
 
-        if env.robots[0].parts["right_hand"].object_in_hand is not None:
-            import ipdb; ipdb.set_trace()
+        for _ in range(5):
+            env.step(a)        
 
         # 3 Move Hand to Original Location
         env.robots[0].parts["right_hand"].set_position_orientation(
