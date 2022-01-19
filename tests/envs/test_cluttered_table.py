@@ -81,8 +81,9 @@ def test_cluttered_table(place_version=False):
             next_state = env.simulate(state,
                                       act)  # grasp while already grasping
             assert state.allclose(next_state)
-        if not place_version: 
-            next_state = env.simulate(state, act)  # grasp while already grasping
+        if not place_version:
+            next_state = env.simulate(state,
+                                      act)  # grasp while already grasping
             assert state.allclose(next_state)
             atoms = utils.abstract(state, env.predicates)
             assert GroundAtom(HandEmpty, []) not in atoms
