@@ -472,7 +472,7 @@ def _create_score_function(
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
         # as hadd,hmax or hadd,hmax,lmcut.
-        # score_name can be {"lookahead", "count"}.
+        # score_name can be any of {"lookahead", "count"}.
         # depth can be any non-negative integer.
         heuristic_names_str, score_name, depth = match.groups()
         heuristic_names = heuristic_names_str.split(",")
