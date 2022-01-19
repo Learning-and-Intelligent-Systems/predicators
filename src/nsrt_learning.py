@@ -91,7 +91,7 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
         # like Holding, Handempty, etc., because when doing symbolic planning,
         # we only have predicates, and not the continuous parameters that would
         # be used to distinguish between a PickPlace that is a pick vs a place.
-        if traj.actions[t].has_option():
+        if not switch and traj.actions[t].has_option():
             # Check for a change in option specs.
             if t < len(traj.actions) - 1:
                 option_t = traj.actions[t].get_option()
@@ -100,13 +100,13 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                 option_t1_spec = (option_t1.parent, option_t1.objects)
                 if option_t_spec != option_t1_spec:
                     switch = True
-            # Special case: if the final option terminates in the state, we
-            # can safely segment without using any continuous info. Note that
+            # Special case: if the final option terminates in the final state,
+            # we can safely segment without using any continuous info. Note that
             # excluding the final option from the data is highly problematic
             # when using demo+replay with the default 1 option per replay
             # because the replay data which causes no change in the symbolic
             # state would get excluded.
-            elif traj.actions[t].get_option().terminal(traj.states[t]):
+            elif traj.actions[t].get_option().terminal(traj.states[t + 1]):
                 switch = True
         if switch:
             # Include the final state as the end of this segment.
@@ -118,8 +118,8 @@ def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
                                   all_atoms[t + 1],
                                   traj.actions[t].get_option())
             else:
-                # If option learning, include the default option here; replaced
-                # during option learning.
+                # If we're in option learning mode, include the default option
+                # here; replaced later during option learning.
                 segment = Segment(current_segment_traj, all_atoms[t],
                                   all_atoms[t + 1])
             segments.append(segment)

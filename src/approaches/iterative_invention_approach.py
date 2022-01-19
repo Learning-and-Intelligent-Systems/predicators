@@ -8,8 +8,8 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Array, STRIPSOperator, Datastore, \
-    Segment, LiftedAtom, GroundAtom, OptionSpec
+    Type, Action, Dataset, Array, STRIPSOperator, Datastore, Segment, \
+    LiftedAtom, GroundAtom, OptionSpec
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -32,8 +32,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset,
-                                   train_tasks: List[Task]) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._dataset.extend(dataset)
         del dataset
         # Use the current predicates to segment dataset.

@@ -242,6 +242,9 @@ def test_predicate_and_atom():
     assert (str(ground_atom) == repr(ground_atom) ==
             "On(cup1:cup_type, plate:plate_type)")
     assert isinstance(ground_atom, GroundAtom)
+    assert ground_atom.holds(state)
+    ground_atom2 = pred([cup2, plate])
+    assert not ground_atom2.holds(state)
     lifted_atom3 = ground_atom.lift({cup1: cup_var, plate: plate_var})
     assert lifted_atom3 == lifted_atom
     with pytest.raises(ValueError):
@@ -249,6 +252,9 @@ def test_predicate_and_atom():
     atom = _Atom(pred, [cup1, plate])
     with pytest.raises(NotImplementedError):
         str(atom)  # abstract class
+    zero_arity_pred = Predicate("NoArity", [], _classifier)
+    with pytest.raises(ValueError):
+        zero_arity_pred([])  # ambiguous whether lifted or ground
 
 
 def test_task():
@@ -284,7 +290,8 @@ def test_option():
         return Action(p * 2)
 
     def _initiable(s, m, o, p):
-        del m, o  # unused
+        del o  # unused
+        m["test_key"] = "test_string"
         obj = list(s)[0]
         return p[0] < s[obj][0]
 
@@ -310,10 +317,12 @@ def test_option():
         "_Option(name='Pick', objects=[], "
         "params=array([-5.,  5.], dtype=float32))")
     assert option.name == "Pick"
+    assert option.memory == {}
     assert option.parent.name == "Pick"
     assert option.parent is parameterized_option
     assert np.all(option.policy(state).arr == np.array(params) * 2)
     assert option.initiable(state)
+    assert option.memory == {"test_key": "test_string"}  # set by initiable()
     assert not option.terminal(state)
     assert option.params[0] == -5 and option.params[1] == 5
     params = [5, -5]
@@ -346,6 +355,17 @@ def test_option():
     assert repr(option) == str(option) == (
         "_Option(name='Pick', objects=[obj7:type1], "
         "params=array([ 5., -5.], dtype=float32))")
+    parameterized_option = ParameterizedOption("Pick", [type1], params_space,
+                                               _policy, utils.always_initiable,
+                                               utils.onestep_terminal)
+    option = parameterized_option.ground([obj7], params)
+    with pytest.raises(AssertionError):
+        assert not option.terminal(state)  # must call initiable() first
+    assert option.initiable(state.copy())
+    assert option.initiable(state)
+    assert not option.terminal(state)
+    assert not option.terminal(state)  # try it again
+    assert option.terminal(state.copy())  # should be True on a copy
 
 
 def test_option_memory_incorrect():
@@ -642,19 +662,35 @@ def test_low_level_trajectory():
     assert traj.actions == actions
     assert not traj.is_demo
     with pytest.raises(AssertionError):
-        print(traj.goal)  # not a demo
-    traj = LowLevelTrajectory(states, actions, set())
+        print(traj.goal)  # no goal in this traj
+    with pytest.raises(AssertionError):
+        traj = LowLevelTrajectory(states, actions, True)  # demo must have goal
+    traj = LowLevelTrajectory(states, actions, _is_demo=True, _goal=set())
     assert traj.is_demo
     assert traj.goal == set()
+    # Goal is not achieved in final state, okay because not demo.
+    traj = LowLevelTrajectory(states,
+                              actions,
+                              _is_demo=False,
+                              _goal={on([cup, plate])})
+    assert not traj.is_demo
+    assert traj.goal == {on([cup, plate])}
     with pytest.raises(AssertionError):
-        # goal is not achieved in final state
-        traj = LowLevelTrajectory(states, actions, {on([cup, plate])})
+        # Goal is not achieved in final state, bad because demo.
+        traj = LowLevelTrajectory(states,
+                                  actions,
+                                  _is_demo=True,
+                                  _goal={on([cup, plate])})
     with pytest.raises(AssertionError):
-        # incompatible lengths of states and actions
+        # Incompatible lengths of states and actions.
         traj = LowLevelTrajectory(states[:-1], actions, {on([cup, plate])})
-    # goal is achieved in final state
-    traj = LowLevelTrajectory(states[:-1], actions[:-1], {on([cup, plate])})
-    assert traj.goal != set()
+    # Goal is achieved in final state, required because demo.
+    traj = LowLevelTrajectory(states[:-1],
+                              actions[:-1],
+                              _is_demo=True,
+                              _goal={on([cup, plate])})
+    assert traj.is_demo
+    assert traj.goal == {on([cup, plate])}
 
 
 def test_segment():

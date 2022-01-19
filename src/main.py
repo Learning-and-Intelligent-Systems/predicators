@@ -6,6 +6,14 @@ Example usage with learning NSRTs:
 Example usage with oracle NSRTs:
     python src/main.py --env cover --approach oracle --seed 0
 
+To load a saved approach:
+    python src/main.py --env cover --approach nsrt_learning --seed 0 \
+        --load_approach
+
+To force regenerate a dataset:
+    python src/main.py --env cover --approach nsrt_learning --seed 0 \
+        --remake_data
+
 To make videos:
     python src/main.py --env cover --approach oracle --seed 0 \
         --make_videos --num_test_tasks 1
@@ -49,10 +57,14 @@ def main() -> None:
         "Git commit hash:",
         subprocess.check_output(["git", "rev-parse",
                                  "HEAD"]).decode("ascii").strip())
-    if not os.path.exists(CFG.results_dir):
-        os.mkdir(CFG.results_dir)
-    # Create & seed classes
+    os.makedirs(CFG.results_dir, exist_ok=True)
+    # Create classes. Note that seeding happens inside the env and approach.
     env = create_env(CFG.env)
+    # The action space and options need to be seeded externally, because
+    # env.action_space and env.options are often created during env __init__().
+    env.action_space.seed(CFG.seed)
+    for option in env.options:
+        option.params_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
         if CFG.excluded_predicates == "all":
@@ -76,15 +88,10 @@ def main() -> None:
         preds = env.predicates
     approach = create_approach(CFG.approach, env.simulate, preds, env.options,
                                env.types, env.action_space)
-    env.seed(CFG.seed)
-    approach.seed(CFG.seed)
-    env.action_space.seed(CFG.seed)
-    for option in env.options:
-        option.params_space.seed(CFG.seed)
     # If approach is learning-based, get training datasets and do learning,
     # testing after each learning call. Otherwise, just do testing.
     if approach.is_learning_based:
-        if CFG.load:
+        if CFG.load_approach:
             approach.load()
             results = _run_testing(env, approach)
             _save_test_results(results, learning_time=0.0)
@@ -92,11 +99,23 @@ def main() -> None:
             # Iterate over the train_tasks lists coming from the generator.
             dataset_idx = 0
             for train_tasks in env.train_tasks_generator():
-                dataset = create_dataset(env, train_tasks)
-                print(f"\n\nDATASET INDEX: {dataset_idx}")
+                dataset_filename = (
+                    f"{CFG.env}__{dataset_idx}__"
+                    f"{CFG.offline_data_method}__{CFG.seed}.data")
+                dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
+                if CFG.remake_data or not os.path.exists(dataset_filepath):
+                    dataset = create_dataset(env, train_tasks)
+                    print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
+                    os.makedirs(CFG.data_dir, exist_ok=True)
+                    with open(dataset_filepath, "wb") as f:
+                        pkl.dump(dataset, f)
+                else:
+                    with open(dataset_filepath, "rb") as f:
+                        dataset = pkl.load(f)
+                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 learning_start = time.time()
-                approach.learn_from_offline_dataset(dataset, train_tasks)
+                approach.learn_from_offline_dataset(dataset)
                 learning_time = time.time() - learning_start
                 results = _run_testing(env, approach)
                 _save_test_results(results, learning_time=learning_time)
@@ -113,6 +132,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     num_solved = 0
     approach.reset_metrics()
     total_suc_time = 0.0
+    total_num_execution_failures = 0
     for i, task in enumerate(test_tasks):
         start = time.time()
         print(end="", flush=True)
@@ -125,11 +145,16 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(
-                policy, task, env.simulate, env.predicates,
-                CFG.max_num_steps_check_policy, CFG.make_videos, env.render)
+                policy, task, env.simulate, CFG.max_num_steps_check_policy,
+                env.render if CFG.make_videos else None)
         except EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")
+            continue
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Approach failed at policy "
+                  f"execution time with error: {e}")
+            total_num_execution_failures += 1
             continue
         if solved:
             print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
@@ -145,6 +170,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
+    total_skeletons_optimized = approach.metrics[
+        "total_num_skeletons_optimized"]
+    metrics["avg_skeletons_optimized"] = (
+        total_skeletons_optimized /
+        num_found_policy if num_found_policy > 0 else float("inf"))
+    metrics["min_skeletons_optimized"] = approach.metrics[
+        "min_num_skeletons_optimized"]
+    metrics["max_skeletons_optimized"] = approach.metrics[
+        "max_num_skeletons_optimized"]
     total_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
     metrics["avg_nodes_expanded"] = (total_num_nodes_expanded /
                                      num_found_policy
@@ -152,6 +186,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_plan_length = approach.metrics["total_plan_length"]
     metrics["avg_plan_length"] = (total_plan_length / num_found_policy
                                   if num_found_policy > 0 else float("inf"))
+    metrics["avg_execution_failures"] = (
+        total_num_execution_failures /
+        num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
 
 
@@ -166,7 +203,8 @@ def _save_test_results(results: Metrics, learning_time: float) -> None:
     outdata["learning_time"] = learning_time
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
-    print(f"Wrote out results to {outfile}")
+    print(f"Test results: {outdata}")
+    print(f"Wrote out test results to {outfile}")
 
 
 if __name__ == "__main__":  # pragma: no cover

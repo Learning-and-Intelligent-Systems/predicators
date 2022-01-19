@@ -2,9 +2,10 @@
 
 from typing import List
 import numpy as np
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv, EnvironmentFailure
-from predicators.src.structs import Dataset, _GroundNSRT, Task
+from predicators.src.structs import Dataset, _GroundNSRT, Task, \
+    LowLevelTrajectory
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -39,13 +40,13 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     for _ in range(CFG.offline_data_num_replays):
         # Sample a trajectory
         traj_idx = rng.choice(len(demo_dataset), p=weights)
-        traj_states = demo_dataset[traj_idx].states
+        traj = demo_dataset[traj_idx]
         # Sample a state
         # We don't allow sampling the final state in the trajectory here,
         # because there's no guarantee that an initiable option exists
         # from that state
-        assert len(traj_states) > 1
-        state = traj_states[rng.choice(len(traj_states) - 1)]
+        assert len(traj.states) > 1
+        state = traj.states[rng.choice(len(traj.states) - 1)]
         # Sample a random option that is initiable
         nsrts = ground_nsrts[traj_idx]
         assert len(nsrts) > 0
@@ -61,6 +62,11 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 env.simulate,
                 option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
+            # Add task goal into the trajectory.
+            replay_traj = LowLevelTrajectory(replay_traj.states,
+                                             replay_traj.actions,
+                                             _is_demo=False,
+                                             _goal=traj.goal)
         except EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
