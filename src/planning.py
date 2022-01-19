@@ -289,7 +289,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModel,
                         result = plan
                         return result
                 else:
-                    import ipdb; ipdb.set_trace()
                     can_continue_on = False
             else:
                 cur_idx += 1  # it's about to be decremented again
