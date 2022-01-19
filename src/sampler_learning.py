@@ -10,7 +10,7 @@ from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],

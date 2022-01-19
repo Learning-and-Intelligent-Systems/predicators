@@ -9,7 +9,7 @@ from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
