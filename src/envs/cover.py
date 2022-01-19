@@ -457,7 +457,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             types=[self._block_type, self._robot_type],
             params_space=Box(-np.inf, np.inf, (11, )),
             _policy=self._Pick_learned_equivalent_policy,
-            _initiable=self._Pick_initiable,
+            _initiable=self._Pick_learned_equivalent_initiable,
             _terminal=self._Pick_learned_equivalent_terminal)
         self._LearnedEquivalentPlace = ParameterizedOption(
             "LearnedEquivalentPlace",
@@ -728,6 +728,13 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         del m, o, p  # unused
         return self._HandEmpty_holds(s, [])
 
+    def _Pick_learned_equivalent_initiable(self,
+        s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+        # Convert the relative parameters into absolute parameters.
+        m["params"] = p
+        m["absolute_params"] = s.vec(o) + p
+        return self._Pick_initiable(s, m, o, p)
+
     def _Pick_policy(  # type: ignore
             self, s: State, m: Dict, o: Sequence[Object], p: Array) -> Action:
         del m  # unused
@@ -769,18 +776,18 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             m: Dict,  # type: ignore
             o: Sequence[Object],
             p: Array) -> Action:
-        # TODO: change to relative
-        import ipdb; ipdb.set_trace()
-        del m
+        assert np.allclose(p, m["params"])
+        del p
+        absolute_params = m["absolute_params"]
         # The object is the one we want to pick.
         assert len(o) == 2
         obj = o[0]
-        assert len(p) == self._block_type.dim + self._robot_type.dim
+        assert len(absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         by = s.get(obj, "y")
-        desired_x = p[7]
+        desired_x = absolute_params[7]
         desired_y = by + 1e-3
         at_desired_x = abs(desired_x - x) < 1e-5
         at_desired_y = abs(desired_y - y) < 1e-5
@@ -814,19 +821,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def _Pick_learned_equivalent_terminal(self, s: State, m: Dict,
                                           o: Sequence[Object],
                                           p: Array) -> bool:
-        del m  # unused
+        assert np.allclose(p, m["params"])
+        del p
+        absolute_params = m["absolute_params"]
         block, robot = o
         # Pick is done when we're holding the desired object.
         terminal = self._Holding_holds(s, [block, robot])
         if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
-            # TODO: change to relative
-            import ipdb; ipdb.set_trace()
-            try:
-                assert np.allclose(p, param_from_terminal, atol=1e-05)
-            except:
-                import ipdb; ipdb.set_trace()
+            assert np.allclose(absolute_params, param_from_terminal, atol=1e-05)
         return terminal
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -839,16 +843,18 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def _Place_learned_equivalent_initiable(self, s: State, m: Dict,
                                             o: Sequence[Object],
                                             p: Array) -> bool:
-        # Place is initiable if we're holding the object.
-        del m, p  # unused
         block, robot, _ = o
         assert block.is_instance(self._block_type)
         assert robot.is_instance(self._robot_type)
+        # Convert the relative parameters into absolute parameters.
+        m["params"] = p
+        # Only the block and robot are changing.
+        m["absolute_params"] = s.vec([block, robot]) + p
+        # Place is initiable if we're holding the object.
         return self._Holding_holds(s, [block, robot])
 
     def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
                       p: Array) -> Action:
-        del m  # unused
         # The object is the one we want to place at.
         assert len(o) == 1
         obj = o[0]
@@ -860,7 +866,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         x = s.get(self._robot, "x")
         at_desired_x = abs(desired_x - x) < 1e-5
         y = s.get(self._robot, "y")
-        desired_y = self.block_height + 1e-2
+        desired_y = self.block_height + 1e-3
         at_desired_y = abs(desired_y - y) < 1e-5
         lb, ub = CFG.cover_multistep_action_limits
         # If we're already above the object and prepared to place,
@@ -887,19 +893,19 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             m: Dict,
             o: Sequence[Object],
             p: Array) -> Action:
-        # TODO: change to relative
-        import ipdb; ipdb.set_trace()
-        del m
+        assert np.allclose(p, m["params"])
+        del p
+        absolute_params = m["absolute_params"]
         # The object is the one we want to place at.
         assert len(o) == 3
         obj = o[0]
-        assert len(p) == self._block_type.dim + self._robot_type.dim
+        assert len(absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
         bh = s.get(obj, "height")
-        desired_x = p[7]
-        desired_y = bh + 1e-2
+        desired_x = absolute_params[7]
+        desired_y = bh + 1e-3
 
         at_desired_x = abs(desired_x - x) < 1e-5
         at_desired_y = abs(desired_y - y) < 1e-5
@@ -932,16 +938,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
                                            o: Sequence[Object],
                                            p: Array) -> bool:
-        del m  # unused
+        assert np.allclose(p, m["params"])
+        del p
+        absolute_params = m["absolute_params"]
         block, robot, _ = o
         # Place is done when the hand is empty.
         terminal = self._HandEmpty_holds(s, [])
         if terminal and CFG.sampler_learner == "neural":
-            # TODO: change to relative
-            import ipdb; ipdb.set_trace()
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(p, param_from_terminal, atol=1e-5)
+            assert np.allclose(absolute_params, param_from_terminal, atol=1e-5)
         return terminal
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
