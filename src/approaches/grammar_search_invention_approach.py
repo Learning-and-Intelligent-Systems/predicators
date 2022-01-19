@@ -678,8 +678,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
         demo_atom_sets = {
             frozenset(a)
-            for traj, seq in pruned_atom_data if traj.is_demo
-            for a in seq
+            for traj, seq in pruned_atom_data if traj.is_demo for a in seq
         }
         for traj, atoms_sequence in pruned_atom_data:
             # Skip this trajectory if it's not a demo and we don't want demos.
@@ -862,7 +861,8 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                     score += CFG.grammar_search_suspicious_penalty
         return score
 
-    def _is_suspicious(self, successor: FrozenSet[GroundAtom],
+    @staticmethod
+    def _is_suspicious(successor: FrozenSet[GroundAtom],
                        demo_atom_sets: Set[FrozenSet[GroundAtom]]) -> bool:
         for demo_atoms in demo_atom_sets:
             suc, _ = utils.unify(successor, demo_atoms)

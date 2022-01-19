@@ -522,9 +522,9 @@ def test_relaxation_lookahead_score_function():
                                       atoms_sequence: List[Set[GroundAtom]],
                                       heuristic_fn: Callable[[Set[GroundAtom]],
                                                              float],
+                                      ground_ops: Set[_GroundSTRIPSOperator],
                                       demo_atom_sets: Set[
                                           FrozenSet[GroundAtom]],
-                                      ground_ops: Set[_GroundSTRIPSOperator],
                                       is_demo: bool) -> float:
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
@@ -603,10 +603,10 @@ def test_count_score_functions():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
-        "num_train_tasks": 2,
+        "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
-        "grammar_search_heuristic_based_max_demos": 5,
+        "grammar_search_heuristic_based_max_demos": 4,
         "grammar_search_heuristic_based_max_nondemos": 50,
     })
     env = CoverEnv()
@@ -633,6 +633,8 @@ def test_count_score_functions():
         # Cover bad case 1: transition is optimal and sequence is not a demo.
         not_handempty_s = score_function.evaluate({NotHandEmpty})
         assert not_handempty_s > all_included_s
+        # Cover bad case 3: there is a "suspicious" optimal state.
+        score_function.evaluate({name_to_pred["Holding"]})
 
 
 def test_branching_factor_score_function():
