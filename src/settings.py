@@ -172,6 +172,7 @@ class GlobalSettings:
                     # of the high likelihood of getting cyclic failures if you
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
+                    "cluttered_table_place": "after_exhaust",
                 })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.
