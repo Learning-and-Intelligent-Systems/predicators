@@ -676,6 +676,10 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         seen_nondemos = 0
         max_demos = CFG.grammar_search_heuristic_based_max_demos
         max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
+        demo_atom_sets = {
+            frozenset(a)
+            for traj, seq in pruned_atom_data if traj.is_demo for a in seq
+        }
         for traj, atoms_sequence in pruned_atom_data:
             # Skip this trajectory if it's not a demo and we don't want demos.
             if self.demos_only and not traj.is_demo:
@@ -701,7 +705,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                     heuristic_name, init_atoms, objects, goal, strips_ops,
                     option_specs, ground_ops, predicates)
                 scores[heuristic_name] += self._evaluate_atom_trajectory(
-                    atoms_sequence, heuristic_fn, ground_ops, traj.is_demo)
+                    atoms_sequence, heuristic_fn, ground_ops, demo_atom_sets,
+                    traj.is_demo)
         score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 
@@ -719,6 +724,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                                   heuristic_fn: Callable[[Set[GroundAtom]],
                                                          float],
                                   ground_ops: Set[_GroundSTRIPSOperator],
+                                  demo_atom_sets: Set[FrozenSet[GroundAtom]],
                                   is_demo: bool) -> float:
         raise NotImplementedError("Override me!")
 
@@ -732,6 +738,7 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                                   heuristic_fn: Callable[[Set[GroundAtom]],
                                                          float],
                                   ground_ops: Set[_GroundSTRIPSOperator],
+                                  demo_atom_sets: Set[FrozenSet[GroundAtom]],
                                   is_demo: bool) -> float:
         score = 0.0
         for i, atoms in enumerate(atoms_sequence):
@@ -760,6 +767,7 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
                                   heuristic_fn: Callable[[Set[GroundAtom]],
                                                          float],
                                   ground_ops: Set[_GroundSTRIPSOperator],
+                                  demo_atom_sets: Set[FrozenSet[GroundAtom]],
                                   is_demo: bool) -> float:
         assert is_demo
         score = 0.0
@@ -802,23 +810,39 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
     the transition is optimal and the sequence is not a demo, that's
     assumed to be bad; if the transition is not optimal and the sequence
     is a demo, that's also assumed to be bad.
+
+    Also: for each successor that is one step off the atoms_sequence, if the
+    state is optimal, then check if the state is "suspicious", meaning that it
+    does not "match" any state in the demo data. The definition of match is
+    currently based on utils.unify(). It may be that this definition is too
+    strong, so we could consider others. The idea is to try to distinguish
+    states that are actually impossible (suspicious) from ones that are simply
+    alternative steps toward optimally achieving the goal.
     """
 
-    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
-                                  heuristic_fn: Callable[[Set[GroundAtom]],
-                                                         float],
-                                  ground_ops: Set[_GroundSTRIPSOperator],
-                                  is_demo: bool) -> float:
+    def _evaluate_atom_trajectory(
+        self,
+        atoms_sequence: List[Set[GroundAtom]],
+        heuristic_fn: Callable[[Set[GroundAtom]], float],
+        ground_ops: Set[_GroundSTRIPSOperator],
+        demo_atom_sets: Set[FrozenSet[GroundAtom]],
+        is_demo: bool,
+    ) -> float:
         score = 0.0
         for i in range(len(atoms_sequence) - 1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
             best_h = float("inf")
             on_sequence_h = float("inf")
+            optimal_successors = set()
             for predicted_next_atoms in utils.get_successors_from_ground_ops(
                     atoms, ground_ops, unique=False):
                 # Compute the heuristic for the successor atoms.
                 h = heuristic_fn(predicted_next_atoms)
-                best_h = min(h, best_h)
+                if h < best_h:
+                    optimal_successors = {frozenset(predicted_next_atoms)}
+                    best_h = h
+                elif h == best_h:
+                    optimal_successors.add(frozenset(predicted_next_atoms))
                 if predicted_next_atoms == next_atoms:
                     assert on_sequence_h in [h, float("inf")]
                     on_sequence_h = h
@@ -828,7 +852,23 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
             # Bad case 2: transition is not optimal and sequence is a demo.
             elif on_sequence_h > best_h and is_demo:
                 score += CFG.grammar_search_on_demo_count_penalty
+            # Bad case 3: there is a "suspicious" optimal state.
+            for successor in optimal_successors:
+                # We already know that next_atoms is not suspicious.
+                if successor == frozenset(next_atoms):
+                    continue
+                if self._is_suspicious(successor, demo_atom_sets):
+                    score += CFG.grammar_search_suspicious_penalty
         return score
+
+    @staticmethod
+    def _is_suspicious(successor: FrozenSet[GroundAtom],
+                       demo_atom_sets: Set[FrozenSet[GroundAtom]]) -> bool:
+        for demo_atoms in demo_atom_sets:
+            suc, _ = utils.unify(successor, demo_atoms)
+            if suc:
+                return False
+        return True
 
 
 @dataclass(frozen=True, eq=False, repr=False)

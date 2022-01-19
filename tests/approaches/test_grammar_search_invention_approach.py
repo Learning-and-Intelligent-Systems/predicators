@@ -523,6 +523,8 @@ def test_relaxation_lookahead_score_function():
                                       heuristic_fn: Callable[[Set[GroundAtom]],
                                                              float],
                                       ground_ops: Set[_GroundSTRIPSOperator],
+                                      demo_atom_sets: Set[
+                                          FrozenSet[GroundAtom]],
                                       is_demo: bool) -> float:
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
@@ -632,6 +634,8 @@ def test_count_score_functions():
         # Cover bad case 2: transition is not optimal and sequence is a demo.
         none_included_s = score_function.evaluate(set())
         assert all_included_s < none_included_s  # good!
+        # Cover bad case 3: there is a "suspicious" optimal state.
+        score_function.evaluate({name_to_pred["Holding"]})
 
 
 def test_branching_factor_score_function():
