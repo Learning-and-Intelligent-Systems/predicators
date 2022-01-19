@@ -467,26 +467,42 @@ def _create_score_function(
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, candidates, ["hadd"])
-    match = re.match(r"([a-z\,]+)_lookahead_depth(\d+)", score_function_name)
+    match = re.match(r"([a-z\,]+)_(\w+)_depth(\d+)", score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
         # as hadd,hmax or hadd,hmax,lmcut.
+        # score_name can be any of {"lookahead", "count"}.
         # depth can be any non-negative integer.
-        heuristic_names_str, depth = match.groups()
+        heuristic_names_str, score_name, depth = match.groups()
         heuristic_names = heuristic_names_str.split(",")
         depth = int(depth)
         assert heuristic_names
+        assert score_name in {"lookahead", "count"}
         assert depth >= 0
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+        if score_name == "lookahead":
+            return _RelaxationHeuristicLookaheadBasedScoreFunction(
+                initial_predicates,
+                atom_dataset,
+                candidates,
+                heuristic_names,
+                lookahead_depth=depth)
+        assert score_name == "count"
+        return _RelaxationHeuristicCountBasedScoreFunction(
             initial_predicates,
             atom_dataset,
             candidates,
             heuristic_names,
-            lookahead_depth=depth)
+            lookahead_depth=depth,
+            demos_only=False)
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
             initial_predicates, atom_dataset, candidates)
+    if score_function_name == "exact_count":
+        return _ExactHeuristicCountBasedScoreFunction(initial_predicates,
+                                                      atom_dataset,
+                                                      candidates,
+                                                      demos_only=False)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           candidates)
@@ -685,7 +701,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                     heuristic_name, init_atoms, objects, goal, strips_ops,
                     option_specs, ground_ops, predicates)
                 scores[heuristic_name] += self._evaluate_atom_trajectory(
-                    atoms_sequence, heuristic_fn, ground_ops)
+                    atoms_sequence, heuristic_fn, ground_ops, traj.is_demo)
         score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 
@@ -699,10 +715,11 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
-    def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  is_demo: bool) -> float:
         raise NotImplementedError("Override me!")
 
 
@@ -711,10 +728,11 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
     """Implement _evaluate_atom_trajectory() by expecting the heuristic to
     match the exact costs-to-go of the states in the demonstrations."""
 
-    def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  is_demo: bool) -> float:
         score = 0.0
         for i, atoms in enumerate(atoms_sequence):
             ideal_h = len(atoms_sequence) - i - 1
@@ -738,10 +756,12 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
        where the product is over demonstrations.
     """
 
-    def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  is_demo: bool) -> float:
+        assert is_demo
         score = 0.0
         for i in range(len(atoms_sequence) - 1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
@@ -769,6 +789,45 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
             # demonstrated trajectory.
             trans_log_prob = ground_op_demo_lpm - ground_op_total_lpm
             score += -trans_log_prob  # remember that lower is better
+        return score
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+    """Implement _evaluate_atom_trajectory() by using the induced operators to
+    compute estimated costs-to-go.
+
+    Then for each transition in the atoms_sequence, check whether the
+    transition is optimal with respect to the estimated costs-to-go. If
+    the transition is optimal and the sequence is not a demo, that's
+    assumed to be bad; if the transition is not optimal and the sequence
+    is a demo, that's also assumed to be bad.
+    """
+
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  is_demo: bool) -> float:
+        score = 0.0
+        for i in range(len(atoms_sequence) - 1):
+            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
+            best_h = float("inf")
+            on_sequence_h = float("inf")
+            for predicted_next_atoms in utils.get_successors_from_ground_ops(
+                    atoms, ground_ops, unique=False):
+                # Compute the heuristic for the successor atoms.
+                h = heuristic_fn(predicted_next_atoms)
+                best_h = min(h, best_h)
+                if predicted_next_atoms == next_atoms:
+                    assert on_sequence_h in [h, float("inf")]
+                    on_sequence_h = h
+            # Bad case 1: transition is optimal and sequence is not a demo.
+            if on_sequence_h == best_h and not is_demo:
+                score += CFG.grammar_search_off_demo_count_penalty
+            # Bad case 2: transition is not optimal and sequence is a demo.
+            elif on_sequence_h > best_h and is_demo:
+                score += CFG.grammar_search_on_demo_count_penalty
         return score
 
 
@@ -890,6 +949,22 @@ class _ExactHeuristicLookaheadBasedScoreFunction(
         _HeuristicLookaheadBasedScoreFunction):
     """Implement _generate_heuristic() with task planning and
     _evaluate_atom_trajectory() with a lookahead-based policy."""
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _RelaxationHeuristicCountBasedScoreFunction(
+        _RelaxationHeuristicBasedScoreFunction,
+        _HeuristicCountBasedScoreFunction):
+    """Implement _generate_heuristic() with a delete relaxation heuristic and
+    _evaluate_atom_trajectory() with counting."""
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ExactHeuristicCountBasedScoreFunction(_ExactHeuristicBasedScoreFunction,
+                                             _HeuristicCountBasedScoreFunction
+                                             ):
+    """Implement _generate_heuristic() with exact planning and
+    _evaluate_atom_trajectory() with counting."""
 
 
 ################################################################################
