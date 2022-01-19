@@ -46,7 +46,7 @@ class PaintingEnv(BaseEnv):
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
     held_tol = 0.5
-    num_objs_train = [3, 4]
+    num_objs_train = [1]
     num_objs_test = [5, 6]
 
     def __init__(self) -> None:
@@ -462,7 +462,7 @@ class PaintingEnv(BaseEnv):
             else:
                 shelf_color, box_color = color1, color2
             # Create box, lid, and shelf objects
-            lid_is_open = int(rng.uniform() > 0.7)
+            lid_is_open = int(rng.uniform() > -0.7)
             data[self._box] = np.array([box_color], dtype=np.float32)
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([shelf_color], dtype=np.float32)
@@ -491,7 +491,8 @@ class PaintingEnv(BaseEnv):
                 ],
                                      dtype=np.float32)
                 # last object should go in box
-                if use_box and j == num_objs - 1:
+                # if use_box and j == num_objs - 1:
+                if rng.uniform() < 0.5:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:

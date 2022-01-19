@@ -2,6 +2,7 @@
 
 from typing import List
 import numpy as np
+from predicators.src.approaches import create_approach, ApproachTimeout, ApproachFailure
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
@@ -13,6 +14,10 @@ from predicators.src import utils
 
 def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos and replaying."""
+    oracle_approach = create_approach("oracle", env.simulate, env.predicates,
+                                      env.options, env.types, env.action_space)
+    num_equal, total = 0, 0
+
     demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
@@ -46,7 +51,8 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         # because there's no guarantee that an initiable option exists
         # from that state
         assert len(traj.states) > 1
-        state = traj.states[rng.choice(len(traj.states) - 1)]
+        state_idx = rng.choice(len(traj.states) - 1)
+        state = traj.states[state_idx]
         # Sample a random option that is initiable
         nsrts = ground_nsrts[traj_idx]
         assert len(nsrts) > 0
@@ -62,16 +68,62 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 env.simulate,
                 option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
-            # Add task goal into the trajectory.
-            replay_traj = LowLevelTrajectory(replay_traj.states,
-                                             replay_traj.actions,
-                                             _is_demo=False,
-                                             _goal=traj.goal)
         except EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
         if CFG.option_learner != "no_learning":
             for act in replay_traj.actions:
                 act.unset_option()
+
+        task = Task(replay_traj.states[-1], demo_dataset[traj_idx].goal)
+
+        try:
+
+            if utils.abstract(task.init, env.predicates).issuperset(demo_dataset[traj_idx].goal):
+                num_equal += 1
+                total += 1
+
+                continue
+
+            else:
+                policy = oracle_approach.solve(
+                    task,
+                    timeout=CFG.offline_data_planning_timeout)
+
+                continued_traj, _, solved = utils.run_policy_on_task(
+                    policy, task, env.simulate,
+                    CFG.max_num_steps_check_policy)
+                assert solved
+                replay_actions = list(demo_dataset[traj_idx].actions[:state_idx]) + \
+                    list(continued_traj.actions)
+
+                demo_cost_to_go = _actions_to_cost_to_go(demo_dataset[traj_idx].actions)
+                replay_cost_to_go = 1 + _actions_to_cost_to_go(replay_actions)
+                assert demo_cost_to_go <= replay_cost_to_go
+                num_equal += (demo_cost_to_go == replay_cost_to_go)
+                total += 1
+
+                if demo_cost_to_go == replay_cost_to_go:
+                    continue
+
+        except (ApproachFailure, ApproachTimeout):
+            print("WARNING: could not finish plan.")
+            total += 1
+
+        replay_traj = LowLevelTrajectory(replay_traj.states, replay_traj.actions,
+                                         False, traj.goal)
+
         replay_dataset.append(replay_traj)
+
+
     return demo_dataset + replay_dataset
+
+
+def _actions_to_cost_to_go(actions):
+    ctg = 0
+    last_option = None
+    for action in actions:
+        if action.get_option() != last_option:  # TODO: should change this to `is` later, Option objects don't have an equals method defined
+            last_option = action.get_option()
+            ctg += 1
+    return ctg

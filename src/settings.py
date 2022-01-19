@@ -73,7 +73,7 @@ class GlobalSettings:
     video_fps = 2
 
     # dataset parameters
-    offline_data_planning_timeout = 500  # for learning-based approaches, the
+    offline_data_planning_timeout = 3  # for learning-based approaches, the
     # data collection timeout for planning
 
     # teacher dataset parameters
@@ -132,9 +132,9 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
-    grammar_search_score_function = "hff_lookahead_depth0"
+    grammar_search_score_function = "exact_count"
     grammar_search_heuristic_based_weight = 10.
-    grammar_search_heuristic_based_max_demos = 5
+    grammar_search_heuristic_based_max_demos = 15
     grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_lookahead_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0

@@ -64,7 +64,7 @@ def _create_grammar(dataset: Dataset,
     # and foralls, which is why they're included originally.
     grammar = _SkipGrammar(grammar, given_predicates)
     # We're done! Return the final grammar.
-    return grammar
+    return _DebugGrammar(grammar)
 
 
 class _ProgrammaticClassifier(abc.ABC):
@@ -227,6 +227,35 @@ class _PredicateGrammar:
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         """Iterate over candidate predicates from less to more cost."""
         raise NotImplementedError("Override me!")
+
+
+_DEBUG_PREDICATE_STRS = [
+    "NOT-((0:robot).fingers<=0.5)",  # GripperOpen
+    "((0:obj).pose_y<=-0.333)",  # OnTable
+    "NOT-((0:robot).gripper_rot<=0.5)",  # HoldingTop
+    "((0:robot).gripper_rot<=0.25)",  # HoldingSide
+    "NOT-((0:obj).held<=0.5)",  # Holding
+    "NOT-((0:obj).wetness<=0.5)",  # IsWet
+    "((0:obj).wetness<=0.5)",  # IsDry
+    "NOT-((0:obj).dirtiness<=0.478)",  # IsDirty
+    "((0:obj).dirtiness<=0.478)",  # IsClean
+]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DebugGrammar(_PredicateGrammar):
+    """A grammar that generates only predicates in _DEBUG_PREDICATE_STRS.
+    """
+    base_grammar: _PredicateGrammar
+
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
+        del max_num
+        return super().generate(len(_DEBUG_PREDICATE_STRS))
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if str(predicate) in _DEBUG_PREDICATE_STRS:
+                yield (predicate, cost)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1082,6 +1111,8 @@ def _select_predicates_to_keep(
 
     # Start the search with no candidates.
     init: FrozenSet[Predicate] = frozenset()
+    score_function.evaluate(set(candidates))  # TODO: remove, just for printing score
+    print("\n\n\nstarting search")
 
     # Greedy local hill climbing search.
     path, _ = utils.run_hill_climbing(
