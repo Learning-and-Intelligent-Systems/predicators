@@ -645,6 +645,9 @@ def test_branching_factor_score_function():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
+        "num_train_tasks": 2,
+        "offline_data_num_replays": 500,
+        "min_data_for_nsrt": 3,
     })
     env = CoverEnv()
 
