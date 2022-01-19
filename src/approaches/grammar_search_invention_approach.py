@@ -963,7 +963,7 @@ class _RelaxationHeuristicCountBasedScoreFunction(
 class _ExactHeuristicCountBasedScoreFunction(_ExactHeuristicBasedScoreFunction,
                                              _HeuristicCountBasedScoreFunction
                                              ):
-    """Implement _generate_heuristic() with tas planning and
+    """Implement _generate_heuristic() with exact planning and
     _evaluate_atom_trajectory() with counting."""
 
 
