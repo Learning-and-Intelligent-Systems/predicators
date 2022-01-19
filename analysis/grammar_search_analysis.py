@@ -101,18 +101,20 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         NotGripperOpen = GripperOpen.get_negation()
 
         painting_pred_sets: List[Set[Predicate]] = [
-            set(),
-            all_predicates - {IsWet, IsDry},
-            all_predicates - {IsClean, IsDirty},
-            all_predicates - {OnTable},
-            all_predicates - {HoldingTop, HoldingSide, Holding},
+            # set(),
+            # all_predicates - {IsWet, IsDry},
+            # all_predicates - {IsClean, IsDirty},
+            # all_predicates - {OnTable},
+            # all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
-            {IsClean, GripperOpen, Holding, OnTable},
-            {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
-            {
-                IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
-                color_pred
-            },
+            # all_predicates - {HoldingTop},
+            # all_predicates - {HoldingSide},
+            # {IsClean, GripperOpen, Holding, OnTable},
+            # {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
+            # {
+            #     IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
+            #     color_pred
+            # },
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -140,7 +142,10 @@ def _run_proxy_analysis_for_env(env_name: str,
     })
     env = create_env(env_name)
     train_tasks = next(env.train_tasks_generator())
-    dataset = create_dataset(env, train_tasks)
+    # dataset = create_dataset(env, train_tasks)
+    import pickle as pkl
+    with open("saved_datasets/painting__0__demo+replay__0.data", "rb") as f:
+        dataset = pkl.load(f)
     start_time = time.time()
 
     for non_goal_predicates in non_goal_predicate_sets:
@@ -223,21 +228,21 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        "cover",
-        "blocks",
+        # "cover",
+        # "blocks",
         "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_lookahead_depth0",
-        "hadd_lookahead_depth1",
-        "hadd_lookahead_depth2",
-        "exact_lookahead",
-        "lmcut_count_depth0",
-        "hadd_count_depth0",
+        # "prediction_error",
+        # "hadd_lookahead_depth0",
+        # "hadd_lookahead_depth1",
+        # "hadd_lookahead_depth2",
+        # "exact_lookahead",
+        # "lmcut_count_depth0",
+        # "hadd_count_depth0",
         "exact_count",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
