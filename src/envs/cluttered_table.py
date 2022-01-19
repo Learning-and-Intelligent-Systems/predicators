@@ -83,33 +83,8 @@ class ClutteredTableEnv(BaseEnv):
                 desired_can = can
         if desired_can is None:
             return next_state  # end point wasn't at any can
-        vec1 = np.array([end_x - start_x, end_y - start_y])
-        # Handle collision checking. We'll just threshold the angle between
-        # the grasp approach vector and the vector between the desired_can
-        # and any other can. Doing an actually correct geometric computation
-        # would involve the radii somehow, but we don't really care about this.
-        colliding_can = None
-        colliding_can_max_dist = float("-inf")
-        for can in state:
-            if can == desired_can:
-                continue
-            this_x = state.get(can, "pose_x")
-            this_y = state.get(can, "pose_y")
-            vec2 = np.array([end_x - this_x, end_y - this_y])
-            angle = np.arccos(
-                np.clip(
-                    vec1.dot(vec2) / (
-                        np.linalg.norm(vec1) *  # type: ignore
-                        np.linalg.norm(vec2)),  # type: ignore
-                    -1.0,
-                    1.0))
-            if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
-                dist = np.linalg.norm(vec2)  # type: ignore
-                if dist > colliding_can_max_dist:
-                    colliding_can_max_dist = float(dist)
-                    colliding_can = can
-        if colliding_can is not None:
-            raise EnvironmentFailure("collision", {colliding_can})
+        self._check_collisions(start_x, start_y, end_x, end_y, state,
+                               desired_can)
         # No collisions, update state and return.
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
@@ -267,3 +242,124 @@ class ClutteredTableEnv(BaseEnv):
             if distance <= (radius + other_radius):
                 return True
         return False
+
+    @staticmethod
+    def _check_collisions(start_x: float,
+                          start_y: float,
+                          end_x: float,
+                          end_y: float,
+                          state: State,
+                          desired_can: Optional[Object] = None) -> None:
+        """Handle collision checking.
+
+        We'll just threshold the angle between the grasp approach vector
+        and the vector between the desired_can and any other can. Doing
+        an actually correct geometric computation would involve the
+        radii somehow, but we don't really care about this.
+        """
+        vec1 = np.array([end_x - start_x, end_y - start_y])
+        colliding_can = None
+        colliding_can_max_dist = float("-inf")
+        for can in state:
+            if can == desired_can:
+                continue
+            this_x = state.get(can, "pose_x")
+            this_y = state.get(can, "pose_y")
+            vec2 = np.array([end_x - this_x, end_y - this_y])
+            angle = np.arccos(
+                np.clip(
+                    vec1.dot(vec2) / (
+                        np.linalg.norm(vec1) *  # type: ignore
+                        np.linalg.norm(vec2)),  # type: ignore
+                    -1.0,
+                    1.0))
+            if abs(angle) < CFG.cluttered_table_collision_angle_thresh:
+                dist = np.linalg.norm(vec2)  # type: ignore
+                if dist > colliding_can_max_dist:
+                    colliding_can_max_dist = float(dist)
+                    colliding_can = can
+        if colliding_can is not None:
+            raise EnvironmentFailure("collision", {colliding_can})
+
+
+class ClutteredTablePlaceEnv(ClutteredTableEnv):
+    """Toy cluttered table domain (place version).
+
+    This version places grasped cans instead of dumping them. As an
+    additional challenge, the action space is restricted so that actions
+    can only begin from within a 0.2 x 0.2 corner. The goal behavior is
+    to learn to pick up colliding cans and place them out of the way of
+    the desired can.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._Place = ParameterizedOption("Place", [self._can_type],
+                                          params_space=Box(
+                                              np.array([0, 0, 0, 0]),
+                                              np.array([0.2, 0.2, 1, 1])),
+                                          _policy=self._Place_policy,
+                                          _initiable=utils.always_initiable,
+                                          _terminal=utils.onestep_terminal)
+        self._Grasp = ParameterizedOption("Grasp", [self._can_type],
+                                          params_space=Box(
+                                              np.array([0, 0, 0, 0]),
+                                              np.array([0.2, 0.2, 1, 1])),
+                                          _policy=self._Grasp_policy,
+                                          _initiable=utils.always_initiable,
+                                          _terminal=utils.onestep_terminal)
+
+    @property
+    def options(self) -> Set[ParameterizedOption]:
+        return {self._Grasp, self._Place}
+
+    @property
+    def action_space(self) -> Box:
+        # The action's starting x,y coordinates are limited between 0 and 0.2,
+        # so that the robot must be more consistent in the direction it reaches
+        # from.
+        return Box(np.array([0, 0, 0, 0]), np.array([0.2, 0.2, 1, 1]))
+
+    @staticmethod
+    def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> Action:
+        del state, memory, objects  # unused
+        return Action(params)  # action is simply the parameter
+
+    def simulate(self, state: State, action: Action) -> State:
+        assert self.action_space.contains(action.arr)
+        next_state = state.copy()
+        # Figure out which can is currently grasped, if any.
+        grasped_can = None
+        for can in state:
+            if state.get(can, "is_grasped") > 0.5:
+                assert grasped_can is None, "Multiple cans grasped?"
+                assert state.get(can, "is_trashed") < 0.5, \
+                    "Grasped a can that has been trashed?"
+                grasped_can = can
+        # If there is a grasped can, use action vector to try to place the can.
+        if grasped_can is not None:
+            start_x, start_y, end_x, end_y = action.arr
+            next_state.set(grasped_can, "pose_x", end_x)
+            next_state.set(grasped_can, "pose_y", end_y)
+            next_state.set(grasped_can, "is_grasped", 0.0)
+            self._check_collisions(start_x, start_y, end_x, end_y, state, None)
+            return next_state
+        # If no grasped can, use action vector to try to grasp a desired can.
+        start_x, start_y, end_x, end_y = action.arr
+        desired_can = None
+        for can in state:
+            this_x = state.get(can, "pose_x")
+            this_y = state.get(can, "pose_y")
+            this_radius = state.get(can, "radius")
+            if np.linalg.norm([end_x - this_x, end_y - this_y
+                               ]) < this_radius:  # type: ignore
+                assert desired_can is None
+                desired_can = can
+        if desired_can is None:
+            return next_state  # end point wasn't at any can
+        self._check_collisions(start_x, start_y, end_x, end_y, state,
+                               desired_can)
+        # No collisions, update state and return.
+        next_state.set(desired_can, "is_grasped", 1.0)
+        return next_state

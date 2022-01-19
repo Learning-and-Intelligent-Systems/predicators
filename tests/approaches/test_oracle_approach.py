@@ -6,9 +6,9 @@ import pytest
 from predicators.src.approaches import OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverEnvHierarchicalTypes, ClutteredTableEnv, EnvironmentFailure, \
-    BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
-    RepeatedNextToEnv
+    CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
+    EnvironmentFailure, BlocksEnv, PaintingEnv, PlayroomEnv, \
+    CoverMultistepOptions, RepeatedNextToEnv
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src import utils
 
@@ -219,16 +219,25 @@ def test_oracle_approach_cover_multistep_options():
         assert utils.policy_solves_task(policy, task, env.simulate)
 
 
-def test_cluttered_table_get_gt_nsrts():
+def test_cluttered_table_get_gt_nsrts(place_version=False):
     """Tests for get_gt_nsrts in ClutteredTableEnv."""
-    utils.update_config({"env": "cluttered_table"})
-    # All predicates and options
-    env = ClutteredTableEnv()
+    if not place_version:
+        utils.update_config({"env": "cluttered_table"})
+        # All predicates and options
+        env = ClutteredTableEnv()
+    else:
+        utils.update_config({"env": "cluttered_table_place"})
+        env = ClutteredTablePlaceEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     assert len(nsrts) == 2
-    dump_nsrt, grasp_nsrt = sorted(nsrts, key=lambda o: o.name)
-    assert dump_nsrt.name == "Dump"
-    assert grasp_nsrt.name == "Grasp"
+    if not place_version:
+        dump_nsrt, grasp_nsrt = sorted(nsrts, key=lambda o: o.name)
+        assert dump_nsrt.name == "Dump"
+        assert grasp_nsrt.name == "Grasp"
+    else:
+        grasp_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
+        assert grasp_nsrt.name == "Grasp"
+        assert place_nsrt.name == "Place"
     env.seed(123)
     for task in next(env.train_tasks_generator()):
         state = task.init
@@ -246,19 +255,44 @@ def test_cluttered_table_get_gt_nsrts():
             state = env.simulate(state, grasp_action)
         except EnvironmentFailure as e:
             assert len(e.offending_objects) == 1
-        dump0_nsrt = dump_nsrt.ground([can3])
-        with pytest.raises(AssertionError):
-            dump_nsrt.ground([can3, can1])
-        dump_option = dump0_nsrt.sample_option(state, rng)
-        dump_action = dump_option.policy(state)
-        assert env.action_space.contains(dump_action.arr)
-        env.simulate(state, dump_action)  # never raises EnvironmentFailure
+        if not place_version:
+            dump0_nsrt = dump_nsrt.ground([can3])
+            with pytest.raises(AssertionError):
+                dump_nsrt.ground([can3, can1])
+            dump_option = dump0_nsrt.sample_option(state, rng)
+            dump_action = dump_option.policy(state)
+            assert env.action_space.contains(dump_action.arr)
+            env.simulate(state, dump_action)  # never raises EnvironmentFailure
+        else:
+            place3_nsrt = place_nsrt.ground([can3])
+            with pytest.raises(AssertionError):
+                place_nsrt.ground([can3, can1])
+            place_option = place3_nsrt.sample_option(state, rng)
+            place_action = place_option.policy(state)
+            assert env.action_space.contains(place_action.arr)
+            try:
+                env.simulate(state, place_action)
+            except EnvironmentFailure as e:
+                assert len(e.offending_objects) == 1
 
 
-def test_oracle_approach_cluttered_table():
+def test_cluttered_table_place_get_gt_nsrts():
+    """Tests for get_gt_nsrts in ClutteredTablePlaceEnv."""
+    test_cluttered_table_get_gt_nsrts(place_version=True)
+
+
+def test_oracle_approach_cluttered_table(place_version=False):
     """Tests for OracleApproach class with ClutteredTableEnv."""
-    utils.update_config({"env": "cluttered_table"})
-    env = ClutteredTableEnv()
+    if not place_version:
+        utils.update_config({"env": "cluttered_table"})
+        env = ClutteredTableEnv()
+    else:
+        utils.update_config({
+            "env": "cluttered_table_place",
+            "cluttered_table_num_cans_train": 3,
+            "cluttered_table_num_cans_test": 3
+        })
+        env = ClutteredTablePlaceEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
                               env.types, env.action_space)
@@ -270,6 +304,16 @@ def test_oracle_approach_cluttered_table():
     for test_task in env.get_test_tasks()[:5]:
         policy = approach.solve(test_task, timeout=500)
         assert utils.policy_solves_task(policy, test_task, env.simulate)
+    # Reset can settings here so other tests use the defaults
+    utils.update_config({
+        "cluttered_table_num_cans_train": 5,
+        "cluttered_table_num_cans_test": 10
+    })
+
+
+def test_oracle_approach_cluttered_table_place():
+    """Tests for OracleApproach class with ClutteredTablePlaceEnv."""
+    test_oracle_approach_cluttered_table(place_version=True)
 
 
 def test_oracle_approach_blocks():
