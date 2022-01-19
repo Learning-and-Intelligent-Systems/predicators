@@ -4,6 +4,7 @@
 import functools
 import itertools
 import os
+from random import random
 from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
 import numpy as np
 from numpy.random._generator import Generator
@@ -20,6 +21,7 @@ try:
     from igibson.robots.behavior_robot import BRBody
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
+    from igibson.utils.checkpoint_utils import save_checkpoint, load_checkpoint
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -83,7 +85,13 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        self.igibson_behavior_env.task.reset_scene(state.simulator_state)
+
+        # wmcclinton changed
+        load_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/", int(state.simulator_state.split("+")[0]))
+        #
+
+        # load_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/", state.simulator_state)
+        # self.igibson_behavior_env.task.reset_scene(state.simulator_state)
         a = action.arr
         self.igibson_behavior_env.step(a)
         # a[16] is used to indicate whether to grasp or release the currently-
@@ -301,8 +309,27 @@ class BehaviorEnv(BaseEnv):
                 ig_obj.get_orientation(),
             ])
             state_data[obj] = obj_state
-        simulator_state = self.igibson_behavior_env.task.save_scene()
-        return State(state_data, simulator_state)
+        
+        # wmcclinton added
+        def save_unique_checkpoint(sim, save_dir):
+            unique_id = int(np.random.randint(size=1, low=0, high=10**6))
+
+            path = save_dir + str(unique_id) + "/"
+
+            isExist = os.path.exists(path)
+            if not isExist:
+                os.makedirs(path)
+
+            simulator_state = save_checkpoint(sim, path)
+
+            return str(simulator_state), str(unique_id)
+        #
+        
+        simulator_state, unique_id = save_unique_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/")
+        # simulator_state = save_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/")
+        # simulator_state = self.igibson_behavior_env.task.save_scene()
+        # return State(state_data, simulator_state + "+" + unique_id)
+        return State(state_data, simulator_state + "+" + unique_id)
 
     def _create_classifier_from_bddl(
         self,
@@ -315,7 +342,11 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            assert s.allclose(self.current_ig_state_to_state())
+            try:
+                assert s.allclose(self.current_ig_state_to_state())
+            except AssertionError:
+                import ipdb; ipdb.set_trace()
+            
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
@@ -341,7 +372,11 @@ class BehaviorEnv(BaseEnv):
                               objs: Sequence[Object]) -> bool:
         # Check allclose() here for uniformity with
         # _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        try:
+            assert state.allclose(self.current_ig_state_to_state())
+        except AssertionError:
+            import ipdb; ipdb.set_trace()
+
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -455,14 +490,18 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
 
+        if state.simulator_state is not None:
+            # wmcclinton changed
+            print(state.simulator_state)
+            load_checkpoint(env.simulator, "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/", int(state.simulator_state.split("+")[0]))
+            env.step(np.zeros(17))
+
         # TODO: Revert this policy controller and model controller split statement change
         # This is just for quick testing and iteration.
         if memory.get("policy_controller") is None and CFG.option_model_name != "behavior":
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
-            if state.simulator_state is not None:
-                env.task.reset_scene(state.simulator_state)
             policy_controller = controller_fn(env,
                                               igo[0],
                                               params,
@@ -476,8 +515,6 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
-            if state.simulator_state is not None:
-                env.task.reset_scene(state.simulator_state)
             model_controller = controller_fn(env,
                                              igo[0],
                                              params,

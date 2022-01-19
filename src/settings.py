@@ -49,8 +49,8 @@ class GlobalSettings:
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
         "configs",
-        "njk_re-shelving_library_books_full_obs.yaml",
-        # "njk_sorting_books_full_obs.yaml"
+        # "njk_re-shelving_library_books_full_obs.yaml",
+        "njk_sorting_books_full_obs.yaml"
     )
     behavior_mode = "headless"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
