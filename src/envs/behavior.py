@@ -175,7 +175,7 @@ class BehaviorEnv(BaseEnv):
                 # even though it's in the initial BDDL state, because
                 # it uses geometry, and the behaviorbot actually floats
                 # and doesn't touch the floor. But it doesn't matter.
-                "onfloor",
+                # "onfloor",
                 # "cooked",
                 # "burnt",
                 # "frozen",
@@ -197,6 +197,7 @@ class BehaviorEnv(BaseEnv):
                 classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
+
         # Second, add in custom predicates except reachable-nothing
         custom_predicate_specs = [
             ("handempty", self._handempty_classifier, 0),
