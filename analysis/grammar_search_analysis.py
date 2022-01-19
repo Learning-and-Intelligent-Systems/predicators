@@ -2,6 +2,7 @@
 
 import time
 from collections import defaultdict
+from operator import le
 import glob
 import os
 from typing import Dict, DefaultDict, Set, List, Tuple
@@ -10,25 +11,28 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_score_function
-from predicators.src.approaches.oracle_approach import _get_predicates_by_names
+    _create_score_function, _ForallClassifier, _SingleAttributeCompareClassifier
+from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
-from predicators.src.structs import Predicate, Dataset, Task
+from predicators.src.structs import Predicate, Dataset
 from predicators.src.settings import CFG
 
 
 def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                         run_planning: bool, outdir: str) -> None:
+    utils.update_config({"seed": 0})
     if "cover" in env_names:
         env_name = "cover"
         HandEmpty, Holding = _get_predicates_by_names(env_name,
                                                       ["HandEmpty", "Holding"])
+        NotHandEmpty = HandEmpty.get_negation()
         covers_pred_sets: List[Set[Predicate]] = [
             set(),
             {HandEmpty},
             {Holding},
             {HandEmpty, Holding},
+            {NotHandEmpty},
         ]
         _run_proxy_analysis_for_env(env_name, covers_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -37,6 +41,28 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         env_name = "blocks"
         Holding, Clear, GripperOpen = _get_predicates_by_names(
             env_name, ["Holding", "Clear", "GripperOpen"])
+
+        # NOT-Forall[0:block].[((0:block).pose_x<=1.33)(0)]
+        block_type = Clear.types[0]
+        pose_x_classifier = _SingleAttributeCompareClassifier(
+            0, block_type, "pose_x", 1.33, le, "<=")
+        pose_x_pred = Predicate(str(pose_x_classifier), [block_type],
+                                pose_x_classifier)
+        forall_pose_x_classifier = _ForallClassifier(pose_x_pred)
+        forall_pose_x_pred = Predicate(str(forall_pose_x_classifier), [],
+                                       forall_pose_x_classifier)
+        not_forall_pose_x_pred = forall_pose_x_pred.get_negation()
+        assert str(not_forall_pose_x_pred) == \
+            "NOT-Forall[0:block].[((0:block).pose_x<=1.33)(0)]"
+
+        # NOT-((0:block).pose_x<=1.35)
+        pose_x35_classifier = _SingleAttributeCompareClassifier(
+            0, block_type, "pose_x", 1.35, le, "<=")
+        pose_x35_pred = Predicate(str(pose_x35_classifier), [block_type],
+                                  pose_x35_classifier)
+        not_pose_x35_pred = pose_x35_pred.get_negation()
+        assert str(not_pose_x35_pred) == "NOT-((0:block).pose_x<=1.35)"
+
         blocks_pred_sets: List[Set[Predicate]] = [
             set(),
             {Holding},
@@ -46,6 +72,8 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             {Clear, GripperOpen},
             {GripperOpen, Holding},
             {Clear, GripperOpen, Holding},
+            {Clear, GripperOpen, Holding, not_forall_pose_x_pred},
+            {Clear, GripperOpen, Holding, not_pose_x35_pred},
         ]
         _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -61,6 +89,17 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet,
             IsDry, IsDirty, IsClean
         }
+
+        # ((0:obj).color<=0.125)
+        obj_type = Holding.types[0]
+        color_classifier = _SingleAttributeCompareClassifier(
+            0, obj_type, "color", 0.125, le, "<=")
+        color_pred = Predicate(str(color_classifier), [obj_type],
+                               color_classifier)
+        assert str(color_pred) == "((0:obj).color<=0.125)"
+
+        NotGripperOpen = GripperOpen.get_negation()
+
         painting_pred_sets: List[Set[Predicate]] = [
             set(),
             all_predicates - {IsWet, IsDry},
@@ -68,6 +107,12 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             all_predicates - {OnTable},
             all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
+            {IsClean, GripperOpen, Holding, OnTable},
+            {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
+            {
+                IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
+                color_pred
+            },
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -80,6 +125,7 @@ def _run_proxy_analysis_for_env(env_name: str,
     utils.update_config({
         "env": env_name,
         "seed": 0,
+        "experiment_id": "proxy_analysis",
     })
     utils.update_config({
         "env": env_name,
@@ -88,6 +134,8 @@ def _run_proxy_analysis_for_env(env_name: str,
         "timeout": 1,
         "make_videos": False,
         "grammar_search_max_predicates": 50,
+        "grammar_search_size_weight": 0.,
+        "grammar_search_pred_complexity_weight": 0.,
         "excluded_predicates": "",
     })
     env = create_env(env_name)
@@ -97,7 +145,7 @@ def _run_proxy_analysis_for_env(env_name: str,
 
     for non_goal_predicates in non_goal_predicate_sets:
         results_for_predicates = \
-            _run_proxy_analysis_for_predicates(env, dataset, train_tasks,
+            _run_proxy_analysis_for_predicates(env, dataset,
                                                env.goal_predicates,
                                                non_goal_predicates,
                                                score_function_names,
@@ -119,7 +167,6 @@ def _run_proxy_analysis_for_env(env_name: str,
 def _run_proxy_analysis_for_predicates(
     env: BaseEnv,
     dataset: Dataset,
-    train_tasks: List[Task],
     initial_predicates: Set[Predicate],
     predicates: Set[Predicate],
     score_function_names: List[str],
@@ -134,8 +181,7 @@ def _run_proxy_analysis_for_predicates(
     for score_function_name in score_function_names:
         score_function = _create_score_function(score_function_name,
                                                 initial_predicates,
-                                                atom_dataset, train_tasks,
-                                                candidates)
+                                                atom_dataset, candidates)
         start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
         eval_time = time.time() - start_time
@@ -147,7 +193,7 @@ def _run_proxy_analysis_for_predicates(
         approach = create_approach("nsrt_learning", env.simulate,
                                    all_predicates, env.options, env.types,
                                    env.action_space)
-        approach.learn_from_offline_dataset(dataset, train_tasks)
+        approach.learn_from_offline_dataset(dataset)
         approach.seed(CFG.seed)
         planning_result = _run_testing(env, approach)
         results.update(planning_result)
@@ -184,16 +230,18 @@ def _main() -> None:
     score_function_names = [
         "prediction_error",
         "hadd_lookahead_depth0",
-        "exact_lookahead",
         "hadd_lookahead_depth1",
         "hadd_lookahead_depth2",
+        "exact_lookahead",
+        "lmcut_count_depth0",
+        "hadd_count_depth0",
+        "exact_count",
     ]
     run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    os.makedirs(outdir, exist_ok=True)
 
     _run_proxy_analysis(env_names, score_function_names, run_planning, outdir)
     _make_proxy_analysis_results(outdir)

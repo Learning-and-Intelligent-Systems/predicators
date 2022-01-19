@@ -67,7 +67,8 @@ class GlobalSettings:
 
     # evaluation parameters
     results_dir = "results"
-    save_dir = "saved_data"
+    approach_dir = "saved_approaches"
+    data_dir = "saved_datasets"
     video_dir = "videos"
     video_fps = 2
 
@@ -113,17 +114,17 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_known_predicates = {"HandEmpty", "Covers"}
-    interactive_num_episodes = 3
-    interactive_max_steps = 10
-    interactive_relearn_every = 3
+    interactive_known_predicates = "GripperOpen,Holding,Clear,NextToTable," \
+        "NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom," \
+        "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
+        "LightOn,LightOff,On,OnTable"
+    interactive_num_episodes = 0
+    interactive_max_num_steps = 21
+    interactive_relearn_every = 1
     interactive_num_babbles = 10
     interactive_max_num_atoms_babbled = 1
     interactive_num_tasks_babbled = 5
     interactive_atom_type_babbled = "ground"
-    interactive_ask_strategy = "all_seen_states"
-    interactive_ask_strategy_threshold = 0.0
-    interactive_ask_strategy_pct = 20.0
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -138,9 +139,14 @@ class GlobalSettings:
     grammar_search_score_function = "hff_lookahead_depth0"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5
+    grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_lookahead_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
     grammar_search_hill_climbing_depth = 0
+    grammar_search_parallelize_hill_climbing = False
+    grammar_search_off_demo_count_penalty = 1.0
+    grammar_search_on_demo_count_penalty = 10.0
+    grammar_search_suspicious_penalty = 10.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -170,6 +176,7 @@ class GlobalSettings:
                     # of the high likelihood of getting cyclic failures if you
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
+                    "cluttered_table_place": "after_exhaust",
                 })[args["env"]],
 
             # For learning-based approaches, the data collection strategy.

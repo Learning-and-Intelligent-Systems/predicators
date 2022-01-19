@@ -2,11 +2,12 @@
 
 import abc
 from collections import defaultdict
-from typing import Set, Callable, List
+from typing import Set, Callable
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
     ParameterizedOption, Action, Dataset, Metrics
+from predicators.src.settings import CFG
 
 
 class BaseApproach:
@@ -24,7 +25,7 @@ class BaseApproach:
         self._types = types
         self._action_space = action_space
         self._metrics: Metrics = defaultdict(float)
-        self.seed(0)
+        self.seed(CFG.seed)
 
     @property
     @abc.abstractmethod
@@ -62,11 +63,9 @@ class BaseApproach:
         self._rng = np.random.default_rng(self._seed)
         self._action_space.seed(seed)
 
-    def learn_from_offline_dataset(self, dataset: Dataset,
-                                   train_tasks: List[Task]) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """For learning-based approaches, learn whatever is needed from the
-        given dataset, which was generated from the given train_tasks. Also,
-        should save whatever is necessary to load() later.
+        given dataset. Also, save whatever is necessary to load() later.
 
         Note: this is not an abc.abstractmethod because it does
         not need to be defined by the subclasses. (mypy complains
@@ -74,7 +73,7 @@ class BaseApproach:
         """
 
     def load(self) -> None:
-        """Load anything from CFG.get_save_path_str().
+        """Load anything from CFG.get_approach_save_path_str().
 
         Only called if self.is_learning_based.
         """

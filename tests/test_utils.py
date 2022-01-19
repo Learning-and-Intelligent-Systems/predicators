@@ -9,7 +9,7 @@ from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -101,6 +101,51 @@ def test_overlap():
     assert not utils.overlap(l1, r1, l2, r2)
 
 
+def test_run_policy_until():
+    """Tests for run_policy_until()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = State({cup: [0.5], plate: [1.0, 1.2]})
+
+    def _simulator(s, a):
+        ns = s.copy()
+        assert a.arr.shape == (1, )
+        ns[cup][0] += a.arr.item()
+        return ns
+
+    def _policy(_):
+        return Action(np.array([4]))
+
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  lambda s: True,
+                                  max_num_steps=5)
+    assert len(traj.states) == 1
+    assert len(traj.actions) == 0
+
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  lambda s: False,
+                                  max_num_steps=5)
+    assert len(traj.states) == 6
+    assert len(traj.actions) == 5
+
+    def _terminal(s):
+        return s[cup][0] > 9.9
+
+    traj = utils.run_policy_until(_policy,
+                                  _simulator,
+                                  state,
+                                  _terminal,
+                                  max_num_steps=5)
+    assert len(traj.states) == 4
+    assert len(traj.actions) == 3
+
+
 def test_option_to_trajectory():
     """Tests for option_to_trajectory()."""
     cup_type = Type("cup_type", ["feat1"])
@@ -177,8 +222,8 @@ def test_option_plan_to_policy():
     def _policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
+    def _initiable(s, _2, _3, p):
+        return p > 0.25 and s[cup][0] < 1
 
     def _terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
@@ -1301,36 +1346,39 @@ def test_get_config_path_str():
         "approach": "dummyapproach",
         "seed": 321,
         "excluded_predicates": "all",
+        "experiment_id": "foobar",
     })
     s = utils.get_config_path_str()
-    assert s == "dummyenv__dummyapproach__321__all"
+    assert s == "dummyenv__dummyapproach__321__all__foobar"
 
 
-def test_get_save_path_str():
-    """Tests for get_save_path_str()."""
-    dirname = "_fake_tmp_save_dir"
-    old_save_dir = CFG.save_dir
+def test_get_approach_save_path_str():
+    """Tests for get_approach_save_path_str()."""
+    dirname = "_fake_tmp_approach_dir"
+    old_approach_dir = CFG.approach_dir
     utils.update_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
-        "save_dir": dirname,
-        "excluded_predicates": "test_pred1,test_pred2"
+        "approach_dir": dirname,
+        "excluded_predicates": "test_pred1,test_pred2",
+        "experiment_id": "baz",
     })
-    save_path = utils.get_save_path_str()
+    save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
-                                   "test_pred1,test_pred2.saved")
+                                   "test_pred1,test_pred2__baz.saved")
     utils.update_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
-        "save_dir": dirname,
-        "excluded_predicates": ""
+        "approach_dir": dirname,
+        "excluded_predicates": "",
+        "experiment_id": "",
     })
-    save_path = utils.get_save_path_str()
-    assert save_path == dirname + "/test_env__test_approach__123__.saved"
+    save_path = utils.get_approach_save_path_str()
+    assert save_path == dirname + "/test_env__test_approach__123____.saved"
     os.rmdir(dirname)
-    utils.update_config({"save_dir": old_save_dir})
+    utils.update_config({"approach_dir": old_approach_dir})
 
 
 def test_update_config():
@@ -1353,6 +1401,13 @@ def test_update_config():
     assert CFG.seed == 321
     with pytest.raises(ValueError):
         utils.update_config({"not a real setting name": 0})
+    # Test that default seed gets set automatically.
+    del CFG.seed
+    assert "seed" not in CFG.__dict__
+    with pytest.raises(AttributeError):
+        _ = CFG.seed
+    utils.update_config({"env": "cover"})
+    assert CFG.seed == 123
 
 
 def test_run_gbfs():
@@ -1531,26 +1586,31 @@ def test_run_hill_climbing():
             return float("inf")
         return float(abs(state[0] - 4) + abs(state[1] - 4))
 
-    # With enforced_depth 0, search fails.
-    state_sequence, action_sequence = utils.run_hill_climbing(
-        initial_state, _grid_check_goal_fn, _grid_successor_fn,
-        _local_minimum_grid_heuristic_fn)
-    assert state_sequence == [(0, 0)]
-    assert not action_sequence
+    for parallelize in (False, True):
+        # With enforced_depth 0, search fails.
+        state_sequence, action_sequence = utils.run_hill_climbing(
+            initial_state,
+            _grid_check_goal_fn,
+            _grid_successor_fn,
+            _local_minimum_grid_heuristic_fn,
+            parallelize=parallelize)
+        assert state_sequence == [(0, 0)]
+        assert not action_sequence
 
-    # With enforced_depth 1, search succeeds.
-    state_sequence, action_sequence = utils.run_hill_climbing(
-        initial_state,
-        _grid_check_goal_fn,
-        _grid_successor_fn,
-        _local_minimum_grid_heuristic_fn,
-        enforced_depth=1)
-    # Note that hill-climbing does not care about costs.
-    assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
-                              (4, 2), (4, 3), (4, 4)]
-    assert action_sequence == [
-        "down", "down", "down", "down", "right", "right", "right", "right"
-    ]
+        # With enforced_depth 1, search succeeds.
+        state_sequence, action_sequence = utils.run_hill_climbing(
+            initial_state,
+            _grid_check_goal_fn,
+            _grid_successor_fn,
+            _local_minimum_grid_heuristic_fn,
+            enforced_depth=1,
+            parallelize=parallelize)
+        # Note that hill-climbing does not care about costs.
+        assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0),
+                                  (4, 1), (4, 2), (4, 3), (4, 4)]
+        assert action_sequence == [
+            "down", "down", "down", "down", "right", "right", "right", "right"
+        ]
 
 
 def test_ops_and_specs_to_dummy_nsrts():

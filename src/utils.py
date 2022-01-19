@@ -11,6 +11,7 @@ from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
 import heapq as hq
+import pathos.multiprocessing as mp
 import imageio
 import matplotlib
 import numpy as np
@@ -21,7 +22,7 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
-    Dataset, GroundAtomTrajectory, STRIPSOperator, \
+    Dataset, GroundAtomTrajectory, STRIPSOperator, DummyOption, \
     _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
     NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
@@ -61,15 +62,25 @@ def get_closest_point_on_aabb(xyz: List, lo: Array, hi: Array) -> List[float]:
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
-    del state, memory, objects, params  # unused
+    del objects, params  # unused
+    if "start_state" in memory:
+        assert state.allclose(memory["start_state"])
+    # Always update the memory dict, due to the "is" check in onestep_terminal.
+    memory["start_state"] = state
     return True
 
 
 def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
-    """A termination function for an option that only lasts 1 timestep."""
-    del state, memory, objects, params  # unused
-    return True
+    """A termination function for an option that only lasts 1 timestep.
+
+    To use this as the terminal function for a policy, the policy's
+    initiable() function must set memory["start_state"], as
+    always_initiable() does above.
+    """
+    del objects, params  # unused
+    assert "start_state" in memory, "Must call initiable() before terminal()"
+    return state is not memory["start_state"]
 
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
@@ -232,92 +243,86 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
+def run_policy_until(policy: Callable[[State], Action],
+                     simulator: Callable[[State, Action], State],
+                     init_state: State, termination_function: Callable[[State],
+                                                                       bool],
+                     max_num_steps: int) -> LowLevelTrajectory:
+    """Execute a policy from an initial state, using a simulator.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True,
+    (2) max_num_steps is reached,
+    (3) the state does not change within a single step.
+
+    Returns a LowLevelTrajectory object.
+    """
+    state = init_state
+    states = [state]
+    actions: List[Action] = []
+    if not termination_function(state):
+        last_state = state
+        for _ in range(max_num_steps):
+            act = policy(state)
+            state = simulator(state, act)
+            actions.append(act)
+            states.append(state)
+            if termination_function(state):
+                break
+            # Detect if stuck; skip potentially expensive simulation.
+            if state.allclose(last_state):
+                break
+    traj = LowLevelTrajectory(states, actions)
+    return traj
+
+
 def run_policy_on_task(
     policy: Callable[[State], Action],
     task: Task,
     simulator: Callable[[State, Action], State],
-    predicates: Collection[Predicate],
-    max_steps: int,
-    make_video: bool = False,
-    render: Optional[Callable[[State, Task, Action], List[Image]]] = None,
-    annotate_traj_with_goal: bool = False,
+    max_num_steps: int,
+    render: Optional[Callable[[State, Task, Optional[Action]],
+                              List[Image]]] = None,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
-    """Execute a policy on a task until goal or max steps.
+    """A light wrapper around run_policy_until that takes in a task and uses
+    achieving the task's goal as the termination_function.
 
-    Return the low-level trajectory (optionally annotated with the
-    goal), and a bool for whether the goal was satisfied at the end.
+    Returns the trajectory and whether it achieves the task goal. Also
+    optionally returns a video, if a render function is provided.
     """
-    state = task.init
-    atoms = abstract(state, predicates)
-    states = [state]
-    actions: List[Action] = []
+
+    def _goal_check(state: State) -> bool:
+        return all(goal_atom.holds(state) for goal_atom in task.goal)
+
+    traj = run_policy_until(policy, simulator, task.init, _goal_check,
+                            max_num_steps)
+    goal_reached = _goal_check(traj.states[-1])
     video: Video = []
-    if task.goal.issubset(atoms):  # goal is already satisfied
-        goal_reached = True
-    else:
-        goal_reached = False
-        for _ in range(max_steps):
-            act = policy(state)
-            if make_video:
-                assert render is not None
-                video.extend(render(state, task, act))
-            state = simulator(state, act)
-            atoms = abstract(state, predicates)
-            actions.append(act)
-            states.append(state)
-            if task.goal.issubset(atoms):
-                goal_reached = True
-                break
-    if make_video:
-        assert render is not None
-        # Explanation of type ignore: mypy currently does not
-        # support Callables with optional arguments. mypy
-        # extensions does, but for the sake of avoiding an
-        # additional dependency, we'll just ignore this here.
-        video.extend(render(state, task))  # type: ignore
-    if annotate_traj_with_goal:
-        traj = LowLevelTrajectory(states, actions, task.goal)
-    else:
-        traj = LowLevelTrajectory(states, actions)
+    if render is not None:  # step through the traj again, making the video
+        for i, state in enumerate(traj.states):
+            act = traj.actions[i] if i < len(traj.states) - 1 else None
+            video.extend(render(state, task, act))
     return traj, video, goal_reached
 
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
-                       simulator: Callable[[State, Action], State],
-                       predicates: Collection[Predicate]) -> bool:
-    """Return whether the given policy solves the given task."""
-    _, _, solved = run_policy_on_task(policy, task, simulator, predicates,
+                       simulator: Callable[[State, Action], State]) -> bool:
+    """A light wrapper around run_policy_on_task that returns whether the given
+    policy solves the given task."""
+    _, _, solved = run_policy_on_task(policy, task, simulator,
                                       CFG.max_num_steps_check_policy)
     return solved
 
 
-def option_to_trajectory(init: State, simulator: Callable[[State, Action],
-                                                          State],
-                         option: _Option,
+def option_to_trajectory(init_state: State,
+                         simulator: Callable[[State, Action],
+                                             State], option: _Option,
                          max_num_steps: int) -> LowLevelTrajectory:
-    """Convert an option into a trajectory, starting at init, by invoking the
-    option policy.
-
-    This trajectory is a tuple of (state sequence, action sequence),
-    where the state sequence includes init.
-    """
-    actions = []
-    assert option.initiable(init)
-    state = init
-    last_state = state
-    states = [state]
-    for _ in range(max_num_steps):
-        act = option.policy(state)
-        actions.append(act)
-        state = simulator(state, act)
-        states.append(state)
-        if option.terminal(state):
-            break
-        # Detect if the option is stuck; skip potentially expensive simulation.
-        if state.allclose(last_state):
-            break
-        last_state = state
-    return LowLevelTrajectory(states, actions)
+    """A light wrapper around run_policy_until that takes in an option and uses
+    achieving its terminal() condition as the termination_function."""
+    assert option.initiable(init_state)
+    return run_policy_until(option.policy, simulator, init_state,
+                            option.terminal, max_num_steps)
 
 
 class OptionPlanExhausted(Exception):
@@ -326,33 +331,18 @@ class OptionPlanExhausted(Exception):
 
 def option_plan_to_policy(
         plan: Sequence[_Option]) -> Callable[[State], Action]:
-    """Create a policy that executes the options in order.
-
-    The logic for this is somewhat complicated because we want:
-    * If an option's termination and initiation conditions are
-      always true, we want the option to execute for one step.
-    * After the first step that the option is executed, it
-      should terminate as soon as it sees a state that is
-      terminal; it should not take one more action after.
-    """
-    queue = list(plan)  # Don't modify plan, just in case
-    initialized = False  # Special case first step
+    """Create a policy that executes a sequence of options in order."""
+    queue = list(plan)  # don't modify plan, just in case
+    cur_option = DummyOption
 
     def _policy(state: State) -> Action:
-        nonlocal initialized
-        # On the very first state, check initiation condition, and
-        # take the action no matter what.
-        if not initialized:
+        nonlocal cur_option
+        if cur_option.terminal(state):
             if not queue:
                 raise OptionPlanExhausted()
-            assert queue[0].initiable(state), "Unsound option plan"
-            initialized = True
-        elif queue[0].terminal(state):
-            queue.pop(0)
-            if not queue:
-                raise OptionPlanExhausted()
-            assert queue[0].initiable(state), "Unsound option plan"
-        return queue[0].policy(state)
+            cur_option = queue.pop(0)
+            assert cur_option.initiable(state), "Unsound option plan"
+        return cur_option.policy(state)
 
     return _policy
 
@@ -635,7 +625,8 @@ def run_hill_climbing(initial_state: _S,
                       get_successors: Callable[[_S], Iterator[Tuple[_A, _S,
                                                                     float]]],
                       heuristic: Callable[[_S], float],
-                      enforced_depth: int = 0) -> Tuple[List[_S], List[_A]]:
+                      enforced_depth: int = 0,
+                      parallelize: bool = False) -> Tuple[List[_S], List[_A]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -678,10 +669,22 @@ def run_hill_climbing(initial_state: _S,
                         parent=parent,
                         action=action)
                     successors_at_depth.append(child_node)
+                    if parallelize:
+                        continue  # heuristic computation is parallelized later
                     child_heuristic = heuristic(child_node.state)
                     if child_heuristic < best_heuristic:
                         best_heuristic = child_heuristic
                         best_child_node = child_node
+            if parallelize:
+                # Parallelize the expensive part (heuristic computation).
+                num_cpus = mp.cpu_count()
+                fn = lambda n: (heuristic(n.state), n)
+                with mp.Pool(processes=num_cpus) as p:
+                    for child_heuristic, child_node in p.imap_unordered(
+                            fn, successors_at_depth):
+                        if child_heuristic < best_heuristic:
+                            best_heuristic = child_heuristic
+                            best_child_node = child_node
             # Some improvement found.
             if last_heuristic > best_heuristic:
                 print(f"Found an improvement at depth {depth}")
@@ -1139,14 +1142,13 @@ def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
 def save_video(outfile: str, video: Video) -> None:
     """Save the video to video_dir/outfile."""
     outdir = CFG.video_dir
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
     print(f"Wrote out to {outpath}")
 
 
-def update_config(args: Dict[str, Any]) -> None:
+def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
     # Only override attributes, don't create new ones
     allowed_args = set(CFG.__dict__)
@@ -1160,18 +1162,24 @@ def update_config(args: Dict[str, Any]) -> None:
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
+    # Maintain the invariant that CFG has some seed set. This is very useful
+    # in unit tests, where there are often no commandline args being passed, so
+    # no seed is being set. We always want a seed set because environments and
+    # approaches use the seed during construction.
+    if "seed" not in CFG.__dict__:
+        CFG.__setattr__("seed", default_seed)
 
 
 def get_config_path_str() -> str:
     """Get a filename prefix for configuration based on the current CFG."""
-    return f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+    return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+            f"__{CFG.experiment_id}")
 
 
-def get_save_path_str() -> str:
-    """Get a path for saving and loading models."""
-    if not os.path.exists(CFG.save_dir):
-        os.makedirs(CFG.save_dir)
-    return f"{CFG.save_dir}/{get_config_path_str()}.saved"
+def get_approach_save_path_str() -> str:
+    """Get a path for saving and loading approaches."""
+    os.makedirs(CFG.approach_dir, exist_ok=True)
+    return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
 def parse_args() -> Dict[str, Any]:

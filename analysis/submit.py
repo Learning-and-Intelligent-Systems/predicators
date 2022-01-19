@@ -10,8 +10,7 @@ RUN_INDEX = np.random.randint(int(1e15))
 
 def _run() -> None:
     log_dir = "supercloud_logs"
-    if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
+    os.makedirs(log_dir, exist_ok=True)
     argsstr = " ".join(sys.argv[1:])
     mystr = f"#!/bin/bash\npython src/main.py {argsstr}"
     with open(f"run_{RUN_INDEX}.sh", "w", encoding="utf-8") as f:

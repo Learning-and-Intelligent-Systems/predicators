@@ -18,9 +18,9 @@ from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.planning import task_plan
+from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
+    Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
 from predicators.src.settings import CFG
 
@@ -456,40 +456,56 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 
 def _create_score_function(
         score_function_name: str, initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory], train_tasks: List[Task],
+        atom_dataset: List[GroundAtomTrajectory],
         candidates: Dict[Predicate, float]) -> _PredicateSearchScoreFunction:
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
-                                             train_tasks, candidates)
+                                             candidates)
     if score_function_name == "branching_factor":
         return _BranchingFactorScoreFunction(initial_predicates, atom_dataset,
-                                             train_tasks, candidates)
+                                             candidates)
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates,
-            ["hadd"])
-    match = re.match(r"([a-z\,]+)_lookahead_depth(\d+)", score_function_name)
+            initial_predicates, atom_dataset, candidates, ["hadd"])
+    match = re.match(r"([a-z\,]+)_(\w+)_depth(\d+)", score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
         # as hadd,hmax or hadd,hmax,lmcut.
+        # score_name can be any of {"lookahead", "count"}.
         # depth can be any non-negative integer.
-        heuristic_names_str, depth = match.groups()
+        heuristic_names_str, score_name, depth = match.groups()
         heuristic_names = heuristic_names_str.split(",")
         depth = int(depth)
-        return _RelaxationHeuristicLookaheadBasedScoreFunction(
+        assert heuristic_names
+        assert score_name in {"lookahead", "count"}
+        assert depth >= 0
+        if score_name == "lookahead":
+            return _RelaxationHeuristicLookaheadBasedScoreFunction(
+                initial_predicates,
+                atom_dataset,
+                candidates,
+                heuristic_names,
+                lookahead_depth=depth)
+        assert score_name == "count"
+        return _RelaxationHeuristicCountBasedScoreFunction(
             initial_predicates,
             atom_dataset,
-            train_tasks,
             candidates,
             heuristic_names,
-            lookahead_depth=depth)
+            lookahead_depth=depth,
+            demos_only=False)
     if score_function_name == "exact_lookahead":
         return _ExactHeuristicLookaheadBasedScoreFunction(
-            initial_predicates, atom_dataset, train_tasks, candidates)
+            initial_predicates, atom_dataset, candidates)
+    if score_function_name == "exact_count":
+        return _ExactHeuristicCountBasedScoreFunction(initial_predicates,
+                                                      atom_dataset,
+                                                      candidates,
+                                                      demos_only=False)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
-                                          train_tasks, candidates)
+                                          candidates)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -499,7 +515,6 @@ class _PredicateSearchScoreFunction:
     """A score function for guiding search over predicate sets."""
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
-    _train_tasks: List[Task]  # training tasks that this data was generated on
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
     def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
@@ -615,14 +630,22 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
         del pruned_atom_data, segments  # unused
         score = 0.0
         node_expansion_upper_bound = 1e7
-        for task in self._train_tasks:
-            init_atoms = utils.abstract(task.init,
+        for traj, _ in self._atom_dataset:
+            if not traj.is_demo:
+                continue
+            init_atoms = utils.abstract(traj.states[0],
                                         predicates | self._initial_predicates)
-            objects = set(task.init)
+            objects = set(traj.states[0])
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, strips_ops, option_specs)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.task_planning_heuristic, init_atoms, traj.goal,
+                ground_nsrts, predicates | self._initial_predicates, objects)
             try:
                 _, _, metrics = task_plan(
-                    init_atoms, objects, task.goal, strips_ops, option_specs,
-                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                    init_atoms, traj.goal, ground_nsrts, reachable_atoms,
+                    heuristic, CFG.seed,
+                    CFG.grammar_search_task_planning_timeout)
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -640,6 +663,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     against the demonstrations.
     """
     heuristic_names: Sequence[str]
+    demos_only: bool = field(default=True)
 
     def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
@@ -649,12 +673,25 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         # Lower scores are better.
         scores = {name: 0.0 for name in self.heuristic_names}
         seen_demos = 0
+        seen_nondemos = 0
+        max_demos = CFG.grammar_search_heuristic_based_max_demos
+        max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
+        demo_atom_sets = {
+            frozenset(a)
+            for traj, seq in pruned_atom_data if traj.is_demo for a in seq
+        }
         for traj, atoms_sequence in pruned_atom_data:
-            if not traj.is_demo:  # we only care about demonstrations
+            # Skip this trajectory if it's not a demo and we don't want demos.
+            if self.demos_only and not traj.is_demo:
                 continue
-            if seen_demos == CFG.grammar_search_heuristic_based_max_demos:
-                break
-            seen_demos += 1
+            # Skip this trajectory if we've exceeded a budget.
+            if (traj.is_demo and seen_demos == max_demos) or (
+                    not traj.is_demo and seen_nondemos == max_nondemos):
+                continue
+            if traj.is_demo:
+                seen_demos += 1
+            else:
+                seen_nondemos += 1
             init_atoms = atoms_sequence[0]
             objects = set(traj.states[0])
             goal = traj.goal
@@ -668,7 +705,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                     heuristic_name, init_atoms, objects, goal, strips_ops,
                     option_specs, ground_ops, predicates)
                 scores[heuristic_name] += self._evaluate_atom_trajectory(
-                    atoms_sequence, heuristic_fn, ground_ops)
+                    atoms_sequence, heuristic_fn, ground_ops, demo_atom_sets,
+                    traj.is_demo)
         score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 
@@ -682,10 +720,12 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
-    def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  demo_atom_sets: Set[FrozenSet[GroundAtom]],
+                                  is_demo: bool) -> float:
         raise NotImplementedError("Override me!")
 
 
@@ -694,10 +734,12 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
     """Implement _evaluate_atom_trajectory() by expecting the heuristic to
     match the exact costs-to-go of the states in the demonstrations."""
 
-    def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  demo_atom_sets: Set[FrozenSet[GroundAtom]],
+                                  is_demo: bool) -> float:
         score = 0.0
         for i, atoms in enumerate(atoms_sequence):
             ideal_h = len(atoms_sequence) - i - 1
@@ -721,10 +763,13 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
        where the product is over demonstrations.
     """
 
-    def _evaluate_atom_trajectory(
-            self, atoms_sequence: List[Set[GroundAtom]],
-            heuristic_fn: Callable[[Set[GroundAtom]], float],
-            ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+    def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
+                                  heuristic_fn: Callable[[Set[GroundAtom]],
+                                                         float],
+                                  ground_ops: Set[_GroundSTRIPSOperator],
+                                  demo_atom_sets: Set[FrozenSet[GroundAtom]],
+                                  is_demo: bool) -> float:
+        assert is_demo
         score = 0.0
         for i in range(len(atoms_sequence) - 1):
             atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
@@ -756,6 +801,79 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+    """Implement _evaluate_atom_trajectory() by using the induced operators to
+    compute estimated costs-to-go.
+
+    Then for each transition in the atoms_sequence, check whether the
+    transition is optimal with respect to the estimated costs-to-go. If
+    the transition is optimal and the sequence is not a demo, that's
+    assumed to be bad; if the transition is not optimal and the sequence
+    is a demo, that's also assumed to be bad.
+
+    Also: for each successor that is one step off the atoms_sequence, if the
+    state is optimal, then check if the state is "suspicious", meaning that it
+    does not "match" any state in the demo data. The definition of match is
+    currently based on utils.unify(). It may be that this definition is too
+    strong, so we could consider others. The idea is to try to distinguish
+    states that are actually impossible (suspicious) from ones that are simply
+    alternative steps toward optimally achieving the goal.
+    """
+
+    def _evaluate_atom_trajectory(
+        self,
+        atoms_sequence: List[Set[GroundAtom]],
+        heuristic_fn: Callable[[Set[GroundAtom]], float],
+        ground_ops: Set[_GroundSTRIPSOperator],
+        demo_atom_sets: Set[FrozenSet[GroundAtom]],
+        is_demo: bool,
+    ) -> float:
+        score = 0.0
+        for i in range(len(atoms_sequence) - 1):
+            atoms, next_atoms = atoms_sequence[i], atoms_sequence[i + 1]
+            best_h = float("inf")
+            on_sequence_h = float("inf")
+            optimal_successors = set()
+            for predicted_next_atoms in utils.get_successors_from_ground_ops(
+                    atoms, ground_ops, unique=False):
+                # Compute the heuristic for the successor atoms.
+                h = heuristic_fn(predicted_next_atoms)
+                if h < best_h:
+                    optimal_successors = {frozenset(predicted_next_atoms)}
+                    best_h = h
+                elif h == best_h:
+                    optimal_successors.add(frozenset(predicted_next_atoms))
+                if predicted_next_atoms == next_atoms:
+                    assert on_sequence_h in [h, float("inf")]
+                    on_sequence_h = h
+            # Bad case 1: transition is optimal and sequence is not a demo.
+            if on_sequence_h == best_h and not is_demo:
+                score += CFG.grammar_search_off_demo_count_penalty
+            # Bad case 2: transition is not optimal and sequence is a demo.
+            elif on_sequence_h > best_h and is_demo:
+                score += CFG.grammar_search_on_demo_count_penalty
+            # Bad case 3: there is a "suspicious" optimal state.
+            for successor in optimal_successors:
+                # If we're looking at a demo and the successor matches the
+                # next state in the demo, then the successor obviously matches
+                # some state in the demos, and thus is not suspicious.
+                if is_demo and successor == frozenset(next_atoms):
+                    continue
+                if self._is_suspicious(successor, demo_atom_sets):
+                    score += CFG.grammar_search_suspicious_penalty
+        return score
+
+    @staticmethod
+    def _is_suspicious(successor: FrozenSet[GroundAtom],
+                       demo_atom_sets: Set[FrozenSet[GroundAtom]]) -> bool:
+        for demo_atoms in demo_atom_sets:
+            suc, _ = utils.unify(successor, demo_atoms)
+            if suc:
+                return False
+        return True
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _generate_heuristic() with a delete relaxation heuristic like
     hadd, hmax, or hff."""
@@ -779,7 +897,6 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
             set(predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
-        assert self.lookahead_depth >= 0
 
         def _relaxation_h(atoms: Set[GroundAtom], depth: int = 0) -> float:
             cache_key = (frozenset(atoms), depth)
@@ -821,10 +938,17 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
         ground_ops: Set[_GroundSTRIPSOperator],
         predicates: Collection[Predicate],
     ) -> Callable[[Set[GroundAtom]], float]:
-        del init_atoms, predicates  # unused
         cache: Dict[FrozenSet[GroundAtom], float] = {}
 
         assert heuristic_name == "exact"
+
+        # It's important for efficiency that we only ground once, and create
+        # the heuristic once, for every task.
+        ground_nsrts, reachable_atoms = task_plan_grounding(
+            init_atoms, objects, strips_ops, option_specs)
+        heuristic = utils.create_task_planning_heuristic(
+            CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
+            set(predicates) | self._initial_predicates, objects)
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
@@ -833,8 +957,8 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = task_plan(
-                    atoms, objects, goal, strips_ops, option_specs, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                    atoms, goal, ground_nsrts, reachable_atoms, heuristic,
+                    CFG.seed, CFG.grammar_search_task_planning_timeout)
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
@@ -869,6 +993,22 @@ class _ExactHeuristicLookaheadBasedScoreFunction(
     _evaluate_atom_trajectory() with a lookahead-based policy."""
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class _RelaxationHeuristicCountBasedScoreFunction(
+        _RelaxationHeuristicBasedScoreFunction,
+        _HeuristicCountBasedScoreFunction):
+    """Implement _generate_heuristic() with a delete relaxation heuristic and
+    _evaluate_atom_trajectory() with counting."""
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ExactHeuristicCountBasedScoreFunction(_ExactHeuristicBasedScoreFunction,
+                                             _HeuristicCountBasedScoreFunction
+                                             ):
+    """Implement _generate_heuristic() with exact planning and
+    _evaluate_atom_trajectory() with counting."""
+
+
 ################################################################################
 #                                 Approach                                     #
 ################################################################################
@@ -890,8 +1030,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset,
-                                   train_tasks: List[Task]) -> None:
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         self._dataset.extend(dataset)
         del dataset
         # Generate a candidate set of predicates.
@@ -911,7 +1050,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Create the score function that will be used to guide search.
         score_function = _create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, train_tasks, candidates)
+            atom_dataset, candidates)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
@@ -950,7 +1089,8 @@ def _select_predicates_to_keep(
         _check_goal,
         _get_successors,
         score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth)
+        enforced_depth=CFG.grammar_search_hill_climbing_depth,
+        parallelize=CFG.grammar_search_parallelize_hill_climbing)
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
