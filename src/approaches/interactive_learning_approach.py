@@ -199,7 +199,7 @@ class _Teacher:
 def create_teacher_dataset(preds: Collection[Predicate],
                            dataset: Dataset) -> List[GroundAtomTrajectory]:
     """Create sparse dataset of GroundAtoms for interactive learning."""
-    ratio = CFG.teacher_dataset_label_ratio
+    ratio = float(CFG.teacher_dataset_label_ratio)
     rng = np.random.default_rng(CFG.seed)
     teacher_dataset: List[GroundAtomTrajectory] = []
     for traj in dataset:
