@@ -698,10 +698,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Note: I originally tried to use super(), but ran into issues
         # because the parent class types and this class types are
         # actually different (in terms of equality checking).
-
-        # TODO remove before merging
-        rng = np.random.default_rng(0)
-
         data: Dict[Object, Array] = {}
         assert len(CFG.cover_block_widths) == len(self._blocks)
         for block, width in zip(self._blocks, CFG.cover_block_widths):

@@ -99,10 +99,6 @@ class GlobalSettings:
 
     # option learning parameters
     option_learner = "no_learning"  # "no_learning" or "oracle" or "simple"
-    mlp_regressor_max_itr = 10000
-    mlp_regressor_hid_sizes = [32, 32]
-    mlp_regressor_clip_gradients = False
-    mlp_regressor_gradient_clip_value = 5
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
