@@ -602,10 +602,10 @@ def test_count_score_functions():
         "offline_data_method": "demo+replay",
         "seed": 0,
         "num_train_tasks": 2,
-        "offline_data_num_replays": 10,
+        "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
-        "grammar_search_on_demo_count_penalty": 1,
-        "grammar_search_off_demo_count_penalty": 1,
+        "grammar_search_heuristic_based_max_demos": 5,
+        "grammar_search_heuristic_based_max_nondemos": 50,
     })
     env = CoverEnv()
     ablated = {"Holding", "HandEmpty"}
@@ -617,6 +617,8 @@ def test_count_score_functions():
         else:
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
+    NotHandEmpty = name_to_pred["HandEmpty"].get_negation()
+    candidates[NotHandEmpty] = 1.0
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
@@ -626,6 +628,8 @@ def test_count_score_functions():
         all_included_s = score_function.evaluate(set(candidates))
         none_included_s = score_function.evaluate(set())
         assert all_included_s < none_included_s  # good!
+        # Cover bad case 1: transition is optimal and sequence is not a demo.
+        score_function.evaluate({NotHandEmpty})
 
 
 def test_branching_factor_score_function():
