@@ -143,14 +143,13 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw, bh = state.get(block, "width"), state.get(block, "height")
             desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
-            desired_x = float(bx)
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from -1 to 1
             block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
             # x, y, grip, holding
             # grip changes from -1.0 to 1.0
             # holding changes from -1 to 1
-            robot_param = [desired_x, by, 1.0, 1.0]
+            robot_param = [desired_x, by + 1e-3, 1.0, 1.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
@@ -226,12 +225,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert target.is_instance(target_type)
             tx, tw = state.get(target, "x"), state.get(target, "width")
             desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
-            desired_x = float(tx)
             bw, bh = state.get(block, "width"), state.get(block, "height")
-            desired_y = bh + 1e-2
+            desired_y = bh + 1e-2  # This is the desired y for the robot.
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from 1 to -1
-            block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y, bh]
+            block_param = [1.0, 0.0, bw, desired_x, -1.0, desired_y - 1e-2, bh]
             # x, y, grip, holding
             # grip changes from 1.0 to -1.0
             # holding changes from 1 to -1
