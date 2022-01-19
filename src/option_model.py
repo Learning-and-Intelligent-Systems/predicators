@@ -62,5 +62,4 @@ class _BehaviorOptionModel(_OptionModel):
         assert option.memory.get("model_controller") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)
         next_state = env.current_ig_state_to_state()
-        # import ipdb; ipdb.set_trace()
         return next_state
