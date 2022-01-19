@@ -629,7 +629,8 @@ def test_count_score_functions():
         none_included_s = score_function.evaluate(set())
         assert all_included_s < none_included_s  # good!
         # Cover bad case 1: transition is optimal and sequence is not a demo.
-        score_function.evaluate({NotHandEmpty})
+        not_handempty_s = score_function.evaluate({NotHandEmpty})
+        assert not_handempty_s > all_included_s
 
 
 def test_branching_factor_score_function():
