@@ -840,9 +840,9 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 h = heuristic_fn(predicted_next_atoms)
                 if h < best_h:
                     optimal_successors = {frozenset(predicted_next_atoms)}
+                    best_h = h
                 elif h == best_h:
                     optimal_successors.add(frozenset(predicted_next_atoms))
-                best_h = min(h, best_h)
                 if predicted_next_atoms == next_atoms:
                     assert on_sequence_h in [h, float("inf")]
                     on_sequence_h = h
