@@ -854,8 +854,10 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 score += CFG.grammar_search_on_demo_count_penalty
             # Bad case 3: there is a "suspicious" optimal state.
             for successor in optimal_successors:
-                # We already know that next_atoms is not suspicious.
-                if successor == frozenset(next_atoms):
+                # If we're looking at a demo and the successor matches the
+                # next state in the demo, then the successor obviously matches
+                # some state in the demos, and thus is not suspicious.
+                if is_demo and successor == frozenset(next_atoms):
                     continue
                 if self._is_suspicious(successor, demo_atom_sets):
                     score += CFG.grammar_search_suspicious_penalty
