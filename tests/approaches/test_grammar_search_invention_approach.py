@@ -605,7 +605,7 @@ def test_count_score_functions():
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
         "grammar_search_heuristic_based_max_demos": 4,
-        "grammar_search_heuristic_based_max_nondemos": 50,
+        "grammar_search_heuristic_based_max_nondemos": 40,
     })
     env = CoverEnv()
     ablated = {"Holding", "HandEmpty"}
