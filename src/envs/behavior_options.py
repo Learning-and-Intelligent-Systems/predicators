@@ -147,18 +147,12 @@ def navigate_to_param_sampler(rng: Generator,
                               objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
     assert len(objects) in [2, 3]
-    rng = np.random.default_rng()
+    # rng = np.random.default_rng()
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit: float = max(
-        [
-            1.5,
-            np.linalg.norm(np.array(\
-                obj_to_sample_near.bounding_box[:2])) + 0.5,  # type: ignore
-        ]
-    )
-    distance = (closeness_limit - 0.01) * rng.random() + 0.03
+    closeness_limit = 2.0
+    distance = (closeness_limit * 2) * rng.random() - closeness_limit
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
@@ -169,7 +163,7 @@ def navigate_to_param_sampler(rng: Generator,
     # tries to move there.
     while (abs(x) <= obj_to_sample_near.bounding_box[0]
            and abs(y) <= obj_to_sample_near.bounding_box[1]):
-        distance = (closeness_limit - 0.01) * rng.random() + 0.03
+        distance = (closeness_limit * 2) * rng.random() - closeness_limit
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
@@ -558,7 +552,6 @@ def create_grasp_option_model(
         for _ in range(50):
             env.step(ret_action)
             if env.robots[0].parts["right_hand"].find_hand_contacts() is not None:
-                print("CONTACT!")
                 break
 
         # for i in range(25):
@@ -586,6 +579,12 @@ def create_grasp_option_model(
         # 3 Move Hand to Original Location
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_postion, rh_orig_grasp_orn)
+        if env.robots[0].parts["right_hand"].object_in_hand is not None:
+            # NOTE: This below line is necessary to update the visualizer.
+            # Also, it only works for URDF objects (but if the object is
+            # not a URDF object, grasping should have failed)
+            obj.force_wakeup()
+            # import ipdb; ipdb.set_trace()
 
         # this is running a zero action to step simulator
         env.step(np.zeros(17))
@@ -1052,12 +1051,13 @@ def create_place_policy(
 
 
 def create_place_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]], obj_to_place: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
     plan."""
 
     def placeOntopObjectOptionModel(_init_state: State,
                                     env: "BehaviorEnv") -> None:
+        released_obj_bid = env.robots[0].parts["right_hand"].object_in_hand
         rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
         )
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
@@ -1066,10 +1066,22 @@ def create_place_option_model(
         env.robots[0].parts["right_hand"].set_position_orientation(
             target_pos, p.getQuaternionFromEuler(target_orn))
         env.robots[0].parts["right_hand"].force_release_obj()
+        obj_to_place.force_wakeup()
         # this is running a zero action to step simulator
         env.step(np.zeros(17))
+        # reset the released object to zero velocity so it doesn't
+        # fly away because of residual warp speeds from teleportation!
+        p.resetBaseVelocity(
+            released_obj_bid,
+            linearVelocity=[0, 0, 0],
+            angularVelocity=[0, 0, 0],
+        )
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_postion, rh_orig_grasp_orn)
+        # this is running a series of zero action to step simulator
+        # to let the object fall into its place
+        for _ in range(15):
+            env.step(np.zeros(17))
 
     return placeOntopObjectOptionModel
 
@@ -1104,11 +1116,10 @@ def place_ontop_obj_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
-    print("PRIMITIVE:attempt to place {obj_in_hand.name} ontop {obj.name}" +
-          f"with params {place_rel_pos}")
-
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
+    print(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop {obj.name}" +
+          f"with params {place_rel_pos}")
 
     # if the object in the agent's hand is None or not equal to the object
     # passed in as an argument to this option, fail and return None
@@ -1150,4 +1161,4 @@ def place_ontop_obj_pos(
 
     print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
           f"continuous params {place_rel_pos}. Returning option model.")
-    return create_place_option_model(plan)
+    return create_place_option_model(plan, obj)
