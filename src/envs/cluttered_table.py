@@ -287,7 +287,9 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
 
     This version places grasped cans instead of dumping them. As an
     additional challenge, the action space is restricted so that actions
-    can only begin from within a 0.2 x 0.2 corner
+    can only begin from within a 0.2 x 0.2 corner. The goal behavior is
+    to learn to pick up colliding cans and place them out of the way of
+    the desired can.
     """
 
     def __init__(self) -> None:
@@ -313,9 +315,9 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
 
     @property
     def action_space(self) -> Box:
-        # The action_space is 4-dimensional. The first two dimensions are the
-        # start point of the vector corresponding to the grasp approach. The
-        # last two dimensions are the end point.
+        # The action's starting x,y coordinates are limited between 0 and 0.2,
+        # so that the robot must be more consistent in the direction it reaches
+        # from.
         return Box(np.array([0, 0, 0, 0]), np.array([0.2, 0.2, 1, 1]))
 
     @staticmethod
