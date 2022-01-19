@@ -316,7 +316,6 @@ def test_oracle_approach_cluttered_table_place():
     test_oracle_approach_cluttered_table(place_version=True)
 
 
-
 def test_oracle_approach_blocks():
     """Tests for OracleApproach class with BlocksEnv."""
     utils.update_config({"env": "blocks"})
