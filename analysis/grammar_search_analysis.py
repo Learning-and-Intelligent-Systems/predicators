@@ -233,6 +233,9 @@ def _main() -> None:
         "hadd_lookahead_depth1",
         "hadd_lookahead_depth2",
         "exact_lookahead",
+        "lmcut_count_depth0",
+        "hadd_count_depth0",
+        "exact_count",
     ]
     run_planning = True
 
