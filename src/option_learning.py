@@ -270,8 +270,7 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         # the relative params and the object states.
         memory["params"] = params  # store for sanity checking in policy
         changing_objects = [objects[i] for i in self._changing_parameter_idxs]
-        # TODO remove before merging. This is just because the current oracle
-        # is parameterized absolutely.
+        # This is just because the current oracle is parameterized absolutely.
         if CFG.sampler_learner == "oracle":
             memory["absolute_goal_vec"] = params
         else:
