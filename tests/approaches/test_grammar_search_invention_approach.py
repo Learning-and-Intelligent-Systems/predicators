@@ -13,7 +13,8 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
     _RelaxationHeuristicLookaheadBasedScoreFunction,
     _TaskPlanningScoreFunction, _ExactHeuristicLookaheadBasedScoreFunction,
-    _BranchingFactorScoreFunction)
+    _RelaxationHeuristicCountBasedScoreFunction,
+    _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -214,6 +215,10 @@ def test_create_score_function():
     assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
+    score_func = _create_score_function("lmcut_count_depth0", set(), [], {})
+    assert isinstance(score_func, _RelaxationHeuristicCountBasedScoreFunction)
+    score_func = _create_score_function("exact_count", set(), [], {})
+    assert isinstance(score_func, _ExactHeuristicCountBasedScoreFunction)
     with pytest.raises(NotImplementedError):
         _create_score_function("not a real score function", set(), [], {})
 
@@ -582,6 +587,45 @@ def test_exact_lookahead_score_function():
     utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
     assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
     utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
+
+
+def test_count_score_functions():
+    """Tests for _RelaxationHeuristicCountBasedScoreFunction() and
+    _ExactHeuristicCountBasedScoreFunction."""
+
+    utils.flush_cache()
+    utils.update_config({
+        "env": "cover",
+    })
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+        "num_train_tasks": 2,
+        "offline_data_num_replays": 10,
+        "min_data_for_nsrt": 0,
+        "grammar_search_on_demo_count_penalty": 1,
+        "grammar_search_off_demo_count_penalty": 1,
+    })
+    env = CoverEnv()
+    ablated = {"Holding", "HandEmpty"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    for name in ["exact_lookahead", "lmcut_count_depth0"]:
+        score_function = _create_score_function(name, initial_predicates,
+                                                atom_dataset, candidates)
+        all_included_s = score_function.evaluate(set(candidates))
+        none_included_s = score_function.evaluate(set())
+        assert all_included_s < none_included_s  # good!
 
 
 def test_branching_factor_score_function():
