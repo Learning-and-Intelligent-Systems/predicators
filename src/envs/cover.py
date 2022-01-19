@@ -769,6 +769,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             m: Dict,  # type: ignore
             o: Sequence[Object],
             p: Array) -> Action:
+        # TODO: change to relative
+        import ipdb; ipdb.set_trace()
         del m
         # The object is the one we want to pick.
         assert len(o) == 2
@@ -819,7 +821,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(p, param_from_terminal, atol=1e-05)
+            # TODO: change to relative
+            import ipdb; ipdb.set_trace()
+            try:
+                assert np.allclose(p, param_from_terminal, atol=1e-05)
+            except:
+                import ipdb; ipdb.set_trace()
         return terminal
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -880,6 +887,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             m: Dict,
             o: Sequence[Object],
             p: Array) -> Action:
+        # TODO: change to relative
+        import ipdb; ipdb.set_trace()
         del m
         # The object is the one we want to place at.
         assert len(o) == 3
@@ -928,6 +937,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Place is done when the hand is empty.
         terminal = self._HandEmpty_holds(s, [])
         if terminal and CFG.sampler_learner == "neural":
+            # TODO: change to relative
+            import ipdb; ipdb.set_trace()
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
             assert np.allclose(p, param_from_terminal, atol=1e-5)

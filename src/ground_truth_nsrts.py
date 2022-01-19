@@ -136,23 +136,26 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
+            # The only things that change are the block's held bit and the
+            # robot's grip, holding, x, and y.
             assert len(objs) == 2
             block, robot = objs
             assert block.is_instance(block_type)
             assert robot.is_instance(robot_type)
             bx, by = state.get(block, "x"), state.get(block, "y")
-            bw, bh = state.get(block, "width"), state.get(block, "height")
+            rx, ry = state.get(robot, "x"), state.get(robot, "y")
+            bw = state.get(block, "width")
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(bx)
             else:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
             # is_block, is_target, width, x, grasp, y, height
-            # grasp changes from -1 to 1
-            block_param = [1.0, 0.0, bw, bx, 1.0, by, bh]
+            # grasp changes from -1.0 to 1.0
+            block_param = [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]
             # x, y, grip, holding
             # grip changes from -1.0 to 1.0
-            # holding changes from -1 to 1
-            robot_param = [desired_x, by + 1e-3, 1.0, 1.0]
+            # holding changes from -1.0 to 1.0
+            robot_param = [desired_x - rx, by + 1e-3 - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
@@ -221,27 +224,30 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
         def place_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
+            # The x and held features of the block change, and the x, grasp, and
+            # holding features of the robot change. Note that the y features do
+            # not need to change because the robot picks and places at the same
+            # table y position.
             assert len(objs) == 3
             block, robot, target = objs
             assert block.is_instance(block_type)
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
+            rx = state.get(robot, "x")
             tx, tw = state.get(target, "x"), state.get(target, "width")
-            relative_grasp = state.get(block, "x") - state.get(robot, "x")
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(tx)
             else:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
-            bw, bh = state.get(block, "width"), state.get(block, "height")
-            desired_y = bh + 1e-2  # This is the desired y for the robot.
+            delta_x = desired_x - rx
+            bw = state.get(block, "width")
             # is_block, is_target, width, x, grasp, y, height
-            # grasp changes from 1 to -1
-            block_param = [1.0, 0.0, bw, desired_x + relative_grasp, -1.0,
-                           desired_y - 1e-2, bh]
+            # grasp changes from 1.0 to -1.0
+            block_param = [0.0, 0.0, 0.0, delta_x, -2.0, 0.0, 0.0]
             # x, y, grip, holding
             # grip changes from 1.0 to -1.0
-            # holding changes from 1 to -1
-            robot_param = [desired_x, desired_y, -1.0, -1.0]
+            # holding changes from 1.0 to -1.0
+            robot_param = [delta_x, 0.0, -2.0, -2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
