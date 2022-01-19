@@ -522,6 +522,8 @@ def test_relaxation_lookahead_score_function():
                                       atoms_sequence: List[Set[GroundAtom]],
                                       heuristic_fn: Callable[[Set[GroundAtom]],
                                                              float],
+                                      demo_atom_sets: Set[
+                                          FrozenSet[GroundAtom]],
                                       ground_ops: Set[_GroundSTRIPSOperator],
                                       is_demo: bool) -> float:
             # We also need to override this to get coverage.
