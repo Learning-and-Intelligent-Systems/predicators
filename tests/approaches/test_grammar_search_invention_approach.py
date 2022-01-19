@@ -622,15 +622,16 @@ def test_count_score_functions():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    for name in ["exact_lookahead", "lmcut_count_depth0"]:
+    for name in ["exact_count", "lmcut_count_depth0"]:
         score_function = _create_score_function(name, initial_predicates,
                                                 atom_dataset, candidates)
         all_included_s = score_function.evaluate(set(candidates))
-        none_included_s = score_function.evaluate(set())
-        assert all_included_s < none_included_s  # good!
         # Cover bad case 1: transition is optimal and sequence is not a demo.
         not_handempty_s = score_function.evaluate({NotHandEmpty})
         assert not_handempty_s > all_included_s
+        # Cover bad case 2: transition is not optimal and sequence is a demo.
+        none_included_s = score_function.evaluate(set())
+        assert all_included_s < none_included_s  # good!
 
 
 def test_branching_factor_score_function():
