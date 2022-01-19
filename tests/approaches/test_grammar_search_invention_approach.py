@@ -601,10 +601,10 @@ def test_count_score_functions():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
-        "num_train_tasks": 2,
+        "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
-        "grammar_search_heuristic_based_max_demos": 5,
+        "grammar_search_heuristic_based_max_demos": 4,
         "grammar_search_heuristic_based_max_nondemos": 50,
     })
     env = CoverEnv()
