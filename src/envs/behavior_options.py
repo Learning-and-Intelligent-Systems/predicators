@@ -538,7 +538,7 @@ def create_grasp_option_model(
         # inside the object!
         # Use an error-correcting closed-loop!
         atol_xyz = 1e-4
-        atol_vel = 1e-3
+        atol_vel = 5e-3
 
         # Error-correcting closed loop.
         ec_loop_counter = 0

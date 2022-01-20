@@ -112,11 +112,8 @@ class BehaviorEnv(BaseEnv):
                 self._options.add(option)
 
     def simulate(self, state: State, action: Action) -> State:
-        assert state.simulator_state is not None
-        load_checkpoint(
-            self.igibson_behavior_env.simulator,
-            "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/",
-            int(state.simulator_state.split("+")[0]))
+        if not state.allclose(self.current_ig_state_to_state()):
+            self.load_unique_checkpoint_state(state)
 
         a = action.arr
         self.igibson_behavior_env.step(a)
@@ -352,6 +349,15 @@ class BehaviorEnv(BaseEnv):
 
         return State(state_data, simulator_state + "+" + unique_id)
 
+    def load_unique_checkpoint_state(self, s: State) -> None:
+        """Sets the underlying iGibson environment to a particular saved
+        state."""
+        assert s.simulator_state is not None
+        load_checkpoint(
+            self.igibson_behavior_env.simulator,
+            "tmp_behavior_states/" + s.simulator_state.split("+")[1] + "/",
+            int(s.simulator_state.split("+")[0]))
+
     def _create_classifier_from_bddl(
         self,
         bddl_predicate: "bddl.AtomicFormula",
@@ -363,11 +369,8 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            try:
-                assert s.allclose(self.current_ig_state_to_state())
-            except AssertionError:
-                import ipdb
-                ipdb.set_trace()
+            if not s.allclose(self.current_ig_state_to_state()):
+                self.load_unique_checkpoint_state(s)
 
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
@@ -392,14 +395,8 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        try:
-            assert state.allclose(self.current_ig_state_to_state())
-        except AssertionError:
-            import ipdb
-            ipdb.set_trace()
-
+        if not state.allclose(self.current_ig_state_to_state()):
+            self.load_unique_checkpoint_state(state)
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -409,7 +406,8 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
+        if not state.allclose(self.current_ig_state_to_state()):
+            self.load_unique_checkpoint_state(state)
         assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 1
         for obj in state:
@@ -437,18 +435,16 @@ class BehaviorEnv(BaseEnv):
 
     def _handempty_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        if not state.allclose(self.current_ig_state_to_state()):
+            self.load_unique_checkpoint_state(state)
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
     def _holding_classifier(self, state: State,
                             objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        if not state.allclose(self.current_ig_state_to_state()):
+            self.load_unique_checkpoint_state(state)
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -525,12 +521,12 @@ def make_behavior_option(
 
         # Load the checkpoint associated with state.simulator_state
         # to make sure that we run RRT from the intended state.
-        if state.simulator_state is not None:
-            load_checkpoint(
-                env.simulator, "tmp_behavior_states/" +
-                state.simulator_state.split("+")[1] + "/",
-                int(state.simulator_state.split("+")[0]))
-            env.step(np.zeros(17))
+        assert state.simulator_state is not None
+        load_checkpoint(
+            env.simulator,
+            "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/",
+            int(state.simulator_state.split("+")[0]))
+        env.step(np.zeros(17))
 
         if memory.get("planner_result") is not None:
             # In this case, an rrt_plan has already been found for this
