@@ -65,7 +65,7 @@ class BehaviorEnv(BaseEnv):
         ], Optional[List[List[float]]]]] = [
             navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
         ]
-        policy_fns: List[Callable[[List[List[float]]],
+        option_policy_fns: List[Callable[[List[List[float]]],
                                   Callable[[State, "behavior_env.BehaviorEnv"],
                                            Tuple[Array, bool]]]] = [
                                                create_navigate_policy,
@@ -78,14 +78,14 @@ class BehaviorEnv(BaseEnv):
                 create_place_option_model
             ]
 
-        # name, planning_fn, option_policy_fn, option_model_fn,
+        # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
         option_elems = [
-            ("NavigateTo", planner_fns[0], policy_fns[0], option_model_fns[0],
+            ("NavigateTo", planner_fns[0], option_policy_fns[0], option_model_fns[0],
              2, 1, (-5.0, 5.0)),
-            ("Grasp", planner_fns[1], policy_fns[2], option_model_fns[1], 3, 1,
+            ("Grasp", planner_fns[1], option_policy_fns[2], option_model_fns[1], 3, 1,
              (-np.pi, np.pi)),
-            ("PlaceOnTop", planner_fns[2], policy_fns[2], option_model_fns[2],
+            ("PlaceOnTop", planner_fns[2], option_policy_fns[2], option_model_fns[2],
              3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
@@ -497,10 +497,10 @@ def make_behavior_option(
             # series of options after having planned).
             return True
 
-        # In this case, we want to reset the state of the environment
-        # to the state in the init state so that our options can
-        # run RRT/plan from here as intended!
         if state.simulator_state is not None:
+            # In this case, we want to reset the state of the environment
+            # to the state in the init state so that our options can
+            # run RRT/plan from here as intended!
             env.task.reset_scene(state.simulator_state)
         # NOTE: the below type ignore comment is necessary because mypy
         # doesn't like that rng is being passed by keyword (seems to be
