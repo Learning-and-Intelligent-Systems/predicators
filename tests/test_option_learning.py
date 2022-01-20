@@ -12,9 +12,6 @@ from predicators.src import utils
 
 def test_known_options_option_learner():
     """Tests for _KnownOptionsOptionLearner."""
-    env = create_env("cover")
-    # We need to call update_config twice because the first call sets
-    # some variables whose values we can then change in the second call.
     utils.update_config({
         "env": "cover",
         "approach": "nsrt_learning",
@@ -27,6 +24,7 @@ def test_known_options_option_learner():
         "num_train_tasks": 3,
         "option_learner": "no_learning"
     })
+    env = create_env("cover")
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -66,9 +64,6 @@ def test_known_options_option_learner():
 
 def test_oracle_option_learner_cover():
     """Tests for _OracleOptionLearner for the cover environment."""
-    env = create_env("cover")
-    # We need to call update_config twice because the first call sets
-    # some variables whose values we can then change in the second call.
     utils.update_config({
         "env": "cover",
         "approach": "nsrt_learning",
@@ -81,6 +76,7 @@ def test_oracle_option_learner_cover():
         "num_train_tasks": 3,
         "option_learner": "oracle"
     })
+    env = create_env("cover")
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -122,9 +118,6 @@ def test_oracle_option_learner_cover():
 
 def test_oracle_option_learner_blocks():
     """Tests for _OracleOptionLearner for the blocks environment."""
-    env = create_env("blocks")
-    # We need to call update_config twice because the first call sets
-    # some variables whose values we can then change in the second call.
     utils.update_config({
         "env": "blocks",
         "approach": "nsrt_learning",
@@ -137,6 +130,7 @@ def test_oracle_option_learner_blocks():
         "num_train_tasks": 3,
         "option_learner": "oracle"
     })
+    env = create_env("blocks")
     train_tasks = next(env.train_tasks_generator())
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(

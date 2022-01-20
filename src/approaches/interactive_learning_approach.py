@@ -90,8 +90,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 policy,
                 task,
                 self._simulator,
-                self._get_current_predicates(),
-                max_steps=CFG.interactive_max_steps)
+                max_num_steps=CFG.interactive_max_num_steps)
             # Decide whether to ask about each possible atom during exploration
             for s in traj.states:
                 ground_atoms = utils.all_possible_ground_atoms(
@@ -200,7 +199,7 @@ class _Teacher:
 def create_teacher_dataset(preds: Collection[Predicate],
                            dataset: Dataset) -> List[GroundAtomTrajectory]:
     """Create sparse dataset of GroundAtoms for interactive learning."""
-    ratio = CFG.teacher_dataset_label_ratio
+    ratio = float(CFG.teacher_dataset_label_ratio)
     rng = np.random.default_rng(CFG.seed)
     teacher_dataset: List[GroundAtomTrajectory] = []
     for traj in dataset:

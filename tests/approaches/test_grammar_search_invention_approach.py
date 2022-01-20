@@ -13,7 +13,8 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
     _RelaxationHeuristicLookaheadBasedScoreFunction,
     _TaskPlanningScoreFunction, _ExactHeuristicLookaheadBasedScoreFunction,
-    _BranchingFactorScoreFunction)
+    _RelaxationHeuristicCountBasedScoreFunction,
+    _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -90,7 +91,7 @@ def test_count_positives_for_ops():
     parameterized_option = ParameterizedOption(
         "Dummy", [], Box(0, 1,
                          (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     option = parameterized_option.ground([], np.array([0.0]))
     state = State({cup: [0.5], plate: [1.0]})
     action = Action(np.zeros(1, dtype=np.float32))
@@ -214,6 +215,10 @@ def test_create_score_function():
     assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
+    score_func = _create_score_function("lmcut_count_depth0", set(), [], {})
+    assert isinstance(score_func, _RelaxationHeuristicCountBasedScoreFunction)
+    score_func = _create_score_function("exact_count", set(), [], {})
+    assert isinstance(score_func, _ExactHeuristicCountBasedScoreFunction)
     with pytest.raises(NotImplementedError):
         _create_score_function("not a real score function", set(), [], {})
 
@@ -239,11 +244,16 @@ def test_predicate_search_heuristic_base_classes():
     parameterized_option = ParameterizedOption(
         "Dummy", [], Box(0, 1,
                          (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     option = parameterized_option.ground([], np.array([0.0]))
+    assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))
     action.set_option(option)
-    dataset = [LowLevelTrajectory([state, other_state], [action], set())]
+    dataset = [
+        LowLevelTrajectory([state, other_state], [action],
+                           _is_demo=True,
+                           _goal=set())
+    ]
     atom_dataset = utils.create_ground_atom_dataset(dataset, set())
     heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset, {},
                                                       ["hadd"])
@@ -508,10 +518,14 @@ def test_relaxation_lookahead_score_function():
                                                  segments, strips_ops,
                                                  option_specs)
 
-        def _evaluate_atom_trajectory(
-                self, atoms_sequence: List[Set[GroundAtom]],
-                heuristic_fn: Callable[[Set[GroundAtom]], float],
-                ground_ops: Set[_GroundSTRIPSOperator]) -> float:
+        def _evaluate_atom_trajectory(self,
+                                      atoms_sequence: List[Set[GroundAtom]],
+                                      heuristic_fn: Callable[[Set[GroundAtom]],
+                                                             float],
+                                      ground_ops: Set[_GroundSTRIPSOperator],
+                                      demo_atom_sets: Set[
+                                          FrozenSet[GroundAtom]],
+                                      is_demo: bool) -> float:
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
 
@@ -577,6 +591,53 @@ def test_exact_lookahead_score_function():
     utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
 
 
+def test_count_score_functions():
+    """Tests for _RelaxationHeuristicCountBasedScoreFunction() and
+    _ExactHeuristicCountBasedScoreFunction."""
+
+    utils.flush_cache()
+    utils.update_config({
+        "env": "cover",
+    })
+    utils.update_config({
+        "env": "cover",
+        "offline_data_method": "demo+replay",
+        "seed": 0,
+        "num_train_tasks": 5,
+        "offline_data_num_replays": 50,
+        "min_data_for_nsrt": 0,
+        "grammar_search_heuristic_based_max_demos": 4,
+        "grammar_search_heuristic_based_max_nondemos": 40,
+    })
+    env = CoverEnv()
+    ablated = {"Holding", "HandEmpty"}
+    initial_predicates = set()
+    name_to_pred = {}
+    for p in env.predicates:
+        if p.name in ablated:
+            name_to_pred[p.name] = p
+        else:
+            initial_predicates.add(p)
+    candidates = {p: 1.0 for p in name_to_pred.values()}
+    NotHandEmpty = name_to_pred["HandEmpty"].get_negation()
+    candidates[NotHandEmpty] = 1.0
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    for name in ["exact_count", "lmcut_count_depth0"]:
+        score_function = _create_score_function(name, initial_predicates,
+                                                atom_dataset, candidates)
+        all_included_s = score_function.evaluate(set(candidates))
+        # Cover bad case 1: transition is optimal and sequence is not a demo.
+        not_handempty_s = score_function.evaluate({NotHandEmpty})
+        assert not_handempty_s > all_included_s
+        # Cover bad case 2: transition is not optimal and sequence is a demo.
+        none_included_s = score_function.evaluate(set())
+        assert all_included_s < none_included_s  # good!
+        # Cover bad case 3: there is a "suspicious" optimal state.
+        score_function.evaluate({name_to_pred["Holding"]})
+
+
 def test_branching_factor_score_function():
     """Tests for _BranchingFactorScoreFunction()."""
     # We know that this score function is bad, because it prefers predicates
@@ -588,6 +649,9 @@ def test_branching_factor_score_function():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
+        "num_train_tasks": 2,
+        "offline_data_num_replays": 500,
+        "min_data_for_nsrt": 3,
     })
     env = CoverEnv()
 
