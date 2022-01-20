@@ -467,36 +467,37 @@ def _create_score_function(
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
             initial_predicates, atom_dataset, candidates, ["hadd"])
-    match = re.match(r"([a-z\,]+)_(\w+)_depth(\d+)", score_function_name)
+    match = re.match(r"([a-z\,]+)_(\w+)_lookaheaddepth(\d+)",
+                     score_function_name)
     if match is not None:
         # heuristic_name can be any of {"hadd", "hmax", "hff", "hsa", "lmcut"},
         # or it can be multiple heuristic names that are comma-separated, such
         # as hadd,hmax or hadd,hmax,lmcut.
-        # score_name can be any of {"lookahead", "count"}.
-        # depth can be any non-negative integer.
-        heuristic_names_str, score_name, depth = match.groups()
+        # score_name can be any of {"energy", "count"}.
+        # lookaheaddepth can be any non-negative integer.
+        heuristic_names_str, score_name, lookahead_depth = match.groups()
         heuristic_names = heuristic_names_str.split(",")
-        depth = int(depth)
+        lookahead_depth = int(lookahead_depth)
         assert heuristic_names
-        assert score_name in {"lookahead", "count"}
-        assert depth >= 0
-        if score_name == "lookahead":
-            return _RelaxationHeuristicLookaheadBasedScoreFunction(
+        assert score_name in {"energy", "count"}
+        assert lookahead_depth >= 0
+        if score_name == "energy":
+            return _RelaxationHeuristicEnergyBasedScoreFunction(
                 initial_predicates,
                 atom_dataset,
                 candidates,
                 heuristic_names,
-                lookahead_depth=depth)
+                lookahead_depth=lookahead_depth)
         assert score_name == "count"
         return _RelaxationHeuristicCountBasedScoreFunction(
             initial_predicates,
             atom_dataset,
             candidates,
             heuristic_names,
-            lookahead_depth=depth,
+            lookahead_depth=lookahead_depth,
             demos_only=False)
-    if score_function_name == "exact_lookahead":
-        return _ExactHeuristicLookaheadBasedScoreFunction(
+    if score_function_name == "exact_energy":
+        return _ExactHeuristicEnergyBasedScoreFunction(
             initial_predicates, atom_dataset, candidates)
     if score_function_name == "exact_count":
         return _ExactHeuristicCountBasedScoreFunction(initial_predicates,
@@ -576,7 +577,7 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         for op in strips_ops:
             size += len(op.parameters) + len(op.preconditions) + \
                     len(op.add_effects) + len(op.delete_effects)
-        return CFG.grammar_search_size_weight * size
+        return CFG.grammar_search_operator_size_weight * size
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -749,7 +750,7 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute an energy-based policy, and comparing that policy to demos.
 
@@ -758,7 +759,7 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
     2. Operators induce a heuristic. Denote this h(state, ops(preds)).
     3. The heuristic induces a greedy one-step lookahead energy-based policy.
        Denote this pi(a | s) propto exp(-k * h(succ(s, a), ops(preds)) where
-       k is CFG.grammar_search_lookahead_based_temperature.
+       k is CFG.grammar_search_energy_based_temperature.
     4. The objective for predicate learning is to maximize prod pi(a | s)
        where the product is over demonstrations.
     """
@@ -781,7 +782,7 @@ class _HeuristicLookaheadBasedScoreFunction(_HeuristicBasedScoreFunction):  # py
                 h = heuristic_fn(predicted_next_atoms)
                 # Compute the probability that the correct next atoms would be
                 # output under an energy-based policy.
-                k = CFG.grammar_search_lookahead_based_temperature
+                k = CFG.grammar_search_energy_based_temperature
                 log_p = -k * h
                 ground_op_total_lpm = np.logaddexp(log_p, ground_op_total_lpm)
                 # Check whether the successor atoms match the demonstration.
@@ -978,19 +979,19 @@ class _RelaxationHeuristicMatchBasedScoreFunction(
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _RelaxationHeuristicLookaheadBasedScoreFunction(
+class _RelaxationHeuristicEnergyBasedScoreFunction(
         _RelaxationHeuristicBasedScoreFunction,
-        _HeuristicLookaheadBasedScoreFunction):
+        _HeuristicEnergyBasedScoreFunction):
     """Implement _generate_heuristic() with a delete relaxation heuristic and
-    _evaluate_atom_trajectory() with one-step lookahead."""
+    _evaluate_atom_trajectory() with energy-based lookahead."""
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _ExactHeuristicLookaheadBasedScoreFunction(
+class _ExactHeuristicEnergyBasedScoreFunction(
         _ExactHeuristicBasedScoreFunction,
-        _HeuristicLookaheadBasedScoreFunction):
+        _HeuristicEnergyBasedScoreFunction):
     """Implement _generate_heuristic() with task planning and
-    _evaluate_atom_trajectory() with a lookahead-based policy."""
+    _evaluate_atom_trajectory() with energy-based lookahead."""
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -998,7 +999,7 @@ class _RelaxationHeuristicCountBasedScoreFunction(
         _RelaxationHeuristicBasedScoreFunction,
         _HeuristicCountBasedScoreFunction):
     """Implement _generate_heuristic() with a delete relaxation heuristic and
-    _evaluate_atom_trajectory() with counting."""
+    _evaluate_atom_trajectory() with counting-based lookahead."""
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1006,7 +1007,7 @@ class _ExactHeuristicCountBasedScoreFunction(_ExactHeuristicBasedScoreFunction,
                                              _HeuristicCountBasedScoreFunction
                                              ):
     """Implement _generate_heuristic() with exact planning and
-    _evaluate_atom_trajectory() with counting."""
+    _evaluate_atom_trajectory() with counting-based lookahead."""
 
 
 ################################################################################
