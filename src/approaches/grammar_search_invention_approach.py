@@ -231,14 +231,14 @@ class _PredicateGrammar:
 
 _DEBUG_PREDICATE_STRS = [
     "NOT-((0:robot).fingers<=0.5)",  # GripperOpen
-    "((0:obj).pose_y<=-0.333)",  # OnTable
+    "((0:obj).pose_y<=-0.291)",  # OnTable
     "NOT-((0:robot).gripper_rot<=0.5)",  # HoldingTop
     "((0:robot).gripper_rot<=0.25)",  # HoldingSide
     "NOT-((0:obj).held<=0.5)",  # Holding
     "NOT-((0:obj).wetness<=0.5)",  # IsWet
     "((0:obj).wetness<=0.5)",  # IsDry
-    "NOT-((0:obj).dirtiness<=0.478)",  # IsDirty
-    "((0:obj).dirtiness<=0.478)",  # IsClean
+    "NOT-((0:obj).dirtiness<=0.489)",  # IsDirty
+    "((0:obj).dirtiness<=0.489)",  # IsClean
 ]
 
 

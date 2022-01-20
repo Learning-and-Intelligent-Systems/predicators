@@ -46,7 +46,7 @@ class PaintingEnv(BaseEnv):
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
     held_tol = 0.5
-    num_objs_train = [1]
+    num_objs_train = [2]
     num_objs_test = [5, 6]
 
     def __init__(self) -> None:
