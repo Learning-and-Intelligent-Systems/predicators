@@ -21,6 +21,8 @@ jobs:
     - name: Pytest
       run: |
         pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered
+      env:
+        PYTHONHASHSEED: 0
   static-type-checking:
     runs-on: ubuntu-latest
     strategy:
@@ -60,6 +62,8 @@ jobs:
     - name: Pylint
       run: |
         pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc
+      env:
+        PYTHONHASHSEED: 0
   autoformat:
     runs-on: ubuntu-latest
     strategy:
