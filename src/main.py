@@ -33,6 +33,7 @@ To run grammar search predicate invention (example):
 
 from collections import defaultdict
 import os
+import sys
 import subprocess
 import time
 import dill as pkl
@@ -45,12 +46,18 @@ from predicators.src.structs import Metrics
 from predicators.src import utils
 
 
+assert os.environ["PYTHONHASHSEED"] == "0", \
+        "Please add `export PYTHONHASHSEED=0` to your bash profile!"
+
+
 def main() -> None:
     """Main entry point for running approaches in environments."""
     script_start = time.time()
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
+    str_args = " ".join(sys.argv)
+    print(f"Running command: python {str_args}")
     print("Full config:")
     print(CFG)
     print(
