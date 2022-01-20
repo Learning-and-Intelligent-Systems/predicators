@@ -833,8 +833,7 @@ def extract_preds_and_types(
 def get_static_preds(ops: Collection[NSRTOrSTRIPSOperator],
                      predicates: Collection[Predicate]) -> Set[Predicate]:
     """Get the subset of predicates from the given set that are static with
-    respect to the given lifted operators.
-    """
+    respect to the given lifted operators."""
     static_preds = set()
     for pred in predicates:
         # This predicate is not static if it appears in any op's effects.
@@ -847,11 +846,10 @@ def get_static_preds(ops: Collection[NSRTOrSTRIPSOperator],
     return static_preds
 
 
-def get_static_atoms(
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
-    """Get the subset of atoms from the given set that are static with
-    respect to the given ground operators."""
+def get_static_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                     atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
+    """Get the subset of atoms from the given set that are static with respect
+    to the given ground operators."""
     predicates = {atom.predicate for atom in atoms}
     ops = {ground_op.parent for ground_op in ground_ops}
     static_preds = get_static_preds(ops, predicates)
