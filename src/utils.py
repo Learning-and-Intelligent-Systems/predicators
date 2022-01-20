@@ -685,7 +685,6 @@ def run_hill_climbing(initial_state: _S,
                         if child_heuristic < best_heuristic:
                             best_heuristic = child_heuristic
                             best_child_node = child_node
-
             # Some improvement found.
             if last_heuristic > best_heuristic:
                 print(f"Found an improvement at depth {depth}")
