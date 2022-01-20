@@ -33,6 +33,7 @@ To run grammar search predicate invention (example):
 
 from collections import defaultdict
 import os
+import sys
 import subprocess
 import time
 import dill as pkl
@@ -55,6 +56,8 @@ def main() -> None:
     # Parse & validate args
     args = utils.parse_args()
     utils.update_config(args)
+    str_args = " ".join(sys.argv)
+    print(f"Running command: python {str_args}")
     print("Full config:")
     print(CFG)
     print(
