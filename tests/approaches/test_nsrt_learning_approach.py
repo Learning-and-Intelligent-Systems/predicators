@@ -142,7 +142,7 @@ def test_grammar_search_invention_approach():
     utils.update_config({
         "grammar_search_true_pos_weight": 10,
         "grammar_search_false_pos_weight": 1,
-        "grammar_search_size_weight": 1e-2,
+        "grammar_search_operator_size_weight": 1e-2,
         "grammar_search_max_predicates": 10,
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
