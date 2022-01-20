@@ -8,7 +8,7 @@ from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory
+    LowLevelTrajectory, _GroundNSRT
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
@@ -68,11 +68,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Sample initial state from train tasks
             index = self._rng.choice(demo_idxs)
             state = self._dataset[index].states[0]
-            preds = {
-                p
-                for p in self._get_current_predicates()
-                if p.name not in CFG.interactive_static_predicates
-            }
+            # Detect and filter out static predicates
+            ground_nsrts: Set[_GroundNSRT] = set()
+            for nsrt in self._nsrts:
+                ground_nsrts |= set(utils.all_ground_nsrts(nsrt, sorted(state)))
+            static_preds = utils.get_static_preds(
+                ground_nsrts,
+                self._get_current_predicates())
+            preds = self._get_current_predicates() - static_preds
             # Find policy for exploration
             task_list = glib_sample(state, preds, self._dataset_with_atoms)
             assert task_list
