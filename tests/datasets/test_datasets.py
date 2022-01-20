@@ -126,3 +126,27 @@ def test_demo_replay_dataset():
     dataset = create_dataset(env, train_tasks)
     assert len(dataset[-1].states) == 2
     assert len(dataset[-1].actions) == 1
+
+
+def test_demo_nonoptimal_replay_dataset():
+    """Test demo+nonoptimal-replay dataset creation with Covers env."""
+    # Note that the planning timeout is intentionally set low enough that we
+    # cover some fails to plan from the replays, but not so low that planning
+    # always fails. Also the number of replays is set high enough that we
+    # consistently cover the failure case.
+    utils.update_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "offline_data_method": "demo+nonoptimal-replay",
+        "offline_data_planning_timeout": 1e-1,
+        "offline_data_num_replays": 50,
+        "option_learner": "no_learning",
+        "seed": 123,
+        "num_train_tasks": 5,
+    })
+    env = CoverEnv()
+    train_tasks = next(env.train_tasks_generator())
+    dataset = create_dataset(env, train_tasks)
+    assert len(dataset) == 5 + 50
+    assert len(dataset[-1].states) == 2
+    assert len(dataset[-1].actions) == 1

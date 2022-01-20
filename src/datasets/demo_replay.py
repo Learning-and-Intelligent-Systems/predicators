@@ -52,7 +52,6 @@ def create_demo_replay_data(env: BaseEnv,
     replay_dataset = []
     num_replays = CFG.offline_data_num_replays
     while len(replay_dataset) < num_replays:
-        print(f"Generating replay {len(replay_dataset)}/{num_replays}")
         # Sample a trajectory
         traj_idx = rng.choice(len(demo_dataset), p=weights)
         traj = demo_dataset[traj_idx]
