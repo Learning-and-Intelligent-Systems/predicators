@@ -101,6 +101,27 @@ def test_overlap():
     assert not utils.overlap(l1, r1, l2, r2)
 
 
+def test_get_static_preds():
+    """Tests for get_static_preds() and get_static_atoms()."""
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    static_preds = utils.get_static_preds(nsrts, env.predicates)
+    assert {pred.name for pred in static_preds} == {"IsTarget", "IsBlock"}
+    state = next(env.train_tasks_generator())[0].init
+    objects = set(state)
+    ground_nsrts = set()
+    for nsrt in nsrts:
+        ground_nsrts |= set(utils.all_ground_nsrts(nsrt, objects))
+    atoms = utils.abstract(state, env.predicates)
+    num_blocks = sum(1 for obj in objects if obj.type.name == "block")
+    num_targets = sum(1 for obj in objects if obj.type.name == "target")
+    assert len(atoms) > num_blocks + num_targets
+    static_atoms = utils.get_static_atoms(ground_nsrts, atoms)
+    # IsBlock for every block, IsTarget for every target
+    assert len(static_atoms) == num_blocks + num_targets
+
+
 def test_run_policy_until():
     """Tests for run_policy_until()."""
     cup_type = Type("cup_type", ["feat1"])
