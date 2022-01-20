@@ -849,9 +849,11 @@ def get_static_preds(ops: Collection[NSRTOrSTRIPSOperator],
 def get_static_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
                      atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
     """Get the subset of atoms from the given set that are static with respect
-    to the given ground operators. Note that this can include MORE than
-    simply the set of atoms whose predicates are static, because now we
-    have ground operators."""
+    to the given ground operators.
+
+    Note that this can include MORE than simply the set of atoms whose
+    predicates are static, because now we have ground operators.
+    """
     static_atoms = set()
     for atom in atoms:
         # This atom is not static if it appears in any op's effects.
