@@ -4,7 +4,8 @@
 import functools
 import itertools
 import os
-from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
+from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator,\
+    Tuple
 import numpy as np
 from numpy.random._generator import Generator
 
@@ -12,6 +13,7 @@ try:
     import pybullet as pyb
     import bddl
     import igibson
+    from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.envs import behavior_env
     from igibson.objects.articulated_object import (  # pylint: disable=unused-import
         ArticulatedObject, )
@@ -84,7 +86,10 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-        load_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/", int(state.simulator_state.split("+")[0]))
+        load_checkpoint(
+            self.igibson_behavior_env.simulator,
+            "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/",
+            int(state.simulator_state.split("+")[0]))
 
         a = action.arr
         self.igibson_behavior_env.step(a)
@@ -304,25 +309,20 @@ class BehaviorEnv(BaseEnv):
                 ig_obj.get_orientation(),
             ])
             state_data[obj] = obj_state
-        
-        def save_unique_checkpoint(sim, save_dir):
+
+        def save_unique_checkpoint(sim: "Simulator",
+                                   save_dir: str) -> Tuple[str, str]:
             unique_id = int(np.random.randint(size=1, low=0, high=10**6))
-
             path = save_dir + str(unique_id) + "/"
-
             isExist = os.path.exists(path)
             if not isExist:
                 os.makedirs(path)
-
             simulator_state = save_checkpoint(sim, path)
-
             return str(simulator_state), str(unique_id)
-        #
-        
-        simulator_state, unique_id = save_unique_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/")
-        # simulator_state = save_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/")
-        # simulator_state = self.igibson_behavior_env.task.save_scene()
-        # return State(state_data, simulator_state + "+" + unique_id)
+
+        simulator_state, unique_id = save_unique_checkpoint(
+            self.igibson_behavior_env.simulator, "tmp_behavior_states/")
+
         return State(state_data, simulator_state + "+" + unique_id)
 
     def _create_classifier_from_bddl(
@@ -339,8 +339,9 @@ class BehaviorEnv(BaseEnv):
             try:
                 assert s.allclose(self.current_ig_state_to_state())
             except AssertionError:
-                import ipdb; ipdb.set_trace()
-            
+                import ipdb
+                ipdb.set_trace()
+
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
@@ -369,7 +370,8 @@ class BehaviorEnv(BaseEnv):
         try:
             assert state.allclose(self.current_ig_state_to_state())
         except AssertionError:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+            ipdb.set_trace()
 
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
@@ -485,12 +487,16 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         assert len(igo) == 1
 
         if state.simulator_state is not None:
-            load_checkpoint(env.simulator, "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/", int(state.simulator_state.split("+")[0]))
+            load_checkpoint(
+                env.simulator, "tmp_behavior_states/" +
+                state.simulator_state.split("+")[1] + "/",
+                int(state.simulator_state.split("+")[0]))
             env.step(np.zeros(17))
 
         # TODO: Revert this policy controller and model controller split statement change
         # This is just for quick testing and iteration.
-        if memory.get("policy_controller") is None and CFG.option_model_name != "behavior":
+        if memory.get("policy_controller"
+                      ) is None and CFG.option_model_name != "behavior":
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
@@ -502,8 +508,9 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
             memory["policy_controller"] = policy_controller
             memory["has_terminated"] = False
             return policy_controller is not None
-        
-        if memory.get("model_controller") is None and CFG.option_model_name == "behavior":
+
+        if memory.get("model_controller"
+                      ) is None and CFG.option_model_name == "behavior":
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!

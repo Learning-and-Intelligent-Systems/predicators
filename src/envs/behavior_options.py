@@ -523,7 +523,8 @@ def create_grasp_policy(
 
 
 def create_grasp_option_model(
-        plan: List[List[float]], obj: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]],
+        obj: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
     plan."""
 
@@ -554,12 +555,15 @@ def create_grasp_option_model(
         # Error-correcting closed loop.
         ec_loop_counter = 0
         while hand_i < 0 and ec_loop_counter < 60:
-            current_pos = list(env.robots[0].parts["right_hand"].get_position())
-            current_orn = list(p.getEulerFromQuaternion(env.robots[0].parts["right_hand"].get_orientation()))
+            current_pos = list(
+                env.robots[0].parts["right_hand"].get_position())
+            current_orn = list(
+                p.getEulerFromQuaternion(
+                    env.robots[0].parts["right_hand"].get_orientation()))
             expected_pos = np.array(plan[hand_i][0:3])
-            # If we're not where we expect in the plan, take some corrective action
-            if not np.allclose(current_pos, expected_pos,
-                                atol=atol_xyz):
+            # If we're not where we expect in the plan, take some corrective
+            # action
+            if not np.allclose(current_pos, expected_pos, atol=atol_xyz):
                 low_level_action = (get_delta_low_level_hand_action(
                     env,
                     np.array(current_pos),
@@ -587,7 +591,7 @@ def create_grasp_option_model(
             else:
                 hand_i += 1
             ec_loop_counter += 1
-    
+
         # 3. Close hand and simulate grasp
         a = np.zeros(17, dtype=float)
         a[16] = 1.0
@@ -602,7 +606,7 @@ def create_grasp_option_model(
             assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1))
         # 3.2 step the environment a few timesteps to complete grasp
         for _ in range(5):
-            env.step(a)        
+            env.step(a)
 
         # 4 Move Hand to Original Location
         env.robots[0].parts["right_hand"].set_position_orientation(
@@ -1078,7 +1082,8 @@ def create_place_policy(
 
 
 def create_place_option_model(
-        plan: List[List[float]], obj_to_place: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]],
+        obj_to_place: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
     plan."""
 
