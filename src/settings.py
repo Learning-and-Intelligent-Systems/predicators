@@ -50,8 +50,7 @@ class GlobalSettings:
         "examples",
         "configs",
         # "njk_re-shelving_library_books_full_obs.yaml",
-        "njk_sorting_books_full_obs.yaml"
-    )
+        "njk_sorting_books_full_obs.yaml")
     behavior_mode = "headless"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
