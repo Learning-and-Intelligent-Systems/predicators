@@ -177,11 +177,11 @@ def navigate_to_param_sampler(rng: Generator,
 
 
 def create_navigate_policy(
-    plan: List[Tuple[float, float, float]]
+    plan: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
     """Instantiates and returns a navigation option policy given an RRT plan,
-    which is a list of 3-tuples containing a series of (x, y, rot) waypoints
-    for the robot to pass through."""
+    which is a list of 3-element lists each containing a series of (x, y, rot)
+    waypoints for the robot to pass through."""
     # We remove the last element from the input plan since this is the
     # original orientation
     original_orientation = plan.pop(-1)
@@ -211,7 +211,7 @@ def create_navigate_policy(
                 return np.zeros(17, dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                original_orientation[0:2],
+                tuple(original_orientation[0:2]),
                 np.array(current_pos + [current_orn]),
                 np.array(plan[0]),
             )
@@ -220,7 +220,7 @@ def create_navigate_policy(
             if np.allclose(low_level_action, np.zeros((17, 1)), atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
                     env.robots[0].get_position()[2],
-                    original_orientation[0:2],
+                    tuple(original_orientation[0:2]),
                     np.array(current_pos + [current_orn]),
                     np.array(plan[1]),
                 )
@@ -238,7 +238,7 @@ def create_navigate_policy(
         else:
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                original_orientation[0:2],
+                tuple(original_orientation[0:2]),
                 np.array(plan[0]),
                 np.array(plan[1]),
             )
@@ -252,11 +252,10 @@ def create_navigate_policy(
 
 
 def create_navigate_option_model(
-    plan: List[Tuple[float, float, float]]
-) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
-    plan, which is a list of 3-tuples containing a series of (x, y, rot)
-    waypoints for the robot to pass through."""
+    plan, which is a list of 3-element lists each containing a series of (x, y,
+    rot) waypoints for the robot to pass through."""
 
     def navigateToOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
         robot_z = env.robots[0].get_position()[2]
@@ -273,11 +272,10 @@ def create_navigate_option_model(
 
 
 def navigate_to_obj_pos(
-    env: "BehaviorEnv",
-    obj: Union["URDFObject", "RoomFloor"],
-    pos_offset: Array,
-    rng: Optional[Generator] = None
-) -> Optional[List[Tuple[float, float, float]]]:
+        env: "BehaviorEnv",
+        obj: Union["URDFObject", "RoomFloor"],
+        pos_offset: Array,
+        rng: Optional[Generator] = None) -> Optional[List[List[float]]]:
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
@@ -376,9 +374,10 @@ def navigate_to_obj_pos(
     p.restoreState(state)
     p.removeState(state)
 
+    plan = [list(waypoint) for waypoint in plan]
     # NOTE: we need the original_orientation in our option policy, so we
     # tack it on to the end of the plan so it can be accessed there.
-    plan.append(original_orientation)
+    plan.append(list(original_orientation))
     print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
           f"continuous params {pos_offset}.")
     return plan

@@ -57,22 +57,40 @@ class BehaviorEnv(BaseEnv):
             rng=self._rng,
         )
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
-
         self._type_name_to_type: Dict[str, Type] = {}
+
+        planner_fns: List[Callable[[
+            "behavior_env.BehaviorEnv", Union[
+                "URDFObject", "RoomFloor"], Array, Optional[Generator]
+        ], Optional[List[List[float]]]]] = [
+            navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
+        ]
+        policy_fns: List[Callable[[List[List[float]]],
+                                  Callable[[State, "behavior_env.BehaviorEnv"],
+                                           Tuple[Array, bool]]]] = [
+                                               create_navigate_policy,
+                                               create_grasp_policy,
+                                               create_place_policy
+                                           ]
+        option_model_fns: List[Callable[[List[List[float]]], Callable[
+            [State, "behavior_env.BehaviorEnv"], None]]] = [
+                create_navigate_option_model, create_grasp_option_model,
+                create_place_option_model
+            ]
 
         # name, planning_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
-        planner_fns = [
-            ("NavigateTo", navigate_to_obj_pos, create_navigate_policy,
-             create_navigate_option_model, 2, 1, (-5.0, 5.0)),
-            ("Grasp", grasp_obj_at_pos, create_grasp_policy,
-             create_grasp_option_model, 3, 1, (-np.pi, np.pi)),
-            ("PlaceOnTop", place_ontop_obj_pos, create_place_policy,
-             create_place_option_model, 3, 1, (-1.0, 1.0)),
+        option_elems = [
+            ("NavigateTo", planner_fns[0], policy_fns[0], option_model_fns[0],
+             2, 1, (-5.0, 5.0)),
+            ("Grasp", planner_fns[1], policy_fns[2], option_model_fns[1], 3, 1,
+             (-np.pi, np.pi)),
+            ("PlaceOnTop", planner_fns[2], policy_fns[2], option_model_fns[2],
+             3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
         for (name, planner_fn, policy_fn, option_model_fn, param_dim, num_args,
-             parameter_limits) in planner_fns:
+             parameter_limits) in option_elems:
             # Create a different option for each type combo
             for types in itertools.product(self.types, repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
@@ -446,14 +464,13 @@ def make_behavior_option(
         env: "behavior_env.BehaviorEnv", planner_fn: Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
-        ], Union[Optional[List[List[float]]], Optional[List[Tuple[float, float,
-                                                                  float]]]]],
-        policy_fn: Callable[
-            [Union[List[List[float]], List[Tuple[float, float, float]]]],
-            Callable[[State, "behavior_env.BehaviorEnv"], Tuple[Array, bool]]],
-        option_model_fn: Callable[
-            [Union[List[List[float]], List[Tuple[float, float, float]]]],
-            Callable[[State, "behavior_env.BehaviorEnv"], None]],
+        ], Optional[List[List[float]]]],
+        policy_fn: Callable[[List[List[float]]],
+                            Callable[[State, "behavior_env.BehaviorEnv"],
+                                     Tuple[Array, bool]]],
+        option_model_fn: Callable[[List[List[float]]],
+                                  Callable[[State, "behavior_env.BehaviorEnv"],
+                                           None]],
         object_to_ig_object: Callable[[Object], "ArticulatedObject"],
         rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
