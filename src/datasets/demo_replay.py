@@ -49,7 +49,7 @@ def create_demo_replay_data(env: BaseEnv,
     assert len(ground_nsrts) == len(demo_dataset)
     # Perform replays
     rng = np.random.default_rng(CFG.seed)
-    replay_dataset = []
+    replay_dataset : Dataset = []
     num_replays = CFG.offline_data_num_replays
     while len(replay_dataset) < num_replays:
         # Sample a trajectory
