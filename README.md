@@ -28,7 +28,7 @@ A simple implementation of search-then-sample task and motion planning is provid
 
 ### `PYTHONHASHSEED`
 Our code assumes that python hashing is deterministic between processes, which is [not true by default](https://stackoverflow.com/questions/30585108/disable-hash-randomization-from-within-python-program).
-Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add this line to your bash profile, or prepend `export PYTHONHASHSEED=0` to any commandline call, e.g., `export PYTHONHASHSEED=0 python src/main.py --env ...`.
+Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add this line to your bash profile, or prepend `export PYTHONHASHSEED=0` to any command line call, e.g., `export PYTHONHASHSEED=0 python src/main.py --env ...`.
 
 ### Locally
 * (recommended) Make a new virtual env or conda env.
