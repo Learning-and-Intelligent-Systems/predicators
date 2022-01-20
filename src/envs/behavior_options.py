@@ -177,14 +177,11 @@ def navigate_to_param_sampler(rng: Generator,
 
 
 def create_navigate_policy(
-    plan: List[List[float]]
+    plan: List[List[float]], original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
     """Instantiates and returns a navigation option policy given an RRT plan,
     which is a list of 3-element lists each containing a series of (x, y, rot)
     waypoints for the robot to pass through."""
-    # We remove the last element from the input plan since this is the
-    # original orientation
-    original_orientation = plan.pop(-1)
 
     def navigateToOptionPolicy(_state: State,
                                env: "BehaviorEnv") -> Tuple[Array, bool]:
@@ -252,7 +249,8 @@ def create_navigate_policy(
 
 
 def create_navigate_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    plan: List[List[float]], _original_orientation: List[List[float]]
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
     plan, which is a list of 3-element lists each containing a series of (x, y,
     rot) waypoints for the robot to pass through."""
@@ -272,17 +270,19 @@ def create_navigate_option_model(
 
 
 def navigate_to_obj_pos(
-        env: "BehaviorEnv",
-        obj: Union["URDFObject", "RoomFloor"],
-        pos_offset: Array,
-        rng: Optional[Generator] = None) -> Optional[List[List[float]]]:
+    env: "BehaviorEnv",
+    obj: Union["URDFObject", "RoomFloor"],
+    pos_offset: Array,
+    rng: Optional[Generator] = None
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
     position offset from obj and selects an orientation such that the
     robot is facing the object. If the navigation is infeasible, returns
     an indication to this effect (None). Otherwise, returns the plan,
-    which is a list of list of robot base poses to move to.
+    which is a list of list of robot base poses to move to, as well as
+    the original euler angle orientation of the robot body.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -375,12 +375,9 @@ def navigate_to_obj_pos(
     p.removeState(state)
 
     plan = [list(waypoint) for waypoint in plan]
-    # NOTE: we need the original_orientation in our option policy, so we
-    # tack it on to the end of the plan so it can be accessed there.
-    plan.append(list(original_orientation))
     print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
           f"continuous params {pos_offset}.")
-    return plan
+    return plan, original_orientation
 
 
 # Sampler for grasp continuous params
@@ -456,7 +453,7 @@ def get_delta_low_level_hand_action(
 
 
 def create_grasp_policy(
-    plan: List[List[float]]
+    plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
     """Instantiates and returns a navigation option policy given an RRT plan,
     which is a list of 6-element lists containing a series of (x, y, z, roll,
@@ -517,7 +514,8 @@ def create_grasp_policy(
 
 
 def create_grasp_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    plan: List[List[float]], _original_orientation: List[List[float]]
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
@@ -568,14 +566,15 @@ def grasp_obj_at_pos(
     obj: Union["URDFObject", "RoomFloor"],
     grasp_offset: Array,
     rng: Optional[Generator] = None,
-) -> Optional[List[List[float]]]:
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
     """Parameterized controller for grasping.
 
     Runs motion planning to find a feasible trajectory to a certain
     x,y,z position offset from obj and selects an orientation such that
     the palm is facing the object. If the grasp is infeasible, returns
     an indication to this effect (None). Otherwise, returns the plan,
-    which is a list of list of hand poses.
+    which is a list of list of hand poses, as well as the original euler
+    angle orientation of the hand.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -736,10 +735,13 @@ def grasp_obj_at_pos(
 
     p.restoreState(state)
     p.removeState(state)
+    original_orientation = list(
+        p.getEulerFromQuaternion(
+            env.robots[0].parts["right_hand"].get_orientation()))
 
     print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
           f"continuous params {grasp_offset}.")
-    return plan
+    return plan, original_orientation
 
 
 def place_obj_plan(
@@ -834,7 +836,7 @@ def place_ontop_obj_pos_sampler(
 
 
 def create_place_policy(
-    plan: List[List[float]]
+    plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
     """Instantiates and returns a navigation option policy given an RRT plan,
     which is a list of 6-element lists containing a series of (x, y, z, roll,
@@ -1005,7 +1007,8 @@ def create_place_policy(
 
 
 def create_place_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    plan: List[List[float]], _original_orientation: List[List[float]]
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
@@ -1033,14 +1036,15 @@ def place_ontop_obj_pos(
     obj: Union["URDFObject", "RoomFloor"],
     place_rel_pos: Array,
     rng: Optional[Generator] = None,
-) -> Optional[List[List[float]]]:
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
     """Parameterized controller for placeOnTop.
 
     Runs motion planning to find a feasible trajectory to a certain
     offset from obj and selects an orientation such that the palm is
     facing the object. If the placement is infeasible, returns an
     indication to this effect (None). Otherwise, returns the plan, which
-    is a list of list of hand poses.
+    is a list of list of hand poses, as well as the original euler angle
+    orientation of the hand.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -1084,6 +1088,9 @@ def place_ontop_obj_pos(
               " to find plan to continuous params" + f" {place_rel_pos}")
         return None
 
+    original_orientation = list(
+        p.getEulerFromQuaternion(
+            env.robots[0].parts["right_hand"].get_orientation()))
     print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
           f"continuous params {place_rel_pos}.")
-    return plan
+    return plan, original_orientation
