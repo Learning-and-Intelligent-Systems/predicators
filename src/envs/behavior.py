@@ -473,8 +473,9 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                 env.task.reset_scene(state.simulator_state)
             rrt_plan = planner_fn(env, igo[0], params, rng=rng)
             memory["rrt_plan"] = rrt_plan
-            memory["policy_controller"] = policy_fn(memory["rrt_plan"])
-            memory["model_controller"] = option_model_fn(memory["rrt_plan"])
+            if rrt_plan is not None:
+                memory["policy_controller"] = policy_fn(memory["rrt_plan"])
+                memory["model_controller"] = option_model_fn(memory["rrt_plan"])
             return rrt_plan is not None
         return True
 
