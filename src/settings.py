@@ -114,6 +114,8 @@ class GlobalSettings:
         "NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom," \
         "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
         "LightOn,LightOff,On,OnTable"
+    interactive_static_predicates = {"Borders", "Connects", "IsBoringRoom",
+        "IsPlayroom", "IsBoringRoomDoor", "IsPlayroomDoor"}
     interactive_num_episodes = 0
     interactive_max_num_steps = 21
     interactive_relearn_every = 1
