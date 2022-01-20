@@ -11,8 +11,8 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction,
     _HeuristicBasedScoreFunction, _RelaxationHeuristicBasedScoreFunction,
     _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
-    _RelaxationHeuristicLookaheadBasedScoreFunction,
-    _TaskPlanningScoreFunction, _ExactHeuristicLookaheadBasedScoreFunction,
+    _RelaxationHeuristicEnergyBasedScoreFunction, _TaskPlanningScoreFunction,
+    _ExactHeuristicEnergyBasedScoreFunction,
     _RelaxationHeuristicCountBasedScoreFunction,
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
@@ -176,46 +176,47 @@ def test_create_score_function():
     assert score_func.heuristic_names == ["hadd"]
     score_func = _create_score_function("branching_factor", set(), [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
-    score_func = _create_score_function("hadd_lookahead_depth0", set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function("hadd_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hadd"]
-    score_func = _create_score_function("hmax_lookahead_depth0", set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function("hmax_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hmax"]
-    score_func = _create_score_function("hsa_lookahead_depth0", set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function("hsa_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hsa"]
-    score_func = _create_score_function("lmcut_lookahead_depth0", set(), [],
-                                        {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function("lmcut_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["lmcut"]
-    score_func = _create_score_function("hadd_lookahead_depth1", set(), [], {})
-    assert score_func.lookahead_depth == 1
-    score_func = _create_score_function("hadd_lookahead_depth2", set(), [], {})
-    assert score_func.lookahead_depth == 2
-    score_func = _create_score_function("hff_lookahead_depth0", set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicLookaheadBasedScoreFunction)
-    assert score_func.heuristic_names == ["hff"]
-    score_func = _create_score_function("lmcut,hff_lookahead_depth0", set(),
+    score_func = _create_score_function("hadd_energy_lookaheaddepth1", set(),
                                         [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicLookaheadBasedScoreFunction)
+    assert score_func.lookahead_depth == 1
+    score_func = _create_score_function("hadd_energy_lookaheaddepth2", set(),
+                                        [], {})
+    assert score_func.lookahead_depth == 2
+    score_func = _create_score_function("hff_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
+    assert score_func.heuristic_names == ["hff"]
+    score_func = _create_score_function("lmcut,hff_energy_lookaheaddepth0",
+                                        set(), [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["lmcut", "hff"]
-    score_func = _create_score_function("exact_lookahead", set(), [], {})
-    assert isinstance(score_func, _ExactHeuristicLookaheadBasedScoreFunction)
+    score_func = _create_score_function("exact_energy", set(), [], {})
+    assert isinstance(score_func, _ExactHeuristicEnergyBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
-    score_func = _create_score_function("lmcut_count_depth0", set(), [], {})
+    score_func = _create_score_function("lmcut_count_lookaheaddepth0", set(),
+                                        [], {})
     assert isinstance(score_func, _RelaxationHeuristicCountBasedScoreFunction)
     score_func = _create_score_function("exact_count", set(), [], {})
     assert isinstance(score_func, _ExactHeuristicCountBasedScoreFunction)
@@ -356,8 +357,8 @@ def test_hadd_match_score_function():
     assert handempty_included_s > none_included_s  # this is very bad!
 
 
-def test_relaxation_lookahead_score_function():
-    """Tests for _RelaxationHeuristicLookaheadBasedScoreFunction()."""
+def test_relaxation_energy_score_function():
+    """Tests for _RelaxationHeuristicEnergyBasedScoreFunction()."""
     # Tests for CoverEnv.
     utils.update_config({
         "env": "cover",
@@ -380,7 +381,7 @@ def test_relaxation_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates, ["hadd"])
     all_included_s = score_function.evaluate(set(candidates))
     handempty_included_s = score_function.evaluate({name_to_pred["HandEmpty"]})
@@ -391,7 +392,7 @@ def test_relaxation_lookahead_score_function():
 
     # Test that the score is inf when the operators make the data impossible.
     # Sanity check this for all heuristic choices.
-    class _MockLookahead(_RelaxationHeuristicLookaheadBasedScoreFunction):
+    class _MockEnergy(_RelaxationHeuristicEnergyBasedScoreFunction):
         """Mock class."""
 
         def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
@@ -411,8 +412,8 @@ def test_relaxation_lookahead_score_function():
     candidates = {p: 1.0 for p in name_to_pred.values()}
     for heuristic_name in ["hadd", "hmax", "hff", "hsa", "lmcut"]:
         # Reuse dataset from above.
-        score_function = _MockLookahead(initial_predicates, atom_dataset,
-                                        candidates, [heuristic_name])
+        score_function = _MockEnergy(initial_predicates, atom_dataset,
+                                     candidates, [heuristic_name])
         assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
@@ -435,7 +436,7 @@ def test_relaxation_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates, ["hadd"])
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
@@ -456,7 +457,7 @@ def test_relaxation_lookahead_score_function():
     # (Clear, Holding, GripperOpen): 11411.369394796291
 
     # Tests for lookahead_depth > 0.
-    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
         initial_predicates,
         atom_dataset,
         candidates, ["hadd"],
@@ -488,7 +489,7 @@ def test_relaxation_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _RelaxationHeuristicLookaheadBasedScoreFunction(
+    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates, ["hadd"])
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
@@ -501,7 +502,7 @@ def test_relaxation_lookahead_score_function():
     # if not successor_hs: return float("inf")) but I can't figure out any
     # simpler way. One tricky part is that if there are no ground operators,
     # the heuristic will never get called (see evaluate_atom_trajectory).
-    class _MockHAddLookahead(_RelaxationHeuristicLookaheadBasedScoreFunction):
+    class _MockHAddEnergy(_RelaxationHeuristicEnergyBasedScoreFunction):
         """Mock class."""
 
         def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
@@ -529,17 +530,17 @@ def test_relaxation_lookahead_score_function():
             # We also need to override this to get coverage.
             return heuristic_fn(atoms_sequence[0])
 
-    score_function = _MockHAddLookahead(initial_predicates,
-                                        atom_dataset,
-                                        candidates, ["hadd"],
-                                        lookahead_depth=1)
+    score_function = _MockHAddEnergy(initial_predicates,
+                                     atom_dataset,
+                                     candidates, ["hadd"],
+                                     lookahead_depth=1)
     assert score_function.evaluate(set(candidates)) == float("inf")
 
 
-def test_exact_lookahead_score_function():
-    """Tests for _ExactHeuristicLookaheadBasedScoreFunction()."""
+def test_exact_energy_score_function():
+    """Tests for _ExactHeuristicEnergyBasedScoreFunction()."""
     # Just test this on BlocksEnv, since that's a known problem case
-    # for hadd_lookahead_depth*.
+    # for hadd_energy_lookaheaddepth*.
     utils.flush_cache()
     utils.update_config({
         "env": "blocks",
@@ -563,7 +564,7 @@ def test_exact_lookahead_score_function():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _ExactHeuristicLookaheadBasedScoreFunction(
+    score_function = _ExactHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates)
     all_included_s = score_function.evaluate(set(candidates))
     none_included_s = score_function.evaluate(set())
@@ -582,7 +583,7 @@ def test_exact_lookahead_score_function():
             initial_predicates.add(p)
     candidates = {p: 1.0 for p in name_to_pred.values()}
     # Reuse dataset from above.
-    score_function = _ExactHeuristicLookaheadBasedScoreFunction(
+    score_function = _ExactHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates)
     assert score_function.evaluate(set()) == float("inf")
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
@@ -624,7 +625,7 @@ def test_count_score_functions():
     train_tasks = next(env.train_tasks_generator())
     dataset = create_dataset(env, train_tasks)
     atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    for name in ["exact_count", "lmcut_count_depth0"]:
+    for name in ["exact_count", "lmcut_count_lookaheaddepth0"]:
         score_function = _create_score_function(name, initial_predicates,
                                                 atom_dataset, candidates)
         all_included_s = score_function.evaluate(set(candidates))
