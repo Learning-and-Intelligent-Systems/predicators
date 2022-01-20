@@ -62,19 +62,22 @@ class BehaviorEnv(BaseEnv):
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
-        ], Optional[List[List[float]]]]] = [
+        ], Optional[Tuple[List[List[float]], List[List[float]]]]]] = [
             navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
         ]
-        option_policy_fns: List[Callable[[List[List[float]]], Callable[
-            [State, "behavior_env.BehaviorEnv"], Tuple[Array, bool]]]] = [
-                create_navigate_policy, create_grasp_policy,
-                create_place_policy
-            ]
-        option_model_fns: List[Callable[[List[List[float]]], Callable[
-            [State, "behavior_env.BehaviorEnv"], None]]] = [
-                create_navigate_option_model, create_grasp_option_model,
-                create_place_option_model
-            ]
+        option_policy_fns: List[
+            Callable[[List[List[float]], List[List[float]]],
+                     Callable[[State, "behavior_env.BehaviorEnv"],
+                              Tuple[Array, bool]]]] = [
+                                  create_navigate_policy, create_grasp_policy,
+                                  create_place_policy
+                              ]
+        option_model_fns: List[
+            Callable[[List[List[float]], List[List[float]]],
+                     Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
+                         create_navigate_option_model,
+                         create_grasp_option_model, create_place_option_model
+                     ]
 
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
@@ -462,11 +465,11 @@ def make_behavior_option(
         env: "behavior_env.BehaviorEnv", planner_fn: Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
-        ], Optional[List[List[float]]]],
-        policy_fn: Callable[[List[List[float]]],
+        ], Optional[Tuple[List[List[float]], List[List[float]]]]],
+        policy_fn: Callable[[List[List[float]], List[List[float]]],
                             Callable[[State, "behavior_env.BehaviorEnv"],
                                      Tuple[Array, bool]]],
-        option_model_fn: Callable[[List[List[float]]],
+        option_model_fn: Callable[[List[List[float]], List[List[float]]],
                                   Callable[[State, "behavior_env.BehaviorEnv"],
                                            None]],
         object_to_ig_object: Callable[[Object], "ArticulatedObject"],
@@ -489,7 +492,7 @@ def make_behavior_option(
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("rrt_plan") is not None:
+        if memory.get("planner_result") is not None:
             # In this case, an rrt_plan has already been found for this
             # option (most likely, this will occur when executing a
             # series of options after having planned).
@@ -503,12 +506,19 @@ def make_behavior_option(
         # NOTE: the below type ignore comment is necessary because mypy
         # doesn't like that rng is being passed by keyword (seems to be
         # an issue with mypy: https://github.com/python/mypy/issues/1655)
-        rrt_plan = planner_fn(env, igo[0], params, rng=rng)  # type: ignore
-        memory["rrt_plan"] = rrt_plan
-        if rrt_plan is not None:
-            memory["policy_controller"] = policy_fn(memory["rrt_plan"])
-            memory["model_controller"] = option_model_fn(memory["rrt_plan"])
-        return rrt_plan is not None
+        planner_result = planner_fn(env, igo[0], params,
+                                    rng=rng)  # type: ignore
+        if planner_result is not None:
+            # We can unpack the planner result into the rrt_plan and the
+            # original orientation of the robot or hand.
+            memory["planner_result"] = planner_result
+            # We know planner_result[0] is the rrt_plan and planner_result[1]
+            # is the original orientation
+            memory["policy_controller"] = policy_fn(
+                memory["planner_result"][0], memory["planner_result"][1])
+            memory["model_controller"] = option_model_fn(
+                memory["planner_result"][0], memory["planner_result"][1])
+        return planner_result is not None
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
                   _params: Array) -> bool:
