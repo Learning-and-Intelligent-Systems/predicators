@@ -65,13 +65,11 @@ class BehaviorEnv(BaseEnv):
         ], Optional[List[List[float]]]]] = [
             navigate_to_obj_pos, grasp_obj_at_pos, place_ontop_obj_pos
         ]
-        option_policy_fns: List[Callable[[List[List[float]]],
-                                  Callable[[State, "behavior_env.BehaviorEnv"],
-                                           Tuple[Array, bool]]]] = [
-                                               create_navigate_policy,
-                                               create_grasp_policy,
-                                               create_place_policy
-                                           ]
+        option_policy_fns: List[Callable[[List[List[float]]], Callable[
+            [State, "behavior_env.BehaviorEnv"], Tuple[Array, bool]]]] = [
+                create_navigate_policy, create_grasp_policy,
+                create_place_policy
+            ]
         option_model_fns: List[Callable[[List[List[float]]], Callable[
             [State, "behavior_env.BehaviorEnv"], None]]] = [
                 create_navigate_option_model, create_grasp_option_model,
@@ -81,12 +79,12 @@ class BehaviorEnv(BaseEnv):
         # name, planner_fn, option_policy_fn, option_model_fn,
         # param_dim, arity, parameter upper and lower bounds
         option_elems = [
-            ("NavigateTo", planner_fns[0], option_policy_fns[0], option_model_fns[0],
-             2, 1, (-5.0, 5.0)),
-            ("Grasp", planner_fns[1], option_policy_fns[2], option_model_fns[1], 3, 1,
-             (-np.pi, np.pi)),
-            ("PlaceOnTop", planner_fns[2], option_policy_fns[2], option_model_fns[2],
-             3, 1, (-1.0, 1.0)),
+            ("NavigateTo", planner_fns[0], option_policy_fns[0],
+             option_model_fns[0], 2, 1, (-5.0, 5.0)),
+            ("Grasp", planner_fns[1], option_policy_fns[2],
+             option_model_fns[1], 3, 1, (-np.pi, np.pi)),
+            ("PlaceOnTop", planner_fns[2], option_policy_fns[2],
+             option_model_fns[2], 3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
         for (name, planner_fn, policy_fn, option_model_fn, param_dim, num_args,
