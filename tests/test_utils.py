@@ -128,10 +128,11 @@ def test_get_static_atoms():
     # IsBlock for every block, IsTarget for every target
     assert len(static_atoms) == num_blocks + num_targets
     # Now remove the ground NSRT for covering target0 with block0.
-    nsrts_to_remove = {nsrt for nsrt in ground_nsrts
-                       if nsrt.name == "Place"
-                       and [obj.name for obj in nsrt.objects]
-                       == ["block0", "target0"]}
+    nsrts_to_remove = {
+        nsrt
+        for nsrt in ground_nsrts if nsrt.name == "Place"
+        and [obj.name for obj in nsrt.objects] == ["block0", "target0"]
+    }
     assert len(nsrts_to_remove) == 1
     ground_nsrts.remove(nsrts_to_remove.pop())
     # This removal should make Covers(block0, target0) be static.
