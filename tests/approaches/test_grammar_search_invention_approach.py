@@ -11,8 +11,8 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _PredicateSearchScoreFunction, _OperatorLearningBasedScoreFunction,
     _HeuristicBasedScoreFunction, _RelaxationHeuristicBasedScoreFunction,
     _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
-    _RelaxationHeuristicEnergyBasedScoreFunction,
-    _TaskPlanningScoreFunction, _ExactHeuristicEnergyBasedScoreFunction,
+    _RelaxationHeuristicEnergyBasedScoreFunction, _TaskPlanningScoreFunction,
+    _ExactHeuristicEnergyBasedScoreFunction,
     _RelaxationHeuristicCountBasedScoreFunction,
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
@@ -176,53 +176,47 @@ def test_create_score_function():
     assert score_func.heuristic_names == ["hadd"]
     score_func = _create_score_function("branching_factor", set(), [], {})
     assert isinstance(score_func, _BranchingFactorScoreFunction)
-    score_func = _create_score_function("hadd_energy_lookaheaddepth0",
-                                        set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicEnergyBasedScoreFunction)
+    score_func = _create_score_function("hadd_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hadd"]
-    score_func = _create_score_function("hmax_energy_lookaheaddepth0",
-                                        set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicEnergyBasedScoreFunction)
+    score_func = _create_score_function("hmax_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hmax"]
-    score_func = _create_score_function("hsa_energy_lookaheaddepth0",
-                                        set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicEnergyBasedScoreFunction)
+    score_func = _create_score_function("hsa_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["hsa"]
-    score_func = _create_score_function("lmcut_energy_lookaheaddepth0",
-                                        set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicEnergyBasedScoreFunction)
+    score_func = _create_score_function("lmcut_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["lmcut"]
-    score_func = _create_score_function("hadd_energy_lookaheaddepth1",
-                                        set(), [], {})
+    score_func = _create_score_function("hadd_energy_lookaheaddepth1", set(),
+                                        [], {})
     assert score_func.lookahead_depth == 1
-    score_func = _create_score_function("hadd_energy_lookaheaddepth2",
-                                        set(), [], {})
+    score_func = _create_score_function("hadd_energy_lookaheaddepth2", set(),
+                                        [], {})
     assert score_func.lookahead_depth == 2
-    score_func = _create_score_function("hff_energy_lookaheaddepth0",
-                                        set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicEnergyBasedScoreFunction)
+    score_func = _create_score_function("hff_energy_lookaheaddepth0", set(),
+                                        [], {})
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.heuristic_names == ["hff"]
     score_func = _create_score_function("lmcut,hff_energy_lookaheaddepth0",
                                         set(), [], {})
-    assert isinstance(score_func,
-                      _RelaxationHeuristicEnergyBasedScoreFunction)
+    assert isinstance(score_func, _RelaxationHeuristicEnergyBasedScoreFunction)
     assert score_func.lookahead_depth == 0
     assert score_func.heuristic_names == ["lmcut", "hff"]
     score_func = _create_score_function("exact_energy", set(), [], {})
     assert isinstance(score_func, _ExactHeuristicEnergyBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
-    score_func = _create_score_function("lmcut_count_lookaheaddepth0",
-                                        set(), [], {})
+    score_func = _create_score_function("lmcut_count_lookaheaddepth0", set(),
+                                        [], {})
     assert isinstance(score_func, _RelaxationHeuristicCountBasedScoreFunction)
     score_func = _create_score_function("exact_count", set(), [], {})
     assert isinstance(score_func, _ExactHeuristicCountBasedScoreFunction)
@@ -419,7 +413,7 @@ def test_relaxation_energy_score_function():
     for heuristic_name in ["hadd", "hmax", "hff", "hsa", "lmcut"]:
         # Reuse dataset from above.
         score_function = _MockEnergy(initial_predicates, atom_dataset,
-                                        candidates, [heuristic_name])
+                                     candidates, [heuristic_name])
         assert score_function.evaluate(set()) == float("inf")
 
     # Tests for BlocksEnv.
