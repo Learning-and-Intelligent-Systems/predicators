@@ -497,8 +497,9 @@ def _create_score_function(
             lookahead_depth=lookahead_depth,
             demos_only=False)
     if score_function_name == "exact_energy":
-        return _ExactHeuristicEnergyBasedScoreFunction(
-            initial_predicates, atom_dataset, candidates)
+        return _ExactHeuristicEnergyBasedScoreFunction(initial_predicates,
+                                                       atom_dataset,
+                                                       candidates)
     if score_function_name == "exact_count":
         return _ExactHeuristicCountBasedScoreFunction(initial_predicates,
                                                       atom_dataset,
@@ -988,8 +989,7 @@ class _RelaxationHeuristicEnergyBasedScoreFunction(
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExactHeuristicEnergyBasedScoreFunction(
-        _ExactHeuristicBasedScoreFunction,
-        _HeuristicEnergyBasedScoreFunction):
+        _ExactHeuristicBasedScoreFunction, _HeuristicEnergyBasedScoreFunction):
     """Implement _generate_heuristic() with task planning and
     _evaluate_atom_trajectory() with energy-based lookahead."""
 
