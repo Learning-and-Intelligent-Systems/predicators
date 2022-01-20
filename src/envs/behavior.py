@@ -4,7 +4,6 @@
 import functools
 import itertools
 import os
-from random import random
 from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
 import numpy as np
 from numpy.random._generator import Generator
@@ -85,13 +84,8 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         assert state.simulator_state is not None
-
-        # wmcclinton changed
         load_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/", int(state.simulator_state.split("+")[0]))
-        #
 
-        # load_checkpoint(self.igibson_behavior_env.simulator, "tmp_behavior_states/", state.simulator_state)
-        # self.igibson_behavior_env.task.reset_scene(state.simulator_state)
         a = action.arr
         self.igibson_behavior_env.step(a)
         # a[16] is used to indicate whether to grasp or release the currently-
@@ -311,7 +305,6 @@ class BehaviorEnv(BaseEnv):
             ])
             state_data[obj] = obj_state
         
-        # wmcclinton added
         def save_unique_checkpoint(sim, save_dir):
             unique_id = int(np.random.randint(size=1, low=0, high=10**6))
 
@@ -492,8 +485,6 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
         assert len(igo) == 1
 
         if state.simulator_state is not None:
-            # wmcclinton changed
-            print(state.simulator_state)
             load_checkpoint(env.simulator, "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/", int(state.simulator_state.split("+")[0]))
             env.step(np.zeros(17))
 

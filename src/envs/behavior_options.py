@@ -151,8 +151,8 @@ def navigate_to_param_sampler(rng: Generator,
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit = 1.75
-    distance = (closeness_limit * 2) * rng.random() - closeness_limit
+    closeness_limit = 1.25
+    distance = closeness_limit * rng.random()
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
@@ -163,7 +163,7 @@ def navigate_to_param_sampler(rng: Generator,
     # tries to move there.
     while (abs(x) <= obj_to_sample_near.bounding_box[0]
            and abs(y) <= obj_to_sample_near.bounding_box[1]):
-        distance = (closeness_limit * 2) * rng.random() - closeness_limit
+        distance = closeness_limit * rng.random()
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
@@ -345,7 +345,7 @@ def navigate_to_obj_pos(
         valid_position = (pos, orn)
 
     if valid_position is None:
-        print("Position commanded is in collision or blocked!")
+        print("WARNING: Position commanded is in collision or blocked!")
         p.restoreState(state)
         p.removeState(state)
         print(
