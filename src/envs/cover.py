@@ -505,13 +505,11 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 hw, hh = state.get(held_block, "width"), \
                          state.get(held_block, "height")
 
-        # Ensure neither the gripper nor the possible held block go below the
-        # y-axis.
+        # Ensure neither the gripper does not go below the y-axis.
+        # Currently we allow the block to penetrate the y-axis for simplicity.
+        # We can revisit this later.
         if y + dy < 0 - self.collision_threshold:
             return state.copy()
-        if held_block is not None:
-            if hy - hh + dy < 0 - self.collision_threshold:
-                return state.copy()
 
         # Ensure neither the gripper nor the possible held block collide with
         # another block during the trajectory defined by dx, dy.
