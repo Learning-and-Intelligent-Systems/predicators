@@ -8,7 +8,7 @@ from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory, _GroundNSRT
+    LowLevelTrajectory
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.utils import get_object_combinations, strip_predicate
