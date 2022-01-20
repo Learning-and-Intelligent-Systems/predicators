@@ -239,6 +239,7 @@ _DEBUG_PREDICATE_STRS = [
     "((0:obj).wetness<=0.5)",  # IsDry
     "NOT-((0:obj).dirtiness<=0.489)",  # IsDirty
     "((0:obj).dirtiness<=0.489)",  # IsClean
+    "((0:robot).fingers<=0.5)",  # NotGripperOpen
 ]
 
 
@@ -1115,13 +1116,21 @@ def _select_predicates_to_keep(
     print("\n\n\nstarting search")
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(
+    # path, _ = utils.run_hill_climbing(
+    #     init,
+    #     _check_goal,
+    #     _get_successors,
+    #     score_function.evaluate,
+    #     enforced_depth=CFG.grammar_search_hill_climbing_depth,
+    #     parallelize=CFG.grammar_search_parallelize_hill_climbing)
+
+    path, _ = utils.run_gbfs(
         init,
         _check_goal,
         _get_successors,
         score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth,
-        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+        max_evals=1000)
+
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
