@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverMultistepOptions
+    CoverMultistepOptions, CoverMultistepOptionsFixedTasks
 from predicators.src.structs import State, Action
 from predicators.src import utils
 
@@ -469,3 +469,27 @@ def test_cover_multistep_options():
         utils.save_video(outfile, video)  # pragma: no cover
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+
+
+def test_cover_multistep_options_fixed_tasks():
+    """Tests for CoverMultistepOptionsFixedTasks."""
+    utils.update_config({
+        "env": "cover_multistep_options_fixed_tasks",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10
+    })
+    env = CoverMultistepOptionsFixedTasks()
+    env.seed(123)
+    # This env is mostly the same as CoverMultistepOptions(), so we just test
+    # that the tasks are indeed fixed.
+    state = None
+    all_goals = set()
+    for task in next(env.train_tasks_generator()):
+        if state is None:
+            state = task.init
+        assert state.allclose(task.init)
+        all_goals.add(frozenset(task.goal))
+    assert len(all_goals) == 3
+    for task in env.get_test_tasks():
+        assert state.allclose(task.init)
+        assert frozenset(task.goal) in all_goals

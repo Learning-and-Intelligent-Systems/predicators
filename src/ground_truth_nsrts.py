@@ -237,7 +237,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             assert robot.is_instance(robot_type)
             assert target.is_instance(target_type)
             rx, ry = state.get(robot, "x"), state.get(robot, "y")
-            by, bh = state.get(block, "y"), state.get(block, "height")
+            bh = state.get(block, "height")
             grasp_offset = 1e-3
             tx, tw = state.get(target, "x"), state.get(target, "width")
             if CFG.cover_multistep_degenerate_oracle_samplers:
@@ -246,7 +246,6 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
             delta_x = desired_x - rx
             delta_y = bh + grasp_offset - ry
-            bw = state.get(block, "width")
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from 1.0 to -1.0
             block_param = [0.0, 0.0, 0.0, delta_x, -2.0, delta_y, 0.0]

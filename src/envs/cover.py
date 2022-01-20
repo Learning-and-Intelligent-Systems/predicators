@@ -728,8 +728,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         del m, o, p  # unused
         return self._HandEmpty_holds(s, [])
 
-    def _Pick_learned_equivalent_initiable(self,
-        s: State, m: Dict, o: Sequence[Object], p: Array) -> bool:
+    def _Pick_learned_equivalent_initiable(self, s: State, m: Dict,
+                                           o: Sequence[Object],
+                                           p: Array) -> bool:
         # Convert the relative parameters into absolute parameters.
         m["params"] = p
         m["absolute_params"] = s.vec(o) + p
@@ -782,7 +783,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # The object is the one we want to pick.
         assert len(o) == 2
         obj = o[0]
-        assert len(absolute_params) == self._block_type.dim + self._robot_type.dim
+        assert len(
+            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
@@ -830,7 +832,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         if terminal and CFG.sampler_learner == "neural":
             # Ensure terminal state matches parameterization.
             param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(absolute_params, param_from_terminal, atol=1e-05)
+            assert np.allclose(absolute_params,
+                               param_from_terminal,
+                               atol=1e-05)
         return terminal
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
@@ -855,6 +859,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def _Place_policy(self, s: State, m: Dict, o: Sequence[Object],
                       p: Array) -> Action:
+        del m  # unused
         # The object is the one we want to place at.
         assert len(o) == 1
         obj = o[0]
@@ -899,7 +904,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # The object is the one we want to place at.
         assert len(o) == 3
         obj = o[0]
-        assert len(absolute_params) == self._block_type.dim + self._robot_type.dim
+        assert len(
+            absolute_params) == self._block_type.dim + self._robot_type.dim
         assert obj.type == self._block_type
         x = s.get(self._robot, "x")
         y = s.get(self._robot, "y")
