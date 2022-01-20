@@ -9,6 +9,7 @@ import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
     Segment, Array, ParameterizedOption, Object, Variable, Box, Predicate, \
     State, Action
+from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
 from predicators.src.torch_models import MLPRegressor
 from predicators.src.envs import create_env, BlocksEnv
@@ -287,7 +288,8 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
             changing_objects)
         x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
         action_arr = self._regressor.predict(x)
-        assert not np.isnan(action_arr).any()
+        if np.isnan(action_arr).any():
+            raise ApproachFailure("Option policy returned nan.")
         return Action(np.array(action_arr, dtype=np.float32))
 
     def _effect_based_terminal(self, state: State, memory: Dict,
