@@ -680,11 +680,12 @@ def run_hill_climbing(initial_state: _S,
                 num_cpus = mp.cpu_count()
                 fn = lambda n: (heuristic(n.state), n)
                 with mp.Pool(processes=num_cpus) as p:
-                    for child_heuristic, child_node in p.imap_unordered(
+                    for child_heuristic, child_node in p.map(
                             fn, successors_at_depth):
                         if child_heuristic < best_heuristic:
                             best_heuristic = child_heuristic
                             best_child_node = child_node
+
             # Some improvement found.
             if last_heuristic > best_heuristic:
                 print(f"Found an improvement at depth {depth}")
