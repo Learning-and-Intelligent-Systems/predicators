@@ -45,6 +45,10 @@ from predicators.src.structs import Metrics
 from predicators.src import utils
 
 
+assert os.environ["PYTHONHASHSEED"] == "0", \
+        "Please add `export PYTHONHASHSEED=0` to your bash profile!"
+
+
 def main() -> None:
     """Main entry point for running approaches in environments."""
     script_start = time.time()
