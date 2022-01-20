@@ -75,7 +75,7 @@ class BehaviorEnv(BaseEnv):
                                   create_place_policy
                               ]
         option_model_fns: List[
-            Callable[[List[List[float]], List[List[float]]],
+            Callable[[List[List[float]], List[List[float]], "URDFObject"],
                      Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
                          create_navigate_option_model,
                          create_grasp_option_model, create_place_option_model
@@ -499,9 +499,9 @@ def make_behavior_option(
         policy_fn: Callable[[List[List[float]], List[List[float]]],
                             Callable[[State, "behavior_env.BehaviorEnv"],
                                      Tuple[Array, bool]]],
-        option_model_fn: Callable[[List[List[float]], List[List[float]]],
-                                  Callable[[State, "behavior_env.BehaviorEnv"],
-                                           None]],
+        option_model_fn: Callable[
+            [List[List[float]], List[List[float]], "URDFObject"],
+            Callable[[State, "behavior_env.BehaviorEnv"], None]],
         object_to_ig_object: Callable[[Object], "ArticulatedObject"],
         rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
@@ -522,7 +522,7 @@ def make_behavior_option(
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        
+
         # Load the checkpoint associated with state.simulator_state
         # to make sure that we run RRT from the intended state.
         if state.simulator_state is not None:
@@ -552,7 +552,8 @@ def make_behavior_option(
             memory["policy_controller"] = policy_fn(
                 memory["planner_result"][0], memory["planner_result"][1])
             memory["model_controller"] = option_model_fn(
-                memory["planner_result"][0], memory["planner_result"][1])
+                memory["planner_result"][0], memory["planner_result"][1],
+                igo[0])
         return planner_result is not None
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],

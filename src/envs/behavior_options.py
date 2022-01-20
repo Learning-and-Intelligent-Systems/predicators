@@ -244,7 +244,8 @@ def create_navigate_policy(
 
 
 def create_navigate_option_model(
-    plan: List[List[float]], _original_orientation: List[List[float]]
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        _obj_to_nav_to: "URDFObject"
 ) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
     plan, which is a list of 3-element lists each containing a series of (x, y,
@@ -509,8 +510,8 @@ def create_grasp_policy(
 
 
 def create_grasp_option_model(
-    plan: List[List[float]], _original_orientation: List[List[float]]
-) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        obj_to_grasp: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
@@ -584,10 +585,10 @@ def create_grasp_option_model(
         a[16] = 1.0
         assisted_grasp_action = np.zeros(28, dtype=float)
         assisted_grasp_action[26] = 1.0
-        if isinstance(obj.body_id, List):
-            grasp_obj_body_id = obj.body_id[0]
+        if isinstance(obj_to_grasp.body_id, List):
+            grasp_obj_body_id = obj_to_grasp.body_id[0]
         else:
-            grasp_obj_body_id = obj.body_id
+            grasp_obj_body_id = obj_to_grasp.body_id
         # 3.1 Call code that does assisted grasping
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
             assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1))
@@ -602,7 +603,7 @@ def create_grasp_option_model(
             # NOTE: This below line is necessary to update the visualizer.
             # Also, it only works for URDF objects (but if the object is
             # not a URDF object, grasping should have failed)
-            obj.force_wakeup()
+            obj_to_grasp.force_wakeup()
         # Step a zero-action in the environment to update the visuals of the
         # environment.
         env.step(np.zeros(17))
@@ -1056,8 +1057,8 @@ def create_place_policy(
 
 
 def create_place_option_model(
-    plan: List[List[float]], _original_orientation: List[List[float]]
-) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        obj_to_place: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
