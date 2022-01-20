@@ -536,10 +536,9 @@ class PlayroomEnv(BlocksEnv):
             piles = self._sample_initial_piles(num_blocks, rng)
             init_state = self._sample_state_from_piles(piles, rng)
             light_is_on = init_state.get(self._dial, "level") > 0.5
-            atoms = utils.abstract(init_state, self.predicates)
             while True:  # repeat until goal is not satisfied
                 goal = self._sample_goal(num_blocks, piles, light_is_on, rng)
-                if not goal.issubset(atoms):
+                if not all(goal_atom.holds(init_state) for goal_atom in goal):
                     break
             tasks.append(Task(init_state, goal))
         return tasks
@@ -768,7 +767,12 @@ class PlayroomEnv(BlocksEnv):
     def _NextToTable_initiable(state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         robot = objects[0]
         return PlayroomEnv._NextToTable_holds(state, (robot, ))
 
@@ -776,7 +780,12 @@ class PlayroomEnv(BlocksEnv):
     def _MoveFromRegion_initiable(state: State, memory: Dict,
                                   objects: Sequence[Object],
                                   params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         # objects: robot, region, ...
         return PlayroomEnv._InRegion_holds(state, objects[:2])
 
@@ -840,7 +849,12 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDoor_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         # objects: (robot, door)
         return PlayroomEnv._NextToDoor_holds(state, objects)
 
@@ -861,7 +875,12 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDial_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
+        if "start_state" in memory:
+            assert state.allclose(memory["start_state"])
+        # Always update the memory dict, due to the "is" check in
+        # onestep_terminal.
+        memory["start_state"] = state
         # objects: (robot, dial)
         return PlayroomEnv._NextToDial_holds(state, objects)
 

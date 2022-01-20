@@ -3,7 +3,7 @@
 import pytest
 from gym.spaces import Box
 from predicators.src.approaches import OracleApproach
-from predicators.src.approaches.oracle_approach import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.envs import CoverEnv
 from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
@@ -63,6 +63,14 @@ def test_task_plan():
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
+    with pytest.raises(ApproachTimeout):
+        task_plan(init_atoms,
+                  task.goal,
+                  ground_nsrts,
+                  reachable_atoms,
+                  heuristic,
+                  timeout=1e-6,
+                  seed=123)
 
 
 def test_sesame_plan_failures():
@@ -80,8 +88,7 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    assert utils.policy_solves_task(policy, trivial_task, env.simulate,
-                                    env.predicates)
+    assert utils.policy_solves_task(policy, trivial_task, env.simulate)
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]
@@ -178,7 +185,7 @@ def test_planning_determinism():
     sleep_option = ParameterizedOption(
         "Sleep", [robot_type], neg_params_space,
         lambda s, m, o, p: Action(p - int(o[0] == robby)),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
                               delete_effects, side_predicates)
     sleep_nsrt = sleep_op.make_nsrt(
@@ -194,7 +201,7 @@ def test_planning_determinism():
     cry_option = ParameterizedOption(
         "Cry", [robot_type], pos_params_space,
         lambda s, m, o, p: Action(p + int(o[0] == robby)),
-        lambda s, m, o, p: True, lambda s, m, o, p: True)
+        utils.always_initiable, utils.onestep_terminal)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
     cry_nsrt = cry_op.make_nsrt(cry_option, [robot_var],

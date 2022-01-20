@@ -3,16 +3,20 @@
 import pytest
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import ClutteredTableEnv
+from predicators.src.envs import ClutteredTableEnv, ClutteredTablePlaceEnv
 from predicators.src import utils
-from predicators.src.structs import Action
+from predicators.src.structs import Action, GroundAtom
 from predicators.src.envs import EnvironmentFailure
 
 
-def test_cluttered_table():
+def test_cluttered_table(place_version=False):
     """Tests for ClutteredTableEnv class."""
-    utils.update_config({"env": "cluttered_table"})
-    env = ClutteredTableEnv()
+    if not place_version:
+        utils.update_config({"env": "cluttered_table"})
+        env = ClutteredTableEnv()
+    else:
+        utils.update_config({"env": "cluttered_table_place"})
+        env = ClutteredTablePlaceEnv()
     env.seed(123)
     train_tasks_gen = env.train_tasks_generator()
     for task in next(train_tasks_gen):
@@ -27,12 +31,21 @@ def test_cluttered_table():
     assert len(env.predicates) == 3
     # Goal predicates should be {Holding}.
     assert {pred.name for pred in env.goal_predicates} == {"Holding"}
-    # Options should be {Grasp, Dump}.
+    # Options should be {Grasp, Dump}. If place version, {Grasp, Place}.
     assert len(env.options) == 2
     # Types should be {can}
     assert len(env.types) == 1
     # Action space should be 4-dimensional.
-    assert env.action_space == Box(0, 1, (4, ))
+    if not place_version:
+        assert env.action_space == Box(0, 1, (4, ))
+    else:
+        assert env.action_space == Box(np.array([0, 0, 0, 0]),
+                                       np.array([0.2, 0.2, 1, 1]))
+    HandEmpty = [pred for pred in env.predicates
+                 if pred.name == "HandEmpty"][0]
+    Untrashed = [pred for pred in env.predicates
+                 if pred.name == "Untrashed"][0]
+    Holding = [pred for pred in env.predicates if pred.name == "Holding"][0]
     # Test init state and simulate()
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
@@ -56,11 +69,31 @@ def test_cluttered_table():
             env.simulate(state, act)
         except EnvironmentFailure:  # pragma: no cover
             pass
+        atoms = utils.abstract(state, env.predicates)
+        assert GroundAtom(HandEmpty, []) in atoms
+        for can1 in state:
+            assert Untrashed([can1]) in atoms
         state.set(can, "is_grasped", 1.0)
         pose_x = state.get(can, "pose_x")
         pose_y = state.get(can, "pose_y")
         act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
-        next_state = env.simulate(state, act)  # grasp while already grasping
-        assert state.allclose(next_state)
+        if not place_version:
+            next_state = env.simulate(state,
+                                      act)  # grasp while already grasping
+            assert state.allclose(next_state)
+        if not place_version:
+            next_state = env.simulate(state,
+                                      act)  # grasp while already grasping
+            assert state.allclose(next_state)
+            atoms = utils.abstract(state, env.predicates)
+            assert GroundAtom(HandEmpty, []) not in atoms
+            assert Holding([can]) in atoms
+            for can1 in state:
+                assert Untrashed([can1]) in atoms
         if i == 0:
             env.render(state, task, act)
+
+
+def test_cluttered_table_place():
+    """Tests for ClutteredTablePlaceEnv class."""
+    test_cluttered_table(place_version=True)
