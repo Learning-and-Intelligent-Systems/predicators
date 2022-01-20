@@ -475,7 +475,8 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
             memory["rrt_plan"] = rrt_plan
             if rrt_plan is not None:
                 memory["policy_controller"] = policy_fn(memory["rrt_plan"])
-                memory["model_controller"] = option_model_fn(memory["rrt_plan"])
+                memory["model_controller"] = option_model_fn(
+                    memory["rrt_plan"])
             return rrt_plan is not None
         return True
 
