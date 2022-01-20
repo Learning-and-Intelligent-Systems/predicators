@@ -4,7 +4,8 @@
 import functools
 import itertools
 import os
-from typing import List, Set, Optional, Dict, Callable, Sequence, Iterator
+from typing import List, Set, Optional, Dict, Callable, Sequence, \
+    Iterator, Union, Tuple
 import numpy as np
 from numpy.random._generator import Generator
 
@@ -28,7 +29,7 @@ except ModuleNotFoundError as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs.behavior_options import navigate_to_obj_pos, \
-        grasp_obj_at_pos,place_ontop_obj_pos, create_navigate_policy, \
+        grasp_obj_at_pos, place_ontop_obj_pos, create_navigate_policy, \
             create_grasp_policy, create_place_policy, \
                 create_navigate_option_model, create_grasp_option_model, \
                     create_place_option_model
@@ -59,8 +60,8 @@ class BehaviorEnv(BaseEnv):
 
         self._type_name_to_type: Dict[str, Type] = {}
 
-        # name, controller_fn, param_dim, arity, parameter upper and
-        # lower bounds
+        # name, planning_fn, option_policy_fn, option_model_fn,
+        # param_dim, arity, parameter upper and lower bounds
         planner_fns = [
             ("NavigateTo", navigate_to_obj_pos, create_navigate_policy,
              create_navigate_option_model, 2, 1, (-5.0, 5.0)),
@@ -82,10 +83,8 @@ class BehaviorEnv(BaseEnv):
                                      (param_dim, )),
                     env=self.igibson_behavior_env,
                     planner_fn=planner_fn,
-                    # NOTE: type ignores below are necessary because these
-                    # functions take inputs of slightly different types.
-                    policy_fn=policy_fn,  # type: ignore
-                    option_model_fn=option_model_fn,  # type: ignore
+                    policy_fn=policy_fn,
+                    option_model_fn=option_model_fn,
                     object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
                 )
@@ -442,11 +441,21 @@ class BehaviorEnv(BaseEnv):
         return f"{original_name}-{type_names}"
 
 
-def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
-                         env: "behavior_env.BehaviorEnv", planner_fn: Callable,
-                         policy_fn: Callable, option_model_fn: Callable,
-                         object_to_ig_object: Callable,
-                         rng: Generator) -> ParameterizedOption:
+def make_behavior_option(
+        name: str, types: Sequence[Type], params_space: Box,
+        env: "behavior_env.BehaviorEnv", planner_fn: Callable[[
+            "behavior_env.BehaviorEnv", Union[
+                "URDFObject", "RoomFloor"], Array, Optional[Generator]
+        ], Union[Optional[List[List[float]]], Optional[List[Tuple[float, float,
+                                                                  float]]]]],
+        policy_fn: Callable[
+            [Union[List[List[float]], List[Tuple[float, float, float]]]],
+            Callable[[State, "behavior_env.BehaviorEnv"], Tuple[Array, bool]]],
+        option_model_fn: Callable[
+            [Union[List[List[float]], List[Tuple[float, float, float]]]],
+            Callable[[State, "behavior_env.BehaviorEnv"], None]],
+        object_to_ig_object: Callable[[Object], "ArticulatedObject"],
+        rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
@@ -465,20 +474,26 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("rrt_plan") is None:
-            # We want to reset the state of the environment to
-            # the state in the init state so that our options can
-            # run RRT/plan from here as intended!
-            if state.simulator_state is not None:
-                env.task.reset_scene(state.simulator_state)
-            rrt_plan = planner_fn(env, igo[0], params, rng=rng)
-            memory["rrt_plan"] = rrt_plan
-            if rrt_plan is not None:
-                memory["policy_controller"] = policy_fn(memory["rrt_plan"])
-                memory["model_controller"] = option_model_fn(
-                    memory["rrt_plan"])
-            return rrt_plan is not None
-        return True
+        if memory.get("rrt_plan") is not None:
+            # In this case, an rrt_plan has already been found for this
+            # option (most likely, this will occur when executing a
+            # series of options after having planned).
+            return True
+
+        # In this case, we want to reset the state of the environment
+        # to the state in the init state so that our options can
+        # run RRT/plan from here as intended!
+        if state.simulator_state is not None:
+            env.task.reset_scene(state.simulator_state)
+        # NOTE: the below type ignore comment is necessary because mypy
+        # doesn't like that rng is being passed by keyword (seems to be
+        # an issue with mypy: https://github.com/python/mypy/issues/1655)
+        rrt_plan = planner_fn(env, igo[0], params, rng=rng)  # type: ignore
+        memory["rrt_plan"] = rrt_plan
+        if rrt_plan is not None:
+            memory["policy_controller"] = policy_fn(memory["rrt_plan"])
+            memory["model_controller"] = option_model_fn(memory["rrt_plan"])
+        return rrt_plan is not None
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
                   _params: Array) -> bool:

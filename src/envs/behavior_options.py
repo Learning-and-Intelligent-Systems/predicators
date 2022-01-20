@@ -179,9 +179,10 @@ def navigate_to_param_sampler(rng: Generator,
 def create_navigate_policy(
     plan: List[Tuple[float, float, float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT
-    plan."""
-    # We remove the last element from the input policy since this is the
+    """Instantiates and returns a navigation option policy given an RRT plan,
+    which is a list of 3-tuples containing a series of (x, y, rot) waypoints
+    for the robot to pass through."""
+    # We remove the last element from the input plan since this is the
     # original orientation
     original_orientation = plan.pop(-1)
 
@@ -254,7 +255,8 @@ def create_navigate_option_model(
     plan: List[Tuple[float, float, float]]
 ) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
-    plan."""
+    plan, which is a list of 3-tuples containing a series of (x, y, rot)
+    waypoints for the robot to pass through."""
 
     def navigateToOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
         robot_z = env.robots[0].get_position()[2]
@@ -457,8 +459,9 @@ def get_delta_low_level_hand_action(
 def create_grasp_policy(
     plan: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT
-    plan."""
+    """Instantiates and returns a navigation option policy given an RRT plan,
+    which is a list of 6-element lists containing a series of (x, y, z, roll,
+    pitch, yaw) waypoints for the hand to pass through."""
     # Setup two booleans to be used as 'memory', as well as
     # a 'reversed' plan to be used for our option that's
     # defined below. Note that the reversed plan makes a
@@ -517,7 +520,8 @@ def create_grasp_policy(
 def create_grasp_option_model(
         plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
-    plan."""
+    plan, which is a list of 6-element lists containing a series of (x, y, z,
+    roll, pitch, yaw) waypoints for the hand to pass through."""
 
     # NOTE: -25 because there are 25 timesteps that we move along the vector
     # between the hand the object for until finally grasping
@@ -833,8 +837,9 @@ def place_ontop_obj_pos_sampler(
 def create_place_policy(
     plan: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT
-    plan."""
+    """Instantiates and returns a navigation option policy given an RRT plan,
+    which is a list of 6-element lists containing a series of (x, y, z, roll,
+    pitch, yaw) waypoints for the hand to pass through."""
 
     # Note that the reversed plan code below makes a
     # copy of the list instead of just assigning by reference,
@@ -1003,7 +1008,8 @@ def create_place_policy(
 def create_place_option_model(
         plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
-    plan."""
+    plan, which is a list of 6-element lists containing a series of (x, y, z,
+    roll, pitch, yaw) waypoints for the hand to pass through."""
 
     def placeOntopObjectOptionModel(_init_state: State,
                                     env: "BehaviorEnv") -> None:
