@@ -71,10 +71,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Detect and filter out static predicates
             ground_nsrts: Set[_GroundNSRT] = set()
             for nsrt in self._nsrts:
-                ground_nsrts |= set(utils.all_ground_nsrts(nsrt, sorted(state)))
+                ground_nsrts |= set(utils.all_ground_nsrts(
+                    nsrt, sorted(state)))
             static_preds = utils.get_static_preds(
-                ground_nsrts,
-                self._get_current_predicates())
+                ground_nsrts, self._get_current_predicates())
             preds = self._get_current_predicates() - static_preds
             # Find policy for exploration
             task_list = glib_sample(state, preds, self._dataset_with_atoms)
