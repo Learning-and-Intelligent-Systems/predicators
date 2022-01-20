@@ -28,7 +28,10 @@ except ModuleNotFoundError as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs.behavior_options import navigate_to_obj_pos, \
-        grasp_obj_at_pos,place_ontop_obj_pos
+        grasp_obj_at_pos,place_ontop_obj_pos, create_navigate_policy, \
+            create_grasp_policy, create_place_policy, \
+                create_navigate_option_model, create_grasp_option_model, \
+                    create_place_option_model
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
@@ -58,14 +61,17 @@ class BehaviorEnv(BaseEnv):
 
         # name, controller_fn, param_dim, arity, parameter upper and
         # lower bounds
-        controllers = [
-            ("NavigateTo", navigate_to_obj_pos, 2, 1, (-5.0, 5.0)),
-            ("Grasp", grasp_obj_at_pos, 3, 1, (-np.pi, np.pi)),
-            ("PlaceOnTop", place_ontop_obj_pos, 3, 1, (-1.0, 1.0)),
+        planner_fns = [
+            ("NavigateTo", navigate_to_obj_pos, create_navigate_policy,
+             create_navigate_option_model, 2, 1, (-5.0, 5.0)),
+            ("Grasp", grasp_obj_at_pos, create_grasp_policy,
+             create_grasp_option_model, 3, 1, (-np.pi, np.pi)),
+            ("PlaceOnTop", place_ontop_obj_pos, create_place_policy,
+             create_place_option_model, 3, 1, (-1.0, 1.0)),
         ]
         self._options: Set[ParameterizedOption] = set()
-        for (name, controller_fn, param_dim, num_args,
-             parameter_limits) in controllers:
+        for (name, planner_fn, policy_fn, option_model_fn, param_dim, num_args,
+             parameter_limits) in planner_fns:
             # Create a different option for each type combo
             for types in itertools.product(self.types, repeat=num_args):
                 option_name = self._create_type_combo_name(name, types)
@@ -75,7 +81,11 @@ class BehaviorEnv(BaseEnv):
                     params_space=Box(parameter_limits[0], parameter_limits[1],
                                      (param_dim, )),
                     env=self.igibson_behavior_env,
-                    controller_fn=controller_fn,  # type: ignore
+                    planner_fn=planner_fn,
+                    # NOTE: type ignores below are necessary because these
+                    # functions take inputs of slightly different types.
+                    policy_fn=policy_fn,  # type: ignore
+                    option_model_fn=option_model_fn,  # type: ignore
                     object_to_ig_object=self.object_to_ig_object,
                     rng=self._rng,
                 )
@@ -433,8 +443,8 @@ class BehaviorEnv(BaseEnv):
 
 
 def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
-                         env: "behavior_env.BehaviorEnv",
-                         controller_fn: Callable,
+                         env: "behavior_env.BehaviorEnv", planner_fn: Callable,
+                         policy_fn: Callable, option_model_fn: Callable,
                          object_to_ig_object: Callable,
                          rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
@@ -444,6 +454,7 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                 _params: Array) -> Action:
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
+        assert memory.get("rrt_plan") is not None
         assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
         action_arr, memory["has_terminated"] = memory["policy_controller"](
@@ -454,26 +465,17 @@ def make_behavior_option(name: str, types: Sequence[Type], params_space: Box,
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
-        if memory.get("policy_controller") is None:
+        if memory.get("rrt_plan") is None:
             # We want to reset the state of the environment to
             # the state in the init state so that our options can
             # run RRT/plan from here as intended!
             if state.simulator_state is not None:
                 env.task.reset_scene(state.simulator_state)
-            policy_controller = controller_fn(env,
-                                              igo[0],
-                                              params,
-                                              ret_option_model=False,
-                                              rng=rng)
-            memory["policy_controller"] = policy_controller
-            model_controller = controller_fn(env,
-                                             igo[0],
-                                             params,
-                                             ret_option_model=True,
-                                             rng=rng)
-            memory["model_controller"] = model_controller
-            memory["has_terminated"] = False
-            return policy_controller is not None
+            rrt_plan = planner_fn(env, igo[0], params, rng=rng)
+            memory["rrt_plan"] = rrt_plan
+            memory["policy_controller"] = policy_fn(memory["rrt_plan"])
+            memory["model_controller"] = option_model_fn(memory["rrt_plan"])
+            return rrt_plan is not None
         return True
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
