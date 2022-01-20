@@ -270,7 +270,6 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         # the relative params and the object states.
         memory["params"] = params  # store for sanity checking in policy
         changing_objects = [objects[i] for i in self._changing_parameter_idxs]
-        # This is just because the current oracle is parameterized absolutely.
         memory["absolute_params"] = state.vec(changing_objects) + params
         # Check if initiable based on preconditions.
         grounded_op = self._operator.ground(tuple(objects))
