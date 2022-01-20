@@ -261,8 +261,8 @@ def run_policy_until(policy: Callable[[State], Action],
     states = [state]
     actions: List[Action] = []
     if not termination_function(state):
-        last_state = state
         for _ in range(max_num_steps):
+            last_state = state
             act = policy(state)
             state = simulator(state, act)
             actions.append(act)
