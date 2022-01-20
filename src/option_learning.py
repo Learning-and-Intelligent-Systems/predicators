@@ -271,10 +271,7 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         memory["params"] = params  # store for sanity checking in policy
         changing_objects = [objects[i] for i in self._changing_parameter_idxs]
         # This is just because the current oracle is parameterized absolutely.
-        if CFG.sampler_learner == "oracle":
-            memory["absolute_goal_vec"] = params
-        else:
-            memory["absolute_goal_vec"] = state.vec(changing_objects) + params
+        memory["absolute_params"] = state.vec(changing_objects) + params
         # Check if initiable based on preconditions.
         grounded_op = self._operator.ground(tuple(objects))
         preconditions = grounded_op.preconditions
@@ -287,7 +284,7 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         # Compute the updated relative goal.
         assert np.allclose(params, memory["params"])
         changing_objects = [objects[i] for i in self._changing_parameter_idxs]
-        relative_goal_vec = memory["absolute_goal_vec"] - state.vec(
+        relative_goal_vec = memory["absolute_params"] - state.vec(
             changing_objects)
         x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
         action_arr = self._regressor.predict(x)
@@ -367,8 +364,8 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                 changing_objects = [inv_sub[v] for v in changing_parameters]
                 initial_state = segment.states[0]
                 final_state = segment.states[-1]
-                absolute_goal_vec = final_state.vec(changing_objects)
-                option_param = absolute_goal_vec - initial_state.vec(
+                absolute_params = final_state.vec(changing_objects)
+                option_param = absolute_params - initial_state.vec(
                     changing_objects)
 
                 # Store the option parameterization for this segment so we can
@@ -385,7 +382,7 @@ class _SimpleOptionLearner(_OptionLearnerBase):
                 for state, action in zip(segment.states, segment.actions):
                     state_features = state.vec(all_objects_in_operator)
                     # Compute the relative goal vector this segment.
-                    relative_goal_vec = absolute_goal_vec - state.vec(
+                    relative_goal_vec = absolute_params - state.vec(
                         changing_objects)
                     # Add a bias term for regression.
                     x = np.hstack(([1.0], state_features, relative_goal_vec))
