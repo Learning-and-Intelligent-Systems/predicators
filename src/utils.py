@@ -830,6 +830,21 @@ def extract_preds_and_types(
     return preds, types
 
 
+def get_static_preds(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                     predicates: Set[Predicate]) -> Set[Predicate]:
+    """Get predicates that are static with respect to the operators."""
+    static_preds = set()
+    for pred in predicates:
+        # This predicate is not static if it appears in any op's effects.
+        if any(
+                any(atom.predicate == pred for atom in op.add_effects) or any(
+                    atom.predicate == pred for atom in op.delete_effects)
+                for op in ground_ops):
+            continue
+        static_preds.add(pred)
+    return static_preds
+
+
 def get_static_preds_atoms(
         ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
         atoms: Collection[GroundAtom]
