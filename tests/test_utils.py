@@ -102,24 +102,46 @@ def test_overlap():
 
 
 def test_get_static_preds():
-    """Tests for get_static_preds() and get_static_atoms()."""
+    """Tests for get_static_preds()."""
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     static_preds = utils.get_static_preds(nsrts, env.predicates)
     assert {pred.name for pred in static_preds} == {"IsTarget", "IsBlock"}
-    state = next(env.train_tasks_generator())[0].init
-    objects = set(state)
+
+
+def test_get_static_atoms():
+    """Tests for get_static_atoms()."""
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    task = next(env.train_tasks_generator())[0]
+    objects = set(task.init)
     ground_nsrts = set()
     for nsrt in nsrts:
         ground_nsrts |= set(utils.all_ground_nsrts(nsrt, objects))
-    atoms = utils.abstract(state, env.predicates)
+    atoms = utils.abstract(task.init, env.predicates) | task.goal
     num_blocks = sum(1 for obj in objects if obj.type.name == "block")
     num_targets = sum(1 for obj in objects if obj.type.name == "target")
     assert len(atoms) > num_blocks + num_targets
     static_atoms = utils.get_static_atoms(ground_nsrts, atoms)
     # IsBlock for every block, IsTarget for every target
     assert len(static_atoms) == num_blocks + num_targets
+    # Now remove the ground NSRT for covering target0 with block0.
+    nsrts_to_remove = {
+        nsrt
+        for nsrt in ground_nsrts if nsrt.name == "Place"
+        and [obj.name for obj in nsrt.objects] == ["block0", "target0"]
+    }
+    assert len(nsrts_to_remove) == 1
+    ground_nsrts.remove(nsrts_to_remove.pop())
+    # This removal should make Covers(block0, target0) be static.
+    new_static_atoms = utils.get_static_atoms(ground_nsrts, atoms)
+    assert len(new_static_atoms) == len(static_atoms) + 1
+    assert not static_atoms - new_static_atoms  # nothing should be deleted
+    added_atom = (new_static_atoms - static_atoms).pop()
+    assert added_atom.predicate.name == "Covers"
+    assert [obj.name for obj in added_atom.objects] == ["block0", "target0"]
 
 
 def test_run_policy_until():
