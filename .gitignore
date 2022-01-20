@@ -12,6 +12,7 @@ pylint_recursive.py
 supercloud_logs
 results
 videos
-saved_data
+saved_approaches
+saved_datasets
 analysis/results
 tmp_behavior_states
