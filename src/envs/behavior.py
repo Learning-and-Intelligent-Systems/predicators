@@ -357,6 +357,8 @@ class BehaviorEnv(BaseEnv):
             self.igibson_behavior_env.simulator,
             "tmp_behavior_states/" + s.simulator_state.split("+")[1] + "/",
             int(s.simulator_state.split("+")[0]))
+        # We step the environment to update the visuals of where the robot is!
+        self.igibson_behavior_env.step(np.zeros(17))
 
     def _create_classifier_from_bddl(
         self,
