@@ -122,25 +122,12 @@ def _replay_is_optimal(replay_traj: LowLevelTrajectory,
         # If planning fails, assume that the replay was not optimal.
         return False
 
-    # Get the cost-to-go from the actions. This is not just len(actions)
-    # because we care about the length of the option trajectory, not the
-    # length of the low-level action trajectory.
-    demo_cost_to_go = _actions_to_cost_to_go(demo_traj.actions)
+    # Get the costs-to-go for both the demo actions and the replay actions.
+    # This is not just len(actions) because we care about the length of the
+    # option trajectory, not the length of the low-level action trajectory.
+    demo_cost_to_go = utils.num_options_in_action_sequence(demo_traj.actions)
     replay_actions = demo_traj.actions[:state_idx] + continued_traj.actions
     # The +1 is for the replay itself, which consists of one option.
-    replay_cost_to_go = 1 + _actions_to_cost_to_go(replay_actions)
+    replay_cost_to_go = 1 + utils.num_options_in_action_sequence(replay_actions)
     assert demo_cost_to_go <= replay_cost_to_go, "Demo was not optimal."
     return demo_cost_to_go == replay_cost_to_go
-
-
-def _actions_to_cost_to_go(actions: Sequence[Action]) -> float:
-    """Helper for _replay_is_optimal() that gets the option cost-to-go from a
-    list of actions, assuming each option has cost 1."""
-    ctg = 0.0
-    last_option = None
-    for action in actions:
-        current_option = action.get_option()
-        if not current_option is last_option:
-            last_option = current_option
-            ctg += 1.0
-    return ctg

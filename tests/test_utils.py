@@ -17,8 +17,29 @@ from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper
 
 
+def test_num_options_in_action_sequence():
+    """Tests for num_options_in_action_sequence()."""
+    assert utils.num_options_in_action_sequence([]) == 0
+    actions = [Action(np.array([0])) for _ in range(3)]
+    with pytest.raises(AssertionError):
+        # Actions must contain options for this method to be used.
+        utils.num_options_in_action_sequence(actions)
+    parameterized_option = ParameterizedOption("Move", [], Box(0, 1, (1, )),
+                                               None, None, None)
+    option1 = parameterized_option.ground([], [0.1])
+    option2 = parameterized_option.ground([], [0.2])
+    option3 = parameterized_option.ground([], [0.3])
+    for options, expected_num in (
+            ([option1, option1, option1], 1),
+            ([option1, option2, option2], 2),
+            ([option1, option2, option1], 3),
+            ([option1, option2, option3], 3)):
+        actions = [Action(np.array([0]), options[i]) for i in range(3)]
+        assert utils.num_options_in_action_sequence(actions) == expected_num
+
+
 def test_aabb_volume():
-    """Tests for get_aabb_volume."""
+    """Tests for get_aabb_volume()."""
     lo = np.array([1.0, 1.5, -1.0])
     hi = np.array([2.0, 2.5, 0.0])
     # Test zero volume calculation
@@ -34,7 +55,7 @@ def test_aabb_volume():
 
 
 def test_aabb_closest_point():
-    """Tests for get_closest_point_on_aabb."""
+    """Tests for get_closest_point_on_aabb()."""
     # Test ordinary usage
     xyz = [1.5, 3.0, -2.5]
     lo = np.array([1.0, 1.5, -1.0])

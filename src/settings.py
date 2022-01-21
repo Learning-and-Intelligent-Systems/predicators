@@ -179,7 +179,7 @@ class GlobalSettings:
             offline_data_method=defaultdict(
                 # Use both demonstrations and random replays by default.
                 # To make sure that all replays are not optimal, use
-                # demo+nonoptimal-replay.
+                # demo+nonoptimalreplay.
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
