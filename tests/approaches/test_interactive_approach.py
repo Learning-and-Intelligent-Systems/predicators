@@ -1,6 +1,7 @@
 """Test cases for the interactive learning approach."""
 
 import pytest
+import numpy as np
 from predicators.src.approaches import InteractiveLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.approaches.interactive_learning_approach import \
@@ -36,20 +37,31 @@ def test_create_teacher_dataset():
     assert len(teacher_dataset) == 15
 
     # Test the first trajectory for correct usage of ratio
-    # Generate groundatoms
+    # Generate and count groundatoms
     traj = dataset[0]
     ground_atoms_traj = []
+    totals = {p: 0 for p in env.predicates}
     for s in traj.states:
         ground_atoms = list(utils.abstract(s, env.predicates))
+        for ga in ground_atoms:
+            totals[ga.predicate] += 1
         ground_atoms_traj.append(ground_atoms)
-    # Check that numbers of groundatoms are as expected
     lengths = [len(elt) for elt in ground_atoms_traj]
+    # Check that numbers of groundatoms are as expected
     _, traj = teacher_dataset[0]
+    labeleds = {p: 0 for p in env.predicates}
+    for ground_atom_set in traj:
+        for ga in ground_atom_set:
+            labeleds[ga.predicate] += 1
     teacher_lengths = [len(elt) for elt in traj]
     assert len(lengths) == len(teacher_lengths)
+    # Check overall ratio
     ratio = CFG.teacher_dataset_label_ratio
     for i in range(len(lengths)):
-        assert teacher_lengths[i] == int(ratio * lengths[i])
+        assert np.allclose(ratio, teacher_lengths[i] / lengths[i])
+    # Check ratios for each predicate
+    for p in env.predicates:
+        assert np.allclose(ratio, labeleds[p] / totals[p])
 
 
 def test_interactive_learning_approach():
