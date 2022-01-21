@@ -68,9 +68,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Sample initial state from train tasks
             index = self._rng.choice(demo_idxs)
             state = self._dataset[index].states[0]
+            # Detect and filter out static predicates
+            static_preds = utils.get_static_preds(
+                self._nsrts, self._get_current_predicates())
+            preds = self._get_current_predicates() - static_preds
             # Find policy for exploration
-            task_list = glib_sample(state, self._get_current_predicates(),
-                                    self._dataset_with_atoms)
+            task_list = glib_sample(state, preds, self._dataset_with_atoms)
             assert task_list
             task = task_list[0]
             for task in task_list:
@@ -200,20 +203,24 @@ def create_teacher_dataset(preds: Collection[Predicate],
                            dataset: Dataset) -> List[GroundAtomTrajectory]:
     """Create sparse dataset of GroundAtoms for interactive learning."""
     ratio = float(CFG.teacher_dataset_label_ratio)
-    rng = np.random.default_rng(CFG.seed)
+    # Track running ratios of atoms that the teacher has commented on
+    labeleds = {p: 0 for p in preds}
+    totals = {p: 0 for p in preds}
     teacher_dataset: List[GroundAtomTrajectory] = []
     for traj in dataset:
         ground_atoms_traj: List[Set[GroundAtom]] = []
         for s in traj.states:
             ground_atoms = sorted(utils.abstract(s, preds))
-            # select random subset to keep
-            n_samples = int(len(ground_atoms) * ratio)
             subset_atoms = set()
-            if n_samples > 0:
-                subset = rng.choice(np.arange(len(ground_atoms)),
-                                    size=(n_samples, ),
-                                    replace=False)
-                subset_atoms = {ground_atoms[j] for j in subset}
+            if ratio > 0:
+                for ga in ground_atoms:
+                    pred = ga.predicate
+                    if (totals[pred] == 0
+                            or labeleds[pred] / totals[pred] <= ratio):
+                        # Teacher comments on this atom
+                        subset_atoms.add(ga)
+                        labeleds[pred] += 1
+                    totals[pred] += 1
             ground_atoms_traj.append(subset_atoms)
         assert len(traj.states) == len(ground_atoms_traj)
         teacher_dataset.append((traj, ground_atoms_traj))
