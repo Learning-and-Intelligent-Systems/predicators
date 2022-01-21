@@ -30,6 +30,19 @@ from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
 
+def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
+    """Given a sequence of actions with options included, get the number of
+    options that are encountered."""
+    num_options = 0
+    last_option = None
+    for action in actions:
+        current_option = action.get_option()
+        if not current_option is last_option:
+            last_option = current_option
+            num_options += 1
+    return num_options
+
+
 def get_aabb_volume(lo: Array, hi: Array) -> float:
     """Simple utility function to compute the volume of an aabb.
 
@@ -830,23 +843,40 @@ def extract_preds_and_types(
     return preds, types
 
 
-def get_static_preds_atoms(
-        ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
-        atoms: Collection[GroundAtom]
-) -> Tuple[Set[Predicate], Set[GroundAtom]]:
-    """Get predicates and atoms that are static with respect to the
-    operators."""
+def get_static_preds(ops: Collection[NSRTOrSTRIPSOperator],
+                     predicates: Collection[Predicate]) -> Set[Predicate]:
+    """Get the subset of predicates from the given set that are static with
+    respect to the given lifted operators."""
     static_preds = set()
-    for pred in {atom.predicate for atom in atoms}:
+    for pred in predicates:
         # This predicate is not static if it appears in any op's effects.
         if any(
                 any(atom.predicate == pred for atom in op.add_effects) or any(
                     atom.predicate == pred for atom in op.delete_effects)
-                for op in ground_ops):
+                for op in ops):
             continue
         static_preds.add(pred)
-    static_atoms = {atom for atom in atoms if atom.predicate in static_preds}
-    return static_preds, static_atoms
+    return static_preds
+
+
+def get_static_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
+                     atoms: Collection[GroundAtom]) -> Set[GroundAtom]:
+    """Get the subset of atoms from the given set that are static with respect
+    to the given ground operators.
+
+    Note that this can include MORE than simply the set of atoms whose
+    predicates are static, because now we have ground operators.
+    """
+    static_atoms = set()
+    for atom in atoms:
+        # This atom is not static if it appears in any op's effects.
+        if any(
+                any(atom == eff for eff in op.add_effects) or any(
+                    atom == eff for eff in op.delete_effects)
+                for op in ground_ops):
+            continue
+        static_atoms.add(atom)
+    return static_atoms
 
 
 def get_reachable_atoms(ground_ops: Collection[GroundNSRTOrSTRIPSOperator],
@@ -970,7 +1000,7 @@ def _create_pyperplan_heuristic(
     """Create a pyperplan heuristic that inherits from
     _TaskPlanningHeuristic."""
     assert heuristic_name in _PYPERPLAN_HEURISTICS
-    _, static_atoms = get_static_preds_atoms(ground_ops, init_atoms)
+    static_atoms = get_static_atoms(ground_ops, init_atoms)
     pyperplan_heuristic_cls = _PYPERPLAN_HEURISTICS[heuristic_name]
     pyperplan_task = _create_pyperplan_task(init_atoms, goal, ground_ops,
                                             predicates, objects, static_atoms)
