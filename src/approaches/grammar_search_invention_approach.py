@@ -231,7 +231,7 @@ class _PredicateGrammar:
 
 _DEBUG_PREDICATE_STRS = [
     "NOT-((0:robot).fingers<=0.5)",  # GripperOpen
-    "((0:obj).pose_y<=-0.291)",  # OnTable
+    "((0:obj).pose_y<=-0.309)",  # OnTable
     "NOT-((0:robot).gripper_rot<=0.5)",  # HoldingTop
     "((0:robot).gripper_rot<=0.25)",  # HoldingSide
     "NOT-((0:obj).held<=0.5)",  # Holding

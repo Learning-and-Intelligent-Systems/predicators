@@ -180,7 +180,7 @@ class GlobalSettings:
                 # Use both demonstrations and random replays by default.
                 # To make sure that all replays are not optimal, use
                 # demo+nonoptimalreplay.
-                lambda: "demo+replay",
+                lambda: "demo+nonoptimalreplay",
                 {
                     # No replays for active learning project.
                     "interactive_learning": "demo",
