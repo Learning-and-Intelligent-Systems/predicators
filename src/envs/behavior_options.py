@@ -98,12 +98,10 @@ def reset_and_release_hand(env: "BehaviorEnv") -> None:
         p.stepSimulation()
 
 
-def get_delta_low_level_base_action(
-    robot_z: float,
-    original_orientation: Tuple,
-    old_xytheta: Array,
-    new_xytheta: Array,
-) -> Array:
+def get_delta_low_level_base_action(robot_z: float,
+                                    original_orientation: Tuple,
+                                    old_xytheta: Array, new_xytheta: Array,
+                                    action_space_shape: Tuple) -> Array:
     """Given a base movement plan that is a series of waypoints in world-frame
     position space, convert pairs of these points to a base movement action in
     velocity space.
@@ -112,7 +110,7 @@ def get_delta_low_level_base_action(
     velocity action space used by BEHAVIOR is not defined in the world
     frame, but rather in the frame of the previous position.
     """
-    ret_action = np.zeros(17, dtype=np.float32)
+    ret_action = np.zeros(action_space_shape, dtype=np.float32)
 
     # First, get the old and new position and orientation in the world
     # frame as numpy arrays
@@ -199,22 +197,23 @@ def create_navigate_policy(
             if len(plan) <= 1:
                 done_bit = True
                 print("PRIMITIVE: navigation policy completed execution!")
-                return np.zeros(17, dtype=np.float32), done_bit
+                return np.zeros(env.action_space.shape,
+                                dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
                 tuple(original_orientation[0:2]),
-                np.array(current_pos + [current_orn]),
-                np.array(plan[0]),
-            )
+                np.array(current_pos + [current_orn]), np.array(plan[0]),
+                env.action_space.shape)
 
             # But if the corrective action is 0
-            if np.allclose(low_level_action, np.zeros((17, 1)), atol=atol_vel):
+            if np.allclose(low_level_action,
+                           np.zeros((env.action_space.shape[0], 1)),
+                           atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
                     env.robots[0].get_position()[2],
                     tuple(original_orientation[0:2]),
-                    np.array(current_pos + [current_orn]),
-                    np.array(plan[1]),
-                )
+                    np.array(current_pos + [current_orn]), np.array(plan[1]),
+                    env.action_space.shape)
                 plan.pop(0)
 
             return low_level_action, False
@@ -222,17 +221,15 @@ def create_navigate_policy(
         if (len(plan) == 1
             ):  # In this case, we're at the final position we wanted
             # to reach
-            low_level_action = np.zeros(17, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
             print("PRIMITIVE: navigation policy completed execution!")
 
         else:
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                tuple(original_orientation[0:2]),
-                np.array(plan[0]),
-                np.array(plan[1]),
-            )
+                tuple(original_orientation[0:2]), np.array(plan[0]),
+                np.array(plan[1]), env.action_space.shape)
             done_bit = False
 
         plan.pop(0)
@@ -484,7 +481,7 @@ def create_grasp_policy(
         elif (plan_executed_forwards and not tried_closing_gripper):
             # Close the gripper to see if you've gotten the
             # object
-            ret_action = np.zeros(17, dtype=float)
+            ret_action = np.zeros(env.action_space.shape, dtype=float)
             ret_action[16] = 1.0
             tried_closing_gripper = True
 
@@ -561,7 +558,7 @@ def create_grasp_option_model(
                 # if the corrective action is 0, move on
                 if np.allclose(
                         low_level_action,
-                        np.zeros((17, 1)),
+                        np.zeros((env.action_space.shape[0], 1)),
                         atol=atol_vel,
                 ):
                     low_level_action = get_delta_low_level_hand_action(
@@ -580,7 +577,7 @@ def create_grasp_option_model(
             ec_loop_counter += 1
 
         # 3. Close hand and simulate grasp
-        a = np.zeros(17, dtype=float)
+        a = np.zeros(env.action_space.shape, dtype=float)
         a[16] = 1.0
         assisted_grasp_action = np.zeros(28, dtype=float)
         assisted_grasp_action[26] = 1.0
@@ -933,7 +930,8 @@ def create_place_policy(
                 if len(plan) <= 1:
                     done_bit = False
                     plan_executed_forwards = True
-                    low_level_action = np.zeros(17, dtype=np.float32)
+                    low_level_action = np.zeros(env.action_space.shape,
+                                                dtype=np.float32)
                     return low_level_action, done_bit
 
                 low_level_action = (get_delta_low_level_hand_action(
@@ -947,7 +945,7 @@ def create_place_policy(
                 # But if the corrective action is 0
                 if np.allclose(
                         low_level_action,
-                        np.zeros(env.action_space.shape),
+                        np.zeros((env.action_space.shape[0], 1)),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -962,7 +960,8 @@ def create_place_policy(
                 return low_level_action, False
 
             if len(plan) <= 1:  # In this case, we're at the final position
-                low_level_action = np.zeros(17, dtype=float)
+                low_level_action = np.zeros(env.action_space.shape,
+                                            dtype=float)
                 done_bit = False
                 plan_executed_forwards = True
 
@@ -987,7 +986,7 @@ def create_place_policy(
         elif (plan_executed_forwards and not tried_opening_gripper):
             # Open the gripper to see if you've gotten the
             # object
-            low_level_action = np.zeros(17, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
             low_level_action[16] = -1.0
             tried_opening_gripper = True
             return low_level_action, False
@@ -1003,7 +1002,8 @@ def create_place_policy(
                 if len(plan) <= 1:
                     done_bit = True
                     print("PRIMITIVE: place policy completed execution!")
-                    return np.zeros(17, dtype=np.float32), done_bit
+                    return np.zeros(env.action_space.shape,
+                                    dtype=np.float32), done_bit
                 low_level_action = (get_delta_low_level_hand_action(
                     env,
                     np.array(current_pos),
@@ -1015,7 +1015,7 @@ def create_place_policy(
                 # But if the corrective action is 0
                 if np.allclose(
                         low_level_action,
-                        np.zeros((17, 1)),
+                        np.zeros((env.action_space.shape, 1)),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -1030,7 +1030,7 @@ def create_place_policy(
                 return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
-            low_level_action = np.zeros(17, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
             print("PRIMITIVE: place policy completed execution!")
 
