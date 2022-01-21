@@ -73,7 +73,7 @@ class GlobalSettings:
     video_fps = 2
 
     # dataset parameters
-    offline_data_planning_timeout = 500  # for learning-based approaches, the
+    offline_data_planning_timeout = 3  # for learning-based approaches, the
     # data collection timeout for planning
 
     # teacher dataset parameters
@@ -178,6 +178,8 @@ class GlobalSettings:
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
                 # Use both demonstrations and random replays by default.
+                # To make sure that all replays are not optimal, use
+                # demo+nonoptimalreplay.
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
