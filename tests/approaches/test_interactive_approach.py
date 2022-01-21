@@ -58,7 +58,7 @@ def test_create_teacher_dataset():
     # Check overall ratio
     ratio = CFG.teacher_dataset_label_ratio
     for i in range(len(lengths)):
-        assert np.allclose (ratio, teacher_lengths[i] / lengths[i])
+        assert np.allclose(ratio, teacher_lengths[i] / lengths[i])
     # Check ratios for each predicate
     for p in env.predicates:
         assert np.allclose(ratio, labeleds[p] / totals[p])
