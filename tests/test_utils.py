@@ -17,8 +17,30 @@ from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper
 
 
+def test_num_options_in_action_sequence():
+    """Tests for num_options_in_action_sequence()."""
+    assert utils.num_options_in_action_sequence([]) == 0
+    actions = [Action(np.array([0])) for _ in range(3)]
+    with pytest.raises(AssertionError):
+        # Actions must contain options for this method to be used.
+        utils.num_options_in_action_sequence(actions)
+    parameterized_option = ParameterizedOption("Move", [], Box(0, 1, (1, )),
+                                               None, None, None)
+    option1 = parameterized_option.ground([], [0.1])
+    option2 = parameterized_option.ground([], [0.2])
+    option3 = parameterized_option.ground([], [0.3])
+    for options, expected_num in (([option1, option1,
+                                    option1], 1), ([option1, option2,
+                                                    option2], 2),
+                                  ([option1, option2,
+                                    option1], 3), ([option1, option2,
+                                                    option3], 3)):
+        actions = [Action(np.array([0]), options[i]) for i in range(3)]
+        assert utils.num_options_in_action_sequence(actions) == expected_num
+
+
 def test_aabb_volume():
-    """Tests for get_aabb_volume."""
+    """Tests for get_aabb_volume()."""
     lo = np.array([1.0, 1.5, -1.0])
     hi = np.array([2.0, 2.5, 0.0])
     # Test zero volume calculation
@@ -34,7 +56,7 @@ def test_aabb_volume():
 
 
 def test_aabb_closest_point():
-    """Tests for get_closest_point_on_aabb."""
+    """Tests for get_closest_point_on_aabb()."""
     # Test ordinary usage
     xyz = [1.5, 3.0, -2.5]
     lo = np.array([1.0, 1.5, -1.0])
@@ -99,6 +121,49 @@ def test_overlap():
     l1, r1 = (1, 4), (6, 1)
     l2, r2 = (2, 7), (5, 5)
     assert not utils.overlap(l1, r1, l2, r2)
+
+
+def test_get_static_preds():
+    """Tests for get_static_preds()."""
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    static_preds = utils.get_static_preds(nsrts, env.predicates)
+    assert {pred.name for pred in static_preds} == {"IsTarget", "IsBlock"}
+
+
+def test_get_static_atoms():
+    """Tests for get_static_atoms()."""
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    task = next(env.train_tasks_generator())[0]
+    objects = set(task.init)
+    ground_nsrts = set()
+    for nsrt in nsrts:
+        ground_nsrts |= set(utils.all_ground_nsrts(nsrt, objects))
+    atoms = utils.abstract(task.init, env.predicates) | task.goal
+    num_blocks = sum(1 for obj in objects if obj.type.name == "block")
+    num_targets = sum(1 for obj in objects if obj.type.name == "target")
+    assert len(atoms) > num_blocks + num_targets
+    static_atoms = utils.get_static_atoms(ground_nsrts, atoms)
+    # IsBlock for every block, IsTarget for every target
+    assert len(static_atoms) == num_blocks + num_targets
+    # Now remove the ground NSRT for covering target0 with block0.
+    nsrts_to_remove = {
+        nsrt
+        for nsrt in ground_nsrts if nsrt.name == "Place"
+        and [obj.name for obj in nsrt.objects] == ["block0", "target0"]
+    }
+    assert len(nsrts_to_remove) == 1
+    ground_nsrts.remove(nsrts_to_remove.pop())
+    # This removal should make Covers(block0, target0) be static.
+    new_static_atoms = utils.get_static_atoms(ground_nsrts, atoms)
+    assert len(new_static_atoms) == len(static_atoms) + 1
+    assert not static_atoms - new_static_atoms  # nothing should be deleted
+    added_atom = (new_static_atoms - static_atoms).pop()
+    assert added_atom.predicate.name == "Covers"
+    assert [obj.name for obj in added_atom.objects] == ["block0", "target0"]
 
 
 def test_run_policy_until():
@@ -201,6 +266,20 @@ def test_option_to_trajectory():
                                       option,
                                       max_num_steps=100)
     assert len(traj.actions) == len(traj.states) - 1 == 1
+
+    # Test that option terminates early if it's stuck after the first time step.
+    def _simulator(s, a):
+        del a  # unused
+        ns = s.copy()
+        if s[cup][0] == 0.5:
+            ns[cup][0] = 0.0
+        return ns
+
+    traj = utils.option_to_trajectory(state,
+                                      _simulator,
+                                      option,
+                                      max_num_steps=100)
+    assert len(traj.actions) == len(traj.states) - 1 == 2
 
 
 def test_option_plan_to_policy():
