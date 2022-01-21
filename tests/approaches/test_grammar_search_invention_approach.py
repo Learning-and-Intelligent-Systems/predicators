@@ -395,9 +395,10 @@ def test_relaxation_energy_score_function():
     class _MockEnergy(_RelaxationHeuristicEnergyBasedScoreFunction):
         """Mock class."""
 
-        def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
+        def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
-                self._atom_dataset, predicates | self._initial_predicates)
+                self._atom_dataset,
+                candidate_predicates | self._initial_predicates)
             segments = [
                 seg for traj in pruned_atom_data
                 for seg in segment_trajectory(traj)
@@ -405,9 +406,9 @@ def test_relaxation_energy_score_function():
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
-            return self._evaluate_with_operators(predicates, pruned_atom_data,
-                                                 segments, strips_ops,
-                                                 option_specs)
+            return self._evaluate_with_operators(
+                candidate_predicates, pruned_atom_data, segments,
+                strips_ops, option_specs)
 
     candidates = {p: 1.0 for p in name_to_pred.values()}
     for heuristic_name in ["hadd", "hmax", "hff", "hsa", "lmcut"]:
@@ -505,9 +506,10 @@ def test_relaxation_energy_score_function():
     class _MockHAddEnergy(_RelaxationHeuristicEnergyBasedScoreFunction):
         """Mock class."""
 
-        def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
+        def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
             pruned_atom_data = utils.prune_ground_atom_dataset(
-                self._atom_dataset, predicates | self._initial_predicates)
+                self._atom_dataset,
+                candidate_predicates | self._initial_predicates)
             segments = [
                 seg for traj in pruned_atom_data
                 for seg in segment_trajectory(traj)
@@ -515,9 +517,9 @@ def test_relaxation_energy_score_function():
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
-            return self._evaluate_with_operators(predicates, pruned_atom_data,
-                                                 segments, strips_ops,
-                                                 option_specs)
+            return self._evaluate_with_operators(
+                candidate_predicates, pruned_atom_data, segments,
+                strips_ops, option_specs)
 
         def _evaluate_atom_trajectory(self,
                                       atoms_sequence: List[Set[GroundAtom]],
