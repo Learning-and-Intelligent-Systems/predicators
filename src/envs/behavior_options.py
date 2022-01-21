@@ -98,12 +98,10 @@ def reset_and_release_hand(env: "BehaviorEnv") -> None:
         p.stepSimulation()
 
 
-def get_delta_low_level_base_action(
-    robot_z: float,
-    original_orientation: Tuple,
-    old_xytheta: Array,
-    new_xytheta: Array,
-) -> Array:
+def get_delta_low_level_base_action(robot_z: float,
+                                    original_orientation: Tuple,
+                                    old_xytheta: Array, new_xytheta: Array,
+                                    action_space_shape: Tuple) -> Array:
     """Given a base movement plan that is a series of waypoints in world-frame
     position space, convert pairs of these points to a base movement action in
     velocity space.
@@ -112,7 +110,7 @@ def get_delta_low_level_base_action(
     velocity action space used by BEHAVIOR is not defined in the world
     frame, but rather in the frame of the previous position.
     """
-    ret_action = np.zeros(17, dtype=np.float32)
+    ret_action = np.zeros(action_space_shape, dtype=np.float32)
 
     # First, get the old and new position and orientation in the world
     # frame as numpy arrays
@@ -150,14 +148,8 @@ def navigate_to_param_sampler(rng: Generator,
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
-    closeness_limit: float = max(
-        [
-            1.5,
-            np.linalg.norm(np.array(\
-                obj_to_sample_near.bounding_box[:2])) + 0.5,  # type: ignore
-        ]
-    )
-    distance = (closeness_limit - 0.01) * rng.random() + 0.03
+    closeness_limit = 1.25
+    distance = closeness_limit * rng.random()
     yaw = rng.random() * (2 * np.pi) - np.pi
     x = distance * np.cos(yaw)
     y = distance * np.sin(yaw)
@@ -168,7 +160,7 @@ def navigate_to_param_sampler(rng: Generator,
     # tries to move there.
     while (abs(x) <= obj_to_sample_near.bounding_box[0]
            and abs(y) <= obj_to_sample_near.bounding_box[1]):
-        distance = (closeness_limit - 0.01) * rng.random() + 0.03
+        distance = closeness_limit * rng.random()
         yaw = rng.random() * (2 * np.pi) - np.pi
         x = distance * np.cos(yaw)
         y = distance * np.sin(yaw)
@@ -205,22 +197,23 @@ def create_navigate_policy(
             if len(plan) <= 1:
                 done_bit = True
                 print("PRIMITIVE: navigation policy completed execution!")
-                return np.zeros(17, dtype=np.float32), done_bit
+                return np.zeros(env.action_space.shape,
+                                dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
                 tuple(original_orientation[0:2]),
-                np.array(current_pos + [current_orn]),
-                np.array(plan[0]),
-            )
+                np.array(current_pos + [current_orn]), np.array(plan[0]),
+                env.action_space.shape)
 
             # But if the corrective action is 0
-            if np.allclose(low_level_action, np.zeros((17, 1)), atol=atol_vel):
+            if np.allclose(low_level_action,
+                           np.zeros((env.action_space.shape[0], 1)),
+                           atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
                     env.robots[0].get_position()[2],
                     tuple(original_orientation[0:2]),
-                    np.array(current_pos + [current_orn]),
-                    np.array(plan[1]),
-                )
+                    np.array(current_pos + [current_orn]), np.array(plan[1]),
+                    env.action_space.shape)
                 plan.pop(0)
 
             return low_level_action, False
@@ -228,17 +221,15 @@ def create_navigate_policy(
         if (len(plan) == 1
             ):  # In this case, we're at the final position we wanted
             # to reach
-            low_level_action = np.zeros(17, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
             print("PRIMITIVE: navigation policy completed execution!")
 
         else:
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                tuple(original_orientation[0:2]),
-                np.array(plan[0]),
-                np.array(plan[1]),
-            )
+                tuple(original_orientation[0:2]), np.array(plan[0]),
+                np.array(plan[1]), env.action_space.shape)
             done_bit = False
 
         plan.pop(0)
@@ -249,7 +240,8 @@ def create_navigate_policy(
 
 
 def create_navigate_option_model(
-    plan: List[List[float]], _original_orientation: List[List[float]]
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        _obj_to_nav_to: "URDFObject"
 ) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
     plan, which is a list of 3-element lists each containing a series of (x, y,
@@ -264,7 +256,7 @@ def create_navigate_option_model(
         env.robots[0].set_position_orientation(target_pos, target_orn)
         # this is running a zero action to step simulator so
         # the environment updates to the correct final position
-        env.step(np.zeros(17))
+        env.step(np.zeros(env.action_space.shape))
 
     return navigateToOptionModel
 
@@ -339,7 +331,7 @@ def navigate_to_obj_pos(
         valid_position = (pos, orn)
 
     if valid_position is None:
-        print("Position commanded is in collision or blocked!")
+        print("WARNING: Position commanded is in collision or blocked!")
         p.restoreState(state)
         p.removeState(state)
         print(
@@ -489,7 +481,7 @@ def create_grasp_policy(
         elif (plan_executed_forwards and not tried_closing_gripper):
             # Close the gripper to see if you've gotten the
             # object
-            ret_action = np.zeros(17, dtype=float)
+            ret_action = np.zeros(env.action_space.shape, dtype=float)
             ret_action[16] = 1.0
             tried_closing_gripper = True
 
@@ -514,49 +506,103 @@ def create_grasp_policy(
 
 
 def create_grasp_option_model(
-    plan: List[List[float]], _original_orientation: List[List[float]]
-) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        obj_to_grasp: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
 
-    # NOTE: -25 because there are 25 timesteps that we move along the vector
+    # NOTE: -26 because there are 25 timesteps that we move along the vector
     # between the hand the object for until finally grasping
-    rh_final_grasp_postion = plan[-25][0:3]
-    rh_final_grasp_orn = plan[-25][3:6]
+    hand_i = -26
+    rh_final_grasp_postion = plan[hand_i][0:3]
+    rh_final_grasp_orn = plan[hand_i][3:6]
 
     def graspObjectOptionModel(_state: State, env: "BehaviorEnv") -> None:
+        nonlocal hand_i
         rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
         )
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
 
-        # 1 Move Hand to Grasp Location
+        # 1 Teleport Hand to Grasp offset location
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_final_grasp_postion,
             p.getQuaternionFromEuler(rh_final_grasp_orn))
 
-        for i in range(25):
-            ret_action = get_delta_low_level_hand_action(
-                env, plan[i - 26][0:3], plan[i - 26][3:6], plan[i - 25][0:3],
-                plan[i - 25][3:6])
-            env.step(ret_action)
+        # 2. Slowly move hand to the surface of the object to be grasped.
+        # We can't simply teleport here since this might be slightly
+        # inside the object!
+        # Use an error-correcting closed-loop!
+        atol_xyz = 1e-4
+        atol_vel = 5e-3
 
-        # 2 Simulate Grasp
-        a = np.zeros(17, dtype=float)
+        # Error-correcting closed loop.
+        ec_loop_counter = 0
+        while hand_i < 0 and ec_loop_counter < 60:
+            current_pos = list(
+                env.robots[0].parts["right_hand"].get_position())
+            current_orn = list(
+                p.getEulerFromQuaternion(
+                    env.robots[0].parts["right_hand"].get_orientation()))
+            expected_pos = np.array(plan[hand_i][0:3])
+            # If we're not where we expect in the plan, take some corrective
+            # action
+            if not np.allclose(current_pos, expected_pos, atol=atol_xyz):
+                low_level_action = get_delta_low_level_hand_action(
+                    env,
+                    np.array(current_pos),
+                    np.array(current_orn),
+                    np.array(plan[hand_i][0:3]),
+                    np.array(plan[hand_i][3:]),
+                )
+                # if the corrective action is 0, move on
+                if np.allclose(
+                        low_level_action,
+                        np.zeros((env.action_space.shape[0], 1)),
+                        atol=atol_vel,
+                ):
+                    low_level_action = get_delta_low_level_hand_action(
+                        env,
+                        np.array(current_pos),
+                        np.array(current_orn),
+                        np.array(plan[hand_i + 1][0:3]),
+                        np.array(plan[hand_i + 1][3:]),
+                    )
+                    hand_i += 1
+                env.step(low_level_action)
+            # Else, move the hand_i pointer to make the expected position
+            # the next position in the plan.
+            else:
+                hand_i += 1
+            ec_loop_counter += 1
+
+        # 3. Close hand and simulate grasp
+        a = np.zeros(env.action_space.shape, dtype=float)
         a[16] = 1.0
         assisted_grasp_action = np.zeros(28, dtype=float)
         assisted_grasp_action[26] = 1.0
+        if isinstance(obj_to_grasp.body_id, List):
+            grasp_obj_body_id = obj_to_grasp.body_id[0]
+        else:
+            grasp_obj_body_id = obj_to_grasp.body_id
+        # 3.1 Call code that does assisted grasping
         env.robots[0].parts["right_hand"].handle_assisted_grasping(
-            assisted_grasp_action,
-            override_ag_data=(env.task_relevant_objects[5].body_id[0], -1))
-        env.step(a)
+            assisted_grasp_action, override_ag_data=(grasp_obj_body_id, -1))
+        # 3.2 step the environment a few timesteps to complete grasp
+        for _ in range(5):
+            env.step(a)
 
-        # 3 Move Hand to Original Location
+        # 4 Move Hand to Original Location
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_postion, rh_orig_grasp_orn)
-
-        # this is running a zero action to step simulator
-        env.step(np.zeros(17))
+        if env.robots[0].parts["right_hand"].object_in_hand is not None:
+            # NOTE: This below line is necessary to update the visualizer.
+            # Also, it only works for URDF objects (but if the object is
+            # not a URDF object, grasping should have failed)
+            obj_to_grasp.force_wakeup()
+        # Step a zero-action in the environment to update the visuals of the
+        # environment.
+        env.step(np.zeros(env.action_space.shape))
 
     return graspObjectOptionModel
 
@@ -602,7 +648,7 @@ def grasp_obj_at_pos(
 
     # If the object is too big to be grasped, or bolted to its surface,
     # fail and return None
-    if (volume < 0.3 * 0.3 * 0.3 and
+    if not (volume < 0.3 * 0.3 * 0.3 and
             not obj.main_body_is_fixed):  # say we can only grasp small objects
         print(f"PRIMITIVE: grasp {obj.name} fail, too big or fixed")
         return None
@@ -610,7 +656,7 @@ def grasp_obj_at_pos(
     # If the object is too far away, fail and return None
     if (np.linalg.norm(  # type: ignore
             np.array(obj.get_position()) -
-            np.array(env.robots[0].get_position())) < 2):
+            np.array(env.robots[0].get_position())) > 2):
         print(f"PRIMITIVE: grasp {obj.name} fail, too far")
         return None
 
@@ -884,7 +930,8 @@ def create_place_policy(
                 if len(plan) <= 1:
                     done_bit = False
                     plan_executed_forwards = True
-                    low_level_action = np.zeros(17, dtype=np.float32)
+                    low_level_action = np.zeros(env.action_space.shape,
+                                                dtype=np.float32)
                     return low_level_action, done_bit
 
                 low_level_action = (get_delta_low_level_hand_action(
@@ -898,7 +945,7 @@ def create_place_policy(
                 # But if the corrective action is 0
                 if np.allclose(
                         low_level_action,
-                        np.zeros((17, 1)),
+                        np.zeros((env.action_space.shape[0], 1)),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -913,7 +960,8 @@ def create_place_policy(
                 return low_level_action, False
 
             if len(plan) <= 1:  # In this case, we're at the final position
-                low_level_action = np.zeros(17, dtype=float)
+                low_level_action = np.zeros(env.action_space.shape,
+                                            dtype=float)
                 done_bit = False
                 plan_executed_forwards = True
 
@@ -938,7 +986,7 @@ def create_place_policy(
         elif (plan_executed_forwards and not tried_opening_gripper):
             # Open the gripper to see if you've gotten the
             # object
-            low_level_action = np.zeros(17, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
             low_level_action[16] = -1.0
             tried_opening_gripper = True
             return low_level_action, False
@@ -954,7 +1002,8 @@ def create_place_policy(
                 if len(plan) <= 1:
                     done_bit = True
                     print("PRIMITIVE: place policy completed execution!")
-                    return np.zeros(17, dtype=np.float32), done_bit
+                    return np.zeros(env.action_space.shape,
+                                    dtype=np.float32), done_bit
                 low_level_action = (get_delta_low_level_hand_action(
                     env,
                     np.array(current_pos),
@@ -966,7 +1015,7 @@ def create_place_policy(
                 # But if the corrective action is 0
                 if np.allclose(
                         low_level_action,
-                        np.zeros((17, 1)),
+                        np.zeros((env.action_space.shape, 1)),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -981,7 +1030,7 @@ def create_place_policy(
                 return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
-            low_level_action = np.zeros(17, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
             print("PRIMITIVE: place policy completed execution!")
 
@@ -1007,14 +1056,15 @@ def create_place_policy(
 
 
 def create_place_option_model(
-    plan: List[List[float]], _original_orientation: List[List[float]]
-) -> Callable[[State, "BehaviorEnv"], None]:
+        plan: List[List[float]], _original_orientation: List[List[float]],
+        obj_to_place: "URDFObject") -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
     plan, which is a list of 6-element lists containing a series of (x, y, z,
     roll, pitch, yaw) waypoints for the hand to pass through."""
 
     def placeOntopObjectOptionModel(_init_state: State,
                                     env: "BehaviorEnv") -> None:
+        released_obj_bid = env.robots[0].parts["right_hand"].object_in_hand
         rh_orig_grasp_postion = env.robots[0].parts["right_hand"].get_position(
         )
         rh_orig_grasp_orn = env.robots[0].parts["right_hand"].get_orientation()
@@ -1023,10 +1073,22 @@ def create_place_option_model(
         env.robots[0].parts["right_hand"].set_position_orientation(
             target_pos, p.getQuaternionFromEuler(target_orn))
         env.robots[0].parts["right_hand"].force_release_obj()
+        obj_to_place.force_wakeup()
         # this is running a zero action to step simulator
-        env.step(np.zeros(17))
+        env.step(np.zeros(env.action_space.shape))
+        # reset the released object to zero velocity so it doesn't
+        # fly away because of residual warp speeds from teleportation!
+        p.resetBaseVelocity(
+            released_obj_bid,
+            linearVelocity=[0, 0, 0],
+            angularVelocity=[0, 0, 0],
+        )
         env.robots[0].parts["right_hand"].set_position_orientation(
             rh_orig_grasp_postion, rh_orig_grasp_orn)
+        # this is running a series of zero action to step simulator
+        # to let the object fall into its place
+        for _ in range(15):
+            env.step(np.zeros(env.action_space.shape))
 
     return placeOntopObjectOptionModel
 
@@ -1049,11 +1111,10 @@ def place_ontop_obj_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
-    print("PRIMITIVE:attempt to place {obj_in_hand.name} ontop {obj.name}" +
-          f"with params {place_rel_pos}")
-
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
+    print(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop {obj.name}" +
+          f" with params {place_rel_pos}")
 
     # if the object in the agent's hand is None or not equal to the object
     # passed in as an argument to this option, fail and return None
