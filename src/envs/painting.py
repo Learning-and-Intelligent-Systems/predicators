@@ -491,8 +491,7 @@ class PaintingEnv(BaseEnv):
                 ],
                                      dtype=np.float32)
                 # last object should go in box
-                # if use_box and j == num_objs - 1:
-                if rng.uniform() < 0.5:
+                if use_box and j == num_objs - 1:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:
