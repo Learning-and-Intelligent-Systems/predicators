@@ -215,8 +215,8 @@ def create_teacher_dataset(preds: Collection[Predicate],
             if ratio > 0:
                 for ga in ground_atoms:
                     pred = ga.predicate
-                    if (totals[pred] == 0 or 
-                        labeleds[pred] / totals[pred] <= ratio):
+                    if (totals[pred] == 0
+                            or labeleds[pred] / totals[pred] <= ratio):
                         # Teacher comments on this atom
                         subset_atoms.add(ga)
                         labeleds[pred] += 1
