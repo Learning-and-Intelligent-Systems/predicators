@@ -505,11 +505,13 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 hw, hh = state.get(held_block, "width"), \
                          state.get(held_block, "height")
 
-        # Ensure neither the gripper does not go below the y-axis.
-        # Currently we allow the block to penetrate the y-axis for simplicity.
-        # We can revisit this later.
+        # Ensure neither the gripper nor the possible held block go below the
+        # y-axis.
         if y + dy < 0 - self.collision_threshold:
             return state.copy()
+        if held_block is not None:
+            if hy - hh + dy < 0 - self.collision_threshold:
+                return state.copy()
 
         # Ensure neither the gripper nor the possible held block collide with
         # another block during the trajectory defined by dx, dy.
@@ -592,6 +594,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             if by_lb <= y <= by_ub:
                 next_state.set(above_block, "grasp", 1)
                 next_state.set(self._robot, "holding", 1)
+                next_state.set(above_block, "y", y)
 
         # If we are holding anything and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed
