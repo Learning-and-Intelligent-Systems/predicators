@@ -58,6 +58,14 @@ class TAMPApproach(BaseApproach):
 
         return _policy
 
+    def reset_metrics(self) -> None:
+        """Reset the metrics dictionary."""
+        super().reset_metrics()
+        # Initialize min to CFG.max_skeletons_optimized (max gets initialized
+        # to 0 by default)
+        self._metrics[
+            "min_num_skeletons_optimized"] = CFG.max_skeletons_optimized
+
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:
         """Get the current set of NSRTs."""
