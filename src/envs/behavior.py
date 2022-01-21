@@ -4,6 +4,7 @@
 import functools
 import itertools
 import os
+from pathlib import Path
 from typing import List, Set, Optional, Dict, Callable, Sequence, \
     Iterator, Union, Tuple
 import numpy as np
@@ -26,6 +27,10 @@ try:
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
+    if not os.path.exists("tmp_behavior_states/"):
+        os.makedirs("tmp_behavior_states/")
+    for file in os.scandir("tmp_behavior_states/"):
+        os.remove(file.path)
 except ModuleNotFoundError as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
@@ -113,7 +118,7 @@ class BehaviorEnv(BaseEnv):
 
     def simulate(self, state: State, action: Action) -> State:
         if not state.allclose(self.current_ig_state_to_state()):
-            self.load_unique_checkpoint_state(state)
+            load_checkpoint_state(state, self.igibson_behavior_env)
 
         a = action.arr
         self.igibson_behavior_env.step(a)
@@ -334,31 +339,9 @@ class BehaviorEnv(BaseEnv):
             ])
             state_data[obj] = obj_state
 
-        def save_unique_checkpoint(sim: "Simulator",
-                                   save_dir: str) -> Tuple[str, str]:
-            unique_id = int(np.random.randint(size=1, low=0, high=10**6))
-            path = save_dir + str(unique_id) + "/"
-            isExist = os.path.exists(path)
-            if not isExist:
-                os.makedirs(path)
-            simulator_state = save_checkpoint(sim, path)
-            return str(simulator_state), str(unique_id)
-
-        simulator_state, unique_id = save_unique_checkpoint(
-            self.igibson_behavior_env.simulator, "tmp_behavior_states/")
-
-        return State(state_data, simulator_state + "+" + unique_id)
-
-    def load_unique_checkpoint_state(self, s: State) -> None:
-        """Sets the underlying iGibson environment to a particular saved
-        state."""
-        assert s.simulator_state is not None
-        load_checkpoint(
-            self.igibson_behavior_env.simulator,
-            "tmp_behavior_states/" + s.simulator_state.split("+")[1] + "/",
-            int(s.simulator_state.split("+")[0]))
-        # We step the environment to update the visuals of where the robot is!
-        self.igibson_behavior_env.step(np.zeros(17))
+        simulator_state = save_checkpoint(self.igibson_behavior_env.simulator,
+                                          "tmp_behavior_states/")
+        return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(
         self,
@@ -372,7 +355,7 @@ class BehaviorEnv(BaseEnv):
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
             if not s.allclose(self.current_ig_state_to_state()):
-                self.load_unique_checkpoint_state(s)
+                load_checkpoint_state(s, self.igibson_behavior_env)
 
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
@@ -398,7 +381,7 @@ class BehaviorEnv(BaseEnv):
     def _reachable_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
         if not state.allclose(self.current_ig_state_to_state()):
-            self.load_unique_checkpoint_state(state)
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -409,7 +392,7 @@ class BehaviorEnv(BaseEnv):
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
         if not state.allclose(self.current_ig_state_to_state()):
-            self.load_unique_checkpoint_state(state)
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 1
         for obj in state:
             if self._reachable_classifier(
@@ -437,7 +420,7 @@ class BehaviorEnv(BaseEnv):
     def _handempty_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
         if not state.allclose(self.current_ig_state_to_state()):
-            self.load_unique_checkpoint_state(state)
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
@@ -445,7 +428,7 @@ class BehaviorEnv(BaseEnv):
     def _holding_classifier(self, state: State,
                             objs: Sequence[Object]) -> bool:
         if not state.allclose(self.current_ig_state_to_state()):
-            self.load_unique_checkpoint_state(state)
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -487,6 +470,14 @@ class BehaviorEnv(BaseEnv):
         return f"{original_name}-{type_names}"
 
 
+def load_checkpoint_state(s: State, env: "behavior_env.BehaviorEnv") -> None:
+    """Sets the underlying iGibson environment to a particular saved state."""
+    assert s.simulator_state is not None
+    load_checkpoint(env.simulator, "tmp_behavior_states/", s.simulator_state)
+    # We step the environment to update the visuals of where the robot is!
+    env.step(np.zeros(17))
+
+
 def make_behavior_option(
         name: str, types: Sequence[Type], params_space: Box,
         env: "behavior_env.BehaviorEnv", planner_fn: Callable[[
@@ -521,12 +512,7 @@ def make_behavior_option(
 
         # Load the checkpoint associated with state.simulator_state
         # to make sure that we run RRT from the intended state.
-        assert state.simulator_state is not None
-        load_checkpoint(
-            env.simulator,
-            "tmp_behavior_states/" + state.simulator_state.split("+")[1] + "/",
-            int(state.simulator_state.split("+")[0]))
-        env.step(np.zeros(17))
+        load_checkpoint_state(state, env)
 
         if memory.get("planner_result") is not None:
             # In this case, an rrt_plan has already been found for this

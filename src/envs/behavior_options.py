@@ -147,7 +147,6 @@ def navigate_to_param_sampler(rng: Generator,
                               objects: Sequence["URDFObject"]) -> Array:
     """Sampler for navigateTo option."""
     assert len(objects) in [2, 3]
-    # rng = np.random.default_rng()
     # The navigation nsrts are designed such that this is true (the target
     # obj is always last in the params list).
     obj_to_sample_near = objects[-1]
@@ -552,26 +551,26 @@ def create_grasp_option_model(
             # If we're not where we expect in the plan, take some corrective
             # action
             if not np.allclose(current_pos, expected_pos, atol=atol_xyz):
-                low_level_action = (get_delta_low_level_hand_action(
+                low_level_action = get_delta_low_level_hand_action(
                     env,
                     np.array(current_pos),
                     np.array(current_orn),
                     np.array(plan[hand_i][0:3]),
                     np.array(plan[hand_i][3:]),
-                ))
+                )
                 # if the corrective action is 0, move on
                 if np.allclose(
                         low_level_action,
                         np.zeros((17, 1)),
                         atol=atol_vel,
                 ):
-                    low_level_action = (get_delta_low_level_hand_action(
+                    low_level_action = get_delta_low_level_hand_action(
                         env,
                         np.array(current_pos),
                         np.array(current_orn),
                         np.array(plan[hand_i + 1][0:3]),
                         np.array(plan[hand_i + 1][3:]),
-                    ))
+                    )
                     hand_i += 1
                 env.step(low_level_action)
             # Else, move the hand_i pointer to make the expected position
