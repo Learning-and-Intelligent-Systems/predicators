@@ -26,8 +26,7 @@ try:
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-    if not os.path.exists("tmp_behavior_states/"):
-        os.makedirs("tmp_behavior_states/")
+    os.makedirs("tmp_behavior_states/", exist_ok=True)
     for file in os.scandir("tmp_behavior_states/"):
         os.remove(file.path)
 except ModuleNotFoundError as e:
@@ -474,7 +473,7 @@ def load_checkpoint_state(s: State, env: "behavior_env.BehaviorEnv") -> None:
     assert s.simulator_state is not None
     load_checkpoint(env.simulator, "tmp_behavior_states/", s.simulator_state)
     # We step the environment to update the visuals of where the robot is!
-    env.step(np.zeros(17))
+    env.step(np.zeros(env.action_space.shape))
 
 
 def make_behavior_option(

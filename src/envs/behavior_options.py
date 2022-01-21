@@ -259,7 +259,7 @@ def create_navigate_option_model(
         env.robots[0].set_position_orientation(target_pos, target_orn)
         # this is running a zero action to step simulator so
         # the environment updates to the correct final position
-        env.step(np.zeros(17))
+        env.step(np.zeros(env.action_space.shape))
 
     return navigateToOptionModel
 
@@ -605,7 +605,7 @@ def create_grasp_option_model(
             obj_to_grasp.force_wakeup()
         # Step a zero-action in the environment to update the visuals of the
         # environment.
-        env.step(np.zeros(17))
+        env.step(np.zeros(env.action_space.shape))
 
     return graspObjectOptionModel
 
@@ -947,7 +947,7 @@ def create_place_policy(
                 # But if the corrective action is 0
                 if np.allclose(
                         low_level_action,
-                        np.zeros((17, 1)),
+                        np.zeros(env.action_space.shape),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -1075,7 +1075,7 @@ def create_place_option_model(
         env.robots[0].parts["right_hand"].force_release_obj()
         obj_to_place.force_wakeup()
         # this is running a zero action to step simulator
-        env.step(np.zeros(17))
+        env.step(np.zeros(env.action_space.shape))
         # reset the released object to zero velocity so it doesn't
         # fly away because of residual warp speeds from teleportation!
         p.resetBaseVelocity(
@@ -1088,7 +1088,7 @@ def create_place_option_model(
         # this is running a series of zero action to step simulator
         # to let the object fall into its place
         for _ in range(15):
-            env.step(np.zeros(17))
+            env.step(np.zeros(env.action_space.shape))
 
     return placeOntopObjectOptionModel
 
