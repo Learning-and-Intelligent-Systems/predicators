@@ -519,17 +519,18 @@ class _PredicateSearchScoreFunction:
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
-    def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
-        """Get the score for the set of predicates.
+    def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
+        """Get the score for the given set of candidate predicates.
 
         Lower is better.
         """
         raise NotImplementedError("Override me!")
 
-    def _get_predicate_penalty(self,
-                               predicates: FrozenSet[Predicate]) -> float:
+    def _get_predicate_penalty(
+            self, candidate_predicates: FrozenSet[Predicate]) -> float:
         """Get a score penalty based on the predicate complexities."""
-        total_pred_cost = sum(self._candidates[p] for p in predicates)
+        total_pred_cost = sum(self._candidates[p]
+                              for p in candidate_predicates)
         return CFG.grammar_search_pred_complexity_weight * total_pred_cost
 
 
@@ -537,13 +538,16 @@ class _PredicateSearchScoreFunction:
 class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     """A score function that learns operators given the set of predicates."""
 
-    def evaluate(self, predicates: FrozenSet[Predicate]) -> float:
-        total_cost = sum(self._candidates[pred] for pred in predicates)
-        print(f"Evaluating predicates: {predicates}, with total cost "
-              f"{total_cost}")
+    def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
+        total_cost = sum(self._candidates[pred]
+                         for pred in candidate_predicates)
+        print(
+            f"Evaluating predicates: {candidate_predicates}, with total cost "
+            f"{total_cost}")
         start_time = time.time()
         pruned_atom_data = utils.prune_ground_atom_dataset(
-            self._atom_dataset, predicates | self._initial_predicates)
+            self._atom_dataset,
+            candidate_predicates | self._initial_predicates)
         segments = [
             seg for traj in pruned_atom_data
             for seg in segment_trajectory(traj)
@@ -551,10 +555,10 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         pnads = learn_strips_operators(segments, verbose=False)
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
-        op_score = self._evaluate_with_operators(predicates, pruned_atom_data,
-                                                 segments, strips_ops,
-                                                 option_specs)
-        pred_penalty = self._get_predicate_penalty(predicates)
+        op_score = self._evaluate_with_operators(candidate_predicates,
+                                                 pruned_atom_data, segments,
+                                                 strips_ops, option_specs)
+        pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
         print(
@@ -563,12 +567,14 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             flush=True)
         return total_score
 
-    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
-        """Use learned operators to compute a score for the predicates."""
+        """Use learned operators to compute a score for the given set of
+        candidate predicates."""
         raise NotImplementedError("Override me!")
 
     @staticmethod
@@ -586,12 +592,13 @@ class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting false
     positives."""
 
-    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
-        del predicates, pruned_atom_data  # unused
+        del candidate_predicates, pruned_atom_data  # unused
         num_true_positives, num_false_positives, _, _ = \
             _count_positives_for_ops(strips_ops, option_specs, segments)
         return CFG.grammar_search_false_pos_weight * num_false_positives + \
@@ -603,12 +610,13 @@ class _BranchingFactorScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and counting the number of
     ground operators that are applicable at each state in the data."""
 
-    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
-        del predicates, pruned_atom_data, option_specs  # unused
+        del candidate_predicates, pruned_atom_data, option_specs  # unused
         total_branching_factor = _count_branching_factor(strips_ops, segments)
         return CFG.grammar_search_bf_weight * total_branching_factor
 
@@ -624,7 +632,8 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
     that could be expanded.
     """
 
-    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
@@ -635,14 +644,16 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
         for traj, _ in self._atom_dataset:
             if not traj.is_demo:
                 continue
-            init_atoms = utils.abstract(traj.states[0],
-                                        predicates | self._initial_predicates)
+            init_atoms = utils.abstract(
+                traj.states[0],
+                candidate_predicates | self._initial_predicates)
             objects = set(traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
                 init_atoms, objects, strips_ops, option_specs)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.task_planning_heuristic, init_atoms, traj.goal,
-                ground_nsrts, predicates | self._initial_predicates, objects)
+                ground_nsrts, candidate_predicates | self._initial_predicates,
+                objects)
             try:
                 _, _, metrics = task_plan(
                     init_atoms, traj.goal, ground_nsrts, reachable_atoms,
@@ -667,7 +678,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     heuristic_names: Sequence[str]
     demos_only: bool = field(default=True)
 
-    def _evaluate_with_operators(self, predicates: FrozenSet[Predicate],
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
                                  segments: List[Segment],
                                  strips_ops: List[STRIPSOperator],
@@ -705,7 +717,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
             for heuristic_name in self.heuristic_names:
                 heuristic_fn = self._generate_heuristic(
                     heuristic_name, init_atoms, objects, goal, strips_ops,
-                    option_specs, ground_ops, predicates)
+                    option_specs, ground_ops, candidate_predicates)
                 scores[heuristic_name] += self._evaluate_atom_trajectory(
                     atoms_sequence, heuristic_fn, ground_ops, demo_atom_sets,
                     traj.is_demo)
@@ -718,7 +730,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
         ground_ops: Set[_GroundSTRIPSOperator],
-        predicates: Collection[Predicate]
+        candidate_predicates: Collection[Predicate]
     ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
@@ -887,7 +899,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
         strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
         ground_ops: Set[_GroundSTRIPSOperator],
-        predicates: Collection[Predicate]
+        candidate_predicates: Collection[Predicate]
     ) -> Callable[[Set[GroundAtom]], float]:
         all_reachable_atoms = utils.get_reachable_atoms(ground_ops, init_atoms)
         reachable_ops = [
@@ -896,7 +908,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
         ]
         h_fn = utils.create_task_planning_heuristic(
             heuristic_name, init_atoms, goal, reachable_ops,
-            set(predicates) | self._initial_predicates, objects)
+            set(candidate_predicates) | self._initial_predicates, objects)
         del init_atoms  # unused after this
         cache: Dict[Tuple[FrozenSet[GroundAtom], int], float] = {}
 
@@ -938,7 +950,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
         strips_ops: Sequence[STRIPSOperator],
         option_specs: Sequence[OptionSpec],
         ground_ops: Set[_GroundSTRIPSOperator],
-        predicates: Collection[Predicate],
+        candidate_predicates: Collection[Predicate],
     ) -> Callable[[Set[GroundAtom]], float]:
         cache: Dict[FrozenSet[GroundAtom], float] = {}
 
@@ -950,7 +962,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
             init_atoms, objects, strips_ops, option_specs)
         heuristic = utils.create_task_planning_heuristic(
             CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
-            set(predicates) | self._initial_predicates, objects)
+            set(candidate_predicates) | self._initial_predicates, objects)
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
             """Run task planning and return the length of the skeleton, or inf
