@@ -4,7 +4,6 @@
 import functools
 import itertools
 import os
-from pathlib import Path
 from typing import List, Set, Optional, Dict, Callable, Sequence, \
     Iterator, Union, Tuple
 import numpy as np
