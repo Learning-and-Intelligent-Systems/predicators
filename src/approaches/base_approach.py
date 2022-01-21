@@ -87,10 +87,6 @@ class BaseApproach:
     def reset_metrics(self) -> None:
         """Reset the metrics dictionary."""
         self._metrics = defaultdict(float)
-        # Initialize min to CFG.max_skeletons_optimized (max gets initialized
-        # to 0 by default)
-        self._metrics[
-            "min_num_skeletons_optimized"] = CFG.max_skeletons_optimized
 
 
 class ApproachTimeout(Exception):
