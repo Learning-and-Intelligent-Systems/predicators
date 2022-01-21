@@ -1115,7 +1115,7 @@ def place_ontop_obj_pos(
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
     print(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop {obj.name}" +
-          f"with params {place_rel_pos}")
+          f" with params {place_rel_pos}")
 
     # if the object in the agent's hand is None or not equal to the object
     # passed in as an argument to this option, fail and return None
