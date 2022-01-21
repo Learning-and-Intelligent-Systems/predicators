@@ -28,10 +28,6 @@ class TAMPApproach(BaseApproach):
         self._option_model = create_option_model(CFG.option_model_name,
                                                  self._simulator)
         self._num_calls = 0
-        # Initialize min to CFG.max_skeletons_optimized (max gets initialized
-        # to 0 by default)
-        self._metrics[
-            "min_num_skeletons_optimized"] = CFG.max_skeletons_optimized
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
