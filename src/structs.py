@@ -582,7 +582,7 @@ class _GroundSTRIPSOperator:
 
     Should not be instantiated externally.
     """
-    operator: STRIPSOperator
+    parent: STRIPSOperator
     objects: Sequence[Object]
     preconditions: Set[GroundAtom]
     add_effects: Set[GroundAtom]
@@ -604,12 +604,12 @@ class _GroundSTRIPSOperator:
     @property
     def name(self) -> str:
         """Name of this ground STRIPSOperator."""
-        return self.operator.name
+        return self.parent.name
 
     @property
     def side_predicates(self) -> Set[Predicate]:
         """Side predicates from the parent."""
-        return self.operator.side_predicates
+        return self.parent.side_predicates
 
     def __str__(self) -> str:
         return self._str
@@ -742,7 +742,7 @@ class _GroundNSRT:
 
     Should not be instantiated externally.
     """
-    nsrt: NSRT
+    parent: NSRT
     objects: Sequence[Object]
     preconditions: Set[GroundAtom]
     add_effects: Set[GroundAtom]
@@ -769,12 +769,12 @@ class _GroundNSRT:
     @property
     def name(self) -> str:
         """Name of this ground NSRT."""
-        return self.nsrt.name
+        return self.parent.name
 
     @property
     def side_predicates(self) -> Set[Predicate]:
         """Side predicates from the parent."""
-        return self.nsrt.side_predicates
+        return self.parent.side_predicates
 
     def __str__(self) -> str:
         return self._str
@@ -812,7 +812,7 @@ class _GroundNSRT:
     def copy_with(self, **kwargs: Any) -> _GroundNSRT:
         """Create a copy of the ground NSRT, optionally while replacing any of
         the arguments."""
-        default_kwargs = dict(nsrt=self.nsrt,
+        default_kwargs = dict(parent=self.parent,
                               objects=self.objects,
                               preconditions=self.preconditions,
                               add_effects=self.add_effects,
