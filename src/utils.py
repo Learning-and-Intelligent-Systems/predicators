@@ -31,9 +31,8 @@ matplotlib.use("Agg")
 
 
 def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
-    """Given a sequence of actions with options included, get the
-    number of options that are encountered.
-    """
+    """Given a sequence of actions with options included, get the number of
+    options that are encountered."""
     num_options = 0
     last_option = None
     for action in actions:

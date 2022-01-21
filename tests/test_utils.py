@@ -29,11 +29,12 @@ def test_num_options_in_action_sequence():
     option1 = parameterized_option.ground([], [0.1])
     option2 = parameterized_option.ground([], [0.2])
     option3 = parameterized_option.ground([], [0.3])
-    for options, expected_num in (
-            ([option1, option1, option1], 1),
-            ([option1, option2, option2], 2),
-            ([option1, option2, option1], 3),
-            ([option1, option2, option3], 3)):
+    for options, expected_num in (([option1, option1,
+                                    option1], 1), ([option1, option2,
+                                                    option2], 2),
+                                  ([option1, option2,
+                                    option1], 3), ([option1, option2,
+                                                    option3], 3)):
         actions = [Action(np.array([0]), options[i]) for i in range(3)]
         assert utils.num_options_in_action_sequence(actions) == expected_num
 
