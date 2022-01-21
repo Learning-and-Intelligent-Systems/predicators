@@ -68,9 +68,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Sample initial state from train tasks
             index = self._rng.choice(demo_idxs)
             state = self._dataset[index].states[0]
+            # Detect and filter out static predicates
+            static_preds = utils.get_static_preds(
+                self._nsrts, self._get_current_predicates())
+            preds = self._get_current_predicates() - static_preds
             # Find policy for exploration
-            task_list = glib_sample(state, self._get_current_predicates(),
-                                    self._dataset_with_atoms)
+            task_list = glib_sample(state, preds, self._dataset_with_atoms)
             assert task_list
             task = task_list[0]
             for task in task_list:
