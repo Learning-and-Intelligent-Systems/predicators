@@ -128,6 +128,7 @@ def _replay_is_optimal(replay_traj: LowLevelTrajectory,
     demo_cost_to_go = utils.num_options_in_action_sequence(demo_traj.actions)
     replay_actions = demo_traj.actions[:state_idx] + continued_traj.actions
     # The +1 is for the replay itself, which consists of one option.
-    replay_cost_to_go = 1 + utils.num_options_in_action_sequence(replay_actions)
+    replay_cost_to_go = 1 + utils.num_options_in_action_sequence(
+        replay_actions)
     assert demo_cost_to_go <= replay_cost_to_go, "Demo was not optimal."
     return demo_cost_to_go == replay_cost_to_go
