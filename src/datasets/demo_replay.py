@@ -1,13 +1,13 @@
 """Create offline datasets by collecting demonstrations and replaying."""
 
-from typing import List, Sequence
+from typing import List
 import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout, create_approach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv, EnvironmentFailure
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
-    LowLevelTrajectory, Action
+    LowLevelTrajectory
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
 from predicators.src import utils
