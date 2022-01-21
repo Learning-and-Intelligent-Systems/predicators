@@ -128,12 +128,12 @@ class GlobalSettings:
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
-    grammar_search_size_weight = 0
+    grammar_search_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "exact_count"
-    grammar_search_heuristic_based_weight = 1.
+    grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 15
     grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_lookahead_based_temperature = 10.
@@ -141,8 +141,8 @@ class GlobalSettings:
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
     grammar_search_off_demo_count_penalty = 1.0
-    grammar_search_on_demo_count_penalty = 100.0
-    grammar_search_suspicious_penalty = 1.0
+    grammar_search_on_demo_count_penalty = 10.0
+    grammar_search_suspicious_penalty = 10.0
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
