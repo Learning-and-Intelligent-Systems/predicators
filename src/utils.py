@@ -30,6 +30,19 @@ from predicators.src.settings import CFG, GlobalSettings
 matplotlib.use("Agg")
 
 
+def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
+    """Given a sequence of actions with options included, get the number of
+    options that are encountered."""
+    num_options = 0
+    last_option = None
+    for action in actions:
+        current_option = action.get_option()
+        if not current_option is last_option:
+            last_option = current_option
+            num_options += 1
+    return num_options
+
+
 def get_aabb_volume(lo: Array, hi: Array) -> float:
     """Simple utility function to compute the volume of an aabb.
 
