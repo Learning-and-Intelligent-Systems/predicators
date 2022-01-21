@@ -410,7 +410,6 @@ class BehaviorEnv(BaseEnv):
                                       objs: Sequence[Object]) -> bool:
         if not state.allclose(self.current_ig_state_to_state()):
             self.load_unique_checkpoint_state(state)
-        assert state.allclose(self.current_ig_state_to_state())
         assert len(objs) == 1
         for obj in state:
             if self._reachable_classifier(
@@ -509,7 +508,6 @@ def make_behavior_option(
                 _params: Array) -> Action:
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
-        assert memory.get("rrt_plan") is not None
         assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
         action_arr, memory["has_terminated"] = memory["policy_controller"](
@@ -552,6 +550,7 @@ def make_behavior_option(
             memory["model_controller"] = option_model_fn(
                 memory["planner_result"][0], memory["planner_result"][1],
                 igo[0])
+            memory["has_terminated"] = False
         return planner_result is not None
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
