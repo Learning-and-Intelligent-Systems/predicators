@@ -177,11 +177,11 @@ def navigate_to_param_sampler(rng: Generator,
 
 
 def create_navigate_policy(
-    plan: List[Tuple[float, float,
-                     float]], original_orientation: Tuple[float, float, float]
+    plan: List[List[float]], original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT
-    plan."""
+    """Instantiates and returns a navigation option policy given an RRT plan,
+    which is a list of 3-element lists each containing a series of (x, y, rot)
+    waypoints for the robot to pass through."""
 
     def navigateToOptionPolicy(_state: State,
                                env: "BehaviorEnv") -> Tuple[Array, bool]:
@@ -208,7 +208,7 @@ def create_navigate_policy(
                 return np.zeros(17, dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                original_orientation[0:2],
+                tuple(original_orientation[0:2]),
                 np.array(current_pos + [current_orn]),
                 np.array(plan[0]),
             )
@@ -217,7 +217,7 @@ def create_navigate_policy(
             if np.allclose(low_level_action, np.zeros((17, 1)), atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
                     env.robots[0].get_position()[2],
-                    original_orientation[0:2],
+                    tuple(original_orientation[0:2]),
                     np.array(current_pos + [current_orn]),
                     np.array(plan[1]),
                 )
@@ -235,7 +235,7 @@ def create_navigate_policy(
         else:
             low_level_action = get_delta_low_level_base_action(
                 env.robots[0].get_position()[2],
-                original_orientation[0:2],
+                tuple(original_orientation[0:2]),
                 np.array(plan[0]),
                 np.array(plan[1]),
             )
@@ -249,10 +249,11 @@ def create_navigate_policy(
 
 
 def create_navigate_option_model(
-    plan: List[Tuple[float, float, float]]
+    plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a navigation option model function given an RRT
-    plan."""
+    plan, which is a list of 3-element lists each containing a series of (x, y,
+    rot) waypoints for the robot to pass through."""
 
     def navigateToOptionModel(_init_state: State, env: "BehaviorEnv") -> None:
         robot_z = env.robots[0].get_position()[2]
@@ -272,28 +273,16 @@ def navigate_to_obj_pos(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     pos_offset: Array,
-    ret_option_model: bool = False,
     rng: Optional[Generator] = None
-) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
-                    Callable[[State, "BehaviorEnv"], None]]]:
-
-    # NOTE: The return type is complicated because depending on
-    # ret_option_model, this function will either return (1) a function
-    # that will output an action and done bit at every timestep, or
-    # (2), a function that doesn't return anything, but that will
-    # automatically set the state of the world to the state that the
-    # function from (1) would have terminated in.
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
     """Parameterized controller for navigation.
 
     Runs motion planning to find a feasible trajectory to a certain x,y
     position offset from obj and selects an orientation such that the
     robot is facing the object. If the navigation is infeasible, returns
-    an indication to this effect (None). Otherwise, if ret_option model
-    is False, returns a function that can be stepped like an option to
-    output actions at each timestep. If ret_option_model is True,
-    returns a function that when called will 'magic' the world into the
-    final state that the corresponding option policy would have
-    achieved.
+    an indication to this effect (None). Otherwise, returns the plan,
+    which is a list of list of robot base poses to move to, as well as
+    the original euler angle orientation of the robot body.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -385,14 +374,10 @@ def navigate_to_obj_pos(
     p.restoreState(state)
     p.removeState(state)
 
-    if not ret_option_model:
-        print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
-              f"continuous params {pos_offset}. Executing now.")
-        return create_navigate_policy(plan, original_orientation)
-
+    plan = [list(waypoint) for waypoint in plan]
     print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
-          f"continuous params {pos_offset}. Returning option model.")
-    return create_navigate_option_model(plan)
+          f"continuous params {pos_offset}.")
+    return plan, original_orientation
 
 
 # Sampler for grasp continuous params
@@ -468,10 +453,11 @@ def get_delta_low_level_hand_action(
 
 
 def create_grasp_policy(
-    plan: List[List[float]]
+    plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT
-    plan."""
+    """Instantiates and returns a navigation option policy given an RRT plan,
+    which is a list of 6-element lists containing a series of (x, y, z, roll,
+    pitch, yaw) waypoints for the hand to pass through."""
     # Setup two booleans to be used as 'memory', as well as
     # a 'reversed' plan to be used for our option that's
     # defined below. Note that the reversed plan makes a
@@ -528,9 +514,11 @@ def create_grasp_policy(
 
 
 def create_grasp_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    plan: List[List[float]], _original_orientation: List[List[float]]
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a grasp option model function given an RRT
-    plan."""
+    plan, which is a list of 6-element lists containing a series of (x, y, z,
+    roll, pitch, yaw) waypoints for the hand to pass through."""
 
     # NOTE: -25 because there are 25 timesteps that we move along the vector
     # between the hand the object for until finally grasping
@@ -577,28 +565,16 @@ def grasp_obj_at_pos(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     grasp_offset: Array,
-    ret_option_model: bool = False,
     rng: Optional[Generator] = None,
-) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
-                    Callable[[State, "BehaviorEnv"], None]]]:
-
-    # NOTE: The return type is complicated because depending on
-    # ret_option_model, this function will either return (1) a function
-    # that will output an action and done bit at every timestep, or
-    # (2), a function that doesn't return anything, but that will
-    # automatically set the state of the world to the state that the
-    # function from (1) would have terminated in.
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
     """Parameterized controller for grasping.
 
     Runs motion planning to find a feasible trajectory to a certain
     x,y,z position offset from obj and selects an orientation such that
     the palm is facing the object. If the grasp is infeasible, returns
-    an indication to this effect (None). Otherwise, if ret_option model
-    is False, returns a function that can be stepped like an option to
-    output actions at each timestep. If ret_option_model is True,
-    returns a function that when called will 'magic' the world into the
-    final state that the corresponding option policy would have
-    achieved.
+    an indication to this effect (None). Otherwise, returns the plan,
+    which is a list of list of hand poses, as well as the original euler
+    angle orientation of the hand.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -759,15 +735,13 @@ def grasp_obj_at_pos(
 
     p.restoreState(state)
     p.removeState(state)
-
-    if not ret_option_model:
-        print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
-              f"continuous params {grasp_offset}. Executing now.")
-        return create_grasp_policy(plan)
+    original_orientation = list(
+        p.getEulerFromQuaternion(
+            env.robots[0].parts["right_hand"].get_orientation()))
 
     print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
-          f"continuous params {grasp_offset}. Returning option model.")
-    return create_grasp_option_model(plan)
+          f"continuous params {grasp_offset}.")
+    return plan, original_orientation
 
 
 def place_obj_plan(
@@ -862,10 +836,11 @@ def place_ontop_obj_pos_sampler(
 
 
 def create_place_policy(
-    plan: List[List[float]]
+    plan: List[List[float]], _original_orientation: List[List[float]]
 ) -> Callable[[State, "BehaviorEnv"], Tuple[Array, bool]]:
-    """Instantiates and returns a navigation option policy given an RRT
-    plan."""
+    """Instantiates and returns a navigation option policy given an RRT plan,
+    which is a list of 6-element lists containing a series of (x, y, z, roll,
+    pitch, yaw) waypoints for the hand to pass through."""
 
     # Note that the reversed plan code below makes a
     # copy of the list instead of just assigning by reference,
@@ -1032,9 +1007,11 @@ def create_place_policy(
 
 
 def create_place_option_model(
-        plan: List[List[float]]) -> Callable[[State, "BehaviorEnv"], None]:
+    plan: List[List[float]], _original_orientation: List[List[float]]
+) -> Callable[[State, "BehaviorEnv"], None]:
     """Instantiates and returns a place option model function given an RRT
-    plan."""
+    plan, which is a list of 6-element lists containing a series of (x, y, z,
+    roll, pitch, yaw) waypoints for the hand to pass through."""
 
     def placeOntopObjectOptionModel(_init_state: State,
                                     env: "BehaviorEnv") -> None:
@@ -1058,28 +1035,16 @@ def place_ontop_obj_pos(
     env: "BehaviorEnv",
     obj: Union["URDFObject", "RoomFloor"],
     place_rel_pos: Array,
-    ret_option_model: bool = False,
     rng: Optional[Generator] = None,
-) -> Optional[Union[Callable[[State, "BehaviorEnv"], Tuple[Array, bool]],
-                    Callable[[State, "BehaviorEnv"], None]]]:
-
-    # NOTE: The return type is complicated because depending on
-    # ret_option_model, this function will either return (1) a function
-    # that will output an action and done bit at every timestep, or
-    # (2), a function that doesn't return anything, but that will
-    # automatically set the state of the world to the state that the
-    # function from (1) would have terminated in.
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
     """Parameterized controller for placeOnTop.
 
     Runs motion planning to find a feasible trajectory to a certain
     offset from obj and selects an orientation such that the palm is
     facing the object. If the placement is infeasible, returns an
-    indication to this effect (None). Otherwise, if ret_option model is
-    False, returns a function that can be stepped like an option to
-    output actions at each timestep. If ret_option_model is True,
-    returns a function that when called will 'magic' the world into the
-    final state that the corresponding option policy would have
-    achieved.
+    indication to this effect (None). Otherwise, returns the plan, which
+    is a list of list of hand poses, as well as the original euler angle
+    orientation of the hand.
     """
     if rng is None:
         rng = np.random.default_rng(23)
@@ -1123,11 +1088,9 @@ def place_ontop_obj_pos(
               " to find plan to continuous params" + f" {place_rel_pos}")
         return None
 
-    if not ret_option_model:
-        print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
-              f"continuous params {place_rel_pos}. Executing now.")
-        return create_place_policy(plan)
-
+    original_orientation = list(
+        p.getEulerFromQuaternion(
+            env.robots[0].parts["right_hand"].get_orientation()))
     print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
-          f"continuous params {place_rel_pos}. Returning option model.")
-    return create_place_option_model(plan)
+          f"continuous params {place_rel_pos}.")
+    return plan, original_orientation

@@ -128,7 +128,7 @@ class GlobalSettings:
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
-    grammar_search_size_weight = 1e-2
+    grammar_search_operator_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
@@ -136,7 +136,7 @@ class GlobalSettings:
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 15
     grammar_search_heuristic_based_max_nondemos = 50
-    grammar_search_lookahead_based_temperature = 10.
+    grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
@@ -178,6 +178,8 @@ class GlobalSettings:
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
                 # Use both demonstrations and random replays by default.
+                # To make sure that all replays are not optimal, use
+                # demo+nonoptimalreplay.
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
