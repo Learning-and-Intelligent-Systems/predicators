@@ -209,15 +209,15 @@ def create_teacher_dataset(preds: Collection[Predicate],
         for s in traj.states:
             ground_atoms = sorted(utils.abstract(s, preds))
             subset_atoms = set()
-            for ga in ground_atoms:
-                pred = ga.predicate
-                if ratio == 0.0:
-                    continue
-                if totals[pred] == 0 or labeleds[pred] / totals[pred] <= ratio:
-                    # Teacher comments on this atom
-                    subset_atoms.add(ga)
-                    labeleds[pred] += 1
-                totals[pred] += 1
+            if ratio > 0:
+                for ga in ground_atoms:
+                    pred = ga.predicate
+                    if (totals[pred] == 0 or 
+                        labeleds[pred] / totals[pred] <= ratio):
+                        # Teacher comments on this atom
+                        subset_atoms.add(ga)
+                        labeleds[pred] += 1
+                    totals[pred] += 1
             ground_atoms_traj.append(subset_atoms)
         assert len(traj.states) == len(ground_atoms_traj)
         teacher_dataset.append((traj, ground_atoms_traj))
