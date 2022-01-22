@@ -23,6 +23,7 @@ try:
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
     from igibson.utils.checkpoint_utils import save_checkpoint, load_checkpoint
+    from igibson.utils.utils import modify_config_file
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
@@ -50,7 +51,8 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
-        config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
+        config_file = modify_config_file(os.path.join(igibson.root_path, CFG.behavior_config_file), CFG.behavior_task_name, CFG.behavior_scene_id)
+
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
         self.igibson_behavior_env = behavior_env.BehaviorEnv(
@@ -63,6 +65,7 @@ class BehaviorEnv(BaseEnv):
         )
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
+        self.env_config_file = config_file
 
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
@@ -157,7 +160,7 @@ class BehaviorEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        for _ in range(num):
+        for i in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2**32) - 1))

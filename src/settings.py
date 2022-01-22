@@ -50,10 +50,13 @@ class GlobalSettings:
         "examples",
         "configs",
         # "njk_re-shelving_library_books_full_obs.yaml",
-        "njk_sorting_books_full_obs.yaml")
+        # "njk_sorting_books_full_obs.yaml",
+        "wbm3_modifiable_full_obs.yaml",)
     behavior_mode = "headless"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
+    behavior_task_name = "re-shelving_library_books"
+    behavior_scene_id = "Pomaria_1_int"
 
     # parameters for approaches
     random_options_max_tries = 100
