@@ -134,7 +134,7 @@ def _run_proxy_analysis_for_env(env_name: str,
         "timeout": 1,
         "make_videos": False,
         "grammar_search_max_predicates": 50,
-        "grammar_search_size_weight": 0.,
+        "grammar_search_operator_size_weight": 0.,
         "grammar_search_pred_complexity_weight": 0.,
         "excluded_predicates": "",
     })
@@ -229,12 +229,12 @@ def _main() -> None:
     ]
     score_function_names = [
         "prediction_error",
-        "hadd_lookahead_depth0",
-        "hadd_lookahead_depth1",
-        "hadd_lookahead_depth2",
-        "exact_lookahead",
-        "lmcut_count_depth0",
-        "hadd_count_depth0",
+        "hadd_energy_lookaheaddepth0",
+        "hadd_energy_lookaheaddepth1",
+        "hadd_energy_lookaheaddepth2",
+        "exact_energy",
+        "lmcut_count_lookaheaddepth0",
+        "hadd_count_lookaheaddepth0",
         "exact_count",
     ]
     run_planning = True
