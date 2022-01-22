@@ -592,9 +592,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             by_ub = by + self.grasp_height_tol
             by_lb = by - self.grasp_height_tol
             if by_lb <= y <= by_ub:
+                next_state.set(self._robot, "y", by)
                 next_state.set(above_block, "grasp", 1)
                 next_state.set(self._robot, "holding", 1)
-                next_state.set(above_block, "y", y)
 
         # If we are holding anything and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed

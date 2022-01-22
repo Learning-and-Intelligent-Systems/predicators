@@ -136,15 +136,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            # The only things that change are the block's y and held, and the
+            # The only things that change are the block's grasp, and the
             # robot's grip, holding, x, and y.
-            # The reason that the block's y feature changes is because it snaps
-            # into the robot's gripper once the pick is executed.
             assert len(objs) == 2
             block, robot = objs
             assert block.is_instance(block_type)
             assert robot.is_instance(robot_type)
-            grasp_offset = 1e-3
             bx, by = state.get(block, "x"), state.get(block, "y")
             rx, ry = state.get(robot, "x"), state.get(robot, "y")
             bw = state.get(block, "width")
@@ -154,11 +151,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from -1.0 to 1.0
-            block_param = [0.0, 0.0, 0.0, 0.0, 2.0, grasp_offset, 0.0]
+            block_param = [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]
             # x, y, grip, holding
             # grip changes from -1.0 to 1.0
             # holding changes from -1.0 to 1.0
-            robot_param = [desired_x - rx, by + grasp_offset - ry, 2.0, 2.0]
+            robot_param = [desired_x - rx, by - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
