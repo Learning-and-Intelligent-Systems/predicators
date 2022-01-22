@@ -13,6 +13,7 @@ try:
     import pybullet as pyb
     import bddl
     import igibson
+    from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.envs import behavior_env
     from igibson.objects.articulated_object import (  # pylint: disable=unused-import
         ArticulatedObject, )
@@ -21,9 +22,13 @@ try:
     from igibson.robots.behavior_robot import BRBody
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
+    from igibson.utils.checkpoint_utils import save_checkpoint, load_checkpoint
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
+    os.makedirs("tmp_behavior_states/", exist_ok=True)
+    for file in os.scandir("tmp_behavior_states/"):
+        os.remove(file.path)
 except ModuleNotFoundError as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
@@ -73,7 +78,7 @@ class BehaviorEnv(BaseEnv):
                                   create_place_policy
                               ]
         option_model_fns: List[
-            Callable[[List[List[float]], List[List[float]]],
+            Callable[[List[List[float]], List[List[float]], "URDFObject"],
                      Callable[[State, "behavior_env.BehaviorEnv"], None]]] = [
                          create_navigate_option_model,
                          create_grasp_option_model, create_place_option_model
@@ -110,8 +115,9 @@ class BehaviorEnv(BaseEnv):
                 self._options.add(option)
 
     def simulate(self, state: State, action: Action) -> State:
-        assert state.simulator_state is not None
-        self.igibson_behavior_env.task.reset_scene(state.simulator_state)
+        if not state.allclose(self.current_ig_state_to_state()):
+            load_checkpoint_state(state, self.igibson_behavior_env)
+
         a = action.arr
         self.igibson_behavior_env.step(a)
         # a[16] is used to indicate whether to grasp or release the currently-
@@ -195,7 +201,7 @@ class BehaviorEnv(BaseEnv):
                 # even though it's in the initial BDDL state, because
                 # it uses geometry, and the behaviorbot actually floats
                 # and doesn't touch the floor. But it doesn't matter.
-                "onfloor",
+                # "onfloor",
                 # "cooked",
                 # "burnt",
                 # "frozen",
@@ -217,6 +223,7 @@ class BehaviorEnv(BaseEnv):
                 classifier = self._create_classifier_from_bddl(bddl_predicate)
                 pred = Predicate(pred_name, list(type_combo), classifier)
                 predicates.add(pred)
+
         # Second, add in custom predicates except reachable-nothing
         custom_predicate_specs = [
             ("handempty", self._handempty_classifier, 0),
@@ -329,7 +336,9 @@ class BehaviorEnv(BaseEnv):
                 ig_obj.get_orientation(),
             ])
             state_data[obj] = obj_state
-        simulator_state = self.igibson_behavior_env.task.save_scene()
+
+        simulator_state = save_checkpoint(self.igibson_behavior_env.simulator,
+                                          "tmp_behavior_states/")
         return State(state_data, simulator_state)
 
     def _create_classifier_from_bddl(
@@ -343,7 +352,9 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            assert s.allclose(self.current_ig_state_to_state())
+            if not s.allclose(self.current_ig_state_to_state()):
+                load_checkpoint_state(s, self.igibson_behavior_env)
+
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
                 assert len(o) == 1
@@ -367,9 +378,8 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        if not state.allclose(self.current_ig_state_to_state()):
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -379,8 +389,8 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        if not state.allclose(self.current_ig_state_to_state()):
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 1
         for obj in state:
             if self._reachable_classifier(
@@ -407,18 +417,16 @@ class BehaviorEnv(BaseEnv):
 
     def _handempty_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        if not state.allclose(self.current_ig_state_to_state()):
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
     def _holding_classifier(self, state: State,
                             objs: Sequence[Object]) -> bool:
-        # Check allclose() here for uniformity with
-        # _create_classifier_from_bddl
-        assert state.allclose(self.current_ig_state_to_state())
+        if not state.allclose(self.current_ig_state_to_state()):
+            load_checkpoint_state(state, self.igibson_behavior_env)
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -460,6 +468,14 @@ class BehaviorEnv(BaseEnv):
         return f"{original_name}-{type_names}"
 
 
+def load_checkpoint_state(s: State, env: "behavior_env.BehaviorEnv") -> None:
+    """Sets the underlying iGibson environment to a particular saved state."""
+    assert s.simulator_state is not None
+    load_checkpoint(env.simulator, "tmp_behavior_states/", s.simulator_state)
+    # We step the environment to update the visuals of where the robot is!
+    env.step(np.zeros(env.action_space.shape))
+
+
 def make_behavior_option(
         name: str, types: Sequence[Type], params_space: Box,
         env: "behavior_env.BehaviorEnv", planner_fn: Callable[[
@@ -469,9 +485,9 @@ def make_behavior_option(
         policy_fn: Callable[[List[List[float]], List[List[float]]],
                             Callable[[State, "behavior_env.BehaviorEnv"],
                                      Tuple[Array, bool]]],
-        option_model_fn: Callable[[List[List[float]], List[List[float]]],
-                                  Callable[[State, "behavior_env.BehaviorEnv"],
-                                           None]],
+        option_model_fn: Callable[
+            [List[List[float]], List[List[float]], "URDFObject"],
+            Callable[[State, "behavior_env.BehaviorEnv"], None]],
         object_to_ig_object: Callable[[Object], "ArticulatedObject"],
         rng: Generator) -> ParameterizedOption:
     """Makes an option for a BEHAVIOR env using custom implemented
@@ -481,7 +497,6 @@ def make_behavior_option(
                 _params: Array) -> Action:
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
-        assert memory.get("rrt_plan") is not None
         assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
         action_arr, memory["has_terminated"] = memory["policy_controller"](
@@ -492,17 +507,17 @@ def make_behavior_option(
                    params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
+
+        # Load the checkpoint associated with state.simulator_state
+        # to make sure that we run RRT from the intended state.
+        load_checkpoint_state(state, env)
+
         if memory.get("planner_result") is not None:
             # In this case, an rrt_plan has already been found for this
             # option (most likely, this will occur when executing a
             # series of options after having planned).
             return True
 
-        if state.simulator_state is not None:
-            # In this case, we want to reset the state of the environment
-            # to the state in the init state so that our options can
-            # run RRT/plan from here as intended!
-            env.task.reset_scene(state.simulator_state)
         # NOTE: the below type ignore comment is necessary because mypy
         # doesn't like that rng is being passed by keyword (seems to be
         # an issue with mypy: https://github.com/python/mypy/issues/1655)
@@ -517,7 +532,9 @@ def make_behavior_option(
             memory["policy_controller"] = policy_fn(
                 memory["planner_result"][0], memory["planner_result"][1])
             memory["model_controller"] = option_model_fn(
-                memory["planner_result"][0], memory["planner_result"][1])
+                memory["planner_result"][0], memory["planner_result"][1],
+                igo[0])
+            memory["has_terminated"] = False
         return planner_result is not None
 
     def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
