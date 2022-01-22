@@ -341,13 +341,15 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
 
 class _NeuralOptionLearner(_OptionLearnerBase):
-    """The option learner that learns options from fixed-length input vectors.
+    """Learn _LearnedNeuralParameterizedOptions by behavior cloning.
 
-    That is, the the input data only includes objects whose state
-    changes from the first state in the segment to the last state in the
-    segment. The input data does not include data from other objects in
-    the scene, where the number of other objects would differ across
-    different instantiations of the env.
+    See the docstring for _LearnedNeuralParameterizedOptions for a description
+    of the option structure.
+
+    In this paradigm, the option initiable and termination are determined from
+    the operators, so the main thing that needs to be learned is the option
+    policy. We learn this policy by behavior cloning (fitting a regressor
+    via supervised learning) in learn_option_specs().
     """
 
     def __init__(self) -> None:
@@ -360,9 +362,6 @@ class _NeuralOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
-        # In this paradigm, the option initiable and termination are determined
-        # from the operators, so the main thing that needs to be learned is the
-        # option policy.
         option_specs: List[Tuple[ParameterizedOption, List[Variable]]] = []
 
         assert len(strips_ops) == len(datastores)
