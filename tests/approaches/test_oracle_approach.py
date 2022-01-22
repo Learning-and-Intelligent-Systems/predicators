@@ -8,7 +8,7 @@ from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
     EnvironmentFailure, BlocksEnv, PaintingEnv, PlayroomEnv, \
-    CoverMultistepOptions, RepeatedNextToEnv
+    CoverMultistepOptions, CoverMultistepOptionsFixedTasks, RepeatedNextToEnv
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src import utils
 
@@ -177,7 +177,8 @@ def test_oracle_approach_cover_multistep_options():
     utils.update_config({"env": "cover_multistep_options"})
     utils.update_config({
         "env": "cover_multistep_options",
-        "cover_multistep_use_learned_equivalents": False
+        "cover_multistep_use_learned_equivalents": False,
+        "cover_multistep_degenerate_oracle_samplers": False,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -202,6 +203,7 @@ def test_oracle_approach_cover_multistep_options():
     utils.update_config({
         "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": True,
+        "cover_multistep_degenerate_oracle_samplers": False,
         "sampler_learner": "neural"
     })
     env = CoverMultistepOptions()
@@ -217,6 +219,60 @@ def test_oracle_approach_cover_multistep_options():
     for task in env.get_test_tasks():
         policy = approach.solve(task, timeout=500)
         assert utils.policy_solves_task(policy, task, env.simulate)
+        # Test cover_multistep_degenerate_oracle_samplers.
+        utils.update_config({"env": "cover_multistep_options"})
+    utils.update_config({
+        "env": "cover_multistep_options",
+        "cover_multistep_use_learned_equivalents": False,
+        "cover_multistep_degenerate_oracle_samplers": True,
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    approach.seed(123)
+    for task in next(env.train_tasks_generator()):
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(policy, task, env.simulate)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(policy, task, env.simulate)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate)
+
+
+def test_oracle_approach_cover_multistep_options_fixed_tasks():
+    """Tests for OracleApproach class with CoverMultistepOptionsFixedTasks."""
+    utils.update_config({"env": "cover_multistep_options_fixed_tasks"})
+    utils.update_config({
+        "env": "cover_multistep_options",
+        "cover_multistep_use_learned_equivalents": True
+    })
+    env = CoverMultistepOptionsFixedTasks()
+    env.seed(123)
+    approach = OracleApproach(env.simulate, env.predicates, env.options,
+                              env.types, env.action_space)
+    assert not approach.is_learning_based
+    random_action = Action(env.action_space.sample())
+    approach.seed(123)
+    for task in next(env.train_tasks_generator()):
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(policy, task, env.simulate)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert utils.policy_solves_task(policy, task, env.simulate)
+        # Test that a repeated random action fails.
+        assert not utils.policy_solves_task(lambda s: random_action, task,
+                                            env.simulate)
 
 
 def test_cluttered_table_get_gt_nsrts(place_version=False):
