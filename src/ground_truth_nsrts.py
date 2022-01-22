@@ -136,7 +136,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
         def pick_sampler(state: State, rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
-            # The only things that change are the block's held bit and the
+            # The only things that change are the block's grasp, and the
             # robot's grip, holding, x, and y.
             assert len(objs) == 2
             block, robot = objs
@@ -155,7 +155,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             # x, y, grip, holding
             # grip changes from -1.0 to 1.0
             # holding changes from -1.0 to 1.0
-            robot_param = [desired_x - rx, by + 1e-3 - ry, 2.0, 2.0]
+            robot_param = [desired_x - rx, by - ry, 2.0, 2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
@@ -245,14 +245,14 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             else:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
             delta_x = desired_x - rx
-            delta_y = bh + grasp_offset - ry
+            delta_y = bh - ry
             # is_block, is_target, width, x, grasp, y, height
             # grasp changes from 1.0 to -1.0
             block_param = [0.0, 0.0, 0.0, delta_x, -2.0, delta_y, 0.0]
             # x, y, grip, holding
             # grip changes from 1.0 to -1.0
             # holding changes from 1.0 to -1.0
-            robot_param = [delta_x, delta_y, -2.0, -2.0]
+            robot_param = [delta_x, delta_y + grasp_offset, -2.0, -2.0]
             param = block_param + robot_param
             return np.array(param, dtype=np.float32)
     else:
