@@ -50,9 +50,8 @@ class GlobalSettings:
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
         "configs",
-        "njk_re-shelving_library_books_full_obs.yaml",
-        # "njk_sorting_books_full_obs.yaml"
-    )
+        # "njk_re-shelving_library_books_full_obs.yaml",
+        "njk_sorting_books_full_obs.yaml")
     behavior_mode = "headless"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
@@ -74,7 +73,7 @@ class GlobalSettings:
     video_fps = 2
 
     # dataset parameters
-    offline_data_planning_timeout = 500  # for learning-based approaches, the
+    offline_data_planning_timeout = 3  # for learning-based approaches, the
     # data collection timeout for planning
 
     # teacher dataset parameters
@@ -129,15 +128,15 @@ class GlobalSettings:
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
-    grammar_search_size_weight = 1e-2
+    grammar_search_operator_size_weight = 1e-2
     grammar_search_pred_complexity_weight = 1
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
-    grammar_search_score_function = "hff_lookahead_depth0"
+    grammar_search_score_function = "hff_energy_lookaheaddepth0"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_heuristic_based_max_demos = 5
     grammar_search_heuristic_based_max_nondemos = 50
-    grammar_search_lookahead_based_temperature = 10.
+    grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
@@ -179,6 +178,8 @@ class GlobalSettings:
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
                 # Use both demonstrations and random replays by default.
+                # To make sure that all replays are not optimal, use
+                # demo+nonoptimalreplay.
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
