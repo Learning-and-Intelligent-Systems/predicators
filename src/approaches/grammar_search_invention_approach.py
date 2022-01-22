@@ -704,7 +704,7 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                 CFG.task_planning_heuristic, init_atoms, traj.goal,
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
-            expected_expansions = float("inf")
+            expected_num_nodes = float("inf")
             refinable_skeleton_not_found_prob = 1.0
             dummy_task = Task(State({}), traj.goal)
             metrics = defaultdict(float)
@@ -718,12 +718,12 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                     assert traj.goal.issubset(plan_atoms_sequence[-1])
                     refinement_prob = self._get_refinement_prob(atoms_sequence,
                         plan_atoms_sequence)
-                    node_expansions = metrics["num_nodes_expanded"]
+                    num_nodes = metrics["num_nodes_created"]
                     if idx == 0:
-                        expected_expansions = refinement_prob * node_expansions
+                        expected_num_nodes = refinement_prob * num_nodes
                     else:
                         p = refinable_skeleton_not_found_prob * refinement_prob
-                        expected_expansions += p * node_expansions
+                        expected_num_nodes += p * num_nodes
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
                     # if "NOT-((0:block).grasp<=-0.485)" in str(candidate_predicates):
                         # import ipdb; ipdb.set_trace()
@@ -733,8 +733,8 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                 pass
             # This corresponds to the case where a refinable skeleton is not
             # found within the budget.
-            expected_expansions += refinable_skeleton_not_found_prob * 1e7
-            score += expected_expansions
+            expected_num_nodes += refinable_skeleton_not_found_prob * 1e7
+            score += expected_num_nodes
         return score
 
     def _get_refinement_prob(self, demo_atoms_sequence, plan_atoms_sequence):

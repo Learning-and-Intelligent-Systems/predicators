@@ -212,6 +212,7 @@ def _skeleton_generator(
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node)
+                metrics["num_nodes_created"] += 1
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
