@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import time
 import abc
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 import itertools
@@ -18,10 +19,11 @@ from predicators.src.approaches import NSRTLearningApproach, ApproachFailure, \
     ApproachTimeout
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.planning import task_plan, task_plan_grounding
+from predicators.src.planning import task_plan, task_plan_grounding, \
+    _skeleton_generator
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, Task
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -508,6 +510,9 @@ def _create_score_function(
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           candidates)
+    if score_function_name == "refinement_prob":
+        return _RefinementProbScoreFunction(initial_predicates, atom_dataset,
+                                            candidates)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -665,6 +670,88 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
             except (ApproachFailure, ApproachTimeout):
                 score += node_expansion_upper_bound
         return score
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
+    """TODO docstring
+    """
+
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        del segments  # unused
+        score = 0.0
+        seen_demos = 0
+        for traj, atoms_sequence in pruned_atom_data:
+            if seen_demos >= CFG.grammar_search_heuristic_based_max_demos:
+                break
+            if not traj.is_demo:
+                continue
+            seen_demos += 1
+            init_atoms = utils.abstract(
+                traj.states[0],
+                candidate_predicates | self._initial_predicates)
+            objects = set(traj.states[0])
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, strips_ops, option_specs)
+            if not traj.goal.issubset(reachable_atoms):
+                return float("inf")
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.task_planning_heuristic, init_atoms, traj.goal,
+                ground_nsrts, candidate_predicates | self._initial_predicates,
+                objects)
+            expected_expansions = float("inf")
+            refinable_skeleton_not_found_prob = 1.0
+            dummy_task = Task(State({}), traj.goal)
+            metrics = defaultdict(float)
+            generator = _skeleton_generator(dummy_task, ground_nsrts,
+                init_atoms, heuristic, CFG.seed,
+                CFG.grammar_search_task_planning_timeout, metrics)
+            try:
+                for idx, (_, plan_atoms_sequence) in enumerate(generator):
+                    if idx >= CFG.max_skeletons_optimized:
+                        break
+                    assert traj.goal.issubset(plan_atoms_sequence[-1])
+                    refinement_prob = self._get_refinement_prob(atoms_sequence,
+                        plan_atoms_sequence)
+                    node_expansions = metrics["num_nodes_expanded"]
+                    if idx == 0:
+                        expected_expansions = refinement_prob * node_expansions
+                    else:
+                        p = refinable_skeleton_not_found_prob * refinement_prob
+                        expected_expansions += p * node_expansions
+                    refinable_skeleton_not_found_prob *= (1 - refinement_prob)
+                    # if "NOT-((0:block).grasp<=-0.485)" in str(candidate_predicates):
+                        # import ipdb; ipdb.set_trace()
+                    # if "Forall[0:block].[((0:block).grasp<=-0.485)(0)], NOT-Forall[0:block].[((0:block).grasp<=-0.485)(0)" in str(candidate_predicates):
+                    #     import ipdb; ipdb.set_trace()
+            except (ApproachFailure, ApproachTimeout):
+                pass
+            # This corresponds to the case where a refinable skeleton is not
+            # found within the budget.
+            expected_expansions += refinable_skeleton_not_found_prob * 1e7
+            score += expected_expansions
+        return score
+
+    def _get_refinement_prob(self, demo_atoms_sequence, plan_atoms_sequence):
+        # Probability that demonstration was optimal.
+        demo_len = len(demo_atoms_sequence)
+        plan_len = len(plan_atoms_sequence)
+        if demo_len <= plan_len:
+            opt_prob = 1.0
+        else:
+            opt_prob = 0.9 * 0.1**(demo_len - plan_len)
+        # Probability that this particular plan sequence is refinable.
+        refinement_model_prob = self._estimate_refinability(plan_atoms_sequence)
+        return refinement_model_prob * opt_prob
+
+    def _estimate_refinability(self, plan_atoms_sequence):
+        # TODO
+        return 1.0
 
 
 @dataclass(frozen=True, eq=False, repr=False)
