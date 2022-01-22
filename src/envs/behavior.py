@@ -51,7 +51,9 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
-        config_file = modify_config_file(os.path.join(igibson.root_path, CFG.behavior_config_file), CFG.behavior_task_name, CFG.behavior_scene_id)
+        config_file = modify_config_file(
+            os.path.join(igibson.root_path, CFG.behavior_config_file),
+            CFG.behavior_task_name, CFG.behavior_scene_id)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
@@ -160,7 +162,7 @@ class BehaviorEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        for i in range(num):
+        for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2**32) - 1))
