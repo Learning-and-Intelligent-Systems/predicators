@@ -429,6 +429,47 @@ def test_cover_multistep_options():
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
+    # Check collision of held block with the floor.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.1, 0., 0.1], dtype=np.float32),
+        np.array([0.08, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.05, 0.1], dtype=np.float32),
+        np.array([0., -0.07, 0.1], dtype=np.float32),
+    ]
+    make_video = False  # Can toggle to true for debugging
+    traj, video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, len(action_arrs),
+        env.render if make_video else None)
+    if make_video:
+        outfile = "hardcoded_actions_block_collision3.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in traj.states[0] if r.name == "robby"][0]
+    assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+
 
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
