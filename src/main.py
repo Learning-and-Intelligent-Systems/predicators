@@ -140,6 +140,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     approach.reset_metrics()
     total_suc_time = 0.0
     total_num_execution_failures = 0
+
     for i, task in enumerate(test_tasks):
         start = time.time()
         print(end="", flush=True)
