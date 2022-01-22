@@ -259,6 +259,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     state in the memory of the option during initialization, and compute the
     updated delta on each call to the policy.
     """
+
     def __init__(self, name: str, operator: STRIPSOperator,
                  regressor: MLPRegressor,
                  changing_parameters: Sequence[Variable]) -> None:

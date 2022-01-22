@@ -182,7 +182,7 @@ def test_oracle_option_learner_blocks():
 
 
 def test_learned_neural_parameterized_option():
-    """Tests for _LearnedNeuralParameterizedOption(). """
+    """Tests for _LearnedNeuralParameterizedOption()."""
     # Create a _LearnedNeuralParameterizedOption() for the cover Pick operator.
     utils.update_config({
         "env": "cover_multistep_options",
