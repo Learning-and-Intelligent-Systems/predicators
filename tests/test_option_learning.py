@@ -2,11 +2,16 @@
 
 import pytest
 import numpy as np
+from predicators.src.approaches import ApproachFailure
 from predicators.src.envs import create_env
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.datasets.demo_replay import create_demo_replay_data
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.option_learning import create_option_learner
+from predicators.src.structs import STRIPSOperator
+from predicators.src.torch_models import MLPRegressor
+from predicators.src.option_learning import create_option_learner, \
+    _LearnedNeuralParameterizedOption
 from predicators.src import utils
 
 
@@ -174,6 +179,66 @@ def test_oracle_option_learner_blocks():
         "seed": 123,
         "option_learner": "no_learning"
     })
+
+
+def test_learned_neural_parameterized_option():
+    """Tests for _LearnedNeuralParameterizedOption(). """
+    # Create a _LearnedNeuralParameterizedOption() for the cover Pick operator.
+    utils.update_config({
+        "env": "cover_multistep_options",
+        "option_learner": "neural",
+        "mlp_regressor_max_itr": 10,
+    })
+    env = create_env("cover_multistep_options")
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    assert len(nsrts) == 2
+    pick_nsrt = min(nsrts, key=lambda o: o.name)
+    pick_operator = STRIPSOperator(pick_nsrt.name, pick_nsrt.parameters,
+                                   pick_nsrt.preconditions,
+                                   pick_nsrt.add_effects,
+                                   pick_nsrt.delete_effects,
+                                   pick_nsrt.side_predicates)
+    # In this example, both of the parameters (block and robot) are changing.
+    changing_parameters = pick_operator.parameters
+    # Create a dummy regressor but with the right shapes.
+    regressor = MLPRegressor()
+    param_dim = sum([p.type.dim for p in changing_parameters])
+    input_dim = sum([p.type.dim for p in pick_operator.parameters]) + param_dim
+    # The plus 1 is for the bias term.
+    X_arr_regressor = np.zeros((1, 1 + input_dim), dtype=np.float32)
+    Y_arr_regressor = np.zeros((1, ) + env.action_space.shape,
+                               dtype=np.float32)
+    regressor.fit(X_arr_regressor, Y_arr_regressor)
+    param_option = _LearnedNeuralParameterizedOption("LearnedOption1",
+                                                     pick_operator, regressor,
+                                                     changing_parameters)
+    assert param_option.name == "LearnedOption1"
+    assert param_option.types == [p.type for p in pick_operator.parameters]
+    assert param_option.params_space.shape == (param_dim, )
+    # Get an initial state where picking should be possible.
+    env.seed(123)
+    task = env.get_test_tasks()[0]
+    state = task.init
+    block0, block1, robot, _, _ = sorted(state)
+    assert block0.name == "block0"
+    assert robot.name == "robby"
+    option = param_option.ground([block0, robot],
+                                 np.zeros(param_dim, dtype=np.float32))
+    assert option.initiable(state)
+    action = option.policy(state)
+    assert env.action_space.contains(action.arr)
+    assert not option.terminal(state)
+    assert state.get(block0, "grasp") == -1.0
+    state.set(block0, "grasp", 1.0)
+    assert option.terminal(state)
+    # Option should also terminate if it's outside of the precondition set.
+    state.set(block0, "grasp", -1.0)
+    state.set(block1, "grasp", 1.0)
+    assert option.terminal(state)
+    # Cover case where regressor returns nan.
+    with pytest.raises(ApproachFailure):
+        state.set(block0, "x", np.nan)
+        action = option.policy(state)
 
 
 def test_create_option_learner():
