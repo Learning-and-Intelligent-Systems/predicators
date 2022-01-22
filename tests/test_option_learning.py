@@ -230,6 +230,7 @@ def test_learned_neural_parameterized_option():
     assert not option.terminal(state)
     assert state.get(block0, "grasp") == -1.0
     state.set(block0, "grasp", 1.0)
+    state.set(robot, "holding", 1.0)
     assert option.terminal(state)
     # Option should also terminate if it's outside of the precondition set.
     state.set(block0, "grasp", -1.0)
