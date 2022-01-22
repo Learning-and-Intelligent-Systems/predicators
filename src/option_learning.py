@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import abc
-from dataclasses import dataclass
 from functools import cached_property
 from typing import List, Sequence, Dict, Tuple, Set
 import numpy as np
@@ -22,8 +21,8 @@ def create_option_learner() -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
-    if CFG.option_learner == "simple":
-        return _SimpleOptionLearner()
+    if CFG.option_learner == "neural":
+        return _NeuralOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
@@ -222,11 +221,43 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 segment.set_option(option)
 
 
-@dataclass(frozen=True, eq=False, repr=False)
-class _LearnedSimpleParameterizedOption(ParameterizedOption):
-    """A convenience class for holding a learned parameterized option.
+class _LearnedNeuralParameterizedOption(ParameterizedOption):
+    """A parameterized option that "implements" an operator.
 
-    Prefer to use this because it is pickleable.
+    * The option objects correspond to the operator parameters.
+    * The option initiable corresponds to the operator preconditions.
+    * The option terminal corresponds to the operator effects.
+    * The option policy is implemented as a neural regressor that takes in the
+      states of the option objects and the input continuous parameters (see
+      below), all concatenated into a 1D vector, and outputs an action.
+
+    The continuous parameters of the option are the main thing to note: they
+    correspond to a desired change in state for a subset of the option objects.
+    The objects that are changing correspond to changing_parameters; all other
+    objects are assumed to have no change in their state.
+
+    Note that the option terminal, which corresponds to the operator effects,
+    already describes how we want the objects to change. But these effects only
+    characterize a *set* of desired state changes. For example, a Pick operator
+    with Holding(?x) in the add effects says that we want to end up in *some*
+    state where we are holding ?x, but there are in general an infinite number
+    of such states. The role of the continuous parameters is to identify one
+    specific state in this set.
+
+    The hope is that by sampling different continuous parameters, the option
+    will be able to navigate to different states in the effect set, giving the
+    diversity of transition samples that we need to do TAMP.
+
+    Also note that the parameters correspond to a state *change*, rather than
+    an absolute state. This distinction is useful for learning; relative changes
+    lead to better data efficiency / generalization than absolute ones. However,
+    it's also important to note that the change here is a delta between the
+    initial state that the option is executed from and the final state where the
+    option is terminated. In the middle of executing the option, the desired
+    delta between the current state and the final state is different from what
+    it was in the initial state. To handle this, we save the *absolute* desired
+    state in the memory of the option during initialization, and compute the
+    updated delta on each call to the policy.
     """
     _operator: STRIPSOperator
     _regressor: MLPRegressor
@@ -246,11 +277,9 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
                            high=np.inf,
                            shape=(option_param_dim, ),
                            dtype=np.float32)
-        # Dataclass is frozen, so we have to do these hacks.
-        object.__setattr__(self, "_operator", operator)
-        object.__setattr__(self, "_regressor", regressor)
-        object.__setattr__(self, "_changing_parameter_idxs",
-                           changing_parameter_idxs)
+        self._operator = operator
+        self._regressor = regressor
+        self._changing_parameter_idxs = changing_parameter_idxs
         super().__init__(name,
                          types,
                          params_space,
@@ -311,14 +340,14 @@ class _LearnedSimpleParameterizedOption(ParameterizedOption):
         return False
 
 
-class _SimpleOptionLearner(_OptionLearnerBase):
+class _NeuralOptionLearner(_OptionLearnerBase):
     """The option learner that learns options from fixed-length input vectors.
 
     That is, the the input data only includes objects whose state
     changes from the first state in the segment to the last state in the
     segment. The input data does not include data from other objects in
     the scene, where the number of other objects would differ across
-    different instiantiations of the env.
+    different instantiations of the env.
     """
 
     def __init__(self) -> None:
@@ -347,6 +376,9 @@ class _SimpleOptionLearner(_OptionLearnerBase):
             # The superset of all objects whose states we may include in the
             # option params is op.parameters. But we only want to include
             # those objects that have state changes (in at least some data).
+            # We do this for learning efficiency; including all objects would
+            # likely work too, but may require more data for the model to
+            # realize that those objects' parameters can be ignored.
             changing_parameter_set = self._get_changing_parameters(datastore)
             # Just to avoid confusion, we will insist that the order of the
             # changing parameters is consistent with the order of the original.
@@ -399,7 +431,7 @@ class _SimpleOptionLearner(_OptionLearnerBase):
 
             # Construct the ParameterizedOption for this operator.
             name = f"{op.name}LearnedOption"
-            parameterized_option = _LearnedSimpleParameterizedOption(
+            parameterized_option = _LearnedNeuralParameterizedOption(
                 name, op, regressor, changing_parameters)
             option_specs.append((parameterized_option, list(op.parameters)))
 
