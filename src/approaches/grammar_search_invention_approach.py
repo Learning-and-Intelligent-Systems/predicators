@@ -686,6 +686,20 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
         del segments  # unused
         score = 0.0
         seen_demos = 0
+
+        # two-step effects
+        demo_two_step_effects = set()
+        for traj, atoms_sequence in pruned_atom_data:
+            if not traj.is_demo:
+                continue
+            for i in range(2, len(atoms_sequence)):
+                s = atoms_sequence[i-2]
+                nns = atoms_sequence[i]
+                add_effects = frozenset(nns - s)
+                del_effects = frozenset(utils.wrap_atom_predicates(s - nns, "DEL-"))
+                demo_two_step_effects.add(add_effects | del_effects)
+
+
         # for op, option_spec in zip(strips_ops, option_specs):
         #     print(op)
         #     option_spec_str = f"{option_spec[0].name}{option_spec[1]}".replace("[", "(").replace("]", ")")
@@ -727,7 +741,7 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                 for idx, (plan_skeleton, plan_atoms_sequence) in enumerate(generator):
                     assert traj.goal.issubset(plan_atoms_sequence[-1])
                     refinement_prob = self._get_refinement_prob(atoms_sequence,
-                        plan_atoms_sequence)
+                        plan_atoms_sequence, demo_two_step_effects)
                     num_nodes = metrics["num_nodes_created"]
                     if idx == 0:
                         expected_num_nodes = refinement_prob * num_nodes
@@ -735,7 +749,7 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                         p = refinable_skeleton_not_found_prob * refinement_prob
                         expected_num_nodes += p * num_nodes
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
-                    # print(idx, refinement_prob)
+                    print(idx, refinement_prob)
 
                     # print(f"Plan skeleton (len={len(plan_skeleton)}) with refinement_prob {refinement_prob}")
                     # for act in plan_skeleton:
@@ -752,7 +766,8 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
             score += expected_num_nodes
         return score
 
-    def _get_refinement_prob(self, demo_atoms_sequence, plan_atoms_sequence):
+    def _get_refinement_prob(self, demo_atoms_sequence, plan_atoms_sequence,
+                             demo_two_step_effects):
         # Probability that demonstration was optimal.
         demo_len = len(demo_atoms_sequence)
         plan_len = len(plan_atoms_sequence)
@@ -761,12 +776,29 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
         else:
             opt_prob = 0.9 * 0.1**(demo_len - plan_len)
         # Probability that this particular plan sequence is refinable.
-        refinement_model_prob = self._estimate_refinability(plan_atoms_sequence)
+        refinement_model_prob = self._estimate_refinability(plan_atoms_sequence,
+            demo_two_step_effects)
         return refinement_model_prob * opt_prob
 
-    def _estimate_refinability(self, plan_atoms_sequence):
-        # TODO
-        return 1.0
+    def _estimate_refinability(self, plan_atoms_sequence,
+                               demo_two_step_effects):
+        p = 0.99
+        for i in range(2, len(plan_atoms_sequence)):
+            s = plan_atoms_sequence[i-2]
+            nns = plan_atoms_sequence[i]
+            add_effects = frozenset(nns - s)
+            del_effects = frozenset(utils.wrap_atom_predicates(s - nns, "DEL-"))
+            effects = add_effects | del_effects
+            unifies = False
+            for demo_effects in demo_two_step_effects:
+                suc, _ = utils.unify(effects, demo_effects)
+                if suc:
+                    unifies = True
+                    break
+            if not unifies:
+                p *= 0.1
+        return p
+
 
 
 @dataclass(frozen=True, eq=False, repr=False)
