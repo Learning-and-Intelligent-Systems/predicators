@@ -14,7 +14,7 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings."""
     # parameters for all envs
-    num_train_tasks = 15
+    num_train_tasks = 25
     num_test_tasks = 50
     max_num_steps_check_policy = 100  # maximum number of steps to run a policy
     # when checking whether it solves a task
@@ -134,7 +134,7 @@ class GlobalSettings:
     grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "refinement_prob"
     grammar_search_heuristic_based_weight = 100.
-    grammar_search_heuristic_based_max_demos = 5
+    grammar_search_heuristic_based_max_demos = float("inf")
     grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 2.0
@@ -156,7 +156,7 @@ class GlobalSettings:
             # Task planning heuristic to use in SeSamE.
             task_planning_heuristic=defaultdict(
                 # Use HAdd by default.
-                lambda: "hadd",
+                lambda: "lmcut",
                 {
                     # In the playroom domain, HFF works better.
                     "playroom": "hff",

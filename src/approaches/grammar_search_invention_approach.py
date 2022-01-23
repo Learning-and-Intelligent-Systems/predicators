@@ -725,12 +725,9 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                 metrics)
             try:
                 for idx, (plan_skeleton, plan_atoms_sequence) in enumerate(generator):
-                    if idx >= CFG.max_skeletons_optimized:
-                        break
                     assert traj.goal.issubset(plan_atoms_sequence[-1])
                     refinement_prob = self._get_refinement_prob(atoms_sequence,
                         plan_atoms_sequence)
-                    # num_nodes = metrics["num_nodes_created"]
                     num_nodes = metrics["num_nodes_created"]
                     if idx == 0:
                         expected_num_nodes = refinement_prob * num_nodes
@@ -746,11 +743,12 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                     # import ipdb; ipdb.set_trace()
 
             except (ApproachFailure, ApproachTimeout):
+                # print(f"timed out with idx={idx}, refinable_skeleton_not_found_prob={refinable_skeleton_not_found_prob}")
                 pass
             # This corresponds to the case where a refinable skeleton is not
             # found within the budget.
             expected_num_nodes += refinable_skeleton_not_found_prob * 1e7
-            # print(expected_num_nodes)
+            # print("adding to score:", expected_num_nodes)
             score += expected_num_nodes
         return score
 

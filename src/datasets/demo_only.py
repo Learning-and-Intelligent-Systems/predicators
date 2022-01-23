@@ -11,11 +11,11 @@ from predicators.src import utils
 def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos."""
 
-    # TODO horrible
-    original_heuristic = CFG.task_planning_heuristic
-    utils.update_config({"task_planning_heuristic": "lmcut",
-                         "env": CFG.env,
-                         "approach": CFG.approach})
+    # # TODO horrible
+    # original_heuristic = CFG.task_planning_heuristic
+    # utils.update_config({"task_planning_heuristic": "lmcut",
+    #                      "env": CFG.env,
+    #                      "approach": CFG.approach})
 
     oracle_approach = create_approach("oracle", env.simulate, env.predicates,
                                       env.options, env.types, env.action_space)
@@ -36,9 +36,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 act.unset_option()
         dataset.append(traj)
 
-    # TODO horrible
-    utils.update_config({"task_planning_heuristic": original_heuristic,
-                         "env": CFG.env,
-                         "approach": CFG.approach})
+    # # TODO horrible
+    # utils.update_config({"task_planning_heuristic": original_heuristic,
+    #                      "env": CFG.env,
+    #                      "approach": CFG.approach})
 
     return dataset
