@@ -267,9 +267,9 @@ class PaintingEnv(BaseEnv):
         elif rot < self.side_grasp_thresh:
             top_or_side = "side"
         # Can only place in shelf if side grasping, box if top grasping
-        if receptacle == "shelf" and top_or_side == "top":
+        if receptacle == "shelf" and top_or_side != "side":
             return next_state
-        if receptacle == "box" and top_or_side == "shelf":
+        if receptacle == "box" and top_or_side != "top":
             return next_state
         # Detect collisions
         collider = self._get_object_at_xyz(state, x, y, z)
@@ -467,7 +467,7 @@ class PaintingEnv(BaseEnv):
             else:
                 shelf_color, box_color = color1, color2
             # Create box, lid, and shelf objects
-            lid_is_open = int(rng.uniform() > 0.7)
+            lid_is_open = int(rng.uniform() > -0.7)
             data[self._box] = np.array([box_color], dtype=np.float32)
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([shelf_color], dtype=np.float32)
