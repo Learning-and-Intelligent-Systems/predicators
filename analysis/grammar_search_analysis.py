@@ -100,19 +100,38 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
 
         NotGripperOpen = GripperOpen.get_negation()
 
+        # ((0:obj).dirtiness<=0.619)
+        custom_dirtiness_classifier = _SingleAttributeCompareClassifier(
+            0, obj_type, "dirtiness", 0.619, le, "<=")
+        custom_dirtiness_pred = Predicate(str(custom_dirtiness_classifier),
+            [obj_type], custom_dirtiness_classifier)
+        assert str(custom_dirtiness_pred) == "((0:obj).dirtiness<=0.619)"
+
         painting_pred_sets: List[Set[Predicate]] = [
-            set(),
-            all_predicates - {IsWet, IsDry},
-            all_predicates - {IsClean, IsDirty},
-            all_predicates - {OnTable},
-            all_predicates - {HoldingTop, HoldingSide, Holding},
+            # set(),
+            # all_predicates - {IsWet, IsDry},
+            # all_predicates - {IsClean, IsDirty},
+            # all_predicates - {OnTable},
+            # all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
-            {IsClean, GripperOpen, Holding, OnTable},
-            {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
-            {
-                IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
-                color_pred
-            },
+            # {IsClean, GripperOpen, Holding, OnTable},
+            # {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
+            # {
+            #     IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
+            #     color_pred
+            # },
+
+            #((0:obj).color<=0.125), ((0:obj).wetness<=0.5), NOT-((0:obj).wetness<=0.5), NOT-((0:obj).held<=0.5), NOT-((0:robot).fingers<=0.5)}
+            # {IsDry, IsWet, Holding, GripperOpen},
+            # {color_pred, IsDry, IsWet, Holding, GripperOpen},
+
+            # ((0:obj).dirtiness<=0.619)
+            # ((0:obj).color<=0.125)
+            # ((0:obj).wetness<=0.5)
+            # NOT-((0:obj).wetness<=0.5)
+            # NOT-((0:obj).held<=0.5)
+            # NOT-((0:robot).fingers<=0.5)
+            {custom_dirtiness_pred, color_pred, IsDry, IsWet, Holding, GripperOpen},
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -223,21 +242,22 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 def _main() -> None:
     env_names = [
-        "cover",
-        "blocks",
+        # "cover",
+        # "blocks",
         "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_energy_lookaheaddepth0",
-        "hadd_energy_lookaheaddepth1",
-        "hadd_energy_lookaheaddepth2",
-        "exact_energy",
-        "lmcut_count_lookaheaddepth0",
-        "hadd_count_lookaheaddepth0",
-        "exact_count",
+        # "prediction_error",
+        # "hadd_energy_lookaheaddepth0",
+        # "hadd_energy_lookaheaddepth1",
+        # "hadd_energy_lookaheaddepth2",
+        # "exact_energy",
+        # "lmcut_count_lookaheaddepth0",
+        # "hadd_count_lookaheaddepth0",
+        # "exact_count",
+        "refinement_prob",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")

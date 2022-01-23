@@ -749,6 +749,39 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                         set(), option, option_vars, openlid_sampler)
     nsrts.add(openlid_nsrt)
 
+    # PlaceOnTable (from somewhere else on the table)
+    for holding_rot_pred in [HoldingSide, HoldingTop]:
+        obj = Variable("?obj", obj_type)
+        robot = Variable("?robot", robot_type)
+        parameters = [obj, robot]
+        option_vars = [robot]
+        option = Place
+        preconditions = {
+            LiftedAtom(Holding, [obj]),
+            LiftedAtom(holding_rot_pred, [robot]),
+            LiftedAtom(OnTable, [obj]),
+        }
+        add_effects = {
+            LiftedAtom(GripperOpen, [robot]),
+        }
+        delete_effects = {
+            LiftedAtom(holding_rot_pred, [robot]),
+            LiftedAtom(Holding, [obj]),
+        }
+
+        def placeontable_sampler(state: State, rng: np.random.Generator,
+                                 objs: Sequence[Object]) -> Array:
+            x = state.get(objs[0], "pose_x")
+            y = rng.uniform(PaintingEnv.table_lb, PaintingEnv.table_ub)
+            z = state.get(objs[0], "pose_z")
+            return np.array([x, y, z], dtype=np.float32)
+
+        placeontable_nsrt = NSRT(f"PlaceOnTable-{holding_rot_pred.name}",
+                                 parameters, preconditions,
+                                 add_effects, delete_effects, set(), option,
+                                 option_vars, placeontable_sampler)
+        nsrts.add(placeontable_nsrt)
+
     return nsrts
 
 

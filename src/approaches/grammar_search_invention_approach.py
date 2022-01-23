@@ -686,11 +686,21 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
         del segments  # unused
         score = 0.0
         seen_demos = 0
+        # for op, option_spec in zip(strips_ops, option_specs):
+        #     print(op)
+        #     option_spec_str = f"{option_spec[0].name}{option_spec[1]}".replace("[", "(").replace("]", ")")
+        #     print(f"    {option_spec_str}")
         for traj, atoms_sequence in pruned_atom_data:
             if seen_demos >= CFG.grammar_search_heuristic_based_max_demos:
                 break
             if not traj.is_demo:
                 continue
+
+            # print("Demo:")
+            # for act in traj.actions:
+            #     option = act.get_option()
+            #     print((option.parent, option.objects))
+
             seen_demos += 1
             init_atoms = utils.abstract(
                 traj.states[0],
@@ -710,14 +720,16 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
             metrics = defaultdict(float)
             generator = _skeleton_generator(dummy_task, ground_nsrts,
                 init_atoms, heuristic, CFG.seed,
-                CFG.grammar_search_task_planning_timeout, metrics)
+                CFG.grammar_search_task_planning_timeout,
+                metrics)
             try:
-                for idx, (_, plan_atoms_sequence) in enumerate(generator):
+                for idx, (plan_skeleton, plan_atoms_sequence) in enumerate(generator):
                     if idx >= CFG.max_skeletons_optimized:
                         break
                     assert traj.goal.issubset(plan_atoms_sequence[-1])
                     refinement_prob = self._get_refinement_prob(atoms_sequence,
                         plan_atoms_sequence)
+                    # num_nodes = metrics["num_nodes_created"]
                     num_nodes = metrics["num_nodes_created"]
                     if idx == 0:
                         expected_num_nodes = refinement_prob * num_nodes
@@ -725,10 +737,13 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                         p = refinable_skeleton_not_found_prob * refinement_prob
                         expected_num_nodes += p * num_nodes
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
-                    # if "NOT-((0:block).grasp<=-0.485)" in str(candidate_predicates):
-                        # import ipdb; ipdb.set_trace()
-                    # if "Forall[0:block].[((0:block).grasp<=-0.485)(0)], NOT-Forall[0:block].[((0:block).grasp<=-0.485)(0)" in str(candidate_predicates):
-                    #     import ipdb; ipdb.set_trace()
+                    # print(idx, refinement_prob)
+
+                    # print(f"Plan skeleton with refinement_prob {refinement_prob}")
+                    # for act in plan_skeleton:
+                    #     print((act.option, act.option_objs))
+                    # import ipdb; ipdb.set_trace()
+
             except (ApproachFailure, ApproachTimeout):
                 pass
             # This corresponds to the case where a refinable skeleton is not
@@ -1184,13 +1199,21 @@ def _select_predicates_to_keep(
     init: FrozenSet[Predicate] = frozenset()
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(
+    # path, _ = utils.run_hill_climbing(
+    #     init,
+    #     _check_goal,
+    #     _get_successors,
+    #     score_function.evaluate,
+    #     enforced_depth=CFG.grammar_search_hill_climbing_depth,
+    #     parallelize=CFG.grammar_search_parallelize_hill_climbing)
+
+    path, _ = utils.run_gbfs(
         init,
         _check_goal,
         _get_successors,
         score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth,
-        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+        max_evals=1000)
+
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
