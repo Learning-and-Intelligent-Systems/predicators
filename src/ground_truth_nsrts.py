@@ -765,14 +765,16 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(GripperOpen, [robot]),
         }
         delete_effects = {
-            LiftedAtom(holding_rot_pred, [robot]),
             LiftedAtom(Holding, [obj]),
+            LiftedAtom(holding_rot_pred, [robot]),
         }
 
         def placeontable_sampler(state: State, rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
+            # Always release the object where it is, to avoid the possibility
+            # of collisions with other objects.
             x = state.get(objs[0], "pose_x")
-            y = rng.uniform(PaintingEnv.table_lb, PaintingEnv.table_ub)
+            y = state.get(objs[0], "pose_y")
             z = state.get(objs[0], "pose_z")
             return np.array([x, y, z], dtype=np.float32)
 

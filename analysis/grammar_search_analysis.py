@@ -108,22 +108,25 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         assert str(custom_dirtiness_pred) == "((0:obj).dirtiness<=0.619)"
 
         painting_pred_sets: List[Set[Predicate]] = [
-            # set(),
-            # all_predicates - {IsWet, IsDry},
-            # all_predicates - {IsClean, IsDirty},
-            # all_predicates - {OnTable},
-            # all_predicates - {HoldingTop, HoldingSide, Holding},
+            set(),
+            all_predicates - {IsWet, IsDry},
+            all_predicates - {IsClean, IsDirty},
+            all_predicates - {OnTable},
+            all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
-            # {IsClean, GripperOpen, Holding, OnTable},
-            # {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
-            # {
-            #     IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
-            #     color_pred
-            # },
+            {IsClean, GripperOpen, Holding, OnTable},
+            {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
+            {
+                IsClean, GripperOpen, Holding, OnTable, NotGripperOpen,
+                color_pred
+            },
+
+            {IsDry, IsWet, Holding, GripperOpen},
 
             #((0:obj).color<=0.125), ((0:obj).wetness<=0.5), NOT-((0:obj).wetness<=0.5), NOT-((0:obj).held<=0.5), NOT-((0:robot).fingers<=0.5)}
-            # {IsDry, IsWet, Holding, GripperOpen},
-            # {color_pred, IsDry, IsWet, Holding, GripperOpen},
+            {color_pred, IsDry, IsWet, Holding, GripperOpen},
+
+            {color_pred, IsDry, IsWet, Holding, GripperOpen, OnTable},
 
             # ((0:obj).dirtiness<=0.619)
             # ((0:obj).color<=0.125)
@@ -132,6 +135,21 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             # NOT-((0:obj).held<=0.5)
             # NOT-((0:robot).fingers<=0.5)
             {custom_dirtiness_pred, color_pred, IsDry, IsWet, Holding, GripperOpen},
+
+            # ((0:robot).gripper_rot<=0.5)
+            # NOT-((0:obj).wetness<=0.5)
+            # ((0:obj).pose_y<=-0.284)
+            # NOT-((0:robot).fingers<=0.5)
+            # ((0:obj).color<=0.124)
+            # ((0:box).color<=0.782)
+            # ((0:obj).wetness<=0.5)
+            # NOT-((0:robot).gripper_rot<=0.25)
+            # NOT-((0:obj).color<=0.124)
+            # ((0:obj).dirtiness<=0.495)
+            # NOT-((0:obj).held<=0.5)
+            # 6124159
+
+            all_predicates | {color_pred},
         ]
         _run_proxy_analysis_for_env(env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)

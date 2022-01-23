@@ -271,6 +271,10 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and top_or_side == "shelf":
             return next_state
+        # Detect collisions
+        collider = self._get_object_at_xyz(state, x, y, z)
+        if collider is not None and collider != held_obj:
+            raise EnvironmentFailure("Collision during placing.", {collider})
         # Execute place
         next_state.set(self._robot, "gripper_rot", 0.5)
         next_state.set(self._robot, "fingers", 1.0)
@@ -505,11 +509,12 @@ class PaintingEnv(BaseEnv):
             # Sometimes start out holding an object, possibly with the wrong
             # grip, so that we'll have to put it on the table and regrasp
             if rng.uniform() < 0.5:
-                rot = rng.uniform()
+                rot = rng.choice([0.0, 0.1])
                 target_obj = objs[rng.choice(len(objs))]
                 state.set(self._robot, "gripper_rot", rot)
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "held", 1.0)
+                assert self._OnTable_holds(state, [target_obj])
             tasks.append(Task(state, goal))
         return tasks
 

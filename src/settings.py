@@ -156,7 +156,7 @@ class GlobalSettings:
             # Task planning heuristic to use in SeSamE.
             task_planning_heuristic=defaultdict(
                 # Use HAdd by default.
-                lambda: "lmcut",
+                lambda: "hadd",
                 {
                     # In the playroom domain, HFF works better.
                     "playroom": "hff",

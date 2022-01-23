@@ -696,10 +696,10 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
             if not traj.is_demo:
                 continue
 
-            # print("Demo:")
+            # print(f"Demo (len={len(traj.actions)}):")
             # for act in traj.actions:
             #     option = act.get_option()
-            #     print((option.parent, option.objects))
+            #     print((option.parent.name, option.objects))
 
             seen_demos += 1
             init_atoms = utils.abstract(
@@ -721,6 +721,7 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
             generator = _skeleton_generator(dummy_task, ground_nsrts,
                 init_atoms, heuristic, CFG.seed,
                 CFG.grammar_search_task_planning_timeout,
+                # 1000000,
                 metrics)
             try:
                 for idx, (plan_skeleton, plan_atoms_sequence) in enumerate(generator):
@@ -739,9 +740,9 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
                     # print(idx, refinement_prob)
 
-                    # print(f"Plan skeleton with refinement_prob {refinement_prob}")
+                    # print(f"Plan skeleton (len={len(plan_skeleton)}) with refinement_prob {refinement_prob}")
                     # for act in plan_skeleton:
-                    #     print((act.option, act.option_objs))
+                    #     print((act.option.name, act.option_objs))
                     # import ipdb; ipdb.set_trace()
 
             except (ApproachFailure, ApproachTimeout):
@@ -749,6 +750,7 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
             # This corresponds to the case where a refinable skeleton is not
             # found within the budget.
             expected_num_nodes += refinable_skeleton_not_found_prob * 1e7
+            # print(expected_num_nodes)
             score += expected_num_nodes
         return score
 
