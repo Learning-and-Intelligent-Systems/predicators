@@ -741,7 +741,9 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                 for idx, (plan_skeleton, plan_atoms_sequence) in enumerate(generator):
                     assert traj.goal.issubset(plan_atoms_sequence[-1])
                     refinement_prob = self._get_refinement_prob(atoms_sequence,
-                        plan_atoms_sequence, demo_two_step_effects)
+                        plan_atoms_sequence, demo_two_step_effects,
+                        # debug=idx==0)
+                        )
                     num_nodes = metrics["num_nodes_created"]
                     if idx == 0:
                         expected_num_nodes = refinement_prob * num_nodes
@@ -749,7 +751,6 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                         p = refinable_skeleton_not_found_prob * refinement_prob
                         expected_num_nodes += p * num_nodes
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
-                    print(idx, refinement_prob)
 
                     # print(f"Plan skeleton (len={len(plan_skeleton)}) with refinement_prob {refinement_prob}")
                     # for act in plan_skeleton:
@@ -761,13 +762,13 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                 pass
             # This corresponds to the case where a refinable skeleton is not
             # found within the budget.
-            expected_num_nodes += refinable_skeleton_not_found_prob * 1e7
+            expected_num_nodes += refinable_skeleton_not_found_prob * 1e5
             # print("adding to score:", expected_num_nodes)
             score += expected_num_nodes
         return score
 
     def _get_refinement_prob(self, demo_atoms_sequence, plan_atoms_sequence,
-                             demo_two_step_effects):
+                             demo_two_step_effects, debug=False):
         # Probability that demonstration was optimal.
         demo_len = len(demo_atoms_sequence)
         plan_len = len(plan_atoms_sequence)
@@ -777,12 +778,13 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
             opt_prob = 0.9 * 0.1**(demo_len - plan_len)
         # Probability that this particular plan sequence is refinable.
         refinement_model_prob = self._estimate_refinability(plan_atoms_sequence,
-            demo_two_step_effects)
+            demo_two_step_effects, debug=debug)
         return refinement_model_prob * opt_prob
 
     def _estimate_refinability(self, plan_atoms_sequence,
-                               demo_two_step_effects):
-        p = 0.99
+                               demo_two_step_effects, debug=False):
+        # return 1.0
+        p = 1 - 1e-5
         for i in range(2, len(plan_atoms_sequence)):
             s = plan_atoms_sequence[i-2]
             nns = plan_atoms_sequence[i]
@@ -796,6 +798,8 @@ class _RefinementProbScoreFunction(_OperatorLearningBasedScoreFunction):
                     unifies = True
                     break
             if not unifies:
+                if debug:
+                    import ipdb; ipdb.set_trace()
                 p *= 0.1
         return p
 
