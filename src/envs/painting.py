@@ -422,8 +422,8 @@ class PaintingEnv(BaseEnv):
                 grasp = state.get(held_obj, "grasp")
                 assert grasp < self.side_grasp_thresh or \
                     grasp > self.top_grasp_thresh
-                edgecolor = ("yellow" if grasp < self.side_grasp_thresh else
-                             "orange")
+                edgecolor = ("yellow"
+                             if grasp < self.side_grasp_thresh else "orange")
             else:
                 edgecolor = "gray"
             # Normalize poses to [0, 1]

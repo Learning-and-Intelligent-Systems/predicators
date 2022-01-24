@@ -553,10 +553,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot]),
         LiftedAtom(OnTable, [obj])
     }
-    add_effects = {
-        LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingSide, [obj])
-    }
+    add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingSide, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
     def pickfromside_sampler(state: State, rng: np.random.Generator,
@@ -670,10 +667,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [obj, box, robot]
     option_vars = [robot]
     option = Place
-    preconditions = {
-        LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingTop, [obj])
-    }
+    preconditions = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     add_effects = {
         LiftedAtom(InBox, [obj, box]),
         LiftedAtom(GripperOpen, [robot])
