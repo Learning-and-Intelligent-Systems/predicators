@@ -114,7 +114,6 @@ def test_painting_failure_cases():
     lid_type = [t for t in env.types if t.name == "lid"][0]
     obj0 = obj_type("obj0")
     obj1 = obj_type("obj1")
-    obj2 = obj_type("obj2")
     robot = robot_type("robot")
     lid = lid_type("lid")
     task = next(env.train_tasks_generator())[0]
@@ -180,6 +179,23 @@ def test_painting_failure_cases():
     state = next_state
     # Render with holding
     env.render(state, task)
+    # Cannot pick twice in a row
+    act = Pick.ground([robot, obj1], np.array([0, 0, 0, 0],
+                                              dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
+    # Cannot paint because not dry/clean
+    act = Paint.ground([robot], np.array([0], dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
+    # Cannot place outside of shelf/box
+    act = Place.ground(
+        [robot],
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.shelf_lb - 0.1, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
     # Cannot place in shelf because grasp is 1
     act = Place.ground(
         [robot],
@@ -231,7 +247,7 @@ def test_painting_failure_cases():
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
-    # Cannot place in box because gripper_rot is 0
+    # Cannot place in box because grasp is 0
     act = Place.ground(
         [robot],
         np.array(
