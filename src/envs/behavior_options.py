@@ -547,7 +547,7 @@ def create_grasp_policy(
             ###
 
         elif (plan_executed_forwards and not tried_closing_gripper):
-            # Open the gripper to see if you've gotten the
+            # Close the gripper to see if you've gotten the
             # object
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             low_level_action[16] = -1.0
@@ -1098,7 +1098,7 @@ def create_place_policy(
             ###
 
         elif (plan_executed_forwards and not tried_opening_gripper):
-            # Open the gripper to see if you've gotten the
+            # Open the gripper to see if you've released the
             # object
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             low_level_action[16] = -1.0
