@@ -35,10 +35,7 @@ def test_sesame_plan():
 
 def test_task_plan():
     """Tests for task_plan()."""
-    utils.update_config({
-        "env": "cover",
-        "max_skeletons_optimized": 3,
-    })
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
@@ -62,19 +59,20 @@ def test_task_plan():
                                     ground_nsrts,
                                     reachable_atoms,
                                     heuristic,
+                                    seed=123,
                                     timeout=1,
-                                    seed=123)
+                                    max_num_skeletons=3)
     skeleton, _, metrics = next(task_plan_generator)
+    initial_metrics = metrics.copy()
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
     total_num_skeletons = 1
-    with pytest.raises(ApproachFailure) as e:
-        for _, _, metrics in task_plan_generator:
-            total_num_skeletons += 1
-            assert metrics["num_skeletons_optimized"] == total_num_skeletons
-    assert "Planning reached max_skeletons_optimized!" in str(e.value)
+    for _, _, metrics in task_plan_generator:
+        total_num_skeletons += 1
+        assert metrics["num_skeletons_optimized"] == total_num_skeletons
     assert total_num_skeletons == 3
+    assert initial_metrics["num_skeletons_optimized"] == 1
     # Test timeout.
     with pytest.raises(ApproachTimeout):
         for _ in task_plan(init_atoms,
@@ -82,8 +80,9 @@ def test_task_plan():
                            ground_nsrts,
                            reachable_atoms,
                            heuristic,
+                           seed=123,
                            timeout=1e-6,
-                           seed=123):
+                           max_num_skeletons=10):
             continue
 
 
@@ -278,13 +277,15 @@ def test_planning_determinism():
                 init_atoms, objects, nsrts, option_specs)
             heuristic = utils.create_task_planning_heuristic(
                 "hadd", init_atoms, goal, ground_nsrts, predicates, objects)
-            skeleton, _, _ = task_plan(init_atoms,
-                                       goal,
-                                       ground_nsrts,
-                                       reachable_atoms,
-                                       heuristic,
-                                       timeout=10,
-                                       seed=123)
+            skeleton, _, _ = next(
+                task_plan(init_atoms,
+                          goal,
+                          ground_nsrts,
+                          reachable_atoms,
+                          heuristic,
+                          timeout=10,
+                          seed=123,
+                          max_num_skeletons=1))
             all_plans.append([(act.name, act.objects) for act in skeleton])
 
     assert len(all_plans) == 4

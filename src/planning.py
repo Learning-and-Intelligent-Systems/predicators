@@ -6,6 +6,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
+from itertools import islice
 import time
 from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
 from dataclasses import dataclass
@@ -144,6 +145,7 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
+    max_num_skeletons: int,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
@@ -165,9 +167,11 @@ def task_plan(
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    for skeleton, atoms_sequence in _skeleton_generator(
-            dummy_task, ground_nsrts, init_atoms, heuristic, seed, timeout,
-            metrics):
+    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
+                                    heuristic, seed, timeout, metrics)
+    # Note that we use this pattern to avoid having to catch an ApproachFailure
+    # when _skeleton_generator runs out of max_num_skeletons.
+    for skeleton, atoms_sequence in islice(generator, max_num_skeletons):
         yield skeleton, atoms_sequence, metrics.copy()
 
 
