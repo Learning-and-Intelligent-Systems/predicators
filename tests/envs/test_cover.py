@@ -11,18 +11,24 @@ from predicators.src import utils
 
 def test_cover():
     """Tests for CoverEnv class."""
-    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.5})
+    utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     train_tasks_gen = env.train_tasks_generator()
     for task in next(train_tasks_gen):
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
+            assert sum(
+                task.init.get(obj, "grasp") != -1 for obj in task.init
+                if obj.type.name == "block") == 0
     with pytest.raises(StopIteration):
         next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
+            assert sum(
+                task.init.get(obj, "grasp") != -1 for obj in task.init
+                if obj.type.name == "block") == 0
     # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
     assert len(env.predicates) == 5
     # Goal predicates should be {Covers}.
@@ -85,7 +91,26 @@ def test_cover():
                                       max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
-    # Leave the default to 0.0 for other tests.
+    # Test cover_initial_holding_prob.
+    utils.update_config({"env": "cover", "cover_initial_holding_prob": 1.0})
+    env = CoverEnv()
+    env.seed(123)
+    train_tasks_gen = env.train_tasks_generator()
+    for task in next(train_tasks_gen):
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+            assert sum(
+                task.init.get(obj, "grasp") != -1 for obj in task.init
+                if obj.type.name == "block") == 1
+    with pytest.raises(StopIteration):
+        next(train_tasks_gen)
+    for task in env.get_test_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+            assert sum(
+                task.init.get(obj, "grasp") != -1 for obj in task.init
+                if obj.type.name == "block") == 1
+    # Revert to 0.0 for other tests.
     utils.update_config({"cover_initial_holding_prob": 0.0})
 
 

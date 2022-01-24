@@ -253,8 +253,7 @@ class CoverEnv(BaseEnv):
         data[self._robot] = np.array([0.0])
         state = State(data)
         # Allow some chance of holding a block in the initial state.
-        if CFG.cover_initial_holding_prob > 0 and \
-            rng.uniform() < CFG.cover_initial_holding_prob:
+        if rng.uniform() < CFG.cover_initial_holding_prob:
             block = self._blocks[rng.choice(len(self._blocks))]
             pick_pose = state.get(block, "pose")
             action = Action(np.array([pick_pose], dtype=np.float32))
