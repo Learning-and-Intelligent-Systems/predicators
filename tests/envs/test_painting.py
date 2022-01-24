@@ -122,27 +122,26 @@ def test_painting_failure_cases():
     atoms = utils.abstract(state, env.predicates)
     assert OnTable([obj0]) in atoms
     assert OnTable([obj1]) in atoms
-    assert OnTable([obj2]) in atoms
     # In the first initial state, we are holding an object, because
     # painting_initial_holding_prob = 1.0
-    assert Holding([obj2]) in atoms
+    assert Holding([obj0]) in atoms
     # Placing it on another object causes a collision
     with pytest.raises(EnvironmentFailure):
-        x = state.get(obj0, "pose_x")
-        y = state.get(obj0, "pose_y")
-        z = state.get(obj0, "pose_z")
+        x = state.get(obj1, "pose_x")
+        y = state.get(obj1, "pose_y")
+        z = state.get(obj1, "pose_z")
         act = Place.ground([robot], np.array([x, y, z],
                                              dtype=np.float32)).policy(state)
         env.simulate(state, act)
     # Advance to a state where we are not holding anything
-    x = state.get(obj2, "pose_x")
-    y = state.get(obj2, "pose_y")
-    z = state.get(obj2, "pose_z")
+    x = state.get(obj0, "pose_x")
+    y = state.get(obj0, "pose_y")
+    z = state.get(obj0, "pose_z")
     act = Place.ground([robot], np.array([x, y, z],
                                          dtype=np.float32)).policy(state)
     handempty_state = env.simulate(state, act)
     state = handempty_state
-    assert Holding([obj2]) not in utils.abstract(state, env.predicates)
+    assert Holding([obj0]) not in utils.abstract(state, env.predicates)
     # No object at this pose, pick fails
     act = Pick.ground([robot, obj0], np.array([0, -1, 0, 0],
                                               dtype=np.float32)).policy(state)
