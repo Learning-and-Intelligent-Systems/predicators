@@ -145,7 +145,6 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
-    max_num_skeletons: int,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
@@ -170,8 +169,9 @@ def task_plan(
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics)
     # Note that we use this pattern to avoid having to catch an ApproachFailure
-    # when _skeleton_generator runs out of max_num_skeletons.
-    for skeleton, atoms_sequence in islice(generator, max_num_skeletons):
+    # when _skeleton_generator runs out of skeletons to optimize.
+    for skeleton, atoms_sequence in islice(generator,
+                                           CFG.max_skeletons_optimized):
         yield skeleton, atoms_sequence, metrics.copy()
 
 

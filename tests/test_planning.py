@@ -35,7 +35,10 @@ def test_sesame_plan():
 
 def test_task_plan():
     """Tests for task_plan()."""
-    utils.update_config({"env": "cover"})
+    utils.update_config({
+        "env": "cover",
+        "max_skeletons_optimized": 3,
+    })
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
@@ -59,9 +62,8 @@ def test_task_plan():
                                     ground_nsrts,
                                     reachable_atoms,
                                     heuristic,
-                                    seed=123,
                                     timeout=1,
-                                    max_num_skeletons=3)
+                                    seed=123)
     skeleton, _, metrics = next(task_plan_generator)
     initial_metrics = metrics.copy()
     assert len(skeleton) == 2
@@ -80,9 +82,8 @@ def test_task_plan():
                            ground_nsrts,
                            reachable_atoms,
                            heuristic,
-                           seed=123,
                            timeout=1e-6,
-                           max_num_skeletons=10):
+                           seed=123):
             continue
 
 
@@ -284,8 +285,7 @@ def test_planning_determinism():
                           reachable_atoms,
                           heuristic,
                           timeout=10,
-                          seed=123,
-                          max_num_skeletons=1))
+                          seed=123))
             all_plans.append([(act.name, act.objects) for act in skeleton])
 
     assert len(all_plans) == 4
