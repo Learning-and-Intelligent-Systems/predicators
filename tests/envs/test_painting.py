@@ -167,41 +167,12 @@ def test_painting_failure_cases():
                  dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    # Perform valid pick with gripper_rot = 0.5
+    # Cannot pick with grasp = 0.5
     act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0.5],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert not state.allclose(next_state)
-    # Change the state
-    state = next_state
-    # Cannot pick twice in a row
-    act = Pick.ground([robot, obj1], np.array([0, 0, 0, 0],
-                                              dtype=np.float32)).policy(state)
-    next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    # Cannot paint because not dry/clean
-    act = Paint.ground([robot], np.array([0], dtype=np.float32)).policy(state)
-    next_state = env.simulate(state, act)
-    assert state.allclose(next_state)
-    # Cannot place outside of shelf/box
-    act = Place.ground(
-        [robot],
-        np.array(
-            [PaintingEnv.obj_x, PaintingEnv.shelf_lb - 0.1, PaintingEnv.obj_z],
-            dtype=np.float32)).policy(state)
-    next_state = env.simulate(state, act)
-    # Cannot place because gripper_rot is 0.5
-    act = Place.ground(
-        [robot],
-        np.array([
-            PaintingEnv.obj_x, PaintingEnv.shelf_lb + 1e-3, PaintingEnv.obj_z
-        ],
-                 dtype=np.float32)).policy(state)
-    next_state = env.simulate(state, act)
-    assert state.allclose(next_state)
-    # Reset state
-    state = handempty_state
-    # Perform valid pick with gripper_rot = 1 (top grasp)
+    # Perform valid pick with grasp = 1 (top grasp)
     act = Pick.ground([robot, obj0], np.array([0, 0, 0, 1],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
@@ -210,7 +181,7 @@ def test_painting_failure_cases():
     state = next_state
     # Render with holding
     env.render(state, task)
-    # Cannot place in shelf because gripper_rot is 1
+    # Cannot place in shelf because grasp is 1
     act = Place.ground(
         [robot],
         np.array([
@@ -247,7 +218,7 @@ def test_painting_failure_cases():
     assert not state.allclose(next_state)
     # Reset state
     state = handempty_state
-    # Perform valid pick with gripper_rot = 0 (side grasp)
+    # Perform valid pick with grasp = 0 (side grasp)
     act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)

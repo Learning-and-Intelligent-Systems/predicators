@@ -530,7 +530,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot]),
         LiftedAtom(OnTable, [obj])
     }
-    add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [robot])}
+    add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
     def pickfromtop_sampler(state: State, rng: np.random.Generator,
@@ -555,7 +555,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     }
     add_effects = {
         LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingSide, [robot])
+        LiftedAtom(HoldingSide, [obj])
     }
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
@@ -672,14 +672,14 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     option = Place
     preconditions = {
         LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingTop, [robot])
+        LiftedAtom(HoldingTop, [obj])
     }
     add_effects = {
         LiftedAtom(InBox, [obj, box]),
         LiftedAtom(GripperOpen, [robot])
     }
     delete_effects = {
-        LiftedAtom(HoldingTop, [robot]),
+        LiftedAtom(HoldingTop, [obj]),
         LiftedAtom(Holding, [obj]),
         LiftedAtom(OnTable, [obj])
     }
@@ -705,14 +705,14 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     option = Place
     preconditions = {
         LiftedAtom(Holding, [obj]),
-        LiftedAtom(HoldingSide, [robot])
+        LiftedAtom(HoldingSide, [obj])
     }
     add_effects = {
         LiftedAtom(InShelf, [obj, shelf]),
         LiftedAtom(GripperOpen, [robot])
     }
     delete_effects = {
-        LiftedAtom(HoldingSide, [robot]),
+        LiftedAtom(HoldingSide, [obj]),
         LiftedAtom(Holding, [obj]),
         LiftedAtom(OnTable, [obj])
     }
@@ -758,7 +758,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         option = Place
         preconditions = {
             LiftedAtom(Holding, [obj]),
-            LiftedAtom(holding_rot_pred, [robot]),
+            LiftedAtom(holding_rot_pred, [obj]),
             LiftedAtom(OnTable, [obj]),
         }
         add_effects = {
@@ -766,7 +766,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         }
         delete_effects = {
             LiftedAtom(Holding, [obj]),
-            LiftedAtom(holding_rot_pred, [robot]),
+            LiftedAtom(holding_rot_pred, [obj]),
         }
 
         def placeontable_sampler(state: State, rng: np.random.Generator,
