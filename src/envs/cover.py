@@ -251,7 +251,15 @@ class CoverEnv(BaseEnv):
             data[target] = np.array([0.0, 1.0, width, pose])
         # [hand]
         data[self._robot] = np.array([0.0])
-        return State(data)
+        state = State(data)
+        # Allow some chance of holding a block in the initial state.
+        if rng.uniform() < 0.5:
+            block = self._blocks[rng.choice(len(self._blocks))]
+            pick_pose = state.get(block, "pose")
+            action = Action(np.array([pick_pose], dtype=np.float32))
+            state = self.simulate(state, action)
+            assert self._Holding_holds(state, [block])
+        return state
 
     @staticmethod
     def _IsBlock_holds(state: State, objects: Sequence[Object]) -> bool:
