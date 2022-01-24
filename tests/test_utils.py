@@ -1699,8 +1699,7 @@ def test_ops_and_specs_to_dummy_nsrts():
 
 
 def test_string_to_python_object():
-    """Tests for string_to_python_object().
-    """
+    """Tests for string_to_python_object()."""
     assert utils.string_to_python_object("3") == 3
     assert utils.string_to_python_object("1234") == 1234
     assert utils.string_to_python_object("3.2") == 3.2
