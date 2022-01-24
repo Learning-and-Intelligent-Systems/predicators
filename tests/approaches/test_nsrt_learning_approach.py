@@ -154,6 +154,18 @@ def test_grammar_search_invention_approach():
                    excluded_predicates="Holding",
                    try_solving=False,
                    sampler_learner="random")
+    # Test approach with unrecognized search algorithm.
+    utils.update_config({
+        "grammar_search_search_algorithm": "not a real search algorithm",
+        "grammar_search_gbfs_num_evals": 10,
+    })
+    with pytest.raises(Exception) as e:
+        _test_approach(env_name="cover",
+                       approach_name="grammar_search_invention",
+                       excluded_predicates="Holding",
+                       try_solving=False,
+                       sampler_learner="random")
+    assert "Unrecognized grammar_search_search_algorithm" in str(e.value)
     # Test approach with gbfs.
     utils.update_config({
         "grammar_search_search_algorithm": "gbfs",
