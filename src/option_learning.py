@@ -337,7 +337,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 class _NeuralOptionLearner(_OptionLearnerBase):
     """Learn _LearnedNeuralParameterizedOption objects by behavior cloning.
 
-    See the docstring for _LearnedNeuralParameterizedOptions for a description
+    See the docstring for _LearnedNeuralParameterizedOption for a description
     of the option structure.
 
     In this paradigm, the option initiable and termination are determined from
