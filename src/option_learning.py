@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 import abc
-from functools import cached_property
 from typing import List, Sequence, Dict, Tuple, Set
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment, Array, ParameterizedOption, Object, Variable, Box, Predicate, \
-    State, Action
+    Segment, Array, ParameterizedOption, Object, Variable, Box, State, Action
 from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
 from predicators.src.torch_models import MLPRegressor
