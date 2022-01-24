@@ -218,7 +218,7 @@ def test_learned_neural_parameterized_option():
     # Get an initial state where picking should be possible.
     env.seed(123)
     task = env.get_test_tasks()[0]
-    state = task.init
+    state = task.init.copy()
     block0, block1, robot, _, _ = sorted(state)
     assert block0.name == "block0"
     assert robot.name == "robby"
@@ -240,6 +240,14 @@ def test_learned_neural_parameterized_option():
     with pytest.raises(ApproachFailure):
         state.set(block0, "x", np.nan)
         action = option.policy(state)
+    # Test that the option terminates early if it encounters the same state
+    # two times in a row.
+    state = task.init
+    option = param_option.ground([block0, robot],
+                                 np.zeros(param_dim, dtype=np.float32))
+    assert option.initiable(state)
+    assert not option.terminal(state)
+    assert option.terminal(state)
 
 
 def test_create_option_learner():
