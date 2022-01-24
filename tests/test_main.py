@@ -165,6 +165,12 @@ def test_main():
         "123", "--excluded_predicates", "all", "--num_test_tasks", "5"
     ]
     main()  # correct usage
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
+        "123", "--excluded_predicates", "all", "--num_test_tasks", "5",
+        "--cover_initial_holding_prob", "0.99"
+    ]
+    main()  # correct usage
 
 
 def test_tamp_approach_failure():
