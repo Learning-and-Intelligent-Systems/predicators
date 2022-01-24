@@ -96,7 +96,8 @@ def test_painting_failure_cases():
         "env": "painting",
         "approach": "nsrt_learning",
         "seed": 123,
-        "painting_train_families": ["box_and_shelf"]
+        "painting_initial_holding_prob": 1.0,
+        "painting_train_families": ["box_and_shelf"],
     })
     env = PaintingEnv()
     env.seed(123)
@@ -122,7 +123,8 @@ def test_painting_failure_cases():
     assert OnTable([obj0]) in atoms
     assert OnTable([obj1]) in atoms
     assert OnTable([obj2]) in atoms
-    # In the first initial state, we are holding an object
+    # In the first initial state, we are holding an object, because
+    # painting_initial_holding_prob = 1.0
     assert Holding([obj2]) in atoms
     # Placing it on another object causes a collision
     with pytest.raises(EnvironmentFailure):
@@ -249,3 +251,10 @@ def test_painting_failure_cases():
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
+    # Revert to 0.0 for other tests.
+    utils.update_config({"painting_initial_holding_prob": 0.0})
+    env = PaintingEnv()
+    env.seed(123)
+    task = next(env.train_tasks_generator())[0]
+    state = task.init
+    assert not utils.abstract(state, {Holding})
