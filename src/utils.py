@@ -1184,11 +1184,11 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
     for k in args:
         if k not in allowed_args:
             raise ValueError(f"Unrecognized arg: {k}")
-    for k in ("env", "approach", "seed"):
-        if not args.get(k, None) and hasattr(CFG, k):
-            # For env, approach, and seed, if we don't pass in a value
-            # and this key is already in the configuration dict, add
-            # the current value to args.
+    for k in ("env", "approach", "seed", "experiment_id"):
+        if k not in args and hasattr(CFG, k):
+            # For env, approach, seed, and experiment_id, if we don't
+            # pass in a value and this key is already in the
+            # configuration dict, add the current value to args.
             args[k] = getattr(CFG, k)
     # Maintain the invariant that CFG has some seed and some
     # experiment_id set. This is very useful in unit tests, where
