@@ -1098,13 +1098,24 @@ def _select_predicates_to_keep(
     init: FrozenSet[Predicate] = frozenset()
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(
-        init,
-        _check_goal,
-        _get_successors,
-        score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth,
-        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    if CFG.grammar_search_search_algorithm == "hill_climbing":
+        path, _ = utils.run_hill_climbing(
+            init,
+            _check_goal,
+            _get_successors,
+            score_function.evaluate,
+            enforced_depth=CFG.grammar_search_hill_climbing_depth,
+            parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    elif CFG.grammar_search_search_algorithm == "gbfs":
+        path, _ = utils.run_gbfs(init,
+                                 _check_goal,
+                                 _get_successors,
+                                 score_function.evaluate,
+                                 max_evals=CFG.grammar_search_gbfs_num_evals)
+    else:
+        raise NotImplementedError(
+            "Unrecognized grammar_search_search_algorithm: "
+            f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "

@@ -185,6 +185,7 @@ def _skeleton_generator(
                       skeleton=[],
                       atoms_sequence=[init_atoms],
                       parent=None)
+    metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
@@ -214,6 +215,7 @@ def _skeleton_generator(
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node)
+                metrics["num_nodes_created"] += 1
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
