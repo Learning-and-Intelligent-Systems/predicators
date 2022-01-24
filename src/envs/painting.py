@@ -256,7 +256,7 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise EnvironmentFailure("box lid is closed", {self._lid})
+            raise EnvironmentFailure("Box lid is closed.", {self._lid})
         # Detect top grasp vs side grasp
         rot = state.get(self._robot, "gripper_rot")
         top_or_side = "neither"
@@ -272,7 +272,9 @@ class PaintingEnv(BaseEnv):
             return next_state
         # Detect collisions
         collider = self._get_object_at_xyz(state, x, y, z)
-        if collider is not None and collider != held_obj:
+        if receptacle == "table" and \
+           collider is not None and \
+           collider != held_obj:
             raise EnvironmentFailure("Collision during placing.", {collider})
         # Execute place
         next_state.set(self._robot, "gripper_rot", 0.5)
