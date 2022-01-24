@@ -13,8 +13,9 @@ def _main() -> None:
     column_names = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
         "NUM_SOLVED", "NUM_TOTAL", "AVG_TEST_TIME", "AVG_SKELETONS",
-        "MIN_SKELETONS", "MAX_SKELETONS", "AVG_NUM_NODES", "AVG_PLAN_LEN",
-        "AVG_EXECUTION_FAILS", "LEARNING_TIME"
+        "MIN_SKELETONS", "MAX_SKELETONS", "AVG_NODES_EXPANDED",
+        "AVG_NODES_CREATED", "AVG_PLAN_LEN", "AVG_EXECUTION_FAILS",
+        "LEARNING_TIME"
     ]
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
@@ -29,8 +30,9 @@ def _main() -> None:
             run_data["avg_suc_time"], run_data["avg_skeletons_optimized"],
             run_data["min_skeletons_optimized"],
             run_data["max_skeletons_optimized"],
-            run_data["avg_nodes_expanded"], run_data["avg_plan_length"],
-            run_data["avg_execution_failures"], run_data["learning_time"]
+            run_data["avg_nodes_expanded"], run_data["avg_nodes_created"],
+            run_data["avg_plan_length"], run_data["avg_execution_failures"],
+            run_data["learning_time"]
         ]
         assert len(data) == len(column_names)
         all_data.append(data)
