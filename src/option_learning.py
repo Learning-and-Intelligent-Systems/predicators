@@ -321,7 +321,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     def _effect_based_terminal(self, state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
-        del memory, params  # unused
+        del params  # unused
         # The hope is that we terminate in the effects.
         grounded_op = self._operator.ground(tuple(objects))
         abs_state = utils.abstract(state, self._predicates)
@@ -333,6 +333,11 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         # abstract state to another without hitting any others in between.
         if not grounded_op.preconditions.issubset(abs_state):
             return True
+        # Optimization: remember the most recent state and terminate early if
+        # the state is repeated, since this option will never get unstuck.
+        if "last_state" in memory and memory["last_state"].allclose(state):
+            return True
+        memory["last_state"] = state
         # Not yet done.
         return False
 
