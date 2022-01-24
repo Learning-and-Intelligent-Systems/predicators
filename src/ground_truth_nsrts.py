@@ -779,9 +779,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             return np.array([x, y, z], dtype=np.float32)
 
         placeontable_nsrt = NSRT(f"PlaceOnTable-{holding_rot_pred.name}",
-                                 parameters, preconditions,
-                                 add_effects, delete_effects, set(), option,
-                                 option_vars, placeontable_sampler)
+                                 parameters, preconditions, add_effects,
+                                 delete_effects, set(), option, option_vars,
+                                 placeontable_sampler)
         nsrts.add(placeontable_nsrt)
 
     return nsrts
