@@ -21,15 +21,16 @@ def test_sesame_plan():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
     option_model = create_option_model(CFG.option_model_name, env.simulate)
-    plan, _ = sesame_plan(task,
-                          option_model,
-                          nsrts,
-                          env.predicates,
-                          timeout=1,
-                          seed=123)
+    plan, metrics = sesame_plan(task,
+                                option_model,
+                                nsrts,
+                                env.predicates,
+                                timeout=1,
+                                seed=123)
     assert len(plan) == 2
     assert isinstance(plan[0], _Option)
     assert isinstance(plan[1], _Option)
+    assert metrics["num_nodes_created"] >= metrics["num_nodes_expanded"]
 
 
 def test_task_plan():
