@@ -658,7 +658,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 _, _, metrics = next(
                     task_plan(init_atoms, traj.goal, ground_nsrts,
                               reachable_atoms, heuristic, CFG.seed,
-                              CFG.grammar_search_task_planning_timeout, 1))
+                              CFG.grammar_search_task_planning_timeout))
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -973,7 +973,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
                 skeleton, atoms_sequence, _ = next(
                     task_plan(atoms, goal, ground_nsrts, reachable_atoms,
                               heuristic, CFG.seed,
-                              CFG.grammar_search_task_planning_timeout, 1))
+                              CFG.grammar_search_task_planning_timeout))
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
