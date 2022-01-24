@@ -46,8 +46,6 @@ class PaintingEnv(BaseEnv):
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
     held_tol = 0.5
-    num_objs_train = [3, 4]
-    num_objs_test = [5, 6]
 
     def __init__(self) -> None:
         super().__init__()
@@ -254,7 +252,7 @@ class PaintingEnv(BaseEnv):
         elif self.box_lb < y < self.box_ub:
             receptacle = "box"
         else:
-            # Cannot place outside of table, shelf or box
+            # Cannot place outside of table, shelf, or box
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
@@ -266,7 +264,8 @@ class PaintingEnv(BaseEnv):
             top_or_side = "top"
         elif rot < self.side_grasp_thresh:
             top_or_side = "side"
-        # Can only place in shelf if side grasping, box if top grasping
+        # Can only place in shelf if side grasping, box if top grasping. If the
+        # receptacle is table, we don't care what kind of grasp it is.
         if receptacle == "shelf" and top_or_side != "side":
             return next_state
         if receptacle == "box" and top_or_side != "top":
@@ -294,19 +293,19 @@ class PaintingEnv(BaseEnv):
                                       rng=self._train_rng)
             elif family_name == "shelf_only":
                 yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
+                                      num_objs_lst=CFG.painting_num_objs_train,
                                       rng=self._train_rng,
                                       use_box=False)
             elif family_name == "box_and_shelf":
                 yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
+                                      num_objs_lst=CFG.painting_num_objs_train,
                                       rng=self._train_rng)
             else:
                 raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=self.num_objs_test,
+                               num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._test_rng)
 
     @property
@@ -508,8 +507,8 @@ class PaintingEnv(BaseEnv):
             state = State(data)
             # Sometimes start out holding an object, possibly with the wrong
             # grip, so that we'll have to put it on the table and regrasp
-            if rng.uniform() < 0.5:
-                rot = rng.choice([0.0, 0.1])
+            if rng.uniform() < CFG.painting_initial_holding_prob:
+                rot = rng.choice([0.0, 1.0])
                 target_obj = objs[rng.choice(len(objs))]
                 state.set(self._robot, "gripper_rot", rot)
                 state.set(self._robot, "fingers", 0.0)
