@@ -266,7 +266,6 @@ def run_policy_until(policy: Callable[[State], Action],
     Terminates when any of these conditions hold:
     (1) the termination_function returns True,
     (2) max_num_steps is reached,
-    (3) the state does not change within a single step.
 
     Returns a LowLevelTrajectory object.
     """
@@ -275,15 +274,11 @@ def run_policy_until(policy: Callable[[State], Action],
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            last_state = state
             act = policy(state)
             state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
-                break
-            # Detect if stuck; skip potentially expensive simulation.
-            if state.allclose(last_state):
                 break
     traj = LowLevelTrajectory(states, actions)
     return traj
