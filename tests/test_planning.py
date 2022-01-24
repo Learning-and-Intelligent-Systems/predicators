@@ -77,14 +77,14 @@ def test_task_plan():
     assert initial_metrics["num_skeletons_optimized"] == 1
     # Test timeout.
     with pytest.raises(ApproachTimeout):
-        for _ in task_plan(init_atoms,
-                           task.goal,
-                           ground_nsrts,
-                           reachable_atoms,
-                           heuristic,
-                           timeout=1e-6,
-                           seed=123):
-            continue
+        next(
+            task_plan(init_atoms,
+                      task.goal,
+                      ground_nsrts,
+                      reachable_atoms,
+                      heuristic,
+                      timeout=1e-6,
+                      seed=123))
 
 
 def test_sesame_plan_failures():
