@@ -144,10 +144,10 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
-) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
-    """Run only the task planning portion of SeSamE. A* search is run, and the
-    first skeleton that achieves the goal symbolically is returned. Returns a
-    tuple of (skeleton, atoms sequence, metrics dictionary).
+) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]]:
+    """Run only the task planning portion of SeSamE. A* search is run, and
+    skeletons that achieve the goal symbolically are yielded. Specifically,
+    yields a tuple of (skeleton, atoms sequence, metrics dictionary).
 
     This method is NOT used by SeSamE, but is instead provided as a
     convenient wrapper around _skeleton_generator below (which IS used
@@ -165,10 +165,10 @@ def task_plan(
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
-    generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
-                                    heuristic, seed, timeout, metrics)
-    skeleton, atoms_sequence = next(generator)  # get the first one
-    return skeleton, atoms_sequence, metrics
+    for skeleton, atoms_sequence in _skeleton_generator(
+            dummy_task, ground_nsrts, init_atoms, heuristic, seed, timeout,
+            metrics):
+        yield skeleton, atoms_sequence, metrics.copy()
 
 
 def _skeleton_generator(

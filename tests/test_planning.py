@@ -34,7 +34,10 @@ def test_sesame_plan():
 
 def test_task_plan():
     """Tests for task_plan()."""
-    utils.update_config({"env": "cover"})
+    utils.update_config({
+        "env": "cover",
+        "max_skeletons_optimized": 3,
+    })
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = next(env.train_tasks_generator())[0]
@@ -53,24 +56,34 @@ def test_task_plan():
     heuristic = utils.create_task_planning_heuristic("hadd", init_atoms,
                                                      task.goal, ground_nsrts,
                                                      env.predicates, objects)
-    skeleton, _, _ = task_plan(init_atoms,
-                               task.goal,
-                               ground_nsrts,
-                               reachable_atoms,
-                               heuristic,
-                               timeout=1,
-                               seed=123)
+    task_plan_generator = task_plan(init_atoms,
+                                    task.goal,
+                                    ground_nsrts,
+                                    reachable_atoms,
+                                    heuristic,
+                                    timeout=1,
+                                    seed=123)
+    skeleton, _, metrics = next(task_plan_generator)
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
+    total_num_skeletons = 1
+    with pytest.raises(ApproachFailure) as e:
+        for _, _, metrics in task_plan_generator:
+            total_num_skeletons += 1
+            assert metrics["num_skeletons_optimized"] == total_num_skeletons
+    assert "Planning reached max_skeletons_optimized!" in str(e.value)
+    assert total_num_skeletons == 3
+    # Test timeout.
     with pytest.raises(ApproachTimeout):
-        task_plan(init_atoms,
-                  task.goal,
-                  ground_nsrts,
-                  reachable_atoms,
-                  heuristic,
-                  timeout=1e-6,
-                  seed=123)
+        for _ in task_plan(init_atoms,
+                           task.goal,
+                           ground_nsrts,
+                           reachable_atoms,
+                           heuristic,
+                           timeout=1e-6,
+                           seed=123):
+            continue
 
 
 def test_sesame_plan_failures():
