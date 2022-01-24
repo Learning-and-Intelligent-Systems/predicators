@@ -1231,9 +1231,7 @@ def parse_args() -> Dict[str, Any]:
 
 
 def string_to_python_object(value: str) -> Any:
-    """Return the Python object corresponding to the
-    given string value.
-    """
+    """Return the Python object corresponding to the given string value."""
     if value == "True":
         return True
     if value == "False":
