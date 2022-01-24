@@ -2,18 +2,18 @@
 
 import pytest
 import numpy as np
-from predicators.src.envs import PaintingEnv
+from predicators.src.envs import PaintingEnv, EnvironmentFailure
 from predicators.src import utils
 
 
 def test_painting():
     """Tests for PaintingEnv class."""
-    env = PaintingEnv()
-    env.seed(123)
     utils.update_config({
         "env": "painting",
         "painting_train_families": ["not_a_real_family"]
     })
+    env = PaintingEnv()
+    env.seed(123)
     train_tasks_gen = env.train_tasks_generator()
     with pytest.raises(ValueError):  # unrecognized task family
         next(train_tasks_gen)
@@ -80,7 +80,6 @@ def test_painting():
                 lid = item
                 continue
             assert item.type == obj_type
-            assert not state.get(item, "held")
         assert robot is not None
         assert box is not None
         assert shelf is not None
@@ -91,12 +90,14 @@ def test_painting():
 
 
 def test_painting_failure_cases():
-    """Tests for the cases where simulate() is a no-op."""
+    """Tests for the cases where simulate() is a no-op or
+    EnvironmentFailure."""
     utils.update_config({
         "env": "painting",
         "approach": "nsrt_learning",
         "seed": 123,
-        "painting_train_families": ["box_and_shelf"]
+        "painting_initial_holding_prob": 1.0,
+        "painting_train_families": ["box_and_shelf"],
     })
     env = PaintingEnv()
     env.seed(123)
@@ -107,6 +108,7 @@ def test_painting_failure_cases():
     Place = [o for o in env.options if o.name == "Place"][0]
     OpenLid = [o for o in env.options if o.name == "OpenLid"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
+    Holding = [o for o in env.predicates if o.name == "Holding"][0]
     obj_type = [t for t in env.types if t.name == "obj"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     lid_type = [t for t in env.types if t.name == "lid"][0]
@@ -121,6 +123,26 @@ def test_painting_failure_cases():
     assert OnTable([obj0]) in atoms
     assert OnTable([obj1]) in atoms
     assert OnTable([obj2]) in atoms
+    # In the first initial state, we are holding an object, because
+    # painting_initial_holding_prob = 1.0
+    assert Holding([obj2]) in atoms
+    # Placing it on another object causes a collision
+    with pytest.raises(EnvironmentFailure):
+        x = state.get(obj0, "pose_x")
+        y = state.get(obj0, "pose_y")
+        z = state.get(obj0, "pose_z")
+        act = Place.ground([robot], np.array([x, y, z],
+                                             dtype=np.float32)).policy(state)
+        env.simulate(state, act)
+    # Advance to a state where we are not holding anything
+    x = state.get(obj2, "pose_x")
+    y = state.get(obj2, "pose_y")
+    z = state.get(obj2, "pose_z")
+    act = Place.ground([robot], np.array([x, y, z],
+                                         dtype=np.float32)).policy(state)
+    handempty_state = env.simulate(state, act)
+    state = handempty_state
+    assert Holding([obj2]) not in utils.abstract(state, env.predicates)
     # No object at this pose, pick fails
     act = Pick.ground([robot, obj0], np.array([0, -1, 0, 0],
                                               dtype=np.float32)).policy(state)
@@ -178,7 +200,7 @@ def test_painting_failure_cases():
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Reset state
-    state = task.init
+    state = handempty_state
     # Perform valid pick with gripper_rot = 1 (top grasp)
     act = Pick.ground([robot, obj0], np.array([0, 0, 0, 1],
                                               dtype=np.float32)).policy(state)
@@ -200,12 +222,31 @@ def test_painting_failure_cases():
     # Render with a forced color of an object
     state.set(obj0, "color", 0.6)
     env.render(state, task)
+    # Cannot place in box because lid is closed
+    act = Place.ground(
+        [robot],
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
+    with pytest.raises(EnvironmentFailure):
+        env.simulate(state, act)
     # Open the box lid
     act = OpenLid.ground([robot, lid],
                          np.array([], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
+    assert not state.allclose(next_state)
+    # Change the state
+    state = next_state
+    # Perform valid place into box
+    act = Place.ground(
+        [robot],
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert not state.allclose(next_state)
     # Reset state
-    state = task.init
+    state = handempty_state
     # Perform valid pick with gripper_rot = 0 (side grasp)
     act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0],
                                               dtype=np.float32)).policy(state)
@@ -213,6 +254,21 @@ def test_painting_failure_cases():
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
+    # Open the box lid
+    act = OpenLid.ground([robot, lid],
+                         np.array([], dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert not state.allclose(next_state)
+    # Change the state
+    state = next_state
+    # Cannot place in box because gripper_rot is 0
+    act = Place.ground(
+        [robot],
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
     # Perform valid place into shelf
     act = Place.ground(
         [robot],
@@ -229,3 +285,10 @@ def test_painting_failure_cases():
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
+    # Revert to 0.0 for other tests.
+    utils.update_config({"painting_initial_holding_prob": 0.0})
+    env = PaintingEnv()
+    env.seed(123)
+    task = next(env.train_tasks_generator())[0]
+    state = task.init
+    assert not utils.abstract(state, {Holding})

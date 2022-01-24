@@ -46,8 +46,6 @@ class PaintingEnv(BaseEnv):
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
     held_tol = 0.5
-    num_objs_train = [3, 4]
-    num_objs_test = [5, 6]
 
     def __init__(self) -> None:
         super().__init__()
@@ -246,30 +244,39 @@ class PaintingEnv(BaseEnv):
         held_obj = self._get_held_object(state)
         if held_obj is None:
             return next_state
-        # Detect shelf vs box place
-        if self.shelf_lb < y < self.shelf_ub:
-            shelf_or_box = "shelf"
+        # Detect table vs shelf vs box place
+        if self.table_lb < y < self.table_ub:
+            receptacle = "table"
+        elif self.shelf_lb < y < self.shelf_ub:
+            receptacle = "shelf"
         elif self.box_lb < y < self.box_ub:
-            shelf_or_box = "box"
+            receptacle = "box"
         else:
-            # Cannot place outside of shelf or box
+            # Cannot place outside of table, shelf, or box
             return next_state
-        if shelf_or_box == "box" and state.get(self._lid, "is_open") < 0.5:
+        if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise EnvironmentFailure("box lid is closed", {self._lid})
+            raise EnvironmentFailure("Box lid is closed.", {self._lid})
         # Detect top grasp vs side grasp
         rot = state.get(self._robot, "gripper_rot")
+        top_or_side = "neither"
         if rot > self.top_grasp_thresh:
             top_or_side = "top"
         elif rot < self.side_grasp_thresh:
             top_or_side = "side"
-        else:
-            # Cannot place in either shelf or box, bad gripper_rot
+        # Can only place in shelf if side grasping, box if top grasping. If the
+        # receptacle is table, we don't care what kind of grasp it is.
+        if receptacle == "shelf" and top_or_side != "side":
             return next_state
-        # Can only place in shelf if side grasping, box if top grasping
-        if (shelf_or_box, top_or_side) not in [("shelf", "side"),
-                                               ("box", "top")]:
+        if receptacle == "box" and top_or_side != "top":
             return next_state
+        # Detect collisions
+        collider = self._get_object_at_xyz(state, x, y, z)
+        if receptacle == "table" and \
+           collider is not None and \
+           collider != held_obj:
+            raise EnvironmentFailure("Collision during place on table.",
+                                     {collider})
         # Execute place
         next_state.set(self._robot, "gripper_rot", 0.5)
         next_state.set(self._robot, "fingers", 1.0)
@@ -289,19 +296,19 @@ class PaintingEnv(BaseEnv):
                                       rng=self._train_rng)
             elif family_name == "shelf_only":
                 yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
+                                      num_objs_lst=CFG.painting_num_objs_train,
                                       rng=self._train_rng,
                                       use_box=False)
             elif family_name == "box_and_shelf":
                 yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
+                                      num_objs_lst=CFG.painting_num_objs_train,
                                       rng=self._train_rng)
             else:
                 raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=self.num_objs_test,
+                               num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._test_rng)
 
     @property
@@ -467,10 +474,12 @@ class PaintingEnv(BaseEnv):
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([shelf_color], dtype=np.float32)
             # Create moveable objects
+            objs = []
             obj_poses: List[Tuple[float, float, float]] = []
             goal = set()
             for j in range(num_objs):
                 obj = Object(f"obj{j}", self._obj_type)
+                objs.append(obj)
                 pose = self._sample_initial_object_pose(obj_poses, rng)
                 obj_poses.append(pose)
                 # Start out wet and clean, dry and dirty, or dry and clean
@@ -490,7 +499,7 @@ class PaintingEnv(BaseEnv):
                     pose[0], pose[1], pose[2], dirtiness, wetness, color, held
                 ],
                                      dtype=np.float32)
-                # last object should go in box
+                # Last object should go in box
                 if use_box and j == num_objs - 1:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
@@ -498,7 +507,17 @@ class PaintingEnv(BaseEnv):
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
-            tasks.append(Task(State(data), goal))
+            state = State(data)
+            # Sometimes start out holding an object, possibly with the wrong
+            # grip, so that we'll have to put it on the table and regrasp
+            if rng.uniform() < CFG.painting_initial_holding_prob:
+                rot = rng.choice([0.0, 1.0])
+                target_obj = objs[rng.choice(len(objs))]
+                state.set(self._robot, "gripper_rot", rot)
+                state.set(self._robot, "fingers", 0.0)
+                state.set(target_obj, "held", 1.0)
+                assert self._OnTable_holds(state, [target_obj])
+            tasks.append(Task(state, goal))
         return tasks
 
     def _sample_initial_object_pose(
