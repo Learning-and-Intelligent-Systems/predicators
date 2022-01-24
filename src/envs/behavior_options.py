@@ -25,6 +25,8 @@ try:
         get_aabb_extent,
     )
     from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
+    from igibson.robots.behavior_robot import BRBody  # pylint: disable=unused-import
+
 except ModuleNotFoundError as e:
     print(e)
 
@@ -382,7 +384,7 @@ def grasp_obj_param_sampler(rng: Generator) -> Array:
 
 
 def get_delta_low_level_hand_action(
-    env: "BehaviorEnv",
+    body: "BehaviorEnv",
     old_pos: Union[Sequence[float], Array],
     old_orn: Union[Sequence[float], Array],
     new_pos: Union[Sequence[float], Array],
@@ -403,7 +405,6 @@ def get_delta_low_level_hand_action(
     # Next, find the inverted position of the body (which we know shouldn't
     # change, since our actions move either the body or the hand, but not
     # both simultaneously)
-    body = env.robots[0].parts["right_hand"].parent.parts["body"]
     inverted_body_new_pos, inverted_body_new_orn = p.invertTransform(
         body.new_pos, body.new_orn)
     # Use this to compute the new pose of the hand w.r.t the body frame
@@ -499,7 +500,7 @@ def create_grasp_policy(
                     return low_level_action, done_bit
 
                 low_level_action = (get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
                     np.array(plan[0][0:3]),
@@ -513,7 +514,7 @@ def create_grasp_policy(
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
-                        env,
+                        env.robots[0].parts["body"],
                         np.array(current_pos),
                         np.array(current_orn),
                         np.array(plan[1][0:3]),
@@ -532,7 +533,7 @@ def create_grasp_policy(
                 # Step thru the plan to execute placing
                 # phases 1 and 2
                 low_level_action = (get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     plan[0][0:3],
                     plan[0][3:],
                     plan[1][0:3],
@@ -568,7 +569,7 @@ def create_grasp_policy(
                     return np.zeros(env.action_space.shape,
                                     dtype=np.float32), done_bit
                 low_level_action = (get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
                     np.array(plan[0][0:3]),
@@ -582,7 +583,7 @@ def create_grasp_policy(
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
-                        env,
+                        env.robots[0].parts["body"],
                         np.array(current_pos),
                         np.array(current_orn),
                         np.array(plan[1][0:3]),
@@ -601,7 +602,7 @@ def create_grasp_policy(
             # Placing Phase 3: getting the hand back to
             # resting position near the robot.
             low_level_action = get_delta_low_level_hand_action(
-                env,
+                env.robots[0].parts["body"],
                 reversed_plan[0][0:3],
                 reversed_plan[0][3:],
                 reversed_plan[1][0:3],
@@ -662,7 +663,7 @@ def create_grasp_option_model(
             # action
             if not np.allclose(current_pos, expected_pos, atol=atol_xyz):
                 low_level_action = get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
                     np.array(plan[hand_i][0:3]),
@@ -675,7 +676,7 @@ def create_grasp_option_model(
                         atol=atol_vel,
                 ):
                     low_level_action = get_delta_low_level_hand_action(
-                        env,
+                        env.robots[0].parts["body"],
                         np.array(current_pos),
                         np.array(current_orn),
                         np.array(plan[hand_i + 1][0:3]),
@@ -1049,7 +1050,7 @@ def create_place_policy(
                     return low_level_action, done_bit
 
                 low_level_action = (get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
                     np.array(plan[0][0:3]),
@@ -1063,7 +1064,7 @@ def create_place_policy(
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
-                        env,
+                        env.robots[0].parts["body"],
                         np.array(current_pos),
                         np.array(current_orn),
                         np.array(plan[1][0:3]),
@@ -1083,7 +1084,7 @@ def create_place_policy(
                 # Step thru the plan to execute placing
                 # phases 1 and 2
                 low_level_action = (get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     plan[0][0:3],
                     plan[0][3:],
                     plan[1][0:3],
@@ -1119,7 +1120,7 @@ def create_place_policy(
                     return np.zeros(env.action_space.shape,
                                     dtype=np.float32), done_bit
                 low_level_action = (get_delta_low_level_hand_action(
-                    env,
+                    env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
                     np.array(plan[0][0:3]),
@@ -1133,7 +1134,7 @@ def create_place_policy(
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
-                        env,
+                        env.robots[0].parts["body"],
                         np.array(current_pos),
                         np.array(current_orn),
                         np.array(plan[1][0:3]),
@@ -1152,7 +1153,7 @@ def create_place_policy(
             # Placing Phase 3: getting the hand back to
             # resting position near the robot.
             low_level_action = get_delta_low_level_hand_action(
-                env,
+                env.robots[0].parts["body"],
                 reversed_plan[0][0:3],
                 reversed_plan[0][3:],
                 reversed_plan[1][0:3],
