@@ -773,6 +773,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                                  objs: Sequence[Object]) -> Array:
             # Always release the object where it is, to avoid the possibility
             # of collisions with other objects.
+            del rng  # unused
             x = state.get(objs[0], "pose_x")
             y = state.get(objs[0], "pose_y")
             z = state.get(objs[0], "pose_z")
