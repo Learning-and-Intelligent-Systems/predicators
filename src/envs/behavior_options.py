@@ -461,46 +461,159 @@ def create_grasp_policy(
 
     def graspObjectOptionPolicy(_state: State,
                                 env: "BehaviorEnv") -> Tuple[Array, bool]:
+        nonlocal plan
+        nonlocal reversed_plan
         nonlocal plan_executed_forwards
         nonlocal tried_closing_gripper
         done_bit = False
-        if (not plan_executed_forwards and not tried_closing_gripper):
-            # Step thru the plan to execute Grasping
-            # phases 1 and 2
-            ret_action = get_delta_low_level_hand_action(
-                env,
-                plan[0][0:3],
-                plan[0][3:6],
-                plan[1][0:3],
-                plan[1][3:6],
-            )
-            plan.pop(0)
-            if len(plan) == 1:
+
+        atol_xyz = 1e-4
+        atol_theta = 0.1
+        atol_vel = 5e-3
+
+        # 1. Get current position and orientation
+        current_pos, current_orn_quat = p.multiplyTransforms(
+            env.robots[0].parts["right_hand"].parent.parts["body"].new_pos,
+            env.robots[0].parts["right_hand"].parent.parts["body"].new_orn,
+            env.robots[0].parts["right_hand"].local_pos,
+            env.robots[0].parts["right_hand"].local_orn,
+        )
+        current_orn = p.getEulerFromQuaternion(current_orn_quat)
+
+        expected_pos = np.array(plan[0][0:3])
+        expected_orn = np.array(plan[0][3:])
+
+        if (  # pylint:disable=no-else-return
+                not plan_executed_forwards and not tried_closing_gripper):
+            ###
+            # 2. if error is greater that MAX_ERROR
+            if not np.allclose(current_pos, expected_pos,
+                               atol=atol_xyz) or not np.allclose(
+                                   current_orn, expected_orn, atol=atol_theta):
+                # 2.a take a corrective action
+                if len(plan) <= 1:
+                    done_bit = False
+                    plan_executed_forwards = True
+                    low_level_action = np.zeros(env.action_space.shape,
+                                                dtype=np.float32)
+                    return low_level_action, done_bit
+
+                low_level_action = (get_delta_low_level_hand_action(
+                    env,
+                    np.array(current_pos),
+                    np.array(current_orn),
+                    np.array(plan[0][0:3]),
+                    np.array(plan[0][3:]),
+                ))
+
+                # But if the corrective action is 0
+                if np.allclose(
+                        low_level_action,
+                        np.zeros((env.action_space.shape[0], 1)),
+                        atol=atol_vel,
+                ):
+                    low_level_action = (get_delta_low_level_hand_action(
+                        env,
+                        np.array(current_pos),
+                        np.array(current_orn),
+                        np.array(plan[1][0:3]),
+                        np.array(plan[1][3:]),
+                    ))
+                    plan.pop(0)
+
+                return low_level_action, False
+
+            if len(plan) <= 1:  # In this case, we're at the final position
+                low_level_action = np.zeros(env.action_space.shape,
+                                            dtype=float)
+                done_bit = False
                 plan_executed_forwards = True
+            else:
+                # Step thru the plan to execute placing
+                # phases 1 and 2
+                low_level_action = (get_delta_low_level_hand_action(
+                    env,
+                    plan[0][0:3],
+                    plan[0][3:],
+                    plan[1][0:3],
+                    plan[1][3:],
+                ))
+                if len(plan) == 1:
+                    plan_executed_forwards = True
+
+            plan.pop(0)
+            return low_level_action, done_bit
+
+            ###
 
         elif (plan_executed_forwards and not tried_closing_gripper):
-            # Close the gripper to see if you've gotten the
+            # Open the gripper to see if you've gotten the
             # object
-            ret_action = np.zeros(env.action_space.shape, dtype=float)
-            ret_action[16] = 1.0
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            low_level_action[16] = -1.0
             tried_closing_gripper = True
+            return low_level_action, False
 
         else:
-            # Grasping Phase 3: getting the hand back to
+            plan = reversed_plan
+            ###
+            # 2. if error is greater that MAX_ERROR
+            if not np.allclose(current_pos, expected_pos,
+                               atol=atol_xyz) or not np.allclose(
+                                   current_orn, expected_orn, atol=atol_theta):
+                # 2.a take a corrective action
+                if len(plan) <= 1:
+                    done_bit = True
+                    print("PRIMITIVE: place policy completed execution!")
+                    return np.zeros(env.action_space.shape,
+                                    dtype=np.float32), done_bit
+                low_level_action = (get_delta_low_level_hand_action(
+                    env,
+                    np.array(current_pos),
+                    np.array(current_orn),
+                    np.array(plan[0][0:3]),
+                    np.array(plan[0][3:]),
+                ))
+
+                # But if the corrective action is 0
+                if np.allclose(
+                        low_level_action,
+                        np.zeros((env.action_space.shape, 1)),
+                        atol=atol_vel,
+                ):
+                    low_level_action = (get_delta_low_level_hand_action(
+                        env,
+                        np.array(current_pos),
+                        np.array(current_orn),
+                        np.array(plan[1][0:3]),
+                        np.array(plan[1][3:]),
+                    ))
+                    plan.pop(0)
+
+                return low_level_action, False
+
+        if len(plan) == 1:  # In this case, we're at the final position
+            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            done_bit = True
+            print("PRIMITIVE: place policy completed execution!")
+
+        else:
+            # Placing Phase 3: getting the hand back to
             # resting position near the robot.
-            ret_action = get_delta_low_level_hand_action(
+            low_level_action = get_delta_low_level_hand_action(
                 env,
                 reversed_plan[0][0:3],
-                reversed_plan[0][3:6],
+                reversed_plan[0][3:],
                 reversed_plan[1][0:3],
-                reversed_plan[1][3:6],
+                reversed_plan[1][3:],
             )
-            reversed_plan.pop(0)
             if len(reversed_plan) == 1:
                 done_bit = True
-                print("PRIMITIVE: grasp policy completed execution!")
+                print("PRIMITIVE: place policy completed execution!")
 
-        return ret_action, done_bit
+        reversed_plan.pop(0)
+
+        return low_level_action, done_bit
 
     return graspObjectOptionPolicy
 
@@ -898,12 +1011,13 @@ def create_place_policy(
     def placeOntopObjectOptionPolicy(_state: State,
                                      env: "BehaviorEnv") -> Tuple[Array, bool]:
         nonlocal plan
+        nonlocal reversed_plan
         nonlocal plan_executed_forwards
         nonlocal tried_opening_gripper
 
         done_bit = False
 
-        atol_xy = 0.1
+        atol_xyz = 0.1
         atol_theta = 0.1
         atol_vel = 2.5
 
@@ -924,7 +1038,7 @@ def create_place_policy(
             ###
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
-                               atol=atol_xy) or not np.allclose(
+                               atol=atol_xyz) or not np.allclose(
                                    current_orn, expected_orn, atol=atol_theta):
                 # 2.a take a corrective action
                 if len(plan) <= 1:
@@ -996,7 +1110,7 @@ def create_place_policy(
             ###
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
-                               atol=atol_xy) or not np.allclose(
+                               atol=atol_xyz) or not np.allclose(
                                    current_orn, expected_orn, atol=atol_theta):
                 # 2.a take a corrective action
                 if len(plan) <= 1:
