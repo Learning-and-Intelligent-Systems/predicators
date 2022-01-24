@@ -41,6 +41,9 @@ class GlobalSettings:
     repeated_nextto_num_dots = 25
 
     # painting env parameters
+    painting_initial_holding_prob = 0.0
+    painting_num_objs_train = [3, 4]
+    painting_num_objs_test = [5, 6]
     painting_train_families = [
         "box_and_shelf",  # placing into both box and shelf
         # "box_only",  # just placing into the box
