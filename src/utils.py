@@ -1235,16 +1235,15 @@ def string_to_python_object(value: str) -> Any:
     given string value.
     """
     if value == "True":
-        value = True
-    elif value == "False":
-        value = False
-    elif value.isdigit():
-        value = eval(value)
-    else:
-        try:
-            value = float(value)
-        except ValueError:
-            pass
+        return True
+    if value == "False":
+        return False
+    if value.isdigit():
+        return eval(value)
+    try:
+        return float(value)
+    except ValueError:
+        pass
     return value
 
 
