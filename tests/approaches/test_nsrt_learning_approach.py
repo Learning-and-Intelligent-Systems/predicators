@@ -22,7 +22,6 @@ def _test_approach(env_name,
         "env": env_name,
         "approach": approach_name,
         "seed": 12345,
-        "experiment_id": "",
     })
     utils.update_config({
         "env": env_name,

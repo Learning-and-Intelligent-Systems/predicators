@@ -1113,7 +1113,7 @@ def _select_predicates_to_keep(
                                  max_evals=CFG.grammar_search_gbfs_num_evals)
     else:
         raise NotImplementedError(
-            "Unrecognized grammar_search_search_algorithm "
+            "Unrecognized grammar_search_search_algorithm: "
             f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
 
