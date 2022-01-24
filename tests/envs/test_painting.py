@@ -225,10 +225,9 @@ def test_painting_failure_cases():
     # Cannot place in box because lid is closed
     act = Place.ground(
         [robot],
-        np.array([
-            PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z
-        ],
-                 dtype=np.float32)).policy(state)
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
     with pytest.raises(EnvironmentFailure):
         env.simulate(state, act)
     # Open the box lid
@@ -241,10 +240,9 @@ def test_painting_failure_cases():
     # Perform valid place into box
     act = Place.ground(
         [robot],
-        np.array([
-            PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z
-        ],
-                 dtype=np.float32)).policy(state)
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Reset state
@@ -266,10 +264,9 @@ def test_painting_failure_cases():
     # Cannot place in box because gripper_rot is 0
     act = Place.ground(
         [robot],
-        np.array([
-            PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z
-        ],
-                 dtype=np.float32)).policy(state)
+        np.array(
+            [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
+            dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Perform valid place into shelf
