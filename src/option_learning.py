@@ -300,9 +300,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         memory["absolute_params"] = state.vec(changing_objects) + params
         # Check if initiable based on preconditions.
         grounded_op = self._operator.ground(tuple(objects))
-        preconditions = grounded_op.preconditions
-        abs_state = utils.abstract(state, self._predicates)
-        return preconditions.issubset(abs_state)
+        return all(pre.holds(state) for pre in grounded_op.preconditions)
 
     def _regressor_based_policy(self, state: State, memory: Dict,
                                 objects: Sequence[Object],
@@ -321,17 +319,11 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
     def _effect_based_terminal(self, state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
-        del params  # unused
+        assert np.allclose(params, memory["params"])
         # The hope is that we terminate in the effects.
         grounded_op = self._operator.ground(tuple(objects))
-        abs_state = utils.abstract(state, self._predicates)
-        if grounded_op.add_effects.issubset(abs_state) and \
-            not grounded_op.delete_effects & abs_state:
-            return True
-        # If we fall outside of the space where the preconditions hold, also
-        # terminate. The assumption is that the option should take us from one
-        # abstract state to another without hitting any others in between.
-        if not grounded_op.preconditions.issubset(abs_state):
+        if all(e.holds(state) for e in grounded_op.add_effects) and \
+            not any(e.holds(state) for e in grounded_op.delete_effects):
             return True
         # Optimization: remember the most recent state and terminate early if
         # the state is repeated, since this option will never get unstuck.
@@ -343,7 +335,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
 
 class _NeuralOptionLearner(_OptionLearnerBase):
-    """Learn _LearnedNeuralParameterizedOptions by behavior cloning.
+    """Learn _LearnedNeuralParameterizedOption objects by behavior cloning.
 
     See the docstring for _LearnedNeuralParameterizedOptions for a description
     of the option structure.
