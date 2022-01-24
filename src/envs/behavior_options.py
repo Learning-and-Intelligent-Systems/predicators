@@ -481,11 +481,10 @@ def create_grasp_policy(
         )
         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
-        expected_pos = np.array(plan[0][0:3])
-        expected_orn = np.array(plan[0][3:])
-
         if (  # pylint:disable=no-else-return
                 not plan_executed_forwards and not tried_closing_gripper):
+            expected_pos = np.array(plan[0][0:3])
+            expected_orn = np.array(plan[0][3:])
             ###
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
@@ -551,12 +550,14 @@ def create_grasp_policy(
             # Close the gripper to see if you've gotten the
             # object
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
-            low_level_action[16] = -1.0
+            low_level_action[16] = 1.0
             tried_closing_gripper = True
+            plan = reversed_plan
             return low_level_action, False
 
         else:
-            plan = reversed_plan
+            expected_pos = np.array(plan[0][0:3])
+            expected_orn = np.array(plan[0][3:])
             ###
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
@@ -565,7 +566,7 @@ def create_grasp_policy(
                 # 2.a take a corrective action
                 if len(plan) <= 1:
                     done_bit = True
-                    print("PRIMITIVE: place policy completed execution!")
+                    print("PRIMITIVE: grasp policy completed execution!")
                     return np.zeros(env.action_space.shape,
                                     dtype=np.float32), done_bit
                 low_level_action = (get_delta_low_level_hand_action(
@@ -596,7 +597,7 @@ def create_grasp_policy(
         if len(plan) == 1:  # In this case, we're at the final position
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
-            print("PRIMITIVE: place policy completed execution!")
+            print("PRIMITIVE: grasp policy completed execution!")
 
         else:
             # Placing Phase 3: getting the hand back to
@@ -610,7 +611,7 @@ def create_grasp_policy(
             )
             if len(reversed_plan) == 1:
                 done_bit = True
-                print("PRIMITIVE: place policy completed execution!")
+                print("PRIMITIVE: grasp policy completed execution!")
 
         reversed_plan.pop(0)
 
@@ -1017,7 +1018,6 @@ def create_place_policy(
         nonlocal tried_opening_gripper
 
         done_bit = False
-
         atol_xyz = 0.1
         atol_theta = 0.1
         atol_vel = 2.5
@@ -1031,12 +1031,12 @@ def create_place_policy(
         )
         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
-        expected_pos = np.array(plan[0][0:3])
-        expected_orn = np.array(plan[0][3:])
-
         if (  # pylint:disable=no-else-return
                 not plan_executed_forwards and not tried_opening_gripper):
             ###
+            expected_pos = np.array(plan[0][0:3])
+            expected_orn = np.array(plan[0][3:])
+
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
                                atol=atol_xyz) or not np.allclose(
@@ -1104,10 +1104,13 @@ def create_place_policy(
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             low_level_action[16] = -1.0
             tried_opening_gripper = True
+            plan = reversed_plan
             return low_level_action, False
 
         else:
-            plan = reversed_plan
+            expected_pos = np.array(plan[0][0:3])
+            expected_orn = np.array(plan[0][3:])
+
             ###
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
@@ -1130,7 +1133,7 @@ def create_place_policy(
                 # But if the corrective action is 0
                 if np.allclose(
                         low_level_action,
-                        np.zeros((env.action_space.shape, 1)),
+                        np.zeros((env.action_space.shape[0], 1)),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
