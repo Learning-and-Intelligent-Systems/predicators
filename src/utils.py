@@ -1226,10 +1226,26 @@ def parse_args() -> Dict[str, Any]:
         setting_name = flag[2:]
         if setting_name not in CFG.__dict__:
             raise ValueError(f"Unrecognized flag: {setting_name}")
-        if value.isdigit():
-            value = eval(value)
-        arg_dict[setting_name] = value
+        arg_dict[setting_name] = string_to_python_object(value)
     return arg_dict
+
+
+def string_to_python_object(value: str) -> Any:
+    """Return the Python object corresponding to the
+    given string value.
+    """
+    if value == "True":
+        value = True
+    elif value == "False":
+        value = False
+    elif value.isdigit():
+        value = eval(value)
+    else:
+        try:
+            value = float(value)
+        except ValueError:
+            pass
+    return value
 
 
 def print_args(args: argparse.Namespace) -> None:
