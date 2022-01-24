@@ -12,7 +12,6 @@ from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
 from predicators.src.torch_models import MLPRegressor
 from predicators.src.envs import create_env, BlocksEnv
-from predicators.src import utils
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -283,12 +282,6 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
                          _policy=self._regressor_based_policy,
                          _initiable=self._precondition_based_initiable,
                          _terminal=self._effect_based_terminal)
-
-    @cached_property
-    def _predicates(self) -> Set[Predicate]:
-        """Helper for initiable and terminal."""
-        return {a.predicate for a in self._operator.preconditions | \
-                self._operator.add_effects | self._operator.delete_effects}
 
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
