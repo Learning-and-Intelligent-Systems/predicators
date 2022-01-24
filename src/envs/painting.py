@@ -275,7 +275,8 @@ class PaintingEnv(BaseEnv):
         if receptacle == "table" and \
            collider is not None and \
            collider != held_obj:
-            raise EnvironmentFailure("Collision during placing.", {collider})
+            raise EnvironmentFailure("Collision during place on table.",
+                                     {collider})
         # Execute place
         next_state.set(self._robot, "gripper_rot", 0.5)
         next_state.set(self._robot, "fingers", 1.0)
