@@ -21,7 +21,8 @@ def _test_approach(env_name,
     utils.update_config({
         "env": env_name,
         "approach": approach_name,
-        "seed": 12345
+        "seed": 12345,
+        "experiment_id": "",
     })
     utils.update_config({
         "env": env_name,
@@ -146,6 +147,17 @@ def test_grammar_search_invention_approach():
         "grammar_search_max_predicates": 10,
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
+        "grammar_search_search_algorithm": "hill_climbing",
+    })
+    _test_approach(env_name="cover",
+                   approach_name="grammar_search_invention",
+                   excluded_predicates="Holding",
+                   try_solving=False,
+                   sampler_learner="random")
+    # Test approach with gbfs.
+    utils.update_config({
+        "grammar_search_search_algorithm": "gbfs",
+        "grammar_search_gbfs_num_evals": 10,
     })
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
