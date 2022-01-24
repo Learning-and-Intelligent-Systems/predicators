@@ -142,8 +142,10 @@ class GlobalSettings:
     grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
+    grammar_search_search_algorithm = "hill_climbing"  # hill_climbing or gbfs
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
+    grammar_search_gbfs_num_evals = 1000
     grammar_search_off_demo_count_penalty = 1.0
     grammar_search_on_demo_count_penalty = 10.0
     grammar_search_suspicious_penalty = 10.0
