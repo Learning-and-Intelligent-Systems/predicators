@@ -757,7 +757,7 @@ def test_expected_nodes_score_function():
         "seed": 0,
         "grammar_search_max_demos": 5,
         "task_planning_heuristic": "lmcut",
-        "num_train_tasks": 15
+        "num_train_tasks": 2,
     })
     env = CoverEnv()
 
@@ -785,8 +785,7 @@ def test_expected_nodes_score_function():
         "min_data_for_nsrt": 10000,
     })
     all_included_s = score_function.evaluate({Holding, HandEmpty})
-    assert all_included_s >= ub * min(CFG.grammar_search_max_demos,
-                                      len(train_tasks))
+    assert all_included_s >= ub * len(train_tasks)
     # Revert to default to avoid interfering with other tests.
     utils.update_config({
         "min_data_for_nsrt": 3,
