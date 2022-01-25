@@ -9,7 +9,7 @@ from predicators.src.structs import State, Task, Predicate, \
 from predicators.src.settings import CFG
 
 
-class BaseEnv:
+class BaseEnv(abc.ABC):
     """Base environment."""
 
     def __init__(self) -> None:

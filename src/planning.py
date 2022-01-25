@@ -6,6 +6,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
+from itertools import islice
 import time
 from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
 from dataclasses import dataclass
@@ -17,7 +18,7 @@ from predicators.src.structs import State, Task, NSRT, Predicate, \
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic
 from predicators.src.envs import EnvironmentFailure
-from predicators.src.option_model import _OptionModel
+from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -34,7 +35,7 @@ class _Node:
 
 def sesame_plan(
     task: Task,
-    option_model: _OptionModel,
+    option_model: _OptionModelBase,
     nsrts: Set[NSRT],
     initial_predicates: Set[Predicate],
     timeout: float,
@@ -144,10 +145,10 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
-) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
-    """Run only the task planning portion of SeSamE. A* search is run, and the
-    first skeleton that achieves the goal symbolically is returned. Returns a
-    tuple of (skeleton, atoms sequence, metrics dictionary).
+) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]]:
+    """Run only the task planning portion of SeSamE. A* search is run, and
+    skeletons that achieve the goal symbolically are yielded. Specifically,
+    yields a tuple of (skeleton, atoms sequence, metrics dictionary).
 
     This method is NOT used by SeSamE, but is instead provided as a
     convenient wrapper around _skeleton_generator below (which IS used
@@ -167,8 +168,11 @@ def task_plan(
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics)
-    skeleton, atoms_sequence = next(generator)  # get the first one
-    return skeleton, atoms_sequence, metrics
+    # Note that we use this pattern to avoid having to catch an ApproachFailure
+    # when _skeleton_generator runs out of skeletons to optimize.
+    for skeleton, atoms_sequence in islice(generator,
+                                           CFG.max_skeletons_optimized):
+        yield skeleton, atoms_sequence, metrics.copy()
 
 
 def _skeleton_generator(
@@ -185,6 +189,7 @@ def _skeleton_generator(
                       skeleton=[],
                       atoms_sequence=[init_atoms],
                       parent=None)
+    metrics["num_nodes_created"] += 1
     rng_prio = np.random.default_rng(seed)
     hq.heappush(queue,
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
@@ -214,6 +219,7 @@ def _skeleton_generator(
                                    atoms_sequence=node.atoms_sequence +
                                    [child_atoms],
                                    parent=node)
+                metrics["num_nodes_created"] += 1
                 # priority is g [plan length] plus h [heuristic]
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
@@ -224,7 +230,7 @@ def _skeleton_generator(
     raise ApproachTimeout("Planning timed out in skeleton search!")
 
 
-def _run_low_level_search(task: Task, option_model: _OptionModel,
+def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                           skeleton: List[_GroundNSRT],
                           atoms_sequence: List[Collection[GroundAtom]],
                           seed: int,
