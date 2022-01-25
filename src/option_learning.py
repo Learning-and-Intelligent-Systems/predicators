@@ -12,7 +12,7 @@ from predicators.src.torch_models import MLPRegressor
 from predicators.src.envs import create_env, BlocksEnv
 
 
-def create_option_learner() -> _OptionLearner:
+def create_option_learner() -> _OptionLearnerBase:
     """Create an option learner given its name."""
     if CFG.option_learner == "no_learning":
         return _KnownOptionsOptionLearner()
@@ -23,7 +23,7 @@ def create_option_learner() -> _OptionLearner:
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
-class _OptionLearner(abc.ABC):
+class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options."""
@@ -56,7 +56,7 @@ class _OptionLearner(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class _KnownOptionsOptionLearner(_OptionLearner):
+class _KnownOptionsOptionLearner(_OptionLearnerBase):
     """The "option learner" that's used when we're in the code path where
     CFG.option_learner is "no_learning"."""
 
@@ -93,7 +93,7 @@ class _KnownOptionsOptionLearner(_OptionLearner):
         pass
 
 
-class _OracleOptionLearner(_OptionLearner):
+class _OracleOptionLearner(_OptionLearnerBase):
     """The option learner that just cheats by looking up ground truth options
     from the environment.
 
@@ -325,7 +325,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         return False
 
 
-class _NeuralOptionLearner(_OptionLearner):
+class _NeuralOptionLearner(_OptionLearnerBase):
     """Learn _LearnedNeuralParameterizedOption objects by behavior cloning.
 
     See the docstring for _LearnedNeuralParameterizedOption for a description
