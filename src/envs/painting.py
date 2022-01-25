@@ -498,8 +498,8 @@ class PaintingEnv(BaseEnv):
                 grasp = 0.5
                 held = 0.0
                 data[obj] = np.array([
-                    pose[0], pose[1], pose[2], dirtiness, wetness,
-                    color, grasp, held
+                    pose[0], pose[1], pose[2], dirtiness, wetness, color,
+                    grasp, held
                 ],
                                      dtype=np.float32)
                 # Last object should go in box
@@ -715,8 +715,8 @@ class PaintingEnv(BaseEnv):
         # Either feature can be used to implement this method.
         grasp = state.get(obj, "grasp")
         held_feat = state.get(obj, "held")
-        is_held = (grasp > self.top_grasp_thresh or
-                   grasp < self.side_grasp_thresh)
+        is_held = (grasp > self.top_grasp_thresh
+                   or grasp < self.side_grasp_thresh)
         assert is_held == (held_feat > 0.5)  # ensure redundancy
         return is_held
 
