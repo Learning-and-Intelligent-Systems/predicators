@@ -55,8 +55,10 @@ def _create_grammar(dataset: Dataset,
     # any already-generated predicates with respect to the dataset.
     # Note that we want to do this before the skip grammar below,
     # because if any predicates are equivalent to the given predicates,
-    # we would not want to generate them.
-    grammar = _PrunedGrammar(dataset, grammar)
+    # we would not want to generate them. Don't do this if we're using
+    # DebugGrammar, because we don't want to prune things that are in there.
+    if not CFG.grammar_search_use_handcoded_debug_grammar:
+        grammar = _PrunedGrammar(dataset, grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
     # so we just filter them out from actually being enumerated.
