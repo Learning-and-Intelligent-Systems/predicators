@@ -25,6 +25,7 @@ try:
         get_aabb_extent,
     )
     from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
+    from igibson.robots.behavior_robo import BRBody  # pylint: disable=unused-import
 
 except (ImportError, ModuleNotFoundError) as e:
     print(e)
@@ -482,13 +483,9 @@ def create_grasp_policy(
         )
         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
-        # NOTE: Below pylint is necessary because pylint doesn't like there
-        # being an 'elif' after an 'if' with a return statement
-        if (  # pylint:disable=no-else-return
-                not plan_executed_forwards and not tried_closing_gripper):
+        if (not plan_executed_forwards and not tried_closing_gripper):
             expected_pos = np.array(plan[0][0:3])
             expected_orn = np.array(plan[0][3:])
-            ###
             # 2. if error is greater that MAX_ERROR
             if not np.allclose(current_pos, expected_pos,
                                atol=atol_xyz) or not np.allclose(
@@ -547,7 +544,7 @@ def create_grasp_policy(
             plan.pop(0)
             return low_level_action, done_bit
 
-        elif (plan_executed_forwards and not tried_closing_gripper):
+        if (plan_executed_forwards and not tried_closing_gripper):
             # Close the gripper to see if you've gotten the
             # object
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
@@ -556,44 +553,42 @@ def create_grasp_policy(
             plan = reversed_plan
             return low_level_action, False
 
-        else:
-            expected_pos = np.array(plan[0][0:3])
-            expected_orn = np.array(plan[0][3:])
-            ###
-            # 2. if error is greater that MAX_ERROR
-            if not np.allclose(current_pos, expected_pos,
-                               atol=atol_xyz) or not np.allclose(
-                                   current_orn, expected_orn, atol=atol_theta):
-                # 2.a take a corrective action
-                if len(plan) <= 1:
-                    done_bit = True
-                    print("PRIMITIVE: grasp policy completed execution!")
-                    return np.zeros(env.action_space.shape,
-                                    dtype=np.float32), done_bit
+        expected_pos = np.array(plan[0][0:3])
+        expected_orn = np.array(plan[0][3:])
+        # 2. if error is greater that MAX_ERROR
+        if not np.allclose(current_pos, expected_pos,
+                           atol=atol_xyz) or not np.allclose(
+                               current_orn, expected_orn, atol=atol_theta):
+            # 2.a take a corrective action
+            if len(plan) <= 1:
+                done_bit = True
+                print("PRIMITIVE: grasp policy completed execution!")
+                return np.zeros(env.action_space.shape,
+                                dtype=np.float32), done_bit
+            low_level_action = (get_delta_low_level_hand_action(
+                env.robots[0].parts["body"],
+                np.array(current_pos),
+                np.array(current_orn),
+                np.array(plan[0][0:3]),
+                np.array(plan[0][3:]),
+            ))
+
+            # But if the corrective action is 0, take the next action
+            if np.allclose(
+                    low_level_action,
+                    np.zeros((env.action_space.shape, 1)),
+                    atol=atol_vel,
+            ):
                 low_level_action = (get_delta_low_level_hand_action(
                     env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
-                    np.array(plan[0][0:3]),
-                    np.array(plan[0][3:]),
+                    np.array(plan[1][0:3]),
+                    np.array(plan[1][3:]),
                 ))
+                plan.pop(0)
 
-                # But if the corrective action is 0, take the next action
-                if np.allclose(
-                        low_level_action,
-                        np.zeros((env.action_space.shape, 1)),
-                        atol=atol_vel,
-                ):
-                    low_level_action = (get_delta_low_level_hand_action(
-                        env.robots[0].parts["body"],
-                        np.array(current_pos),
-                        np.array(current_orn),
-                        np.array(plan[1][0:3]),
-                        np.array(plan[1][3:]),
-                    ))
-                    plan.pop(0)
-
-                return low_level_action, False
+            return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
@@ -605,10 +600,10 @@ def create_grasp_policy(
             # resting position near the robot.
             low_level_action = get_delta_low_level_hand_action(
                 env.robots[0].parts["body"],
-                reversed_plan[0][0:3],
-                reversed_plan[0][3:],
-                reversed_plan[1][0:3],
-                reversed_plan[1][3:],
+                reversed_plan[0][0:3],  # current pos
+                reversed_plan[0][3:],  # current orn
+                reversed_plan[1][0:3],  # next pos
+                reversed_plan[1][3:],  # next orn
             )
             if len(reversed_plan) == 1:
                 done_bit = True
@@ -1034,11 +1029,7 @@ def create_place_policy(
         )
         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
-        # NOTE: Below pylint is necessary because pylint doesn't like there
-        # being an 'elif' after an 'if' with a return statement
-        if (  # pylint:disable=no-else-return
-                not plan_executed_forwards and not tried_opening_gripper):
-            ###
+        if (not plan_executed_forwards and not tried_opening_gripper):
             expected_pos = np.array(plan[0][0:3])
             expected_orn = np.array(plan[0][3:])
 
@@ -1101,7 +1092,7 @@ def create_place_policy(
             plan.pop(0)
             return low_level_action, done_bit
 
-        elif (plan_executed_forwards and not tried_opening_gripper):
+        if (plan_executed_forwards and not tried_opening_gripper):
             # Open the gripper to see if you've released the
             # object
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
@@ -1110,45 +1101,42 @@ def create_place_policy(
             plan = reversed_plan
             return low_level_action, False
 
-        else:
-            expected_pos = np.array(plan[0][0:3])
-            expected_orn = np.array(plan[0][3:])
+        expected_pos = np.array(plan[0][0:3])
+        expected_orn = np.array(plan[0][3:])
+        # 2. if error is greater that MAX_ERROR
+        if not np.allclose(current_pos, expected_pos,
+                           atol=atol_xyz) or not np.allclose(
+                               current_orn, expected_orn, atol=atol_theta):
+            # 2.a take a corrective action
+            if len(plan) <= 1:
+                done_bit = True
+                print("PRIMITIVE: place policy completed execution!")
+                return np.zeros(env.action_space.shape,
+                                dtype=np.float32), done_bit
+            low_level_action = (get_delta_low_level_hand_action(
+                env.robots[0].parts["body"],
+                np.array(current_pos),
+                np.array(current_orn),
+                np.array(plan[0][0:3]),
+                np.array(plan[0][3:]),
+            ))
 
-            ###
-            # 2. if error is greater that MAX_ERROR
-            if not np.allclose(current_pos, expected_pos,
-                               atol=atol_xyz) or not np.allclose(
-                                   current_orn, expected_orn, atol=atol_theta):
-                # 2.a take a corrective action
-                if len(plan) <= 1:
-                    done_bit = True
-                    print("PRIMITIVE: place policy completed execution!")
-                    return np.zeros(env.action_space.shape,
-                                    dtype=np.float32), done_bit
+            # But if the corrective action is 0, take the next action
+            if np.allclose(
+                    low_level_action,
+                    np.zeros((env.action_space.shape[0], 1)),
+                    atol=atol_vel,
+            ):
                 low_level_action = (get_delta_low_level_hand_action(
                     env.robots[0].parts["body"],
                     np.array(current_pos),
                     np.array(current_orn),
-                    np.array(plan[0][0:3]),
-                    np.array(plan[0][3:]),
+                    np.array(plan[1][0:3]),
+                    np.array(plan[1][3:]),
                 ))
+                plan.pop(0)
 
-                # But if the corrective action is 0, take the next action
-                if np.allclose(
-                        low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
-                        atol=atol_vel,
-                ):
-                    low_level_action = (get_delta_low_level_hand_action(
-                        env.robots[0].parts["body"],
-                        np.array(current_pos),
-                        np.array(current_orn),
-                        np.array(plan[1][0:3]),
-                        np.array(plan[1][3:]),
-                    ))
-                    plan.pop(0)
-
-                return low_level_action, False
+            return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
@@ -1160,10 +1148,10 @@ def create_place_policy(
             # resting position near the robot.
             low_level_action = get_delta_low_level_hand_action(
                 env.robots[0].parts["body"],
-                reversed_plan[0][0:3],
-                reversed_plan[0][3:],
-                reversed_plan[1][0:3],
-                reversed_plan[1][3:],
+                reversed_plan[0][0:3],  # current pos
+                reversed_plan[0][3:],  # current orn
+                reversed_plan[1][0:3],  # next pos
+                reversed_plan[1][3:],  # next orn
             )
             if len(reversed_plan) == 1:
                 done_bit = True
