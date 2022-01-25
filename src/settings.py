@@ -68,6 +68,7 @@ class GlobalSettings:
     max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
+    task_planning_heuristic = "lmcut"
 
     # evaluation parameters
     results_dir = "results"
@@ -155,15 +156,6 @@ class GlobalSettings:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
         return dict(
-            # Task planning heuristic to use in SeSamE.
-            task_planning_heuristic=defaultdict(
-                # Use HAdd by default.
-                lambda: "hadd",
-                {
-                    # In the playroom domain, HFF works better.
-                    "playroom": "hff",
-                })[args.get("env", "")],
-
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
