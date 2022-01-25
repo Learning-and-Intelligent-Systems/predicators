@@ -25,7 +25,7 @@ try:
         get_aabb_extent,
     )
     from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
-except ModuleNotFoundError as e:
+except (ImportError, ModuleNotFoundError) as e:
     print(e)
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
