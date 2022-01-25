@@ -1,6 +1,5 @@
 """Tests for NSRT learning."""
 
-import time
 from gym.spaces import Box
 import numpy as np
 # We need this unused import to prevent cyclic import issues when running
