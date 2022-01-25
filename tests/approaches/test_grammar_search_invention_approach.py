@@ -710,6 +710,7 @@ def test_task_planning_score_function():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
+        "num_train_tasks": 15,
     })
     env = CoverEnv()
 
@@ -756,6 +757,7 @@ def test_expected_nodes_score_function():
         "seed": 0,
         "grammar_search_max_demos": 5,
         "task_planning_heuristic": "lmcut",
+        "num_train_tasks": 15
     })
     env = CoverEnv()
 
