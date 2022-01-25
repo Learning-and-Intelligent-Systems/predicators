@@ -16,7 +16,7 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _RelaxationHeuristicCountBasedScoreFunction,
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
+from predicators.src.envs import CoverEnv, BlocksEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, \
     _GroundSTRIPSOperator, OptionSpec
@@ -40,7 +40,7 @@ def test_predicate_grammar():
                            [np.zeros(1, dtype=np.float32)])
     ]
     base_grammar = _PredicateGrammar()
-    assert base_grammar.generate(max_num=0) == {}
+    assert not base_grammar.generate(max_num=0)
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
     data_based_grammar = _DataBasedPredicateGrammar(dataset)
