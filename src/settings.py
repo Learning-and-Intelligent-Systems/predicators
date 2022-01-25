@@ -139,8 +139,8 @@ class GlobalSettings:
     grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "hff_energy_lookaheaddepth0"
     grammar_search_heuristic_based_weight = 10.
-    grammar_search_heuristic_based_max_demos = 5
-    grammar_search_heuristic_based_max_nondemos = 50
+    grammar_search_max_demos = 5
+    grammar_search_max_nondemos = 50
     grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
     grammar_search_search_algorithm = "hill_climbing"  # hill_climbing or gbfs
@@ -150,6 +150,8 @@ class GlobalSettings:
     grammar_search_off_demo_count_penalty = 1.0
     grammar_search_on_demo_count_penalty = 10.0
     grammar_search_suspicious_penalty = 10.0
+    grammar_search_expected_nodes_upper_bound = 1e5
+    grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

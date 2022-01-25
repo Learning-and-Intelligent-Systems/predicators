@@ -105,6 +105,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             all_predicates - {IsWet, IsDry},
             all_predicates - {IsClean, IsDirty},
             all_predicates - {OnTable},
+            all_predicates - {HoldingTop, HoldingSide},
             all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
             {IsClean, GripperOpen, Holding, OnTable},
@@ -236,6 +237,7 @@ def _main() -> None:
         "lmcut_count_lookaheaddepth0",
         "hadd_count_lookaheaddepth0",
         "exact_count",
+        "expected_nodes",
     ]
     run_planning = True
 
