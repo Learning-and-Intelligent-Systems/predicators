@@ -27,8 +27,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
     # repeated_nextto
     python $FILE --env repeated_nextto --approach oracle $COMMON_ARGS
-    python $FILE --env repeated_nextto --approach nsrt_learning $COMMON_ARGS
 
     # cluttered_table
     python $FILE --env cluttered_table --approach oracle $COMMON_ARGS
+    python $FILE --env cluttered_table --approach nsrt_learning $COMMON_ARGS
 done
