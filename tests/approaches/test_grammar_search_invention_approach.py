@@ -751,42 +751,47 @@ def test_expected_nodes_score_function():
     utils.update_config({
         "env": "cover",
     })
-    utils.update_config({
-        "env": "cover",
-        "offline_data_method": "demo+replay",
-        "seed": 0,
-        "grammar_search_max_demos": 5,
-        "task_planning_heuristic": "lmcut",
-        "num_train_tasks": 2,
-    })
-    env = CoverEnv()
-
-    name_to_pred = {p.name: p for p in env.predicates}
-    Holding = name_to_pred["Holding"]
-    HandEmpty = name_to_pred["HandEmpty"]
-
-    candidates = {
-        Holding: 1.0,
-        HandEmpty: 1.0,
-    }
-    train_tasks = next(env.train_tasks_generator())
-    dataset = create_dataset(env, train_tasks)
-    atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.goal_predicates | set(candidates))
-    score_function = _ExpectedNodesScoreFunction(env.goal_predicates,
-                                                 atom_dataset, candidates)
-    all_included_s = score_function.evaluate({Holding, HandEmpty})
-    none_included_s = score_function.evaluate(set())
-    ub = CFG.grammar_search_expected_nodes_upper_bound
-    assert all_included_s < none_included_s
-    assert all_included_s < ub * len(train_tasks)
-    # Test cases where operators cannot plan to goal.
-    utils.update_config({
-        "min_data_for_nsrt": 10000,
-    })
-    all_included_s = score_function.evaluate({Holding, HandEmpty})
-    assert all_included_s >= ub * len(train_tasks)
+    # Cover cases where the number of training tasks is less than or greater
+    # than the max number of demos.
+    max_num_demos = 5
+    for num_train_tasks in [2, 15]:
+        utils.update_config({
+            "env": "cover",
+            "offline_data_method": "demo+replay",
+            "seed": 0,
+            "grammar_search_max_demos": max_num_demos,
+            "task_planning_heuristic": "lmcut",
+            "num_train_tasks": num_train_tasks,
+            "min_data_for_nsrt": 0,
+        })
+        env = CoverEnv()
+        name_to_pred = {p.name: p for p in env.predicates}
+        Holding = name_to_pred["Holding"]
+        HandEmpty = name_to_pred["HandEmpty"]
+        candidates = {
+            Holding: 1.0,
+            HandEmpty: 1.0,
+        }
+        train_tasks = next(env.train_tasks_generator())
+        dataset = create_dataset(env, train_tasks)
+        atom_dataset = utils.create_ground_atom_dataset(
+            dataset, env.goal_predicates | set(candidates))
+        score_function = _ExpectedNodesScoreFunction(env.goal_predicates,
+                                                     atom_dataset, candidates)
+        all_included_s = score_function.evaluate({Holding, HandEmpty})
+        none_included_s = score_function.evaluate(set())
+        ub = CFG.grammar_search_expected_nodes_upper_bound
+        assert all_included_s < none_included_s
+        assert all_included_s < ub * min(num_train_tasks, max_num_demos)
+        # Test cases where operators cannot plan to goal.
+        utils.update_config({
+            "min_data_for_nsrt": 10000,
+        })
+        all_included_s = score_function.evaluate({Holding, HandEmpty})
+        assert all_included_s >= ub * min(num_train_tasks, max_num_demos)
     # Revert to default to avoid interfering with other tests.
     utils.update_config({
         "min_data_for_nsrt": 3,
+        "grammar_search_max_demos": max_num_demos,
+        "num_train_tasks": 15,
     })
