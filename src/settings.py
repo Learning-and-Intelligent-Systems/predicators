@@ -41,6 +41,7 @@ class GlobalSettings:
 
     # painting env parameters
     painting_initial_holding_prob = 0.5
+    painting_lid_open_prob = 0.3
     painting_num_objs_train = [2]
     painting_num_objs_test = [3, 4]
     painting_train_families = [
