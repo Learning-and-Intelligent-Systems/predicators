@@ -599,10 +599,10 @@ def test_exact_energy_score_function():
         initial_predicates, atom_dataset, candidates)
     assert score_function.evaluate(set()) == float("inf")
     utils.update_config({"task_planning_heuristic": old_heur})
-    old_hbmd = CFG.grammar_search_heuristic_based_max_demos
-    utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
+    old_hbmd = CFG.grammar_search_max_demos
+    utils.update_config({"grammar_search_max_demos": 0})
     assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
-    utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
+    utils.update_config({"grammar_search_max_demos": old_hbmd})
 
 
 def test_count_score_functions():
@@ -620,8 +620,8 @@ def test_count_score_functions():
         "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
-        "grammar_search_heuristic_based_max_demos": 4,
-        "grammar_search_heuristic_based_max_nondemos": 40,
+        "grammar_search_max_demos": 4,
+        "grammar_search_max_nondemos": 40,
     })
     env = CoverEnv()
     ablated = {"Holding", "HandEmpty"}
@@ -754,6 +754,8 @@ def test_expected_nodes_score_function():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
+        "grammar_search_max_demos": 5,
+        "task_planning_heuristic": "lmcut",
     })
     env = CoverEnv()
 
@@ -781,8 +783,9 @@ def test_expected_nodes_score_function():
         "min_data_for_nsrt": 10000,
     })
     all_included_s = score_function.evaluate({Holding, HandEmpty})
-    assert all_included_s >= ub * CFG.grammar_search_max_demos
-    # Set this back to avoid screwing up other tests...
+    assert all_included_s >= ub * min(CFG.grammar_search_max_demos,
+                                      len(train_tasks))
+    # Revert to default to avoid interfering with other tests.
     utils.update_config({
         "min_data_for_nsrt": 3,
     })
