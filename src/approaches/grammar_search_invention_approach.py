@@ -202,7 +202,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateGrammar:
+class _PredicateGrammar(abc.ABC):
     """A grammar for generating predicate candidates."""
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
@@ -513,7 +513,7 @@ def _create_score_function(
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateSearchScoreFunction:
+class _PredicateSearchScoreFunction(abc.ABC):
     """A score function for guiding search over predicate sets."""
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
@@ -744,7 +744,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by expecting the heuristic to
     match the exact costs-to-go of the states in the demonstrations."""
 
@@ -763,7 +763,7 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute an energy-based policy, and comparing that policy to demos.
 
@@ -815,7 +815,7 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylin
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute estimated costs-to-go.
 
@@ -888,7 +888,7 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with a delete relaxation heuristic like
     hadd, hmax, or hff."""
     lookahead_depth: int = field(default=0)
@@ -936,7 +936,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with task planning."""
 
     heuristic_names: Sequence[str] = field(default=("exact", ), init=False)

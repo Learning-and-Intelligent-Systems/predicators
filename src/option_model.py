@@ -21,7 +21,7 @@ def create_option_model(
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
-class _OptionModel:
+class _OptionModel(abc.ABC):
     """Struct defining an option model, which computes the next state of the
     world after an option is executed from a given start state."""
 

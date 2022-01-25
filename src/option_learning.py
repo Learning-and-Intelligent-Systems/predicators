@@ -23,7 +23,7 @@ def create_option_learner() -> _OptionLearnerBase:
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
-class _OptionLearnerBase:
+class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options."""
