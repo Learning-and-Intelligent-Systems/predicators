@@ -82,9 +82,9 @@ def test_create_sampler_data():
 
 def test_learn_samplers_failure():
     """Tests for failure mode of learn_samplers()."""
-    option = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p),
-        lambda s, m, o, p: False,
-        lambda s, m, o, p: False)
+    option = ParameterizedOption("dummy", [], Box(0.1, 1, (1, )),
+                                 lambda s, m, o, p: Action(p),
+                                 lambda s, m, o, p: False,
+                                 lambda s, m, o, p: False)
     with pytest.raises(NotImplementedError):  # bad sampler_learner
         learn_samplers([None], None, [(option, [])], "bad sampler learner")

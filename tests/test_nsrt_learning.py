@@ -263,11 +263,13 @@ def test_nsrt_learning_specific_nsrts():
     nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
     assert len(nsrts) == 0
     # Test max_rejection_sampling_tries = 0
-    utils.update_config({"min_data_for_nsrt": 0,
-                         "max_rejection_sampling_tries": 0,
-                         "seed": 1234,
-                         "sampler_mlp_classifier_max_itr": 1,
-                         "neural_gaus_regressor_max_itr": 1})
+    utils.update_config({
+        "min_data_for_nsrt": 0,
+        "max_rejection_sampling_tries": 0,
+        "seed": 1234,
+        "sampler_mlp_classifier_max_itr": 1,
+        "neural_gaus_regressor_max_itr": 1
+    })
     nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
