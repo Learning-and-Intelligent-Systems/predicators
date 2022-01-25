@@ -45,7 +45,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         # NOT-Forall[0:block].[((0:block).pose_x<=1.33)(0)]
         block_type = Clear.types[0]
         pose_x_classifier = _SingleAttributeCompareClassifier(
-            0, block_type, "pose_x", 1.33, le, "<=")
+            0, block_type, "pose_x", 1.33, 0, le, "<=")
         pose_x_pred = Predicate(str(pose_x_classifier), [block_type],
                                 pose_x_classifier)
         forall_pose_x_classifier = _ForallClassifier(pose_x_pred)
@@ -57,7 +57,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
 
         # NOT-((0:block).pose_x<=1.35)
         pose_x35_classifier = _SingleAttributeCompareClassifier(
-            0, block_type, "pose_x", 1.35, le, "<=")
+            0, block_type, "pose_x", 1.35, 0, le, "<=")
         pose_x35_pred = Predicate(str(pose_x35_classifier), [block_type],
                                   pose_x35_classifier)
         not_pose_x35_pred = pose_x35_pred.get_negation()
@@ -93,7 +93,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         # ((0:obj).color<=0.125)
         obj_type = Holding.types[0]
         color_classifier = _SingleAttributeCompareClassifier(
-            0, obj_type, "color", 0.125, le, "<=")
+            0, obj_type, "color", 0.125, 0, le, "<=")
         color_pred = Predicate(str(color_classifier), [obj_type],
                                color_classifier)
         assert str(color_pred) == "((0:obj).color<=0.125)"

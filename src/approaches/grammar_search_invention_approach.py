@@ -63,6 +63,9 @@ def _create_grammar(dataset: Dataset,
     # But remember that we do want to enumerate their negations
     # and foralls, which is why they're included originally.
     grammar = _SkipGrammar(grammar, given_predicates)
+    # If we're using the DebugGrammar, filter out all other predicates.
+    if CFG.grammar_search_use_handcoded_debug_grammar:
+        grammar = _DebugGrammar(grammar)
     # We're done! Return the final grammar.
     return grammar
 
@@ -114,6 +117,7 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
     object_type: Type
     attribute_name: str
     constant: float
+    constant_idx: int
     compare: Callable[[float, float], bool]
     compare_str: str
 
@@ -122,8 +126,10 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
         return self.compare(s.get(obj, self.attribute_name), self.constant)
 
     def __str__(self) -> str:
-        return (f"(({self.object_index}:{self.object_type.name})."
-                f"{self.attribute_name}{self.compare_str}{self.constant:.3})")
+        return (
+            f"(({self.object_index}:{self.object_type.name})."
+            f"{self.attribute_name}{self.compare_str}[idx {self.constant_idx}]"
+            f"{self.constant:.3})")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -229,6 +235,55 @@ class _PredicateGrammar(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
+_DEBUG_PREDICATE_PREFIXES = {
+    "painting": [
+        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
+        "((0:obj).pose_y<=[idx 2]",  # OnTable
+        "NOT-((0:obj).grasp<=[idx 0]0.5)",  # HoldingTop
+        "((0:obj).grasp<=[idx 1]0.25)",  # HoldingSide
+        "NOT-((0:obj).held<=[idx 0]0.5)",  # Holding
+        "NOT-((0:obj).wetness<=[idx 0]0.5)",  # IsWet
+        "((0:obj).wetness<=[idx 0]0.5)",  # IsDry
+        "NOT-((0:obj).dirtiness<=[idx 0]",  # IsDirty
+        "((0:obj).dirtiness<=[idx 0]",  # IsClean
+    ],
+    "cover": [
+        "NOT-((0:block).grasp<=[idx 0]",  # Holding
+        "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+    ],
+    "blocks": [
+        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
+        "Forall[0:block].[NOT-On(0,1)]",  # Clear
+        "NOT-((0:block).pose_z<=[idx 0]",  # Holding
+    ],
+    "unittest": [
+        "((0:robot).hand<=[idx 0]0.65)",
+        "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
+    ],
+}
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DebugGrammar(_PredicateGrammar):
+    """A grammar that generates only predicates starting with some string in
+    _DEBUG_PREDICATE_PREFIXES[CFG.env]."""
+    base_grammar: _PredicateGrammar
+
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
+        del max_num
+        expected_len = len(_DEBUG_PREDICATE_PREFIXES[CFG.env])
+        result = super().generate(expected_len)
+        assert len(result) == expected_len
+        return result
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if any(
+                    str(predicate).startswith(debug_str)
+                    for debug_str in _DEBUG_PREDICATE_PREFIXES[CFG.env]):
+                yield (predicate, cost)
+
+
 @dataclass(frozen=True, eq=False, repr=False)
 class _DataBasedPredicateGrammar(_PredicateGrammar):
     """A predicate grammar that uses a dataset."""
@@ -274,7 +329,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         feature_ranges = self._get_feature_ranges()
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
-        for constant, cost in constant_generator:
+        for constant_idx, (constant, cost) in enumerate(constant_generator):
             for t in sorted(self.types):
                 for f in t.feature_names:
                     lb, ub = feature_ranges[t][f]
@@ -290,7 +345,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     # rely on anyway because of precision issues).
                     comp, comp_str = le, "<="
                     classifier = _SingleAttributeCompareClassifier(
-                        0, t, f, k, comp, comp_str)
+                        0, t, f, k, constant_idx, comp, comp_str)
                     name = str(classifier)
                     types = [t]
                     pred = Predicate(name, types, classifier)
