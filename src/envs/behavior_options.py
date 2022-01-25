@@ -207,7 +207,7 @@ def create_navigate_policy(
                 np.array(current_pos + [current_orn]), np.array(plan[0]),
                 env.action_space.shape)
 
-            # But if the corrective action is 0
+            # But if the corrective action is 0, take the next action
             if np.allclose(low_level_action,
                            np.zeros((env.action_space.shape[0], 1)),
                            atol=atol_vel):
@@ -384,7 +384,7 @@ def grasp_obj_param_sampler(rng: Generator) -> Array:
 
 
 def get_delta_low_level_hand_action(
-    body: "BehaviorEnv",
+    body: "BRBody",
     old_pos: Union[Sequence[float], Array],
     old_orn: Union[Sequence[float], Array],
     new_pos: Union[Sequence[float], Array],
@@ -455,7 +455,9 @@ def create_grasp_policy(
     # a 'reversed' plan to be used for our option that's
     # defined below. Note that the reversed plan makes a
     # copy of the list instead of just assigning by reference,
-    # and this is critical to the functioning of our option
+    # and this is critical to the functioning of our option. The reversed
+    # plan is necessary because RRT just gives us a plan to move our hand
+    # to the grasping location, but not to getting back.
     reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_closing_gripper = False
@@ -481,6 +483,8 @@ def create_grasp_policy(
         )
         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
+        # NOTE: Below pylint is necessary because pylint doesn't like there
+        # being an 'elif' after an 'if' with a return statement
         if (  # pylint:disable=no-else-return
                 not plan_executed_forwards and not tried_closing_gripper):
             expected_pos = np.array(plan[0][0:3])
@@ -506,7 +510,7 @@ def create_grasp_policy(
                     np.array(plan[0][3:]),
                 ))
 
-                # But if the corrective action is 0
+                # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
                         np.zeros((env.action_space.shape[0], 1)),
@@ -544,8 +548,6 @@ def create_grasp_policy(
             plan.pop(0)
             return low_level_action, done_bit
 
-            ###
-
         elif (plan_executed_forwards and not tried_closing_gripper):
             # Close the gripper to see if you've gotten the
             # object
@@ -577,7 +579,7 @@ def create_grasp_policy(
                     np.array(plan[0][3:]),
                 ))
 
-                # But if the corrective action is 0
+                # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
                         np.zeros((env.action_space.shape, 1)),
@@ -600,7 +602,7 @@ def create_grasp_policy(
             print("PRIMITIVE: grasp policy completed execution!")
 
         else:
-            # Placing Phase 3: getting the hand back to
+            # Grasping Phase 3: getting the hand back to
             # resting position near the robot.
             low_level_action = get_delta_low_level_hand_action(
                 env.robots[0].parts["body"],
@@ -1005,7 +1007,9 @@ def create_place_policy(
 
     # Note that the reversed plan code below makes a
     # copy of the list instead of just assigning by reference,
-    # and this is critical to the functioning of our option
+    # and this is critical to the functioning of our option. The reversed
+    # plan is necessary because RRT just gives us a plan to move our hand
+    # to the grasping location, but not to getting back.
     reversed_plan = list(reversed(plan))
     plan_executed_forwards = False
     tried_opening_gripper = False
@@ -1031,6 +1035,8 @@ def create_place_policy(
         )
         current_orn = p.getEulerFromQuaternion(current_orn_quat)
 
+        # NOTE: Below pylint is necessary because pylint doesn't like there
+        # being an 'elif' after an 'if' with a return statement
         if (  # pylint:disable=no-else-return
                 not plan_executed_forwards and not tried_opening_gripper):
             ###
@@ -1057,7 +1063,7 @@ def create_place_policy(
                     np.array(plan[0][3:]),
                 ))
 
-                # But if the corrective action is 0
+                # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
                         np.zeros((env.action_space.shape[0], 1)),
@@ -1096,8 +1102,6 @@ def create_place_policy(
             plan.pop(0)
             return low_level_action, done_bit
 
-            ###
-
         elif (plan_executed_forwards and not tried_opening_gripper):
             # Open the gripper to see if you've released the
             # object
@@ -1130,7 +1134,7 @@ def create_place_policy(
                     np.array(plan[0][3:]),
                 ))
 
-                # But if the corrective action is 0
+                # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
                         np.zeros((env.action_space.shape[0], 1)),
