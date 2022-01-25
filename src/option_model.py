@@ -12,7 +12,7 @@ from predicators.src.envs.behavior import BehaviorEnv
 
 def create_option_model(
         name: str, simulator: Callable[[State, Action],
-                                       State]) -> _OptionModel:
+                                       State]) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "default":
         return _DefaultOptionModel(simulator)
@@ -21,7 +21,7 @@ def create_option_model(
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
-class _OptionModel(abc.ABC):
+class _OptionModelBase(abc.ABC):
     """Struct defining an option model, which computes the next state of the
     world after an option is executed from a given start state."""
 
@@ -39,7 +39,7 @@ class _OptionModel(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-class _DefaultOptionModel(_OptionModel):
+class _DefaultOptionModel(_OptionModelBase):
     """A default option model that just runs options through the simulator to
     figure out the next state."""
 
@@ -52,7 +52,7 @@ class _DefaultOptionModel(_OptionModel):
         return traj.states[-1]
 
 
-class _BehaviorOptionModel(_OptionModel):
+class _BehaviorOptionModel(_OptionModelBase):
     """An oracle option model for the BEHAVIOR env."""
 
     def get_next_state(self, state: State,
