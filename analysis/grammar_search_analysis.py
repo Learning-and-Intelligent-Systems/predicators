@@ -28,11 +28,12 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                                                       ["HandEmpty", "Holding"])
         NotHandEmpty = HandEmpty.get_negation()
         covers_pred_sets: List[Set[Predicate]] = [
-            set(),
-            {HandEmpty},
-            {Holding},
+            # set(),
+            # {HandEmpty},
+            # {Holding},
             {HandEmpty, Holding},
             {NotHandEmpty},
+            # {NotHandEmpty, HandEmpty},
         ]
         _run_proxy_analysis_for_env(env_name, covers_pred_sets,
                                     score_function_names, run_planning, outdir)
@@ -105,6 +106,8 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             all_predicates - {IsWet, IsDry},
             all_predicates - {IsClean, IsDirty},
             all_predicates - {OnTable},
+            all_predicates - {HoldingTop},
+            all_predicates - {HoldingSide},
             all_predicates - {HoldingTop, HoldingSide},
             all_predicates - {HoldingTop, HoldingSide, Holding},
             all_predicates,
@@ -225,21 +228,21 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 def _main() -> None:
     env_names = [
         "cover",
-        "blocks",
-        "painting",
+        # "blocks",
+        # "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_energy_lookaheaddepth0",
-        "hadd_energy_lookaheaddepth1",
-        "hadd_energy_lookaheaddepth2",
-        "exact_energy",
-        "lmcut_count_lookaheaddepth0",
-        "hadd_count_lookaheaddepth0",
-        "exact_count",
+        # "prediction_error",
+        # "hadd_energy_lookaheaddepth0",
+        # "hadd_energy_lookaheaddepth1",
+        # "hadd_energy_lookaheaddepth2",
+        # "exact_energy",
+        # "lmcut_count_lookaheaddepth0",
+        # "hadd_count_lookaheaddepth0",
+        # "exact_count",
         "expected_nodes",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
