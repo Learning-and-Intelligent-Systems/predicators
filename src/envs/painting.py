@@ -51,7 +51,7 @@ class PaintingEnv(BaseEnv):
         # Types
         self._obj_type = Type("obj", [
             "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
-            "grasp"
+            "grasp", "held"
         ])
         self._box_type = Type("box", ["color"])
         self._lid_type = Type("lid", ["is_open"])
@@ -195,6 +195,7 @@ class PaintingEnv(BaseEnv):
         # Execute pick
         next_state.set(self._robot, "fingers", 0.0)
         next_state.set(target_obj, "grasp", grasp)
+        next_state.set(target_obj, "held", 1.0)
         return next_state
 
     def _transition_wash(self, state: State, action: Action) -> State:
@@ -282,7 +283,8 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "pose_x", x)
         next_state.set(held_obj, "pose_y", y)
         next_state.set(held_obj, "pose_z", z)
-        next_state.set(held_obj, "grasp", 0.5)  # revert to not grasped
+        next_state.set(held_obj, "grasp", 0.5)
+        next_state.set(held_obj, "held", 0.0)
         return next_state
 
     def train_tasks_generator(self) -> Iterator[List[Task]]:
@@ -468,7 +470,7 @@ class PaintingEnv(BaseEnv):
             else:
                 shelf_color, box_color = color1, color2
             # Create box, lid, and shelf objects
-            lid_is_open = int(rng.uniform() > 0.7)
+            lid_is_open = int(rng.uniform() < CFG.painting_lid_open_prob)
             data[self._box] = np.array([box_color], dtype=np.float32)
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([shelf_color], dtype=np.float32)
@@ -493,9 +495,11 @@ class PaintingEnv(BaseEnv):
                     wetness = 0.0
                     dirtiness = 0.0
                 color = 0.0
-                grasp = 0.5  # object starts off not grasped
+                grasp = 0.5
+                held = 0.0
                 data[obj] = np.array([
-                    pose[0], pose[1], pose[2], dirtiness, wetness, color, grasp
+                    pose[0], pose[1], pose[2], dirtiness, wetness, color,
+                    grasp, held
                 ],
                                      dtype=np.float32)
                 # Last object should go in box
@@ -514,6 +518,7 @@ class PaintingEnv(BaseEnv):
                 target_obj = objs[rng.choice(len(objs))]
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
+                state.set(target_obj, "held", 1.0)
                 assert self._OnTable_holds(state, [target_obj])
             tasks.append(Task(state, goal))
         return tasks
@@ -704,8 +709,16 @@ class PaintingEnv(BaseEnv):
         return None
 
     def _obj_is_held(self, state: State, obj: Object) -> bool:
+        # These two pieces of information are redundant. We include
+        # the "held" feature only because it allows the Holding
+        # predicate to be expressed with a single inequality.
+        # Either feature can be used to implement this method.
         grasp = state.get(obj, "grasp")
-        return grasp > self.top_grasp_thresh or grasp < self.side_grasp_thresh
+        held_feat = state.get(obj, "held")
+        is_held = (grasp > self.top_grasp_thresh
+                   or grasp < self.side_grasp_thresh)
+        assert is_held == (held_feat > 0.5)  # ensure redundancy
+        return is_held
 
     def _get_object_at_xyz(self, state: State, x: float, y: float,
                            z: float) -> Optional[Object]:
