@@ -103,8 +103,6 @@ def sesame_plan(
                         return plan, metrics
                 except LowLevelSearchFailure as f:
                     progress_per_skeleton.append((skeleton, f.furthest_plan, f.furthest_traj, f))
-                    # print("Length of furthest plan: ", len(t.furthest_plan))
-                    # raise ApproachTimeout()
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             new_predicates, ground_nsrts = _update_nsrts_with_failure(
@@ -268,7 +266,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             furthest_traj = max(current_traj, furthest_traj, key=len)
             raise LowLevelSearchFailure("Low-level search timeout!",
                                         furthest_plan, furthest_traj)
-            # raise ApproachTimeout("Planning timed out in backtracking!")
         assert num_tries[cur_idx] < CFG.max_samples_per_step
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
@@ -284,7 +281,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             try:
                 next_traj = option_model.get_next_traj(state, option)
                 next_state = next_traj.states[-1]
-                # next_state = option_model.get_next_state(state, option)
                 discovered_failures[cur_idx] = None  # no failure occurred
             except EnvironmentFailure as e:
                 can_continue_on = False

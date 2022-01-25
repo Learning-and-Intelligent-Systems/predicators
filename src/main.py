@@ -167,10 +167,6 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                     failed_outfile = f"{utils.get_config_path_str()}__task{i+1}_failed.mp4"
                     utils.save_video(failed_outfile, failed_video)
             continue
-        # except (ApproachTimeout, ApproachFailure) as e:
-        #     print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
-        #           f"solve with error: {e}")
-        #     continue
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(
