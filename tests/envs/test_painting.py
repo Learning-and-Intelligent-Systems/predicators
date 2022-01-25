@@ -97,6 +97,7 @@ def test_painting_failure_cases():
         "approach": "nsrt_learning",
         "seed": 123,
         "painting_initial_holding_prob": 1.0,
+        "painting_lid_open_prob": 0.0,
         "painting_train_families": ["box_and_shelf"],
     })
     env = PaintingEnv()
@@ -115,7 +116,7 @@ def test_painting_failure_cases():
     obj0 = obj_type("obj0")
     obj1 = obj_type("obj1")
     robot = robot_type("robot")
-    lid = lid_type("lid")
+    lid = lid_type("box_lid")
     task = next(env.train_tasks_generator())[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
@@ -209,6 +210,7 @@ def test_painting_failure_cases():
     state.set(obj0, "color", 0.6)
     env.render(state, task)
     # Cannot place in box because lid is closed
+    assert state[lid].item() == 0.0
     act = Place.ground(
         [robot],
         np.array(
@@ -271,10 +273,17 @@ def test_painting_failure_cases():
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    # Revert to 0.0 for other tests.
+    # Make sure painting_initial_holding_prob = 0.0 works too.
     utils.update_config({"painting_initial_holding_prob": 0.0})
     env = PaintingEnv()
     env.seed(123)
     task = next(env.train_tasks_generator())[0]
     state = task.init
     assert not utils.abstract(state, {Holding})
+    # Make sure painting_lid_open_prob = 1.0 works too.
+    utils.update_config({"painting_lid_open_prob": 1.0})
+    env = PaintingEnv()
+    env.seed(123)
+    task = next(env.train_tasks_generator())[0]
+    state = task.init
+    assert state[lid].item() == 1.0
