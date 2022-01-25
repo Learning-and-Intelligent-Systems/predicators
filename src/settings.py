@@ -14,7 +14,6 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings."""
     # parameters for all envs
-    num_train_tasks = 15
     num_test_tasks = 50
     max_num_steps_check_policy = 100  # maximum number of steps to run a policy
     # when checking whether it solves a task
@@ -41,7 +40,8 @@ class GlobalSettings:
     repeated_nextto_num_dots = 25
 
     # painting env parameters
-    painting_initial_holding_prob = 0.0
+    painting_initial_holding_prob = 0.5
+    painting_lid_open_prob = 0.3
     painting_num_objs_train = [2]
     painting_num_objs_test = [3, 4]
     painting_train_families = [
@@ -54,11 +54,13 @@ class GlobalSettings:
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
         "configs",
-        # "njk_re-shelving_library_books_full_obs.yaml",
-        "njk_sorting_books_full_obs.yaml")
+        "wbm3_modifiable_full_obs.yaml",
+    )
     behavior_mode = "headless"  # headless, pbgui, iggui
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
+    behavior_task_name = "re-shelving_library_books"
+    behavior_scene_name = "Pomaria_1_int"
 
     # parameters for approaches
     random_options_max_tries = 100
@@ -130,6 +132,7 @@ class GlobalSettings:
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
     grammar_search_grammar_includes_foralls = True
+    grammar_search_use_handcoded_debug_grammar = False
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
@@ -137,9 +140,9 @@ class GlobalSettings:
     grammar_search_pred_complexity_weight = 1
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
-    grammar_search_score_function = "hff_energy_lookaheaddepth0"
+    grammar_search_score_function = "lmcut_energy_lookaheaddepth0"
     grammar_search_heuristic_based_weight = 10.
-    grammar_search_heuristic_based_max_demos = 5
+    grammar_search_heuristic_based_max_demos = float("inf")
     grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
@@ -156,6 +159,15 @@ class GlobalSettings:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
         return dict(
+            # Number of training tasks / demonstrations per environment.
+            num_train_tasks=defaultdict(
+                # Default number of training tasks.
+                lambda: 15,
+                {
+                    # For the painting environment, we generally need more data.
+                    "painting": 50,
+                })[args.get("env", "")],
+
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
