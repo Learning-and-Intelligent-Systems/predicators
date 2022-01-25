@@ -255,7 +255,11 @@ _DEBUG_PREDICATE_PREFIXES = {
         "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
-    ]
+    ],
+    "unittest": [
+        "((0:robot).hand<=[idx 0]0.65)",
+        "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
+    ],
 }
 
 
@@ -267,7 +271,10 @@ class _DebugGrammar(_PredicateGrammar):
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         del max_num
-        return super().generate(len(_DEBUG_PREDICATE_PREFIXES[CFG.env]))
+        expected_len = len(_DEBUG_PREDICATE_PREFIXES[CFG.env])
+        result = super().generate(expected_len)
+        assert len(result) == expected_len
+        return result
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         for (predicate, cost) in self.base_grammar.enumerate():
