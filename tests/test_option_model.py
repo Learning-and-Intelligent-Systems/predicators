@@ -4,7 +4,7 @@ import pytest
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Action, Type, ParameterizedOption
-from predicators.src.option_model import create_option_model, _OptionModel
+from predicators.src.option_model import create_option_model
 from predicators.src import utils
 
 
@@ -79,6 +79,3 @@ def test_option_model_notimplemented():
     env = CoverEnv()
     with pytest.raises(NotImplementedError):
         create_option_model("not a real option model", env.simulate)
-    model = _OptionModel(env.simulate)
-    with pytest.raises(NotImplementedError):
-        model.get_next_state(None, None)

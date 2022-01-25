@@ -187,9 +187,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
     total_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
+    total_num_nodes_created = approach.metrics["total_num_nodes_created"]
     metrics["avg_nodes_expanded"] = (total_num_nodes_expanded /
                                      num_found_policy
                                      if num_found_policy > 0 else float("inf"))
+    metrics["avg_nodes_created"] = (total_num_nodes_created / num_found_policy
+                                    if num_found_policy > 0 else float("inf"))
     total_plan_length = approach.metrics["total_plan_length"]
     metrics["avg_plan_length"] = (total_plan_length / num_found_policy
                                   if num_found_policy > 0 else float("inf"))
