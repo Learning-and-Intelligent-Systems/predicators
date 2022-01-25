@@ -68,6 +68,8 @@ def _main() -> None:
     means["NUM_SEEDS"] = sizes
     print("\n\nAGGREGATED DATA OVER SEEDS:")
     print(means)
+    means.to_csv("supercloud_analysis.csv")
+    print("\n\nWrote out table to supercloud_analysis.csv")
 
 
 if __name__ == "__main__":
