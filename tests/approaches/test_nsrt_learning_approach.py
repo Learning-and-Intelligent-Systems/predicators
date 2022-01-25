@@ -82,9 +82,9 @@ def test_nsrt_learning_approach():
                        sampler_learner="random",
                        learn_side_predicates=True)
 
+
 def test_neural_option_learning():
-    """Tests for NeuralOptionLearner class.
-    """
+    """Tests for NeuralOptionLearner class."""
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning",
                    try_solving=False,
