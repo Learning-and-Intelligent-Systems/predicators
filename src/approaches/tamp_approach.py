@@ -39,7 +39,7 @@ class TAMPApproach(BaseApproach):
                                     seed)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
-                "num_nodes_expanded", "plan_length"
+                "num_nodes_expanded", "num_nodes_created", "plan_length"
         ]:
             self._metrics[f"total_{metric}"] += metrics[metric]
         self._metrics["min_num_skeletons_optimized"] = min(
