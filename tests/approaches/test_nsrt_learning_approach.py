@@ -26,10 +26,13 @@ def _test_approach(env_name,
     utils.update_config({
         "timeout": 10,
         "max_samples_per_step": 10,
-        "neural_gaus_regressor_max_itr": 200,
-        "sampler_mlp_classifier_max_itr": 200,
-        "predicate_mlp_classifier_max_itr": 200,
-        "mlp_regressor_max_itr": 200,
+        "neural_gaus_regressor_max_itr": 100,
+        "sampler_mlp_classifier_max_itr": 100,
+        "predicate_mlp_classifier_max_itr": 100,
+        "mlp_regressor_max_itr": 100,
+        "num_train_tasks": 3,
+        "num_test_tasks": 3,
+        "offline_data_num_replays": 50,
         "excluded_predicates": excluded_predicates,
         "learn_side_predicates": learn_side_predicates,
         "option_learner": option_learner,
@@ -72,22 +75,16 @@ def _test_approach(env_name,
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
     _test_approach(env_name="blocks", approach_name="nsrt_learning")
-    with pytest.raises(NotImplementedError):  # bad sampler_learner
-        _test_approach(env_name="cover_multistep_options",
-                       approach_name="nsrt_learning",
-                       try_solving=False,
-                       sampler_learner="not a real sampler learner")
-    _test_approach(env_name="cover_multistep_options",
-                   approach_name="nsrt_learning",
-                   try_solving=False,
-                   sampler_learner="random")
     with pytest.raises(NotImplementedError):
         _test_approach(env_name="repeated_nextto",
                        approach_name="nsrt_learning",
                        try_solving=False,
                        sampler_learner="random",
                        learn_side_predicates=True)
-    # Test neural option learning.
+
+
+def test_neural_option_learning():
+    """Tests for NeuralOptionLearner class."""
     _test_approach(env_name="cover_multistep_options",
                    approach_name="nsrt_learning",
                    try_solving=False,
@@ -178,13 +175,5 @@ def test_grammar_search_invention_approach():
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
                    excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
-    # Test that the pipeline doesn't crash when no predicates are learned
-    # involving a certain option argument (robot in this case).
-    utils.update_config({"grammar_search_max_predicates": 0})
-    _test_approach(env_name="blocks",
-                   approach_name="grammar_search_invention",
-                   excluded_predicates="GripperOpen",
                    try_solving=False,
                    sampler_learner="random")
