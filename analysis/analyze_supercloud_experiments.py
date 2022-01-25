@@ -17,6 +17,8 @@ def _main() -> None:
         "AVG_NODES_CREATED", "AVG_PLAN_LEN", "AVG_EXECUTION_FAILS",
         "LEARNING_TIME"
     ]
+    groups = ["ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID"]
+    some_nonempty_experiment_id = False
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             run_data = pkl.load(f)
@@ -24,6 +26,8 @@ def _main() -> None:
             8:-4].split("__")
         if not excluded_predicates:
             excluded_predicates = "none"
+        if experiment_id:
+            some_nonempty_experiment_id = True
         data = [
             env, approach, excluded_predicates, experiment_id, seed,
             run_data["num_solved"], run_data["num_total"],
@@ -39,14 +43,19 @@ def _main() -> None:
     if not all_data:
         print(f"No data found in {CFG.results_dir}/, terminating")
         return
-    # Group & aggregate data by env name and approach name.
+    if not some_nonempty_experiment_id:
+        assert column_names[3] == groups[3] == "EXPERIMENT_ID"
+        for data in all_data:
+            del data[3]
+        del column_names[3]
+        del groups[3]
+    # Group & aggregate data.
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
     print("RAW DATA:")
     print(df)
-    grouped = df.groupby(
-        ["ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID"])
+    grouped = df.groupby(groups)
     means = grouped.mean()
     stds = grouped.std()
     sizes = grouped.size()
