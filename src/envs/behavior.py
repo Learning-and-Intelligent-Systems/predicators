@@ -93,7 +93,7 @@ class BehaviorEnv(BaseEnv):
         option_elems = [
             ("NavigateTo", planner_fns[0], option_policy_fns[0],
              option_model_fns[0], 2, 1, (-5.0, 5.0)),
-            ("Grasp", planner_fns[1], option_policy_fns[2],
+            ("Grasp", planner_fns[1], option_policy_fns[1],
              option_model_fns[1], 3, 1, (-np.pi, np.pi)),
             ("PlaceOnTop", planner_fns[2], option_policy_fns[2],
              option_model_fns[2], 3, 1, (-1.0, 1.0)),
