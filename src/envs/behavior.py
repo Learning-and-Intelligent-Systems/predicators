@@ -53,7 +53,7 @@ class BehaviorEnv(BaseEnv):
             raise ModuleNotFoundError("Behavior is not installed.")
         config_file = modify_config_file(
             os.path.join(igibson.root_path, CFG.behavior_config_file),
-            CFG.behavior_task_name, CFG.behavior_scene_id)
+            CFG.behavior_task_name, CFG.behavior_scene_name)
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
@@ -67,7 +67,6 @@ class BehaviorEnv(BaseEnv):
         )
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
-        self.env_config_file = config_file
 
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[

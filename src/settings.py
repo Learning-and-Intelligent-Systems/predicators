@@ -55,7 +55,7 @@ class GlobalSettings:
     behavior_action_timestep = 1.0 / 10.0
     behavior_physics_timestep = 1.0 / 120.0
     behavior_task_name = "re-shelving_library_books"
-    behavior_scene_id = "Pomaria_1_int"
+    behavior_scene_name = "Pomaria_1_int"
 
     # parameters for approaches
     random_options_max_tries = 100
