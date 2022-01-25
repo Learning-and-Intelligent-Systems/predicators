@@ -604,7 +604,7 @@ def test_exact_energy_score_function():
     utils.update_config({"task_planning_heuristic": old_heur})
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
     utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
-    assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
+    score_function.evaluate(set())
     utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
 
 
@@ -713,6 +713,7 @@ def test_task_planning_score_function():
         "env": "cover",
         "offline_data_method": "demo+replay",
         "seed": 0,
+        "num_train_tasks": 15,
     })
     env = CoverEnv()
 
@@ -739,9 +740,8 @@ def test_task_planning_score_function():
         "min_data_for_nsrt": 10000,
     })
     assert score_function.evaluate(set()) == len(train_tasks) * 1e7
-    # The +2 is for the cost of the two predicates.
-    assert score_function.evaluate({Holding, HandEmpty}) == 2 + \
-        len(train_tasks) * 1e7
+    assert score_function.evaluate({Holding, HandEmpty}) == \
+        2 * CFG.grammar_search_pred_complexity_weight + len(train_tasks) * 1e7
     # Set this back to avoid screwing up other tests...
     utils.update_config({
         "min_data_for_nsrt": 3,
