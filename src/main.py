@@ -147,23 +147,25 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except ApproachFailureWithProgress as e:
-            print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
-                  f"solve with error: {e}")
             if len(e.progress_per_skeleton) > 0:
-                best_progress = max(e.progress_per_skeleton,
+                # sort by length of plan
+                best_progress = sorted(e.progress_per_skeleton,
                                     key=lambda x: len(x[1]))
-                skeleton, plan, trajectories = best_progress
+                skeleton, plan, trajectories, fail_message = best_progress[-1]
+                print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
+                      f"solve with error: {e, fail_message}")
                 if CFG.make_failed_videos:
                     # could also loop through and save a video for each skeleton
                     failed_video: Video = []
-                    for i, traj in enumerate(trajectories):
-                        if i == len(trajectories) - 1:
+                    for j, traj in enumerate(trajectories):
+                        if j == len(trajectories) - 1:
                             states = traj.states
                         else:
                             states = traj.states[:-1]
                         for s in states:
+                            print(s)
                             failed_video.extend(env.render(s, task))
-                    failed_outfile = f"{utils.get_config_path_str()}__task{i}_failed.mp4"
+                    failed_outfile = f"{utils.get_config_path_str()}__task{i+1}_failed.mp4"
                     utils.save_video(failed_outfile, failed_video)
             continue
         # except (ApproachTimeout, ApproachFailure) as e:
@@ -191,7 +193,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
-            outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
+            outfile = f"{utils.get_config_path_str()}__task{i+1}.mp4"
             utils.save_video(outfile, video)
     metrics: Metrics = defaultdict(float)
     metrics["num_solved"] = num_solved

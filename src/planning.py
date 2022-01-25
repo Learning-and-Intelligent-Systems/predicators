@@ -102,7 +102,7 @@ def sesame_plan(
                         metrics["plan_length"] = len(plan)
                         return plan, metrics
                 except LowLevelSearchFailure as f:
-                    progress_per_skeleton.append((skeleton, f.furthest_plan, f.furthest_traj))
+                    progress_per_skeleton.append((skeleton, f.furthest_plan, f.furthest_traj, f))
                     # print("Length of furthest plan: ", len(t.furthest_plan))
                     # raise ApproachTimeout()
         except _DiscoveredFailureException as e:
@@ -427,6 +427,6 @@ class ApproachFailureWithProgress(Exception):
     of (skeleton, furthest_plan_reached_in_this_skeleton, corresponding_state-
     action-trajectory_of_this_furthest_plan) tuples. The intention of this is to
     provide debugging data to the calling function."""
-    def __init__(self, message: str, progress_per_skeleton: Tuple[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]], List[_Option], List[LowLevelTrajectory]]):
+    def __init__(self, message: str, progress_per_skeleton: Tuple[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]], List[_Option], List[LowLevelTrajectory], str]):
         super().__init__(message)
         self.progress_per_skeleton = progress_per_skeleton
