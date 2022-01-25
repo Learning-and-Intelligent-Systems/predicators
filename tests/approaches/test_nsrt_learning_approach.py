@@ -29,6 +29,7 @@ def _test_approach(env_name,
         "neural_gaus_regressor_max_itr": 200,
         "sampler_mlp_classifier_max_itr": 200,
         "predicate_mlp_classifier_max_itr": 200,
+        "mlp_regressor_max_itr": 200,
         "excluded_predicates": excluded_predicates,
         "learn_side_predicates": learn_side_predicates,
         "option_learner": option_learner,
@@ -86,6 +87,13 @@ def test_nsrt_learning_approach():
                        try_solving=False,
                        sampler_learner="random",
                        learn_side_predicates=True)
+    # Test neural option learning.
+    _test_approach(env_name="cover_multistep_options",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   option_learner="neural",
+                   check_solution=False)
 
 
 def test_oracle_samplers():
