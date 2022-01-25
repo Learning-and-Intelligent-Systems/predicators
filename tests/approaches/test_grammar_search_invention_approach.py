@@ -40,6 +40,7 @@ def test_predicate_grammar():
                            [np.zeros(1, dtype=np.float32)])
     ]
     base_grammar = _PredicateGrammar()
+    assert base_grammar.generate(max_num=0) == {}
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
     data_based_grammar = _DataBasedPredicateGrammar(dataset)
@@ -471,32 +472,31 @@ def test_relaxation_energy_score_function():
     assert all_included_s < none_included_s  # good!
 
     # Tests for PaintingEnv.
-    utils.flush_cache()
-    utils.update_config({
-        "env": "painting",
-        "offline_data_method": "demo+replay",
-        "seed": 0,
-        "painting_train_families": ["box_and_shelf"],
-    })
-    env = PaintingEnv()
-    ablated = {"IsWet", "IsDry"}
-    initial_predicates = set()
-    name_to_pred = {}
-    for p in env.predicates:
-        if p.name in ablated:
-            name_to_pred[p.name] = p
-        else:
-            initial_predicates.add(p)
-    candidates = {p: 1.0 for p in name_to_pred.values()}
-    train_tasks = next(env.train_tasks_generator())
-    dataset = create_dataset(env, train_tasks)
-    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
-        initial_predicates, atom_dataset, candidates, ["hadd"])
-    all_included_s = score_function.evaluate(set(candidates))
-    none_included_s = score_function.evaluate(set())
-
     # Comment out this test because it's flaky.
+    # utils.flush_cache()
+    # utils.update_config({
+    #     "env": "painting",
+    #     "offline_data_method": "demo+replay",
+    #     "seed": 0,
+    #     "painting_train_families": ["box_and_shelf"],
+    # })
+    # env = PaintingEnv()
+    # ablated = {"IsWet", "IsDry"}
+    # initial_predicates = set()
+    # name_to_pred = {}
+    # for p in env.predicates:
+    #     if p.name in ablated:
+    #         name_to_pred[p.name] = p
+    #     else:
+    #         initial_predicates.add(p)
+    # candidates = {p: 1.0 for p in name_to_pred.values()}
+    # train_tasks = next(env.train_tasks_generator())
+    # dataset = create_dataset(env, train_tasks)
+    # atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    # score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
+    #     initial_predicates, atom_dataset, candidates, ["hadd"])
+    # all_included_s = score_function.evaluate(set(candidates))
+    # none_included_s = score_function.evaluate(set())
     # assert all_included_s < none_included_s  # hooray!
 
     # Cover edge case where there are no successors.
