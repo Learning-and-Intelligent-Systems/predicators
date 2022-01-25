@@ -135,8 +135,8 @@ class GlobalSettings:
     grammar_search_true_pos_weight = 10
     grammar_search_false_pos_weight = 1
     grammar_search_bf_weight = 1
-    grammar_search_operator_size_weight = 1e-2
-    grammar_search_pred_complexity_weight = 1
+    grammar_search_operator_size_weight = 0.0
+    grammar_search_pred_complexity_weight = 1e-2
     grammar_search_max_predicates = 50
     grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "hff_energy_lookaheaddepth0"
