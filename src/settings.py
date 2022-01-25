@@ -28,6 +28,7 @@ class GlobalSettings:
     # cover_multistep_options parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
+    cover_multistep_degenerate_oracle_samplers = False
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
