@@ -78,7 +78,7 @@ def test_interactive_learning_approach():
         "max_samples_per_step":
         10,
         "seed":
-        12345,
+        123,
         "sampler_mlp_classifier_max_itr":
         500,
         "predicate_mlp_classifier_max_itr":
@@ -129,7 +129,7 @@ def test_interactive_learning_approach_no_ground_atoms():
         "max_samples_per_step":
         10,
         "seed":
-        12345,
+        123,
         "interactive_num_episodes":
         0,
         "teacher_dataset_label_ratio":

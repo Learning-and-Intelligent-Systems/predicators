@@ -176,7 +176,6 @@ def test_oracle_approach_cover_multistep_options():
     """Tests for OracleApproach class with CoverMultistepOptions."""
     utils.update_config({"env": "cover_multistep_options"})
     utils.update_config({
-        "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": False,
         "cover_multistep_degenerate_oracle_samplers": False,
     })
@@ -201,7 +200,6 @@ def test_oracle_approach_cover_multistep_options():
                                             env.simulate)
     utils.update_config({"env": "cover_multistep_options"})
     utils.update_config({
-        "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": True,
         "cover_multistep_degenerate_oracle_samplers": False,
         "sampler_learner": "neural"
@@ -222,7 +220,6 @@ def test_oracle_approach_cover_multistep_options():
         # Test cover_multistep_degenerate_oracle_samplers.
         utils.update_config({"env": "cover_multistep_options"})
     utils.update_config({
-        "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": False,
         "cover_multistep_degenerate_oracle_samplers": True,
     })
@@ -250,10 +247,7 @@ def test_oracle_approach_cover_multistep_options():
 def test_oracle_approach_cover_multistep_options_fixed_tasks():
     """Tests for OracleApproach class with CoverMultistepOptionsFixedTasks."""
     utils.update_config({"env": "cover_multistep_options_fixed_tasks"})
-    utils.update_config({
-        "env": "cover_multistep_options",
-        "cover_multistep_use_learned_equivalents": True
-    })
+    utils.update_config({"cover_multistep_use_learned_equivalents": True})
     env = CoverMultistepOptionsFixedTasks()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
