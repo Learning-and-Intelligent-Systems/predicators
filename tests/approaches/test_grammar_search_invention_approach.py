@@ -72,6 +72,12 @@ def test_predicate_grammar():
     assert len(empty_data_grammar.generate(max_num=10)) == 0
     # Reset to default just in case.
     utils.update_config({"grammar_search_predicate_cost_upper_bound": default})
+    # Test debug grammar.
+    utils.update_config({"env": "unittest"})
+    utils.update_config({"grammar_search_use_handcoded_debug_grammar": True})
+    debug_grammar = _create_grammar(dataset, set())
+    assert len(debug_grammar.generate(max_num=10)) == 2
+    utils.update_config({"grammar_search_use_handcoded_debug_grammar": False})
 
 
 def test_count_positives_for_ops():
