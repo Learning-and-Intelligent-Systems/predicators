@@ -273,9 +273,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
-        print("num_tries: ", num_tries)
-        print("len furthest_plan: ", len(furthest_plan))
-        print("len plan: ", len([p for p in plan if p is not DummyOption]))
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
@@ -336,7 +333,6 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             # Go back to re-do the step we just did. If necessary, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
-
 
             while num_tries[cur_idx] == CFG.max_samples_per_step:
                 num_tries[cur_idx] = 0

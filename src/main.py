@@ -151,16 +151,11 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 # sort by length of plan
                 best_progress = sorted(e.progress_per_skeleton,
                                        key=lambda x: len(x[1]))
-                print("Number of skeletons: ", len(best_progress))
-                # for p in best_progress:
-                #     sk, plan, trajs, fail_msg = p
-                #     print("DEBUG: ")
-                #     print("Plan: ", plan)
+                # can change this to save a video for each skeleton
                 skeleton, plan, trajectories, fail_message = best_progress[-1]
                 print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
                       f"solve with error: {e, fail_message}")
                 if CFG.make_failed_videos:
-                    # could also loop through and save a video for each skeleton
                     failed_video: Video = []
                     for j, traj in enumerate(trajectories):
                         if j == len(trajectories) - 1:
