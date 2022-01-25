@@ -675,7 +675,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and planning in the training
     tasks.
 
-    The score corresponds to expected number of nodes that would need to be
+    The score corresponds to the expected number of nodes that would need to be
     created before a low-level plan is found. This calculation requires
     estimating the probability that each goal-reaching skeleton is refinable.
     To estimate this, we assume a prior on how optimal the demonstrations are,
