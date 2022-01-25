@@ -577,8 +577,9 @@ def test_exact_energy_score_function():
     assert all_included_s < none_included_s  # good!
     assert all_included_s < gripperopen_excluded_s  # good!
     # Test that the score is inf when the operators make the data impossible.
-    # Note: this test will crash pyperplan's implementation of LM-Cut, so
-    #       we'll make sure to use HAdd for it.
+    # Note: this test will crash pyperplan's implementation of LM-Cut, because
+    #       there is a predicate (On) named in the goal that doesn't appear in
+    #       any of the reachable facts. So, we'll use HAdd.
     old_heur = CFG.task_planning_heuristic
     utils.update_config({"task_planning_heuristic": "hadd"})
     ablated = {"On"}
