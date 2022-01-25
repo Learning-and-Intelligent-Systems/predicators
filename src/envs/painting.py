@@ -470,7 +470,7 @@ class PaintingEnv(BaseEnv):
             else:
                 shelf_color, box_color = color1, color2
             # Create box, lid, and shelf objects
-            lid_is_open = int(rng.uniform() > 0.7)
+            lid_is_open = int(rng.uniform() < CFG.painting_lid_open_prob)
             data[self._box] = np.array([box_color], dtype=np.float32)
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([shelf_color], dtype=np.float32)
