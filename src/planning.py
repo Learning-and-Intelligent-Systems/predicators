@@ -18,7 +18,7 @@ from predicators.src.structs import State, Task, NSRT, Predicate, \
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic
 from predicators.src.envs import EnvironmentFailure
-from predicators.src.option_model import _OptionModel
+from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
@@ -35,7 +35,7 @@ class _Node:
 
 def sesame_plan(
     task: Task,
-    option_model: _OptionModel,
+    option_model: _OptionModelBase,
     nsrts: Set[NSRT],
     initial_predicates: Set[Predicate],
     timeout: float,
@@ -230,7 +230,7 @@ def _skeleton_generator(
     raise ApproachTimeout("Planning timed out in skeleton search!")
 
 
-def _run_low_level_search(task: Task, option_model: _OptionModel,
+def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                           skeleton: List[_GroundNSRT],
                           atoms_sequence: List[Collection[GroundAtom]],
                           seed: int,
