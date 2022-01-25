@@ -577,6 +577,11 @@ def test_exact_energy_score_function():
     assert all_included_s < none_included_s  # good!
     assert all_included_s < gripperopen_excluded_s  # good!
     # Test that the score is inf when the operators make the data impossible.
+    # Note: this test will crash pyperplan's implementation of LM-Cut, because
+    #       there is a predicate (On) named in the goal that doesn't appear in
+    #       any of the reachable facts. So, we'll use HAdd.
+    old_heur = CFG.task_planning_heuristic
+    utils.update_config({"task_planning_heuristic": "hadd"})
     ablated = {"On"}
     initial_predicates = set()
     name_to_pred = {}
@@ -590,6 +595,7 @@ def test_exact_energy_score_function():
     score_function = _ExactHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates)
     assert score_function.evaluate(set()) == float("inf")
+    utils.update_config({"task_planning_heuristic": old_heur})
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
     utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
     assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
