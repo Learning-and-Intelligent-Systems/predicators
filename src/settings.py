@@ -155,10 +155,6 @@ class GlobalSettings:
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
-        if "env" not in args:
-            args["env"] = ""
-        if "approach" not in args:
-            args["approach"] = ""
         return dict(
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
@@ -171,7 +167,7 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                })[args["env"]],
+                })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
@@ -182,7 +178,7 @@ class GlobalSettings:
                 {
                     # No replays for active learning project.
                     "interactive_learning": "demo",
-                })[args["approach"]],
+                })[args.get("approach", "")],
 
             # Number of replays used when offline_data_method is demo+replay.
             offline_data_num_replays=defaultdict(
@@ -192,7 +188,7 @@ class GlobalSettings:
                     # For the repeated_nextto environment, too many
                     # replays makes learning slow.
                     "repeated_nextto": 50,
-                })[args["env"]],
+                })[args.get("env", "")],
         )
 
 

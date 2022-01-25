@@ -21,14 +21,11 @@ def _test_approach(env_name,
     utils.update_config({
         "env": env_name,
         "approach": approach_name,
-        "seed": 12345,
+        "seed": 123
     })
     utils.update_config({
-        "env": env_name,
-        "approach": approach_name,
         "timeout": 10,
         "max_samples_per_step": 10,
-        "seed": 12345,
         "neural_gaus_regressor_max_itr": 200,
         "sampler_mlp_classifier_max_itr": 200,
         "predicate_mlp_classifier_max_itr": 200,

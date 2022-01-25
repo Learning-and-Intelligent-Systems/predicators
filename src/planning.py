@@ -6,6 +6,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
+from itertools import islice
 import time
 from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
 from dataclasses import dataclass
@@ -144,10 +145,10 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
-) -> Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]:
-    """Run only the task planning portion of SeSamE. A* search is run, and the
-    first skeleton that achieves the goal symbolically is returned. Returns a
-    tuple of (skeleton, atoms sequence, metrics dictionary).
+) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]]:
+    """Run only the task planning portion of SeSamE. A* search is run, and
+    skeletons that achieve the goal symbolically are yielded. Specifically,
+    yields a tuple of (skeleton, atoms sequence, metrics dictionary).
 
     This method is NOT used by SeSamE, but is instead provided as a
     convenient wrapper around _skeleton_generator below (which IS used
@@ -167,8 +168,11 @@ def task_plan(
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics)
-    skeleton, atoms_sequence = next(generator)  # get the first one
-    return skeleton, atoms_sequence, metrics
+    # Note that we use this pattern to avoid having to catch an ApproachFailure
+    # when _skeleton_generator runs out of skeletons to optimize.
+    for skeleton, atoms_sequence in islice(generator,
+                                           CFG.max_skeletons_optimized):
+        yield skeleton, atoms_sequence, metrics.copy()
 
 
 def _skeleton_generator(
