@@ -3,6 +3,9 @@
 import time
 from gym.spaces import Box
 import numpy as np
+# We need this unused import to prevent cyclic import issues when running
+# this file as a standalone test (pytest -s tests/test_nsrt_learning.py).
+from predicators.src import approaches  # pylint:disable=unused-import
 from predicators.src.nsrt_learning import learn_nsrts_from_data, \
     segment_trajectory, learn_strips_operators
 from predicators.src.structs import Type, Predicate, State, Action, \
@@ -157,7 +160,7 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
-    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
     assert len(nsrts) == 1
     nsrt = nsrts.pop()
     assert str(nsrt) == """NSRT-Op0:
@@ -195,7 +198,7 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
-    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
         "Op0":
@@ -215,21 +218,6 @@ def test_nsrt_learning_specific_nsrts():
     Side Predicates: []
     Option Spec: dummy()"""
     }
-    for nsrt in nsrts:
-        assert str(nsrt) == expected[nsrt.name]
-        # Test the learned samplers
-        if nsrt.name == "Op0":
-            for _ in range(10):
-                assert abs(
-                    nsrt.ground([cup0, cup1, cup2]).sample_option(
-                        state1, np.random.default_rng(123)).params -
-                    0.3) < 0.01
-        if nsrt.name == "Op1":
-            for _ in range(10):
-                assert abs(
-                    nsrt.ground([cup2, cup3, cup4, cup5]).sample_option(
-                        state2, np.random.default_rng(123)).params -
-                    0.7) < 0.01
     pred0 = Predicate("Pred0", [cup_type, cup_type],
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
@@ -248,7 +236,7 @@ def test_nsrt_learning_specific_nsrts():
         LowLevelTrajectory([state1, next_state1], [action1]),
         LowLevelTrajectory([state2, next_state2], [action2])
     ]
-    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
     assert len(nsrts) == 2
     expected = {
         "Op0":
@@ -272,44 +260,18 @@ def test_nsrt_learning_specific_nsrts():
         assert str(nsrt) == expected[nsrt.name]
     # Test minimum number of examples parameter
     utils.update_config({"min_data_for_nsrt": 3})
-    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
-    assert len(nsrts) == 0
-    # Test sampler giving out-of-bounds outputs
-    utils.update_config({
-        "min_data_for_nsrt": 0,
-        "seed": 123,
-        "sampler_mlp_classifier_max_itr": 1,
-        "neural_gaus_regressor_max_itr": 1
-    })
-    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
-    assert len(nsrts) == 2
-    for nsrt in nsrts:
-        for _ in range(10):
-            assert option1.parent.params_space.contains(
-                nsrt.ground([cup0, cup1]).sample_option(
-                    state1, np.random.default_rng(123)).params)
-    # Test max_rejection_sampling_tries = 0
-    utils.update_config({"max_rejection_sampling_tries": 0, "seed": 1234})
-    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
-    assert len(nsrts) == 2
-    for nsrt in nsrts:
-        for _ in range(10):
-            assert option1.parent.params_space.contains(
-                nsrt.ground([cup0, cup1]).sample_option(
-                    state1, np.random.default_rng(123)).params)
-    # Test sampler_learner = "random"
-    utils.update_config({
-        "seed": 123,
-        "sampler_mlp_classifier_max_itr": 100000,
-        "neural_gaus_regressor_max_itr": 100000
-    })
-    start_time = time.time()
     nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="random")
-    assert time.time() - start_time < 0.1  # should be lightning fast
+    assert len(nsrts) == 0
+    # Test max_rejection_sampling_tries = 0
+    utils.update_config({"min_data_for_nsrt": 0,
+                         "max_rejection_sampling_tries": 0,
+                         "seed": 1234,
+                         "sampler_mlp_classifier_max_itr": 1,
+                         "neural_gaus_regressor_max_itr": 1})
+    nsrts = learn_nsrts_from_data(dataset, preds, sampler_learner="neural")
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):
-            # Will just return random parameters
             assert option1.parent.params_space.contains(
                 nsrt.ground([cup0, cup1]).sample_option(
                     state1, np.random.default_rng(123)).params)
