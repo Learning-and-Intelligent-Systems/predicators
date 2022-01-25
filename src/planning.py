@@ -62,6 +62,7 @@ def sesame_plan(
                 raise ApproachTimeout("Planning timed out in grounding!")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
+    progress_per_skeleton = []
     while True:
         # There is no point in using NSRTs with empty effects, and they can
         # slow down search significantly, so we exclude them. Note however
@@ -82,7 +83,6 @@ def sesame_plan(
         heuristic = utils.create_task_planning_heuristic(
             CFG.task_planning_heuristic, init_atoms, task.goal,
             reachable_nsrts, predicates, objects)
-        progress_per_skeleton = []
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
@@ -252,9 +252,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DummyOption for _ in skeleton]
     traj: List[State] = [task.init] + [DefaultState for _ in skeleton]
-    state_action_traj = [None for _ in skeleton]
-    furthest_plan = []
-    furthest_traj = []
+    state_action_traj = [None for _ in skeleton]  # list of LowLevelTrajectory
+    furthest_plan = []  # list of _Option
+    furthest_traj = []  # list of States
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
@@ -262,13 +262,20 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     ]
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
-            raise LowLevelSearchFailure("Low-level search timout!",
+            current_plan = [p for p in plan if p is not DummyOption]
+            current_traj = [t for t in state_action_traj if t is not None]
+            furthest_plan = max(current_plan, furthest_plan, key=len)
+            furthest_traj = max(current_traj, furthest_traj, key=len)
+            raise LowLevelSearchFailure("Low-level search timeout!",
                                         furthest_plan, furthest_traj)
             # raise ApproachTimeout("Planning timed out in backtracking!")
         assert num_tries[cur_idx] < CFG.max_samples_per_step
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
+        print("num_tries: ", num_tries)
+        print("len furthest_plan: ", len(furthest_plan))
+        print("len plan: ", len([p for p in plan if p is not DummyOption]))
         num_tries[cur_idx] += 1
         state = traj[cur_idx]
         nsrt = skeleton[cur_idx]
@@ -310,6 +317,10 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 # predicates).
                 if all(atom.holds(traj[cur_idx]) for atom in expected_atoms):
                     can_continue_on = True
+                    current_plan = [p for p in plan if p is not DummyOption]
+                    current_traj = [t for t in state_action_traj if t is not None]
+                    furthest_plan = max(current_plan, furthest_plan, key=len)
+                    furthest_traj = max(current_traj, furthest_traj, key=len)
                     if cur_idx == len(skeleton):  # success!
                         result = plan
                         return result
@@ -326,15 +337,12 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             cur_idx -= 1
             assert cur_idx >= 0
 
+
             while num_tries[cur_idx] == CFG.max_samples_per_step:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 traj[cur_idx + 1] = DefaultState
                 state_action_traj[cur_idx] = None
-                current_plan = [p for p in plan if p != DummyOption]
-                current_traj = [t for t in state_action_traj if t != None]
-                furthest_plan = max(current_plan, furthest_plan, key=len)
-                furthest_traj = max(current_traj, furthest_traj, key=len)
                 cur_idx -= 1
 
                 if cur_idx < 0:
