@@ -655,10 +655,10 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
             try:
-                _, _, metrics = task_plan(
-                    init_atoms, traj.goal, ground_nsrts, reachable_atoms,
-                    heuristic, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                _, _, metrics = next(
+                    task_plan(init_atoms, traj.goal, ground_nsrts,
+                              reachable_atoms, heuristic, CFG.seed,
+                              CFG.grammar_search_task_planning_timeout))
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -970,9 +970,10 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
             if frozenset(atoms) in cache:
                 return cache[frozenset(atoms)]
             try:
-                skeleton, atoms_sequence, _ = task_plan(
-                    atoms, goal, ground_nsrts, reachable_atoms, heuristic,
-                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                skeleton, atoms_sequence, _ = next(
+                    task_plan(atoms, goal, ground_nsrts, reachable_atoms,
+                              heuristic, CFG.seed,
+                              CFG.grammar_search_task_planning_timeout))
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
@@ -1097,13 +1098,24 @@ def _select_predicates_to_keep(
     init: FrozenSet[Predicate] = frozenset()
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(
-        init,
-        _check_goal,
-        _get_successors,
-        score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth,
-        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    if CFG.grammar_search_search_algorithm == "hill_climbing":
+        path, _ = utils.run_hill_climbing(
+            init,
+            _check_goal,
+            _get_successors,
+            score_function.evaluate,
+            enforced_depth=CFG.grammar_search_hill_climbing_depth,
+            parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    elif CFG.grammar_search_search_algorithm == "gbfs":
+        path, _ = utils.run_gbfs(init,
+                                 _check_goal,
+                                 _get_successors,
+                                 score_function.evaluate,
+                                 max_evals=CFG.grammar_search_gbfs_num_evals)
+    else:
+        raise NotImplementedError(
+            "Unrecognized grammar_search_search_algorithm: "
+            f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "

@@ -21,15 +21,11 @@ def _test_approach(env_name,
     utils.update_config({
         "env": env_name,
         "approach": approach_name,
-        "seed": 12345,
-        "experiment_id": "",
+        "seed": 123
     })
     utils.update_config({
-        "env": env_name,
-        "approach": approach_name,
         "timeout": 10,
         "max_samples_per_step": 10,
-        "seed": 12345,
         "neural_gaus_regressor_max_itr": 200,
         "sampler_mlp_classifier_max_itr": 200,
         "predicate_mlp_classifier_max_itr": 200,
@@ -155,6 +151,29 @@ def test_grammar_search_invention_approach():
         "grammar_search_max_predicates": 10,
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
+        "grammar_search_search_algorithm": "hill_climbing",
+    })
+    _test_approach(env_name="cover",
+                   approach_name="grammar_search_invention",
+                   excluded_predicates="Holding",
+                   try_solving=False,
+                   sampler_learner="random")
+    # Test approach with unrecognized search algorithm.
+    utils.update_config({
+        "grammar_search_search_algorithm": "not a real search algorithm",
+        "grammar_search_gbfs_num_evals": 10,
+    })
+    with pytest.raises(Exception) as e:
+        _test_approach(env_name="cover",
+                       approach_name="grammar_search_invention",
+                       excluded_predicates="Holding",
+                       try_solving=False,
+                       sampler_learner="random")
+    assert "Unrecognized grammar_search_search_algorithm" in str(e.value)
+    # Test approach with gbfs.
+    utils.update_config({
+        "grammar_search_search_algorithm": "gbfs",
+        "grammar_search_gbfs_num_evals": 10,
     })
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
