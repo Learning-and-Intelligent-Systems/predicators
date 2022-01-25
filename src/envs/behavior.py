@@ -23,13 +23,14 @@ try:
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
         ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
     from igibson.utils.checkpoint_utils import save_checkpoint, load_checkpoint
+    from igibson.utils.utils import modify_config_file
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
     os.makedirs("tmp_behavior_states/", exist_ok=True)
     for file in os.scandir("tmp_behavior_states/"):
         os.remove(file.path)
-except ModuleNotFoundError as e:
+except (ImportError, ModuleNotFoundError) as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
@@ -50,7 +51,10 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
-        config_file = os.path.join(igibson.root_path, CFG.behavior_config_file)
+        config_file = modify_config_file(
+            os.path.join(igibson.root_path, CFG.behavior_config_file),
+            CFG.behavior_task_name, CFG.behavior_scene_name)
+
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
         self.igibson_behavior_env = behavior_env.BehaviorEnv(
