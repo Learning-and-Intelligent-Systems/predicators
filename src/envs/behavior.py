@@ -30,7 +30,7 @@ try:
     os.makedirs("tmp_behavior_states/", exist_ok=True)
     for file in os.scandir("tmp_behavior_states/"):
         os.remove(file.path)
-except ModuleNotFoundError as e:
+except (ImportError, ModuleNotFoundError) as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
