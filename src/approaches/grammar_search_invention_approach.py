@@ -129,8 +129,7 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
         return (
             f"(({self.object_index}:{self.object_type.name})."
             f"{self.attribute_name}{self.compare_str}[idx {self.constant_idx}]"
-            f"{self.constant:.3})"
-        )
+            f"{self.constant:.3})")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
