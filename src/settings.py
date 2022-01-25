@@ -102,7 +102,7 @@ class GlobalSettings:
     mlp_classifier_n_iter_no_change = 5000
 
     # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle"
+    option_learner = "no_learning"  # "no_learning" or "oracle" or "neural"
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
