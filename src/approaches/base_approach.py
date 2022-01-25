@@ -10,7 +10,7 @@ from predicators.src.structs import State, Task, Predicate, Type, \
 from predicators.src.settings import CFG
 
 
-class BaseApproach:
+class BaseApproach(abc.ABC):
     """Base approach."""
 
     def __init__(self, simulator: Callable[[State, Action], State],
