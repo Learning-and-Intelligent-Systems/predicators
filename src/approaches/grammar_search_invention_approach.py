@@ -202,7 +202,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateGrammar:
+class _PredicateGrammar(abc.ABC):
     """A grammar for generating predicate candidates."""
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
@@ -513,7 +513,7 @@ def _create_score_function(
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateSearchScoreFunction:
+class _PredicateSearchScoreFunction(abc.ABC):
     """A score function for guiding search over predicate sets."""
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
@@ -655,10 +655,10 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
             try:
-                _, _, metrics = task_plan(
-                    init_atoms, traj.goal, ground_nsrts, reachable_atoms,
-                    heuristic, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                _, _, metrics = next(
+                    task_plan(init_atoms, traj.goal, ground_nsrts,
+                              reachable_atoms, heuristic, CFG.seed,
+                              CFG.grammar_search_task_planning_timeout))
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -744,7 +744,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by expecting the heuristic to
     match the exact costs-to-go of the states in the demonstrations."""
 
@@ -763,7 +763,7 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute an energy-based policy, and comparing that policy to demos.
 
@@ -815,7 +815,7 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylin
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute estimated costs-to-go.
 
@@ -888,7 +888,7 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with a delete relaxation heuristic like
     hadd, hmax, or hff."""
     lookahead_depth: int = field(default=0)
@@ -936,7 +936,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with task planning."""
 
     heuristic_names: Sequence[str] = field(default=("exact", ), init=False)
@@ -970,9 +970,10 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
             if frozenset(atoms) in cache:
                 return cache[frozenset(atoms)]
             try:
-                skeleton, atoms_sequence, _ = task_plan(
-                    atoms, goal, ground_nsrts, reachable_atoms, heuristic,
-                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                skeleton, atoms_sequence, _ = next(
+                    task_plan(atoms, goal, ground_nsrts, reachable_atoms,
+                              heuristic, CFG.seed,
+                              CFG.grammar_search_task_planning_timeout))
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
@@ -1097,13 +1098,24 @@ def _select_predicates_to_keep(
     init: FrozenSet[Predicate] = frozenset()
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(
-        init,
-        _check_goal,
-        _get_successors,
-        score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth,
-        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    if CFG.grammar_search_search_algorithm == "hill_climbing":
+        path, _ = utils.run_hill_climbing(
+            init,
+            _check_goal,
+            _get_successors,
+            score_function.evaluate,
+            enforced_depth=CFG.grammar_search_hill_climbing_depth,
+            parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    elif CFG.grammar_search_search_algorithm == "gbfs":
+        path, _ = utils.run_gbfs(init,
+                                 _check_goal,
+                                 _get_successors,
+                                 score_function.evaluate,
+                                 max_evals=CFG.grammar_search_gbfs_num_evals)
+    else:
+        raise NotImplementedError(
+            "Unrecognized grammar_search_search_algorithm: "
+            f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "

@@ -45,21 +45,18 @@ class PaintingEnv(BaseEnv):
     open_fingers = 0.8
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
-    held_tol = 0.5
-    num_objs_train = [3, 4]
-    num_objs_test = [5, 6]
 
     def __init__(self) -> None:
         super().__init__()
         # Types
         self._obj_type = Type("obj", [
             "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
-            "held"
+            "grasp"
         ])
         self._box_type = Type("box", ["color"])
         self._lid_type = Type("lid", ["is_open"])
         self._shelf_type = Type("shelf", ["color"])
-        self._robot_type = Type("robot", ["gripper_rot", "fingers"])
+        self._robot_type = Type("robot", ["fingers"])
         # Predicates
         self._InBox = Predicate("InBox", [self._obj_type, self._box_type],
                                 self._InBox_holds)
@@ -76,9 +73,9 @@ class PaintingEnv(BaseEnv):
                                       self._GripperOpen_holds)
         self._OnTable = Predicate("OnTable", [self._obj_type],
                                   self._OnTable_holds)
-        self._HoldingTop = Predicate("HoldingTop", [self._robot_type],
+        self._HoldingTop = Predicate("HoldingTop", [self._obj_type],
                                      self._HoldingTop_holds)
-        self._HoldingSide = Predicate("HoldingSide", [self._robot_type],
+        self._HoldingSide = Predicate("HoldingSide", [self._obj_type],
                                       self._HoldingSide_holds)
         self._Holding = Predicate("Holding", [self._obj_type],
                                   self._Holding_holds)
@@ -91,7 +88,7 @@ class PaintingEnv(BaseEnv):
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z, grasp rotation]
+            # params: [delta x, delta y, delta z, grasp]
             "Pick",
             types=[self._robot_type, self._obj_type],
             params_space=Box(
@@ -175,7 +172,7 @@ class PaintingEnv(BaseEnv):
 
     def _transition_pick_or_openlid(self, state: State,
                                     action: Action) -> State:
-        x, y, z, rot = action.arr[:4]
+        x, y, z, grasp = action.arr[:4]
         next_state = state.copy()
         # Open lid
         if self.box_lb < y < self.box_ub:
@@ -188,14 +185,16 @@ class PaintingEnv(BaseEnv):
         # Cannot pick if object pose not on table
         if not self.table_lb < y < self.table_ub:
             return next_state
+        # Cannot pick if grasp is invalid
+        if self.side_grasp_thresh < grasp < self.top_grasp_thresh:
+            return next_state
         # Check if some object is close enough to (x, y, z)
         target_obj = self._get_object_at_xyz(state, x, y, z)
         if target_obj is None:
             return next_state
         # Execute pick
-        next_state.set(self._robot, "gripper_rot", rot)
         next_state.set(self._robot, "fingers", 0.0)
-        next_state.set(target_obj, "held", 1.0)
+        next_state.set(target_obj, "grasp", grasp)
         return next_state
 
     def _transition_wash(self, state: State, action: Action) -> State:
@@ -246,37 +245,44 @@ class PaintingEnv(BaseEnv):
         held_obj = self._get_held_object(state)
         if held_obj is None:
             return next_state
-        # Detect shelf vs box place
-        if self.shelf_lb < y < self.shelf_ub:
-            shelf_or_box = "shelf"
+        # Detect table vs shelf vs box place
+        if self.table_lb < y < self.table_ub:
+            receptacle = "table"
+        elif self.shelf_lb < y < self.shelf_ub:
+            receptacle = "shelf"
         elif self.box_lb < y < self.box_ub:
-            shelf_or_box = "box"
+            receptacle = "box"
         else:
-            # Cannot place outside of shelf or box
+            # Cannot place outside of table, shelf, or box
             return next_state
-        if shelf_or_box == "box" and state.get(self._lid, "is_open") < 0.5:
+        if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise EnvironmentFailure("box lid is closed", {self._lid})
+            raise EnvironmentFailure("Box lid is closed.", {self._lid})
         # Detect top grasp vs side grasp
-        rot = state.get(self._robot, "gripper_rot")
-        if rot > self.top_grasp_thresh:
+        grasp = state.get(held_obj, "grasp")
+        if grasp > self.top_grasp_thresh:
             top_or_side = "top"
-        elif rot < self.side_grasp_thresh:
+        elif grasp < self.side_grasp_thresh:
             top_or_side = "side"
-        else:
-            # Cannot place in either shelf or box, bad gripper_rot
+        # Can only place in shelf if side grasping, box if top grasping. If the
+        # receptacle is table, we don't care what kind of grasp it is.
+        if receptacle == "shelf" and top_or_side != "side":
             return next_state
-        # Can only place in shelf if side grasping, box if top grasping
-        if (shelf_or_box, top_or_side) not in [("shelf", "side"),
-                                               ("box", "top")]:
+        if receptacle == "box" and top_or_side != "top":
             return next_state
+        # Detect collisions
+        collider = self._get_object_at_xyz(state, x, y, z)
+        if receptacle == "table" and \
+           collider is not None and \
+           collider != held_obj:
+            raise EnvironmentFailure("Collision during place on table.",
+                                     {collider})
         # Execute place
-        next_state.set(self._robot, "gripper_rot", 0.5)
         next_state.set(self._robot, "fingers", 1.0)
         next_state.set(held_obj, "pose_x", x)
         next_state.set(held_obj, "pose_y", y)
         next_state.set(held_obj, "pose_z", z)
-        next_state.set(held_obj, "held", 0.0)
+        next_state.set(held_obj, "grasp", 0.5)  # revert to not grasped
         return next_state
 
     def train_tasks_generator(self) -> Iterator[List[Task]]:
@@ -289,19 +295,19 @@ class PaintingEnv(BaseEnv):
                                       rng=self._train_rng)
             elif family_name == "shelf_only":
                 yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
+                                      num_objs_lst=CFG.painting_num_objs_train,
                                       rng=self._train_rng,
                                       use_box=False)
             elif family_name == "box_and_shelf":
                 yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=self.num_objs_train,
+                                      num_objs_lst=CFG.painting_num_objs_train,
                                       rng=self._train_rng)
             else:
                 raise ValueError(f"Unrecognized task family: {family_name}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=self.num_objs_test,
+                               num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._test_rng)
 
     @property
@@ -336,9 +342,9 @@ class PaintingEnv(BaseEnv):
     @property
     def action_space(self) -> Box:
         # Actions are 8-dimensional vectors:
-        # [x, y, z, rot, pickplace, water level, heat level, color]
+        # [x, y, z, grasp, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
-        # while rot, water level, heat level, and color are in [0, 1].
+        # while grasp, water level, heat level, and color are in [0, 1].
         lowers = np.array([
             self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2, 0.0, -1.0, 0.0,
             0.0, 0.0
@@ -413,11 +419,11 @@ class PaintingEnv(BaseEnv):
                 facecolor = [obj_color, 0, 0]
             if held_obj == obj:
                 assert state.get(self._robot, "fingers") < self.open_fingers
-                grip_rot = state.get(self._robot, "gripper_rot")
-                assert grip_rot < self.side_grasp_thresh or \
-                    grip_rot > self.top_grasp_thresh
-                edgecolor = ("yellow" if grip_rot < self.side_grasp_thresh else
-                             "orange")
+                grasp = state.get(held_obj, "grasp")
+                assert grasp < self.side_grasp_thresh or \
+                    grasp > self.top_grasp_thresh
+                edgecolor = ("yellow"
+                             if grasp < self.side_grasp_thresh else "orange")
             else:
                 edgecolor = "gray"
             # Normalize poses to [0, 1]
@@ -453,7 +459,7 @@ class PaintingEnv(BaseEnv):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
             # Initialize robot
-            data[self._robot] = np.array([0.5, 1.0])  # fingers start off open
+            data[self._robot] = np.array([1.0])  # fingers start off open
             # Sample distinct colors for shelf and box
             color1 = rng.uniform(0.2, 0.4)
             color2 = rng.uniform(0.6, 1.0)
@@ -467,10 +473,12 @@ class PaintingEnv(BaseEnv):
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([shelf_color], dtype=np.float32)
             # Create moveable objects
+            objs = []
             obj_poses: List[Tuple[float, float, float]] = []
             goal = set()
             for j in range(num_objs):
                 obj = Object(f"obj{j}", self._obj_type)
+                objs.append(obj)
                 pose = self._sample_initial_object_pose(obj_poses, rng)
                 obj_poses.append(pose)
                 # Start out wet and clean, dry and dirty, or dry and clean
@@ -485,12 +493,12 @@ class PaintingEnv(BaseEnv):
                     wetness = 0.0
                     dirtiness = 0.0
                 color = 0.0
-                held = 0.0
+                grasp = 0.5  # object starts off not grasped
                 data[obj] = np.array([
-                    pose[0], pose[1], pose[2], dirtiness, wetness, color, held
+                    pose[0], pose[1], pose[2], dirtiness, wetness, color, grasp
                 ],
                                      dtype=np.float32)
-                # last object should go in box
+                # Last object should go in box
                 if use_box and j == num_objs - 1:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
@@ -498,7 +506,16 @@ class PaintingEnv(BaseEnv):
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
-            tasks.append(Task(State(data), goal))
+            state = State(data)
+            # Sometimes start out holding an object, possibly with the wrong
+            # grip, so that we'll have to put it on the table and regrasp
+            if rng.uniform() < CFG.painting_initial_holding_prob:
+                grasp = rng.choice([0.0, 1.0])
+                target_obj = objs[rng.choice(len(objs))]
+                state.set(self._robot, "fingers", 0.0)
+                state.set(target_obj, "grasp", grasp)
+                assert self._OnTable_holds(state, [target_obj])
+            tasks.append(Task(state, goal))
         return tasks
 
     def _sample_initial_object_pose(
@@ -520,9 +537,9 @@ class PaintingEnv(BaseEnv):
         obj_x = state.get(obj, "pose_x")
         obj_y = state.get(obj, "pose_y")
         obj_z = state.get(obj, "pose_z")
-        dx, dy, dz, rot = params
+        dx, dy, dz, grasp = params
         arr = np.array(
-            [obj_x + dx, obj_y + dy, obj_z + dz, rot, 1.0, 0.0, 0.0, 0.0],
+            [obj_x + dx, obj_y + dy, obj_z + dz, grasp, 1.0, 0.0, 0.0, 0.0],
             dtype=np.float32)
         # The addition of dx, dy, and dz could cause the action to go
         # out of bounds, so we clip it back into the bounds for safety.
@@ -570,7 +587,7 @@ class PaintingEnv(BaseEnv):
                       params: Array) -> Action:
         del state, memory, objects  # unused
         x, y, z = params
-        arr = np.array([x, y, z, 0.0, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        arr = np.array([x, y, z, 0.5, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
 
     def _holding_initiable(self, state: State, memory: Dict,
@@ -608,7 +625,7 @@ class PaintingEnv(BaseEnv):
     def _InBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, _ = objects
         # If the object is held, not yet in box
-        if state.get(obj, "held") > 0.5:
+        if self._obj_is_held(state, obj):
             return False
         # Check pose of object
         obj_y = state.get(obj, "pose_y")
@@ -617,7 +634,7 @@ class PaintingEnv(BaseEnv):
     def _InShelf_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, _ = objects
         # If the object is held, not yet in shelf
-        if state.get(obj, "held") > 0.5:
+        if self._obj_is_held(state, obj):
             return False
         # Check pose of object
         obj_y = state.get(obj, "pose_y")
@@ -648,19 +665,19 @@ class PaintingEnv(BaseEnv):
 
     def _HoldingTop_holds(self, state: State,
                           objects: Sequence[Object]) -> bool:
-        robot, = objects
-        rot = state.get(robot, "gripper_rot")
-        return rot > self.top_grasp_thresh
+        obj, = objects
+        grasp = state.get(obj, "grasp")
+        return grasp > self.top_grasp_thresh
 
     def _HoldingSide_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
-        robot, = objects
-        rot = state.get(robot, "gripper_rot")
-        return rot < self.side_grasp_thresh
+        obj, = objects
+        grasp = state.get(obj, "grasp")
+        return grasp < self.side_grasp_thresh
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
-        return state.get(obj, "held") > self.held_tol
+        return self._obj_is_held(state, obj)
 
     def _IsWet_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects
@@ -682,9 +699,13 @@ class PaintingEnv(BaseEnv):
         for obj in state:
             if obj.type != self._obj_type:
                 continue
-            if state.get(obj, "held") > self.held_tol:
+            if self._obj_is_held(state, obj):
                 return obj
         return None
+
+    def _obj_is_held(self, state: State, obj: Object) -> bool:
+        grasp = state.get(obj, "grasp")
+        return grasp > self.top_grasp_thresh or grasp < self.side_grasp_thresh
 
     def _get_object_at_xyz(self, state: State, x: float, y: float,
                            z: float) -> Optional[Object]:

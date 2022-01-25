@@ -16,7 +16,7 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _RelaxationHeuristicCountBasedScoreFunction,
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv, BlocksEnv, PaintingEnv
+from predicators.src.envs import CoverEnv, BlocksEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, \
     _GroundSTRIPSOperator, OptionSpec
@@ -40,6 +40,7 @@ def test_predicate_grammar():
                            [np.zeros(1, dtype=np.float32)])
     ]
     base_grammar = _PredicateGrammar()
+    assert not base_grammar.generate(max_num=0)
     with pytest.raises(NotImplementedError):
         base_grammar.generate(max_num=1)
     data_based_grammar = _DataBasedPredicateGrammar(dataset)
@@ -471,32 +472,31 @@ def test_relaxation_energy_score_function():
     assert all_included_s < none_included_s  # good!
 
     # Tests for PaintingEnv.
-    utils.flush_cache()
-    utils.update_config({
-        "env": "painting",
-        "offline_data_method": "demo+replay",
-        "seed": 0,
-        "painting_train_families": ["box_and_shelf"],
-    })
-    env = PaintingEnv()
-    ablated = {"IsWet", "IsDry"}
-    initial_predicates = set()
-    name_to_pred = {}
-    for p in env.predicates:
-        if p.name in ablated:
-            name_to_pred[p.name] = p
-        else:
-            initial_predicates.add(p)
-    candidates = {p: 1.0 for p in name_to_pred.values()}
-    train_tasks = next(env.train_tasks_generator())
-    dataset = create_dataset(env, train_tasks)
-    atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
-    score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
-        initial_predicates, atom_dataset, candidates, ["hadd"])
-    all_included_s = score_function.evaluate(set(candidates))
-    none_included_s = score_function.evaluate(set())
-
     # Comment out this test because it's flaky.
+    # utils.flush_cache()
+    # utils.update_config({
+    #     "env": "painting",
+    #     "offline_data_method": "demo+replay",
+    #     "seed": 0,
+    #     "painting_train_families": ["box_and_shelf"],
+    # })
+    # env = PaintingEnv()
+    # ablated = {"IsWet", "IsDry"}
+    # initial_predicates = set()
+    # name_to_pred = {}
+    # for p in env.predicates:
+    #     if p.name in ablated:
+    #         name_to_pred[p.name] = p
+    #     else:
+    #         initial_predicates.add(p)
+    # candidates = {p: 1.0 for p in name_to_pred.values()}
+    # train_tasks = next(env.train_tasks_generator())
+    # dataset = create_dataset(env, train_tasks)
+    # atom_dataset = utils.create_ground_atom_dataset(dataset, env.predicates)
+    # score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
+    #     initial_predicates, atom_dataset, candidates, ["hadd"])
+    # all_included_s = score_function.evaluate(set(candidates))
+    # none_included_s = score_function.evaluate(set())
     # assert all_included_s < none_included_s  # hooray!
 
     # Cover edge case where there are no successors.
@@ -577,6 +577,11 @@ def test_exact_energy_score_function():
     assert all_included_s < none_included_s  # good!
     assert all_included_s < gripperopen_excluded_s  # good!
     # Test that the score is inf when the operators make the data impossible.
+    # Note: this test will crash pyperplan's implementation of LM-Cut, because
+    #       there is a predicate (On) named in the goal that doesn't appear in
+    #       any of the reachable facts. So, we'll use HAdd.
+    old_heur = CFG.task_planning_heuristic
+    utils.update_config({"task_planning_heuristic": "hadd"})
     ablated = {"On"}
     initial_predicates = set()
     name_to_pred = {}
@@ -590,6 +595,7 @@ def test_exact_energy_score_function():
     score_function = _ExactHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates)
     assert score_function.evaluate(set()) == float("inf")
+    utils.update_config({"task_planning_heuristic": old_heur})
     old_hbmd = CFG.grammar_search_heuristic_based_max_demos
     utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
     assert abs(score_function.evaluate(set()) - 0.39) < 0.11  # only op penalty
