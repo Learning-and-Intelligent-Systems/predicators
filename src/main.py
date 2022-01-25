@@ -152,14 +152,19 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             if len(e.progress_per_skeleton) > 0:
                 best_progress = max(e.progress_per_skeleton,
                                     key=lambda x: len(x[1]))
+                skeleton, plan, trajectories = best_progress
                 if CFG.make_failed_videos:
                     # could also loop through and save a video for each skeleton
-                    video: Video = []
-                    for traj in best_progress[2]:
-                        for s in traj.states:
-                            video.extend(env.render(s, task))
-                    outfile = f"{utils.get_config_path_str()}__task{i}_failed.mp4"
-                    utils.save_video(outfile, video)
+                    failed_video: Video = []
+                    for i, traj in enumerate(trajectories):
+                        if i == len(trajectories) - 1:
+                            states = traj.states
+                        else:
+                            states = traj.states[:-1]
+                        for s in states:
+                            failed_video.extend(env.render(s, task))
+                    failed_outfile = f"{utils.get_config_path_str()}__task{i}_failed.mp4"
+                    utils.save_video(failed_outfile, failed_video)
             continue
         # except (ApproachTimeout, ApproachFailure) as e:
         #     print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
