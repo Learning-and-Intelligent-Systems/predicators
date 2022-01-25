@@ -266,7 +266,6 @@ def run_policy_until(policy: Callable[[State], Action],
     Terminates when any of these conditions hold:
     (1) the termination_function returns True,
     (2) max_num_steps is reached,
-    (3) the state does not change within a single step.
 
     Returns a LowLevelTrajectory object.
     """
@@ -275,15 +274,11 @@ def run_policy_until(policy: Callable[[State], Action],
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            last_state = state
             act = policy(state)
             state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
-                break
-            # Detect if stuck; skip potentially expensive simulation.
-            if state.allclose(last_state):
                 break
     traj = LowLevelTrajectory(states, actions)
     return traj
@@ -1189,15 +1184,20 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
     for k in args:
         if k not in allowed_args:
             raise ValueError(f"Unrecognized arg: {k}")
+    for k in ("env", "approach", "seed", "experiment_id"):
+        if k not in args and hasattr(CFG, k):
+            # For env, approach, seed, and experiment_id, if we don't
+            # pass in a value and this key is already in the
+            # configuration dict, add the current value to args.
+            args[k] = getattr(CFG, k)
+    # Maintain the invariant that CFG has some seed and some
+    # experiment_id set. This is very useful in unit tests, where
+    # there are often no command line args being passed.
+    args["seed"] = args.get("seed", default_seed)
+    args["experiment_id"] = args.get("experiment_id", "")
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
-    # Maintain the invariant that CFG has some seed set. This is very useful
-    # in unit tests, where there are often no commandline args being passed, so
-    # no seed is being set. We always want a seed set because environments and
-    # approaches use the seed during construction.
-    if "seed" not in CFG.__dict__:
-        CFG.__setattr__("seed", default_seed)
 
 
 def get_config_path_str() -> str:
@@ -1231,10 +1231,23 @@ def parse_args() -> Dict[str, Any]:
         setting_name = flag[2:]
         if setting_name not in CFG.__dict__:
             raise ValueError(f"Unrecognized flag: {setting_name}")
-        if value.isdigit():
-            value = eval(value)
-        arg_dict[setting_name] = value
+        arg_dict[setting_name] = string_to_python_object(value)
     return arg_dict
+
+
+def string_to_python_object(value: str) -> Any:
+    """Return the Python object corresponding to the given string value."""
+    if value == "True":
+        return True
+    if value == "False":
+        return False
+    if value.isdigit():
+        return eval(value)
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    return value
 
 
 def print_args(args: argparse.Namespace) -> None:

@@ -24,6 +24,7 @@ class GlobalSettings:
     cover_num_targets = 2
     cover_block_widths = [0.1, 0.07]
     cover_target_widths = [0.05, 0.03]
+    cover_initial_holding_prob = 0.0
 
     # cover_multistep_options parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
@@ -40,6 +41,9 @@ class GlobalSettings:
     repeated_nextto_num_dots = 25
 
     # painting env parameters
+    painting_initial_holding_prob = 0.0
+    painting_num_objs_train = [2]
+    painting_num_objs_test = [3, 4]
     painting_train_families = [
         "box_and_shelf",  # placing into both box and shelf
         # "box_only",  # just placing into the box
@@ -66,6 +70,7 @@ class GlobalSettings:
     max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
+    task_planning_heuristic = "lmcut"
 
     # evaluation parameters
     results_dir = "results"
@@ -100,7 +105,7 @@ class GlobalSettings:
     mlp_classifier_n_iter_no_change = 5000
 
     # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle"
+    option_learner = "no_learning"  # "no_learning" or "oracle" or "neural"
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
@@ -140,8 +145,10 @@ class GlobalSettings:
     grammar_search_heuristic_based_max_nondemos = 50
     grammar_search_energy_based_temperature = 10.
     grammar_search_task_planning_timeout = 1.0
+    grammar_search_search_algorithm = "hill_climbing"  # hill_climbing or gbfs
     grammar_search_hill_climbing_depth = 0
     grammar_search_parallelize_hill_climbing = False
+    grammar_search_gbfs_num_evals = 1000
     grammar_search_off_demo_count_penalty = 1.0
     grammar_search_on_demo_count_penalty = 10.0
     grammar_search_suspicious_penalty = 10.0
@@ -150,20 +157,7 @@ class GlobalSettings:
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
-        if "env" not in args:
-            args["env"] = ""
-        if "approach" not in args:
-            args["approach"] = ""
         return dict(
-            # Task planning heuristic to use in SeSamE.
-            task_planning_heuristic=defaultdict(
-                # Use HAdd by default.
-                lambda: "hadd",
-                {
-                    # In the playroom domain, HFF works better.
-                    "playroom": "hff",
-                })[args["env"]],
-
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
@@ -175,7 +169,7 @@ class GlobalSettings:
                     # immediately raise failures, leading to unsolvable tasks.
                     "cluttered_table": "after_exhaust",
                     "cluttered_table_place": "after_exhaust",
-                })[args["env"]],
+                })[args.get("env", "")],
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
@@ -186,7 +180,7 @@ class GlobalSettings:
                 {
                     # No replays for active learning project.
                     "interactive_learning": "demo",
-                })[args["approach"]],
+                })[args.get("approach", "")],
 
             # Number of replays used when offline_data_method is demo+replay.
             offline_data_num_replays=defaultdict(
@@ -196,7 +190,7 @@ class GlobalSettings:
                     # For the repeated_nextto environment, too many
                     # replays makes learning slow.
                     "repeated_nextto": 50,
-                })[args["env"]],
+                })[args.get("env", "")],
         )
 
 

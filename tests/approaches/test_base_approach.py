@@ -28,6 +28,9 @@ class _DummyApproach(BaseApproach):
 
 def test_base_approach():
     """Tests for BaseApproach class."""
+    utils.update_config({
+        "seed": 123,
+    })
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)
@@ -59,20 +62,12 @@ def test_base_approach():
                             _initiable=None,
                             _terminal=None)
     }
-    approach = BaseApproach(_simulator, predicates, options, types,
-                            action_space)
-    approach.seed(123)
-    goal = {pred1([cup, plate1])}
-    task = Task(state, goal)
-    # Check that methods are abstract.
-    with pytest.raises(NotImplementedError):
-        _ = approach.is_learning_based
-    with pytest.raises(NotImplementedError):
-        approach.solve(task, 500)
     approach = _DummyApproach(_simulator, predicates, options, types,
                               action_space)
     assert not approach.is_learning_based
     assert approach.learn_from_offline_dataset([]) is None
+    goal = {pred1([cup, plate1])}
+    task = Task(state, goal)
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
