@@ -1193,10 +1193,8 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
     # Maintain the invariant that CFG has some seed and some
     # experiment_id set. This is very useful in unit tests, where
     # there are often no command line args being passed.
-    if "seed" not in args:
-        args["seed"] = default_seed
-    if "experiment_id" not in args:
-        args["experiment_id"] = ""
+    args["seed"] = args.get("seed", default_seed)
+    args["experiment_id"] = args.get("experiment_id", "")
     for d in [GlobalSettings.get_arg_specific_settings(args), args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
