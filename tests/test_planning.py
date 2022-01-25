@@ -65,7 +65,7 @@ def test_task_plan():
                                     timeout=1,
                                     seed=123)
     skeleton, _, metrics = next(task_plan_generator)
-    initial_metrics = metrics.copy()
+    initial_metrics = metrics
     assert len(skeleton) == 2
     assert isinstance(skeleton[0], _GroundNSRT)
     assert isinstance(skeleton[1], _GroundNSRT)
