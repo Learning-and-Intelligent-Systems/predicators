@@ -41,6 +41,7 @@ from predicators.src.settings import CFG
 from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
+from predicators.src.planning import ApproachFailureWithProgress
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics
 from predicators.src import utils
@@ -145,10 +146,25 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         print(end="", flush=True)
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
-        except (ApproachTimeout, ApproachFailure) as e:
+        except ApproachFailureWithProgress as e:
             print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
                   f"solve with error: {e}")
+            if len(e.progress_per_skeleton) > 0:
+                best_progress = max(e.progress_per_skeleton,
+                                    key=lambda x: len(x[1]))
+                if CFG.make_failed_videos:
+                    # could also loop through and save a video for each skeleton
+                    video: Video = []
+                    for traj in best_progress[2]:
+                        for s in traj.states:
+                            video.extend(env.render(s, task))
+                    outfile = f"{utils.get_config_path_str()}__task{i}_failed.mp4"
+                    utils.save_video(outfile, video)
             continue
+        # except (ApproachTimeout, ApproachFailure) as e:
+        #     print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
+        #           f"solve with error: {e}")
+        #     continue
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(

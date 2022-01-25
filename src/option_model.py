@@ -43,12 +43,16 @@ class _DefaultOptionModel(_OptionModelBase):
     """A default option model that just runs options through the simulator to
     figure out the next state."""
 
-    def get_next_state(self, state: State, option: _Option) -> State:
+    def get_next_traj(self, state: State, option: _Option) -> State:
         traj = utils.option_to_trajectory(
             state,
             self._simulator,
             option,
             max_num_steps=CFG.max_num_steps_option_rollout)
+        return traj
+
+    def get_next_state(self, state: State, option: _Option) -> State:
+        traj = self.get_next_traj(state, option)
         return traj.states[-1]
 
 

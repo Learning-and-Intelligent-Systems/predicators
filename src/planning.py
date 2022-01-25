@@ -82,28 +82,36 @@ def sesame_plan(
         heuristic = utils.create_task_planning_heuristic(
             CFG.task_planning_heuristic, init_atoms, task.goal,
             reachable_nsrts, predicates, objects)
+        progress_per_skeleton = []
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics):
-                plan = _run_low_level_search(
-                    task, option_model, skeleton, atoms_sequence, new_seed,
-                    timeout - (time.time() - start_time))
-                if plan is not None:
-                    print(
-                        f"Planning succeeded! Found plan of length "
-                        f"{len(plan)} after "
-                        f"{int(metrics['num_skeletons_optimized'])} "
-                        f"skeletons, discovering "
-                        f"{int(metrics['num_failures_discovered'])} failures")
-                    metrics["plan_length"] = len(plan)
-                    return plan, metrics
+                try:
+                    plan = _run_low_level_search(
+                        task, option_model, skeleton, atoms_sequence, new_seed,
+                        timeout - (time.time() - start_time))
+                    if plan is not None:
+                        print(
+                            f"Planning succeeded! Found plan of length "
+                            f"{len(plan)} after "
+                            f"{int(metrics['num_skeletons_optimized'])} "
+                            f"skeletons, discovering "
+                            f"{int(metrics['num_failures_discovered'])} failures")
+                        metrics["plan_length"] = len(plan)
+                        return plan, metrics
+                except LowLevelSearchFailure as f:
+                    progress_per_skeleton.append((skeleton, f.furthest_plan, f.furthest_traj))
+                    # print("Length of furthest plan: ", len(t.furthest_plan))
+                    # raise ApproachTimeout()
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             new_predicates, ground_nsrts = _update_nsrts_with_failure(
                 e.discovered_failure, ground_nsrts)
             predicates |= new_predicates
+        except (ApproachTimeout, ApproachFailure) as e:
+            raise ApproachFailureWithProgress(e, progress_per_skeleton)
 
 
 def task_plan_grounding(
@@ -244,6 +252,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DummyOption for _ in skeleton]
     traj: List[State] = [task.init] + [DefaultState for _ in skeleton]
+    state_action_traj = [None for _ in skeleton]
+    furthest_plan = []
+    furthest_traj = []
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
@@ -251,7 +262,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     ]
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
-            raise ApproachTimeout("Planning timed out in backtracking!")
+            raise LowLevelSearchFailure("Low-level search timout!",
+                                        furthest_plan, furthest_traj)
+            # raise ApproachTimeout("Planning timed out in backtracking!")
         assert num_tries[cur_idx] < CFG.max_samples_per_step
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
@@ -265,7 +278,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         plan[cur_idx] = option
         if option.initiable(state):
             try:
-                next_state = option_model.get_next_state(state, option)
+                next_traj = option_model.get_next_traj(state, option)
+                next_state = next_traj.states[-1]
+                # next_state = option_model.get_next_state(state, option)
                 discovered_failures[cur_idx] = None  # no failure occurred
             except EnvironmentFailure as e:
                 can_continue_on = False
@@ -278,6 +293,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                                                       failure)
             if not discovered_failures[cur_idx]:
                 traj[cur_idx + 1] = next_state
+                state_action_traj[cur_idx] = next_traj
                 cur_idx += 1
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
@@ -309,11 +325,18 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             # Go back to re-do the step we just did. If necessary, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
+
             while num_tries[cur_idx] == CFG.max_samples_per_step:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 traj[cur_idx + 1] = DefaultState
+                state_action_traj[cur_idx] = None
+                current_plan = [p for p in plan if p != DummyOption]
+                current_traj = [t for t in state_action_traj if t != None]
+                furthest_plan = max(current_plan, furthest_plan, key=len)
+                furthest_traj = max(current_traj, furthest_traj, key=len)
                 cur_idx -= 1
+
                 if cur_idx < 0:
                     # Backtracking exhausted. If we're only propagating failures
                     # after exhaustion, and if there are any failures,
@@ -324,7 +347,11 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                                 and earliest_failure is not None):
                             raise _DiscoveredFailureException(
                                 "Discovered a failure", earliest_failure)
-                    return None
+                    if len(furthest_plan) > 0:
+                        raise LowLevelSearchFailure("Low-level search max samples reached!",
+                                                furthest_plan, furthest_traj)
+                    else:
+                        return None
     # Should only get here if the skeleton was empty
     assert not skeleton
     return []
@@ -380,3 +407,26 @@ class _DiscoveredFailureException(Exception):
     def __init__(self, message: str, discovered_failure: _DiscoveredFailure):
         super().__init__(message)
         self.discovered_failure = discovered_failure
+
+class LowLevelSearchFailure(Exception):
+    """Exception raised when _run_low_level_search() fails, either due to
+    timeout or due to reaching the maximum number of samples. Contains the
+    longest sequence of _Option that was found during the search and also
+    contains its corresponding sequence of state-action trajectories, with one
+    state-action trajectory per _Option in the sequence."""
+
+    def __init__(self, message: str, furthest_plan: List[_Option],
+                 furthest_traj: LowLevelTrajectory):
+        super().__init__(message)
+        self.furthest_plan = furthest_plan
+        self.furthest_traj = furthest_traj
+
+class ApproachFailureWithProgress(Exception):
+    """Exception raised when _skeleton_generator() fails, either due to a
+    timeout or due to reaching the maximum number of skeletons. Contains a list
+    of (skeleton, furthest_plan_reached_in_this_skeleton, corresponding_state-
+    action-trajectory_of_this_furthest_plan) tuples. The intention of this is to
+    provide debugging data to the calling function."""
+    def __init__(self, message: str, progress_per_skeleton: Tuple[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]], List[_Option], List[LowLevelTrajectory]]):
+        super().__init__(message)
+        self.progress_per_skeleton = progress_per_skeleton
