@@ -605,9 +605,9 @@ def test_exact_energy_score_function():
         initial_predicates, atom_dataset, candidates)
     assert score_function.evaluate(set()) == float("inf")
     utils.update_config({"task_planning_heuristic": old_heur})
-    old_hbmd = CFG.grammar_search_max_demos
+    old_hbmd = CFG.grammar_search_heuristic_based_max_demos
     utils.update_config({"grammar_search_max_demos": 0})
-    score_function.evaluate(set())
+    assert score_function.evaluate(set()) == 0.0
     utils.update_config({"grammar_search_max_demos": old_hbmd})
 
 
