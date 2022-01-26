@@ -11,7 +11,7 @@ from predicators.src import utils
 
 def test_cover():
     """Tests for CoverEnv class."""
-    utils.update_config({"env": "cover"})
+    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnv()
     env.seed(123)
     train_tasks_gen = env.train_tasks_generator()
@@ -92,7 +92,7 @@ def test_cover():
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
     # Test cover_initial_holding_prob.
-    utils.update_config({"env": "cover", "cover_initial_holding_prob": 1.0})
+    utils.update_config({"cover_initial_holding_prob": 1.0})
     env = CoverEnv()
     env.seed(123)
     train_tasks_gen = env.train_tasks_generator()
@@ -116,7 +116,7 @@ def test_cover():
 
 def test_cover_typed_options():
     """Tests for CoverEnvTypedOptions class."""
-    utils.update_config({"env": "cover"})
+    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnvTypedOptions()
     env.seed(123)
     train_tasks_gen = env.train_tasks_generator()
