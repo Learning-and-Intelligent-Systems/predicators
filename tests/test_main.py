@@ -68,8 +68,8 @@ def test_main():
     # Run actual main approach, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--sampler_learner", "random",
-        "--cover_initial_holding_prob", "0.0"
+        "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
+        "0.0"
     ]
     main()
     # Try loading approaches.
