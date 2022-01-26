@@ -231,55 +231,14 @@ def test_create_score_function():
         _create_score_function("not a real score function", set(), [], {})
 
 
-def test_predicate_search_heuristic_base_classes():
-    """Cover the abstract methods for _PredicateSearchScoreFunction &
-    subclasses."""
-    pred_search_score_function = _PredicateSearchScoreFunction(set(), [], {})
-    with pytest.raises(NotImplementedError):
-        pred_search_score_function.evaluate(set())
-    op_learning_score_function = _OperatorLearningBasedScoreFunction(
-        set(), [], {})
-    with pytest.raises(NotImplementedError):
-        op_learning_score_function.evaluate(set())
-    utils.update_config({"env": "cover"})
-    env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
-    state = train_tasks[0].init
-    other_state = state.copy()
-    robby = [o for o in state if o.type.name == "robot"][0]
-    state.set(robby, "hand", 0.5)
-    other_state.set(robby, "hand", 0.8)
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
-    option = parameterized_option.ground([], np.array([0.0]))
-    assert option.initiable(state)  # set memory
-    action = Action(np.zeros(1, dtype=np.float32))
-    action.set_option(option)
-    dataset = [
-        LowLevelTrajectory([state, other_state], [action],
-                           _is_demo=True,
-                           _goal=set())
-    ]
-    atom_dataset = utils.create_ground_atom_dataset(dataset, set())
-    heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset, {},
-                                                      ["hadd"])
-    with pytest.raises(NotImplementedError):
-        heuristic_score_fn.evaluate(set())
-    hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
-        set(), atom_dataset, {}, ["hadd"])
-    with pytest.raises(NotImplementedError):
-        hadd_score_fn.evaluate(set())
-
-
 def test_prediction_error_score_function():
     """Tests for _PredictionErrorScoreFunction()."""
     # Tests for CoverEnv.
     utils.update_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
     ablated = {"HandEmpty", "Holding"}
@@ -308,7 +267,8 @@ def test_prediction_error_score_function():
     utils.update_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -342,7 +302,8 @@ def test_hadd_match_score_function():
     utils.update_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
     ablated = {"HandEmpty"}
@@ -371,9 +332,9 @@ def test_relaxation_energy_score_function():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
     ablated = {"HandEmpty", "Holding"}
@@ -430,7 +391,8 @@ def test_relaxation_energy_score_function():
     utils.update_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -465,7 +427,7 @@ def test_relaxation_energy_score_function():
     # (Holding, GripperOpen): 14643.702564367157
     # (Clear, Holding, GripperOpen): 11411.369394796291
 
-    # Tests for lookahead_depth > 0.
+    # # Tests for lookahead_depth > 0.
     score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
         initial_predicates,
         atom_dataset,
@@ -483,7 +445,7 @@ def test_relaxation_energy_score_function():
     # utils.update_config({
     #     "env": "painting",
     #     "offline_data_method": "demo+replay",
-    #     "seed": 0,
+    #     "seed": 123,
     #     "painting_train_families": ["box_and_shelf"],
     # })
     # env = PaintingEnv()
@@ -556,9 +518,8 @@ def test_exact_energy_score_function():
         "env": "blocks",
     })
     utils.update_config({
-        "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 2,
     })
     env = BlocksEnv()
@@ -617,9 +578,8 @@ def test_count_score_functions():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
@@ -663,9 +623,8 @@ def test_branching_factor_score_function():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 2,
         "offline_data_num_replays": 500,
         "min_data_for_nsrt": 3,
@@ -710,10 +669,9 @@ def test_task_planning_score_function():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
-        "num_train_tasks": 15,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
 
