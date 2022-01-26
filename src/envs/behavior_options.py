@@ -980,13 +980,14 @@ def place_ontop_obj_pos_sampler(
     aabb = get_aabb(objA.get_body_id())
     aabb_extent = get_aabb_extent(aabb)
 
-    _ = rng.random()
+    random_seed_int = rng.integers(10000000)
     sampling_results = sampling_utils.sample_cuboid_on_object(
         objB,
         num_samples=1,
         cuboid_dimensions=aabb_extent,
         axis_probabilities=[0, 0, 1],
         refuse_downwards=True,
+        random_seed_number=random_seed_int,
         **params,
     )
 
