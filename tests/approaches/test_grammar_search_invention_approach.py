@@ -14,7 +14,8 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _RelaxationHeuristicEnergyBasedScoreFunction, _TaskPlanningScoreFunction,
     _ExactHeuristicEnergyBasedScoreFunction,
     _RelaxationHeuristicCountBasedScoreFunction,
-    _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction)
+    _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction,
+    _ExpectedNodesScoreFunction)
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, BlocksEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
@@ -222,6 +223,8 @@ def test_create_score_function():
     assert isinstance(score_func, _ExactHeuristicEnergyBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {})
     assert isinstance(score_func, _TaskPlanningScoreFunction)
+    score_func = _create_score_function("expected_nodes", set(), [], {})
+    assert isinstance(score_func, _ExpectedNodesScoreFunction)
     score_func = _create_score_function("lmcut_count_lookaheaddepth0", set(),
                                         [], {})
     assert isinstance(score_func, _RelaxationHeuristicCountBasedScoreFunction)
@@ -602,10 +605,10 @@ def test_exact_energy_score_function():
         initial_predicates, atom_dataset, candidates)
     assert score_function.evaluate(set()) == float("inf")
     utils.update_config({"task_planning_heuristic": old_heur})
-    old_hbmd = CFG.grammar_search_heuristic_based_max_demos
-    utils.update_config({"grammar_search_heuristic_based_max_demos": 0})
+    old_hbmd = CFG.grammar_search_max_demos
+    utils.update_config({"grammar_search_max_demos": 0})
     assert score_function.evaluate(set()) == 0.0
-    utils.update_config({"grammar_search_heuristic_based_max_demos": old_hbmd})
+    utils.update_config({"grammar_search_max_demos": old_hbmd})
 
 
 def test_count_score_functions():
@@ -623,8 +626,8 @@ def test_count_score_functions():
         "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
-        "grammar_search_heuristic_based_max_demos": 4,
-        "grammar_search_heuristic_based_max_nondemos": 40,
+        "grammar_search_max_demos": 4,
+        "grammar_search_max_nondemos": 40,
     })
     env = CoverEnv()
     ablated = {"Holding", "HandEmpty"}
@@ -745,4 +748,55 @@ def test_task_planning_score_function():
     # Set this back to avoid screwing up other tests...
     utils.update_config({
         "min_data_for_nsrt": 3,
+    })
+
+
+def test_expected_nodes_score_function():
+    """Tests for _ExpectedNodesScoreFunction()."""
+    utils.update_config({
+        "env": "cover",
+    })
+    # Cover cases where the number of training tasks is less than or greater
+    # than the max number of demos.
+    max_num_demos = 5
+    for num_train_tasks in [2, 15]:
+        utils.update_config({
+            "env": "cover",
+            "offline_data_method": "demo+replay",
+            "seed": 0,
+            "grammar_search_max_demos": max_num_demos,
+            "task_planning_heuristic": "lmcut",
+            "num_train_tasks": num_train_tasks,
+            "min_data_for_nsrt": 0,
+        })
+        env = CoverEnv()
+        name_to_pred = {p.name: p for p in env.predicates}
+        Holding = name_to_pred["Holding"]
+        HandEmpty = name_to_pred["HandEmpty"]
+        candidates = {
+            Holding: 1.0,
+            HandEmpty: 1.0,
+        }
+        train_tasks = next(env.train_tasks_generator())
+        dataset = create_dataset(env, train_tasks)
+        atom_dataset = utils.create_ground_atom_dataset(
+            dataset, env.goal_predicates | set(candidates))
+        score_function = _ExpectedNodesScoreFunction(env.goal_predicates,
+                                                     atom_dataset, candidates)
+        all_included_s = score_function.evaluate({Holding, HandEmpty})
+        none_included_s = score_function.evaluate(set())
+        ub = CFG.grammar_search_expected_nodes_upper_bound
+        assert all_included_s < none_included_s
+        assert all_included_s < ub * min(num_train_tasks, max_num_demos)
+        # Test cases where operators cannot plan to goal.
+        utils.update_config({
+            "min_data_for_nsrt": 10000,
+        })
+        all_included_s = score_function.evaluate({Holding, HandEmpty})
+        assert all_included_s >= ub * min(num_train_tasks, max_num_demos)
+    # Revert to default to avoid interfering with other tests.
+    utils.update_config({
+        "min_data_for_nsrt": 3,
+        "grammar_search_max_demos": max_num_demos,
+        "num_train_tasks": 15,
     })
