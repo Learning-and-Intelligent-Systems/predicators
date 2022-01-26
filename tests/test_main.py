@@ -68,30 +68,26 @@ def test_main():
     # Run actual main approach, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--sampler_learner", "random"
+        "123", "--sampler_learner", "random",
+        "--cover_initial_holding_prob", "0.0"
     ]
     main()
     # Try loading approaches.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_approach"
+        "123", "--load_approach", "--cover_initial_holding_prob", "0.0"
     ]
     main()
     # Try remaking data (this is the default).
     sys.argv = [
-        "dummy",
-        "--env",
-        "cover",
-        "--approach",
-        "nsrt_learning",
-        "--seed",
-        "123",
+        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "123", "--cover_initial_holding_prob", "0.0"
     ]
     main()
     # Try loading the data.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--load_data"
+        "123", "--load_data", "--cover_initial_holding_prob", "0.0"
     ]
     main()
     # Try predicate exclusion.
@@ -109,7 +105,8 @@ def test_main():
         main()  # can't exclude a goal predicate
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "all", "--num_test_tasks", "5"
+        "123", "--excluded_predicates", "all", "--num_test_tasks", "5",
+        "--cover_initial_holding_prob", "0.0"
     ]
     main()
 
