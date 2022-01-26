@@ -36,7 +36,8 @@ def _test_approach(env_name,
         "excluded_predicates": excluded_predicates,
         "learn_side_predicates": learn_side_predicates,
         "option_learner": option_learner,
-        "sampler_learner": sampler_learner
+        "sampler_learner": sampler_learner,
+        "cover_initial_holding_prob": 0.0,
     })
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
