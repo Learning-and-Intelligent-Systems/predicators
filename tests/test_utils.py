@@ -256,31 +256,6 @@ def test_option_to_trajectory():
                                       max_num_steps=10)
     assert len(traj.actions) == len(traj.states) - 1 == 10
 
-    # Test that option terminates early if it's stuck.
-    def _simulator(s, a):
-        del a  # unused
-        return s.copy()
-
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=100)
-    assert len(traj.actions) == len(traj.states) - 1 == 1
-
-    # Test that option terminates early if it's stuck after the first time step.
-    def _simulator(s, a):
-        del a  # unused
-        ns = s.copy()
-        if s[cup][0] == 0.5:
-            ns[cup][0] = 0.0
-        return ns
-
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=100)
-    assert len(traj.actions) == len(traj.states) - 1 == 2
-
 
 def test_option_plan_to_policy():
     """Tests for option_plan_to_policy()."""
@@ -1693,7 +1668,7 @@ def test_run_hill_climbing():
 
 
 def test_ops_and_specs_to_dummy_nsrts():
-    """Tests fo ops_and_specs_to_dummy_nsrts()."""
+    """Tests for ops_and_specs_to_dummy_nsrts()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
@@ -1721,3 +1696,14 @@ def test_ops_and_specs_to_dummy_nsrts():
     assert nsrt.delete_effects == delete_effects
     assert nsrt.option == parameterized_option
     assert not nsrt.option_vars
+
+
+def test_string_to_python_object():
+    """Tests for string_to_python_object()."""
+    assert utils.string_to_python_object("3") == 3
+    assert utils.string_to_python_object("1234") == 1234
+    assert utils.string_to_python_object("3.2") == 3.2
+    assert utils.string_to_python_object("test") == "test"
+    assert utils.string_to_python_object("") == ""
+    assert utils.string_to_python_object("True") is True
+    assert utils.string_to_python_object("False") is False

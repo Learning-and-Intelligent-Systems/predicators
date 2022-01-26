@@ -55,14 +55,19 @@ def _create_grammar(dataset: Dataset,
     # any already-generated predicates with respect to the dataset.
     # Note that we want to do this before the skip grammar below,
     # because if any predicates are equivalent to the given predicates,
-    # we would not want to generate them.
-    grammar = _PrunedGrammar(dataset, grammar)
+    # we would not want to generate them. Don't do this if we're using
+    # DebugGrammar, because we don't want to prune things that are in there.
+    if not CFG.grammar_search_use_handcoded_debug_grammar:
+        grammar = _PrunedGrammar(dataset, grammar)
     # We don't actually need to enumerate the given predicates
     # because we already have them in the initial predicate set,
     # so we just filter them out from actually being enumerated.
     # But remember that we do want to enumerate their negations
     # and foralls, which is why they're included originally.
     grammar = _SkipGrammar(grammar, given_predicates)
+    # If we're using the DebugGrammar, filter out all other predicates.
+    if CFG.grammar_search_use_handcoded_debug_grammar:
+        grammar = _DebugGrammar(grammar)
     # We're done! Return the final grammar.
     return grammar
 
@@ -114,6 +119,7 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
     object_type: Type
     attribute_name: str
     constant: float
+    constant_idx: int
     compare: Callable[[float, float], bool]
     compare_str: str
 
@@ -122,8 +128,10 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
         return self.compare(s.get(obj, self.attribute_name), self.constant)
 
     def __str__(self) -> str:
-        return (f"(({self.object_index}:{self.object_type.name})."
-                f"{self.attribute_name}{self.compare_str}{self.constant:.3})")
+        return (
+            f"(({self.object_index}:{self.object_type.name})."
+            f"{self.attribute_name}{self.compare_str}[idx {self.constant_idx}]"
+            f"{self.constant:.3})")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -202,7 +210,7 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateGrammar:
+class _PredicateGrammar(abc.ABC):
     """A grammar for generating predicate candidates."""
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
@@ -227,6 +235,57 @@ class _PredicateGrammar:
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         """Iterate over candidate predicates from less to more cost."""
         raise NotImplementedError("Override me!")
+
+
+_DEBUG_PREDICATE_PREFIXES = {
+    "painting": [
+        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
+        "((0:obj).pose_y<=[idx 2]",  # OnTable
+        "NOT-((0:obj).grasp<=[idx 0]0.5)",  # HoldingTop
+        "((0:obj).grasp<=[idx 1]0.25)",  # HoldingSide
+        "NOT-((0:obj).held<=[idx 0]0.5)",  # Holding
+        "NOT-((0:obj).wetness<=[idx 0]0.5)",  # IsWet
+        "((0:obj).wetness<=[idx 0]0.5)",  # IsDry
+        "NOT-((0:obj).dirtiness<=[idx 0]",  # IsDirty
+        "((0:obj).dirtiness<=[idx 0]",  # IsClean
+        "Forall[0:lid].[NOT-((0:lid).is_open<=[idx 0]0.5)(0)]",  # AllLidsOpen
+        # "NOT-((0:lid).is_open<=[idx 0]0.5)",  # LidOpen (doesn't help)
+    ],
+    "cover": [
+        "NOT-((0:block).grasp<=[idx 0]",  # Holding
+        "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+    ],
+    "blocks": [
+        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
+        "Forall[0:block].[NOT-On(0,1)]",  # Clear
+        "NOT-((0:block).pose_z<=[idx 0]",  # Holding
+    ],
+    "unittest": [
+        "((0:robot).hand<=[idx 0]0.65)",
+        "NOT-Forall[0:block].[((0:block).width<=[idx 0]0.085)(0)]"
+    ],
+}
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _DebugGrammar(_PredicateGrammar):
+    """A grammar that generates only predicates starting with some string in
+    _DEBUG_PREDICATE_PREFIXES[CFG.env]."""
+    base_grammar: _PredicateGrammar
+
+    def generate(self, max_num: int) -> Dict[Predicate, float]:
+        del max_num
+        expected_len = len(_DEBUG_PREDICATE_PREFIXES[CFG.env])
+        result = super().generate(expected_len)
+        assert len(result) == expected_len
+        return result
+
+    def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        for (predicate, cost) in self.base_grammar.enumerate():
+            if any(
+                    str(predicate).startswith(debug_str)
+                    for debug_str in _DEBUG_PREDICATE_PREFIXES[CFG.env]):
+                yield (predicate, cost)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -274,7 +333,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
         feature_ranges = self._get_feature_ranges()
         # 0.5, 0.25, 0.75, 0.125, 0.375, ...
         constant_generator = _halving_constant_generator(0.0, 1.0)
-        for constant, cost in constant_generator:
+        for constant_idx, (constant, cost) in enumerate(constant_generator):
             for t in sorted(self.types):
                 for f in t.feature_names:
                     lb, ub = feature_ranges[t][f]
@@ -290,7 +349,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
                     # rely on anyway because of precision issues).
                     comp, comp_str = le, "<="
                     classifier = _SingleAttributeCompareClassifier(
-                        0, t, f, k, comp, comp_str)
+                        0, t, f, k, constant_idx, comp, comp_str)
                     name = str(classifier)
                     types = [t]
                     pred = Predicate(name, types, classifier)
@@ -508,12 +567,15 @@ def _create_score_function(
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           candidates)
+    if score_function_name == "expected_nodes":
+        return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
+                                           candidates)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _PredicateSearchScoreFunction:
+class _PredicateSearchScoreFunction(abc.ABC):
     """A score function for guiding search over predicate sets."""
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
@@ -655,16 +717,111 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
             try:
-                _, _, metrics = task_plan(
-                    init_atoms, traj.goal, ground_nsrts, reachable_atoms,
-                    heuristic, CFG.seed,
-                    CFG.grammar_search_task_planning_timeout)
+                _, _, metrics = next(
+                    task_plan(init_atoms, traj.goal, ground_nsrts,
+                              reachable_atoms, heuristic, CFG.seed,
+                              CFG.grammar_search_task_planning_timeout))
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
             except (ApproachFailure, ApproachTimeout):
                 score += node_expansion_upper_bound
         return score
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
+    """Score a predicate set by learning operators and planning in the training
+    tasks.
+
+    The score corresponds to the expected number of nodes that would need to be
+    created before a low-level plan is found. This calculation requires
+    estimating the probability that each goal-reaching skeleton is refinable.
+    To estimate this, we assume a prior on how optimal the demonstrations are,
+    and say that if a skeleton is found by planning that is a different length
+    than the demos, then the likelihood of the predicates/operators goes down
+    as that difference gets larger.
+
+    We also anticipate incorporating "suspicious" transitions as another way
+    to estimate the probability that a skeleton is refinable, but this is not
+    yet implemented.
+    """
+
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        del segments  # unused
+        score = 0.0
+        seen_demos = 0
+        for traj, atoms_sequence in pruned_atom_data:
+            if seen_demos >= CFG.grammar_search_max_demos:
+                break
+            if not traj.is_demo:
+                continue
+            seen_demos += 1
+            init_atoms = atoms_sequence[0]
+            goal = traj.goal
+            # Ground everything once per demo.
+            objects = set(traj.states[0])
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, strips_ops, option_specs)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
+                candidate_predicates | self._initial_predicates, objects)
+            # The expected number of nodes that need to be created before a
+            # refinable skeleton is found.
+            expected_num_nodes = 0.0
+            # Keep track of the probability that a refinable skeleton has still
+            # not been found, updated after each new goal-reaching skeleton is
+            # considered.
+            refinable_skeleton_not_found_prob = 1.0
+            generator = task_plan(init_atoms, goal, ground_nsrts,
+                                  reachable_atoms, heuristic, CFG.seed,
+                                  CFG.grammar_search_task_planning_timeout)
+            try:
+                for (_, plan_atoms_sequence, metrics) in generator:
+                    assert goal.issubset(plan_atoms_sequence[-1])
+                    # Estimate the probability that this skeleton is refinable.
+                    refinement_prob = self._get_refinement_prob(
+                        atoms_sequence, plan_atoms_sequence)
+                    # Get the number of nodes that have been created so far.
+                    num_nodes = metrics["num_nodes_created"]
+                    # This contribution to the expected number of nodes is for
+                    # the event that the current skeleton is refinable, but no
+                    # previous skeleton has been refinable.
+                    p = refinable_skeleton_not_found_prob * refinement_prob
+                    expected_num_nodes += p * num_nodes
+                    # Update the probability that no skeleton yet is refinable.
+                    refinable_skeleton_not_found_prob *= (1 - refinement_prob)
+            except (ApproachTimeout, ApproachFailure):
+                # Note if we failed to find any skeleton, the next lines add
+                # the upper bound with refinable_skeleton_not_found_prob = 1.0,
+                # so no special action is required.
+                pass
+            # After exhausting the skeleton budget or timeout, we use this
+            # probability to estimate a "worst-case" number of nodes that need
+            # to be expanded, making the soft assumption that there are no true
+            # dead-ends, and some skeleton will eventually work.
+            ub = CFG.grammar_search_expected_nodes_upper_bound
+            expected_num_nodes += refinable_skeleton_not_found_prob * ub
+            # The score is simply the total expected nodes across all tasks.
+            score += expected_num_nodes
+        return score
+
+    @staticmethod
+    def _get_refinement_prob(
+            demo_atoms_sequence: Sequence[Set[GroundAtom]],
+            plan_atoms_sequence: Sequence[Collection[GroundAtom]]) -> float:
+        """Estimate the probability that plan_atoms_sequence is refinable using
+        the demonstration demo_atoms_sequence."""
+        # Make a soft assumption that the demonstrations are optimal.
+        demo_len = len(demo_atoms_sequence)
+        plan_len = len(plan_atoms_sequence)
+        p = CFG.grammar_search_expected_nodes_optimal_demo_prob
+        return p * (1 - p)**abs(demo_len - plan_len)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -688,8 +845,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         scores = {name: 0.0 for name in self.heuristic_names}
         seen_demos = 0
         seen_nondemos = 0
-        max_demos = CFG.grammar_search_heuristic_based_max_demos
-        max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
+        max_demos = CFG.grammar_search_max_demos
+        max_nondemos = CFG.grammar_search_max_nondemos
         demo_atom_sets = {
             frozenset(a)
             for traj, seq in pruned_atom_data if traj.is_demo for a in seq
@@ -744,7 +901,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by expecting the heuristic to
     match the exact costs-to-go of the states in the demonstrations."""
 
@@ -763,7 +920,7 @@ class _HeuristicMatchBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute an energy-based policy, and comparing that policy to demos.
 
@@ -815,7 +972,7 @@ class _HeuristicEnergyBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylin
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _evaluate_atom_trajectory() by using the induced operators to
     compute estimated costs-to-go.
 
@@ -888,7 +1045,7 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with a delete relaxation heuristic like
     hadd, hmax, or hff."""
     lookahead_depth: int = field(default=0)
@@ -936,7 +1093,7 @@ class _RelaxationHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # p
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint:disable=abstract-method
+class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
     """Implement _generate_heuristic() with task planning."""
 
     heuristic_names: Sequence[str] = field(default=("exact", ), init=False)
@@ -970,9 +1127,10 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):  # pylint
             if frozenset(atoms) in cache:
                 return cache[frozenset(atoms)]
             try:
-                skeleton, atoms_sequence, _ = task_plan(
-                    atoms, goal, ground_nsrts, reachable_atoms, heuristic,
-                    CFG.seed, CFG.grammar_search_task_planning_timeout)
+                skeleton, atoms_sequence, _ = next(
+                    task_plan(atoms, goal, ground_nsrts, reachable_atoms,
+                              heuristic, CFG.seed,
+                              CFG.grammar_search_task_planning_timeout))
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
@@ -1097,13 +1255,24 @@ def _select_predicates_to_keep(
     init: FrozenSet[Predicate] = frozenset()
 
     # Greedy local hill climbing search.
-    path, _ = utils.run_hill_climbing(
-        init,
-        _check_goal,
-        _get_successors,
-        score_function.evaluate,
-        enforced_depth=CFG.grammar_search_hill_climbing_depth,
-        parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    if CFG.grammar_search_search_algorithm == "hill_climbing":
+        path, _ = utils.run_hill_climbing(
+            init,
+            _check_goal,
+            _get_successors,
+            score_function.evaluate,
+            enforced_depth=CFG.grammar_search_hill_climbing_depth,
+            parallelize=CFG.grammar_search_parallelize_hill_climbing)
+    elif CFG.grammar_search_search_algorithm == "gbfs":
+        path, _ = utils.run_gbfs(init,
+                                 _check_goal,
+                                 _get_successors,
+                                 score_function.evaluate,
+                                 max_evals=CFG.grammar_search_gbfs_num_evals)
+    else:
+        raise NotImplementedError(
+            "Unrecognized grammar_search_search_algorithm: "
+            f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "

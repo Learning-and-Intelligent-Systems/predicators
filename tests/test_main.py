@@ -55,56 +55,16 @@ def test_main():
     ]
     with pytest.raises(ValueError):
         main()  # invalid flag
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_actions", "--seed",
-        "123", "--num_test_tasks", "5"
-    ]
-    main()
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--num_test_tasks", "5"
-    ]
-    main()
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--num_test_tasks", "5"
-    ]
-    main()
-    sys.argv = [
-        "dummy", "--env", "cluttered_table", "--approach", "random_actions",
-        "--seed", "123", "--num_test_tasks", "20"
-    ]
-    main()
-    sys.argv = [
-        "dummy", "--env", "blocks", "--approach", "random_actions", "--seed",
-        "123", "--num_test_tasks", "5"
-    ]
-    main()
-    sys.argv = [
-        "dummy", "--env", "blocks", "--approach", "random_options", "--seed",
-        "123", "--num_test_tasks", "5"
-    ]
-    main()
     video_dir = os.path.join(os.path.dirname(__file__), "_fake_videos")
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir
-    ]
-    main()
-    shutil.rmtree(video_dir)
     results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--num_test_tasks", "1", "--results_dir", results_dir
+        "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
+        "--results_dir", results_dir
     ]
     main()
+    shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
-    # Try running main with a strong timeout.
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--timeout", "0.001", "--num_test_tasks", "5"
-    ]
-    main()
     # Run actual main approach, but without sampler learning.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
@@ -117,26 +77,23 @@ def test_main():
         "123", "--load_approach"
     ]
     main()
-    # Force regenerate datasets.
+    # Try remaking data (this is the default).
     sys.argv = [
-        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--remake_data"
+        "dummy",
+        "--env",
+        "cover",
+        "--approach",
+        "nsrt_learning",
+        "--seed",
+        "123",
     ]
     main()
-    # Try loading datasets (this is the default).
+    # Try loading the data.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123"
+        "123", "--load_data"
     ]
     main()
-    # Try learning (with too low hyperparameters to actually work).
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--sampler_learner", "neural",
-        "--sampler_mlp_classifier_max_itr", "10",
-        "--neural_gaus_regressor_max_itr", "10", "--timeout", "0.01"
-    ]
-    main()  # correct usage
     # Try predicate exclusion.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "random_options", "--seed",
@@ -152,19 +109,9 @@ def test_main():
         main()  # can't exclude a goal predicate
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "Holding,HandEmpty"
-    ]
-    main()  # correct usage
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "HandEmpty", "--num_test_tasks", "5"
-    ]
-    main()  # correct usage
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
         "123", "--excluded_predicates", "all", "--num_test_tasks", "5"
     ]
-    main()  # correct usage
+    main()
 
 
 def test_tamp_approach_failure():

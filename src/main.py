@@ -10,9 +10,9 @@ To load a saved approach:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_approach
 
-To force regenerate a dataset:
+To load saved data:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
-        --remake_data
+        --load_data
 
 To make videos:
     python src/main.py --env cover --approach oracle --seed 0 \
@@ -110,16 +110,17 @@ def main() -> None:
                     f"{CFG.env}__{dataset_idx}__"
                     f"{CFG.offline_data_method}__{CFG.seed}.data")
                 dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
-                if CFG.remake_data or not os.path.exists(dataset_filepath):
+                if CFG.load_data:
+                    assert os.path.exists(dataset_filepath)
+                    with open(dataset_filepath, "rb") as f:
+                        dataset = pkl.load(f)
+                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
+                else:
                     dataset = create_dataset(env, train_tasks)
                     print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
                     os.makedirs(CFG.data_dir, exist_ok=True)
                     with open(dataset_filepath, "wb") as f:
                         pkl.dump(dataset, f)
-                else:
-                    with open(dataset_filepath, "rb") as f:
-                        dataset = pkl.load(f)
-                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 learning_start = time.time()
                 approach.learn_from_offline_dataset(dataset)
@@ -177,25 +178,25 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
-    total_skeletons_optimized = approach.metrics[
-        "total_num_skeletons_optimized"]
-    metrics["avg_skeletons_optimized"] = (
-        total_skeletons_optimized /
-        num_found_policy if num_found_policy > 0 else float("inf"))
     metrics["min_skeletons_optimized"] = approach.metrics[
         "min_num_skeletons_optimized"]
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
-    total_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
-    metrics["avg_nodes_expanded"] = (total_num_nodes_expanded /
-                                     num_found_policy
-                                     if num_found_policy > 0 else float("inf"))
-    total_plan_length = approach.metrics["total_plan_length"]
-    metrics["avg_plan_length"] = (total_plan_length / num_found_policy
-                                  if num_found_policy > 0 else float("inf"))
     metrics["avg_execution_failures"] = (
         total_num_execution_failures /
         num_found_policy if num_found_policy > 0 else float("inf"))
+    # Handle computing averages of total approach metrics wrt the
+    # number of found policies. Note: this is different from computing
+    # an average wrt the number of solved tasks, which might be more
+    # appropriate for some metrics, e.g. avg_suc_time above.
+    for metric_name in [
+            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
+            "num_failures_discovered"
+    ]:
+        total = approach.metrics[f"total_{metric_name}"]
+        metrics[f"avg_{metric_name}"] = (
+            total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
 
 

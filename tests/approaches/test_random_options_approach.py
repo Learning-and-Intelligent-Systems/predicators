@@ -41,6 +41,7 @@ def test_random_options_approach():
     approach = RandomOptionsApproach(_simulator, {Solved},
                                      {parameterized_option}, {cup_type},
                                      params_space)
+    assert not approach.is_learning_based
     task = Task(state, {Solved([cup])})
     approach.seed(123)
     policy = approach.solve(task, 500)
