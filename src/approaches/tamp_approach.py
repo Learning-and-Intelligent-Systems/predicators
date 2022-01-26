@@ -33,15 +33,17 @@ class TAMPApproach(BaseApproach):
         self._num_calls += 1
         # ensure random over successive calls
         seed = self._seed + self._num_calls
-        plan, metrics = sesame_plan(task, self._option_model,
-                                    self._get_current_nsrts(),
-                                    self._get_current_predicates(), timeout,
-                                    seed)
+        nsrts = self._get_current_nsrts()
+        preds = self._get_current_predicates()
+        plan, metrics = sesame_plan(task, self._option_model, nsrts, preds,
+                                    timeout, seed)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
                 "num_nodes_expanded", "num_nodes_created", "plan_length"
         ]:
             self._metrics[f"total_{metric}"] += metrics[metric]
+        self._metrics["total_num_nsrts"] += len(nsrts)
+        self._metrics["total_num_preds"] += len(preds)
         self._metrics["min_num_skeletons_optimized"] = min(
             metrics["num_skeletons_optimized"],
             self._metrics["min_num_skeletons_optimized"])
