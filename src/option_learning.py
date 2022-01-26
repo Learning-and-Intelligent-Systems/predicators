@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 import abc
-from typing import List
+from typing import List, Sequence, Dict, Tuple, Set
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment
+    Segment, Array, ParameterizedOption, Object, Variable, Box, State, Action
+from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
+from predicators.src.torch_models import MLPRegressor
 from predicators.src.envs import create_env, BlocksEnv
 
 
@@ -16,10 +18,12 @@ def create_option_learner() -> _OptionLearnerBase:
         return _KnownOptionsOptionLearner()
     if CFG.option_learner == "oracle":
         return _OracleOptionLearner()
+    if CFG.option_learner == "neural":
+        return _NeuralOptionLearner()
     raise NotImplementedError(f"Unknown option_learner: {CFG.option_learner}")
 
 
-class _OptionLearnerBase:
+class _OptionLearnerBase(abc.ABC):
     """Struct defining an option learner, which has an abstract method for
     learning option specs and an abstract method for annotating data segments
     with options."""
@@ -212,3 +216,226 @@ class _OracleOptionLearner(_OptionLearnerBase):
                                   dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
+
+
+class _LearnedNeuralParameterizedOption(ParameterizedOption):
+    """A parameterized option that "implements" an operator.
+
+    * The option objects correspond to the operator parameters.
+    * The option initiable corresponds to the operator preconditions.
+    * The option terminal corresponds to the operator effects.
+    * The option policy is implemented as a neural regressor that takes in the
+      states of the option objects and the input continuous parameters (see
+      below), all concatenated into a 1D vector, and outputs an action.
+
+    The continuous parameters of the option are the main thing to note: they
+    correspond to a desired change in state for a subset of the option objects.
+    The objects that are changing correspond to changing_parameters; all other
+    objects are assumed to have no change in their state.
+
+    Note that the option terminal, which corresponds to the operator effects,
+    already describes how we want the objects to change. But these effects only
+    characterize a *set* of desired state changes. For example, a Pick operator
+    with Holding(?x) in the add effects says that we want to end up in *some*
+    state where we are holding ?x, but there are in general an infinite number
+    of such states. The role of the continuous parameters is to identify one
+    specific state in this set.
+
+    The hope is that by sampling different continuous parameters, the option
+    will be able to navigate to different states in the effect set, giving the
+    diversity of transition samples that we need to do TAMP.
+
+    Also note that the parameters correspond to a state *change*, rather than
+    an absolute state. This distinction is useful for learning; relative changes
+    lead to better data efficiency / generalization than absolute ones. However,
+    it's also important to note that the change here is a delta between the
+    initial state that the option is executed from and the final state where the
+    option is terminated. In the middle of executing the option, the desired
+    delta between the current state and the final state is different from what
+    it was in the initial state. To handle this, we save the *absolute* desired
+    state in the memory of the option during initialization, and compute the
+    updated delta on each call to the policy.
+    """
+
+    def __init__(self, name: str, operator: STRIPSOperator,
+                 regressor: MLPRegressor,
+                 changing_parameters: Sequence[Variable]) -> None:
+        assert set(changing_parameters).issubset(set(operator.parameters))
+        changing_parameter_idxs = [
+            i for i, v in enumerate(operator.parameters)
+            if v in changing_parameters
+        ]
+        types = [v.type for v in operator.parameters]
+        option_param_dim = sum(v.type.dim for v in changing_parameters)
+        params_space = Box(low=-np.inf,
+                           high=np.inf,
+                           shape=(option_param_dim, ),
+                           dtype=np.float32)
+        self._operator = operator
+        self._regressor = regressor
+        self._changing_parameter_idxs = changing_parameter_idxs
+        super().__init__(name,
+                         types,
+                         params_space,
+                         _policy=self._regressor_based_policy,
+                         _initiable=self._precondition_based_initiable,
+                         _terminal=self._effect_based_terminal)
+
+    def _precondition_based_initiable(self, state: State, memory: Dict,
+                                      objects: Sequence[Object],
+                                      params: Array) -> bool:
+        # The memory here is used to store the absolute params, based on
+        # the relative params and the object states.
+        memory["params"] = params  # store for sanity checking in policy
+        changing_objects = [objects[i] for i in self._changing_parameter_idxs]
+        memory["absolute_params"] = state.vec(changing_objects) + params
+        # Check if initiable based on preconditions.
+        grounded_op = self._operator.ground(tuple(objects))
+        return all(pre.holds(state) for pre in grounded_op.preconditions)
+
+    def _regressor_based_policy(self, state: State, memory: Dict,
+                                objects: Sequence[Object],
+                                params: Array) -> Action:
+        # Compute the updated relative goal.
+        assert np.allclose(params, memory["params"])
+        changing_objects = [objects[i] for i in self._changing_parameter_idxs]
+        relative_goal_vec = memory["absolute_params"] - state.vec(
+            changing_objects)
+        x = np.hstack(([1.0], state.vec(objects), relative_goal_vec))
+        action_arr = self._regressor.predict(x)
+        if np.isnan(action_arr).any():
+            raise ApproachFailure("Option policy returned nan.")
+        return Action(np.array(action_arr, dtype=np.float32))
+
+    def _effect_based_terminal(self, state: State, memory: Dict,
+                               objects: Sequence[Object],
+                               params: Array) -> bool:
+        assert np.allclose(params, memory["params"])
+        # The hope is that we terminate in the effects.
+        grounded_op = self._operator.ground(tuple(objects))
+        if all(e.holds(state) for e in grounded_op.add_effects) and \
+            not any(e.holds(state) for e in grounded_op.delete_effects):
+            return True
+        # Optimization: remember the most recent state and terminate early if
+        # the state is repeated, since this option will never get unstuck.
+        if "last_state" in memory and memory["last_state"].allclose(state):
+            return True
+        memory["last_state"] = state
+        # Not yet done.
+        return False
+
+
+class _NeuralOptionLearner(_OptionLearnerBase):
+    """Learn _LearnedNeuralParameterizedOption objects by behavior cloning.
+
+    See the docstring for _LearnedNeuralParameterizedOption for a description
+    of the option structure.
+
+    In this paradigm, the option initiable and termination are determined from
+    the operators, so the main thing that needs to be learned is the option
+    policy. We learn this policy by behavior cloning (fitting a regressor
+    via supervised learning) in learn_option_specs().
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        # While learning the policy, we record the map from each segment to
+        # the option parameterization, so we don't need to recompute it in
+        # update_segment_from_option_spec.
+        self._segment_to_grounding: Dict[Segment, Tuple[Sequence[Object],
+                                                        Array]] = {}
+
+    def learn_option_specs(self, strips_ops: List[STRIPSOperator],
+                           datastores: List[Datastore]) -> List[OptionSpec]:
+        option_specs: List[Tuple[ParameterizedOption, List[Variable]]] = []
+
+        assert len(strips_ops) == len(datastores)
+
+        for op, datastore in zip(strips_ops, datastores):
+            print(f"\nLearning option for NSRT {op.name}")
+
+            X_regressor: List[Array] = []
+            Y_regressor = []
+
+            # The superset of all objects whose states we may include in the
+            # option params is op.parameters. But we only want to include
+            # those objects that have state changes (in at least some data).
+            # We do this for learning efficiency; including all objects would
+            # likely work too, but may require more data for the model to
+            # realize that those objects' parameters can be ignored.
+            changing_parameter_set = self._get_changing_parameters(datastore)
+            # Just to avoid confusion, we will insist that the order of the
+            # changing parameters is consistent with the order of the original.
+            changing_parameters = sorted(changing_parameter_set,
+                                         key=op.parameters.index)
+            del changing_parameter_set  # not used after this
+            assert changing_parameters == [
+                v for v in op.parameters if v in changing_parameters
+            ]
+
+            for segment, sub in datastore:
+                inv_sub = {v: o for o, v in sub.items()}
+                all_objects_in_operator = [inv_sub[v] for v in op.parameters]
+
+                # First, determine the absolute goal vector for this segment.
+                changing_objects = [inv_sub[v] for v in changing_parameters]
+                initial_state = segment.states[0]
+                final_state = segment.states[-1]
+                absolute_params = final_state.vec(changing_objects)
+                option_param = absolute_params - initial_state.vec(
+                    changing_objects)
+
+                # Store the option parameterization for this segment so we can
+                # use it in update_segment_from_option_spec.
+                self._segment_to_grounding[segment] = (all_objects_in_operator,
+                                                       option_param)
+                del option_param  # not used after this
+
+                # Next, create the input vectors from all object states named
+                # in the operator parameters (not just the changing ones).
+                # Note that each segment contributions multiple data points,
+                # one per action.
+                assert len(segment.states) == len(segment.actions) + 1
+                for state, action in zip(segment.states, segment.actions):
+                    state_features = state.vec(all_objects_in_operator)
+                    # Compute the relative goal vector this segment.
+                    relative_goal_vec = absolute_params - state.vec(
+                        changing_objects)
+                    # Add a bias term for regression.
+                    x = np.hstack(([1.0], state_features, relative_goal_vec))
+                    X_regressor.append(x)
+                    Y_regressor.append(action.arr)
+
+            X_arr_regressor = np.array(X_regressor, dtype=np.float32)
+            Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
+            regressor = MLPRegressor()
+            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, "
+                  f"Y shape: {Y_arr_regressor.shape}.")
+            regressor.fit(X_arr_regressor, Y_arr_regressor)
+
+            # Construct the ParameterizedOption for this operator.
+            name = f"{op.name}LearnedOption"
+            parameterized_option = _LearnedNeuralParameterizedOption(
+                name, op, regressor, changing_parameters)
+            option_specs.append((parameterized_option, list(op.parameters)))
+
+        return option_specs
+
+    @staticmethod
+    def _get_changing_parameters(datastore: Datastore) -> Set[Variable]:
+        all_changing_variables = set()
+        for segment, sub in datastore:
+            start = segment.states[0]
+            end = segment.states[-1]
+            for o, v in sub.items():
+                if not np.array_equal(start[o], end[o]):
+                    all_changing_variables.add(v)
+        return all_changing_variables
+
+    def update_segment_from_option_spec(self, segment: Segment,
+                                        option_spec: OptionSpec) -> None:
+        objects, params = self._segment_to_grounding[segment]
+        param_opt, opt_vars = option_spec
+        assert all(o.type == v.type for o, v in zip(objects, opt_vars))
+        option = param_opt.ground(objects, params)
+        segment.set_option(option)

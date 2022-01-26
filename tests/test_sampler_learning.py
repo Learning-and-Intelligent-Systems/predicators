@@ -1,8 +1,10 @@
 """Tests for sampler learning."""
 
+import pytest
 from gym.spaces import Box
 import numpy as np
-from predicators.src.sampler_learning import _create_sampler_data
+from predicators.src.sampler_learning import _create_sampler_data, \
+    learn_samplers
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
 from predicators.src import utils
@@ -10,7 +12,12 @@ from predicators.src import utils
 
 def test_create_sampler_data():
     """Tests for _create_sampler_data()."""
-    utils.update_config({"min_data_for_nsrt": 0, "seed": 123})
+    utils.update_config({"env": "cover"})
+    utils.update_config({
+        "min_data_for_nsrt": 0,
+        "seed": 123,
+        "num_train_tasks": 15,
+    })
     # Create two datastores
     cup_type = Type("cup_type", ["feat1"])
     cup0 = cup_type("cup0")
@@ -76,3 +83,13 @@ def test_create_sampler_data():
         param_option, datastore_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 0
+
+
+def test_learn_samplers_failure():
+    """Tests for failure mode of learn_samplers()."""
+    option = ParameterizedOption("dummy", [], Box(0.1, 1, (1, )),
+                                 lambda s, m, o, p: Action(p),
+                                 lambda s, m, o, p: False,
+                                 lambda s, m, o, p: False)
+    with pytest.raises(NotImplementedError):  # bad sampler_learner
+        learn_samplers([None], None, [(option, [])], "bad sampler learner")
