@@ -5,7 +5,7 @@ NUM_SEEDS=10
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
-    COMMON_ARGS="--remake_data --seed $SEED"
+    COMMON_ARGS="--seed $SEED"
 
     # cover
     python $FILE --env cover --approach oracle $COMMON_ARGS
