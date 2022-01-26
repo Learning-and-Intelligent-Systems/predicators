@@ -177,34 +177,25 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["num_total"] = len(test_tasks)
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
-    total_skeletons_optimized = approach.metrics[
-        "total_num_skeletons_optimized"]
-    metrics["avg_skeletons_optimized"] = (
-        total_skeletons_optimized /
-        num_found_policy if num_found_policy > 0 else float("inf"))
     metrics["min_skeletons_optimized"] = approach.metrics[
         "min_num_skeletons_optimized"]
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
-    total_num_nodes_expanded = approach.metrics["total_num_nodes_expanded"]
-    total_num_nodes_created = approach.metrics["total_num_nodes_created"]
-    total_num_nsrts = approach.metrics["total_num_nsrts"]
-    total_num_preds = approach.metrics["total_num_preds"]
-    metrics["avg_nodes_expanded"] = (total_num_nodes_expanded /
-                                     num_found_policy
-                                     if num_found_policy > 0 else float("inf"))
-    metrics["avg_nodes_created"] = (total_num_nodes_created / num_found_policy
-                                    if num_found_policy > 0 else float("inf"))
-    metrics["avg_num_nsrts"] = (total_num_nsrts / num_found_policy
-                                if num_found_policy > 0 else float("inf"))
-    metrics["avg_num_preds"] = (total_num_preds / num_found_policy
-                                if num_found_policy > 0 else float("inf"))
-    total_plan_length = approach.metrics["total_plan_length"]
-    metrics["avg_plan_length"] = (total_plan_length / num_found_policy
-                                  if num_found_policy > 0 else float("inf"))
     metrics["avg_execution_failures"] = (
         total_num_execution_failures /
         num_found_policy if num_found_policy > 0 else float("inf"))
+    # Handle computing averages of total metrics wrt the number of found
+    # policies. Note: this is different from computing an average wrt
+    # the number of solved tasks, which might be more appropriate for
+    # some metrics, e.g. avg_suc_time above.
+    for metric_name in [
+            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
+            "num_failures_discovered"
+    ]:
+        total = approach.metrics[f"total_{metric_name}"]
+        metrics[f"avg_{metric_name}"] = (
+            total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
 
 
