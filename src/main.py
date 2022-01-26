@@ -184,10 +184,10 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["avg_execution_failures"] = (
         total_num_execution_failures /
         num_found_policy if num_found_policy > 0 else float("inf"))
-    # Handle computing averages of total metrics wrt the number of found
-    # policies. Note: this is different from computing an average wrt
-    # the number of solved tasks, which might be more appropriate for
-    # some metrics, e.g. avg_suc_time above.
+    # Handle computing averages of total approach metrics wrt the
+    # number of found policies. Note: this is different from computing
+    # an average wrt the number of solved tasks, which might be more
+    # appropriate for some metrics, e.g. avg_suc_time above.
     for metric_name in [
             "num_skeletons_optimized", "num_nodes_expanded",
             "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
