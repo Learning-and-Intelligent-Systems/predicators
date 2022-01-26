@@ -244,7 +244,7 @@ def test_predicate_search_heuristic_base_classes():
         set(), [], {})
     with pytest.raises(NotImplementedError):
         op_learning_score_function.evaluate(set())
-    utils.update_config({"env": "cover"})
+    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnv()
     train_tasks = next(env.train_tasks_generator())
     state = train_tasks[0].init
@@ -284,6 +284,7 @@ def test_prediction_error_score_function():
         "offline_data_method": "demo+replay",
         "seed": 123,
         "num_train_tasks": 5,
+        "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
     ablated = {"HandEmpty", "Holding"}
@@ -349,6 +350,7 @@ def test_hadd_match_score_function():
         "offline_data_method": "demo+replay",
         "seed": 123,
         "num_train_tasks": 5,
+        "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
     ablated = {"HandEmpty"}
@@ -380,6 +382,7 @@ def test_relaxation_energy_score_function():
         "offline_data_method": "demo+replay",
         "seed": 123,
         "num_train_tasks": 5,
+        "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
     ablated = {"HandEmpty", "Holding"}
@@ -630,6 +633,7 @@ def test_count_score_functions():
         "min_data_for_nsrt": 0,
         "grammar_search_max_demos": 4,
         "grammar_search_max_nondemos": 40,
+        "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
     ablated = {"Holding", "HandEmpty"}
@@ -673,6 +677,7 @@ def test_branching_factor_score_function():
         "num_train_tasks": 2,
         "offline_data_num_replays": 500,
         "min_data_for_nsrt": 3,
+        "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
 
@@ -717,6 +722,7 @@ def test_task_planning_score_function():
         "offline_data_method": "demo+replay",
         "seed": 123,
         "num_train_tasks": 5,
+        "cover_initial_holding_prob": 0.0,
     })
     env = CoverEnv()
 
@@ -768,6 +774,7 @@ def test_expected_nodes_score_function():
             "task_planning_heuristic": "lmcut",
             "num_train_tasks": num_train_tasks,
             "min_data_for_nsrt": 0,
+            "cover_initial_holding_prob": 0.0,
         })
         env = CoverEnv()
         name_to_pred = {p.name: p for p in env.predicates}
