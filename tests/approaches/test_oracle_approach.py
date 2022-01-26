@@ -16,8 +16,7 @@ from predicators.src import utils
 def test_cover_get_gt_nsrts():
     """Tests for get_gt_nsrts in CoverEnv."""
     utils.update_config({"env": "cover"})
-    utils.update_config({"num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     # All predicates and options
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -105,8 +104,7 @@ def test_check_nsrt_parameters():
 def test_oracle_approach_cover():
     """Tests for OracleApproach class with CoverEnv."""
     utils.update_config({"env": "cover"})
-    utils.update_config({"num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = CoverEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -131,8 +129,7 @@ def test_oracle_approach_cover():
 def test_oracle_approach_cover_typed_options():
     """Tests for OracleApproach class with CoverEnvTypedOptions."""
     utils.update_config({"env": "cover_typed_options"})
-    utils.update_config({"num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = CoverEnvTypedOptions()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -157,8 +154,7 @@ def test_oracle_approach_cover_typed_options():
 def test_oracle_approach_cover_hierarchical_types():
     """Tests for OracleApproach class with CoverEnvHierarchicalTypes."""
     utils.update_config({"env": "cover_hierarchical_types"})
-    utils.update_config({"num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = CoverEnvHierarchicalTypes()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -261,8 +257,11 @@ def test_oracle_approach_cover_multistep_options():
 def test_oracle_approach_cover_multistep_options_fixed_tasks():
     """Tests for OracleApproach class with CoverMultistepOptionsFixedTasks."""
     utils.update_config({"env": "cover_multistep_options_fixed_tasks"})
-    utils.update_config({"cover_multistep_use_learned_equivalents": True,
-                         "num_train_tasks": 5, "num_test_tasks": 5})
+    utils.update_config({
+        "cover_multistep_use_learned_equivalents": True,
+        "num_train_tasks": 5,
+        "num_test_tasks": 5
+    })
     env = CoverMultistepOptionsFixedTasks()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -287,15 +286,19 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
 def test_cluttered_table_get_gt_nsrts(place_version=False):
     """Tests for get_gt_nsrts in ClutteredTableEnv."""
     if not place_version:
-        utils.update_config({"env": "cluttered_table",
-                             "num_train_tasks": 5,
-                             "num_test_tasks": 5})
+        utils.update_config({
+            "env": "cluttered_table",
+            "num_train_tasks": 5,
+            "num_test_tasks": 5
+        })
         # All predicates and options
         env = ClutteredTableEnv()
     else:
-        utils.update_config({"env": "cluttered_table_place",
-                             "num_train_tasks": 5,
-                             "num_test_tasks": 5})
+        utils.update_config({
+            "env": "cluttered_table_place",
+            "num_train_tasks": 5,
+            "num_test_tasks": 5
+        })
         env = ClutteredTablePlaceEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     assert len(nsrts) == 2
@@ -389,9 +392,11 @@ def test_oracle_approach_cluttered_table_place():
 
 def test_oracle_approach_blocks():
     """Tests for OracleApproach class with BlocksEnv."""
-    utils.update_config({"env": "blocks",
-                         "num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({
+        "env": "blocks",
+        "num_train_tasks": 5,
+        "num_test_tasks": 5
+    })
     env = BlocksEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -410,9 +415,11 @@ def test_oracle_approach_blocks():
 
 def test_oracle_approach_painting():
     """Tests for OracleApproach class with PaintingEnv."""
-    utils.update_config({"env": "painting",
-                         "num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({
+        "env": "painting",
+        "num_train_tasks": 5,
+        "num_test_tasks": 5
+    })
     env = PaintingEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -429,9 +436,11 @@ def test_oracle_approach_painting():
 
 def test_oracle_approach_playroom():
     """Tests for OracleApproach class with PlayroomEnv."""
-    utils.update_config({"env": "playroom",
-                         "num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({
+        "env": "playroom",
+        "num_train_tasks": 5,
+        "num_test_tasks": 5
+    })
     env = PlayroomEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
@@ -494,9 +503,11 @@ def test_oracle_approach_playroom():
 
 def test_oracle_approach_repeated_nextto():
     """Tests for OracleApproach class with RepeatedNextToEnv."""
-    utils.update_config({"env": "repeated_nextto",
-                         "num_train_tasks": 5,
-                         "num_test_tasks": 5})
+    utils.update_config({
+        "env": "repeated_nextto",
+        "num_train_tasks": 5,
+        "num_test_tasks": 5
+    })
     env = RepeatedNextToEnv()
     env.seed(123)
     approach = OracleApproach(env.simulate, env.predicates, env.options,
