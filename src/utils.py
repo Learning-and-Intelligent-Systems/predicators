@@ -148,10 +148,10 @@ def overlap(l1: Tuple[float, float], r1: Tuple[float, float],
 @functools.lru_cache(maxsize=None)
 def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
           atoms2: FrozenSet[LiftedOrGroundAtom]) -> Tuple[bool, EntToEntSub]:
-    """Return whether the given ground atom set can be unified with the given
-    lifted atom set.
+    """Return whether the given two sets of atoms can be unified.
 
-    Also return the mapping.
+    Also return the mapping between variables/objects in these atom
+    sets. This mapping is empty if the first return value is False.
     """
     atoms_lst1 = sorted(atoms1)
     atoms_lst2 = sorted(atoms2)
