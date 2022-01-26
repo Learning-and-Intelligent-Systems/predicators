@@ -282,7 +282,8 @@ def test_prediction_error_score_function():
     utils.update_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
     ablated = {"HandEmpty", "Holding"}
@@ -311,7 +312,8 @@ def test_prediction_error_score_function():
     utils.update_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -345,7 +347,8 @@ def test_hadd_match_score_function():
     utils.update_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
     ablated = {"HandEmpty"}
@@ -374,9 +377,9 @@ def test_relaxation_energy_score_function():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
     ablated = {"HandEmpty", "Holding"}
@@ -433,7 +436,8 @@ def test_relaxation_energy_score_function():
     utils.update_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -486,7 +490,7 @@ def test_relaxation_energy_score_function():
     # utils.update_config({
     #     "env": "painting",
     #     "offline_data_method": "demo+replay",
-    #     "seed": 0,
+    #     "seed": 123,
     #     "painting_train_families": ["box_and_shelf"],
     # })
     # env = PaintingEnv()
@@ -559,9 +563,8 @@ def test_exact_energy_score_function():
         "env": "blocks",
     })
     utils.update_config({
-        "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 2,
     })
     env = BlocksEnv()
@@ -620,9 +623,8 @@ def test_count_score_functions():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
@@ -666,9 +668,8 @@ def test_branching_factor_score_function():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
+        "seed": 123,
         "num_train_tasks": 2,
         "offline_data_num_replays": 500,
         "min_data_for_nsrt": 3,
@@ -713,10 +714,9 @@ def test_task_planning_score_function():
         "env": "cover",
     })
     utils.update_config({
-        "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 0,
-        "num_train_tasks": 15,
+        "seed": 123,
+        "num_train_tasks": 5,
     })
     env = CoverEnv()
 
