@@ -771,9 +771,10 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             heuristic = utils.create_task_planning_heuristic(
                 CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
                 candidate_predicates | self._initial_predicates, objects)
-            # The expected number of nodes that need to be created before a
-            # refinable skeleton is found.
-            expected_num_nodes = 0.0
+            # The expected time needed before a low-level plan is found. We
+            # approximate this using node creations and by adding a penalty
+            # for every skeleton after the first to account for backtracking.
+            expected_planning_time = 0.0
             # Keep track of the probability that a refinable skeleton has still
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
@@ -782,7 +783,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                   reachable_atoms, heuristic, CFG.seed,
                                   CFG.grammar_search_task_planning_timeout)
             try:
-                for (_, plan_atoms_sequence, metrics) in generator:
+                for idx, (_, plan_atoms_sequence, metrics) in enumerate(generator):
                     assert goal.issubset(plan_atoms_sequence[-1])
                     # Estimate the probability that this skeleton is refinable.
                     refinement_prob = self._get_refinement_prob(
@@ -793,7 +794,12 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     # the event that the current skeleton is refinable, but no
                     # previous skeleton has been refinable.
                     p = refinable_skeleton_not_found_prob * refinement_prob
-                    expected_num_nodes += p * num_nodes
+                    expected_planning_time += p * num_nodes
+                    # Apply a penalty to account for the time that we'd spend
+                    # in backtracking if the last skeleton was not refinable.
+                    if idx > 0:
+                        w = CFG.grammar_search_expected_nodes_backtracking_cost
+                        expected_planning_time += p * w
                     # Update the probability that no skeleton yet is refinable.
                     refinable_skeleton_not_found_prob *= (1 - refinement_prob)
             except (ApproachTimeout, ApproachFailure):
@@ -802,13 +808,12 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 # so no special action is required.
                 pass
             # After exhausting the skeleton budget or timeout, we use this
-            # probability to estimate a "worst-case" number of nodes that need
-            # to be expanded, making the soft assumption that there are no true
-            # dead-ends, and some skeleton will eventually work.
+            # probability to estimate a "worst-case" planning time, making the
+            # soft assumption that some skeleton will eventually work.
             ub = CFG.grammar_search_expected_nodes_upper_bound
-            expected_num_nodes += refinable_skeleton_not_found_prob * ub
-            # The score is simply the total expected nodes across all tasks.
-            score += expected_num_nodes
+            expected_planning_time += refinable_skeleton_not_found_prob * ub
+            # The score is simply the total expected planning time.
+            score += expected_planning_time
         return score
 
     @staticmethod
