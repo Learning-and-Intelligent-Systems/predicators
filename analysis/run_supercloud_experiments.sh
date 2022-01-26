@@ -32,7 +32,7 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     ## demo only
 
     # cover
-    python $FILE --experiment_id cover_nsrt_learning_demo --env cover --approach nsrt_learning --offline_data_method demo $COMMON_ARGS
+    python $FILE --experiment_id cover_nsrt_learning_demo --env cover --approach nsrt_learning --offline_data_method demo --cover_initial_holding_prob 0.75 $COMMON_ARGS
     python $FILE --experiment_id cover_none_excluded_demo --env cover --approach grammar_search_invention --offline_data_method demo --cover_initial_holding_prob 0.75 $COMMON_ARGS
     python $FILE --experiment_id cover_all_excluded_demo --env cover --approach grammar_search_invention --offline_data_method demo --excluded_predicates all --cover_initial_holding_prob 0.75 $COMMON_ARGS
 
