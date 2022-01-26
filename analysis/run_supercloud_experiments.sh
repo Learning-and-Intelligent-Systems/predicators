@@ -1,7 +1,7 @@
 #!/bin/bash
 
 START_SEED=456
-NUM_SEEDS=5
+NUM_SEEDS=10
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
