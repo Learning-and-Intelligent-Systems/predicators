@@ -140,6 +140,7 @@ def test_env_failure():
         "seed": 123,
         "timeout": 10,
         "make_videos": False,
+        "cover_initial_holding_prob": 0.0,
     })
     env = _DummyCoverEnv()
     approach = create_approach("random_actions", env.simulate, env.predicates,
