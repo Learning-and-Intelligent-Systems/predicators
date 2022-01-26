@@ -472,7 +472,7 @@ def test_relaxation_energy_score_function():
     # (Holding, GripperOpen): 14643.702564367157
     # (Clear, Holding, GripperOpen): 11411.369394796291
 
-    # # Tests for lookahead_depth > 0.
+    # Tests for lookahead_depth > 0.
     score_function = _RelaxationHeuristicEnergyBasedScoreFunction(
         initial_predicates,
         atom_dataset,
