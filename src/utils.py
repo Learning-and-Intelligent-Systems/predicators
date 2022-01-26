@@ -151,6 +151,7 @@ def unify(atoms1: FrozenSet[LiftedOrGroundAtom],
     """Return whether the given two sets of atoms can be unified.
 
     Also return the mapping between variables/objects in these atom sets.
+    This mapping is empty if the first return value is False.
     """
     atoms_lst1 = sorted(atoms1)
     atoms_lst2 = sorted(atoms2)
