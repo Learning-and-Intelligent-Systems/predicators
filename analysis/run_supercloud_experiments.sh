@@ -5,12 +5,12 @@ NUM_SEEDS=10
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
-    COMMON_ARGS="--remake_data --num_train_tasks 50 --grammar_search_score_function expected_nodes --seed $SEED"
+    COMMON_ARGS="--seed $SEED"
 
     ## demo + replay
 
     # cover
-    python $FILE --experiment_id cover_nsrt_learning --env cover --approach nsrt_learning $COMMON_ARGS
+    python $FILE --experiment_id cover_nsrt_learning --env cover --approach nsrt_learning --cover_initial_holding_prob 0.75 $COMMON_ARGS
     python $FILE --experiment_id cover_none_excluded --env cover --approach grammar_search_invention --cover_initial_holding_prob 0.75 $COMMON_ARGS
     python $FILE --experiment_id cover_all_excluded --env cover --approach grammar_search_invention --excluded_predicates all --cover_initial_holding_prob 0.75 $COMMON_ARGS
 
