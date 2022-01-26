@@ -79,7 +79,12 @@ def test_main():
     main()
     # Try remaking data (this is the default).
     sys.argv = [
-        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
+        "dummy",
+        "--env",
+        "cover",
+        "--approach",
+        "nsrt_learning",
+        "--seed",
         "123",
     ]
     main()
