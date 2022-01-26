@@ -579,7 +579,6 @@ class _PredicateSearchScoreFunction(abc.ABC):
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
 
-    @abc.abstractmethod
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         """Get the score for the given set of candidate predicates.
 
@@ -628,7 +627,6 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
             flush=True)
         return total_score
 
-    @abc.abstractmethod
     def _evaluate_with_operators(self,
                                  candidate_predicates: FrozenSet[Predicate],
                                  pruned_atom_data: List[GroundAtomTrajectory],
@@ -881,7 +879,6 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 
-    @abc.abstractmethod
     def _generate_heuristic(
         self, heuristic_name: str, init_atoms: Set[GroundAtom],
         objects: Set[Object], goal: Set[GroundAtom],
@@ -892,7 +889,6 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     ) -> Callable[[Set[GroundAtom]], float]:
         raise NotImplementedError("Override me!")
 
-    @abc.abstractmethod
     def _evaluate_atom_trajectory(self, atoms_sequence: List[Set[GroundAtom]],
                                   heuristic_fn: Callable[[Set[GroundAtom]],
                                                          float],

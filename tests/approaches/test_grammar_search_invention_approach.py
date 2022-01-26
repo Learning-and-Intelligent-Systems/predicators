@@ -234,6 +234,48 @@ def test_create_score_function():
         _create_score_function("not a real score function", set(), [], {})
 
 
+def test_predicate_search_heuristic_base_classes():
+    """Cover the abstract methods for _PredicateSearchScoreFunction &
+    subclasses."""
+    pred_search_score_function = _PredicateSearchScoreFunction(set(), [], {})
+    with pytest.raises(NotImplementedError):
+        pred_search_score_function.evaluate(set())
+    op_learning_score_function = _OperatorLearningBasedScoreFunction(
+        set(), [], {})
+    with pytest.raises(NotImplementedError):
+        op_learning_score_function.evaluate(set())
+    utils.update_config({"env": "cover"})
+    env = CoverEnv()
+    train_tasks = next(env.train_tasks_generator())
+    state = train_tasks[0].init
+    other_state = state.copy()
+    robby = [o for o in state if o.type.name == "robot"][0]
+    state.set(robby, "hand", 0.5)
+    other_state.set(robby, "hand", 0.8)
+    parameterized_option = ParameterizedOption(
+        "Dummy", [], Box(0, 1,
+                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
+        utils.always_initiable, utils.onestep_terminal)
+    option = parameterized_option.ground([], np.array([0.0]))
+    assert option.initiable(state)  # set memory
+    action = Action(np.zeros(1, dtype=np.float32))
+    action.set_option(option)
+    dataset = [
+        LowLevelTrajectory([state, other_state], [action],
+                           _is_demo=True,
+                           _goal=set())
+    ]
+    atom_dataset = utils.create_ground_atom_dataset(dataset, set())
+    heuristic_score_fn = _HeuristicBasedScoreFunction(set(), atom_dataset, {},
+                                                      ["hadd"])
+    with pytest.raises(NotImplementedError):
+        heuristic_score_fn.evaluate(set())
+    hadd_score_fn = _RelaxationHeuristicBasedScoreFunction(
+        set(), atom_dataset, {}, ["hadd"])
+    with pytest.raises(NotImplementedError):
+        hadd_score_fn.evaluate(set())
+
+
 def test_prediction_error_score_function():
     """Tests for _PredictionErrorScoreFunction()."""
     # Tests for CoverEnv.
