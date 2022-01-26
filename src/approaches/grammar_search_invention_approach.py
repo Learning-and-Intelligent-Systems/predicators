@@ -248,6 +248,8 @@ _DEBUG_PREDICATE_PREFIXES = {
         "((0:obj).wetness<=[idx 0]0.5)",  # IsDry
         "NOT-((0:obj).dirtiness<=[idx 0]",  # IsDirty
         "((0:obj).dirtiness<=[idx 0]",  # IsClean
+        "Forall[0:lid].[NOT-((0:lid).is_open<=[idx 0]0.5)(0)]",  # AllLidsOpen
+        # "NOT-((0:lid).is_open<=[idx 0]0.5)",  # LidOpen (doesn't help)
     ],
     "cover": [
         "NOT-((0:block).grasp<=[idx 0]",  # Holding
