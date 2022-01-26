@@ -452,7 +452,6 @@ class BehaviorEnv(BaseEnv):
             type_name = ig_obj_name.split(":")[0]
             return type_name.rsplit("_", 1)[0]
         # Object is either URDFObject or robot.
-        import ipdb; ipdb.set_trace()
         assert ":" not in ig_obj_name
         return ig_obj_name.rsplit("_", 1)[0]
 
