@@ -77,16 +77,21 @@ def test_main():
         "123", "--load_approach"
     ]
     main()
-    # Force regenerate datasets.
+    # Try remaking data (this is the default).
     sys.argv = [
-        "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--remake_data"
+        "dummy",
+        "--env",
+        "cover",
+        "--approach",
+        "nsrt_learning",
+        "--seed",
+        "123",
     ]
     main()
-    # Try loading datasets (this is the default).
+    # Try loading the data.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123"
+        "123", "--load_data"
     ]
     main()
     # Try predicate exclusion.
