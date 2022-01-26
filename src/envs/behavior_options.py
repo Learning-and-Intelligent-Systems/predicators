@@ -236,6 +236,9 @@ def create_navigate_policy(
 
         plan.pop(0)
 
+        # Ensure that the action is clipped to stay within the expected
+        # range
+        low_level_action = np.clip(low_level_action, -1.0, 1.0)
         return low_level_action, done_bit
 
     return navigateToOptionPolicy
@@ -611,6 +614,9 @@ def create_grasp_policy(
 
         reversed_plan.pop(0)
 
+        # Ensure that the action is clipped to stay within the expected
+        # range
+        low_level_action = np.clip(low_level_action, -1.0, 1.0)
         return low_level_action, done_bit
 
     return graspObjectOptionPolicy
@@ -1159,6 +1165,9 @@ def create_place_policy(
 
         reversed_plan.pop(0)
 
+        # Ensure that the action is clipped to stay within the expected
+        # range
+        low_level_action = np.clip(low_level_action, -1.0, 1.0)
         return low_level_action, done_bit
 
     return placeOntopObjectOptionPolicy
