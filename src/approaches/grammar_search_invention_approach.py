@@ -783,7 +783,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                   reachable_atoms, heuristic, CFG.seed,
                                   CFG.grammar_search_task_planning_timeout)
             try:
-                for idx, (_, plan_atoms_sequence, metrics) in enumerate(generator):
+                for idx, (_, plan_atoms_sequence,
+                          metrics) in enumerate(generator):
                     assert goal.issubset(plan_atoms_sequence[-1])
                     # Estimate the probability that this skeleton is refinable.
                     refinement_prob = self._get_refinement_prob(
