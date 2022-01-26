@@ -565,6 +565,9 @@ def _create_score_function(
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           candidates)
+    if score_function_name == "expected_nodes":
+        return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
+                                           candidates)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -727,6 +730,101 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
+class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
+    """Score a predicate set by learning operators and planning in the training
+    tasks.
+
+    The score corresponds to the expected number of nodes that would need to be
+    created before a low-level plan is found. This calculation requires
+    estimating the probability that each goal-reaching skeleton is refinable.
+    To estimate this, we assume a prior on how optimal the demonstrations are,
+    and say that if a skeleton is found by planning that is a different length
+    than the demos, then the likelihood of the predicates/operators goes down
+    as that difference gets larger.
+
+    We also anticipate incorporating "suspicious" transitions as another way
+    to estimate the probability that a skeleton is refinable, but this is not
+    yet implemented.
+    """
+
+    def _evaluate_with_operators(self,
+                                 candidate_predicates: FrozenSet[Predicate],
+                                 pruned_atom_data: List[GroundAtomTrajectory],
+                                 segments: List[Segment],
+                                 strips_ops: List[STRIPSOperator],
+                                 option_specs: List[OptionSpec]) -> float:
+        del segments  # unused
+        score = 0.0
+        seen_demos = 0
+        for traj, atoms_sequence in pruned_atom_data:
+            if seen_demos >= CFG.grammar_search_max_demos:
+                break
+            if not traj.is_demo:
+                continue
+            seen_demos += 1
+            init_atoms = atoms_sequence[0]
+            goal = traj.goal
+            # Ground everything once per demo.
+            objects = set(traj.states[0])
+            ground_nsrts, reachable_atoms = task_plan_grounding(
+                init_atoms, objects, strips_ops, option_specs)
+            heuristic = utils.create_task_planning_heuristic(
+                CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
+                candidate_predicates | self._initial_predicates, objects)
+            # The expected number of nodes that need to be created before a
+            # refinable skeleton is found.
+            expected_num_nodes = 0.0
+            # Keep track of the probability that a refinable skeleton has still
+            # not been found, updated after each new goal-reaching skeleton is
+            # considered.
+            refinable_skeleton_not_found_prob = 1.0
+            generator = task_plan(init_atoms, goal, ground_nsrts,
+                                  reachable_atoms, heuristic, CFG.seed,
+                                  CFG.grammar_search_task_planning_timeout)
+            try:
+                for (_, plan_atoms_sequence, metrics) in generator:
+                    assert goal.issubset(plan_atoms_sequence[-1])
+                    # Estimate the probability that this skeleton is refinable.
+                    refinement_prob = self._get_refinement_prob(
+                        atoms_sequence, plan_atoms_sequence)
+                    # Get the number of nodes that have been created so far.
+                    num_nodes = metrics["num_nodes_created"]
+                    # This contribution to the expected number of nodes is for
+                    # the event that the current skeleton is refinable, but no
+                    # previous skeleton has been refinable.
+                    p = refinable_skeleton_not_found_prob * refinement_prob
+                    expected_num_nodes += p * num_nodes
+                    # Update the probability that no skeleton yet is refinable.
+                    refinable_skeleton_not_found_prob *= (1 - refinement_prob)
+            except (ApproachTimeout, ApproachFailure):
+                # Note if we failed to find any skeleton, the next lines add
+                # the upper bound with refinable_skeleton_not_found_prob = 1.0,
+                # so no special action is required.
+                pass
+            # After exhausting the skeleton budget or timeout, we use this
+            # probability to estimate a "worst-case" number of nodes that need
+            # to be expanded, making the soft assumption that there are no true
+            # dead-ends, and some skeleton will eventually work.
+            ub = CFG.grammar_search_expected_nodes_upper_bound
+            expected_num_nodes += refinable_skeleton_not_found_prob * ub
+            # The score is simply the total expected nodes across all tasks.
+            score += expected_num_nodes
+        return score
+
+    @staticmethod
+    def _get_refinement_prob(
+            demo_atoms_sequence: Sequence[Set[GroundAtom]],
+            plan_atoms_sequence: Sequence[Collection[GroundAtom]]) -> float:
+        """Estimate the probability that plan_atoms_sequence is refinable using
+        the demonstration demo_atoms_sequence."""
+        # Make a soft assumption that the demonstrations are optimal.
+        demo_len = len(demo_atoms_sequence)
+        plan_len = len(plan_atoms_sequence)
+        p = CFG.grammar_search_expected_nodes_optimal_demo_prob
+        return p * (1 - p)**abs(demo_len - plan_len)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
 class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and comparing some heuristic
     against the demonstrations.
@@ -747,8 +845,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         scores = {name: 0.0 for name in self.heuristic_names}
         seen_demos = 0
         seen_nondemos = 0
-        max_demos = CFG.grammar_search_heuristic_based_max_demos
-        max_nondemos = CFG.grammar_search_heuristic_based_max_nondemos
+        max_demos = CFG.grammar_search_max_demos
+        max_nondemos = CFG.grammar_search_max_nondemos
         demo_atom_sets = {
             frozenset(a)
             for traj, seq in pruned_atom_data if traj.is_demo for a in seq
