@@ -112,15 +112,15 @@ def main() -> None:
                 dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
                 if CFG.load_data:
                     assert os.path.exists(dataset_filepath)
+                    with open(dataset_filepath, "rb") as f:
+                        dataset = pkl.load(f)
+                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
+                else:
                     dataset = create_dataset(env, train_tasks)
                     print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
                     os.makedirs(CFG.data_dir, exist_ok=True)
                     with open(dataset_filepath, "wb") as f:
                         pkl.dump(dataset, f)
-                else:
-                    with open(dataset_filepath, "rb") as f:
-                        dataset = pkl.load(f)
-                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
                 dataset_idx += 1
                 learning_start = time.time()
                 approach.learn_from_offline_dataset(dataset)
