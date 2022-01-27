@@ -827,7 +827,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     @staticmethod
     def _get_refinement_prob(
             demo_atoms_sequence: Sequence[Set[GroundAtom]],
-            plan_atoms_sequence: Sequence[Collection[GroundAtom]],
+            plan_atoms_sequence: Sequence[Set[GroundAtom]],
             demo_multistep_effects: Set[FrozenSet[GroundAtom]]) -> float:
         """Estimate the probability that plan_atoms_sequence is refinable using
         the demonstration demo_atoms_sequence."""
@@ -860,7 +860,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
 
     @staticmethod
     def _compute_demo_multistep_effects(
-            pruned_atom_data: List[GroundAtomTrajectory]
+        pruned_atom_data: List[GroundAtomTrajectory]
     ) -> Set[FrozenSet[GroundAtom]]:
         seen_demos = 0
         demo_multistep_effects = set()
