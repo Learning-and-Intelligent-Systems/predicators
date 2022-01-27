@@ -68,7 +68,6 @@ def test_painting_failure_cases():
         "seed": 123,
         "painting_initial_holding_prob": 1.0,
         "painting_lid_open_prob": 0.0,
-        "painting_train_family": "box_and_shelf",
     })
     env = PaintingEnv()
     env.seed(123)
