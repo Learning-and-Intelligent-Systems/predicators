@@ -1,6 +1,5 @@
 """Test cases for the cover environment."""
 
-import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
@@ -14,15 +13,12 @@ def test_cover():
     utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnv()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
             assert sum(
                 task.init.get(obj, "grasp") != -1 for obj in task.init
                 if obj.type.name == "block") == 0
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -95,15 +91,12 @@ def test_cover():
     utils.update_config({"cover_initial_holding_prob": 1.0})
     env = CoverEnv()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
             assert sum(
                 task.init.get(obj, "grasp") != -1 for obj in task.init
                 if obj.type.name == "block") == 1
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -119,12 +112,9 @@ def test_cover_typed_options():
     utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnvTypedOptions()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -200,12 +190,9 @@ def test_cover_multistep_options():
     })
     env = CoverMultistepOptions()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -511,7 +498,7 @@ def test_cover_multistep_options_fixed_tasks():
     # that the tasks are indeed fixed.
     state = None
     all_goals = set()
-    for task in next(env.train_tasks_generator()):
+    for task in env.get_train_tasks():
         if state is None:
             state = task.init
         assert state.allclose(task.init)
