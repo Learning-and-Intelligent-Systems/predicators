@@ -111,7 +111,7 @@ def task_plan_grounding(
     objects: Set[Object],
     strips_ops: Sequence[STRIPSOperator],
     option_specs: Sequence[OptionSpec],
-    allow_noops: bool = True,
+    allow_noops: bool = False,
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
     filtering out ones that are unreachable or have empty effects.
