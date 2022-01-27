@@ -64,7 +64,7 @@ def _main() -> None:
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     grouped = df.groupby(groups)
     means = grouped.mean()
-    stds = grouped.std()
+    stds = grouped.std(ddof=0)
     sizes = grouped.size()
     # Add standard deviations to the printout.
     for col in means:
