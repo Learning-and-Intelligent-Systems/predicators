@@ -6,8 +6,7 @@ for placing into the box. The box has a lid which may need to be opened;
 this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any, \
-    Iterator
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
@@ -287,25 +286,22 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        # Split num_train_tasks uniformly over the task families
-        num_tasks = CFG.num_train_tasks // len(CFG.painting_train_families)
-        for family_name in CFG.painting_train_families:
-            if family_name == "box_only":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=[1],
-                                      rng=self._train_rng)
-            elif family_name == "shelf_only":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=CFG.painting_num_objs_train,
-                                      rng=self._train_rng,
-                                      use_box=False)
-            elif family_name == "box_and_shelf":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=CFG.painting_num_objs_train,
-                                      rng=self._train_rng)
-            else:
-                raise ValueError(f"Unrecognized task family: {family_name}")
+    def get_train_tasks(self) -> List[Task]:
+        if CFG.painting_train_family == "box_only":
+            return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                                   num_objs_lst=[1],
+                                   rng=self._train_rng)
+        if CFG.painting_train_family == "shelf_only":
+            return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                                   num_objs_lst=CFG.painting_num_objs_train,
+                                   rng=self._train_rng,
+                                   use_box=False)
+        if CFG.painting_train_family == "box_and_shelf":
+            return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                                   num_objs_lst=CFG.painting_num_objs_train,
+                                   rng=self._train_rng)
+        raise ValueError("Unrecognized task family: "
+                         f"{CFG.painting_train_family}")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
