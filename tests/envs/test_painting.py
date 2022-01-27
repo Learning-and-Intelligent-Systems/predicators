@@ -10,39 +10,12 @@ def test_painting():
     """Tests for PaintingEnv class."""
     utils.update_config({
         "env": "painting",
-        "painting_train_family": "not_a_real_family"
     })
     env = PaintingEnv()
     env.seed(123)
-    with pytest.raises(ValueError):  # unrecognized task family
-        env.get_train_tasks()
-    utils.update_config({
-        "env": "painting",
-        "painting_train_family": "box_and_shelf"
-    })
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    utils.update_config({
-        "env": "painting",
-        "painting_train_family": "box_only"
-    })
-    for task in env.get_train_tasks():
-        # box only
-        for obj in task.init:
-            assert len(obj.type.feature_names) == len(task.init[obj])
-        for atom in task.goal:
-            assert atom.predicate.name != "InShelf"
-    utils.update_config({
-        "env": "painting",
-        "painting_train_family": "shelf_only"
-    })
-    for task in env.get_train_tasks():
-        # shelf only
-        for obj in task.init:
-            assert len(obj.type.feature_names) == len(task.init[obj])
-        for atom in task.goal:
-            assert atom.predicate.name != "InBox"
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
