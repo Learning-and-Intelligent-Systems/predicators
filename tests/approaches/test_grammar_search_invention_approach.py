@@ -765,16 +765,24 @@ def test_expected_nodes_score_function():
     # Cover cases where the number of training tasks is less than or greater
     # than the max number of demos.
     max_num_demos = 5
+    utils.update_config({
+        "offline_data_method":
+        "demo+replay",
+        "seed":
+        123,
+        "grammar_search_max_demos":
+        max_num_demos,
+        "task_planning_heuristic":
+        "lmcut",
+        "cover_initial_holding_prob":
+        0.0,
+        "grammar_search_expected_nodes_include_suspicious_score":
+        True,
+    })
     for num_train_tasks in [2, 15]:
         utils.update_config({
-            "env": "cover",
-            "offline_data_method": "demo+replay",
-            "seed": 0,
-            "grammar_search_max_demos": max_num_demos,
-            "task_planning_heuristic": "lmcut",
             "num_train_tasks": num_train_tasks,
             "min_data_for_nsrt": 0,
-            "cover_initial_holding_prob": 0.0,
         })
         env = CoverEnv()
         name_to_pred = {p.name: p for p in env.predicates}
@@ -801,9 +809,12 @@ def test_expected_nodes_score_function():
         })
         all_included_s = score_function.evaluate({Holding, HandEmpty})
         assert all_included_s >= ub * min(num_train_tasks, max_num_demos)
-    # Revert to default to avoid interfering with other tests.
+    # Revert, to avoid interfering with other tests.
     utils.update_config({
-        "min_data_for_nsrt": 3,
-        "grammar_search_max_demos": max_num_demos,
-        "num_train_tasks": 15,
+        "min_data_for_nsrt":
+        3,
+        "num_train_tasks":
+        15,
+        "grammar_search_expected_nodes_include_suspicious_score":
+        False,
     })
