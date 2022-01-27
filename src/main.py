@@ -32,6 +32,7 @@ To run grammar search predicate invention (example):
 """
 
 from collections import defaultdict
+from typing import List, Tuple, Sequence, Callable, Optional
 import os
 import sys
 import subprocess
@@ -42,8 +43,11 @@ from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Metrics
+from predicators.src.structs import Metrics, Task, Dataset, State, Action
 from predicators.src import utils
+from predicators.src.interaction.agent_env_interaction import \
+    InteractionRequest, InteractionResponse
+from predicators.src.interaction.teacher import Teacher, QueryResponse
 
 
 assert os.environ["PYTHONHASHSEED"] == "0", \
@@ -93,42 +97,99 @@ def main() -> None:
                 "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
+    # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space)
-    # If approach is learning-based, get training datasets and do learning,
-    # testing after each learning call. Otherwise, just do testing.
+    # If agent is learning-based, generate offline dataset, allow the agent
+    # to learn from it, and then proceed with the online learning loop. Test
+    # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
-        if CFG.load_approach:
+        train_tasks = env.get_train_tasks()
+        dataset, total_num_transitions = _generate_or_load_offline_dataset(
+            env, train_tasks)
+        learning_start = time.time()
+        if CFG.load_approach:  # we only save/load for initial offline learning
             approach.load()
-            results = _run_testing(env, approach)
-            _save_test_results(results, learning_time=0.0)
         else:
-            # Create dataset from training tasks, and let agent learn.
-            train_tasks = env.get_train_tasks()
-            dataset_filename = (
-                f"{CFG.env}__{CFG.offline_data_method}__{CFG.seed}.data")
-            dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
-            if CFG.load_data:
-                assert os.path.exists(dataset_filepath)
-                with open(dataset_filepath, "rb") as f:
-                    dataset = pkl.load(f)
-                print("\n\nLOADED DATASET")
-            else:
-                dataset = create_dataset(env, train_tasks)
-                print("\n\nCREATED DATASET")
-                os.makedirs(CFG.data_dir, exist_ok=True)
-                with open(dataset_filepath, "wb") as f:
-                    pkl.dump(dataset, f)
-            learning_start = time.time()
             approach.learn_from_offline_dataset(dataset)
-            learning_time = time.time() - learning_start
+        teacher = Teacher()
+        for _ in range(CFG.num_online_learning_cycles):
             results = _run_testing(env, approach)
-            _save_test_results(results, learning_time=learning_time)
+            _save_test_results(results, num_transitions=total_num_transitions,
+                               learning_time=(time.time()-learning_start))
+            requests = approach.get_interaction_requests()
+            if not requests:
+                break
+            responses, new_num_transitions = _generate_interaction_responses(
+                env.simulate, teacher, train_tasks, requests)
+            total_num_transitions += new_num_transitions
+            approach.learn_from_interaction_responses(responses)
     else:
         results = _run_testing(env, approach)
-        _save_test_results(results, learning_time=0.0)
+        _save_test_results(results, num_transitions=0, learning_time=0.0)
     script_time = time.time() - script_start
     print(f"\n\nMain script terminated in {script_time:.5f} seconds")
+
+
+def _generate_or_load_offline_dataset(env: BaseEnv, train_tasks: List[Task]
+                                      ) -> Tuple[Dataset, int]:
+    """Create offline dataset from training tasks. Returns both the dataset
+    and its size (the number of transitions in all the data).
+    """
+    dataset_filename = (
+        f"{CFG.env}__{CFG.offline_data_method}__{CFG.seed}.data")
+    dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
+    if CFG.load_data:
+        assert os.path.exists(dataset_filepath)
+        with open(dataset_filepath, "rb") as f:
+            dataset = pkl.load(f)
+        print("\n\nLOADED DATASET")
+    else:
+        dataset = create_dataset(env, train_tasks)
+        print("\n\nCREATED DATASET")
+        os.makedirs(CFG.data_dir, exist_ok=True)
+        with open(dataset_filepath, "wb") as f:
+            pkl.dump(dataset, f)
+    num_transitions = 0
+    for traj in dataset:
+        num_transitions += len(traj.actions)
+    return dataset, num_transitions
+
+
+def _generate_interaction_responses(
+        simulator: Callable[[State, Action], State], teacher: Teacher,
+        train_tasks: List[Task], requests: Sequence[InteractionRequest]
+) -> Tuple[List[InteractionResponse], int]:
+    """Given a sequence of InteractionRequest objects, return a list of
+    InteractionResponse objects and the total number of transitions.
+    """
+    interaction_responses = []
+    num_transitions = 0
+    for request in requests:
+        # First, roll out the acting policy.
+        task = train_tasks[request.train_task_idx]
+        traj = utils.run_policy_until(
+            request.act_policy, simulator, task.init,
+            request.termination_function,
+            max_num_steps=CFG.max_num_steps_interaction_request)
+        # Now, go through the trajectory and handle queries
+        # while assembling response objects.
+        interaction_response: InteractionResponse = []
+        for i in range(len(traj.states)-1):
+            num_transitions += 1
+            state = traj.states[i]
+            action = traj.actions[i]
+            query = request.query_policy(state)
+            if query is None:
+                query_response: Optional[QueryResponse] = None
+            else:
+                # TODO: error check the query type
+                query_response = teacher.ask(state, query)
+            next_state = traj.states[i+1]
+            interaction_response.append(
+                (state, action, query_response, next_state))
+        interaction_responses.append(interaction_response)
+    return interaction_responses, num_transitions
 
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
@@ -197,14 +258,17 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     return metrics
 
 
-def _save_test_results(results: Metrics, learning_time: float) -> None:
+def _save_test_results(results: Metrics, num_transitions: int,
+                       learning_time: float) -> None:
     num_solved = results["num_solved"]
     num_total = results["num_total"]
     avg_suc_time = results["avg_suc_time"]
     print(f"Tasks solved: {num_solved} / {num_total}")
     print(f"Average time for successes: {avg_suc_time:.5f} seconds")
-    outfile = f"{CFG.results_dir}/{utils.get_config_path_str()}.pkl"
+    outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}_"
+               f"{num_transitions}.pkl")
     outdata = results.copy()
+    outdata["num_transitions"] = num_transitions
     outdata["learning_time"] = learning_time
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
