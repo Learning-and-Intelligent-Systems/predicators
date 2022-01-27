@@ -1,16 +1,17 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, Callable, List, Collection
+from typing import Set, List, Collection
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action, Dataset, GroundAtom, GroundAtomTrajectory, \
+    Type, Task, Dataset, GroundAtom, GroundAtomTrajectory, \
     LowLevelTrajectory
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
+from predicators.src.option_model import _OracleOptionModel
 from predicators.src.utils import get_object_combinations, strip_predicate
 from predicators.src.settings import CFG
 
@@ -18,8 +19,7 @@ from predicators.src.settings import CFG
 class InteractiveLearningApproach(NSRTLearningApproach):
     """An approach that learns predicates from a teacher."""
 
-    def __init__(self, simulator: Callable[[State, Action], State],
-                 initial_predicates: Set[Predicate],
+    def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
         # Predicates should not be ablated
@@ -41,8 +41,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         }
         del initial_predicates
         del predicates_to_learn
-        super().__init__(simulator, self._predicates_to_learn, initial_options,
-                         types, action_space)
+        super().__init__(self._predicates_to_learn, initial_options, types,
+                         action_space)
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
@@ -88,11 +88,13 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             else:  # No policy found
                 raise ApproachFailure("Failed to sample a task that approach "
                                       "can solve.")  # pragma: no cover
-            # Roll out policy
+            # Roll out policy via a temporary hack
+            assert isinstance(self._option_model, _OracleOptionModel)
+            simulator = self._option_model._simulator  # pylint:disable=protected-access
             traj, _, _ = utils.run_policy_on_task(
                 policy,
                 task,
-                self._simulator,
+                simulator,
                 max_num_steps=CFG.interactive_max_num_steps)
             # Decide whether to ask about each possible atom during exploration
             for s in traj.states:

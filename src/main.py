@@ -93,8 +93,8 @@ def main() -> None:
                 "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    approach = create_approach(CFG.approach, env.simulate, preds, env.options,
-                               env.types, env.action_space)
+    approach = create_approach(CFG.approach, preds, env.options, env.types,
+                               env.action_space)
     # If approach is learning-based, get training datasets and do learning,
     # testing after each learning call. Otherwise, just do testing.
     if approach.is_learning_based:

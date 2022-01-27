@@ -207,9 +207,8 @@ def _run_proxy_analysis_for_predicates(
     # Learn NSRTs and plan.
     if run_planning:
         utils.flush_cache()
-        approach = create_approach("nsrt_learning", env.simulate,
-                                   all_predicates, env.options, env.types,
-                                   env.action_space)
+        approach = create_approach("nsrt_learning", all_predicates,
+                                   env.options, env.types, env.action_space)
         approach.learn_from_offline_dataset(dataset)
         approach.seed(CFG.seed)
         planning_result = _run_testing(env, approach)

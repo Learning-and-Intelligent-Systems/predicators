@@ -20,7 +20,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
+    Type, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
     OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption
 from predicators.src.settings import CFG
 
@@ -1254,11 +1254,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     """An approach that invents predicates by searching over candidate sets,
     with the candidates proposed from a grammar."""
 
-    def __init__(self, simulator: Callable[[State, Action], State],
-                 initial_predicates: Set[Predicate],
+    def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options, types,
+        super().__init__(initial_predicates, initial_options, types,
                          action_space)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0

@@ -50,8 +50,8 @@ def _test_approach(env_name,
             "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    approach = create_approach(approach_name, env.simulate, preds, env.options,
-                               env.types, env.action_space)
+    approach = create_approach(approach_name, preds, env.options, env.types,
+                               env.action_space)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
@@ -64,8 +64,8 @@ def _test_approach(env_name,
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
-    approach2 = create_approach(approach_name, env.simulate, preds,
-                                env.options, env.types, env.action_space)
+    approach2 = create_approach(approach_name, preds, env.options, env.types,
+                                env.action_space)
     approach2.load()
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
