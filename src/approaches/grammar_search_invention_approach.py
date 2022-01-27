@@ -826,9 +826,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
 
     @staticmethod
     def _get_refinement_prob(
-            demo_atoms_sequence: Sequence[Set[GroundAtom]],
-            plan_atoms_sequence: Sequence[Set[GroundAtom]],
-            demo_multistep_effects: Set[FrozenSet[GroundAtom]]) -> float:
+        demo_atoms_sequence: Sequence[Set[GroundAtom]],
+        plan_atoms_sequence: Sequence[Set[GroundAtom]],
+        demo_multistep_effects: Set[Tuple[FrozenSet[GroundAtom],
+                                          FrozenSet[GroundAtom]]]
+    ) -> float:
         """Estimate the probability that plan_atoms_sequence is refinable using
         the demonstration demo_atoms_sequence."""
         # Make a soft assumption that the demonstrations are optimal,
@@ -848,13 +850,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     plan_del_eff = frozenset(atoms_i - atoms_j)
                     if not any(
                             utils.unify_preconds_effects_options(
-                                frozenset(), frozenset(),
-                                plan_add_eff, demo_add_eff,
-                                plan_del_eff, demo_del_eff,
+                                frozenset(), frozenset(), plan_add_eff,
+                                demo_add_eff, plan_del_eff, demo_del_eff,
                                 DummyOption.parent, DummyOption.parent,
-                                tuple(), tuple())[0]
-                            for demo_add_eff, demo_del_eff
-                            in demo_multistep_effects):
+                                tuple(), tuple())[0] for demo_add_eff,
+                            demo_del_eff in demo_multistep_effects):
                         num_suspicious_eff += 1
             p = CFG.grammar_search_expected_nodes_optimal_demo_prob
             # Add the number of suspicious effects to the exponent.
