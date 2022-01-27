@@ -1,6 +1,5 @@
 """Test cases for the repeated NextTo environment."""
 
-import pytest
 import numpy as np
 from predicators.src.envs import RepeatedNextToEnv
 from predicators.src.structs import Action
@@ -9,15 +8,13 @@ from predicators.src import utils
 
 def test_repeated_nextto():
     """Tests for RepeatedNextTo class."""
+    utils.update_config({"env": "repeated_nextto", "seed": 123})
     env = RepeatedNextToEnv()
     env.seed(123)
     utils.update_config({"env": "repeated_nextto"})
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -65,7 +62,7 @@ def test_repeated_nextto_simulate():
     dot0 = dot_type("dot0")
     dot1 = dot_type("dot1")
     robby = robot_type("robby")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     for item in state:

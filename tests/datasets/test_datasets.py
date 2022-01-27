@@ -24,7 +24,7 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 7
     assert len(dataset[0].states) == 3
@@ -45,7 +45,7 @@ def test_demo_dataset():
         "num_train_tasks": 7,
     })
     env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 7
     assert len(dataset[0].states) == 3
@@ -76,7 +76,7 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 3
     assert len(dataset[-1].states) == 2
@@ -100,7 +100,7 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 3
     assert len(dataset[-1].states) == 2
@@ -122,7 +122,7 @@ def test_demo_replay_dataset():
         "num_train_tasks": 5,
     })
     env = ClutteredTableEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset[-1].states) == 2
     assert len(dataset[-1].actions) == 1
@@ -145,7 +145,7 @@ def test_demo_nonoptimal_replay_dataset():
         "num_train_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset) == 5 + 50
     assert len(dataset[-1].states) == 2
