@@ -773,7 +773,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # Ground everything once per demo.
             objects = set(traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, strips_ops, option_specs)
+                init_atoms,
+                objects,
+                strips_ops,
+                option_specs,
+                allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
             heuristic = utils.create_task_planning_heuristic(
                 CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
                 candidate_predicates | self._initial_predicates, objects)
