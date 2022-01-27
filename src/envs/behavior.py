@@ -51,20 +51,13 @@ class BehaviorEnv(BaseEnv):
     def __init__(self) -> None:
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
-        config_file = modify_config_file(
+        self._config_file = modify_config_file(
             os.path.join(igibson.root_path, CFG.behavior_config_file),
-            CFG.behavior_task_name, CFG.behavior_scene_name)
+            CFG.behavior_task_name, CFG.behavior_scene_name, CFG.behavior_randomize_init_state)
 
         super().__init__()  # To ensure self._seed is defined.
-        self._rng = np.random.default_rng(self._seed)
-        self.igibson_behavior_env = behavior_env.BehaviorEnv(
-            config_file=config_file,
-            mode=CFG.behavior_mode,
-            action_timestep=CFG.behavior_action_timestep,
-            physics_timestep=CFG.behavior_physics_timestep,
-            action_filter="mobile_manipulation",
-            rng=self._rng,
-        )
+        self._rng = np.random.default_rng(self._seed)        
+        self._set_igibson_behavior_env()
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
 
@@ -165,7 +158,10 @@ class BehaviorEnv(BaseEnv):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
             np.random.seed(rng.integers(0, (2**32) - 1))
-            self.igibson_behavior_env.reset()
+            if CFG.behavior_randomize_init_state:
+                self._set_igibson_behavior_env()
+            else:
+                self.igibson_behavior_env.reset()
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
@@ -300,6 +296,32 @@ class BehaviorEnv(BaseEnv):
 
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
         return list(self.igibson_behavior_env.task.object_scope.values())
+
+    def _set_igibson_behavior_env(self) -> None:
+        self.igibson_behavior_env = behavior_env.BehaviorEnv(
+                                        config_file=self._config_file,
+                                        mode=CFG.behavior_mode,
+                                        action_timestep=CFG.behavior_action_timestep,
+                                        physics_timestep=CFG.behavior_physics_timestep,
+                                        action_filter="mobile_manipulation",
+                                        rng=self._rng,
+                                        )
+        if CFG.behavior_randomize_init_state:
+            # NOTE: in this case, since we're attempting to randomize the initial state,
+            # iGibson might fail. If this happens, then 
+            # self._ig_object_name(self._get_task_relevant_objects()[0]) will be None
+            # We keep trying to get a new environment until we succeed.
+            while self._ig_object_name(self._get_task_relevant_objects()[0]) is None:
+                self.igibson_behavior_env = behavior_env.BehaviorEnv(
+                                        config_file=self._config_file,
+                                        mode=CFG.behavior_mode,
+                                        action_timestep=CFG.behavior_action_timestep,
+                                        physics_timestep=CFG.behavior_physics_timestep,
+                                        action_filter="mobile_manipulation",
+                                        rng=self._rng,
+                                        )
+
+
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
