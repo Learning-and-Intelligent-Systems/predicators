@@ -23,9 +23,9 @@ def create_demo_replay_data(env: BaseEnv,
     """
     if nonoptimal_only:
         # Oracle is used to check if replays are optimal.
-        oracle_approach = create_approach("oracle", env.simulate,
-                                          env.predicates, env.options,
-                                          env.types, env.action_space)
+        oracle_approach = create_approach("oracle", env.predicates,
+                                          env.options, env.types,
+                                          env.action_space)
     demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining

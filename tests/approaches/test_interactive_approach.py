@@ -32,7 +32,7 @@ def test_create_teacher_dataset():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     teacher_dataset = create_teacher_dataset(env.predicates, dataset)
     assert len(teacher_dataset) == 15
@@ -84,10 +84,9 @@ def test_interactive_learning_approach():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
-                                                 env.options, env.types,
-                                                 env.action_space)
-    train_tasks = next(env.train_tasks_generator())
+    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space)
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
@@ -124,10 +123,9 @@ def test_interactive_learning_approach_no_ground_atoms():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
-                                                 env.options, env.types,
-                                                 env.action_space)
-    train_tasks = next(env.train_tasks_generator())
+    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space)
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     # MLP training fails since there are 0 positive examples

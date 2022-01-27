@@ -19,14 +19,12 @@ from predicators.src import utils
 class TAMPApproach(BaseApproach):
     """TAMP approach."""
 
-    def __init__(self, simulator: Callable[[State, Action], State],
-                 initial_predicates: Set[Predicate],
+    def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options, types,
+        super().__init__(initial_predicates, initial_options, types,
                          action_space)
-        self._option_model = create_option_model(CFG.option_model_name,
-                                                 self._simulator)
+        self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:

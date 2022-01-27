@@ -7,7 +7,7 @@ are much less than the table dimensions). The simplicity of this
 environment makes it a good testbed for predicate invention.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Iterator
+from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
 from gym.spaces import Box
 from matplotlib import pyplot as plt
@@ -167,10 +167,10 @@ class BlocksEnv(BaseEnv):
         next_state.set(self._robot, "fingers", fingers)
         return next_state
 
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        yield self._get_tasks(num_tasks=CFG.num_train_tasks,
-                              possible_num_blocks=self.num_blocks_train,
-                              rng=self._train_rng)
+    def get_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                               possible_num_blocks=self.num_blocks_train,
+                               rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
