@@ -3,6 +3,7 @@ analysis/run_supercloud_experiments.sh."""
 
 import glob
 import dill as pkl
+import numpy as np
 import pandas as pd
 from predicators.src.settings import CFG
 
@@ -60,6 +61,7 @@ def _main() -> None:
     df.columns = column_names
     print("RAW DATA:")
     print(df)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     grouped = df.groupby(groups)
     means = grouped.mean()
     stds = grouped.std()
