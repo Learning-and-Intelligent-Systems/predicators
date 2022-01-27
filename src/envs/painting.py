@@ -435,9 +435,7 @@ class PaintingEnv(BaseEnv):
         plt.close()
         return [img]
 
-    def _get_tasks(self,
-                   num_tasks: int,
-                   num_objs_lst: List[int],
+    def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
                    rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
