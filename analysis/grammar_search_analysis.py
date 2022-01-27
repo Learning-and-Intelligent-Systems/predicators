@@ -156,7 +156,7 @@ def _run_proxy_analysis_for_env(env_name: str,
         "excluded_predicates": "",
     })
     env = create_env(env_name)
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     start_time = time.time()
 

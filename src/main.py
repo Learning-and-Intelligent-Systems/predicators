@@ -103,30 +103,27 @@ def main() -> None:
             results = _run_testing(env, approach)
             _save_test_results(results, learning_time=0.0)
         else:
-            # Iterate over the train_tasks lists coming from the generator.
-            dataset_idx = 0
-            for train_tasks in env.train_tasks_generator():
-                dataset_filename = (
-                    f"{CFG.env}__{dataset_idx}__"
-                    f"{CFG.offline_data_method}__{CFG.seed}.data")
-                dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
-                if CFG.load_data:
-                    assert os.path.exists(dataset_filepath)
-                    with open(dataset_filepath, "rb") as f:
-                        dataset = pkl.load(f)
-                    print(f"\n\nLOADED DATASET INDEX: {dataset_idx}")
-                else:
-                    dataset = create_dataset(env, train_tasks)
-                    print(f"\n\nCREATED DATASET INDEX: {dataset_idx}")
-                    os.makedirs(CFG.data_dir, exist_ok=True)
-                    with open(dataset_filepath, "wb") as f:
-                        pkl.dump(dataset, f)
-                dataset_idx += 1
-                learning_start = time.time()
-                approach.learn_from_offline_dataset(dataset)
-                learning_time = time.time() - learning_start
-                results = _run_testing(env, approach)
-                _save_test_results(results, learning_time=learning_time)
+            # Create dataset from training tasks, and let agent learn.
+            train_tasks = env.get_train_tasks()
+            dataset_filename = (
+                f"{CFG.env}__{CFG.offline_data_method}__{CFG.seed}.data")
+            dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
+            if CFG.load_data:
+                assert os.path.exists(dataset_filepath)
+                with open(dataset_filepath, "rb") as f:
+                    dataset = pkl.load(f)
+                print("\n\nLOADED DATASET")
+            else:
+                dataset = create_dataset(env, train_tasks)
+                print("\n\nCREATED DATASET")
+                os.makedirs(CFG.data_dir, exist_ok=True)
+                with open(dataset_filepath, "wb") as f:
+                    pkl.dump(dataset, f)
+            learning_start = time.time()
+            approach.learn_from_offline_dataset(dataset)
+            learning_time = time.time() - learning_start
+            results = _run_testing(env, approach)
+            _save_test_results(results, learning_time=learning_time)
     else:
         results = _run_testing(env, approach)
         _save_test_results(results, learning_time=0.0)
