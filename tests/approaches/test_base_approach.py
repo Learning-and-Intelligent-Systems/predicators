@@ -62,8 +62,7 @@ def test_base_approach():
                             _initiable=None,
                             _terminal=None)
     }
-    approach = _DummyApproach(_simulator, predicates, options, types,
-                              action_space)
+    approach = _DummyApproach(predicates, options, types, action_space)
     assert not approach.is_learning_based
     assert approach.learn_from_offline_dataset([]) is None
     goal = {pred1([cup, plate1])}
@@ -89,9 +88,9 @@ def test_create_approach():
             "seed": 123,
             "excluded_predicates": ""
         })
-        approach = create_approach(name, env.simulate, env.predicates,
-                                   env.options, env.types, env.action_space)
+        approach = create_approach(name, env.predicates, env.options,
+                                   env.types, env.action_space)
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
-        create_approach("Not a real approach", env.simulate, env.predicates,
-                        env.options, env.types, env.action_space)
+        create_approach("Not a real approach", env.predicates, env.options,
+                        env.types, env.action_space)
