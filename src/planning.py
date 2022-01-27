@@ -8,7 +8,7 @@ from collections import defaultdict
 import heapq as hq
 from itertools import islice
 import time
-from typing import Collection, List, Set, Optional, Tuple, Iterator, Sequence
+from typing import List, Set, Optional, Tuple, Iterator, Sequence
 from dataclasses import dataclass
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -27,9 +27,9 @@ _NOT_CAUSES_FAILURE = "NotCausesFailure"
 @dataclass(repr=False, eq=False)
 class _Node:
     """A node for the search over skeletons."""
-    atoms: Collection[GroundAtom]
+    atoms: Set[GroundAtom]
     skeleton: List[_GroundNSRT]
-    atoms_sequence: List[Collection[GroundAtom]]  # expected state sequence
+    atoms_sequence: List[Set[GroundAtom]]  # expected state sequence
     parent: Optional[_Node]
 
 
@@ -144,7 +144,7 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
-) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]], Metrics]]:
+) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
     yields a tuple of (skeleton, atoms sequence, metrics dictionary).
@@ -178,7 +178,7 @@ def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
     heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
     metrics: Metrics
-) -> Iterator[Tuple[List[_GroundNSRT], List[Collection[GroundAtom]]]]:
+) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
     """
@@ -231,8 +231,7 @@ def _skeleton_generator(
 
 def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                           skeleton: List[_GroundNSRT],
-                          atoms_sequence: List[Collection[GroundAtom]],
-                          seed: int,
+                          atoms_sequence: List[Set[GroundAtom]], seed: int,
                           timeout: float) -> Optional[List[_Option]]:
     """Backtracking search over continuous values."""
     start_time = time.time()
