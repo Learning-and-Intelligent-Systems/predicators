@@ -32,8 +32,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         }
         predicates_to_learn = initial_predicates - self._known_predicates
         self._teacher = _Teacher(initial_predicates, predicates_to_learn)
-        # All seen data
-        self._dataset_with_atoms: List[GroundAtomTrajectory] = []
         # No cheating!
         self._predicates_to_learn = {
             strip_predicate(p)
@@ -47,19 +45,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn
 
-    def _load_dataset(self, dataset: Dataset) -> None:
-        """Stores dataset and corresponding ground atom dataset."""
-        self._dataset.extend(dataset)
-        self._dataset_with_atoms.extend(self._teacher.generate_data(dataset))
-
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        self._load_dataset(dataset)
-        del dataset
-        demo_idxs = [
-            idx for idx, traj in enumerate(self._dataset) if traj.is_demo
-        ]
+        dataset_with_atoms = self._teacher.generate_data(dataset)
+        demo_idxs = [idx for idx, traj in enumerate(dataset) if traj.is_demo]
         # Learn predicates and NSRTs
-        self._relearn_predicates_and_nsrts()
+        self._relearn_predicates_and_nsrts(dataset, dataset_with_atoms)
         # Track score of best atom seen so far
         best_score = 0.0
         # Active learning
@@ -67,13 +57,13 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
             index = self._rng.choice(demo_idxs)
-            state = self._dataset[index].states[0]
+            state = dataset[index].states[0]
             # Detect and filter out static predicates
             static_preds = utils.get_static_preds(
                 self._nsrts, self._get_current_predicates())
             preds = self._get_current_predicates() - static_preds
             # Find policy for exploration
-            task_list = glib_sample(state, preds, self._dataset_with_atoms)
+            task_list = glib_sample(state, preds, dataset_with_atoms)
             assert task_list
             task = task_list[0]
             for task in task_list:
@@ -102,19 +92,22 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     s, self._predicates_to_learn)
                 for atom in ground_atoms:
                     # Note: future score functions will use the state s
-                    score = score_atom(self._dataset_with_atoms, atom)
+                    score = score_atom(dataset_with_atoms, atom)
                     # Ask about this atom if it is the best seen so far
                     if score > best_score:
                         if self._ask_teacher(s, atom):
                             # Add this atom if it's a positive example
-                            self._dataset_with_atoms.append(
-                                (LowLevelTrajectory([s], []), [{atom}]))
+                            traj = LowLevelTrajectory([s], [])
+                            dataset.append(traj)
+                            dataset_with_atoms.append((traj, [{atom}]))
                             # Still need a way to use negative examples
                         best_score = score
             if i % CFG.interactive_relearn_every == 0:
-                self._relearn_predicates_and_nsrts()
+                self._relearn_predicates_and_nsrts(dataset, dataset_with_atoms)
 
-    def _relearn_predicates_and_nsrts(self) -> None:
+    def _relearn_predicates_and_nsrts(
+            self, dataset: Dataset,
+            dataset_with_atoms: List[GroundAtomTrajectory]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
         print("\nStarting semi-supervised learning...")
         # Learn predicates
@@ -123,7 +116,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             positive_examples = []
             negative_examples = []
             # Positive examples
-            for (traj, ground_atom_sets) in self._dataset_with_atoms:
+            for (traj, ground_atom_sets) in dataset_with_atoms:
                 assert len(traj.states) == len(ground_atom_sets)
                 for (state, ground_atom_set) in zip(traj.states,
                                                     ground_atom_sets):
@@ -136,7 +129,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     ]
                     positive_examples.extend(positives)
             # Negative examples - assume unlabeled is negative for now
-            for (traj, _) in self._dataset_with_atoms:
+            for (traj, _) in dataset_with_atoms:
                 for state in traj.states:
                     possible = [
                         state.vec(choice)
@@ -170,7 +163,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn NSRTs via superclass
-        self._learn_nsrts()
+        self._learn_nsrts(dataset)
 
     def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state."""
