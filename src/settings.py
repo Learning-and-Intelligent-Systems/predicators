@@ -149,10 +149,11 @@ class GlobalSettings:
     grammar_search_gbfs_num_evals = 1000
     grammar_search_off_demo_count_penalty = 1.0
     grammar_search_on_demo_count_penalty = 10.0
-    grammar_search_suspicious_penalty = 10.0
+    grammar_search_suspicious_state_penalty = 10.0
     grammar_search_expected_nodes_upper_bound = 1e5
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
+    grammar_search_expected_nodes_include_suspicious_score = False
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
