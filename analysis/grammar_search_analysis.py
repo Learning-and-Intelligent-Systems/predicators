@@ -24,14 +24,34 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
     utils.update_config({"seed": 0})
     if "cover" in env_names:
         env_name = "cover"
-        HandEmpty, Holding = _get_predicates_by_names(env_name,
-                                                      ["HandEmpty", "Holding"])
+        HandEmpty, Holding, Covers = _get_predicates_by_names(
+            env_name, ["HandEmpty", "Holding", "Covers"])
+        targ_type = Covers.types[1]
         NotHandEmpty = HandEmpty.get_negation()
+
+        def Clear_classifier(state, objects):
+            target, = objects
+            for block in state:
+                if block.type.name != "block":
+                    continue
+                block_pose = state.get(block, "pose")
+                block_width = state.get(block, "width")
+                target_pose = state.get(target, "pose")
+                target_width = state.get(target, "width")
+                if (block_pose-block_width/2 <=
+                    target_pose-target_width/2) and \
+                    (block_pose+block_width/2 >=
+                     target_pose+target_width/2):
+                    return False
+            return True
+
+        Clear = Predicate("Clear", [targ_type], Clear_classifier)
         covers_pred_sets: List[Set[Predicate]] = [
             set(),
             {HandEmpty},
             {Holding},
             {HandEmpty, Holding},
+            {HandEmpty, Holding, Clear},
             {NotHandEmpty},
             {NotHandEmpty, HandEmpty},
         ]
@@ -54,7 +74,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                                        forall_pose_x_classifier)
         not_forall_pose_x_pred = forall_pose_x_pred.get_negation()
         assert str(not_forall_pose_x_pred) == \
-            "NOT-Forall[0:block].[((0:block).pose_x<=1.33)(0)]"
+            "NOT-Forall[0:block].[((0:block).pose_x<=[idx 0]1.33)(0)]"
 
         # NOT-((0:block).pose_x<=1.35)
         pose_x35_classifier = _SingleAttributeCompareClassifier(
@@ -62,7 +82,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         pose_x35_pred = Predicate(str(pose_x35_classifier), [block_type],
                                   pose_x35_classifier)
         not_pose_x35_pred = pose_x35_pred.get_negation()
-        assert str(not_pose_x35_pred) == "NOT-((0:block).pose_x<=1.35)"
+        assert str(not_pose_x35_pred) == "NOT-((0:block).pose_x<=[idx 0]1.35)"
 
         blocks_pred_sets: List[Set[Predicate]] = [
             set(),
@@ -97,7 +117,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             0, obj_type, "color", 0.125, 0, le, "<=")
         color_pred = Predicate(str(color_classifier), [obj_type],
                                color_classifier)
-        assert str(color_pred) == "((0:obj).color<=0.125)"
+        assert str(color_pred) == "((0:obj).color<=[idx 0]0.125)"
 
         NotGripperOpen = GripperOpen.get_negation()
 
@@ -232,17 +252,17 @@ def _main() -> None:
         "painting",
     ]
     score_function_names = [
-        "prediction_error",
-        "hadd_energy_lookaheaddepth0",
-        "hadd_energy_lookaheaddepth1",
-        "hadd_energy_lookaheaddepth2",
-        "exact_energy",
-        "lmcut_count_lookaheaddepth0",
-        "hadd_count_lookaheaddepth0",
-        "exact_count",
+        # "prediction_error",
+        # "hadd_energy_lookaheaddepth0",
+        # "hadd_energy_lookaheaddepth1",
+        # "hadd_energy_lookaheaddepth2",
+        # "exact_energy",
+        # "lmcut_count_lookaheaddepth0",
+        # "hadd_count_lookaheaddepth0",
+        # "exact_count",
         "expected_nodes",
     ]
-    run_planning = True
+    run_planning = False
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
