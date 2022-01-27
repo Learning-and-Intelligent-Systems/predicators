@@ -2,7 +2,6 @@
 
 import pytest
 from gym.spaces import Box
-from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Action, Type, ParameterizedOption
 from predicators.src.option_model import create_option_model
 from predicators.src import utils
