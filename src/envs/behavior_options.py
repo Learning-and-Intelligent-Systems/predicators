@@ -25,7 +25,7 @@ try:
         get_aabb_extent,
     )
     from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
-    from igibson.robots.behavior_robo import BRBody  # pylint: disable=unused-import
+    from igibson.robots.behavior_robot import BRBody  # pylint: disable=unused-import
 
 except (ImportError, ModuleNotFoundError) as e:
     print(e)
