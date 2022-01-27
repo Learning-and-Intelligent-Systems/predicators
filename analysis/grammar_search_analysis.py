@@ -5,7 +5,7 @@ from collections import defaultdict
 from operator import le
 import glob
 import os
-from typing import Dict, DefaultDict, Set, List, Tuple
+from typing import Dict, DefaultDict, Set, List, Tuple, Sequence
 import pandas as pd
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv
@@ -15,7 +15,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
-from predicators.src.structs import Predicate, Dataset
+from predicators.src.structs import Predicate, Dataset, State, Object
 from predicators.src.settings import CFG
 
 
@@ -29,7 +29,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
         targ_type = Covers.types[1]
         NotHandEmpty = HandEmpty.get_negation()
 
-        def Clear_classifier(state, objects):
+        def _Clear_holds(state: State, objects: Sequence[Object]) -> bool:
             target, = objects
             for block in state:
                 if block.type.name != "block":
@@ -45,7 +45,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                     return False
             return True
 
-        Clear = Predicate("Clear", [targ_type], Clear_classifier)
+        Clear = Predicate("Clear", [targ_type], _Clear_holds)
         covers_pred_sets: List[Set[Predicate]] = [
             set(),
             {HandEmpty},
