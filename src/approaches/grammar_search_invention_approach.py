@@ -1266,11 +1266,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        self._dataset.extend(dataset)
-        del dataset
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(self._dataset, self._initial_predicates)
+        grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates:")
@@ -1279,7 +1277,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(
-            self._dataset,
+            dataset,
             set(candidates) | self._initial_predicates)
         print("Done.")
         # Create the score function that will be used to guide search.
@@ -1292,7 +1290,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             candidates, score_function)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts()
+        self._learn_nsrts(dataset)
 
 
 def _select_predicates_to_keep(
