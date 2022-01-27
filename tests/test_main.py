@@ -121,8 +121,8 @@ def test_tamp_approach_failure():
         "make_videos": False,
     })
     env = CoverEnv()
-    approach = _DummyApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = _DummyApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     task = env.get_train_tasks()[0]
     approach.solve(task, timeout=500)
@@ -140,8 +140,8 @@ def test_env_failure():
         "cover_initial_holding_prob": 0.0,
     })
     env = _DummyCoverEnv()
-    approach = create_approach("random_actions", env.simulate, env.predicates,
-                               env.options, env.types, env.action_space)
+    approach = create_approach("random_actions", env.predicates, env.options,
+                               env.types, env.action_space)
     assert not approach.is_learning_based
     task = env.get_train_tasks()[0]
     approach.solve(task, timeout=500)

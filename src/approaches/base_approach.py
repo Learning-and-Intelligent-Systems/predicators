@@ -13,13 +13,11 @@ from predicators.src.settings import CFG
 class BaseApproach(abc.ABC):
     """Base approach."""
 
-    def __init__(self, simulator: Callable[[State, Action], State],
-                 initial_predicates: Set[Predicate],
+    def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box) -> None:
         """All approaches are initialized with only the necessary information
         about the environment."""
-        self._simulator = simulator
         self._initial_predicates = initial_predicates
         self._initial_options = initial_options
         self._types = types

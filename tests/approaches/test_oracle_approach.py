@@ -107,8 +107,8 @@ def test_oracle_approach_cover():
     utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = CoverEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -132,8 +132,8 @@ def test_oracle_approach_cover_typed_options():
     utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = CoverEnvTypedOptions()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -157,8 +157,8 @@ def test_oracle_approach_cover_hierarchical_types():
     utils.update_config({"num_train_tasks": 5, "num_test_tasks": 5})
     env = CoverEnvHierarchicalTypes()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -187,8 +187,8 @@ def test_oracle_approach_cover_multistep_options():
     })
     env = CoverMultistepOptions()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -214,8 +214,8 @@ def test_oracle_approach_cover_multistep_options():
     })
     env = CoverMultistepOptions()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -235,8 +235,8 @@ def test_oracle_approach_cover_multistep_options():
     })
     env = CoverMultistepOptions()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -264,8 +264,8 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
     })
     env = CoverMultistepOptionsFixedTasks()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
     approach.seed(123)
@@ -368,8 +368,8 @@ def test_oracle_approach_cluttered_table(place_version=False):
         })
         env = ClutteredTablePlaceEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     train_task = env.get_train_tasks()[0]
@@ -399,8 +399,8 @@ def test_oracle_approach_blocks():
     })
     env = BlocksEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     # Test a couple of train tasks so that we get at least one which
@@ -422,8 +422,8 @@ def test_oracle_approach_painting():
     })
     env = PaintingEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     for train_task in env.get_train_tasks()[:2]:
@@ -443,8 +443,8 @@ def test_oracle_approach_playroom():
     })
     env = PlayroomEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     for train_task in env.get_train_tasks()[:2]:
@@ -510,8 +510,8 @@ def test_oracle_approach_repeated_nextto():
     })
     env = RepeatedNextToEnv()
     env.seed(123)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     for train_task in env.get_train_tasks()[:3]:

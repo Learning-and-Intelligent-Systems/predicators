@@ -20,7 +20,7 @@ def test_sesame_plan():
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_train_tasks()[0]
-    option_model = create_option_model(CFG.option_model_name, env.simulate)
+    option_model = create_option_model(CFG.option_model_name)
     plan, metrics = sesame_plan(task,
                                 option_model,
                                 nsrts,
@@ -93,9 +93,9 @@ def test_sesame_plan_failures():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
-    option_model = create_option_model(CFG.option_model_name, env.simulate)
-    approach = OracleApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    option_model = create_option_model(CFG.option_model_name)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space)
     approach.seed(123)
     task = env.get_train_tasks()[0]
     trivial_task = Task(task.init, set())
@@ -154,7 +154,7 @@ def test_sesame_plan_uninitiable_option():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
-    option_model = create_option_model(CFG.option_model_name, env.simulate)
+    option_model = create_option_model(CFG.option_model_name)
     initiable = lambda s, m, o, p: False
     nsrts = get_gt_nsrts(env.predicates, env.options)
     old_option = next(iter(env.options))
@@ -236,7 +236,8 @@ def test_planning_determinism():
     goal = {asleep([robby]), asleep([robin]), cried([robby]), cried([robin])}
     task1 = Task(State({robby: [0, 0], robin: [0, 0]}), goal)
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
-    option_model = create_option_model("default", _simulator)
+    option_model = create_option_model("oracle")
+    option_model._simulator = _simulator  # pylint:disable=protected-access
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
     plan1 = [(act.name, act.objects)
              for act in sesame_plan(task1,
