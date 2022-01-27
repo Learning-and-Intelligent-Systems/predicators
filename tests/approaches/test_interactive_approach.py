@@ -84,9 +84,8 @@ def test_interactive_learning_approach():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
-                                                 env.options, env.types,
-                                                 env.action_space)
+    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
@@ -124,9 +123,8 @@ def test_interactive_learning_approach_no_ground_atoms():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    approach = _DummyInteractiveLearningApproach(env.simulate, env.predicates,
-                                                 env.options, env.types,
-                                                 env.action_space)
+    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based

@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 import abc
-from typing import Callable, cast
+from typing import cast
 from predicators.src import utils
-from predicators.src.structs import State, Action, _Option
+from predicators.src.structs import State, _Option
 from predicators.src.settings import CFG
-from predicators.src.envs import get_cached_env_instance
+from predicators.src.envs import create_env, get_cached_env_instance
 from predicators.src.envs.behavior import BehaviorEnv
 
 
-def create_option_model(
-        name: str, simulator: Callable[[State, Action],
-                                       State]) -> _OptionModelBase:
+def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
-    if name == "default":
-        return _DefaultOptionModel(simulator)
-    if name == "behavior":
-        return _BehaviorOptionModel(simulator)  # pragma: no cover
+    if name == "oracle":
+        return _OracleOptionModel()
+    if name == "behavior_oracle":
+        return _BehaviorOptionModel()  # pragma: no cover
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
@@ -25,23 +23,24 @@ class _OptionModelBase(abc.ABC):
     """Struct defining an option model, which computes the next state of the
     world after an option is executed from a given start state."""
 
-    def __init__(self, simulator: Callable[[State, Action], State]):
-        self._simulator = simulator
-
     @abc.abstractmethod
     def get_next_state(self, state: State, option: _Option) -> State:
         """The key method that an option model must implement.
 
         Returns the next state given a current state and an option.
-        Subclasses can choose whether this method should use the
-        simulator.
         """
         raise NotImplementedError("Override me!")
 
 
-class _DefaultOptionModel(_OptionModelBase):
-    """A default option model that just runs options through the simulator to
-    figure out the next state."""
+class _OracleOptionModel(_OptionModelBase):
+    """An oracle option model that uses the ground truth simulator.
+
+    Runs options through this simulator to figure out the next state.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._simulator = create_env(CFG.env).simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:
         traj = utils.option_to_trajectory(
@@ -53,7 +52,8 @@ class _DefaultOptionModel(_OptionModelBase):
 
 
 class _BehaviorOptionModel(_OptionModelBase):
-    """An oracle option model for the BEHAVIOR env."""
+    """An oracle option model that is specific to BEHAVIOR, since simulation is
+    expensive in this environment."""
 
     def get_next_state(self, state: State,
                        option: _Option) -> State:  # pragma: no cover
