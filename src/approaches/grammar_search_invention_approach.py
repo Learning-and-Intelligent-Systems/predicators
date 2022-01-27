@@ -21,7 +21,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -742,9 +742,10 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     than the demos, then the likelihood of the predicates/operators goes down
     as that difference gets larger.
 
-    We also anticipate incorporating "suspicious" transitions as another way
-    to estimate the probability that a skeleton is refinable, but this is not
-    yet implemented.
+    We optionally also include into this likelihood the number of
+    "suspicious" multistep effects in the atoms sequence induced by the
+    skeleton. "Suspicious" means that a particular set of multistep
+    effects was never seen in the demonstrations.
     """
 
     def _evaluate_with_operators(self,
@@ -755,6 +756,11 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                  option_specs: List[OptionSpec]) -> float:
         del segments  # unused
         score = 0.0
+        demo_multistep_effects = set()
+        if CFG.grammar_search_expected_nodes_include_suspicious_score:
+            # Go through the demos in advance and compute the multistep effects.
+            demo_multistep_effects = self._compute_demo_multistep_effects(
+                pruned_atom_data)
         seen_demos = 0
         for traj, atoms_sequence in pruned_atom_data:
             if seen_demos >= CFG.grammar_search_max_demos:
@@ -788,7 +794,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     assert goal.issubset(plan_atoms_sequence[-1])
                     # Estimate the probability that this skeleton is refinable.
                     refinement_prob = self._get_refinement_prob(
-                        atoms_sequence, plan_atoms_sequence)
+                        atoms_sequence, plan_atoms_sequence,
+                        demo_multistep_effects)
                     # Get the number of nodes that have been created so far.
                     num_nodes = metrics["num_nodes_created"]
                     # This contribution to the expected number of nodes is for
@@ -819,15 +826,62 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
 
     @staticmethod
     def _get_refinement_prob(
-            demo_atoms_sequence: Sequence[Set[GroundAtom]],
-            plan_atoms_sequence: Sequence[Collection[GroundAtom]]) -> float:
+        demo_atoms_sequence: Sequence[Set[GroundAtom]],
+        plan_atoms_sequence: Sequence[Set[GroundAtom]],
+        demo_multistep_effects: Set[Tuple[FrozenSet[GroundAtom],
+                                          FrozenSet[GroundAtom]]]
+    ) -> float:
         """Estimate the probability that plan_atoms_sequence is refinable using
         the demonstration demo_atoms_sequence."""
-        # Make a soft assumption that the demonstrations are optimal.
+        # Make a soft assumption that the demonstrations are optimal,
+        # using a geometric distribution.
         demo_len = len(demo_atoms_sequence)
         plan_len = len(plan_atoms_sequence)
+        # The exponent is the difference in plan lengths.
+        exponent = abs(demo_len - plan_len)
+        if CFG.grammar_search_expected_nodes_include_suspicious_score:
+            # Handle suspicious effect scoring via unification.
+            num_suspicious_eff = 0
+            for i in range(len(plan_atoms_sequence) - 1):
+                for j in range(i + 1, len(plan_atoms_sequence)):
+                    atoms_i = plan_atoms_sequence[i]
+                    atoms_j = plan_atoms_sequence[j]
+                    plan_add_eff = frozenset(atoms_j - atoms_i)
+                    plan_del_eff = frozenset(atoms_i - atoms_j)
+                    if not any(
+                            utils.unify_preconds_effects_options(
+                                frozenset(), frozenset(), plan_add_eff,
+                                demo_add_eff, plan_del_eff, demo_del_eff,
+                                DummyOption.parent, DummyOption.parent,
+                                tuple(), tuple())[0] for demo_add_eff,
+                            demo_del_eff in demo_multistep_effects):
+                        num_suspicious_eff += 1
+            p = CFG.grammar_search_expected_nodes_optimal_demo_prob
+            # Add the number of suspicious effects to the exponent.
+            exponent += num_suspicious_eff
         p = CFG.grammar_search_expected_nodes_optimal_demo_prob
-        return p * (1 - p)**abs(demo_len - plan_len)
+        return p * (1 - p)**exponent
+
+    @staticmethod
+    def _compute_demo_multistep_effects(
+        pruned_atom_data: List[GroundAtomTrajectory]
+    ) -> Set[Tuple[FrozenSet[GroundAtom], FrozenSet[GroundAtom]]]:
+        # Returns a set of multistep (add, delete) effect sets.
+        seen_demos = 0
+        demo_multistep_effects = set()
+        for traj, atoms_sequence in pruned_atom_data:
+            if seen_demos >= CFG.grammar_search_max_demos:
+                break
+            if not traj.is_demo:
+                continue
+            seen_demos += 1
+            for i in range(len(atoms_sequence) - 1):
+                for j in range(i + 1, len(atoms_sequence)):
+                    atoms_i = atoms_sequence[i]
+                    atoms_j = atoms_sequence[j]
+                    demo_multistep_effects.add((frozenset(atoms_j - atoms_i),
+                                                frozenset(atoms_i - atoms_j)))
+        return demo_multistep_effects
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1036,13 +1090,14 @@ class _HeuristicCountBasedScoreFunction(_HeuristicBasedScoreFunction):
                 # some state in the demos, and thus is not suspicious.
                 if is_demo and successor == frozenset(next_atoms):
                     continue
-                if self._is_suspicious(successor, demo_atom_sets):
-                    score += CFG.grammar_search_suspicious_penalty
+                if self._state_is_suspicious(successor, demo_atom_sets):
+                    score += CFG.grammar_search_suspicious_state_penalty
         return score
 
     @staticmethod
-    def _is_suspicious(successor: FrozenSet[GroundAtom],
-                       demo_atom_sets: Set[FrozenSet[GroundAtom]]) -> bool:
+    def _state_is_suspicious(
+            successor: FrozenSet[GroundAtom],
+            demo_atom_sets: Set[FrozenSet[GroundAtom]]) -> bool:
         for demo_atoms in demo_atom_sets:
             suc, _ = utils.unify(successor, demo_atoms)
             if suc:
