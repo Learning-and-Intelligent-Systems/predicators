@@ -97,8 +97,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     if score > best_score:
                         if self._ask_teacher(s, atom):
                             # Add this atom if it's a positive example
-                            dataset_with_atoms.append(
-                                (LowLevelTrajectory([s], []), [{atom}]))
+                            traj = LowLevelTrajectory([s], [])
+                            dataset.append(traj)
+                            dataset_with_atoms.append((traj, [{atom}]))
                             # Still need a way to use negative examples
                         best_score = score
             if i % CFG.interactive_relearn_every == 0:
