@@ -10,42 +10,39 @@ def test_painting():
     """Tests for PaintingEnv class."""
     utils.update_config({
         "env": "painting",
-        "painting_train_families": ["not_a_real_family"]
+        "painting_train_family": "not_a_real_family"
     })
     env = PaintingEnv()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
     with pytest.raises(ValueError):  # unrecognized task family
-        next(train_tasks_gen)
+        env.get_train_tasks()
     utils.update_config({
         "env": "painting",
-        "painting_train_families": ["box_and_shelf"]
+        "painting_train_family": "box_and_shelf"
     })
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     utils.update_config({
         "env": "painting",
-        "painting_train_families": ["box_only", "shelf_only"]
+        "painting_train_family": "box_only"
     })
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         # box only
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
         for atom in task.goal:
             assert atom.predicate.name != "InShelf"
-    for task in next(train_tasks_gen):
+    utils.update_config({
+        "env": "painting",
+        "painting_train_family": "shelf_only"
+    })
+    for task in env.get_train_tasks():
         # shelf only
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
         for atom in task.goal:
             assert atom.predicate.name != "InBox"
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -98,7 +95,7 @@ def test_painting_failure_cases():
         "seed": 123,
         "painting_initial_holding_prob": 1.0,
         "painting_lid_open_prob": 0.0,
-        "painting_train_families": ["box_and_shelf"],
+        "painting_train_family": "box_and_shelf",
     })
     env = PaintingEnv()
     env.seed(123)
@@ -117,7 +114,7 @@ def test_painting_failure_cases():
     obj1 = obj_type("obj1")
     robot = robot_type("robot")
     lid = lid_type("box_lid")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     assert OnTable([obj0]) in atoms
@@ -277,13 +274,13 @@ def test_painting_failure_cases():
     utils.update_config({"painting_initial_holding_prob": 0.0})
     env = PaintingEnv()
     env.seed(123)
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     assert not utils.abstract(state, {Holding})
     # Make sure painting_lid_open_prob = 1.0 works too.
     utils.update_config({"painting_lid_open_prob": 1.0})
     env = PaintingEnv()
     env.seed(123)
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     assert state[lid].item() == 1.0
