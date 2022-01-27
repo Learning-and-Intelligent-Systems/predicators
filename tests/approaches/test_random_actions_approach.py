@@ -13,9 +13,9 @@ def test_random_actions_approach():
         "seed": 123
     })
     env = CoverEnv()
-    task = next(env.train_tasks_generator())[0]
-    approach = RandomActionsApproach(env.simulate, env.predicates, env.options,
-                                     env.types, env.action_space)
+    task = env.get_train_tasks()[0]
+    approach = RandomActionsApproach(env.predicates, env.options, env.types,
+                                     env.action_space)
     assert not approach.is_learning_based
     approach.seed(123)
     policy = approach.solve(task, 500)

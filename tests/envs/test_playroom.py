@@ -15,12 +15,9 @@ def test_playroom():
     utils.update_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -52,7 +49,7 @@ def test_playroom_failure_cases():
     block0 = block_type("block0")
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     robot = None
@@ -149,7 +146,7 @@ def test_playroom_simulate_blocks():
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     robot = None
     for item in state:
@@ -203,7 +200,7 @@ def test_playroom_simulate_doors_and_dial():
     dial_type = [t for t in env.types if t.name == "dial"][0]
     door1 = door_type("door1")
     door6 = door_type("door6")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     robot = None
     dial = None
@@ -339,7 +336,7 @@ def test_playroom_options():
     region5 = region_type("region5")
     region6 = region_type("region6")
     region7 = region_type("region7")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     # Run through a specific plan of options.
     Pick = [o for o in env.options if o.name == "Pick"][0]
@@ -401,7 +398,7 @@ def test_playroom_action_sequence_video():
     env = PlayroomEnv()
     env.seed(123)
     # Run through a specific plan of low-level actions.
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),

@@ -1,6 +1,5 @@
 """Test cases for the blocks environment."""
 
-import pytest
 import numpy as np
 from predicators.src.envs import BlocksEnv
 from predicators.src import utils
@@ -12,12 +11,9 @@ def test_blocks():
     env = BlocksEnv()
     env.seed(123)
     clear = env._block_is_clear  # pylint: disable=protected-access
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -69,7 +65,7 @@ def test_blocks_failure_cases():
     block1 = block_type("block1")
     block2 = block_type("block2")
     robot = robot_type("robot")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     assert OnTable([block0]) in atoms

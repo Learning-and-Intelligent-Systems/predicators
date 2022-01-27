@@ -4,7 +4,7 @@ a predicate being in the effects of options.
 Here, the move option can turn on any number of NextTo predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Optional, Iterator
+from typing import List, Set, Sequence, Dict, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 from gym.spaces import Box
@@ -84,8 +84,8 @@ class RepeatedNextToEnv(BaseEnv):
             next_state.set(dot_to_grasp, "grasped", 1.0)
         return next_state
 
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        yield self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+    def get_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)

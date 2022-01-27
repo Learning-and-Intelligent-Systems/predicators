@@ -137,7 +137,7 @@ def test_get_static_atoms():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     objects = set(task.init)
     ground_nsrts = set()
     for nsrt in nsrts:
@@ -1321,7 +1321,7 @@ def test_create_pddl():
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     env.seed(123)
-    train_task = next(env.train_tasks_generator())[0]
+    train_task = env.get_train_tasks()[0]
     state = train_task.init
     objects = list(state)
     init_atoms = utils.abstract(state, env.predicates)

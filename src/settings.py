@@ -45,11 +45,6 @@ class GlobalSettings:
     painting_lid_open_prob = 0.3
     painting_num_objs_train = [2]
     painting_num_objs_test = [3, 4]
-    painting_train_families = [
-        "box_and_shelf",  # placing into both box and shelf
-        # "box_only",  # just placing into the box
-        # "shelf_only",  # just placing into the shelf
-    ]
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
@@ -68,7 +63,6 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    option_model_name = "default"  # can be "default" or "behavior"
     max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
@@ -154,10 +148,12 @@ class GlobalSettings:
     grammar_search_gbfs_num_evals = 1000
     grammar_search_off_demo_count_penalty = 1.0
     grammar_search_on_demo_count_penalty = 10.0
-    grammar_search_suspicious_penalty = 10.0
+    grammar_search_suspicious_state_penalty = 10.0
     grammar_search_expected_nodes_upper_bound = 1e5
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
+    grammar_search_expected_nodes_include_suspicious_score = False
+    grammar_search_expected_nodes_allow_noops = False
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -196,6 +192,14 @@ class GlobalSettings:
                     # For the repeated_nextto environment, too many
                     # replays makes learning slow.
                     "repeated_nextto": 50,
+                })[args.get("env", "")],
+
+            # The name of the option model used by the agent.
+            option_model_name=defaultdict(
+                lambda: "oracle",
+                {
+                    # For the BEHAVIOR environment, use a special option model.
+                    "behavior": "behavior_oracle",
                 })[args.get("env", "")],
         )
 
