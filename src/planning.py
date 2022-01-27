@@ -111,6 +111,7 @@ def task_plan_grounding(
     objects: Set[Object],
     strips_ops: Sequence[STRIPSOperator],
     option_specs: Sequence[OptionSpec],
+    allow_noops: bool = True,
 ) -> Tuple[List[_GroundNSRT], Set[GroundAtom]]:
     """Ground all operators for task planning into dummy _GroundNSRTs,
     filtering out ones that are unreachable or have empty effects.
@@ -124,14 +125,12 @@ def task_plan_grounding(
     ground_nsrts = []
     for nsrt in sorted(nsrts):
         for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-    nonempty_ground_nsrts = [
-        nsrt for nsrt in ground_nsrts if nsrt.add_effects | nsrt.delete_effects
-    ]
-    reachable_atoms = utils.get_reachable_atoms(nonempty_ground_nsrts,
-                                                init_atoms)
+            if allow_noops or (ground_nsrt.add_effects
+                               | ground_nsrt.delete_effects):
+                ground_nsrts.append(ground_nsrt)
+    reachable_atoms = utils.get_reachable_atoms(ground_nsrts, init_atoms)
     reachable_nsrts = [
-        nsrt for nsrt in nonempty_ground_nsrts
+        nsrt for nsrt in ground_nsrts
         if nsrt.preconditions.issubset(reachable_atoms)
     ]
     return reachable_nsrts, reachable_atoms
