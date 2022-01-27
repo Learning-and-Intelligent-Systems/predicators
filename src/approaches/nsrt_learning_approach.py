@@ -24,7 +24,6 @@ class NSRTLearningApproach(TAMPApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space)
         self._nsrts: Set[NSRT] = set()
-        self._dataset: Dataset = []
 
     @property
     def is_learning_based(self) -> bool:
@@ -38,13 +37,11 @@ class NSRTLearningApproach(TAMPApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        self._dataset.extend(dataset)
-        del dataset
-        self._learn_nsrts()
+        self._learn_nsrts(dataset)
 
-    def _learn_nsrts(self) -> None:
+    def _learn_nsrts(self, dataset: Dataset) -> None:
         self._nsrts = learn_nsrts_from_data(
-            self._dataset,
+            dataset,
             self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
