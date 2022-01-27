@@ -287,21 +287,9 @@ class PaintingEnv(BaseEnv):
         return next_state
 
     def get_train_tasks(self) -> List[Task]:
-        if CFG.painting_train_family == "box_only":
-            return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                                   num_objs_lst=[1],
-                                   rng=self._train_rng)
-        if CFG.painting_train_family == "shelf_only":
-            return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                                   num_objs_lst=CFG.painting_num_objs_train,
-                                   rng=self._train_rng,
-                                   use_box=False)
-        if CFG.painting_train_family == "box_and_shelf":
-            return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                                   num_objs_lst=CFG.painting_num_objs_train,
-                                   rng=self._train_rng)
-        raise ValueError("Unrecognized task family: "
-                         f"{CFG.painting_train_family}")
+        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                               num_objs_lst=CFG.painting_num_objs_train,
+                               rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
@@ -450,8 +438,7 @@ class PaintingEnv(BaseEnv):
     def _get_tasks(self,
                    num_tasks: int,
                    num_objs_lst: List[int],
-                   rng: np.random.Generator,
-                   use_box: bool = True) -> List[Task]:
+                   rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
@@ -499,7 +486,7 @@ class PaintingEnv(BaseEnv):
                 ],
                                      dtype=np.float32)
                 # Last object should go in box
-                if use_box and j == num_objs - 1:
+                if j == num_objs - 1:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:
