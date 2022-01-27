@@ -124,7 +124,7 @@ def test_tamp_approach_failure():
     approach = _DummyApproach(env.simulate, env.predicates, env.options,
                               env.types, env.action_space)
     assert not approach.is_learning_based
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
 
@@ -143,6 +143,6 @@ def test_env_failure():
     approach = create_approach("random_actions", env.simulate, env.predicates,
                                env.options, env.types, env.action_space)
     assert not approach.is_learning_based
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)

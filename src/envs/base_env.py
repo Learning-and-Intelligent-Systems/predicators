@@ -1,7 +1,7 @@
 """Base class for an environment."""
 
 import abc
-from typing import List, Set, Optional, Iterator
+from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
@@ -25,13 +25,8 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        """A generator that produces ordered lists of tasks for training.
-
-        Useful as an offline mock of the idea of collecting more data
-        through exploration. The generator could, for instance, iterate
-        over various task families.
-        """
+    def get_train_tasks(self) -> List[Task]:
+        """Get an ordered list of tasks for training."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod

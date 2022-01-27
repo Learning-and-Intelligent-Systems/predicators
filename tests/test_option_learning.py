@@ -30,7 +30,7 @@ def test_known_options_option_learner():
         "option_learner": "no_learning"
     })
     env = create_env("cover")
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
@@ -82,7 +82,7 @@ def test_oracle_option_learner_cover():
         "option_learner": "oracle"
     })
     env = create_env("cover")
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
@@ -136,7 +136,7 @@ def test_oracle_option_learner_blocks():
         "option_learner": "oracle"
     })
     env = create_env("blocks")
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
         dataset, env.predicates)
