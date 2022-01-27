@@ -21,7 +21,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -844,14 +844,18 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 for j in range(i + 1, len(plan_atoms_sequence)):
                     atoms_i = plan_atoms_sequence[i]
                     atoms_j = plan_atoms_sequence[j]
-                    for plan_eff in [
-                            frozenset(atoms_i - atoms_j),
-                            frozenset(atoms_j - atoms_i)
-                    ]:
-                        if not any(
-                                utils.unify(demo_eff, plan_eff)[0]
-                                for demo_eff in demo_multistep_effects):
-                            num_suspicious_eff += 1
+                    plan_add_eff = frozenset(atoms_j - atoms_i)
+                    plan_del_eff = frozenset(atoms_i - atoms_j)
+                    if not any(
+                            utils.unify_preconds_effects_options(
+                                frozenset(), frozenset(),
+                                plan_add_eff, demo_add_eff,
+                                plan_del_eff, demo_del_eff,
+                                DummyOption.parent, DummyOption.parent,
+                                tuple(), tuple())[0]
+                            for demo_add_eff, demo_del_eff
+                            in demo_multistep_effects):
+                        num_suspicious_eff += 1
             p = CFG.grammar_search_expected_nodes_optimal_demo_prob
             # Add the number of suspicious effects to the exponent.
             exponent += num_suspicious_eff
@@ -861,7 +865,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     @staticmethod
     def _compute_demo_multistep_effects(
         pruned_atom_data: List[GroundAtomTrajectory]
-    ) -> Set[FrozenSet[GroundAtom]]:
+    ) -> Set[Tuple[FrozenSet[GroundAtom], FrozenSet[GroundAtom]]]:
+        # Returns a set of multistep (add, delete) effect sets.
         seen_demos = 0
         demo_multistep_effects = set()
         for traj, atoms_sequence in pruned_atom_data:
@@ -874,8 +879,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 for j in range(i + 1, len(atoms_sequence)):
                     atoms_i = atoms_sequence[i]
                     atoms_j = atoms_sequence[j]
-                    demo_multistep_effects.add(frozenset(atoms_i - atoms_j))
-                    demo_multistep_effects.add(frozenset(atoms_j - atoms_i))
+                    demo_multistep_effects.add((frozenset(atoms_j - atoms_i),
+                                                frozenset(atoms_i - atoms_j)))
         return demo_multistep_effects
 
 

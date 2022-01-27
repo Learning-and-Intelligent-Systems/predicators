@@ -8,7 +8,7 @@ import os
 from typing import Dict, DefaultDict, Set, List, Tuple, Sequence
 import pandas as pd
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_env, BaseEnv
+from predicators.src.envs import create_env, BaseEnv, CoverEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _create_score_function, _ForallClassifier, _SingleAttributeCompareClassifier
@@ -34,14 +34,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             for block in state:
                 if block.type.name != "block":
                     continue
-                block_pose = state.get(block, "pose")
-                block_width = state.get(block, "width")
-                target_pose = state.get(target, "pose")
-                target_width = state.get(target, "width")
-                if (block_pose-block_width/2 <=
-                    target_pose-target_width/2) and \
-                    (block_pose+block_width/2 >=
-                     target_pose+target_width/2):
+                if CoverEnv._Covers_holds(state, [block, target]):  # pylint:disable=protected-access
                     return False
             return True
 
