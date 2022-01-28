@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Set, List, Sequence, cast
-from predicators.src.structs import Dataset, STRIPSOperator, NSRT, \
+from predicators.src.structs import STRIPSOperator, NSRT, \
     LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption, \
     State, Action
@@ -12,14 +12,16 @@ from predicators.src.sampler_learning import learn_samplers
 from predicators.src.option_learning import create_option_learner
 
 
-def learn_nsrts_from_data(dataset: Dataset, predicates: Set[Predicate],
+def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
+                          predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
-    print(f"\nLearning NSRTs on {len(dataset)} trajectories...")
+    print(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
-    ground_atom_dataset = utils.create_ground_atom_dataset(dataset, predicates)
+    ground_atom_dataset = utils.create_ground_atom_dataset(
+        trajectories, predicates)
 
     # STEP 2: Segment each trajectory in the dataset based on changes in
     #         either predicates or options. If we are doing option learning,
