@@ -1,14 +1,13 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List, Collection, Sequence
+from typing import Set, List
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Dataset, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory
+    Type, Task, Dataset, GroundAtom, LowLevelTrajectory
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.option_model import _OracleOptionModel
@@ -46,30 +45,22 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         return self._known_predicates | self._predicates_to_learn
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # This will change in the next PR; we will make a new dataset generation
-        # type, and the generate_data logic will get moved there.
-        dataset_with_atoms = self._teacher.generate_data(dataset)
-        demo_idxs = [
-            idx for idx, traj in enumerate(dataset.trajectories)
-            if traj.is_demo
-        ]
         # Learn predicates and NSRTs
-        self._relearn_predicates_and_nsrts(dataset.trajectories,
-                                           dataset_with_atoms)
+        self._relearn_predicates_and_nsrts(dataset)
         # Track score of best atom seen so far
         best_score = 0.0
         # Active learning
         for i in range(1, CFG.interactive_num_episodes + 1):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
-            index = self._rng.choice(demo_idxs)
+            index = self._rng.choice(len(self._train_tasks))
             state = dataset.trajectories[index].states[0]
             # Detect and filter out static predicates
             static_preds = utils.get_static_preds(
                 self._nsrts, self._get_current_predicates())
             preds = self._get_current_predicates() - static_preds
             # Find policy for exploration
-            task_list = glib_sample(state, preds, dataset_with_atoms)
+            task_list = glib_sample(state, preds, dataset)
             assert task_list
             task = task_list[0]
             for task in task_list:
@@ -98,23 +89,20 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     s, self._predicates_to_learn)
                 for atom in ground_atoms:
                     # Note: future score functions will use the state s
-                    score = score_atom(dataset_with_atoms, atom)
+                    score = score_atom(dataset, atom)
                     # Ask about this atom if it is the best seen so far
                     if score > best_score:
                         if self._ask_teacher(s, atom):
                             # Add this atom if it's a positive example
                             traj = LowLevelTrajectory([s], [])
                             dataset.trajectories.append(traj)
-                            dataset_with_atoms.append((traj, [{atom}]))
+                            dataset.annotations.append([{atom}])
                             # Still need a way to use negative examples
                         best_score = score
             if i % CFG.interactive_relearn_every == 0:
-                self._relearn_predicates_and_nsrts(dataset.trajectories,
-                                                   dataset_with_atoms)
+                self._relearn_predicates_and_nsrts(dataset)
 
-    def _relearn_predicates_and_nsrts(
-            self, trajectories: Sequence[LowLevelTrajectory],
-            dataset_with_atoms: List[GroundAtomTrajectory]) -> None:
+    def _relearn_predicates_and_nsrts(self, dataset: Dataset) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
         print("\nStarting semi-supervised learning...")
         # Learn predicates
@@ -123,7 +111,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             positive_examples = []
             negative_examples = []
             # Positive examples
-            for (traj, ground_atom_sets) in dataset_with_atoms:
+            for (traj, ground_atom_sets) in zip(dataset.trajectories,
+                                                dataset.annotations):
                 assert len(traj.states) == len(ground_atom_sets)
                 for (state, ground_atom_set) in zip(traj.states,
                                                     ground_atom_sets):
@@ -136,7 +125,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     ]
                     positive_examples.extend(positives)
             # Negative examples - assume unlabeled is negative for now
-            for (traj, _) in dataset_with_atoms:
+            for traj in dataset.trajectories:
                 for state in traj.states:
                     possible = [
                         state.vec(choice)
@@ -144,6 +133,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                             list(state), pred.types)
                     ]
                     negatives = []
+                    # TODO: I think this logic is wrong. Confirm and fix in a
+                    # separate PR before merging this one.
                     for ex in possible:
                         for pos in positive_examples:
                             if np.array_equal(ex, pos):
@@ -170,7 +161,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn NSRTs via superclass
-        self._learn_nsrts(trajectories)
+        self._learn_nsrts(dataset.trajectories)
 
     def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state."""
@@ -184,14 +175,6 @@ class _Teacher:
                  predicates_to_learn: Set[Predicate]) -> None:
         self._name_to_predicate = {p.name: p for p in initial_predicates}
         self._predicates_to_learn = predicates_to_learn
-        self._has_generated_data = False
-
-    def generate_data(self, dataset: Dataset) -> List[GroundAtomTrajectory]:
-        """Creates sparse dataset of GroundAtoms."""
-        # No cheating!
-        assert not self._has_generated_data
-        self._has_generated_data = True
-        return create_teacher_dataset(self._predicates_to_learn, dataset)
 
     def ask(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state."""
@@ -201,39 +184,10 @@ class _Teacher:
         return predicate.holds(state, ground_atom.objects)
 
 
-def create_teacher_dataset(preds: Collection[Predicate],
-                           dataset: Dataset) -> List[GroundAtomTrajectory]:
-    """Create sparse dataset of GroundAtoms for interactive learning."""
-    ratio = float(CFG.teacher_dataset_label_ratio)
-    # Track running ratios of atoms that the teacher has commented on
-    labeleds = {p: 0 for p in preds}
-    totals = {p: 0 for p in preds}
-    teacher_dataset: List[GroundAtomTrajectory] = []
-    for traj in dataset.trajectories:
-        ground_atoms_traj: List[Set[GroundAtom]] = []
-        for s in traj.states:
-            ground_atoms = sorted(utils.abstract(s, preds))
-            subset_atoms = set()
-            if ratio > 0:
-                for ga in ground_atoms:
-                    pred = ga.predicate
-                    if (totals[pred] == 0
-                            or labeleds[pred] / totals[pred] <= ratio):
-                        # Teacher comments on this atom
-                        subset_atoms.add(ga)
-                        labeleds[pred] += 1
-                    totals[pred] += 1
-            ground_atoms_traj.append(subset_atoms)
-        assert len(traj.states) == len(ground_atoms_traj)
-        teacher_dataset.append((traj, ground_atoms_traj))
-    assert len(teacher_dataset) == len(dataset.trajectories)
-    return teacher_dataset
-
-
 def glib_sample(
     initial_state: State,
     predicates: Set[Predicate],
-    dataset_with_atoms: List[GroundAtomTrajectory],
+    dataset: Dataset,
 ) -> List[Task]:
     """Sample some tasks via the GLIB approach."""
     print("Sampling a task using GLIB approach...")
@@ -249,29 +203,27 @@ def glib_sample(
                           size=(num_atoms, ),
                           replace=False)
         goal = {ground_atoms[i] for i in idxs}
-        goals.append((goal, score_goal(dataset_with_atoms, goal)))
+        goals.append((goal, score_goal(dataset, goal)))
     goals.sort(key=lambda tup: tup[1], reverse=True)
     return [Task(initial_state, g) for (g, _) in \
             goals[:CFG.interactive_num_tasks_babbled]]
 
 
-def score_goal(dataset_with_atoms: List[GroundAtomTrajectory],
-               goal: Set[GroundAtom]) -> float:
+def score_goal(dataset: Dataset, goal: Set[GroundAtom]) -> float:
     """Score a goal as inversely proportional to the number of examples seen
     during training."""
     count = 1  # Avoid division by 0
-    for (_, trajectory) in dataset_with_atoms:
-        for ground_atom_set in trajectory:
+    for ground_atom_traj in dataset.annotations:
+        for ground_atom_set in ground_atom_traj:
             count += 1 if goal.issubset(ground_atom_set) else 0
     return 1.0 / count
 
 
-def score_atom(dataset_with_atoms: List[GroundAtomTrajectory],
-               atom: GroundAtom) -> float:
+def score_atom(dataset: Dataset, atom: GroundAtom) -> float:
     """Score an atom as inversely proportional to the number of examples seen
     during training."""
     count = 1  # Avoid division by 0
-    for (_, trajectory) in dataset_with_atoms:
-        for ground_atom_set in trajectory:
+    for ground_atom_traj in dataset.annotations:
+        for ground_atom_set in ground_atom_traj:
             count += 1 if atom in ground_atom_set else 0
     return 1.0 / count

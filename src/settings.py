@@ -184,7 +184,7 @@ class GlobalSettings:
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
-                    "interactive_learning": "demo",
+                    "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
 
             # Number of replays used when offline_data_method is demo+replay.

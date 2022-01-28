@@ -218,8 +218,8 @@ def test_ground_atom_dataset():
             for annotated_atom in ground_atoms:
                 pred_name_to_labels[annotated_atom.predicate.name] += 1
                 # Make sure the annotations are correct.
-                annotated_atom_name = (ground_truth_atom.predicate.name,
-                                       tuple(ground_truth_atom.objects))
+                annotated_atom_name = (annotated_atom.predicate.name,
+                                       tuple(annotated_atom.objects))
                 assert annotated_atom_name in all_ground_atom_names
                 # Make sure we're not leaking information.
                 assert not annotated_atom.holds(s)

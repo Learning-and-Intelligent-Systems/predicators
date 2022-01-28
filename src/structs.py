@@ -911,7 +911,7 @@ class LowLevelTrajectory:
         return self._train_task_idx
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(repr=False, eq=False)
 class Dataset:
     """A collection of LowLevelTrajectory objects, and optionally, lists of
     annotations, one per trajectory.
