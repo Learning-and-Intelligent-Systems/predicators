@@ -180,9 +180,9 @@ def test_dataset_with_annotations():
     # Can't add a data point without an annotation.
     with pytest.raises(AssertionError):
         dataset.append(trajectories)
-    dataset.append(trajectories, annotations)
+    dataset.append(trajectories[0], annotations[0])
     assert len(dataset.trajectories) == len(dataset.annotations) == \
-        2 * len(trajectories)
+        len(trajectories) + 1
 
 
 def test_ground_atom_dataset():
