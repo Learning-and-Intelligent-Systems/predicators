@@ -35,7 +35,8 @@ def test_env_failure():
     cup_type = Type("cup_type", ["feat1"])
     cup = cup_type("cup")
     try:
-        raise EnvironmentFailure("failure123", {cup})
+        raise EnvironmentFailure("failure123", {"offending_objects": {cup}})
     except EnvironmentFailure as e:
-        assert str(e) == "EnvironmentFailure('failure123'): {cup:cup_type}"
-        assert e.offending_objects == {cup}
+        assert str(e) == ("EnvironmentFailure('failure123'): "
+                          "{'offending_objects': {cup:cup_type}}")
+        assert e.info["offending_objects"] == {cup}

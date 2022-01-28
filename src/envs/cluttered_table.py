@@ -279,7 +279,8 @@ class ClutteredTableEnv(BaseEnv):
                     colliding_can_max_dist = float(dist)
                     colliding_can = can
         if colliding_can is not None:
-            raise EnvironmentFailure("collision", {colliding_can})
+            raise EnvironmentFailure(
+                "collision", {"offending_objects": {colliding_can}})
 
 
 class ClutteredTablePlaceEnv(ClutteredTableEnv):

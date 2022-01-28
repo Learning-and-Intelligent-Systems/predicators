@@ -367,7 +367,7 @@ def _update_nsrts_with_failure(
     """
     new_predicates = set()
     new_ground_nsrts = []
-    for obj in discovered_failure.env_failure.offending_objects:
+    for obj in discovered_failure.env_failure.info["offending_objects"]:
         pred = Predicate(_NOT_CAUSES_FAILURE, [obj.type],
                          _classifier=lambda s, o: False)
         new_predicates.add(pred)

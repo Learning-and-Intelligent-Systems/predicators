@@ -930,7 +930,8 @@ class PlayroomEnv(BlocksEnv):
             door_x = state.get(door, "pose_x")
             if x <= door_x <= prev_x or prev_x <= door_x <= x:
                 if state.get(door, "open") < self.door_open_thresh:
-                    raise EnvironmentFailure("collision", {door})
+                    raise EnvironmentFailure(
+                        "collision", {"offending_objects": {door}})
         door = self._get_door_next_to(state)
         # After the robot moves through the door, it must still be next to
         # that same door.
