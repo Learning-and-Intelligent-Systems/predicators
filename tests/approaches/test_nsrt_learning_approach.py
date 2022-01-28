@@ -119,7 +119,7 @@ def test_oracle_samplers():
                        approach_name="nsrt_learning",
                        sampler_learner="oracle",
                        check_solution=True)
-        assert "no match for ground truth NSRT" in str(e)
+    assert "no match for ground truth NSRT" in str(e)
 
 
 def test_iterative_invention_approach():

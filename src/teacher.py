@@ -26,9 +26,8 @@ class Teacher:
         """The key method that the teacher defines."""
         assert query.__class__.__name__ in self._allowed_query_type_names, \
             f"Disallowed query: {query}"
-        if isinstance(query, GroundAtomHoldsQuery):
-            return self._answer_GroundAtomHolds_query(state, query)
-        raise ValueError(f"Unrecognized query: {query}")
+        assert isinstance(query, GroundAtomHoldsQuery)
+        return self._answer_GroundAtomHolds_query(state, query)
 
     def _answer_GroundAtomHolds_query(
             self, state: State,
