@@ -285,18 +285,18 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         # This invokes the NSRT's sampler.
         option = nsrt.sample_option(state, rng_sampler)
         plan[cur_idx] = option
+        # Increment cur_idx. It will be decremented later on if we get stuck.
+        cur_idx += 1
         if option.initiable(state):
             try:
                 next_state = option_model.get_next_state(state, option)
             except EnvironmentFailure as e:
                 can_continue_on = False
                 # Remember only the most recent failure.
-                discovered_failures[cur_idx] = _DiscoveredFailure(e, nsrt)
-                cur_idx += 1  # it's about to be decremented again
+                discovered_failures[cur_idx - 1] = _DiscoveredFailure(e, nsrt)
             else:  # an EnvironmentFailure was not raised
-                discovered_failures[cur_idx] = None
-                traj[cur_idx + 1] = next_state
-                cur_idx += 1
+                discovered_failures[cur_idx - 1] = None
+                traj[cur_idx] = next_state
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
                 # The expected atoms are ones that we definitely expect to be
@@ -317,10 +317,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 else:
                     can_continue_on = False
         else:
-            # If the option is not initiable, need to resample / backtrack.
+            # The option is not initiable.
             can_continue_on = False
-            cur_idx += 1  # it's about to be decremented again
-        if not can_continue_on:
+        if not can_continue_on:  # we got stuck, time to resample / backtrack!
             # Update the longest_failed_refinement found so far.
             if cur_idx > len(longest_failed_refinement):
                 longest_failed_refinement = list(plan[:cur_idx])
@@ -334,7 +333,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 raise _DiscoveredFailureException(
                     "Discovered a failure", possible_failure,
                     {"longest_failed_refinement": longest_failed_refinement})
-            # Go back to re-do the step we just did. If necessary, backtrack.
+            # Decrement cur_idx to re-do the step we just did. If num_tries
+            # is exhausted, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
             while num_tries[cur_idx] == CFG.max_samples_per_step:
