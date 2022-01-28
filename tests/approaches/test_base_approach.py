@@ -62,11 +62,13 @@ def test_base_approach():
                             _initiable=None,
                             _terminal=None)
     }
-    approach = _DummyApproach(predicates, options, types, action_space)
-    assert not approach.is_learning_based
-    assert approach.learn_from_offline_dataset([]) is None
     goal = {pred1([cup, plate1])}
     task = Task(state, goal)
+    train_tasks = [task]
+    approach = _DummyApproach(predicates, options, types, action_space,
+                              train_tasks)
+    assert not approach.is_learning_based
+    assert approach.learn_from_offline_dataset([]) is None
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
@@ -78,6 +80,7 @@ def test_base_approach():
 def test_create_approach():
     """Tests for create_approach."""
     env = CoverEnv()
+    train_tasks = env.get_train_tasks()
     for name in [
             "random_actions", "random_options", "oracle", "nsrt_learning",
             "interactive_learning", "iterative_invention"
@@ -89,8 +92,8 @@ def test_create_approach():
             "excluded_predicates": ""
         })
         approach = create_approach(name, env.predicates, env.options,
-                                   env.types, env.action_space)
+                                   env.types, env.action_space, train_tasks)
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
         create_approach("Not a real approach", env.predicates, env.options,
-                        env.types, env.action_space)
+                        env.types, env.action_space, train_tasks)

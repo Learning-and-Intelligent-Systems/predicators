@@ -65,6 +65,7 @@ def test_interaction():
         "num_test_tasks": 1
     })
     env = create_env("cover")
+    train_tasks = env.get_train_tasks()
     approach = _MockApproach(env.predicates, env.options, env.types,
-                             env.action_space)
-    _run_pipeline(env, approach)
+                             env.action_space, train_tasks)
+    _run_pipeline(env, approach, train_tasks)
