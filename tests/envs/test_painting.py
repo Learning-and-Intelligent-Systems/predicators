@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from predicators.src.envs import PaintingEnv, EnvironmentFailure
+from predicators.src.envs import PaintingEnv
 from predicators.src import utils
 
 
@@ -95,7 +95,7 @@ def test_painting_failure_cases():
     # painting_initial_holding_prob = 1.0
     assert Holding([obj0]) in atoms
     # Placing it on another object causes a collision
-    with pytest.raises(EnvironmentFailure):
+    with pytest.raises(utils.EnvironmentFailure):
         x = state.get(obj1, "pose_x")
         y = state.get(obj1, "pose_y")
         z = state.get(obj1, "pose_z")
@@ -185,7 +185,7 @@ def test_painting_failure_cases():
         np.array(
             [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
             dtype=np.float32)).policy(state)
-    with pytest.raises(EnvironmentFailure):
+    with pytest.raises(utils.EnvironmentFailure):
         env.simulate(state, act)
     # Open the box lid
     act = OpenLid.ground([robot, lid],
