@@ -938,6 +938,17 @@ class Dataset:
         assert self._annotations is not None
         return self._annotations
 
+    def append(self,
+               trajectory: LowLevelTrajectory,
+               annotation: Optional[Any] = None) -> None:
+        """Append one more trajectory and annotation to the dataset."""
+        if annotation is None:
+            assert self._annotations is None
+        else:
+            assert self._annotations is not None
+            self._annotations.append(annotation)
+        self._trajectories.append(trajectory)
+
 
 @dataclass(eq=False)
 class Segment:
