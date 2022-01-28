@@ -5,7 +5,7 @@ from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image, Object
+    ParameterizedOption, Type, Action, Image
 from predicators.src.settings import CFG
 from predicators.src.utils import ExceptionWithInfo
 
