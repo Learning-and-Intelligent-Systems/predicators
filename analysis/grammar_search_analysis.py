@@ -15,7 +15,7 @@ from predicators.src.approaches.grammar_search_invention_approach import \
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
-from predicators.src.structs import Predicate, Dataset, State, Object
+from predicators.src.structs import Predicate, Dataset, State, Object, Task
 from predicators.src.settings import CFG
 
 
@@ -162,7 +162,7 @@ def _run_proxy_analysis_for_env(env_name: str,
 
     for non_goal_predicates in non_goal_predicate_sets:
         results_for_predicates = \
-            _run_proxy_analysis_for_predicates(env, dataset,
+            _run_proxy_analysis_for_predicates(env, train_tasks, dataset,
                                                env.goal_predicates,
                                                non_goal_predicates,
                                                score_function_names,
@@ -183,6 +183,7 @@ def _run_proxy_analysis_for_env(env_name: str,
 
 def _run_proxy_analysis_for_predicates(
     env: BaseEnv,
+    train_tasks: List[Task],
     dataset: Dataset,
     initial_predicates: Set[Predicate],
     predicates: Set[Predicate],
@@ -208,7 +209,8 @@ def _run_proxy_analysis_for_predicates(
     if run_planning:
         utils.flush_cache()
         approach = create_approach("nsrt_learning", all_predicates,
-                                   env.options, env.types, env.action_space)
+                                   env.options, env.types, env.action_space,
+                                   train_tasks)
         approach.learn_from_offline_dataset(dataset)
         approach.seed(CFG.seed)
         planning_result = _run_testing(env, approach)
