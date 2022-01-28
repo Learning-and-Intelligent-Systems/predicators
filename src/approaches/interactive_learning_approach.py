@@ -1,6 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List
+from typing import Set, List, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -46,7 +46,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Learn predicates and NSRTs
-        self._relearn_predicates_and_nsrts(dataset)
+        self._relearn_predicates_and_nsrts(dataset,
+                                           online_learning_cycle=None)
         # Track score of best atom seen so far
         best_score = 0.0
         # Active learning
@@ -99,9 +100,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                             # Still need a way to use negative examples
                         best_score = score
             if i % CFG.interactive_relearn_every == 0:
-                self._relearn_predicates_and_nsrts(dataset)
+                self._relearn_predicates_and_nsrts(dataset,
+                                                   online_learning_cycle=i - 1)
 
-    def _relearn_predicates_and_nsrts(self, dataset: Dataset) -> None:
+    def _relearn_predicates_and_nsrts(self, dataset: Dataset,
+                                      online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
         print("\nStarting semi-supervised learning...")
         # Learn predicates
@@ -160,7 +163,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn NSRTs via superclass
-        self._learn_nsrts(dataset.trajectories)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle)
 
     def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state."""

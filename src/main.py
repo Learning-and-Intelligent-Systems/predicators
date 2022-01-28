@@ -117,13 +117,13 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
         total_num_transitions = sum(
             len(traj.actions) for traj in dataset.trajectories)
         learning_start = time.time()
-        if CFG.load_approach:  # we only save/load for initial offline learning
-            approach.load()
+        if CFG.load_approach:
+            approach.load(online_learning_cycle=None)
         else:
             approach.learn_from_offline_dataset(dataset)
         teacher = Teacher()
         # The online learning loop.
-        for _ in range(CFG.num_online_learning_cycles):
+        for i in range(CFG.num_online_learning_cycles):
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
             results["learning_time"] = time.time() - learning_start
@@ -135,7 +135,10 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
                 env.simulate, teacher, train_tasks, interaction_requests)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
-            approach.learn_from_interaction_results(interaction_results)
+            if CFG.load_approach:
+                approach.load(online_learning_cycle=i)
+            else:
+                approach.learn_from_interaction_results(interaction_results)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
