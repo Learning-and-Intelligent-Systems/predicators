@@ -46,8 +46,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Learn predicates and NSRTs
-        self._relearn_predicates_and_nsrts(dataset,
-                                           online_learning_cycle=None)
+        self._relearn_predicates_and_nsrts(dataset, online_learning_cycle=None)
         # Track score of best atom seen so far
         best_score = 0.0
         # Active learning
@@ -103,8 +102,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 self._relearn_predicates_and_nsrts(dataset,
                                                    online_learning_cycle=i - 1)
 
-    def _relearn_predicates_and_nsrts(self, dataset: Dataset,
-                                      online_learning_cycle: Optional[int]) -> None:
+    def _relearn_predicates_and_nsrts(
+            self, dataset: Dataset,
+            online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
         print("\nStarting semi-supervised learning...")
         # Learn predicates
