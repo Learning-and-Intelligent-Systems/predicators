@@ -6,7 +6,7 @@ import abc
 from dataclasses import dataclass
 from typing import List
 from predicators.src.structs import State, Object
-from predicators.src.settings import CFG
+from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import create_env
 
 ################################################################################
@@ -20,9 +20,12 @@ class Teacher:
     def __init__(self) -> None:
         env = create_env(CFG.env)
         self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
+        self._allowed_query_type_names = get_allowed_query_type_names()
 
     def answer_query(self, state: State, query: Query) -> Response:
         """The key method that the teacher defines."""
+        assert query.__class__.__name__ in self._allowed_query_type_names, \
+            f"Disallowed query: {query}"
         if isinstance(query, GroundAtomHoldsQuery):
             return self._answer_GroundAtomHolds_query(state, query)
         raise ValueError(f"Unrecognized query: {query}")

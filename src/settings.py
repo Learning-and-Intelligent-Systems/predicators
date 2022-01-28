@@ -7,7 +7,7 @@ Anything that varies between runs should be a command-line arg
 import os
 from collections import defaultdict
 from types import SimpleNamespace
-from typing import Dict, Any
+from typing import Dict, Any, Set
 import numpy as np
 
 
@@ -205,6 +205,15 @@ class GlobalSettings:
                     "behavior": "behavior_oracle",
                 })[args.get("env", "")],
         )
+
+
+def get_allowed_query_type_names() -> Set[str]:
+    """Get the set of names of query types that the teacher is allowed to
+    answer, computed based on the configuration CFG.
+    """
+    if CFG.approach in ("interactive_learning", "unittest"):
+        return {"GroundAtomHoldsQuery"}
+    return set()
 
 
 _attr_to_value = {}
