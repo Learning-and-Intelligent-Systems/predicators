@@ -175,7 +175,7 @@ def test_dataset_with_annotations():
     with pytest.raises(AssertionError):
         dataset = Dataset(trajectories, [])
     annotations = ["label" for _ in trajectories]
-    dataset = Dataset(trajectories, annotations)
+    dataset = Dataset(list(trajectories), list(annotations))
     assert dataset.annotations == annotations
     # Can't add a data point without an annotation.
     with pytest.raises(AssertionError):
