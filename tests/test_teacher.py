@@ -9,8 +9,7 @@ from predicators.src import utils
 
 def test_GroundAtomHolds():
     """Tests for answering queries of type GroundAtomHoldsQuery."""
-    utils.update_config({"env": "cover",
-                         "approach": "unittest"})
+    utils.update_config({"env": "cover", "approach": "unittest"})
     teacher = Teacher()
     env = create_env("cover")
     state = env.get_train_tasks()[0].init
