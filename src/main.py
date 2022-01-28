@@ -114,7 +114,8 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
         dataset = _generate_or_load_offline_dataset(env, train_tasks)
-        total_num_transitions = sum(len(traj.actions) for traj in dataset)
+        total_num_transitions = sum(
+            len(traj.actions) for traj in dataset.trajectories)
         learning_start = time.time()
         if CFG.load_approach:  # we only save/load for initial offline learning
             approach.load()

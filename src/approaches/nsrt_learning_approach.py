@@ -4,12 +4,12 @@ In contrast to other approaches, this approach does not attempt to learn
 new predicates or options.
 """
 
-from typing import Set, List
+from typing import Set, List, Sequence
 import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
-    Predicate, Type, Task
+    Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning import learn_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -37,11 +37,11 @@ class NSRTLearningApproach(TAMPApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts(dataset.trajectories)
 
-    def _learn_nsrts(self, dataset: Dataset) -> None:
+    def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory]) -> None:
         self._nsrts = learn_nsrts_from_data(
-            dataset,
+            trajectories,
             self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()

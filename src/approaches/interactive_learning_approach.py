@@ -1,6 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List, Collection
+from typing import Set, List, Collection, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -46,10 +46,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         return self._known_predicates | self._predicates_to_learn
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # This will change in the next PR; we will make a new dataset generation
+        # type, and the generate_data logic will get moved there.
         dataset_with_atoms = self._teacher.generate_data(dataset)
-        demo_idxs = [idx for idx, traj in enumerate(dataset) if traj.is_demo]
+        demo_idxs = [
+            idx for idx, traj in enumerate(dataset.trajectories)
+            if traj.is_demo
+        ]
         # Learn predicates and NSRTs
-        self._relearn_predicates_and_nsrts(dataset, dataset_with_atoms)
+        self._relearn_predicates_and_nsrts(dataset.trajectories,
+                                           dataset_with_atoms)
         # Track score of best atom seen so far
         best_score = 0.0
         # Active learning
@@ -57,7 +63,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             print(f"\nActive learning episode {i}")
             # Sample initial state from train tasks
             index = self._rng.choice(demo_idxs)
-            state = dataset[index].states[0]
+            state = dataset.trajectories[index].states[0]
             # Detect and filter out static predicates
             static_preds = utils.get_static_preds(
                 self._nsrts, self._get_current_predicates())
@@ -98,15 +104,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                         if self._ask_teacher(s, atom):
                             # Add this atom if it's a positive example
                             traj = LowLevelTrajectory([s], [])
-                            dataset.append(traj)
+                            dataset.trajectories.append(traj)
                             dataset_with_atoms.append((traj, [{atom}]))
                             # Still need a way to use negative examples
                         best_score = score
             if i % CFG.interactive_relearn_every == 0:
-                self._relearn_predicates_and_nsrts(dataset, dataset_with_atoms)
+                self._relearn_predicates_and_nsrts(dataset.trajectories,
+                                                   dataset_with_atoms)
 
     def _relearn_predicates_and_nsrts(
-            self, dataset: Dataset,
+            self, trajectories: Sequence[LowLevelTrajectory],
             dataset_with_atoms: List[GroundAtomTrajectory]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
         print("\nStarting semi-supervised learning...")
@@ -163,7 +170,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn NSRTs via superclass
-        self._learn_nsrts(dataset)
+        self._learn_nsrts(trajectories)
 
     def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
         """Returns whether the ground atom is true in the state."""
@@ -202,7 +209,7 @@ def create_teacher_dataset(preds: Collection[Predicate],
     labeleds = {p: 0 for p in preds}
     totals = {p: 0 for p in preds}
     teacher_dataset: List[GroundAtomTrajectory] = []
-    for traj in dataset:
+    for traj in dataset.trajectories:
         ground_atoms_traj: List[Set[GroundAtom]] = []
         for s in traj.states:
             ground_atoms = sorted(utils.abstract(s, preds))
@@ -219,7 +226,7 @@ def create_teacher_dataset(preds: Collection[Predicate],
             ground_atoms_traj.append(subset_atoms)
         assert len(traj.states) == len(ground_atoms_traj)
         teacher_dataset.append((traj, ground_atoms_traj))
-    assert len(teacher_dataset) == len(dataset)
+    assert len(teacher_dataset) == len(dataset.trajectories)
     return teacher_dataset
 
 

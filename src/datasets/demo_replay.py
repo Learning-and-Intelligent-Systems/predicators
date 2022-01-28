@@ -32,12 +32,13 @@ def create_demo_replay_data(env: BaseEnv,
     # all states into one list, is that we want to compute
     # all ground NSRTs once per trajectory only, rather
     # than once per state.
-    weights = np.array([len(traj.states) for traj in demo_dataset])
+    weights = np.array(
+        [len(traj.states) for traj in demo_dataset.trajectories])
     weights = weights / sum(weights)
     # Ground all NSRTs once per trajectory
     all_nsrts = get_gt_nsrts(env.predicates, env.options)
     ground_nsrts = []
-    for traj in demo_dataset:
+    for traj in demo_dataset.trajectories:
         objects = sorted(traj.states[0])
         # Assumes objects should be the same within a traj
         assert all(set(objects) == set(s) for s in traj.states)
@@ -46,14 +47,14 @@ def create_demo_replay_data(env: BaseEnv,
             these_ground_nsrts = utils.all_ground_nsrts(nsrt, objects)
             ground_nsrts_traj.extend(these_ground_nsrts)
         ground_nsrts.append(ground_nsrts_traj)
-    assert len(ground_nsrts) == len(demo_dataset)
+    assert len(ground_nsrts) == len(demo_dataset.trajectories)
     # Perform replays
     rng = np.random.default_rng(CFG.seed)
-    replay_dataset: Dataset = []
-    while len(replay_dataset) < CFG.offline_data_num_replays:
+    replay_trajectories: List[LowLevelTrajectory] = []
+    while len(replay_trajectories) < CFG.offline_data_num_replays:
         # Sample a trajectory
-        traj_idx = rng.choice(len(demo_dataset), p=weights)
-        traj = demo_dataset[traj_idx]
+        traj_idx = rng.choice(len(demo_dataset.trajectories), p=weights)
+        traj = demo_dataset.trajectories[traj_idx]
         # Sample a state
         # We don't allow sampling the final state in the trajectory here,
         # because there's no guarantee that an initiable option exists
@@ -93,11 +94,11 @@ def create_demo_replay_data(env: BaseEnv,
         if CFG.option_learner != "no_learning":
             for act in replay_traj.actions:
                 act.unset_option()
-        replay_dataset.append(replay_traj)
+        replay_trajectories.append(replay_traj)
 
-    assert len(replay_dataset) == CFG.offline_data_num_replays
+    assert len(replay_trajectories) == CFG.offline_data_num_replays
 
-    return demo_dataset + replay_dataset
+    return Dataset(demo_dataset.trajectories + replay_trajectories)
 
 
 def _replay_is_optimal(replay_traj: LowLevelTrajectory,

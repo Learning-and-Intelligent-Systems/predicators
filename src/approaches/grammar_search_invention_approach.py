@@ -297,7 +297,7 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
     def types(self) -> Set[Type]:
         """Infer types from the dataset."""
         types: Set[Type] = set()
-        for traj in self.dataset:
+        for traj in self.dataset.trajectories:
             types.update(o.type for o in traj.states[0])
         return types
 
@@ -359,7 +359,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     def _get_feature_ranges(
             self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
         feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
-        for traj in self.dataset:
+        for traj in self.dataset.trajectories:
             for state in traj.states:
                 for obj in state:
                     if obj.type not in feature_ranges:
@@ -437,7 +437,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
         """Returns frozensets of groundatoms for each data point."""
         # Get atoms for this predicate alone on the dataset.
         atom_dataset = utils.create_ground_atom_dataset(
-            self.dataset, {predicate})
+            self.dataset.trajectories, {predicate})
         raw_identifiers = set()
         for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
             for t, atoms in enumerate(atom_traj):
@@ -1284,7 +1284,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(
-            dataset,
+            dataset.trajectories,
             set(candidates) | self._initial_predicates)
         print("Done.")
         # Create the score function that will be used to guide search.
@@ -1297,7 +1297,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             candidates, score_function)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts(dataset.trajectories)
 
 
 def _select_predicates_to_keep(

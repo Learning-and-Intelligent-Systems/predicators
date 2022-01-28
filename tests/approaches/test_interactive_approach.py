@@ -39,7 +39,7 @@ def test_create_teacher_dataset():
 
     # Test the first trajectory for correct usage of ratio
     # Generate and count groundatoms
-    traj = dataset[0]
+    traj = dataset.trajectories[0]
     ground_atoms_traj = []
     totals = {p: 0 for p in env.predicates}
     for s in traj.states:
@@ -100,7 +100,7 @@ def test_interactive_learning_approach():
         # have to train very good models, since that would be slow.
 
     # Test teacher
-    traj = dataset[0]
+    traj = dataset.trajectories[0]
     for s in traj.states:
         ground_atoms = sorted(utils.abstract(s, env.predicates))
         for g in ground_atoms:
