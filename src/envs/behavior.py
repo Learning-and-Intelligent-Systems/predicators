@@ -4,6 +4,7 @@
 import functools
 import itertools
 import os
+import shutil
 from typing import List, Set, Optional, Dict, Callable, Sequence, \
     Union, Tuple
 import numpy as np
@@ -27,9 +28,9 @@ try:
 
     _BEHAVIOR_IMPORTED = True
     bddl.set_backend("iGibson")  # pylint: disable=no-member
-    os.makedirs("tmp_behavior_states/", exist_ok=True)
-    for file in os.scandir("tmp_behavior_states/"):
-        os.remove(file.path)
+    if os.path.exists("tmp_behavior_states/"):
+        shutil.rmtree("tmp_behavior_states/")
+    os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
     print(e)
     _BEHAVIOR_IMPORTED = False
@@ -52,14 +53,24 @@ class BehaviorEnv(BaseEnv):
         if not _BEHAVIOR_IMPORTED:
             raise ModuleNotFoundError("Behavior is not installed.")
         self._config_file = modify_config_file(
-            os.path.join(igibson.root_path, CFG.behavior_config_file),
-            CFG.behavior_task_name, CFG.behavior_scene_name, CFG.behavior_randomize_init_state)
+            os.path.join(igibson.root_path,
+                         CFG.behavior_config_file), CFG.behavior_task_name,
+            CFG.behavior_scene_name, CFG.behavior_randomize_init_state)
 
         super().__init__()  # To ensure self._seed is defined.
-        self._rng = np.random.default_rng(self._seed)        
+        self._rng = np.random.default_rng(self._seed)
+        self.igibson_behavior_env = behavior_env.BehaviorEnv(
+            config_file=self._config_file,
+            mode=CFG.behavior_mode,
+            action_timestep=CFG.behavior_action_timestep,
+            physics_timestep=CFG.behavior_physics_timestep,
+            action_filter="mobile_manipulation",
+            rng=self._rng,
+        )
         self._set_igibson_behavior_env()
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
+        self.task_num = 0  # a unique id for saving and loading each task's state
 
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
@@ -102,7 +113,7 @@ class BehaviorEnv(BaseEnv):
                     types=list(types),
                     params_space=Box(parameter_limits[0], parameter_limits[1],
                                      (param_dim, )),
-                    env=self.igibson_behavior_env,
+                    env=self,
                     planner_fn=planner_fn,
                     policy_fn=policy_fn,
                     option_model_fn=option_model_fn,
@@ -112,8 +123,9 @@ class BehaviorEnv(BaseEnv):
                 self._options.add(option)
 
     def simulate(self, state: State, action: Action) -> State:
+        self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(self.current_ig_state_to_state()):
-            load_checkpoint_state(state, self.igibson_behavior_env)
+            load_checkpoint_state(state, self)
 
         a = action.arr
         self.igibson_behavior_env.step(a)
@@ -160,12 +172,15 @@ class BehaviorEnv(BaseEnv):
             np.random.seed(rng.integers(0, (2**32) - 1))
             if CFG.behavior_randomize_init_state:
                 self._set_igibson_behavior_env()
+                self.igibson_behavior_env.reset()
             else:
                 self.igibson_behavior_env.reset()
+            os.makedirs(f"tmp_behavior_states/{self.task_num}", exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
             tasks.append(task)
+            self.task_num += 1
         return tasks
 
     def _get_task_goal(self) -> Set[GroundAtom]:
@@ -298,30 +313,22 @@ class BehaviorEnv(BaseEnv):
         return list(self.igibson_behavior_env.task.object_scope.values())
 
     def _set_igibson_behavior_env(self) -> None:
-        self.igibson_behavior_env = behavior_env.BehaviorEnv(
-                                        config_file=self._config_file,
-                                        mode=CFG.behavior_mode,
-                                        action_timestep=CFG.behavior_action_timestep,
-                                        physics_timestep=CFG.behavior_physics_timestep,
-                                        action_filter="mobile_manipulation",
-                                        rng=self._rng,
-                                        )
         if CFG.behavior_randomize_init_state:
             # NOTE: in this case, since we're attempting to randomize the initial state,
-            # iGibson might fail. If this happens, then 
+            # iGibson might fail. If this happens, then
             # self._ig_object_name(self._get_task_relevant_objects()[0]) will be None
             # We keep trying to get a new environment until we succeed.
-            while self._ig_object_name(self._get_task_relevant_objects()[0]) is None:
-                self.igibson_behavior_env = behavior_env.BehaviorEnv(
-                                        config_file=self._config_file,
-                                        mode=CFG.behavior_mode,
-                                        action_timestep=CFG.behavior_action_timestep,
-                                        physics_timestep=CFG.behavior_physics_timestep,
-                                        action_filter="mobile_manipulation",
-                                        rng=self._rng,
-                                        )
-
-
+            self.igibson_behavior_env.load_behavior_task_setup()
+            ig_objs_bddl_scope = [
+                self._ig_object_name(obj)
+                for obj in self._get_task_relevant_objects()
+            ]
+            while None in ig_objs_bddl_scope:
+                self.igibson_behavior_env.load_behavior_task_setup()
+                ig_objs_bddl_scope = [
+                    self._ig_object_name(obj)
+                    for obj in self._get_task_relevant_objects()
+                ]
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
@@ -363,9 +370,10 @@ class BehaviorEnv(BaseEnv):
             ])
             state_data[obj] = obj_state
 
-        simulator_state = save_checkpoint(self.igibson_behavior_env.simulator,
-                                          "tmp_behavior_states/")
-        return State(state_data, simulator_state)
+        simulator_state = save_checkpoint(
+            self.igibson_behavior_env.simulator,
+            f"tmp_behavior_states/{self.task_num}/")
+        return State(state_data, f"{self.task_num}-{simulator_state}")
 
     def _create_classifier_from_bddl(
         self,
@@ -378,8 +386,9 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
+            self.task_num = int(s.simulator_state.split("-")[0])
             if not s.allclose(self.current_ig_state_to_state()):
-                load_checkpoint_state(s, self.igibson_behavior_env)
+                load_checkpoint_state(s, self)
 
             arity = self._bddl_predicate_arity(bddl_predicate)
             if arity == 1:
@@ -404,8 +413,9 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
+        self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(self.current_ig_state_to_state()):
-            load_checkpoint_state(state, self.igibson_behavior_env)
+            load_checkpoint_state(state, self)
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
         ig_other_obj = self.object_to_ig_object(objs[1])
@@ -415,8 +425,9 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
+        self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(self.current_ig_state_to_state()):
-            load_checkpoint_state(state, self.igibson_behavior_env)
+            load_checkpoint_state(state, self)
         assert len(objs) == 1
         for obj in state:
             if self._reachable_classifier(
@@ -443,16 +454,18 @@ class BehaviorEnv(BaseEnv):
 
     def _handempty_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
+        self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(self.current_ig_state_to_state()):
-            load_checkpoint_state(state, self.igibson_behavior_env)
+            load_checkpoint_state(state, self)
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
         return len(grasped_objs) == 0
 
     def _holding_classifier(self, state: State,
                             objs: Sequence[Object]) -> bool:
+        self.task_num = int(state.simulator_state.split("-")[0])
         if not state.allclose(self.current_ig_state_to_state()):
-            load_checkpoint_state(state, self.igibson_behavior_env)
+            load_checkpoint_state(state, self)
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
         return objs[0] in grasped_objs
@@ -494,17 +507,21 @@ class BehaviorEnv(BaseEnv):
         return f"{original_name}-{type_names}"
 
 
-def load_checkpoint_state(s: State, env: "behavior_env.BehaviorEnv") -> None:
+def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     """Sets the underlying iGibson environment to a particular saved state."""
     assert s.simulator_state is not None
-    load_checkpoint(env.simulator, "tmp_behavior_states/", s.simulator_state)
+    env.task_num = int(s.simulator_state.split("-")[0])
+    load_checkpoint(env.igibson_behavior_env.simulator,
+                    f"tmp_behavior_states/{env.task_num}",
+                    int(s.simulator_state.split("-")[0]))
     # We step the environment to update the visuals of where the robot is!
-    env.step(np.zeros(env.action_space.shape))
+    env.igibson_behavior_env.step(
+        np.zeros(env.igibson_behavior_env.action_space.shape))
 
 
 def make_behavior_option(
-        name: str, types: Sequence[Type], params_space: Box,
-        env: "behavior_env.BehaviorEnv", planner_fn: Callable[[
+        name: str, types: Sequence[Type], params_space: Box, env: BehaviorEnv,
+        planner_fn: Callable[[
             "behavior_env.BehaviorEnv", Union[
                 "URDFObject", "RoomFloor"], Array, Optional[Generator]
         ], Optional[Tuple[List[List[float]], List[List[float]]]]],
@@ -526,7 +543,7 @@ def make_behavior_option(
         assert memory.get("policy_controller") is not None
         assert not memory["has_terminated"]
         action_arr, memory["has_terminated"] = memory["policy_controller"](
-            state, env)
+            state, env.igibson_behavior_env)
         return Action(action_arr)
 
     def _initiable(state: State, memory: Dict, objects: Sequence[Object],
@@ -547,7 +564,9 @@ def make_behavior_option(
         # NOTE: the below type ignore comment is necessary because mypy
         # doesn't like that rng is being passed by keyword (seems to be
         # an issue with mypy: https://github.com/python/mypy/issues/1655)
-        planner_result = planner_fn(env, igo[0], params,
+        planner_result = planner_fn(env.igibson_behavior_env,
+                                    igo[0],
+                                    params,
                                     rng=rng)  # type: ignore
         if planner_result is not None:
             # We can unpack the planner result into the rrt_plan and the
