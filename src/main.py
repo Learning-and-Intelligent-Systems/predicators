@@ -32,7 +32,7 @@ To run grammar search predicate invention (example):
 """
 
 from collections import defaultdict
-from typing import List, Tuple, Sequence, Callable, Optional
+from typing import List, Sequence, Callable, Optional
 import os
 import sys
 import subprocess
@@ -99,6 +99,13 @@ def main() -> None:
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space)
+    # Run the full pipeline.
+    _run_pipeline(env, approach)
+    script_time = time.time() - script_start
+    print(f"\n\nMain script terminated in {script_time:.5f} seconds")
+
+
+def _run_pipeline(env: BaseEnv, approach: BaseApproach) -> None:
     # If agent is learning-based, generate an offline dataset, allow the agent
     # to learn from it, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
@@ -131,8 +138,6 @@ def main() -> None:
         results["num_transitions"] = 0
         results["learning_time"] = 0.0
         _save_test_results(results)
-    script_time = time.time() - script_start
-    print(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
 def _generate_or_load_offline_dataset(env: BaseEnv,
@@ -182,7 +187,6 @@ def _generate_interaction_results(
             if query is None:
                 responses.append(None)
             else:
-                # TODO: error check the query type
                 responses.append(teacher.answer_query(state, query))
         # Finally, assemble the InteractionResult object.
         result = InteractionResult(traj.states, traj.actions, responses)

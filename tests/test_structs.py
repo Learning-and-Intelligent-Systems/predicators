@@ -6,7 +6,8 @@ from gym.spaces import Box
 from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
     STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, _GroundSTRIPSOperator
+    PartialNSRTAndDatastore, _GroundSTRIPSOperator, InteractionRequest, \
+    InteractionResult
 from predicators.src import utils
 
 
@@ -739,7 +740,7 @@ def test_segment():
 
 
 def test_pnad():
-    """Tests for PartialNSRTAndDatastoreclass."""
+    """Tests for PartialNSRTAndDatastore class."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -802,3 +803,14 @@ def test_pnad():
     Delete Effects: [On(?cup:cup_type, ?plate:plate_type)]
     Side Predicates: [On]
     Option Spec: Move()"""
+
+
+def test_interaction_request_and_result():
+    """Tests for InteractionRequest, InteractionResult classes."""
+    InteractionRequest(None, None, None, None)
+    with pytest.raises(AssertionError):  # wrong lengths
+        InteractionResult([None], [None], [None])
+    with pytest.raises(AssertionError):  # wrong lengths
+        InteractionResult([None, None], [None], [None])
+    InteractionResult([None, None], [None], [None, None])
+    InteractionResult([None], [], [None])
