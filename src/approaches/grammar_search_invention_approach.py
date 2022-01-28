@@ -1297,7 +1297,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             candidates, score_function)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=-1)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
 def _select_predicates_to_keep(

@@ -66,7 +66,7 @@ def _test_approach(env_name,
     # Now test loading NSRTs & predicates.
     approach2 = create_approach(approach_name, preds, env.options, env.types,
                                 env.action_space, train_tasks)
-    approach2.load()
+    approach2.load(online_learning_cycle=None)
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:

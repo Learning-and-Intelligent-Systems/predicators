@@ -28,7 +28,7 @@ class _MockApproach(BaseApproach):
         return lambda s: Action(self._action_space.sample())
 
     def learn_from_offline_dataset(self, dataset):
-        self._dummy_saved.append(-1)
+        self._dummy_saved.append(None)
 
     def get_interaction_requests(self):
         act_policy = lambda s: Action(self._action_space.sample())
@@ -57,7 +57,9 @@ class _MockApproach(BaseApproach):
         # request2's queries were all None, so the responses should be too.
         assert result2.responses == [None for _ in range(max_steps + 1)]
         assert self._dummy_saved
-        self._dummy_saved.append(self._dummy_saved[-1] + 1)
+        next_saved = (0 if self._dummy_saved[-1] is None else
+                      self._dummy_saved[-1] + 1)
+        self._dummy_saved.append(next_saved)
 
     def load(self, online_learning_cycle):
         assert self._dummy_saved.pop(0) == online_learning_cycle

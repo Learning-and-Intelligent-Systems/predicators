@@ -2,7 +2,7 @@
 
 import abc
 from collections import defaultdict
-from typing import Set, Callable, List, Sequence
+from typing import Set, Callable, List, Sequence, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
@@ -69,14 +69,14 @@ class BaseApproach(abc.ABC):
         given dataset.
 
         Also, save the results of learning so they can be loaded in the
-        future via load() with online_learning_cycle -1.
+        future via load() with online_learning_cycle = None.
         """
 
-    def load(self, online_learning_cycle: int) -> None:
+    def load(self, online_learning_cycle: Optional[int]) -> None:
         """Load anything from CFG.get_approach_save_path_str().
 
         Only called if self.is_learning_based. If online_learning_cycle
-        is -1, then load the results of learn_from_offline_dataset().
+        is None, then load the results of learn_from_offline_dataset().
 
         Otherwise, load the results of the ith call (zero-indexed) to
         learn_from_interaction_results().
@@ -99,8 +99,7 @@ class BaseApproach(abc.ABC):
         get_interaction_requests(), learn whatever.
 
         Also, save the results of learning so they can be loaded in the
-        future via load() with non-negative values of
-        online_learning_cycle.
+        future via load() with non-None values of online_learning_cycle.
         """
 
     @property
