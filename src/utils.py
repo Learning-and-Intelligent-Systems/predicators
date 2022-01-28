@@ -341,6 +341,7 @@ class ExceptionWithInfo(Exception):
         super().__init__(message)
         if info is None:
             info = {}
+        assert isinstance(info, dict)
         self.info = info
 
 

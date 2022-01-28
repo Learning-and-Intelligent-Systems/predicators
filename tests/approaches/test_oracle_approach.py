@@ -326,7 +326,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         try:
             state = env.simulate(state, grasp_action)
         except EnvironmentFailure as e:
-            assert len(e.offending_objects) == 1
+            assert len(e.info["offending_objects"]) == 1
         if not place_version:
             dump0_nsrt = dump_nsrt.ground([can3])
             with pytest.raises(AssertionError):
@@ -345,7 +345,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             try:
                 env.simulate(state, place_action)
             except EnvironmentFailure as e:
-                assert len(e.offending_objects) == 1
+                assert len(e.info["offending_objects"]) == 1
 
 
 def test_cluttered_table_place_get_gt_nsrts():
