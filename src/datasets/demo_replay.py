@@ -5,7 +5,7 @@ import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout, create_approach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.envs import BaseEnv, EnvironmentFailure
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
     LowLevelTrajectory
 from predicators.src.datasets.demo_only import create_demo_data
@@ -82,7 +82,7 @@ def create_demo_replay_data(env: BaseEnv,
                                              replay_traj.actions,
                                              _is_demo=False,
                                              _goal=traj.goal)
-        except EnvironmentFailure:
+        except utils.EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
 
