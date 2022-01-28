@@ -1,5 +1,6 @@
 """Test cases for online learning / interaction with the environment."""
 
+import pytest
 from predicators.src.approaches import BaseApproach
 from predicators.src.structs import Action, InteractionRequest, \
     InteractionResult
@@ -54,7 +55,7 @@ def test_interaction():
     utils.update_config({
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
-        "approach": "mock",
+        "approach": "unittest",
         "excluded_predicates": "",
         "experiment_id": "",
         "load_data": False,
@@ -69,3 +70,7 @@ def test_interaction():
     approach = _MockApproach(env.predicates, env.options, env.types,
                              env.action_space, train_tasks)
     _run_pipeline(env, approach, train_tasks)
+    utils.update_config({"approach": "nsrt_learning"})
+    with pytest.raises(AssertionError) as e:
+        _run_pipeline(env, approach, train_tasks)  # invalid query type
+    assert "Disallowed query" in str(e)
