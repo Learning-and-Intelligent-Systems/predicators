@@ -21,7 +21,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box) -> None:
+                 action_space: Box, train_tasks: List[Task]) -> None:
         # Predicates should not be ablated
         assert not CFG.excluded_predicates
         # Only the teacher is allowed to know about the initial predicates
@@ -40,7 +40,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         del initial_predicates
         del predicates_to_learn
         super().__init__(self._predicates_to_learn, initial_options, types,
-                         action_space)
+                         action_space, train_tasks)
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._known_predicates | self._predicates_to_learn

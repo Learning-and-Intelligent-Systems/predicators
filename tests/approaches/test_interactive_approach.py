@@ -84,9 +84,10 @@ def test_interactive_learning_approach():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
-                                                 env.types, env.action_space)
     train_tasks = env.get_train_tasks()
+    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space,
+                                                 train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
@@ -123,9 +124,10 @@ def test_interactive_learning_approach_no_ground_atoms():
         "num_test_tasks": 5,
     })
     env = CoverEnv()
-    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
-                                                 env.types, env.action_space)
     train_tasks = env.get_train_tasks()
+    approach = _DummyInteractiveLearningApproach(env.predicates, env.options,
+                                                 env.types, env.action_space,
+                                                 train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     # MLP training fails since there are 0 positive examples

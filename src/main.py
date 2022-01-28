@@ -96,21 +96,23 @@ def main() -> None:
                 "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
+    # Create the train tasks.
+    train_tasks = env.get_train_tasks()
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
-                               env.action_space)
+                               env.action_space, train_tasks)
     # Run the full pipeline.
-    _run_pipeline(env, approach)
+    _run_pipeline(env, approach, train_tasks)
     script_time = time.time() - script_start
     print(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
-def _run_pipeline(env: BaseEnv, approach: BaseApproach) -> None:
+def _run_pipeline(env: BaseEnv, approach: BaseApproach,
+                  train_tasks: List[Task]) -> None:
     # If agent is learning-based, generate an offline dataset, allow the agent
     # to learn from it, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
-        train_tasks = env.get_train_tasks()
         dataset = _generate_or_load_offline_dataset(env, train_tasks)
         total_num_transitions = sum(
             len(traj.actions) for traj in dataset.trajectories)
