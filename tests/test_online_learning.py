@@ -73,4 +73,4 @@ def test_interaction():
     utils.update_config({"approach": "nsrt_learning"})
     with pytest.raises(AssertionError) as e:
         _run_pipeline(env, approach, train_tasks)  # invalid query type
-        assert "Disallowed query" in str(e)
+    assert "Disallowed query" in str(e)
