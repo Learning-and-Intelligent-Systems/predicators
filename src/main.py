@@ -138,6 +138,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     approach.reset_metrics()
     total_suc_time = 0.0
     total_num_execution_failures = 0
+    video_prefix = utils.get_config_path_str()
     for i, task in enumerate(test_tasks):
         start = time.time()
         print(end="", flush=True)
@@ -146,6 +147,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
                   f"solve with error: {e}")
+            if CFG.make_failure_videos and e.info.get("partial_refinements"):
+                video = utils.create_video_from_partial_refinements(
+                    task, env.simulate, env.render,
+                    e.info["partial_refinements"])
+                outfile = f"{video_prefix}__task{i+1}_failure.mp4"
+                utils.save_video(outfile, video)
             continue
         num_found_policy += 1
         try:
@@ -168,7 +175,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
-            outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
+            outfile = f"{video_prefix}__task{i+1}.mp4"
             utils.save_video(outfile, video)
     metrics: Metrics = defaultdict(float)
     metrics["num_solved"] = num_solved
