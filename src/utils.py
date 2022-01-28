@@ -22,9 +22,9 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
-    Dataset, GroundAtomTrajectory, STRIPSOperator, DummyOption, \
-    _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
-    NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
+    GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
+    Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
+    GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
 
 matplotlib.use("Agg")
@@ -800,11 +800,11 @@ def all_possible_ground_atoms(state: State,
 
 
 def create_ground_atom_dataset(
-        dataset: Dataset,
+        trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
     """Apply all predicates to all trajectories in the dataset."""
     ground_atom_dataset = []
-    for traj in dataset:
+    for traj in trajectories:
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
     return ground_atom_dataset

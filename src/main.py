@@ -112,7 +112,8 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach) -> None:
     if approach.is_learning_based:
         train_tasks = env.get_train_tasks()
         dataset = _generate_or_load_offline_dataset(env, train_tasks)
-        total_num_transitions = sum(len(traj.actions) for traj in dataset)
+        total_num_transitions = sum(
+            len(traj.actions) for traj in dataset.trajectories)
         learning_start = time.time()
         if CFG.load_approach:  # we only save/load for initial offline learning
             approach.load()
