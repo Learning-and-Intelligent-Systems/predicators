@@ -6,10 +6,9 @@ from typing import Set, Callable, List, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, Type, \
-    ParameterizedOption, Action, Dataset, Metrics
+    ParameterizedOption, Action, Dataset, Metrics, InteractionRequest, \
+    InteractionResult
 from predicators.src.settings import CFG
-from predicators.src.interaction.agent_env_interaction import \
-    InteractionRequest, InteractionResponse
 
 
 class BaseApproach(abc.ABC):
@@ -65,29 +64,34 @@ class BaseApproach(abc.ABC):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         """For learning-based approaches, learn whatever is needed from the
-        given dataset. Also, save whatever is necessary to load() later.
+        given dataset.
+
+        Also, save whatever is necessary to load() later.
         """
 
     def load(self) -> None:
         """Load anything from CFG.get_approach_save_path_str().
 
-        Only called if self.is_learning_based, BEFORE any online learning.
+        Only called if self.is_learning_based. Note that we only load
+        the results of learning from the offline dataset, BEFORE any
+        online learning occurs.
         """
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        """Based on any learning that has previously occurred, create a list
-        of InteractionRequest objects to give back to the environment. The
-        responses to these requests will define the data that is received the
-        next learning cycle, when learn_from_interaction_responses() is called.
+        """Based on any learning that has previously occurred, create a list of
+        InteractionRequest objects to give back to the environment.
+
+        The results of these requests will define the data that is
+        received the next learning cycle, when
+        learn_from_interaction_results() is called.
         """
         _ = self  # unused, but maybe useful for subclasses
         return []
 
-    def learn_from_interaction_responses(
-            self, responses: Sequence[InteractionResponse]) -> None:
-        """Given responses to the requests returned by
-        get_interaction_requests(), learn whatever.
-        """
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        """Given a list of results of the requests returned by
+        get_interaction_requests(), learn whatever."""
 
     @property
     def metrics(self) -> Metrics:

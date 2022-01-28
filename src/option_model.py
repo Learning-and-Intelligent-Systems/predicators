@@ -40,7 +40,8 @@ class _OracleOptionModel(_OptionModelBase):
 
     def __init__(self) -> None:
         super().__init__()
-        self._simulator = create_env(CFG.env).simulate
+        env = create_env(CFG.env)
+        self._simulator = env.simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:
         traj = utils.option_to_trajectory(

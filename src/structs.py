@@ -4,11 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, DefaultDict, Optional, TypeVar
+    Tuple, Any, cast, DefaultDict, Optional, TypeVar, TYPE_CHECKING
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
+if TYPE_CHECKING:
+    from predicators.src.teacher import Query, Response
 
 
 @dataclass(frozen=True, order=True)
@@ -1018,6 +1020,36 @@ class PartialNSRTAndDatastore:
 
     def __str__(self) -> str:
         return repr(self)
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class InteractionRequest:
+    """A request for interacting with a training task during online learning.
+    Contains the index for that training task, an acting policy, a query policy,
+    and a termination function.
+
+    Note: the act_policy will not be called on the state where the
+    termination_function returns True, but the query_policy will be.
+    """
+    train_task_idx: int
+    act_policy: Callable[[State], Action]
+    query_policy: Callable[[State], Optional[Query]]  # query can be None
+    termination_function: Callable[[State], bool]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class InteractionResult:
+    """The result of an InteractionRequest. Contains a list of states, a list
+    of actions, and a list of responses to queries if provded.
+
+    Invariant: len(states) == len(responses) == len(actions) + 1
+    """
+    states: List[State]
+    actions: List[Action]
+    responses: List[Optional[Response]]
+
+    def __post_init__(self) -> None:
+        assert len(self.states) == len(self.responses) == len(self.actions) + 1
 
 
 # Convenience higher-order types useful throughout the code
