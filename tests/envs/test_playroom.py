@@ -5,7 +5,7 @@ playroom environment.
 
 import pytest
 import numpy as np
-from predicators.src.envs import PlayroomEnv, EnvironmentFailure
+from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
 from predicators.src.structs import Action, State
 
@@ -271,7 +271,7 @@ def test_playroom_simulate_doors_and_dial():
     state = next_state
     # Cannot advance through closed door
     act = Action(np.array([109.6, 15, 3, 1, 1]).astype(np.float32))
-    with pytest.raises(EnvironmentFailure):
+    with pytest.raises(utils.EnvironmentFailure):
         next_state = env.simulate(state, act)
     # Move to dial but do not toggle it
     act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))

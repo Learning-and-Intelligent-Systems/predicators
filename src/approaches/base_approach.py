@@ -9,6 +9,7 @@ from predicators.src.structs import State, Task, Predicate, Type, \
     ParameterizedOption, Action, Dataset, Metrics, InteractionRequest, \
     InteractionResult
 from predicators.src.settings import CFG
+from predicators.src.utils import ExceptionWithInfo
 
 
 class BaseApproach(abc.ABC):
@@ -104,9 +105,9 @@ class BaseApproach(abc.ABC):
         self._metrics = defaultdict(float)
 
 
-class ApproachTimeout(Exception):
+class ApproachTimeout(ExceptionWithInfo):
     """Exception raised when approach.solve() times out."""
 
 
-class ApproachFailure(Exception):
+class ApproachFailure(ExceptionWithInfo):
     """Exception raised when approach.solve() fails to compute a policy."""

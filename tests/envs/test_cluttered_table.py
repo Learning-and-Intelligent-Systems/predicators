@@ -5,7 +5,6 @@ from gym.spaces import Box
 from predicators.src.envs import ClutteredTableEnv, ClutteredTablePlaceEnv
 from predicators.src import utils
 from predicators.src.structs import Action, GroundAtom
-from predicators.src.envs import EnvironmentFailure
 
 
 def test_cluttered_table(place_version=False):
@@ -63,7 +62,7 @@ def test_cluttered_table(place_version=False):
             env.render(state, task, act)
         try:
             env.simulate(state, act)
-        except EnvironmentFailure:  # pragma: no cover
+        except utils.EnvironmentFailure:  # pragma: no cover
             pass
         atoms = utils.abstract(state, env.predicates)
         assert GroundAtom(HandEmpty, []) in atoms

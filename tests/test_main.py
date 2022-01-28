@@ -7,7 +7,7 @@ import sys
 import pytest
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     create_approach
-from predicators.src.envs import CoverEnv, EnvironmentFailure
+from predicators.src.envs import CoverEnv
 from predicators.src.main import main, _run_testing
 from predicators.src.structs import State, Task, Action
 from predicators.src import utils
@@ -32,7 +32,7 @@ class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
 
     def simulate(self, state, action):
-        raise EnvironmentFailure("", set())
+        raise utils.EnvironmentFailure("", {"offending_objects": set()})
 
 
 def test_main():
@@ -61,6 +61,14 @@ def test_main():
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
         "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
         "--results_dir", results_dir
+    ]
+    main()
+    # Test making videos of failures.
+    sys.argv = [
+        "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
+        results_dir, "--max_skeletons_optimized", "1",
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
     ]
     main()
     shutil.rmtree(video_dir)
