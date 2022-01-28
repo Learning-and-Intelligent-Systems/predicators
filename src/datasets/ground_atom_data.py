@@ -11,11 +11,11 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
                             annotating_predicates: Set[Predicate],
                             annotating_ratio: float) -> Dataset:
     """Create offline data by annotating low-level trajectories with ground
-    atoms that hold in the respective states for predicates in
-    annotating_predicates.
+    atoms. The ground atoms must hold in the respective states. Only the
+    predicates in annotating_predicates are used in the annotations.
 
     The base_dataset is the initial dataset (e.g. demos) of unannotated
-    low level trajectories.
+    low-level trajectories.
     """
     # Do not leak the classifier in the dataset. We want the names and args of
     # the predicates only in the annotations.

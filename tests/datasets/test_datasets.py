@@ -177,6 +177,12 @@ def test_dataset_with_annotations():
     annotations = ["label" for _ in trajectories]
     dataset = Dataset(trajectories, annotations)
     assert dataset.annotations == annotations
+    # Can't add a data point without an annotation.
+    with pytest.raises(AssertionError):
+        dataset.append(trajectories)
+    dataset.append(trajectories, annotations)
+    assert len(dataset.trajectories) == len(dataset.annotations) == \
+        2 * len(trajectories)
 
 
 def test_ground_atom_dataset():
