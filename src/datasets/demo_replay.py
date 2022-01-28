@@ -1,13 +1,13 @@
 """Create offline datasets by collecting demonstrations and replaying."""
 
-from typing import List
+from typing import List, Set
 import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout, create_approach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
-    LowLevelTrajectory
+    LowLevelTrajectory, GroundAtom
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -77,16 +77,17 @@ def create_demo_replay_data(env: BaseEnv,
                 option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
             # Add task goal into the trajectory.
-            replay_traj = LowLevelTrajectory(replay_traj.states,
-                                             replay_traj.actions,
-                                             _is_demo=False,
-                                             _goal=traj.goal)
+            replay_traj = LowLevelTrajectory(
+                replay_traj.states,
+                replay_traj.actions,
+                _is_demo=False,
+                _train_task_idx=traj.train_task_idx)
         except utils.EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
-
+        goal = train_tasks[traj.train_task_idx].goal
         if nonoptimal_only and _replay_is_optimal(replay_traj, traj, state_idx,
-                                                  oracle_approach, env):
+                                                  oracle_approach, env, goal):
             continue
 
         if CFG.option_learner != "no_learning":
@@ -101,7 +102,8 @@ def create_demo_replay_data(env: BaseEnv,
 
 def _replay_is_optimal(replay_traj: LowLevelTrajectory,
                        demo_traj: LowLevelTrajectory, state_idx: int,
-                       oracle_approach: BaseApproach, env: BaseEnv) -> bool:
+                       oracle_approach: BaseApproach, env: BaseEnv,
+                       goal: Set[GroundAtom]) -> bool:
     """Plan from the end of the replay to the goal and check whether the result
     is as good as the demo.
 
@@ -110,7 +112,7 @@ def _replay_is_optimal(replay_traj: LowLevelTrajectory,
     """
     assert demo_traj.states[state_idx].allclose(replay_traj.states[0])
     # Plan starting at the end of the replay trajectory to the demo goal.
-    task = Task(replay_traj.states[-1], demo_traj.goal)
+    task = Task(replay_traj.states[-1], goal)
     try:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)
