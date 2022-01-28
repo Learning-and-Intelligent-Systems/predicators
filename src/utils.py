@@ -333,6 +333,17 @@ def option_to_trajectory(init_state: State,
                             option.terminal, max_num_steps)
 
 
+class ExceptionWithInfo(Exception):
+    """An exception with an optional info dictionary that is initially
+    empty."""
+
+    def __init__(self, message: str, info: Optional[Dict] = None) -> None:
+        super().__init__(message)
+        if info is None:
+            info = {}
+        self.info = info
+
+
 class OptionPlanExhausted(Exception):
     """An exception for an option plan running out of options."""
 
@@ -1150,6 +1161,34 @@ def create_pddl_problem(objects: Collection[Object],
   (:goal (and {goal_str}))
 )
 """
+
+
+def create_video_from_partial_refinements(
+    task: Task, simulator: Callable[[State, Action], State],
+    render: Callable[[State, Task, Optional[Action]], List[Image]],
+    partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
+                                        Sequence[_Option]]]
+) -> Video:
+    """Create a video from a list of skeletons and partial refinements."""
+    # Right now, the video is created by finding the longest partial refinement.
+    # We imagine one day also implementing an "all_skeletons" mode that would
+    # create one video per skeleton.
+    if CFG.failure_video_mode == "longest_only":
+        # Visualize only the overall longest failed plan.
+        _, plan = max(partial_refinements, key=lambda x: len(x[1]))
+        policy = option_plan_to_policy(plan)
+        video: Video = []
+        state = task.init
+        while True:
+            try:
+                act = policy(state)
+            except OptionPlanExhausted:
+                break
+            video.extend(render(state, task, act))
+            state = simulator(state, act)
+        return video
+    raise NotImplementedError("Unrecognized failure video mode: "
+                              f"{CFG.failure_video_mode}.")
 
 
 def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:

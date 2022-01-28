@@ -8,7 +8,7 @@ from collections import defaultdict
 import heapq as hq
 from itertools import islice
 import time
-from typing import List, Set, Optional, Tuple, Iterator, Sequence
+from typing import List, Set, Optional, Tuple, Iterator, Sequence, Dict
 from dataclasses import dataclass
 import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
@@ -16,7 +16,7 @@ from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
     Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
-from predicators.src.utils import _TaskPlanningHeuristic
+from predicators.src.utils import _TaskPlanningHeuristic, ExceptionWithInfo
 from predicators.src.envs import EnvironmentFailure
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
@@ -62,6 +62,9 @@ def sesame_plan(
                 raise ApproachTimeout("Planning timed out in grounding!")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
+    # Keep track of partial refinements: skeletons and partial plans. This is
+    # for making videos of failed planning attempts.
+    partial_refinements = []
     while True:
         # There is no point in using NSRTs with empty effects, and they can
         # slow down search significantly, so we exclude them. Note however
@@ -87,7 +90,7 @@ def sesame_plan(
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics):
-                plan = _run_low_level_search(
+                plan, longest_refinement = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time))
                 if plan is not None:
@@ -99,11 +102,25 @@ def sesame_plan(
                         f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
                     return plan, metrics
+                partial_refinements.append((skeleton, longest_refinement))
+                if time.time() - start_time > timeout:
+                    raise ApproachTimeout(
+                        "Planning timed out in backtracking!",
+                        info={"partial_refinements": partial_refinements})
         except _DiscoveredFailureException as e:
             metrics["num_failures_discovered"] += 1
             new_predicates, ground_nsrts = _update_nsrts_with_failure(
                 e.discovered_failure, ground_nsrts)
             predicates |= new_predicates
+            partial_refinements.append(
+                (skeleton, e.info["longest_refinement"]))
+        except _MaxSkeletonsFailure as e:
+            raise ApproachFailure(
+                str(e), info={"partial_refinements": partial_refinements})
+        except _SkeletonSearchTimeout:
+            raise ApproachTimeout(
+                "Planning timed out in skeleton search!",
+                info={"partial_refinements": partial_refinements})
 
 
 def task_plan_grounding(
@@ -196,7 +213,8 @@ def _skeleton_generator(
     while queue and (time.time() - start_time < timeout):
         if (int(metrics["num_skeletons_optimized"]) ==
                 CFG.max_skeletons_optimized):
-            raise ApproachFailure("Planning reached max_skeletons_optimized!")
+            raise _MaxSkeletonsFailure(
+                "Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
@@ -224,16 +242,23 @@ def _skeleton_generator(
                             heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
     if not queue:
-        raise ApproachFailure("Planning ran out of skeletons!")
+        raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
-    raise ApproachTimeout("Planning timed out in skeleton search!")
+    raise _SkeletonSearchTimeout()
 
 
-def _run_low_level_search(task: Task, option_model: _OptionModelBase,
-                          skeleton: List[_GroundNSRT],
-                          atoms_sequence: List[Set[GroundAtom]], seed: int,
-                          timeout: float) -> Optional[List[_Option]]:
-    """Backtracking search over continuous values."""
+def _run_low_level_search(
+        task: Task, option_model: _OptionModelBase,
+        skeleton: List[_GroundNSRT], atoms_sequence: List[Set[GroundAtom]],
+        seed: int,
+        timeout: float) -> Tuple[Optional[List[_Option]], List[_Option]]:
+    """Backtracking search over continuous values.
+
+    The first return value is the low-level plan, or None if none can be
+    found. The second return value is the longest low-level plan that
+    refines the skeleton. Note that there are multiple such low-level
+    plans in general; we will keep the first found found (arbitrarily).
+    """
     start_time = time.time()
     rng_sampler = np.random.default_rng(seed)
     assert CFG.sesame_propagate_failures in \
@@ -242,6 +267,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     num_tries = [0 for _ in skeleton]
     plan: List[_Option] = [DummyOption for _ in skeleton]
     traj: List[State] = [task.init] + [DefaultState for _ in skeleton]
+    longest_refinement: List[_Option] = []
     # We'll use a maximum of one discovered failure per step, since
     # resampling can render old discovered failures obsolete.
     discovered_failures: List[Optional[_DiscoveredFailure]] = [
@@ -249,7 +275,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     ]
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
-            raise ApproachTimeout("Planning timed out in backtracking!")
+            return None, longest_refinement
         assert num_tries[cur_idx] < CFG.max_samples_per_step
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
@@ -265,6 +291,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             try:
                 next_state = option_model.get_next_state(state, option)
                 discovered_failures[cur_idx] = None  # no failure occurred
+                if cur_idx >= len(longest_refinement):
+                    longest_refinement = list(plan[:cur_idx + 1])
             except EnvironmentFailure as e:
                 can_continue_on = False
                 failure = _DiscoveredFailure(e, nsrt)
@@ -272,8 +300,9 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 discovered_failures[cur_idx] = failure
                 # If we're immediately propagating failures, raise it now.
                 if CFG.sesame_propagate_failures == "immediately":
-                    raise _DiscoveredFailureException("Discovered a failure",
-                                                      failure)
+                    raise _DiscoveredFailureException(
+                        "Discovered a failure", failure,
+                        {"longest_refinement": longest_refinement})
             if not discovered_failures[cur_idx]:
                 traj[cur_idx + 1] = next_state
                 cur_idx += 1
@@ -294,7 +323,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                     can_continue_on = True
                     if cur_idx == len(skeleton):  # success!
                         result = plan
-                        return result
+                        return result, longest_refinement
                 else:
                     can_continue_on = False
             else:
@@ -321,11 +350,13 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                         if (CFG.sesame_propagate_failures == "after_exhaust"
                                 and earliest_failure is not None):
                             raise _DiscoveredFailureException(
-                                "Discovered a failure", earliest_failure)
-                    return None
+                                "Discovered a failure", earliest_failure,
+                                {"longest_refinement": longest_refinement})
+                    return None, longest_refinement
     # Should only get here if the skeleton was empty
     assert not skeleton
-    return []
+    assert not longest_refinement
+    return [], []
 
 
 def _update_nsrts_with_failure(
@@ -372,9 +403,20 @@ class _DiscoveredFailure:
     failing_nsrt: _GroundNSRT
 
 
-class _DiscoveredFailureException(Exception):
+class _DiscoveredFailureException(ExceptionWithInfo):
     """Exception class for DiscoveredFailure propagation."""
 
-    def __init__(self, message: str, discovered_failure: _DiscoveredFailure):
-        super().__init__(message)
+    def __init__(self,
+                 message: str,
+                 discovered_failure: _DiscoveredFailure,
+                 info: Optional[Dict] = None):
+        super().__init__(message, info)
         self.discovered_failure = discovered_failure
+
+
+class _MaxSkeletonsFailure(Exception):
+    """Raised when the maximum number of skeletons has been reached."""
+
+
+class _SkeletonSearchTimeout(Exception):
+    """Raised when time out occurs in _run_low_level_search()."""

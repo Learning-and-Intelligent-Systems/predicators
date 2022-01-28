@@ -73,6 +73,7 @@ class GlobalSettings:
     data_dir = "saved_datasets"
     video_dir = "videos"
     video_fps = 2
+    failure_video_mode = "longest_only"
 
     # dataset parameters
     offline_data_planning_timeout = 3  # for learning-based approaches, the
