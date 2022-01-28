@@ -37,20 +37,21 @@ class NSRTLearningApproach(TAMPApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        self._learn_nsrts(dataset.trajectories)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=-1)
 
-    def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory]) -> None:
+    def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory],
+                     online_learning_cycle: int) -> None:
         self._nsrts = learn_nsrts_from_data(
             trajectories,
             self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}.NSRTs", "wb") as f:
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
 
-    def load(self) -> None:
+    def load(self, online_learning_cycle: int) -> None:
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}.NSRTs", "rb") as f:
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
         print("\n\nLoaded NSRTs:")
         for nsrt in sorted(self._nsrts):

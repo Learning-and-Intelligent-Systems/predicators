@@ -68,15 +68,18 @@ class BaseApproach(abc.ABC):
         """For learning-based approaches, learn whatever is needed from the
         given dataset.
 
-        Also, save whatever is necessary to load() later.
+        Also, save the results of learning so they can be loaded in the
+        future via load() with online_learning_cycle -1.
         """
 
-    def load(self) -> None:
+    def load(self, online_learning_cycle: int) -> None:
         """Load anything from CFG.get_approach_save_path_str().
 
-        Only called if self.is_learning_based. Note that we only load
-        the results of learning from the offline dataset, BEFORE any
-        online learning occurs.
+        Only called if self.is_learning_based. If online_learning_cycle
+        is -1, then load the results of learn_from_offline_dataset().
+
+        Otherwise, load the results of the ith call (zero-indexed) to
+        learn_from_interaction_results().
         """
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
@@ -93,7 +96,12 @@ class BaseApproach(abc.ABC):
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         """Given a list of results of the requests returned by
-        get_interaction_requests(), learn whatever."""
+        get_interaction_requests(), learn whatever.
+
+        Also, save the results of learning so they can be loaded in the
+        future via load() with non-negative values of
+        online_learning_cycle.
+        """
 
     @property
     def metrics(self) -> Metrics:
