@@ -349,6 +349,20 @@ class OptionPlanExhausted(Exception):
     """An exception for an option plan running out of options."""
 
 
+class EnvironmentFailure(ExceptionWithInfo):
+    """Exception raised when any type of failure occurs in an environment.
+
+    The info dictionary must contain a key "offending_objects", which
+    maps to a set of objects responsible for the failure.
+    """
+
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}: {self.info}"
+
+    def __str__(self) -> str:
+        return repr(self)
+
+
 def option_plan_to_policy(
         plan: Sequence[_Option]) -> Callable[[State], Action]:
     """Create a policy that executes a sequence of options in order."""
@@ -1187,7 +1201,10 @@ def create_video_from_partial_refinements(
                 video.extend(render(state, task, None))
                 break
             video.extend(render(state, task, act))
-            state = simulator(state, act)
+            try:
+                state = simulator(state, act)
+            except EnvironmentFailure:
+                break
         return video
     raise NotImplementedError("Unrecognized failure video mode: "
                               f"{CFG.failure_video_mode}.")

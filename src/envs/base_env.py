@@ -7,7 +7,6 @@ from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
     ParameterizedOption, Type, Action, Image
 from predicators.src.settings import CFG
-from predicators.src.utils import ExceptionWithInfo
 
 
 class BaseEnv(abc.ABC):
@@ -81,17 +80,3 @@ class BaseEnv(abc.ABC):
         # train/test tasks respectively.
         self._train_rng = np.random.default_rng(self._seed)
         self._test_rng = np.random.default_rng(self._seed)
-
-
-class EnvironmentFailure(ExceptionWithInfo):
-    """Exception raised when any type of failure occurs in an environment.
-
-    The info dictionary must contain a key "offending_objects", which
-    maps to a set of objects responsible for the failure.
-    """
-
-    def __repr__(self) -> str:
-        return f"{super().__repr__()}: {self.info}"
-
-    def __str__(self) -> str:
-        return repr(self)

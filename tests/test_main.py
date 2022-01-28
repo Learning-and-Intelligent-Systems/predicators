@@ -7,7 +7,7 @@ import sys
 import pytest
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     create_approach
-from predicators.src.envs import CoverEnv, EnvironmentFailure
+from predicators.src.envs import CoverEnv
 from predicators.src.main import main, _run_testing
 from predicators.src.structs import State, Task, Action
 from predicators.src import utils
@@ -32,7 +32,7 @@ class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
 
     def simulate(self, state, action):
-        raise EnvironmentFailure("", {"offending_objects": set()})
+        raise utils.EnvironmentFailure("", {"offending_objects": set()})
 
 
 def test_main():

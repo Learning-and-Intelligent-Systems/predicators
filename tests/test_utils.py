@@ -1727,3 +1727,16 @@ def test_create_video_from_partial_refinements():
     video = utils.create_video_from_partial_refinements(
         task, env.simulate, env.render, partial_refinements)
     assert len(video) == 2
+
+
+def test_env_failure():
+    """Tests for EnvironmentFailure class."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup = cup_type("cup")
+    try:
+        raise utils.EnvironmentFailure("failure123",
+                                       {"offending_objects": {cup}})
+    except utils.EnvironmentFailure as e:
+        assert str(e) == ("EnvironmentFailure('failure123'): "
+                          "{'offending_objects': {cup:cup_type}}")
+        assert e.info["offending_objects"] == {cup}

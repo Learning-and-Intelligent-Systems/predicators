@@ -39,7 +39,7 @@ import subprocess
 import time
 import dill as pkl
 from predicators.src.settings import CFG
-from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
+from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
@@ -222,7 +222,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             _, video, solved = utils.run_policy_on_task(
                 policy, task, env.simulate, CFG.max_num_steps_check_policy,
                 env.render if CFG.make_videos else None)
-        except EnvironmentFailure as e:
+        except utils.EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")
             continue
