@@ -5,7 +5,7 @@ Execution.
 """
 
 import abc
-from typing import Callable, Set
+from typing import Callable, Set, List
 from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
@@ -21,9 +21,9 @@ class TAMPApproach(BaseApproach):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box) -> None:
+                 action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
-                         action_space)
+                         action_space, train_tasks)
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
 

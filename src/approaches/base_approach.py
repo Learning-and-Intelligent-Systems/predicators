@@ -17,13 +17,14 @@ class BaseApproach(abc.ABC):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box) -> None:
+                 action_space: Box, train_tasks: List[Task]) -> None:
         """All approaches are initialized with only the necessary information
         about the environment."""
         self._initial_predicates = initial_predicates
         self._initial_options = initial_options
         self._types = types
         self._action_space = action_space
+        self._train_tasks = train_tasks
         self._metrics: Metrics = defaultdict(float)
         self.seed(CFG.seed)
 

@@ -50,9 +50,9 @@ def _test_approach(env_name,
             "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
-    approach = create_approach(approach_name, preds, env.options, env.types,
-                               env.action_space)
     train_tasks = env.get_train_tasks()
+    approach = create_approach(approach_name, preds, env.options, env.types,
+                               env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
@@ -65,7 +65,7 @@ def _test_approach(env_name,
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
     approach2 = create_approach(approach_name, preds, env.options, env.types,
-                                env.action_space)
+                                env.action_space, train_tasks)
     approach2.load()
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)

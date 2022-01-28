@@ -11,7 +11,7 @@ from predicators.src import utils
 def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos."""
     oracle_approach = create_approach("oracle", env.predicates, env.options,
-                                      env.types, env.action_space)
+                                      env.types, env.action_space, train_tasks)
     dataset = []
     for task in train_tasks:
         policy = oracle_approach.solve(
