@@ -1,6 +1,6 @@
 """Default imports for envs folder."""
 
-from predicators.src.envs.base_env import BaseEnv, EnvironmentFailure
+from predicators.src.envs.base_env import BaseEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, CoverMultistepOptions, \
     CoverMultistepOptionsFixedTasks
@@ -14,7 +14,6 @@ from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 
 __all__ = [
     "BaseEnv",
-    "EnvironmentFailure",
     "CoverEnv",
     "CoverEnvTypedOptions",
     "CoverEnvHierarchicalTypes",

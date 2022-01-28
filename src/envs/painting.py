@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv, EnvironmentFailure
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
@@ -257,7 +257,8 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise EnvironmentFailure("Box lid is closed.", {self._lid})
+            raise utils.EnvironmentFailure("Box lid is closed.",
+                                           {"offending_objects": {self._lid}})
         # Detect top grasp vs side grasp
         grasp = state.get(held_obj, "grasp")
         if grasp > self.top_grasp_thresh:
@@ -275,8 +276,8 @@ class PaintingEnv(BaseEnv):
         if receptacle == "table" and \
            collider is not None and \
            collider != held_obj:
-            raise EnvironmentFailure("Collision during place on table.",
-                                     {collider})
+            raise utils.EnvironmentFailure("Collision during place on table.",
+                                           {"offending_objects": {collider}})
         # Execute place
         next_state.set(self._robot, "fingers", 1.0)
         next_state.set(held_obj, "pose_x", x)

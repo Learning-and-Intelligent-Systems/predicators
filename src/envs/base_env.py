@@ -5,7 +5,7 @@ from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image, Object
+    ParameterizedOption, Type, Action, Image
 from predicators.src.settings import CFG
 
 
@@ -80,20 +80,3 @@ class BaseEnv(abc.ABC):
         # train/test tasks respectively.
         self._train_rng = np.random.default_rng(self._seed)
         self._test_rng = np.random.default_rng(self._seed)
-
-
-class EnvironmentFailure(Exception):
-    """Exception raised when any type of failure occurs in an environment.
-
-    Failures are associated with a set of objects that are responsible.
-    """
-
-    def __init__(self, message: str, offending_objects: Set[Object]):
-        super().__init__(message)
-        self.offending_objects = offending_objects
-
-    def __repr__(self) -> str:
-        return f"{super().__repr__()}: {self.offending_objects}"
-
-    def __str__(self) -> str:
-        return repr(self)
