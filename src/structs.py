@@ -911,7 +911,7 @@ class LowLevelTrajectory:
         return self._train_task_idx
 
 
-@dataclass(frozen=True, repr=False, eq=False)
+@dataclass(repr=False, eq=False)
 class Dataset:
     """A collection of LowLevelTrajectory objects, and optionally, lists of
     annotations, one per trajectory.
@@ -937,6 +937,17 @@ class Dataset:
         """The annotations in the dataset."""
         assert self._annotations is not None
         return self._annotations
+
+    def append(self,
+               trajectory: LowLevelTrajectory,
+               annotation: Optional[Any] = None) -> None:
+        """Append one more trajectory and annotation to the dataset."""
+        if annotation is None:
+            assert self._annotations is None
+        else:
+            assert self._annotations is not None
+            self._annotations.append(annotation)
+        self._trajectories.append(trajectory)
 
 
 @dataclass(eq=False)

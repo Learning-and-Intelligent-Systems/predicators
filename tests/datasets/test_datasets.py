@@ -5,6 +5,8 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv, ClutteredTableEnv
 from predicators.src.structs import Dataset
 from predicators.src import utils
+from predicators.src.ground_truth_nsrts import _get_predicates_by_names
+from predicators.src.settings import CFG
 
 
 def test_demo_dataset():
@@ -173,5 +175,65 @@ def test_dataset_with_annotations():
     with pytest.raises(AssertionError):
         dataset = Dataset(trajectories, [])
     annotations = ["label" for _ in trajectories]
-    dataset = Dataset(trajectories, annotations)
+    dataset = Dataset(list(trajectories), list(annotations))
     assert dataset.annotations == annotations
+    # Can't add a data point without an annotation.
+    with pytest.raises(AssertionError):
+        dataset.append(trajectories)
+    dataset.append(trajectories[0], annotations[0])
+    assert len(dataset.trajectories) == len(dataset.annotations) == \
+        len(trajectories) + 1
+
+
+def test_ground_atom_dataset():
+    """Test creation of demo+ground_atoms dataset."""
+    utils.update_config({"env": "cover"})
+    utils.update_config({
+        "approach":
+        "interactive_learning",
+        "num_train_tasks":
+        15,
+        "offline_data_method":
+        "demo+ground_atoms",
+        "teacher_dataset_label_ratio":
+        0.5,
+        "interactive_known_predicates":
+        "HandEmpty,IsBlock,IsTarget",
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks)
+    assert len(dataset.trajectories) == 15
+    assert len(dataset.annotations) == 15
+    Covers, HandEmpty, Holding = _get_predicates_by_names(
+        "cover", ["Covers", "HandEmpty", "Holding"])
+    all_predicates = {Covers, HandEmpty, Holding}
+    # Test that the approximately correct ratio of atoms are annotated.
+    pred_name_to_total = {p.name: 0 for p in all_predicates}
+    pred_name_to_labels = {p.name: 0 for p in all_predicates}
+    for traj, ground_atom_seq in zip(dataset.trajectories,
+                                     dataset.annotations):
+        assert len(traj.states) == len(ground_atom_seq)
+        for ground_atoms, s in zip(ground_atom_seq, traj.states):
+            all_ground_atoms = utils.abstract(s, all_predicates)
+            all_ground_atom_names = set()
+            for ground_truth_atom in all_ground_atoms:
+                pred_name_to_total[ground_truth_atom.predicate.name] += 1
+                all_ground_atom_names.add((ground_truth_atom.predicate.name,
+                                           tuple(ground_truth_atom.objects)))
+            for annotated_atom in ground_atoms:
+                pred_name_to_labels[annotated_atom.predicate.name] += 1
+                # Make sure the annotations are correct.
+                annotated_atom_name = (annotated_atom.predicate.name,
+                                       tuple(annotated_atom.objects))
+                assert annotated_atom_name in all_ground_atom_names
+                # Make sure we're not leaking information.
+                assert not annotated_atom.holds(s)
+    # HandEmpty was excluded.
+    assert pred_name_to_labels["HandEmpty"] == 0
+    assert pred_name_to_total["HandEmpty"] > 0
+    # Holding and Covers were included.
+    target_ratio = CFG.teacher_dataset_label_ratio
+    for name in ["Holding", "Covers"]:
+        ratio = pred_name_to_labels[name] / pred_name_to_total[name]
+        assert abs(target_ratio - ratio) < 0.05
