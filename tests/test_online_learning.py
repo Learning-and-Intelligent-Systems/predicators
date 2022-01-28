@@ -14,12 +14,21 @@ from predicators.src.settings import CFG
 class _MockApproach(BaseApproach):
     """Mock approach that generates interaction requests for testing."""
 
+    def __init__(self, initial_predicates, initial_options, types,
+                 action_space, train_tasks):
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
+        self._dummy_saved = []
+
     @property
     def is_learning_based(self):
         return True
 
     def _solve(self, task, timeout):
         return lambda s: Action(self._action_space.sample())
+
+    def learn_from_offline_dataset(self, dataset):
+        self._dummy_saved.append(-1)
 
     def get_interaction_requests(self):
         act_policy = lambda s: Action(self._action_space.sample())
@@ -47,6 +56,11 @@ class _MockApproach(BaseApproach):
         assert response1.holds
         # request2's queries were all None, so the responses should be too.
         assert result2.responses == [None for _ in range(max_steps + 1)]
+        assert self._dummy_saved
+        self._dummy_saved.append(self._dummy_saved[-1] + 1)
+
+    def load(self, online_learning_cycle):
+        assert self._dummy_saved.pop(0) == online_learning_cycle
 
 
 def test_interaction():
@@ -70,7 +84,13 @@ def test_interaction():
     approach = _MockApproach(env.predicates, env.options, env.types,
                              env.action_space, train_tasks)
     _run_pipeline(env, approach, train_tasks)
-    utils.update_config({"approach": "nsrt_learning"})
+    utils.update_config({"approach": "nsrt_learning", "load_data": True})
     with pytest.raises(AssertionError) as e:
         _run_pipeline(env, approach, train_tasks)  # invalid query type
     assert "Disallowed query" in str(e)
+    utils.update_config({
+        "approach": "unittest",
+        "load_data": True,
+        "load_approach": True
+    })
+    _run_pipeline(env, approach, train_tasks)  # test loading the approach
