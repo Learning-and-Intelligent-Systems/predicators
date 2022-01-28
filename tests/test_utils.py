@@ -1707,3 +1707,23 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("") == ""
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
+
+
+def test_create_video_from_partial_refinements():
+    """Tests for create_video_from_partial_refinements()."""
+    env = CoverEnv()
+    task = env.get_train_tasks()[0]
+    PickPlace = list(env.options)[0]
+    option = PickPlace.ground([],
+                              np.zeros(PickPlace.params_space.shape,
+                                       dtype=np.float32))
+    partial_refinements = [([], [option])]
+    utils.update_config({"failure_video_mode": "not a real video mode"})
+    with pytest.raises(NotImplementedError):
+        utils.create_video_from_partial_refinements(task, env.simulate,
+                                                    env.render,
+                                                    partial_refinements)
+    utils.update_config({"env": "cover", "failure_video_mode": "longest_only"})
+    video = utils.create_video_from_partial_refinements(
+        task, env.simulate, env.render, partial_refinements)
+    assert len(video) == 2

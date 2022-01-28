@@ -117,10 +117,9 @@ def sesame_plan(
         except _MaxSkeletonsFailure as e:
             raise ApproachFailure(
                 str(e), info={"partial_refinements": partial_refinements})
-        except _SkeletonSearchTimeout:
+        except _SkeletonSearchTimeout as e:
             raise ApproachTimeout(
-                "Planning timed out in skeleton search!",
-                info={"partial_refinements": partial_refinements})
+                str(e), info={"partial_refinements": partial_refinements})
 
 
 def task_plan_grounding(
@@ -244,7 +243,7 @@ def _skeleton_generator(
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
-    raise _SkeletonSearchTimeout()
+    raise _SkeletonSearchTimeout
 
 
 def _run_low_level_search(
@@ -414,9 +413,12 @@ class _DiscoveredFailureException(ExceptionWithInfo):
         self.discovered_failure = discovered_failure
 
 
-class _MaxSkeletonsFailure(Exception):
+class _MaxSkeletonsFailure(ApproachFailure):
     """Raised when the maximum number of skeletons has been reached."""
 
 
-class _SkeletonSearchTimeout(Exception):
+class _SkeletonSearchTimeout(ApproachTimeout):
     """Raised when time out occurs in _run_low_level_search()."""
+
+    def __init__(self) -> None:
+        super().__init__("Planning timed out in skeleton search!")

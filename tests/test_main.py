@@ -63,6 +63,14 @@ def test_main():
         "--results_dir", results_dir
     ]
     main()
+    # Test making videos of failures.
+    sys.argv = [
+        "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
+        results_dir, "--max_skeletons_optimized", "1",
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
+    ]
+    main()
     shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
     # Run actual main approach, but without sampler learning.

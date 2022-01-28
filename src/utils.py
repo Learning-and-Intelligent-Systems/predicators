@@ -1183,6 +1183,7 @@ def create_video_from_partial_refinements(
             try:
                 act = policy(state)
             except OptionPlanExhausted:
+                video.extend(render(state, task, None))
                 break
             video.extend(render(state, task, act))
             state = simulator(state, act)
