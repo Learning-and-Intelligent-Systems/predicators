@@ -18,7 +18,8 @@ class Teacher:
     """The teacher can respond to queries of various types."""
 
     def __init__(self) -> None:
-        self._env = create_env(CFG.env)
+        env = create_env(CFG.env)
+        self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
 
     def answer_query(self, state: State, query: Query) -> Response:
         """The key method that the teacher defines."""
@@ -29,8 +30,7 @@ class Teacher:
     def _answer_GroundAtomHolds_query(
             self, state: State,
             query: GroundAtomHoldsQuery) -> GroundAtomHoldsResponse:
-        pred_name_to_pred = {pred.name: pred for pred in self._env.predicates}
-        pred = pred_name_to_pred[query.predicate_name]
+        pred = self._pred_name_to_pred[query.predicate_name]
         holds = pred.holds(state, query.objects)
         return GroundAtomHoldsResponse(query, holds)
 
