@@ -1,8 +1,8 @@
 [run]
-omit = 
+omit =
     src/envs/behavior.py
     src/envs/behavior_options.py
-    
+
 [report]
 # Regexes for lines to exclude from consideration
 exclude_lines =
@@ -13,3 +13,6 @@ exclude_lines =
     # Don't complain about abstract methods, they aren't run
     @abstractmethod
     @abc.abstractmethod
+
+    # Don't complain about TYPE_CHECKING imports.
+    if TYPE_CHECKING:
