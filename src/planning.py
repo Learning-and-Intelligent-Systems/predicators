@@ -300,8 +300,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
                 # Check atoms against expected atoms_sequence constraint.
                 assert len(traj) == len(atoms_sequence)
                 # The expected atoms are ones that we definitely expect to be
-                # true at this point in the refinement. They are not *all* the
-                # atoms that could be true.
+                # true at this point in the plan. They are not *all* the atoms
+                # that could be true.
                 expected_atoms = {
                     atom
                     for atom in atoms_sequence[cur_idx]
