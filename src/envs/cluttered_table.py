@@ -8,7 +8,7 @@ from typing import List, Set, Sequence, Dict, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv, EnvironmentFailure
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
@@ -279,7 +279,8 @@ class ClutteredTableEnv(BaseEnv):
                     colliding_can_max_dist = float(dist)
                     colliding_can = can
         if colliding_can is not None:
-            raise EnvironmentFailure("collision", {colliding_can})
+            raise utils.EnvironmentFailure(
+                "collision", {"offending_objects": {colliding_can}})
 
 
 class ClutteredTablePlaceEnv(ClutteredTableEnv):

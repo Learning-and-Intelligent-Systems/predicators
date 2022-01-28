@@ -7,8 +7,8 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
-    EnvironmentFailure, BlocksEnv, PaintingEnv, PlayroomEnv, \
-    CoverMultistepOptions, CoverMultistepOptionsFixedTasks, RepeatedNextToEnv
+    BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
+    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src import utils
 
@@ -325,8 +325,8 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         assert env.action_space.contains(grasp_action.arr)
         try:
             state = env.simulate(state, grasp_action)
-        except EnvironmentFailure as e:
-            assert len(e.offending_objects) == 1
+        except utils.EnvironmentFailure as e:
+            assert len(e.info["offending_objects"]) == 1
         if not place_version:
             dump0_nsrt = dump_nsrt.ground([can3])
             with pytest.raises(AssertionError):
@@ -344,8 +344,8 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             assert env.action_space.contains(place_action.arr)
             try:
                 env.simulate(state, place_action)
-            except EnvironmentFailure as e:
-                assert len(e.offending_objects) == 1
+            except utils.EnvironmentFailure as e:
+                assert len(e.info["offending_objects"]) == 1
 
 
 def test_cluttered_table_place_get_gt_nsrts():
