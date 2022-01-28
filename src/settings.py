@@ -13,11 +13,14 @@ import numpy as np
 
 class GlobalSettings:
     """Unchanging settings."""
-    # parameters for all envs
+    # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
-    max_num_steps_check_policy = 100  # maximum number of steps to run a policy
-    # when checking whether it solves a task
+    num_online_learning_cycles = 10
+    # Maximum number of steps to run a policy when checking if it solves a task.
+    max_num_steps_check_policy = 100
+    # Maximum number of steps to run an InteractionRequest policy.
+    max_num_steps_interaction_request = 100
 
     # cover env parameters
     cover_num_blocks = 2
