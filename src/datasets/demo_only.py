@@ -12,7 +12,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos."""
     oracle_approach = create_approach("oracle", env.predicates, env.options,
                                       env.types, env.action_space)
-    dataset = []
+    trajectories = []
     for task in train_tasks:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)
@@ -27,5 +27,5 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         if CFG.option_learner != "no_learning":
             for act in traj.actions:
                 act.unset_option()
-        dataset.append(traj)
-    return dataset
+        trajectories.append(traj)
+    return Dataset(trajectories)

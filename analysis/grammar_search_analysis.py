@@ -192,7 +192,8 @@ def _run_proxy_analysis_for_predicates(
     utils.flush_cache()
     candidates = {p: 1.0 for p in predicates}
     all_predicates = predicates | initial_predicates
-    atom_dataset = utils.create_ground_atom_dataset(dataset, all_predicates)
+    atom_dataset = utils.create_ground_atom_dataset(dataset.trajectories,
+                                                    all_predicates)
     results = {}
     # Compute scores.
     for score_function_name in score_function_names:

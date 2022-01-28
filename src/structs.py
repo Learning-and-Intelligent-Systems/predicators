@@ -909,6 +909,34 @@ class LowLevelTrajectory:
         return self._goal
 
 
+@dataclass(frozen=True, repr=False, eq=False)
+class Dataset:
+    """A collection of LowLevelTrajectory objects, and optionally, lists of
+    annotations, one per trajectory.
+
+    For example, in interactive learning, an annotation for an offline
+    learning Dataset would be of type List[Set[GroundAtom]] (with
+    predicate classifiers deleted).
+    """
+    _trajectories: List[LowLevelTrajectory]
+    _annotations: Optional[List[Any]] = field(default=None)
+
+    def __post_init__(self) -> None:
+        if self._annotations is not None:
+            assert len(self._trajectories) == len(self._annotations)
+
+    @property
+    def trajectories(self) -> List[LowLevelTrajectory]:
+        """The trajectories in the dataset."""
+        return self._trajectories
+
+    @property
+    def annotations(self) -> List[Any]:
+        """The annotations in the dataset."""
+        assert self._annotations is not None
+        return self._annotations
+
+
 @dataclass(eq=False)
 class Segment:
     """A segment represents a low-level trajectory that is the result of
@@ -1053,7 +1081,6 @@ class InteractionResult:
 
 
 # Convenience higher-order types useful throughout the code
-Dataset = List[LowLevelTrajectory]
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
