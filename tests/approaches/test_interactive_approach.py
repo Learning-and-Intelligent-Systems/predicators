@@ -23,7 +23,6 @@ class _DummyInteractiveLearningApproach(InteractiveLearningApproach):
 
 def test_create_teacher_dataset():
     """Test teacher dataset creation with Covers env."""
-    # Test that data does not contain options since approach is random
     utils.update_config({"env": "cover"})
     utils.update_config({
         "approach": "interactive_learning",
