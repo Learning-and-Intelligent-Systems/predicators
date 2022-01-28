@@ -33,7 +33,7 @@ def test_known_options_option_learner():
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.predicates)
+        dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert act.has_option()
@@ -85,7 +85,7 @@ def test_oracle_option_learner_cover():
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.predicates)
+        dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
@@ -139,7 +139,7 @@ def test_oracle_option_learner_blocks():
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.predicates)
+        dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
