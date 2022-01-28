@@ -86,8 +86,8 @@ class BaseEnv(abc.ABC):
 class EnvironmentFailure(ExceptionWithInfo):
     """Exception raised when any type of failure occurs in an environment.
 
-    The info dictionary must contain a key "offending_objects", which maps
-    to a set of objects responsible for the failure.
+    The info dictionary must contain a key "offending_objects", which
+    maps to a set of objects responsible for the failure.
     """
 
     def __repr__(self) -> str:

@@ -1171,9 +1171,9 @@ def create_video_from_partial_refinements(
                                         Sequence[_Option]]]
 ) -> Video:
     """Create a video from a list of skeletons and partial refinements."""
-    # Right now, the video is created by finding the longest partial refinement.
-    # We imagine one day also implementing an "all_skeletons" mode that would
-    # create one video per skeleton.
+    # Right now, the video is created by finding the longest partial
+    # refinement. One could also implement an "all_skeletons" mode
+    # that would create one video per skeleton.
     if CFG.failure_video_mode == "longest_only":
         # Visualize only the overall longest failed plan.
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
