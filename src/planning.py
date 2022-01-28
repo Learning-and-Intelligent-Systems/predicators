@@ -114,12 +114,9 @@ def sesame_plan(
             predicates |= new_predicates
             partial_refinements.append(
                 (skeleton, e.info["longest_refinement"]))
-        except _MaxSkeletonsFailure as e:
-            raise ApproachFailure(
-                str(e), info={"partial_refinements": partial_refinements})
-        except _SkeletonSearchTimeout as e:
-            raise ApproachTimeout(
-                str(e), info={"partial_refinements": partial_refinements})
+        except (_MaxSkeletonsFailure, _SkeletonSearchTimeout) as e:
+            e.info["partial_refinements"] = partial_refinements
+            raise e
 
 
 def task_plan_grounding(
