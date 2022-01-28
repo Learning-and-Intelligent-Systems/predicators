@@ -118,7 +118,7 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
             len(traj.actions) for traj in dataset.trajectories)
         learning_start = time.time()
         if CFG.load_approach:
-            approach.load(online_learning_cycle=-1)
+            approach.load(online_learning_cycle=None)
         else:
             approach.learn_from_offline_dataset(dataset)
         teacher = Teacher()

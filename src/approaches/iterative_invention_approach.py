@@ -66,7 +66,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 segment.final_atoms.update(
                     utils.abstract(segment.states[-1], new_preds))
         # Finally, learn NSRTs via superclass, using all the predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=-1)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
     def _invent_for_some_op(
             self, segments: Sequence[Segment]) -> Optional[Predicate]:

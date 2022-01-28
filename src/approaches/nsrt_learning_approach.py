@@ -4,7 +4,7 @@ In contrast to other approaches, this approach does not attempt to learn
 new predicates or options.
 """
 
-from typing import Set, List, Sequence
+from typing import Set, List, Sequence, Optional
 import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import TAMPApproach
@@ -37,10 +37,10 @@ class NSRTLearningApproach(TAMPApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=-1)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
     def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory],
-                     online_learning_cycle: int) -> None:
+                     online_learning_cycle: Optional[int]) -> None:
         self._nsrts = learn_nsrts_from_data(
             trajectories,
             self._get_current_predicates(),
@@ -49,7 +49,7 @@ class NSRTLearningApproach(TAMPApproach):
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
 
-    def load(self, online_learning_cycle: int) -> None:
+    def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
