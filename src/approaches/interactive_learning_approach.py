@@ -112,38 +112,27 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             assert pred not in self._known_predicates
             positive_examples = []
             negative_examples = []
-            # Positive examples
             for (traj, ground_atom_sets) in zip(dataset.trajectories,
                                                 dataset.annotations):
                 assert len(traj.states) == len(ground_atom_sets)
                 for (state, ground_atom_set) in zip(traj.states,
                                                     ground_atom_sets):
-                    if len(ground_atom_set) == 0:
-                        continue
-                    positives = [
-                        state.vec(ground_atom.objects)
-                        for ground_atom in ground_atom_set
-                        if ground_atom.predicate == pred
-                    ]
-                    positive_examples.extend(positives)
-            # Negative examples - assume unlabeled is negative for now
-            for traj in dataset.trajectories:
-                for state in traj.states:
-                    possible = [
-                        state.vec(choice)
-                        for choice in get_object_combinations(
-                            list(state), pred.types)
-                    ]
-                    negatives = []
-                    # TODO: I think this logic is wrong. Confirm and fix in a
-                    # separate PR before merging this one.
-                    for ex in possible:
-                        for pos in positive_examples:
-                            if np.array_equal(ex, pos):
-                                break
-                        else:  # It's not a positive example
-                            negatives.append(ex)
-                    negative_examples.extend(negatives)
+                    # Object tuples that appear as the arguments to a ground
+                    # atom where the predicate is pred.
+                    positive_args = {
+                        tuple(atom.objects)
+                        for atom in ground_atom_set if atom.predicate == pred
+                    }
+                    # Loop through all possible examples. If an example appears
+                    # in the ground atom set, it's positive. Otherwise, we make
+                    # the (wrong in general!) assumption that it's negative.
+                    for choice in get_object_combinations(
+                            list(state), pred.types):
+                        x = state.vec(choice)
+                        if tuple(choice) in positive_args:
+                            positive_examples.append(x)
+                        else:
+                            negative_examples.append(x)
             print(f"Generated {len(positive_examples)} positive and "
                   f"{len(negative_examples)} negative examples for "
                   f"predicate {pred}")
