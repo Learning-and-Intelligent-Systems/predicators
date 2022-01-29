@@ -3,10 +3,10 @@
 import pytest
 from predicators.src.approaches import BaseApproach
 from predicators.src.structs import Action, InteractionRequest, \
-    InteractionResult
+    InteractionResult, Predicate, GroundAtom
 from predicators.src.main import _run_pipeline
 from predicators.src.envs import create_env
-from predicators.src.teacher import GroundAtomHoldsQuery
+from predicators.src.teacher import GroundAtomsHoldQuery
 from predicators.src import utils
 from predicators.src.settings import CFG
 
@@ -32,7 +32,9 @@ class _MockApproach(BaseApproach):
 
     def get_interaction_requests(self):
         act_policy = lambda s: Action(self._action_space.sample())
-        query_policy1 = lambda s: GroundAtomHoldsQuery("HandEmpty", [])
+        HandEmpty = Predicate("HandEmpty", [], lambda s, o: False)
+        hand_empty_atom = GroundAtom(HandEmpty, [])
+        query_policy1 = lambda s: GroundAtomsHoldQuery({hand_empty_atom})
         termination_function1 = lambda s: True  # terminate immediately
         request1 = InteractionRequest(0, act_policy, query_policy1,
                                       termination_function1)
@@ -51,9 +53,12 @@ class _MockApproach(BaseApproach):
         assert len(result1.states) == 1
         assert len(result2.states) == max_steps + 1
         response1 = result1.responses[0]
-        assert response1.query.predicate_name == "HandEmpty"
-        assert response1.query.objects == []
-        assert response1.holds
+        assert len(response1.query.ground_atoms) == 1
+        query_atom = next(iter(response1.query.ground_atoms))
+        assert query_atom.predicate.name == "HandEmpty"
+        assert query_atom.objects == []
+        assert len(response1.holds) == 1
+        assert next(iter(response1.holds.values()))
         # request2's queries were all None, so the responses should be too.
         assert result2.responses == [None for _ in range(max_steps + 1)]
         assert self._dummy_saved

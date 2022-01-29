@@ -60,6 +60,7 @@ class GlobalSettings:
     behavior_physics_timestep = 1.0 / 120.0
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
+    behavior_randomize_init_state = False
 
     # parameters for approaches
     random_options_max_tries = 100
@@ -204,7 +205,7 @@ def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
     if CFG.approach in ("interactive_learning", "unittest"):
-        return {"GroundAtomHoldsQuery"}
+        return {"GroundAtomsHoldQuery"}
     return set()
 
 
