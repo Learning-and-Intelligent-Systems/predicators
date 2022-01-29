@@ -10,14 +10,14 @@ INCREMENT=-0.1
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     for RATIO in $(seq $MAX_RATIO $INCREMENT $MIN_RATIO); do
         # exclude On
-        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_On_$RATIO --teacher_dataset_label_ratio $RATIO --interactive_known_predicates GripperOpen,Holding,Clear,NextToTable,NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom,IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed,LightOn,LightOff,OnTable
+        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_On_$RATIO --teacher_dataset_label_ratio $RATIO --excluded_predicates On
         # exclude OnTable
-        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_OnTable_$RATIO --teacher_dataset_label_ratio $RATIO --interactive_known_predicates GripperOpen,Holding,Clear,NextToTable,NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom,IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed,LightOn,LightOff,On
+        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_OnTable_$RATIO --teacher_dataset_label_ratio $RATIO --excluded_predicates OnTable
         # exclude LightOn
-        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_LightOn_$RATIO --teacher_dataset_label_ratio $RATIO --interactive_known_predicates GripperOpen,Holding,Clear,NextToTable,NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom,IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed,LightOff,On,OnTable
+        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_LightOn_$RATIO --teacher_dataset_label_ratio $RATIO --excluded_predicates LightOn
         # exclude LightOff
-        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_LightOff_$RATIO --teacher_dataset_label_ratio $RATIO --interactive_known_predicates GripperOpen,Holding,Clear,NextToTable,NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom,IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed,LightOn,On,OnTable
+        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_LightOff_$RATIO --teacher_dataset_label_ratio $RATIO --excluded_predicates LightOff
         # exclude all four goal predicates
-        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_all_goals_$RATIO --teacher_dataset_label_ratio $RATIO --interactive_known_predicates GripperOpen,Holding,Clear,NextToTable,NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom,IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed
+        python $FILE --env playroom --approach interactive_learning --seed $SEED --experiment_id exclude_all_goals_$RATIO --teacher_dataset_label_ratio $RATIO --excluded_predicates On,OnTable,LightOn,LightOff
     done
 done
