@@ -9,7 +9,8 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
+    TYPE_CHECKING
 import heapq as hq
 import pathos.multiprocessing as mp
 import imageio
@@ -26,7 +27,8 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
     GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
-from predicators.src.envs import BaseEnv
+if TYPE_CHECKING:
+    from predicators.src.envs import BaseEnv
 
 matplotlib.use("Agg")
 
