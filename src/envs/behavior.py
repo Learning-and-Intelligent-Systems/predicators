@@ -170,9 +170,7 @@ class BehaviorEnv(BaseEnv):
             curr_env_seed = rng.integers(0, (2**32) - 1)
             if CFG.behavior_randomize_init_state:
                 self.set_igibson_behavior_env(curr_env_seed)
-                self.igibson_behavior_env.reset()
-            else:
-                self.igibson_behavior_env.reset()
+            self.igibson_behavior_env.reset()
             self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{self.task_num}", exist_ok=True)
             init_state = self.current_ig_state_to_state()
@@ -315,40 +313,29 @@ class BehaviorEnv(BaseEnv):
     def set_igibson_behavior_env(self, seed: int) -> None:
         """Sets/resets the igibson_behavior_env."""
         np.random.seed(seed)
-        self.igibson_behavior_env = behavior_env.BehaviorEnv(
-            config_file=self._config_file,
-            mode=CFG.behavior_mode,
-            action_timestep=CFG.behavior_action_timestep,
-            physics_timestep=CFG.behavior_physics_timestep,
-            action_filter="mobile_manipulation",
-            rng=self._rng,
-        )
-        self.igibson_behavior_env.step(
-            np.zeros(self.igibson_behavior_env.action_space.shape))
-        if CFG.behavior_randomize_init_state:
-            # NOTE: in this case, since we're attempting to randomize
-            # the initial state, iGibson might fail. If this happens,
-            # then at least one bddl object scope will be None. We keep
-            # trying to get a new environment until we succeed.
+        env_creation_attempts = 0
+        # NOTE: this while loop is necessary because in some cases
+        # when CFG.randomize_init_state is True, creating a new
+        # iGibson env may fail and we need to keep trying until
+        # ig_objs_bddl_scope doesn't contain any None's
+        while True:
+            self.igibson_behavior_env = behavior_env.BehaviorEnv(
+                config_file=self._config_file,
+                mode=CFG.behavior_mode,
+                action_timestep=CFG.behavior_action_timestep,
+                physics_timestep=CFG.behavior_physics_timestep,
+                action_filter="mobile_manipulation",
+                rng=self._rng,
+            )
+            self.igibson_behavior_env.step(
+                np.zeros(self.igibson_behavior_env.action_space.shape))
             ig_objs_bddl_scope = [
                 self._ig_object_name(obj)
                 for obj in self._get_task_relevant_objects()
             ]
-            while None in ig_objs_bddl_scope:
-                self.igibson_behavior_env = behavior_env.BehaviorEnv(
-                    config_file=self._config_file,
-                    mode=CFG.behavior_mode,
-                    action_timestep=CFG.behavior_action_timestep,
-                    physics_timestep=CFG.behavior_physics_timestep,
-                    action_filter="mobile_manipulation",
-                    rng=self._rng,
-                )
-                self.igibson_behavior_env.step(
-                    np.zeros(self.igibson_behavior_env.action_space.shape))
-                ig_objs_bddl_scope = [
-                    self._ig_object_name(obj)
-                    for obj in self._get_task_relevant_objects()
-                ]
+            if None not in ig_objs_bddl_scope or env_creation_attempts > 10:
+                break
+            env_creation_attempts += 1
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
