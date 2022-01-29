@@ -101,8 +101,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 if not atom_holds:
                     continue
                 # Add this atom because it's a positive example.
-                traj = LowLevelTrajectory([state], [])
-                self._dataset.append(traj, [{query_atom}])
+                # Note: these pragma no covers are very temporary; we will
+                # remove them in a future PR where we change the score function
+                # to use >= instead of >, among other things. But for the sake
+                # of a pure refactor, we're leaving it alone for now.
+                traj = LowLevelTrajectory([state], [])  # pragma: no cover
+                self._dataset.append(traj, [{query_atom}])  # pragma: no cover
         self._relearn_predicates_and_nsrts(
             self._dataset, online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
