@@ -1347,7 +1347,7 @@ def parse_config_excluded_predicates(env: BaseEnv) -> Tuple[
             excluded_names = set(CFG.excluded_predicates.split(","))
             assert excluded_names.issubset(
                 {pred.name for pred in env.predicates}), \
-                "Unrecognized excluded_predicates!"
+                "Unrecognized predicate in excluded_predicates!"
             included = {
                 pred for pred in env.predicates
                 if pred.name not in excluded_names

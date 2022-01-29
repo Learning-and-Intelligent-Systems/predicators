@@ -13,7 +13,8 @@ from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.option_model import _OracleOptionModel
 from predicators.src.utils import get_object_combinations, strip_predicate
-from predicators.src.teacher import GroundAtomHoldsQuery
+from predicators.src.teacher import GroundAtomHoldsQuery, \
+    GroundAtomHoldsResponse
 from predicators.src.settings import CFG
 
 
@@ -29,7 +30,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._best_score = 0.0
         # Initialize things that will be set correctly in offline learning
         self._dataset = Dataset([])
-        self._predicates_to_learn = set()
+        self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
@@ -97,6 +98,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         for state, response in zip(result.states, result.responses):
             if response is None:
                 continue  # we didn't ask a query on this timestep
+            assert isinstance(response, GroundAtomHoldsResponse)
+            assert isinstance(response.query, GroundAtomHoldsQuery)
             if response.holds:
                 # Add this atom if it's a positive example
                 traj = LowLevelTrajectory([state], [])
