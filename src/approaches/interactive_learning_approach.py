@@ -74,8 +74,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 if score > self._best_score:
                     atoms_to_query.add(atom)
                     self._best_score = score
-            if not atoms_to_query:
-                return None
             return GroundAtomsHoldQuery(atoms_to_query)
 
         def _termination_function(s: State) -> bool:
@@ -95,7 +93,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             if response is None:
                 continue  # we didn't ask a query on this timestep
             assert isinstance(response, GroundAtomsHoldResponse)
-            assert isinstance(response.query, GroundAtomsHoldQuery)
             for query_atom, atom_holds in response.holds.items():
                 # Still need a way to use negative examples.
                 if not atom_holds:
