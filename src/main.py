@@ -76,26 +76,7 @@ def main() -> None:
     for option in env.options:
         option.params_space.seed(CFG.seed)
     assert env.goal_predicates.issubset(env.predicates)
-    if CFG.excluded_predicates:
-        if CFG.excluded_predicates == "all":
-            excludeds = {
-                pred.name
-                for pred in env.predicates if pred not in env.goal_predicates
-            }
-            print(f"All non-goal predicates excluded: {excludeds}")
-            preds = env.goal_predicates
-        else:
-            excludeds = set(CFG.excluded_predicates.split(","))
-            assert excludeds.issubset({pred.name for pred in env.predicates}), \
-                "Unrecognized excluded_predicates!"
-            preds = {
-                pred
-                for pred in env.predicates if pred.name not in excludeds
-            }
-            assert env.goal_predicates.issubset(preds), \
-                "Can't exclude a goal predicate!"
-    else:
-        preds = env.predicates
+    preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
     train_tasks = env.get_train_tasks()
     # Create the agent (approach).
@@ -124,6 +105,7 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
         teacher = Teacher()
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
+            print(f"\n\nONLINE LEARNING CYCLE {i}\n\n")
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
             results["learning_time"] = time.time() - learning_start
