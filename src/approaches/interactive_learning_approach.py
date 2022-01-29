@@ -1,17 +1,19 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Tuple, Callable, Sequence
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Dataset, GroundAtom, LowLevelTrajectory
+    Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
+    InteractionResult, Action
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
-from predicators.src.option_model import _OracleOptionModel
-from predicators.src.utils import get_object_combinations, strip_predicate
+from predicators.src.utils import get_object_combinations
+from predicators.src.teacher import GroundAtomsHoldQuery, \
+    GroundAtomsHoldResponse
 from predicators.src.settings import CFG
 
 
@@ -21,95 +23,111 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
                  action_space: Box, train_tasks: List[Task]) -> None:
-        # Predicates should not be ablated
-        assert not CFG.excluded_predicates
-        # Only the teacher is allowed to know about the initial predicates
-        known_predicates = set(CFG.interactive_known_predicates.split(","))
-        self._known_predicates = {
-            p
-            for p in initial_predicates if p.name in known_predicates
-        }
-        predicates_to_learn = initial_predicates - self._known_predicates
-        self._teacher = _Teacher(initial_predicates, predicates_to_learn)
-        # No cheating!
-        self._predicates_to_learn = {
-            strip_predicate(p)
-            for p in predicates_to_learn
-        }
-        del initial_predicates
-        del predicates_to_learn
-        super().__init__(self._predicates_to_learn, initial_options, types,
+        super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
+        # Track score of best atom seen so far.
+        self._best_score = 0.0
+        # Initialize things that will be set correctly in offline learning.
+        self._dataset = Dataset([], [])
+        self._predicates_to_learn: Set[Predicate] = set()
+        self._online_learning_cycle = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
-        return self._known_predicates | self._predicates_to_learn
+        return self._initial_predicates | self._predicates_to_learn
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # Learn predicates and NSRTs
+        # First, go through the dataset's annotations and figure out the
+        # set of predicates to learn. Note that their classifiers were
+        # stripped away during the creation of the annotations.
+        for ground_atom_sets in dataset.annotations:
+            for ground_atom_set in ground_atom_sets:
+                for atom in ground_atom_set:
+                    assert atom.predicate not in self._initial_predicates
+                    self._predicates_to_learn.add(atom.predicate)
+        # Learn predicates and NSRTs.
         self._relearn_predicates_and_nsrts(dataset, online_learning_cycle=None)
-        # Track score of best atom seen so far
-        best_score = 0.0
-        # Active learning
-        for i in range(1, CFG.interactive_num_episodes + 1):
-            print(f"\nActive learning episode {i}")
-            # Sample initial state from train tasks
-            index = self._rng.choice(len(self._train_tasks))
-            state = dataset.trajectories[index].states[0]
-            # Detect and filter out static predicates
-            static_preds = utils.get_static_preds(
-                self._nsrts, self._get_current_predicates())
-            preds = self._get_current_predicates() - static_preds
-            # Find policy for exploration
-            task_list = glib_sample(state, preds, dataset)
-            assert task_list
-            task = task_list[0]
-            for task in task_list:
-                try:
-                    print("Solving for policy...")
-                    policy = self.solve(task, timeout=CFG.timeout)
-                    break
-                except (ApproachTimeout, ApproachFailure) \
-                        as e:  # pragma: no cover
-                    print(f"Approach failed to solve with error: {e}")
+        # Save dataset, to be used for online interaction.
+        self._dataset = dataset
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        # Sample a train task.
+        train_task_idx = self._rng.choice(len(self._train_tasks))
+        init = self._train_tasks[train_task_idx].init
+        # Detect and filter out static predicates.
+        static_preds = utils.get_static_preds(self._nsrts,
+                                              self._predicates_to_learn)
+        preds = self._predicates_to_learn - static_preds
+        # Find acting policy for the request.
+        task_list = glib_sample(init, preds, self._dataset)
+        assert task_list
+        task, act_policy = self._find_first_solvable(task_list)
+        assert task.init is init
+
+        def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
+            # Decide whether to ask about each possible atom.
+            ground_atoms = utils.all_possible_ground_atoms(
+                s, self._predicates_to_learn)
+            atoms_to_query = set()
+            for atom in ground_atoms:
+                score = score_atom(self._dataset, atom)
+                # Ask about this atom if it is the best seen so far.
+                if score > self._best_score:
+                    atoms_to_query.add(atom)
+                    self._best_score = score
+            return GroundAtomsHoldQuery(atoms_to_query)
+
+        def _termination_function(s: State) -> bool:
+            # Stop the episode if we reach the goal that we babbled.
+            return all(goal_atom.holds(s) for goal_atom in task.goal)
+
+        return [
+            InteractionRequest(train_task_idx, act_policy, _query_policy,
+                               _termination_function)
+        ]
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        assert len(results) == 1
+        result = results[0]
+        for state, response in zip(result.states, result.responses):
+            assert isinstance(response, GroundAtomsHoldResponse)
+            for query_atom, atom_holds in response.holds.items():
+                # Still need a way to use negative examples.
+                if not atom_holds:
                     continue
-            else:  # No policy found
-                raise ApproachFailure("Failed to sample a task that approach "
-                                      "can solve.")  # pragma: no cover
-            # Roll out policy via a temporary hack
-            assert isinstance(self._option_model, _OracleOptionModel)
-            simulator = self._option_model._simulator  # pylint:disable=protected-access
-            traj, _, _ = utils.run_policy_on_task(
-                policy,
-                task,
-                simulator,
-                max_num_steps=CFG.interactive_max_num_steps)
-            # Decide whether to ask about each possible atom during exploration
-            for s in traj.states:
-                ground_atoms = utils.all_possible_ground_atoms(
-                    s, self._predicates_to_learn)
-                for atom in ground_atoms:
-                    # Note: future score functions will use the state s
-                    score = score_atom(dataset, atom)
-                    # Ask about this atom if it is the best seen so far
-                    if score > best_score:
-                        if self._ask_teacher(s, atom):
-                            # Add this atom if it's a positive example
-                            traj = LowLevelTrajectory([s], [])
-                            dataset.append(traj, [{atom}])
-                            # Still need a way to use negative examples
-                        best_score = score
-            if i % CFG.interactive_relearn_every == 0:
-                self._relearn_predicates_and_nsrts(dataset,
-                                                   online_learning_cycle=i - 1)
+                # Add this atom because it's a positive example.
+                # Note: these pragma no covers are very temporary; we will
+                # remove them in a future PR where we change the score function
+                # to use >= instead of >, among other things. But for the sake
+                # of a pure refactor, we're leaving it alone for now.
+                traj = LowLevelTrajectory([state], [])  # pragma: no cover
+                self._dataset.append(traj, [{query_atom}])  # pragma: no cover
+        self._relearn_predicates_and_nsrts(
+            self._dataset, online_learning_cycle=self._online_learning_cycle)
+        self._online_learning_cycle += 1
+
+    def _find_first_solvable(
+            self,
+            task_list: List[Task]) -> Tuple[Task, Callable[[State], Action]]:
+        for task in task_list:
+            try:
+                print("Solving for policy...")
+                policy = self.solve(task, timeout=CFG.timeout)
+                return task, policy
+            except (ApproachTimeout, ApproachFailure) \
+                    as e:  # pragma: no cover
+                print(f"Approach failed to solve with error: {e}")
+                continue
+        raise ApproachFailure("Failed to sample a task that approach "
+                              "can solve.")  # pragma: no cover
 
     def _relearn_predicates_and_nsrts(
             self, dataset: Dataset,
             online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
-        print("\nStarting semi-supervised learning...")
+        print("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
-            assert pred not in self._known_predicates
             positive_examples = []
             negative_examples = []
             for (traj, ground_atom_sets) in zip(dataset.trajectories,
@@ -153,26 +171,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         # Learn NSRTs via superclass
         self._learn_nsrts(dataset.trajectories, online_learning_cycle)
-
-    def _ask_teacher(self, state: State, ground_atom: GroundAtom) -> bool:
-        """Returns whether the ground atom is true in the state."""
-        return self._teacher.ask(state, ground_atom)
-
-
-class _Teacher:
-    """Answers queries about GroundAtoms in States."""
-
-    def __init__(self, initial_predicates: Set[Predicate],
-                 predicates_to_learn: Set[Predicate]) -> None:
-        self._name_to_predicate = {p.name: p for p in initial_predicates}
-        self._predicates_to_learn = predicates_to_learn
-
-    def ask(self, state: State, ground_atom: GroundAtom) -> bool:
-        """Returns whether the ground atom is true in the state."""
-        # Find the predicate that has the classifier
-        predicate = self._name_to_predicate[ground_atom.predicate.name]
-        # Use the predicate's classifier
-        return predicate.holds(state, ground_atom.objects)
 
 
 def glib_sample(
