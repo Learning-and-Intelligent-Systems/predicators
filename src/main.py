@@ -39,7 +39,7 @@ import subprocess
 import time
 import dill as pkl
 from predicators.src.settings import CFG
-from predicators.src.envs import create_env, EnvironmentFailure, BaseEnv
+from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
@@ -96,31 +96,34 @@ def main() -> None:
                 "Can't exclude a goal predicate!"
     else:
         preds = env.predicates
+    # Create the train tasks.
+    train_tasks = env.get_train_tasks()
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
-                               env.action_space)
+                               env.action_space, train_tasks)
     # Run the full pipeline.
-    _run_pipeline(env, approach)
+    _run_pipeline(env, approach, train_tasks)
     script_time = time.time() - script_start
     print(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
-def _run_pipeline(env: BaseEnv, approach: BaseApproach) -> None:
+def _run_pipeline(env: BaseEnv, approach: BaseApproach,
+                  train_tasks: List[Task]) -> None:
     # If agent is learning-based, generate an offline dataset, allow the agent
     # to learn from it, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
-        train_tasks = env.get_train_tasks()
         dataset = _generate_or_load_offline_dataset(env, train_tasks)
-        total_num_transitions = sum(len(traj.actions) for traj in dataset)
+        total_num_transitions = sum(
+            len(traj.actions) for traj in dataset.trajectories)
         learning_start = time.time()
-        if CFG.load_approach:  # we only save/load for initial offline learning
-            approach.load()
+        if CFG.load_approach:
+            approach.load(online_learning_cycle=None)
         else:
             approach.learn_from_offline_dataset(dataset)
         teacher = Teacher()
         # The online learning loop.
-        for _ in range(CFG.num_online_learning_cycles):
+        for i in range(CFG.num_online_learning_cycles):
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
             results["learning_time"] = time.time() - learning_start
@@ -132,7 +135,10 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach) -> None:
                 env.simulate, teacher, train_tasks, interaction_requests)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
-            approach.learn_from_interaction_results(interaction_results)
+            if CFG.load_approach:
+                approach.load(online_learning_cycle=i)
+            else:
+                approach.learn_from_interaction_results(interaction_results)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
@@ -201,6 +207,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     approach.reset_metrics()
     total_suc_time = 0.0
     total_num_execution_failures = 0
+    video_prefix = utils.get_config_path_str()
     for i, task in enumerate(test_tasks):
         start = time.time()
         print(end="", flush=True)
@@ -209,13 +216,19 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         except (ApproachTimeout, ApproachFailure) as e:
             print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
                   f"solve with error: {e}")
+            if CFG.make_failure_videos and e.info.get("partial_refinements"):
+                video = utils.create_video_from_partial_refinements(
+                    task, env.simulate, env.render,
+                    e.info["partial_refinements"])
+                outfile = f"{video_prefix}__task{i+1}_failure.mp4"
+                utils.save_video(outfile, video)
             continue
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(
                 policy, task, env.simulate, CFG.max_num_steps_check_policy,
                 env.render if CFG.make_videos else None)
-        except EnvironmentFailure as e:
+        except utils.EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")
             continue
@@ -231,7 +244,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
-            outfile = f"{utils.get_config_path_str()}__task{i}.mp4"
+            outfile = f"{video_prefix}__task{i+1}.mp4"
             utils.save_video(outfile, video)
     metrics: Metrics = defaultdict(float)
     metrics["num_solved"] = num_solved

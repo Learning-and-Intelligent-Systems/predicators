@@ -651,8 +651,6 @@ def test_low_level_trajectory():
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
     plate = plate_type("plate")
-    on = Predicate("On", [cup_type, plate_type],
-                   lambda s, o: s.get(o[1], "feat1") < 1.3)
     state0 = State({cup: [0.5], plate: [1.0, 1.2]})
     state1 = State({cup: [0.5], plate: [1.1, 1.2]})
     state2 = State({cup: [0.8], plate: [1.5, 1.2]})
@@ -665,35 +663,19 @@ def test_low_level_trajectory():
     assert traj.actions == actions
     assert not traj.is_demo
     with pytest.raises(AssertionError):
-        print(traj.goal)  # no goal in this traj
+        print(traj.train_task_idx)  # no train task idx in this traj
     with pytest.raises(AssertionError):
-        traj = LowLevelTrajectory(states, actions, True)  # demo must have goal
-    traj = LowLevelTrajectory(states, actions, _is_demo=True, _goal=set())
-    assert traj.is_demo
-    assert traj.goal == set()
-    # Goal is not achieved in final state, okay because not demo.
+        # Demo must have train task idx.
+        traj = LowLevelTrajectory(states, actions, True)
     traj = LowLevelTrajectory(states,
                               actions,
-                              _is_demo=False,
-                              _goal={on([cup, plate])})
-    assert not traj.is_demo
-    assert traj.goal == {on([cup, plate])}
-    with pytest.raises(AssertionError):
-        # Goal is not achieved in final state, bad because demo.
-        traj = LowLevelTrajectory(states,
-                                  actions,
-                                  _is_demo=True,
-                                  _goal={on([cup, plate])})
+                              _is_demo=True,
+                              _train_task_idx=0)
+    assert traj.is_demo
+    assert traj.train_task_idx == 0
     with pytest.raises(AssertionError):
         # Incompatible lengths of states and actions.
-        traj = LowLevelTrajectory(states[:-1], actions, {on([cup, plate])})
-    # Goal is achieved in final state, required because demo.
-    traj = LowLevelTrajectory(states[:-1],
-                              actions[:-1],
-                              _is_demo=True,
-                              _goal={on([cup, plate])})
-    assert traj.is_demo
-    assert traj.goal == {on([cup, plate])}
+        traj = LowLevelTrajectory(states[:-1], actions)
 
 
 def test_segment():

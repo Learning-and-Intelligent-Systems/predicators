@@ -93,11 +93,12 @@ def test_sesame_plan_failures():
     utils.update_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
+    train_tasks = env.get_train_tasks()
     option_model = create_option_model(CFG.option_model_name)
     approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space)
+                              env.action_space, train_tasks)
     approach.seed(123)
-    task = env.get_train_tasks()[0]
+    task = train_tasks[0]
     trivial_task = Task(task.init, set())
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):

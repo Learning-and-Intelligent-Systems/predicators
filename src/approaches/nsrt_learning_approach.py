@@ -4,12 +4,12 @@ In contrast to other approaches, this approach does not attempt to learn
 new predicates or options.
 """
 
-from typing import Set
+from typing import Set, List, Sequence, Optional
 import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
-    Predicate, Type
+    Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning import learn_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -20,9 +20,9 @@ class NSRTLearningApproach(TAMPApproach):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box) -> None:
+                 action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
-                         action_space)
+                         action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
 
     @property
@@ -37,20 +37,21 @@ class NSRTLearningApproach(TAMPApproach):
         # The only thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
-    def _learn_nsrts(self, dataset: Dataset) -> None:
+    def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory],
+                     online_learning_cycle: Optional[int]) -> None:
         self._nsrts = learn_nsrts_from_data(
-            dataset,
+            trajectories,
             self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}.NSRTs", "wb") as f:
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "wb") as f:
             pkl.dump(self._nsrts, f)
 
-    def load(self) -> None:
+    def load(self, online_learning_cycle: Optional[int]) -> None:
         save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}.NSRTs", "rb") as f:
+        with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
         print("\n\nLoaded NSRTs:")
         for nsrt in sorted(self._nsrts):

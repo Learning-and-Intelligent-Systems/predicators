@@ -9,7 +9,7 @@ from predicators.src import utils
 
 def test_GroundAtomHolds():
     """Tests for answering queries of type GroundAtomHoldsQuery."""
-    utils.update_config({"env": "cover"})
+    utils.update_config({"env": "cover", "approach": "unittest"})
     teacher = Teacher()
     env = create_env("cover")
     state = env.get_train_tasks()[0].init
@@ -30,10 +30,3 @@ def test_GroundAtomHolds():
     assert isinstance(response, GroundAtomHoldsResponse)
     assert response.query is query
     assert not response.holds
-
-
-def test_invalid_query():
-    """Tests for an invalid query."""
-    teacher = Teacher()
-    with pytest.raises(ValueError):
-        teacher.answer_query(None, None)
