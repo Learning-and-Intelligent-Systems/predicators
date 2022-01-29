@@ -1740,3 +1740,8 @@ def test_env_failure():
         assert str(e) == ("EnvironmentFailure('failure123'): "
                           "{'offending_objects': {cup:cup_type}}")
         assert e.info["offending_objects"] == {cup}
+
+
+def test_parse_config_excluded_predicates():
+    """Tests for parse_config_excluded_predicates()."""
+    1/0  # TODO

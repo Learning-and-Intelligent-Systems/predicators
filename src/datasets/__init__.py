@@ -8,6 +8,7 @@ from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.datasets.demo_replay import create_demo_replay_data
 from predicators.src.datasets.ground_atom_data import create_ground_atom_data
 from predicators.src.settings import CFG
+from predicators.src import utils
 
 
 def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
@@ -21,12 +22,8 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         return create_demo_replay_data(env, train_tasks, nonoptimal_only=True)
     if CFG.offline_data_method == "demo+ground_atoms":
         base_dataset = create_demo_data(env, train_tasks)
-        known_predicate_names = CFG.interactive_known_predicates.split(",")
-        predicates_to_learn = {
-            p
-            for p in env.predicates if p.name not in known_predicate_names
-        }
+        _, excluded_preds = utils.parse_config_excluded_predicates(env)
         ratio = CFG.teacher_dataset_label_ratio
-        return create_ground_atom_data(env, base_dataset, predicates_to_learn,
-                                       ratio)
+        return create_ground_atom_data(
+            env, base_dataset, excluded_preds, ratio)
     raise NotImplementedError("Unrecognized dataset method.")
