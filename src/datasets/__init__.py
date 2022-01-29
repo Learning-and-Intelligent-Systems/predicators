@@ -24,6 +24,6 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         base_dataset = create_demo_data(env, train_tasks)
         _, excluded_preds = utils.parse_config_excluded_predicates(env)
         ratio = CFG.teacher_dataset_label_ratio
-        return create_ground_atom_data(
-            env, base_dataset, excluded_preds, ratio)
+        return create_ground_atom_data(env, base_dataset, excluded_preds,
+                                       ratio)
     raise NotImplementedError("Unrecognized dataset method.")

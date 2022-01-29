@@ -11,10 +11,9 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     InteractionResult, Action
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
-from predicators.src.option_model import _OracleOptionModel
-from predicators.src.utils import get_object_combinations, strip_predicate
-from predicators.src.teacher import GroundAtomHoldsQuery, \
-    GroundAtomHoldsResponse
+from predicators.src.utils import get_object_combinations
+from predicators.src.teacher import GroundAtomsHoldQuery, \
+    GroundAtomsHoldResponse
 from predicators.src.settings import CFG
 
 
@@ -26,10 +25,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        # Track score of best atom seen so far
+        # Track score of best atom seen so far.
         self._best_score = 0.0
-        # Initialize things that will be set correctly in offline learning
-        self._dataset = Dataset([])
+        # Initialize things that will be set correctly in offline learning.
+        self._dataset = Dataset([], [])
         self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
 
@@ -45,74 +44,72 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 for atom in ground_atom_set:
                     assert atom.predicate not in self._initial_predicates
                     self._predicates_to_learn.add(atom.predicate)
-        # Learn predicates and NSRTs
+        # Learn predicates and NSRTs.
         self._relearn_predicates_and_nsrts(dataset, online_learning_cycle=None)
-        # Save dataset, to be used for online interaction
+        # Save dataset, to be used for online interaction.
         self._dataset = dataset
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        # Sample a train task
+        # Sample a train task.
         train_task_idx = self._rng.choice(len(self._train_tasks))
         init = self._train_tasks[train_task_idx].init
-        # Detect and filter out static predicates
-        static_preds = utils.get_static_preds(
-            self._nsrts, self._get_current_predicates())
-        preds = self._get_current_predicates() - static_preds
-        # Find acting policy for the request
+        # Detect and filter out static predicates.
+        static_preds = utils.get_static_preds(self._nsrts,
+                                              self._predicates_to_learn)
+        preds = self._predicates_to_learn - static_preds
+        # Find acting policy for the request.
         task_list = glib_sample(init, preds, self._dataset)
         assert task_list
         task, act_policy = self._find_first_solvable(task_list)
         assert task.init is init
-        def _query_policy(s: State) -> Optional[GroundAtomHoldsQuery]:
-            # Decide whether to ask about each possible atom
+
+        def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
+            # Decide whether to ask about each possible atom.
             ground_atoms = utils.all_possible_ground_atoms(
                 s, self._predicates_to_learn)
+            atoms_to_query = set()
             for atom in ground_atoms:
                 score = score_atom(self._dataset, atom)
-                # Ask about this atom if it is the best seen so far
-                if score >= self._best_score:
-                    # TODO: the previous line is a > on master, changed to >=
-                    # because otherwise i wasn't seeing any new data get added
-                    # (due mostly to the next TODO)
+                # Ask about this atom if it is the best seen so far.
+                if score > self._best_score:
+                    atoms_to_query.add(atom)
                     self._best_score = score
-                    # TODO: one difference from current master is that
-                    # we can now only ask one Query per state, whereas
-                    # before you could ask the teacher multiple things
-                    # about the same state. hopefully this is still okay...
-                    # otherwise we can change the InteractionRequest object's
-                    # query object to allow a set of Querys per timestep
-                    return GroundAtomHoldsQuery(
-                        atom.predicate.name, atom.objects)
-            return None
+            if not atoms_to_query:
+                return None
+            return GroundAtomsHoldQuery(atoms_to_query)
+
         def _termination_function(s: State) -> bool:
+            # Stop the episode if we reach the goal that we babbled.
             return all(goal_atom.holds(s) for goal_atom in task.goal)
-        return [InteractionRequest(train_task_idx, act_policy, _query_policy,
-                                   _termination_function)]
+
+        return [
+            InteractionRequest(train_task_idx, act_policy, _query_policy,
+                               _termination_function)
+        ]
 
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         assert len(results) == 1
         result = results[0]
-        pred_name_to_pred = {pred.name: pred for pred
-                             in self._predicates_to_learn}
         for state, response in zip(result.states, result.responses):
             if response is None:
                 continue  # we didn't ask a query on this timestep
-            assert isinstance(response, GroundAtomHoldsResponse)
-            assert isinstance(response.query, GroundAtomHoldsQuery)
-            if response.holds:
-                # Add this atom if it's a positive example
+            assert isinstance(response, GroundAtomsHoldResponse)
+            assert isinstance(response.query, GroundAtomsHoldQuery)
+            for query_atom, atom_holds in response.holds.items():
+                # Still need a way to use negative examples.
+                if not atom_holds:
+                    continue
+                # Add this atom because it's a positive example.
                 traj = LowLevelTrajectory([state], [])
-                pred = pred_name_to_pred[response.query.predicate_name]
-                atom = GroundAtom(pred, response.query.objects)
-                self._dataset.append(traj, [{atom}])
-                # Still need a way to use negative examples
+                self._dataset.append(traj, [{query_atom}])
         self._relearn_predicates_and_nsrts(
             self._dataset, online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
 
-    def _find_first_solvable(self, task_list: List[Task]) -> Tuple[
-            Task, Callable[[State], Action]]:
+    def _find_first_solvable(
+            self,
+            task_list: List[Task]) -> Tuple[Task, Callable[[State], Action]]:
         for task in task_list:
             try:
                 print("Solving for policy...")
@@ -129,7 +126,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             self, dataset: Dataset,
             online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
-        print("\nStarting semi-supervised learning...")
+        print("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
             positive_examples = []
