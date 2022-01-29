@@ -1740,3 +1740,52 @@ def test_env_failure():
         assert str(e) == ("EnvironmentFailure('failure123'): "
                           "{'offending_objects': {cup:cup_type}}")
         assert e.info["offending_objects"] == {cup}
+
+
+def test_parse_config_excluded_predicates():
+    """Tests for parse_config_excluded_predicates()."""
+    # Test excluding nothing.
+    utils.update_config({
+        "env": "cover",
+        "excluded_predicates": "",
+    })
+    env = CoverEnv()
+    included, excluded = utils.parse_config_excluded_predicates(env)
+    assert sorted(p.name for p in included) == [
+        "Covers", "HandEmpty", "Holding", "IsBlock", "IsTarget"
+    ]
+    assert not excluded
+    # Test excluding specific predicates.
+    utils.update_config({
+        "excluded_predicates": "IsBlock,HandEmpty",
+    })
+    included, excluded = utils.parse_config_excluded_predicates(env)
+    assert sorted(p.name
+                  for p in included) == ["Covers", "Holding", "IsTarget"]
+    assert sorted(p.name for p in excluded) == ["HandEmpty", "IsBlock"]
+    # Test excluding all (non-goal) predicates.
+    utils.update_config({
+        "excluded_predicates": "all",
+    })
+    included, excluded = utils.parse_config_excluded_predicates(env)
+    assert sorted(p.name for p in included) == ["Covers"]
+    assert sorted(p.name for p in excluded) == [
+        "HandEmpty", "Holding", "IsBlock", "IsTarget"
+    ]
+    # Can exclude goal predicates when offline_data_method is demo+ground_atoms.
+    utils.update_config({
+        "offline_data_method": "demo+ground_atoms",
+        "excluded_predicates": "Covers",
+    })
+    included, excluded = utils.parse_config_excluded_predicates(env)
+    assert sorted(p.name for p in included) == [
+        "HandEmpty", "Holding", "IsBlock", "IsTarget"
+    ]
+    assert sorted(p.name for p in excluded) == ["Covers"]
+    # Cannot exclude goal predicates otherwise..
+    utils.update_config({
+        "offline_data_method": "demo",
+        "excluded_predicates": "Covers",
+    })
+    with pytest.raises(AssertionError):
+        utils.parse_config_excluded_predicates(env)

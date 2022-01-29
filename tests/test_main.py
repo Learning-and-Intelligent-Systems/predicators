@@ -98,25 +98,6 @@ def test_main():
         "123", "--load_data", "--cover_initial_holding_prob", "0.0"
     ]
     main()
-    # Try predicate exclusion.
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "NotARealPredicate"
-    ]
-    with pytest.raises(AssertionError):
-        main()  # can't exclude a non-existent predicate
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "Covers"
-    ]
-    with pytest.raises(AssertionError):
-        main()  # can't exclude a goal predicate
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "all", "--num_test_tasks", "5",
-        "--cover_initial_holding_prob", "0.0"
-    ]
-    main()
 
 
 def test_tamp_approach_failure():
