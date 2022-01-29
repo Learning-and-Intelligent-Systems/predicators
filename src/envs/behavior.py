@@ -313,7 +313,7 @@ class BehaviorEnv(BaseEnv):
         return list(self.igibson_behavior_env.task.object_scope.values())
 
     def set_igibson_behavior_env(self, seed: int) -> None:
-        """Sets/resets the igibson_behavior_env"""
+        """Sets/resets the igibson_behavior_env."""
         np.random.seed(seed)
         self.igibson_behavior_env = behavior_env.BehaviorEnv(
             config_file=self._config_file,
@@ -544,7 +544,8 @@ def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     # checkpoint. Also note that we overwrite the task.init saved checkpoint
     # so that it's compatible with the new environment!
     if new_task_num != env.task_num and CFG.behavior_randomize_init_state:
-        env.set_igibson_behavior_env(env.task_num_to_igibson_seed[new_task_num])
+        env.set_igibson_behavior_env(
+            env.task_num_to_igibson_seed[new_task_num])
         env.task_num = new_task_num
         env.current_ig_state_to_state(
         )  # overwrite the old task_init checkpoint file!
