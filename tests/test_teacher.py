@@ -8,7 +8,7 @@ from predicators.src.structs import GroundAtom
 from predicators.src import utils
 
 
-def test_GroundAtomHolds():
+def test_GroundAtomsHold():
     """Tests for answering queries of type GroundAtomsHoldQuery."""
     utils.update_config({"env": "cover", "approach": "unittest"})
     teacher = Teacher()
