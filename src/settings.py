@@ -7,7 +7,7 @@ Anything that varies between runs should be a command-line arg
 import os
 from collections import defaultdict
 from types import SimpleNamespace
-from typing import Dict, Any
+from typing import Dict, Any, Set
 import numpy as np
 
 
@@ -77,6 +77,7 @@ class GlobalSettings:
     data_dir = "saved_datasets"
     video_dir = "videos"
     video_fps = 2
+    failure_video_mode = "longest_only"
 
     # dataset parameters
     offline_data_planning_timeout = 3  # for learning-based approaches, the
@@ -184,7 +185,7 @@ class GlobalSettings:
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
-                    "interactive_learning": "demo",
+                    "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
 
             # Number of replays used when offline_data_method is demo+replay.
@@ -205,6 +206,14 @@ class GlobalSettings:
                     "behavior": "behavior_oracle",
                 })[args.get("env", "")],
         )
+
+
+def get_allowed_query_type_names() -> Set[str]:
+    """Get the set of names of query types that the teacher is allowed to
+    answer, computed based on the configuration CFG."""
+    if CFG.approach in ("interactive_learning", "unittest"):
+        return {"GroundAtomHoldsQuery"}
+    return set()
 
 
 _attr_to_value = {}

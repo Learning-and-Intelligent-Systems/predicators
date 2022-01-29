@@ -8,7 +8,7 @@ from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.structs import Predicate, ParameterizedOption, \
     Type, Dataset, Array, STRIPSOperator, Datastore, Segment, \
-    LiftedAtom, GroundAtom, OptionSpec
+    LiftedAtom, GroundAtom, OptionSpec, Task
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.nsrt_learning import segment_trajectory, \
@@ -21,9 +21,9 @@ class IterativeInventionApproach(NSRTLearningApproach):
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box) -> None:
+                 action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
-                         action_space)
+                         action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
@@ -35,7 +35,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
         predicates = self._get_current_predicates()
         # Apply predicates to dataset.
         ground_atom_dataset = utils.create_ground_atom_dataset(
-            dataset, predicates)
+            dataset.trajectories, predicates)
         # Segment transitions based on changes in predicates.
         segments = [
             seg for traj in ground_atom_dataset
@@ -66,7 +66,7 @@ class IterativeInventionApproach(NSRTLearningApproach):
                 segment.final_atoms.update(
                     utils.abstract(segment.states[-1], new_preds))
         # Finally, learn NSRTs via superclass, using all the predicates.
-        self._learn_nsrts(dataset)
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
     def _invent_for_some_op(
             self, segments: Sequence[Segment]) -> Optional[Predicate]:

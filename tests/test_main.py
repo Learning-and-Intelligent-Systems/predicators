@@ -7,7 +7,7 @@ import sys
 import pytest
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     create_approach
-from predicators.src.envs import CoverEnv, EnvironmentFailure
+from predicators.src.envs import CoverEnv
 from predicators.src.main import main, _run_testing
 from predicators.src.structs import State, Task, Action
 from predicators.src import utils
@@ -32,7 +32,7 @@ class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
 
     def simulate(self, state, action):
-        raise EnvironmentFailure("", set())
+        raise utils.EnvironmentFailure("", {"offending_objects": set()})
 
 
 def test_main():
@@ -61,6 +61,14 @@ def test_main():
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
         "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
         "--results_dir", results_dir
+    ]
+    main()
+    # Test making videos of failures.
+    sys.argv = [
+        "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
+        results_dir, "--max_skeletons_optimized", "1",
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
     ]
     main()
     shutil.rmtree(video_dir)
@@ -121,10 +129,11 @@ def test_tamp_approach_failure():
         "make_videos": False,
     })
     env = CoverEnv()
+    train_tasks = env.get_train_tasks()
     approach = _DummyApproach(env.predicates, env.options, env.types,
-                              env.action_space)
+                              env.action_space, train_tasks)
     assert not approach.is_learning_based
-    task = env.get_train_tasks()[0]
+    task = train_tasks[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
 
@@ -140,9 +149,10 @@ def test_env_failure():
         "cover_initial_holding_prob": 0.0,
     })
     env = _DummyCoverEnv()
+    train_tasks = env.get_train_tasks()
     approach = create_approach("random_actions", env.predicates, env.options,
-                               env.types, env.action_space)
+                               env.types, env.action_space, train_tasks)
     assert not approach.is_learning_based
-    task = env.get_train_tasks()[0]
+    task = train_tasks[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
