@@ -59,18 +59,14 @@ class BehaviorEnv(BaseEnv):
 
         super().__init__()  # To ensure self._seed is defined.
         self._rng = np.random.default_rng(self._seed)
-        self.igibson_behavior_env = behavior_env.BehaviorEnv(
-            config_file=self._config_file,
-            mode=CFG.behavior_mode,
-            action_timestep=CFG.behavior_action_timestep,
-            physics_timestep=CFG.behavior_physics_timestep,
-            action_filter="mobile_manipulation",
-            rng=self._rng,
-        )
-        self._set_igibson_behavior_env()
+        self.set_igibson_behavior_env(self._seed)
         self.igibson_behavior_env.robots[0].initial_z_offset = 0.7
         self._type_name_to_type: Dict[str, Type] = {}
-        self.task_num = 0  # a unique id for saving and loading each task's state
+        # a unique id for saving and loading each task's state
+        self.task_num: int = 0
+        # a map between task nums and the snapshot id for saving/loading
+        # purposes
+        self.task_num_to_igibson_seed: Dict[int, int] = {}
 
         planner_fns: List[Callable[[
             "behavior_env.BehaviorEnv", Union[
@@ -123,8 +119,10 @@ class BehaviorEnv(BaseEnv):
                 self._options.add(option)
 
     def simulate(self, state: State, action: Action) -> State:
+        assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
-        if not state.allclose(self.current_ig_state_to_state()):
+        if not state.allclose(
+                self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
 
         a = action.arr
@@ -169,18 +167,20 @@ class BehaviorEnv(BaseEnv):
         for _ in range(num):
             # Behavior uses np.random everywhere. This is a somewhat
             # hacky workaround for that.
-            np.random.seed(rng.integers(0, (2**32) - 1))
+            curr_env_seed = rng.integers(0, (2**32) - 1)
             if CFG.behavior_randomize_init_state:
-                self._set_igibson_behavior_env()
+                self.set_igibson_behavior_env(curr_env_seed)
                 self.igibson_behavior_env.reset()
             else:
                 self.igibson_behavior_env.reset()
+            self.task_num_to_igibson_seed[self.task_num] = curr_env_seed
             os.makedirs(f"tmp_behavior_states/{self.task_num}", exist_ok=True)
             init_state = self.current_ig_state_to_state()
             goal = self._get_task_goal()
             task = Task(init_state, goal)
             tasks.append(task)
             self.task_num += 1
+
         return tasks
 
     def _get_task_goal(self) -> Set[GroundAtom]:
@@ -312,19 +312,39 @@ class BehaviorEnv(BaseEnv):
     def _get_task_relevant_objects(self) -> List["ArticulatedObject"]:
         return list(self.igibson_behavior_env.task.object_scope.values())
 
-    def _set_igibson_behavior_env(self) -> None:
+    def set_igibson_behavior_env(self, seed: int) -> None:
+        """Sets/resets the igibson_behavior_env"""
+        np.random.seed(seed)
+        self.igibson_behavior_env = behavior_env.BehaviorEnv(
+            config_file=self._config_file,
+            mode=CFG.behavior_mode,
+            action_timestep=CFG.behavior_action_timestep,
+            physics_timestep=CFG.behavior_physics_timestep,
+            action_filter="mobile_manipulation",
+            rng=self._rng,
+        )
+        self.igibson_behavior_env.step(
+            np.zeros(self.igibson_behavior_env.action_space.shape))
         if CFG.behavior_randomize_init_state:
-            # NOTE: in this case, since we're attempting to randomize the initial state,
-            # iGibson might fail. If this happens, then
-            # self._ig_object_name(self._get_task_relevant_objects()[0]) will be None
-            # We keep trying to get a new environment until we succeed.
-            self.igibson_behavior_env.load_behavior_task_setup()
+            # NOTE: in this case, since we're attempting to randomize
+            # the initial state, iGibson might fail. If this happens,
+            # then at least one bddl object scope will be None. We keep
+            # trying to get a new environment until we succeed.
             ig_objs_bddl_scope = [
                 self._ig_object_name(obj)
                 for obj in self._get_task_relevant_objects()
             ]
             while None in ig_objs_bddl_scope:
-                self.igibson_behavior_env.load_behavior_task_setup()
+                self.igibson_behavior_env = behavior_env.BehaviorEnv(
+                    config_file=self._config_file,
+                    mode=CFG.behavior_mode,
+                    action_timestep=CFG.behavior_action_timestep,
+                    physics_timestep=CFG.behavior_physics_timestep,
+                    action_filter="mobile_manipulation",
+                    rng=self._rng,
+                )
+                self.igibson_behavior_env.step(
+                    np.zeros(self.igibson_behavior_env.action_space.shape))
                 ig_objs_bddl_scope = [
                     self._ig_object_name(obj)
                     for obj in self._get_task_relevant_objects()
@@ -356,7 +376,7 @@ class BehaviorEnv(BaseEnv):
                 return pred
         raise ValueError(f"No predicate found for name {name}.")
 
-    def current_ig_state_to_state(self) -> State:
+    def current_ig_state_to_state(self, save_state: bool = True) -> State:
         """Function to create a predicators State from the current underlying
         iGibson simulator state."""
         state_data = {}
@@ -370,9 +390,15 @@ class BehaviorEnv(BaseEnv):
             ])
             state_data[obj] = obj_state
 
-        simulator_state = save_checkpoint(
-            self.igibson_behavior_env.simulator,
-            f"tmp_behavior_states/{self.task_num}/")
+        # NOTE: we set simulator state to none as a 'dummy' value.
+        # we should never load a simulator state that was saved when
+        # save_state was set to False!
+        simulator_state = None
+        if save_state:
+            simulator_state = save_checkpoint(
+                self.igibson_behavior_env.simulator,
+                f"tmp_behavior_states/{self.task_num}/")
+
         return State(state_data, f"{self.task_num}-{simulator_state}")
 
     def _create_classifier_from_bddl(
@@ -386,8 +412,8 @@ class BehaviorEnv(BaseEnv):
             # predicate. Because of this, we will assert that whenever
             # a predicate classifier is called, the internal simulator
             # state is equal to the state input to the classifier.
-            self.task_num = int(s.simulator_state.split("-")[0])
-            if not s.allclose(self.current_ig_state_to_state()):
+            if not s.allclose(
+                    self.current_ig_state_to_state(save_state=False)):
                 load_checkpoint_state(s, self)
 
             arity = self._bddl_predicate_arity(bddl_predicate)
@@ -413,8 +439,8 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
-        self.task_num = int(state.simulator_state.split("-")[0])
-        if not state.allclose(self.current_ig_state_to_state()):
+        if not state.allclose(
+                self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
         assert len(objs) == 2
         ig_obj = self.object_to_ig_object(objs[0])
@@ -425,8 +451,8 @@ class BehaviorEnv(BaseEnv):
 
     def _reachable_nothing_classifier(self, state: State,
                                       objs: Sequence[Object]) -> bool:
-        self.task_num = int(state.simulator_state.split("-")[0])
-        if not state.allclose(self.current_ig_state_to_state()):
+        if not state.allclose(
+                self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
         assert len(objs) == 1
         for obj in state:
@@ -454,8 +480,8 @@ class BehaviorEnv(BaseEnv):
 
     def _handempty_classifier(self, state: State,
                               objs: Sequence[Object]) -> bool:
-        self.task_num = int(state.simulator_state.split("-")[0])
-        if not state.allclose(self.current_ig_state_to_state()):
+        if not state.allclose(
+                self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
         assert len(objs) == 0
         grasped_objs = self._get_grasped_objects(state)
@@ -463,8 +489,8 @@ class BehaviorEnv(BaseEnv):
 
     def _holding_classifier(self, state: State,
                             objs: Sequence[Object]) -> bool:
-        self.task_num = int(state.simulator_state.split("-")[0])
-        if not state.allclose(self.current_ig_state_to_state()):
+        if not state.allclose(
+                self.current_ig_state_to_state(save_state=False)):
             load_checkpoint_state(state, self)
         assert len(objs) == 1
         grasped_objs = self._get_grasped_objects(state)
@@ -510,10 +536,22 @@ class BehaviorEnv(BaseEnv):
 def load_checkpoint_state(s: State, env: BehaviorEnv) -> None:
     """Sets the underlying iGibson environment to a particular saved state."""
     assert s.simulator_state is not None
-    env.task_num = int(s.simulator_state.split("-")[0])
+    # Get the task_num associated with this state from s.simulator_state
+    new_task_num = int(s.simulator_state.split("-")[0])
+    # If the task_num is new, then we need to load a new iGibson behavior
+    # env with our random seed saved in env.task_num_to_igibson_seed. Otherwise
+    # we're already in the correct environment and can just load the
+    # checkpoint. Also note that we overwrite the task.init saved checkpoint
+    # so that it's compatible with the new environment!
+    if new_task_num != env.task_num and CFG.behavior_randomize_init_state:
+        env.set_igibson_behavior_env(env.task_num_to_igibson_seed[new_task_num])
+        env.task_num = new_task_num
+        env.current_ig_state_to_state(
+        )  # overwrite the old task_init checkpoint file!
+    env.task_num = new_task_num
     load_checkpoint(env.igibson_behavior_env.simulator,
                     f"tmp_behavior_states/{env.task_num}",
-                    int(s.simulator_state.split("-")[0]))
+                    int(s.simulator_state.split("-")[1]))
     # We step the environment to update the visuals of where the robot is!
     env.igibson_behavior_env.step(
         np.zeros(env.igibson_behavior_env.action_space.shape))
