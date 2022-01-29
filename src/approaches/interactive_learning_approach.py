@@ -90,8 +90,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         assert len(results) == 1
         result = results[0]
         for state, response in zip(result.states, result.responses):
-            if response is None:
-                continue  # we didn't ask a query on this timestep
             assert isinstance(response, GroundAtomsHoldResponse)
             for query_atom, atom_holds in response.holds.items():
                 # Still need a way to use negative examples.
