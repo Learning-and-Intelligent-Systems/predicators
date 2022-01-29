@@ -9,7 +9,8 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
+    TYPE_CHECKING
 import heapq as hq
 import pathos.multiprocessing as mp
 import imageio
@@ -26,7 +27,8 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
     GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
-from predicators.src.envs import BaseEnv
+if TYPE_CHECKING:
+    from predicators.src.envs import BaseEnv
 
 matplotlib.use("Agg")
 
@@ -1330,9 +1332,10 @@ def flush_cache() -> None:
         wrapper.cache_clear()
 
 
-def parse_config_excluded_predicates(env: BaseEnv) -> Tuple[
-        Set[Predicate], Set[Predicate]]:
+def parse_config_excluded_predicates(
+        env: BaseEnv) -> Tuple[Set[Predicate], Set[Predicate]]:
     """Parse the CFG.excluded_predicates string, given an environment.
+
     Return a tuple of (included predicate set, excluded predicate set).
     """
     if CFG.excluded_predicates:
@@ -1349,8 +1352,8 @@ def parse_config_excluded_predicates(env: BaseEnv) -> Tuple[
                 {pred.name for pred in env.predicates}), \
                 "Unrecognized predicate in excluded_predicates!"
             included = {
-                pred for pred in env.predicates
-                if pred.name not in excluded_names
+                pred
+                for pred in env.predicates if pred.name not in excluded_names
             }
             if CFG.offline_data_method != "demo+ground_atoms":
                 assert env.goal_predicates.issubset(included), \

@@ -4,8 +4,8 @@ information to assist an agent during online learning."""
 from __future__ import annotations
 import abc
 from dataclasses import dataclass
-from typing import List
-from predicators.src.structs import State, Object
+from typing import Collection, Dict
+from predicators.src.structs import State, GroundAtom
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import create_env
 
@@ -26,15 +26,17 @@ class Teacher:
         """The key method that the teacher defines."""
         assert query.__class__.__name__ in self._allowed_query_type_names, \
             f"Disallowed query: {query}"
-        assert isinstance(query, GroundAtomHoldsQuery)
-        return self._answer_GroundAtomHolds_query(state, query)
+        assert isinstance(query, GroundAtomsHoldQuery)
+        return self._answer_GroundAtomsHold_query(state, query)
 
-    def _answer_GroundAtomHolds_query(
+    def _answer_GroundAtomsHold_query(
             self, state: State,
-            query: GroundAtomHoldsQuery) -> GroundAtomHoldsResponse:
-        pred = self._pred_name_to_pred[query.predicate_name]
-        holds = pred.holds(state, query.objects)
-        return GroundAtomHoldsResponse(query, holds)
+            query: GroundAtomsHoldQuery) -> GroundAtomsHoldResponse:
+        holds = {}
+        for ground_atom in query.ground_atoms:
+            pred = self._pred_name_to_pred[ground_atom.predicate.name]
+            holds[ground_atom] = pred.holds(state, ground_atom.objects)
+        return GroundAtomsHoldResponse(query, holds)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -60,13 +62,12 @@ class Response(abc.ABC):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class GroundAtomHoldsQuery(Query):
-    """A query for whether a grounding of a predicate holds in the state."""
-    predicate_name: str
-    objects: List[Object]
+class GroundAtomsHoldQuery(Query):
+    """A query for whether ground atoms hold in the state."""
+    ground_atoms: Collection[GroundAtom]
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class GroundAtomHoldsResponse(Response):
-    """A response to a GroundAtomHoldsQuery, providing a boolean answer."""
-    holds: bool
+class GroundAtomsHoldResponse(Response):
+    """A response to a GroundAtomsHoldQuery, providing boolean answers."""
+    holds: Dict[GroundAtom, bool]

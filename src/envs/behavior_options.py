@@ -236,6 +236,9 @@ def create_navigate_policy(
 
         plan.pop(0)
 
+        # Ensure that the action is clipped to stay within the expected
+        # range
+        low_level_action = np.clip(low_level_action, -1.0, 1.0)
         return low_level_action, done_bit
 
     return navigateToOptionPolicy
@@ -611,6 +614,9 @@ def create_grasp_policy(
 
         reversed_plan.pop(0)
 
+        # Ensure that the action is clipped to stay within the expected
+        # range
+        low_level_action = np.clip(low_level_action, -1.0, 1.0)
         return low_level_action, done_bit
 
     return graspObjectOptionPolicy
@@ -974,13 +980,14 @@ def place_ontop_obj_pos_sampler(
     aabb = get_aabb(objA.get_body_id())
     aabb_extent = get_aabb_extent(aabb)
 
-    _ = rng.random()
+    random_seed_int = rng.integers(10000000)
     sampling_results = sampling_utils.sample_cuboid_on_object(
         objB,
         num_samples=1,
         cuboid_dimensions=aabb_extent,
         axis_probabilities=[0, 0, 1],
         refuse_downwards=True,
+        random_seed_number=random_seed_int,
         **params,
     )
 
@@ -1159,6 +1166,9 @@ def create_place_policy(
 
         reversed_plan.pop(0)
 
+        # Ensure that the action is clipped to stay within the expected
+        # range
+        low_level_action = np.clip(low_level_action, -1.0, 1.0)
         return low_level_action, done_bit
 
     return placeOntopObjectOptionPolicy
