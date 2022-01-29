@@ -189,16 +189,11 @@ def test_ground_atom_dataset():
     """Test creation of demo+ground_atoms dataset."""
     utils.update_config({"env": "cover"})
     utils.update_config({
-        "approach":
-        "interactive_learning",
-        "num_train_tasks":
-        15,
-        "offline_data_method":
-        "demo+ground_atoms",
-        "teacher_dataset_label_ratio":
-        0.5,
-        "interactive_known_predicates":
-        "HandEmpty,IsBlock,IsTarget",
+        "approach": "interactive_learning",
+        "num_train_tasks": 15,
+        "offline_data_method": "demo+ground_atoms",
+        "teacher_dataset_label_ratio": 0.5,
+        "excluded_predicates": "Holding,Covers",
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
