@@ -336,10 +336,10 @@ class BehaviorEnv(BaseEnv):
             if None not in ig_objs_bddl_scope or env_creation_attempts > 9:
                 break
             env_creation_attempts += 1
-        
+
         if env_creation_attempts > 9:
             print("ERROR: Failed to sample iGibson BEHAVIOR environment that" +
-            "meets bddl initial conditions!")
+                  "meets bddl initial conditions!")
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
