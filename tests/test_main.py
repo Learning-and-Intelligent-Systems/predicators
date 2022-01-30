@@ -98,6 +98,15 @@ def test_main():
         "123", "--load_data", "--cover_initial_holding_prob", "0.0"
     ]
     main()
+    # Try running interactive approach with no online learning, to make sure
+    # it doesn't crash. This is also an important test of the full pipeline
+    # in the case where a goal predicate is excluded.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "interactive_learning",
+        "--seed", "123", "--num_online_learning_cycles", "0",
+        "--excluded_predicates", "Covers"
+    ]
+    main()
 
 
 def test_tamp_approach_failure():
