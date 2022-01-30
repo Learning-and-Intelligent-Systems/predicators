@@ -50,8 +50,44 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset = dataset
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        # Sample a train task.
-        train_task_idx = self._rng.choice(len(self._train_tasks))
+        # We will create a single interaction request.
+        # Determine the train task that we will be using.
+        train_task_idx = self._select_interaction_train_task_idx()
+        # Determine the action policy and termination function.
+        act_policy, termination_function = self._create_interaction_action_strategy(train_task_idx)
+        # Determine the query policy.
+        query_policy = self._create_query_policy(train_task_idx)
+        return [
+            InteractionRequest(train_task_idx, act_policy, query_policy,
+                               termination_function)
+        ] 
+
+    def _select_interaction_train_task_idx(self) -> int:
+        # At the moment, we only have one way to select a train task idx:
+        # choose one uniformly at random. In the future, we may want to
+        # try other strategies. But one nice thing about random selection
+        # is that we're not making a hard commitment to the agent having
+        # control over which train task it gets to use.
+        return self._rng.choice(len(self._train_tasks))
+
+    def _create_interaction_action_strategy(self, train_task_idx: int) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        """Returns an action policy and a termination function."""
+        if CFG.interactive_action_strategy == "glib":
+            return self._create_glib_interaction_strategy(train_task_idx)
+        raise NotImplementedError("Unrecognized interactive action strategy:"
+                                  f" {CFG.interactive_action_strategy}")
+
+    def _create_query_policy(self, train_task_idx: int) -> Callable[[State], Optional[Query]]Callable[[State], Optional[Query]]:
+        """Returns a query policy."""
+        if CFG.interactive_query_policy == "strict_best_seen":
+            return self._create_best_seen_query_policy(strict=True)
+        if CFG.interactive_query_policy == "nonstrict_best_seen":
+            return self._create_best_seen_query_policy(strict=False)
+        raise NotImplementedError("Unrecognized query policy:"
+                                  f" {CFG.interactive_query_policy}")
+
+    def _create_glib_interaction_strategy(self, train_task_idx: int) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        """Find the most interesting reachable ground goal and plan to it."""
         init = self._train_tasks[train_task_idx].init
         # Detect and filter out static predicates.
         static_preds = utils.get_static_preds(self._nsrts,
@@ -62,6 +98,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         assert task_list
         task, act_policy = self._find_first_solvable(task_list)
         assert task.init is init
+
+        def _termination_function(s: State) -> bool:
+            # Stop the episode if we reach the goal that we babbled.
+            return all(goal_atom.holds(s) for goal_atom in task.goal)
+
+        return act_policy, _termination_function
 
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
             # Decide whether to ask about each possible atom.
