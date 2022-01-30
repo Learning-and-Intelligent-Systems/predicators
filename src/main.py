@@ -105,14 +105,15 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
             approach.load(online_learning_cycle=None)
         else:
             approach.learn_from_offline_dataset(dataset)
+        # Run evaluation once before online learning starts.
+        results = _run_testing(env, approach)
+        results["num_transitions"] = total_num_transitions
+        results["learning_time"] = time.time() - learning_start
+        _save_test_results(results)
         teacher = Teacher()
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             print(f"\n\nONLINE LEARNING CYCLE {i}\n\n")
-            results = _run_testing(env, approach)
-            results["num_transitions"] = total_num_transitions
-            results["learning_time"] = time.time() - learning_start
-            _save_test_results(results)
             interaction_requests = approach.get_interaction_requests()
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
@@ -124,6 +125,11 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
                 approach.load(online_learning_cycle=i)
             else:
                 approach.learn_from_interaction_results(interaction_results)
+            # Evaluate approach after every online learning cycle.
+            results = _run_testing(env, approach)
+            results["num_transitions"] = total_num_transitions
+            results["learning_time"] = time.time() - learning_start
+            _save_test_results(results)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
