@@ -93,17 +93,17 @@ def test_mlp_classifier():
     model = MLPClassifier(input_size, 10000)
     start_time = time.time()
     model.fit(X, y)
-    assert time.time() - start_time < 3, "Fitting was not instantaneous"
+    assert time.time() - start_time < 1, "Fitting was not instantaneous"
     prediction = model.classify(np.zeros(input_size))
     assert not prediction
     prediction = model.classify(np.ones(input_size))
     assert not prediction
     # Test with no negative examples.
     y = np.ones(len(X))
-    model = MLPClassifier(input_size, 100000)
+    model = MLPClassifier(input_size, 10000)
     start_time = time.time()
     model.fit(X, y)
-    assert time.time() - start_time < 3, "Fitting was not instantaneous"
+    assert time.time() - start_time < 1, "Fitting was not instantaneous"
     prediction = model.classify(np.zeros(input_size))
     assert prediction
     prediction = model.classify(np.ones(input_size))
