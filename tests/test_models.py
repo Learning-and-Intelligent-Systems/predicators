@@ -71,9 +71,9 @@ def test_mlp_classifier():
     model = MLPClassifier(input_size, 100)
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
-    assert prediction == 0
+    assert not prediction
     prediction = model.classify(np.ones(input_size))
-    assert prediction == 1
+    assert prediction
     # Test for early stopping
     start_time = time.time()
     utils.update_config({
@@ -83,3 +83,28 @@ def test_mlp_classifier():
     model = MLPClassifier(input_size, 10000)
     model.fit(X, y)
     assert time.time() - start_time < 3, "Didn't early stop"
+    # Test with no positive examples.
+    num_class_samples = 1000
+    X = np.concatenate([
+        np.zeros((num_class_samples, input_size)),
+        np.ones((num_class_samples, input_size))
+    ])
+    y = np.zeros(len(X))
+    model = MLPClassifier(input_size, 10000)
+    start_time = time.time()
+    model.fit(X, y)
+    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    prediction = model.classify(np.zeros(input_size))
+    assert not prediction
+    prediction = model.classify(np.ones(input_size))
+    assert not prediction
+    # Test with no negative examples.
+    y = np.ones(len(X))
+    model = MLPClassifier(input_size, 10000)
+    start_time = time.time()
+    model.fit(X, y)
+    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    prediction = model.classify(np.zeros(input_size))
+    assert prediction
+    prediction = model.classify(np.ones(input_size))
+    assert prediction
