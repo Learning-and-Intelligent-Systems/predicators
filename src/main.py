@@ -81,30 +81,41 @@ def main() -> None:
     train_tasks = env.get_train_tasks()
     # If train tasks have goals that involve excluded predicates, strip those
     # predicate classifiers to prevent leaking information to the approaches.
-    train_tasks = [utils.strip_task(task, preds) for task in train_tasks]
+    stripped_train_tasks = [
+        utils.strip_task(task, preds) for task in train_tasks
+    ]
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
-                               env.action_space, train_tasks)
+                               env.action_space, stripped_train_tasks)
+    if approach.is_learning_based:
+        # Create the offline dataset. Note that this needs to be done using
+        # the non-stripped train tasks because dataset generation may need
+        # to use the oracle predicates (e.g. demo data generation).
+        offline_dataset = _generate_or_load_offline_dataset(env, train_tasks)
+    else:
+        offline_dataset = None
     # Run the full pipeline.
-    _run_pipeline(env, approach, train_tasks)
+    _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
     script_time = time.time() - script_start
     print(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
-def _run_pipeline(env: BaseEnv, approach: BaseApproach,
-                  train_tasks: List[Task]) -> None:
+def _run_pipeline(env: BaseEnv,
+                  approach: BaseApproach,
+                  train_tasks: List[Task],
+                  offline_dataset: Optional[Dataset] = None) -> None:
     # If agent is learning-based, generate an offline dataset, allow the agent
     # to learn from it, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
     if approach.is_learning_based:
-        dataset = _generate_or_load_offline_dataset(env, train_tasks)
+        assert offline_dataset is not None, "Missing offline dataset"
         total_num_transitions = sum(
-            len(traj.actions) for traj in dataset.trajectories)
+            len(traj.actions) for traj in offline_dataset.trajectories)
         learning_start = time.time()
         if CFG.load_approach:
             approach.load(online_learning_cycle=None)
         else:
-            approach.learn_from_offline_dataset(dataset)
+            approach.learn_from_offline_dataset(offline_dataset)
         # Run evaluation once before online learning starts.
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
