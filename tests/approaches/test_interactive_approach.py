@@ -24,18 +24,22 @@ def test_interactive_learning_approach():
         "excluded_predicates": "IsBlock,Covers",
         "timeout": 10,
         "max_samples_per_step": 10,
+        "max_skeletons_optimized": 8,
         "seed": 123,
-        # These need to be large enough that the classifier for Covers is good;
-        # otherwise, incorrect operators can lead to glib failing.
+        # These settings need to be large enough that Covers is learned
+        # correctly for active learning to work consistently.
         "teacher_dataset_label_ratio": 1.0,
         "predicate_mlp_classifier_max_itr": 1000,
-        "sampler_mlp_classifier_max_itr": 200,
-        "neural_gaus_regressor_max_itr": 200,
+        "sampler_mlp_classifier_max_itr": 1000,
+        "neural_gaus_regressor_max_itr": 1000,
+        "learning_rate": 1e-3,
+        "mlp_classifier_n_iter_no_change": 5000,
+        "option_learner": "no_learning",
+        "sampler_learner": "neural",
         "num_online_learning_cycles": 1,
-        "num_train_tasks": 5,
+        "num_train_tasks": 15,
         "num_test_tasks": 5,
-        "cover_initial_holding_prob": 0.0,
-        "min_data_for_nsrt": 0,
+        "cover_initial_holding_prob": 0.75,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -70,9 +74,12 @@ def test_interactive_learning_approach():
     assert "Unrecognized interactive_query_policy" in str(e)
     # Successfully generate interaction requests.
     utils.update_config({
-        "interactive_action_strategy": "glib",
-        "interactive_query_policy": "strict_best_seen",
-        "interactive_score_function": "not a real score function",
+        "interactive_action_strategy":
+        "glib",
+        "interactive_query_policy":
+        "strict_best_seen",
+        "interactive_score_function":
+        "not a real score function",
     })
     interaction_requests = approach.get_interaction_requests()
     # Cover unrecognized interactive_score_function.
@@ -95,4 +102,4 @@ def test_interactive_learning_approach():
         except (ApproachTimeout, ApproachFailure):  # pragma: no cover
             pass
         # We won't check the policy here because we don't want unit tests to
-        # have to train very good models, since that would be slow.    
+        # have to train very good models, since that would be slow.
