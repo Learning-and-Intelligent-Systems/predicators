@@ -2,6 +2,7 @@
 
 import pytest
 from predicators.src.approaches import BaseApproach
+from predicators.src.datasets import create_dataset
 from predicators.src.structs import Action, InteractionRequest, \
     InteractionResult, Predicate, GroundAtom
 from predicators.src.main import _run_pipeline
@@ -84,20 +85,28 @@ def test_interaction():
         "timeout": 1,
         "make_videos": False,
         "num_train_tasks": 2,
-        "num_test_tasks": 1
+        "num_test_tasks": 1,
+        "num_online_learning_cycles": 1
     })
     env = create_env("cover")
     train_tasks = env.get_train_tasks()
     approach = _MockApproach(env.predicates, env.options, env.types,
                              env.action_space, train_tasks)
-    _run_pipeline(env, approach, train_tasks)
+    dataset = create_dataset(env, train_tasks)
+    _run_pipeline(env, approach, train_tasks, dataset)
     utils.update_config({"approach": "nsrt_learning", "load_data": True})
+    # Invalid query type.
     with pytest.raises(AssertionError) as e:
-        _run_pipeline(env, approach, train_tasks)  # invalid query type
+        _run_pipeline(env, approach, train_tasks, dataset)
     assert "Disallowed query" in str(e)
+    # Learning-based approaches expect a dataset.
+    with pytest.raises(AssertionError) as e:
+        _run_pipeline(env, approach, train_tasks)
+    assert "Missing offline dataset" in str(e)
+    # Test loading the approach.
     utils.update_config({
         "approach": "unittest",
         "load_data": True,
         "load_approach": True
     })
-    _run_pipeline(env, approach, train_tasks)  # test loading the approach
+    _run_pipeline(env, approach, train_tasks, dataset)
