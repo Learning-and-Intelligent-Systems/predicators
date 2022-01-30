@@ -35,7 +35,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._predicates_to_learn
 
-    ###################### Semi-supervised learning #########################
+    ######################## Semi-supervised learning #########################
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # First, go through the dataset's annotations and figure out the
@@ -102,7 +102,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # Learn NSRTs via superclass
         self._learn_nsrts(dataset.trajectories, online_learning_cycle)
 
-    ########################## Active learning ##############################
+    ########################### Active learning ###############################
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
         # We will create a single interaction request.
@@ -145,7 +145,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Returns an action policy and a termination function."""
         if CFG.interactive_action_strategy == "glib":
             return self._create_glib_interaction_strategy(train_task_idx)
-        raise NotImplementedError("Unrecognized interactive action strategy:"
+        raise NotImplementedError("Unrecognized interactive_action_strategy:"
                                   f" {CFG.interactive_action_strategy}")
 
     def _create_query_policy(
@@ -153,10 +153,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Returns a query policy."""
         del train_task_idx  # unused right now, but future policies may use
         if CFG.interactive_query_policy == "strict_best_seen":
-            return self._create_best_seen_query_policy(strict=True)
-        if CFG.interactive_query_policy == "nonstrict_best_seen":
-            return self._create_best_seen_query_policy(strict=False)
-        raise NotImplementedError("Unrecognized query policy:"
+            return self._create_best_seen_query_policy()
+        raise NotImplementedError("Unrecognized interactive_query_policy:"
                                   f" {CFG.interactive_query_policy}")
 
     def _create_glib_interaction_strategy(
@@ -173,6 +171,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
             num_samples=CFG.interactive_num_babbles,
+            min_set_size=1,
             max_set_size=CFG.interactive_max_num_atoms_babbled,
             rng=self._rng)
         # Sort the possible goals based on how interesting they are.
@@ -195,7 +194,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         return act_policy, _termination_function
 
     def _create_best_seen_query_policy(
-            self, strict: bool) -> Callable[[State], Optional[Query]]:
+            self) -> Callable[[State], Optional[Query]]:
         """Only query if the atom has the best score seen so far."""
 
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
@@ -206,8 +205,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             for atom in ground_atoms:
                 score = self._score_atom_set({atom}, s)
                 # Ask about this atom if it is the best seen so far.
-                if (strict and score > self._best_score) or \
-                   (not strict and score >= self._best_score):
+                if score > self._best_score:
                     atoms_to_query.add(atom)
                     self._best_score = score
             return GroundAtomsHoldQuery(atoms_to_query)
