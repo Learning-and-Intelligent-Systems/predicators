@@ -109,11 +109,11 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
         results["learning_time"] = time.time() - learning_start
+        _save_test_results(results)
         teacher = Teacher()
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             print(f"\n\nONLINE LEARNING CYCLE {i}\n\n")
-            _save_test_results(results)
             interaction_requests = approach.get_interaction_requests()
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
@@ -129,6 +129,7 @@ def _run_pipeline(env: BaseEnv, approach: BaseApproach,
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
             results["learning_time"] = time.time() - learning_start
+            _save_test_results(results)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
