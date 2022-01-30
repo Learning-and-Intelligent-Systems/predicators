@@ -16,7 +16,7 @@ def test_interactive_learning_approach():
     utils.update_config({
         "approach": "interactive_learning",
         "offline_data_method": "demo+ground_atoms",
-        "excluded_predicates": "Covers",
+        "excluded_predicates": "Covers,Holding",
         "timeout": 10,
         "max_samples_per_step": 10,
         "seed": 123,
@@ -30,7 +30,10 @@ def test_interactive_learning_approach():
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
-    initial_predicates = {p for p in env.predicates if p.name != "Covers"}
+    initial_predicates = {
+        p
+        for p in env.predicates if p.name not in ["Covers", "Holding"]
+    }
     approach = InteractiveLearningApproach(initial_predicates, env.options,
                                            env.types, env.action_space,
                                            train_tasks)

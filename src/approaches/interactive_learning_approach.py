@@ -50,8 +50,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                                           dataset.annotations):
             new_traj_annotation = []
             # Get all possible ground atoms given the objects in traj.
-            possible = set(utils.all_possible_ground_atoms(
-                traj.states[0], self._predicates_to_learn))
+            possible = set(
+                utils.all_possible_ground_atoms(traj.states[0],
+                                                self._predicates_to_learn))
             for positives in ground_atom_sets:
                 unlabeled = possible - positives
                 new_traj_annotation.append({
