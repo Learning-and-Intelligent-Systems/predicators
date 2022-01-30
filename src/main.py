@@ -79,6 +79,9 @@ def main() -> None:
     preds, _ = utils.parse_config_excluded_predicates(env)
     # Create the train tasks.
     train_tasks = env.get_train_tasks()
+    # If train tasks have goals that involve excluded predicates, strip those
+    # predicate classifiers to prevent leaking information to the approaches.
+    train_tasks = [utils.strip_task(task, preds) for task in train_tasks]
     # Create the agent (approach).
     approach = create_approach(CFG.approach, preds, env.options, env.types,
                                env.action_space, train_tasks)

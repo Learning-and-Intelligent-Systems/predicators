@@ -9,7 +9,8 @@ from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
     LowLevelTrajectory
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
+    _get_predicates_by_names
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -333,6 +334,29 @@ def test_strip_predicate():
     assert pred.holds(state, (cup, plate2))
     assert not pred_stripped.holds(state, (cup, plate1))
     assert not pred_stripped.holds(state, (cup, plate2))
+
+
+def test_strip_task():
+    """Test for strip_task()."""
+    env = CoverEnv()
+    env.seed(123)
+    Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
+    task = env.get_train_tasks()[0]
+    block0, _, _, target0, _ = sorted(task.init)
+    # Goal is Covers(block0, target0)
+    assert len(task.goal) == 1
+    original_goal_atom = next(iter(task.goal))
+    state = task.init.copy()
+    state.set(block0, "pose", state.get(target0, "pose"))
+    assert original_goal_atom.holds(state)
+    stripped_task1 = utils.strip_task(task, {Covers, Holding})
+    assert len(stripped_task1.goal) == 1
+    new_goal_atom1 = next(iter(stripped_task1.goal))
+    assert new_goal_atom1.holds(state)
+    stripped_task2 = utils.strip_task(task, {Holding})
+    assert len(stripped_task2.goal) == 1
+    new_goal_atom2 = next(iter(stripped_task2.goal))
+    assert not new_goal_atom2.holds(state)
 
 
 def test_abstract():
