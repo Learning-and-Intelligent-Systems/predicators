@@ -12,14 +12,12 @@ from predicators.src import utils
 
 def test_interactive_learning_approach():
     """Test for InteractiveLearningApproach class, entire pipeline."""
-    utils.update_config({"env": "cover"})
-    utils.update_config({
+    utils.reset_config({
+        "env": "cover",
         "approach": "interactive_learning",
         "offline_data_method": "demo+ground_atoms",
         "excluded_predicates": "IsBlock,Covers",
         "timeout": 10,
-        "max_samples_per_step": 10,
-        "seed": 123,
         "sampler_mlp_classifier_max_itr": 200,
         "predicate_mlp_classifier_max_itr": 200,
         "neural_gaus_regressor_max_itr": 200,

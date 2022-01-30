@@ -7,7 +7,7 @@ from predicators.src import utils
 
 def test_create_env():
     """Tests for create_env() and get_cached_env_instance()."""
-    utils.update_config({"seed": 123})
+    utils.reset_config({})
     for name in [
             "cover",
             "cover_typed_options",

@@ -75,7 +75,7 @@ def test_segment_trajectory():
 
 def test_learn_strips_operators():
     """Tests for learn_strips_operators()."""
-    utils.update_config({"min_data_for_nsrt": 0})
+    utils.reset_config({"min_data_for_nsrt": 0})
     known_option_segments, unknown_option_segments = test_segment_trajectory()
     known_option_pnads = learn_strips_operators(known_option_segments)
     known_option_ops = [pnad.op for pnad in known_option_pnads]
@@ -99,9 +99,8 @@ def test_learn_strips_operators():
 
 def test_nsrt_learning_specific_nsrts():
     """Tests with a specific desired set of NSRTs."""
-    utils.update_config({
+    utils.reset_config({
         "min_data_for_nsrt": 0,
-        "seed": 123,
         "sampler_mlp_classifier_max_itr": 1000,
         "neural_gaus_regressor_max_itr": 1000
     })
@@ -265,7 +264,6 @@ def test_nsrt_learning_specific_nsrts():
     utils.update_config({
         "min_data_for_nsrt": 0,
         "max_rejection_sampling_tries": 0,
-        "seed": 1234,
         "sampler_mlp_classifier_max_itr": 1,
         "neural_gaus_regressor_max_itr": 1
     })
