@@ -28,9 +28,7 @@ class _DummyApproach(BaseApproach):
 
 def test_base_approach():
     """Tests for BaseApproach class."""
-    utils.update_config({
-        "seed": 123,
-    })
+    utils.reset_config({})
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)
@@ -85,11 +83,9 @@ def test_create_approach():
             "random_actions", "random_options", "oracle", "nsrt_learning",
             "interactive_learning", "iterative_invention"
     ]:
-        utils.update_config({
+        utils.reset_config({
             "env": "cover",
             "approach": name,
-            "seed": 123,
-            "excluded_predicates": ""
         })
         approach = create_approach(name, env.predicates, env.options,
                                    env.types, env.action_space, train_tasks)
