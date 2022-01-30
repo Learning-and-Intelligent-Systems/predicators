@@ -295,7 +295,7 @@ class MLPClassifier(nn.Module):
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._max_itr = max_itr
         self._do_single_class_prediction = False
-        self._single_class = False
+        self._predicted_single_class = False
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
@@ -310,11 +310,11 @@ class MLPClassifier(nn.Module):
         # could only be strange generalization issues.
         if np.all(y == 0):
             self._do_single_class_prediction = True
-            self._single_class = False
+            self._predicted_single_class = False
             return
         if np.all(y == 1):
             self._do_single_class_prediction = True
-            self._single_class = True
+            self._predicted_single_class = True
             return
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
@@ -351,11 +351,12 @@ class MLPClassifier(nn.Module):
 
         x is single-dimensional.
         """
-        if self._do_single_class_prediction:
-            return self._single_class
         assert x.ndim == 1
-        x = (x - self._input_shift) / self._input_scale
-        classification = self._classify(x)
+        if self._do_single_class_prediction:
+            classification = self._predicted_single_class
+        else:
+            x = (x - self._input_shift) / self._input_scale
+            classification = self._classify(x)
         assert classification in [False, True]
         return classification
 
