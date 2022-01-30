@@ -49,7 +49,7 @@ from predicators.src import utils
 from predicators.src.teacher import Teacher, Response
 
 
-assert os.environ["PYTHONHASHSEED"] == "0", \
+assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
 
 
