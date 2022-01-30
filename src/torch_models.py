@@ -294,6 +294,8 @@ class MLPClassifier(nn.Module):
         self._input_shift = np.zeros(1, dtype=np.float32)
         self._input_scale = np.zeros(1, dtype=np.float32)
         self._max_itr = max_itr
+        self._do_single_class_prediction = False
+        self._predicted_single_class = False
 
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
@@ -303,6 +305,17 @@ class MLPClassifier(nn.Module):
         torch.manual_seed(CFG.seed)
         assert X.ndim == 2
         assert y.ndim == 1
+        # If there is only one class in the data, then there's no point in
+        # learning a NN, since any predictions other than that one class
+        # could only be strange generalization issues.
+        if np.all(y == 0):
+            self._do_single_class_prediction = True
+            self._predicted_single_class = False
+            return
+        if np.all(y == 1):
+            self._do_single_class_prediction = True
+            self._predicted_single_class = True
+            return
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
         if CFG.mlp_classifier_balance_data and len(y) // 2 > sum(y):
@@ -326,6 +339,7 @@ class MLPClassifier(nn.Module):
 
     def forward(self, inputs: Array) -> Tensor:
         """Pytorch forward method."""
+        assert not self._do_single_class_prediction
         x = torch.from_numpy(np.array(inputs, dtype=np.float32))
         for _, linear in enumerate(self._linears[:-1]):
             x = F.relu(linear(x))
@@ -338,8 +352,11 @@ class MLPClassifier(nn.Module):
         x is single-dimensional.
         """
         assert x.ndim == 1
-        x = (x - self._input_shift) / self._input_scale
-        classification = self._classify(x)
+        if self._do_single_class_prediction:
+            classification = self._predicted_single_class
+        else:
+            x = (x - self._input_shift) / self._input_scale
+            classification = self._classify(x)
         assert classification in [False, True]
         return classification
 
