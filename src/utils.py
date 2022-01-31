@@ -1269,12 +1269,13 @@ def save_video(outfile: str, video: Video) -> None:
     print(f"Wrote out to {outpath}")
 
 
-def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
+def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
-    # Only override attributes, don't create new ones
-    allowed_args = set(CFG.__dict__)
+    arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
+    # Only override attributes, don't create new ones.
+    allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
     parser = create_arg_parser()
-    # Unfortunately, can't figure out any other way to do this
+    # Unfortunately, can't figure out any other way to do this.
     for parser_action in parser._actions:  # pylint: disable=protected-access
         allowed_args.add(parser_action.dest)
     for k in args:
@@ -1286,14 +1287,34 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
             # pass in a value and this key is already in the
             # configuration dict, add the current value to args.
             args[k] = getattr(CFG, k)
-    # Maintain the invariant that CFG has some seed and some
-    # experiment_id set. This is very useful in unit tests, where
-    # there are often no command line args being passed.
-    args["seed"] = args.get("seed", default_seed)
-    args["experiment_id"] = args.get("experiment_id", "")
-    for d in [GlobalSettings.get_arg_specific_settings(args), args]:
+    for d in [arg_specific_settings, args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
+
+
+def reset_config(args: Optional[Dict[str, Any]] = None,
+                 default_seed: int = 123) -> None:
+    """Reset to the default CFG, overriding with anything in args.
+
+    This utility is meant for use in testing only.
+    """
+    parser = create_arg_parser()
+    default_args = parser.parse_args([
+        "--env",
+        "default env placeholder",
+        "--seed",
+        str(default_seed),
+        "--approach",
+        "default approach placeholder",
+    ])
+    arg_dict = {
+        k: v
+        for k, v in GlobalSettings.__dict__.items() if not k.startswith("_")
+    }
+    arg_dict.update(vars(default_args))
+    if args is not None:
+        arg_dict.update(args)
+    update_config(arg_dict)
 
 
 def get_config_path_str() -> str:
