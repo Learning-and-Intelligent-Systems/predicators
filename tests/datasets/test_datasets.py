@@ -13,17 +13,12 @@ def test_demo_dataset():
     """Test demo-only dataset creation with Covers env."""
     # Test that data does not contain options since
     # option_learner is not "no_learning"
-    utils.update_config({
-        "env": "cover",
-        "approach": "random_actions",
-    })
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
         "option_learner": "arbitrary_dummy",
-        "seed": 123,
         "num_train_tasks": 7,
     })
     env = CoverEnv()
@@ -37,13 +32,12 @@ def test_demo_dataset():
         for action in traj.actions:
             assert not action.has_option()
     # Test that data contains options since option_learner is "no_learning"
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo",
         "offline_data_planning_timeout": 500,
         "option_learner": "no_learning",
-        "seed": 123,
         "num_train_tasks": 7,
     })
     env = CoverEnv()
@@ -69,14 +63,13 @@ def test_demo_replay_dataset():
     """Test demo+replay dataset creation with Covers env."""
     # Test that data contains options since
     # option_learner is "no_learning"
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
         "option_learner": "no_learning",
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
@@ -93,14 +86,13 @@ def test_demo_replay_dataset():
     assert num_demos == 5
     # Test that data does not contain options since
     # option_learner is not "no_learning"
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
         "option_learner": "arbitrary_dummy",
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
@@ -116,13 +108,12 @@ def test_demo_replay_dataset():
             assert not action.has_option()
     assert num_demos == 5
     # Test cluttered table data collection
-    utils.update_config({
+    utils.reset_config({
         "env": "cluttered_table",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 10,
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = ClutteredTableEnv()
@@ -138,14 +129,13 @@ def test_demo_nonoptimal_replay_dataset():
     # cover some failures to plan from the replays, but not so low that
     # planning always fails. Also the number of replays is set high enough
     # that we consistently cover the failure case.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+nonoptimalreplay",
         "offline_data_planning_timeout": 1e-1,
         "offline_data_num_replays": 50,
         "option_learner": "no_learning",
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
@@ -158,14 +148,13 @@ def test_demo_nonoptimal_replay_dataset():
 
 def test_dataset_with_annotations():
     """Test the creation of a Dataset with annotations."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
         "offline_data_method": "demo+replay",
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 3,
         "option_learner": "no_learning",
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
@@ -187,8 +176,8 @@ def test_dataset_with_annotations():
 
 def test_ground_atom_dataset():
     """Test creation of demo+ground_atoms dataset."""
-    utils.update_config({"env": "cover"})
-    utils.update_config({
+    utils.reset_config({
+        "env": "cover",
         "approach": "interactive_learning",
         "num_train_tasks": 15,
         "offline_data_method": "demo+ground_atoms",

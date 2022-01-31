@@ -111,10 +111,9 @@ def test_main():
 
 def test_tamp_approach_failure():
     """Test coverage for ApproachFailure in run_testing()."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
-        "seed": 123,
         "timeout": 10,
         "make_videos": False,
     })
@@ -130,10 +129,9 @@ def test_tamp_approach_failure():
 
 def test_env_failure():
     """Test coverage for EnvironmentFailure in run_testing()."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
-        "seed": 123,
         "timeout": 10,
         "make_videos": False,
         "cover_initial_holding_prob": 0.0,
