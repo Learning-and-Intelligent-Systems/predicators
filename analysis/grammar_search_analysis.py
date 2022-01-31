@@ -18,6 +18,20 @@ from predicators.src import utils
 from predicators.src.structs import Predicate, Dataset, State, Object, Task
 from predicators.src.settings import CFG
 
+DEFAULT_ENV_NAMES = [
+    "cover",
+    "blocks",
+    "painting",
+]
+
+DEFAULT_SCORE_FUNCTION_NAMES = [
+    "expected_nodes",
+]
+
+DEFAULT_SEED = 0
+
+RUN_PLANNING = False
+
 
 def _run_proxy_analysis(args: Dict[str, Any], env_names: List[str],
                         score_function_names: List[str], run_planning: bool,
@@ -102,7 +116,9 @@ def _run_proxy_analysis(args: Dict[str, Any], env_names: List[str],
              "IsWet", "IsDry", "IsDirty", "IsClean"
          ])
 
-        def all_lids_open_classifier(state, objects):
+        def all_lids_open_classifier(state: State,
+                                     objects: Sequence[Object]) -> bool:
+            del objects  # unused
             for o in state:
                 if o.type.name == "lid" and state.get(o, "is_open") < 0.5:
                     return False
@@ -245,23 +261,20 @@ def _main() -> None:
     args = utils.parse_args(env_required=False,
                             approach_required=False,
                             seed_required=False)
-    assert args["excluded_predicates"] == ""  # gets ignored
+    assert args["excluded_predicates"] == "", "This script ignores " + \
+        "excluded predicates, so we disallow them."
     if args["env"] is not None:
         env_names = [args["env"]]
     else:
         del args["env"]
-        env_names = [
-            "cover",
-            "blocks",
-            "painting",
-        ]
+        env_names = DEFAULT_ENV_NAMES
     if args["seed"] is None:
-        args["seed"] = 0
+        args["seed"] = DEFAULT_SEED
     if "grammar_search_score_function" in args:
         score_function_names = [args["grammar_search_score_function"]]
     else:
-        score_function_names = ["expected_nodes"]
-    run_planning = True
+        score_function_names = DEFAULT_SCORE_FUNCTION_NAMES
+    run_planning = RUN_PLANNING
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
