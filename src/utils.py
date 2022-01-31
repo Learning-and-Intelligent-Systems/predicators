@@ -844,6 +844,24 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
+_T = TypeVar("_T")  # element of a set
+
+
+def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
+                   max_set_size: int,
+                   rng: np.random.Generator) -> Iterator[Set[_T]]:
+    """Sample multiple subsets from a universe."""
+    assert min_set_size <= max_set_size
+    assert max_set_size <= len(universe), "Not enough elements in universe"
+    for _ in range(num_samples):
+        set_size = rng.integers(min_set_size, max_set_size + 1)
+        idxs = rng.choice(np.arange(len(universe)),
+                          size=set_size,
+                          replace=False)
+        sample = {universe[i] for i in idxs}
+        yield sample
+
+
 def create_ground_atom_dataset(
         trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
