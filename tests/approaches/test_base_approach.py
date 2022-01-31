@@ -28,7 +28,7 @@ class _DummyApproach(BaseApproach):
 
 def test_base_approach():
     """Tests for BaseApproach class."""
-    utils.reset_config({})
+    utils.reset_config()
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)

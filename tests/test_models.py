@@ -57,7 +57,7 @@ def test_neural_gaussian_regressor():
 
 def test_mlp_classifier():
     """Tests for MLPClassifier."""
-    utils.reset_config({})
+    utils.reset_config()
     input_size = 3
     num_class_samples = 5
     X = np.concatenate([

@@ -1273,7 +1273,8 @@ def update_config(args: Dict[str, Any]) -> None:
             CFG.__setattr__(k, v)
 
 
-def reset_config(args: Dict[str, Any], default_seed: int = 123) -> None:
+def reset_config(args: Optional[Dict[str, Any]] = None,
+                 default_seed: int = 123) -> None:
     """Reset to the default CFG, overriding with anything in args.
 
     This utility is meant for use in testing only.
@@ -1292,7 +1293,8 @@ def reset_config(args: Dict[str, Any], default_seed: int = 123) -> None:
         for k, v in GlobalSettings.__dict__.items() if not k.startswith("_")
     }
     arg_dict.update(vars(default_args))
-    arg_dict.update(args)
+    if args is not None:
+        arg_dict.update(args)
     update_config(arg_dict)
 
 
