@@ -1,6 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List, Optional, Tuple, Callable, Sequence
+from typing import Set, List, Optional, Tuple, Callable, Sequence, Dict
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -11,7 +11,6 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     InteractionResult, Action
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
-from predicators.src.utils import get_object_combinations
 from predicators.src.teacher import GroundAtomsHoldQuery, \
     GroundAtomsHoldResponse
 from predicators.src.settings import CFG
@@ -44,6 +43,25 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 for atom in ground_atom_set:
                     assert atom.predicate not in self._initial_predicates
                     self._predicates_to_learn.add(atom.predicate)
+        # Next, convert the dataset with positive annotations only into a
+        # dataset with positive and unlabeled annotations.
+        new_annotations = []
+        for traj, ground_atom_sets in zip(dataset.trajectories,
+                                          dataset.annotations):
+            new_traj_annotation = []
+            # Get all possible ground atoms given the objects in traj.
+            possible = set(
+                utils.all_possible_ground_atoms(traj.states[0],
+                                                self._predicates_to_learn))
+            for positives in ground_atom_sets:
+                unlabeled = possible - positives
+                new_traj_annotation.append({
+                    "positive": positives,
+                    "unlabeled": unlabeled,
+                    "negative": set(),
+                })
+            new_annotations.append(new_traj_annotation)
+        dataset = Dataset(dataset.trajectories, new_annotations)
         # Learn predicates and NSRTs.
         self._relearn_predicates_and_nsrts(dataset, online_learning_cycle=None)
         # Save dataset, to be used for online interaction.
@@ -91,17 +109,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         result = results[0]
         for state, response in zip(result.states, result.responses):
             assert isinstance(response, GroundAtomsHoldResponse)
+            state_annotation: Dict[str, Set[GroundAtom]] = {
+                "positive": set(),
+                "negative": set(),
+                "unlabeled": set()
+            }
             for query_atom, atom_holds in response.holds.items():
-                # Still need a way to use negative examples.
-                if not atom_holds:
-                    continue
-                # Add this atom because it's a positive example.
-                # Note: these pragma no covers are very temporary; we will
-                # remove them in a future PR where we change the score function
-                # to use >= instead of >, among other things. But for the sake
-                # of a pure refactor, we're leaving it alone for now.
-                traj = LowLevelTrajectory([state], [])  # pragma: no cover
-                self._dataset.append(traj, [{query_atom}])  # pragma: no cover
+                label = "positive" if atom_holds else "negative"
+                state_annotation[label].add(query_atom)
+            traj = LowLevelTrajectory([state], [])
+            self._dataset.append(traj, [state_annotation])
         self._relearn_predicates_and_nsrts(
             self._dataset, online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
@@ -128,37 +145,36 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         print("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
-            positive_examples = []
-            negative_examples = []
-            for (traj, ground_atom_sets) in zip(dataset.trajectories,
+            input_examples = []
+            output_examples = []
+            for (traj, traj_annotations) in zip(dataset.trajectories,
                                                 dataset.annotations):
-                assert len(traj.states) == len(ground_atom_sets)
-                for (state, ground_atom_set) in zip(traj.states,
-                                                    ground_atom_sets):
-                    # Object tuples that appear as the arguments to a ground
-                    # atom where the predicate is pred.
-                    positive_args = {
-                        tuple(atom.objects)
-                        for atom in ground_atom_set if atom.predicate == pred
-                    }
-                    # Loop through all possible examples. If an example appears
-                    # in the ground atom set, it's positive. Otherwise, we make
-                    # the (wrong in general!) assumption that it's negative.
-                    for choice in get_object_combinations(
-                            list(state), pred.types):
-                        x = state.vec(choice)
-                        if tuple(choice) in positive_args:
-                            positive_examples.append(x)
-                        else:
-                            negative_examples.append(x)
-            print(f"Generated {len(positive_examples)} positive and "
-                  f"{len(negative_examples)} negative examples for "
+                assert len(traj.states) == len(traj_annotations)
+                for (state, state_annotation) in zip(traj.states,
+                                                     traj_annotations):
+                    # Here we make the (wrong in general!) assumption that
+                    # unlabeled ground atoms are negative. In the future, we
+                    # may want to modify this, e.g., downweight or remove
+                    # the unlabeled examples once we collect enough negatives.
+                    for label, target_class in [("positive", 1),
+                                                ("unlabeled", 0),
+                                                ("negative", 0)]:
+                        for atom in state_annotation[label]:
+                            if not atom.predicate == pred:
+                                continue
+                            x = state.vec(atom.objects)
+                            input_examples.append(x)
+                            output_examples.append(target_class)
+            num_positives = sum(y == 1 for y in output_examples)
+            num_negatives = sum(y == 0 for y in output_examples)
+            assert num_positives + num_negatives == len(output_examples)
+            print(f"Generated {num_positives} positive and "
+                  f"{num_negatives} negative examples for "
                   f"predicate {pred}")
 
             # Train MLP
-            X = np.array(positive_examples + negative_examples)
-            Y = np.array([1 for _ in positive_examples] +
-                         [0 for _ in negative_examples])
+            X = np.array(input_examples)
+            Y = np.array(output_examples)
             model = MLPClassifier(X.shape[1],
                                   CFG.predicate_mlp_classifier_max_itr)
             model.fit(X, Y)

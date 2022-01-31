@@ -16,12 +16,13 @@ def test_interactive_learning_approach():
         "env": "cover",
         "approach": "interactive_learning",
         "offline_data_method": "demo+ground_atoms",
-        "excluded_predicates": "IsBlock,Covers",
+        "excluded_predicates": "Covers,Holding",
         "timeout": 10,
         "sampler_mlp_classifier_max_itr": 200,
         "predicate_mlp_classifier_max_itr": 200,
         "neural_gaus_regressor_max_itr": 200,
         "num_online_learning_cycles": 1,
+        "teacher_dataset_label_ratio": 1.0,
         "num_train_tasks": 5,
         "num_test_tasks": 5,
     })
@@ -29,7 +30,7 @@ def test_interactive_learning_approach():
     train_tasks = env.get_train_tasks()
     initial_predicates = {
         p
-        for p in env.predicates if p.name not in ["IsBlock", "Covers"]
+        for p in env.predicates if p.name not in ["Covers", "Holding"]
     }
     approach = InteractiveLearningApproach(initial_predicates, env.options,
                                            env.types, env.action_space,
