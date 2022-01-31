@@ -46,7 +46,7 @@ class GlobalSettings:
     # painting env parameters
     painting_initial_holding_prob = 0.5
     painting_lid_open_prob = 0.3
-    painting_num_objs_train = [2]
+    painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
 
     # behavior env parameters
@@ -87,7 +87,7 @@ class GlobalSettings:
     teacher_dataset_label_ratio = 1.0
 
     # NSRT learning parameters
-    min_data_for_nsrt = 3
+    min_data_for_nsrt = 0
     learn_side_predicates = False
 
     # torch model parameters
