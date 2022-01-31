@@ -747,6 +747,22 @@ def strip_predicate(predicate: Predicate) -> Predicate:
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
 
 
+def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
+    """Create a new task where any excluded predicates have their classifiers
+    removed."""
+    stripped_goal: Set[GroundAtom] = set()
+    for atom in task.goal:
+        # The atom's goal is known.
+        if atom.predicate in included_predicates:
+            stripped_goal.add(atom)
+            continue
+        # The atom's goal is unknown.
+        stripped_pred = strip_predicate(atom.predicate)
+        stripped_atom = GroundAtom(stripped_pred, atom.objects)
+        stripped_goal.add(stripped_atom)
+    return Task(task.init, stripped_goal)
+
+
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
