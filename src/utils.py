@@ -1274,7 +1274,10 @@ def update_config(args: Dict[str, Any]) -> None:
 
 
 def reset_config(args: Dict[str, Any], default_seed: int = 123) -> None:
-    """Reset to the default CFG, overriding with anything in args."""
+    """Reset to the default CFG, overriding with anything in args.
+
+    This utility is meant for use in testing only.
+    """
     parser = create_arg_parser()
     default_args = parser.parse_args([
         "--env",

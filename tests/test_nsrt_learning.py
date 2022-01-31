@@ -272,5 +272,5 @@ def test_nsrt_learning_specific_nsrts():
     for nsrt in nsrts:
         for _ in range(10):
             sampled_params = nsrt.ground([cup0, cup1]).sample_option(
-                    state1, np.random.default_rng(123)).params
+                state1, np.random.default_rng(123)).params
             assert option1.parent.params_space.contains(sampled_params)
