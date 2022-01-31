@@ -19,8 +19,10 @@ def _main() -> None:
         "AVG_NUM_PREDS", "AVG_DISCOVERED_FAILURES", "AVG_PLAN_LEN",
         "AVG_EXECUTION_FAILURES", "LEARNING_TIME"
     ]
-    groups = ["ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
-              "ONLINE_LEARNING_CYCLE"]
+    groups = [
+        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
+        "ONLINE_LEARNING_CYCLE"
+    ]
     some_nonempty_experiment_id = False
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:

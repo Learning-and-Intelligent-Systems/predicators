@@ -275,8 +275,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     return metrics
 
 
-def _save_test_results(results: Metrics, online_learning_cycle: Optional[int]
-                       ) -> None:
+def _save_test_results(results: Metrics,
+                       online_learning_cycle: Optional[int]) -> None:
     num_solved = results["num_solved"]
     num_total = results["num_total"]
     avg_suc_time = results["avg_suc_time"]
