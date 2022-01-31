@@ -7,7 +7,7 @@ from predicators.src import utils
 
 def test_blocks():
     """Tests for BlocksEnv class."""
-    utils.update_config({"env": "blocks"})
+    utils.reset_config({"env": "blocks"})
     env = BlocksEnv()
     env.seed(123)
     clear = env._block_is_clear  # pylint: disable=protected-access
@@ -51,7 +51,7 @@ def test_blocks():
 
 def test_blocks_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
-    utils.update_config({"env": "blocks"})
+    utils.reset_config({"env": "blocks"})
     env = BlocksEnv()
     env.seed(123)
     Pick = [o for o in env.options if o.name == "Pick"][0]

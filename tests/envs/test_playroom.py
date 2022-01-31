@@ -12,7 +12,7 @@ from predicators.src.structs import Action, State
 
 def test_playroom():
     """Tests for PlayroomEnv class properties."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     for task in env.get_train_tasks():
@@ -39,7 +39,7 @@ def test_playroom():
 
 def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     On = [o for o in env.predicates if o.name == "On"][0]
@@ -139,7 +139,7 @@ def test_playroom_failure_cases():
 def test_playroom_simulate_blocks():
     """Tests for the cases where simulate() allows the robot to interact with
     blocks."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     block_type = [t for t in env.types if t.name == "block"][0]
@@ -192,7 +192,7 @@ def test_playroom_simulate_blocks():
 def test_playroom_simulate_doors_and_dial():
     """Tests for the cases where simulate() allows the robot to interact with
     doors and the dial."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     door_type = [t for t in env.types if t.name == "door"][0]
@@ -306,7 +306,7 @@ def test_playroom_simulate_doors_and_dial():
 
 def test_playroom_options():
     """Tests for predicate option policies."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     robot_type = [t for t in env.types if t.name == "robot"][0]
@@ -394,7 +394,7 @@ def test_playroom_options():
 
 def test_playroom_action_sequence_video():
     """Test to sanity check rendering."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     # Run through a specific plan of low-level actions.
