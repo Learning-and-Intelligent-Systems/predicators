@@ -24,6 +24,13 @@ A simple implementation of search-then-sample task and motion planning is provid
 * This repository uses Python versions 3.8+.
 * Run `pip install -r requirements.txt` to install dependencies.
 
+### (Optional) BEHAVIOR Installation
+This repository and some of the functionality it enables are integrated with the [BEHAVIOR benchmark of tasks](https://behavior.stanford.edu/benchmark-guide) simulated with the [iGibson simulator](https://github.com/StanfordVL/iGibson). To install iGibson with BEHAVIOR, follow [these instructions](https://stanfordvl.github.io/behavior/installation.html). Importantly, note that you need to use our forks of the [iGibson](https://github.com/Learning-and-Intelligent-Systems/iGibson) and [bddl](https://github.com/Learning-and-Intelligent-Systems/bddl) repositories. Thus, instead of steps 1a. and 1b. in the linked instructions, run:
+```
+https://github.com/Learning-and-Intelligent-Systems/iGibson.git
+https://github.com/Learning-and-Intelligent-Systems/bddl.git
+```
+
 ## Instructions For Running Code
 
 ### `PYTHONHASHSEED`
@@ -41,6 +48,15 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
 * Monitor with `squeue -u ronuchit`, or cancel jobs with `scancel -u ronuchit` (standard Slurm commands).
 * When all jobs are done, run `python analysis/analyze_supercloud_experiments.py` (still on supercloud) to print out the results table.
+
+### Running Experiments on BEHAVIOR
+* Currently, only the `oracle` approach is implemented to integrate with BEHAVIOR
+* Note that you'll probably want to provide the `--timeout 1000`, `--max_num_steps_check_policy 1000` to prevent early stopping.
+* Set `--option_model_name behavior_oracle` to use the behavior option model and speed up planning by a significant factor
+* Set `--behavior_task_name` to the name of the particular bddl task you'd like to run (e.g. `re-shelving_library_books`)
+* Set `--behavior_scene_name` to the name of the house setting (e.g. `Pomaria_1_in`, or `Rs_int`) you want to try running the particular task in.
+* `--behavior_randomize_init_state` can be set to True if you want to generate multiple different initial states that correspond to the BDDL init conditions of a particular task.
+* Example command: `python src/main.py --env behavior --approach oracle --seed 0 --timeout 1000 --max_samples_per_step 20 --behavior_mode simple --max_num_steps_check_policy 1000 --option_model_name behavior_oracle --num_train_tasks 2 --num_test_tasks 2 --behavior_randomize_init_state True --behavior_scene_name Pomaria_1_int --behavior_task_name re-shelving_library_books`
 
 ## Instructions For Contributing
 * You can't push directly to master. Make a PR and merge that in.
