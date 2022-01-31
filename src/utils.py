@@ -849,9 +849,8 @@ _T = TypeVar("_T")  # element of a set
 
 def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
                    max_set_size: int,
-                   rng: np.random.Generator) -> Iteratore[Set[_T]]:
+                   rng: np.random.Generator) -> Iterator[Set[_T]]:
     """Sample multiple subsets from a universe."""
-    samples = []
     assert min_set_size <= max_set_size
     assert max_set_size <= len(universe), "Not enough elements in universe"
     for _ in range(num_samples):
