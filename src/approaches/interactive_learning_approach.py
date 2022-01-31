@@ -1,6 +1,7 @@
 """An approach that learns predicates from a teacher."""
 
 from typing import Set, List, Optional, Tuple, Callable, Sequence, Dict
+import dill as pkl
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
@@ -63,23 +64,29 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                     "negative": set(),
                 })
             new_annotations.append(new_traj_annotation)
-        dataset = Dataset(dataset.trajectories, new_annotations)
+        self._dataset = Dataset(dataset.trajectories, new_annotations)
         # Learn predicates and NSRTs.
-        self._relearn_predicates_and_nsrts(dataset, online_learning_cycle=None)
-        # Save dataset, to be used for online interaction.
-        self._dataset = dataset
+        self._relearn_predicates_and_nsrts(online_learning_cycle=None)
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        super().load(online_learning_cycle)
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
+            save_dict = pkl.load(f)
+        self._dataset = save_dict["dataset"]
+        self._predicates_to_learn = save_dict["predicates_to_learn"]
+        self._best_score = save_dict["best_score"]
 
     def _relearn_predicates_and_nsrts(
-            self, dataset: Dataset,
-            online_learning_cycle: Optional[int]) -> None:
+            self, online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
         print("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
             input_examples = []
             output_examples = []
-            for (traj, traj_annotations) in zip(dataset.trajectories,
-                                                dataset.annotations):
+            for (traj, traj_annotations) in zip(self._dataset.trajectories,
+                                                self._dataset.annotations):
                 assert len(traj.states) == len(traj_annotations)
                 for (state, state_annotation) in zip(traj.states,
                                                      traj_annotations):
@@ -117,7 +124,18 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 (self._predicates_to_learn - {pred}) | {new_pred}
 
         # Learn NSRTs via superclass
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle)
+        self._learn_nsrts(self._dataset.trajectories, online_learning_cycle)
+
+        # Save the things we need other than the NSRTs, which were already
+        # saved in the above call to self._learn_nsrts()
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
+            pkl.dump(
+                {
+                    "dataset": self._dataset,
+                    "predicates_to_learn": self._predicates_to_learn,
+                    "best_score": self._best_score,
+                }, f)
 
     ########################### Active learning ###############################
 
@@ -246,7 +264,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             traj = LowLevelTrajectory([state], [])
             self._dataset.append(traj, [state_annotation])
         self._relearn_predicates_and_nsrts(
-            self._dataset, online_learning_cycle=self._online_learning_cycle)
+            online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
 
     def _find_first_solvable(
