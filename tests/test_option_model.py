@@ -2,7 +2,6 @@
 
 import pytest
 from gym.spaces import Box
-from predicators.src.envs import CoverEnv
 from predicators.src.structs import State, Action, Type, ParameterizedOption
 from predicators.src.option_model import create_option_model
 from predicators.src import utils
@@ -10,6 +9,7 @@ from predicators.src import utils
 
 def test_default_option_model():
     """Tests for the default option model."""
+    utils.reset_config({"env": "cover"})
     type1 = Type("type1", ["feat1", "feat2"])
     type2 = Type("type2", ["feat3", "feat4", "feat5"])
     obj3 = type1("obj3")
@@ -57,7 +57,8 @@ def test_default_option_model():
         obj4: [8, 9, 10],
         obj9: [11, 12, 13]
     })
-    model = create_option_model("default", _simulate)
+    model = create_option_model("oracle")
+    model._simulator = _simulate  # pylint:disable=protected-access
     next_state = model.get_next_state(state, option1)
     assert abs(next_state.get(obj1, "feat3") - 55) < 1e-6
     with pytest.raises(AssertionError):  # option2 is not initiable
@@ -71,11 +72,9 @@ def test_default_option_model():
 
 def test_option_model_notimplemented():
     """Tests for various NotImplementedErrors."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
-        "seed": 123
     })
-    env = CoverEnv()
     with pytest.raises(NotImplementedError):
-        create_option_model("not a real option model", env.simulate)
+        create_option_model("not a real option model")

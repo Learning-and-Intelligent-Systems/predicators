@@ -4,7 +4,7 @@ This environment IS downward refinable (low-level search won't ever
 fail), but it still requires backtracking.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Iterator
+from typing import List, Set, Sequence, Dict, Tuple, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
@@ -98,8 +98,8 @@ class CoverEnv(BaseEnv):
                 next_state.set(held_block, "grasp", -1)
         return next_state
 
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        yield self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
+    def get_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)

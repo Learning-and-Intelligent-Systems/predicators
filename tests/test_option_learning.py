@@ -17,23 +17,17 @@ from predicators.src import utils
 
 def test_known_options_option_learner():
     """Tests for _KnownOptionsOptionLearner."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
-        "seed": 123
-    })
-    utils.update_config({
-        "env": "cover",
-        "approach": "nsrt_learning",
-        "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "no_learning"
     })
     env = create_env("cover")
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.predicates)
+        dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert act.has_option()
@@ -58,34 +52,21 @@ def test_known_options_option_learner():
             option_learner.update_segment_from_option_spec(segment, spec)
             assert segment.has_option()
             assert segment.get_option() == option
-    # Reset configuration.
-    utils.update_config({
-        "env": "cover",
-        "approach": "nsrt_learning",
-        "seed": 123,
-        "option_learner": "no_learning"
-    })
 
 
 def test_oracle_option_learner_cover():
     """Tests for _OracleOptionLearner for the cover environment."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
-        "seed": 123
-    })
-    utils.update_config({
-        "env": "cover",
-        "approach": "nsrt_learning",
-        "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "oracle"
     })
     env = create_env("cover")
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.predicates)
+        dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
@@ -112,23 +93,11 @@ def test_oracle_option_learner_cover():
             # In cover env, param == action array.
             assert option.parent == PickPlace
             assert np.allclose(option.params, segment.actions[0].arr)
-    # Reset configuration.
-    utils.update_config({
-        "env": "cover",
-        "approach": "nsrt_learning",
-        "seed": 123,
-        "option_learner": "no_learning"
-    })
 
 
 def test_oracle_option_learner_blocks():
     """Tests for _OracleOptionLearner for the blocks environment."""
-    utils.update_config({
-        "env": "blocks",
-        "approach": "nsrt_learning",
-        "seed": 123
-    })
-    utils.update_config({
+    utils.reset_config({
         "env": "blocks",
         "approach": "nsrt_learning",
         "seed": 123,
@@ -136,10 +105,10 @@ def test_oracle_option_learner_blocks():
         "option_learner": "oracle"
     })
     env = create_env("blocks")
-    train_tasks = next(env.train_tasks_generator())
+    train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
-        dataset, env.predicates)
+        dataset.trajectories, env.predicates)
     for traj, _ in ground_atom_dataset:
         for act in traj.actions:
             assert not act.has_option()
@@ -172,19 +141,12 @@ def test_oracle_option_learner_blocks():
             option = segment.get_option()
             assert option.parent in (Pick, Stack, PutOnTable)
             assert [obj.type for obj in option.objects] == option.parent.types
-    # Reset configuration.
-    utils.update_config({
-        "env": "blocks",
-        "approach": "nsrt_learning",
-        "seed": 123,
-        "option_learner": "no_learning"
-    })
 
 
 def test_learned_neural_parameterized_option():
     """Tests for _LearnedNeuralParameterizedOption()."""
     # Create a _LearnedNeuralParameterizedOption() for the cover Pick operator.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover_multistep_options",
         "option_learner": "neural",
         "mlp_regressor_max_itr": 10,
@@ -252,24 +214,11 @@ def test_learned_neural_parameterized_option():
 
 def test_create_option_learner():
     """Tests for create_option_learner()."""
-    utils.update_config({
-        "env": "not a real env",
-        "approach": "nsrt_learning",
-        "seed": 123
-    })
-    utils.update_config({
+    utils.reset_config({
         "env": "blocks",
         "approach": "nsrt_learning",
-        "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "not a real option learner"
     })
     with pytest.raises(NotImplementedError):
         create_option_learner()
-    # Reset configuration.
-    utils.update_config({
-        "env": "blocks",
-        "approach": "nsrt_learning",
-        "seed": 123,
-        "option_learner": "no_learning"
-    })

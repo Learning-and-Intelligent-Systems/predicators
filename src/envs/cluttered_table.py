@@ -4,11 +4,11 @@ This environment is created to test our planner's ability to handle
 failures reported by the environment.
 """
 
-from typing import List, Set, Sequence, Dict, Optional, Iterator
+from typing import List, Set, Sequence, Dict, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv, EnvironmentFailure
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
@@ -89,8 +89,8 @@ class ClutteredTableEnv(BaseEnv):
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        yield self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
+    def get_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
@@ -279,7 +279,8 @@ class ClutteredTableEnv(BaseEnv):
                     colliding_can_max_dist = float(dist)
                     colliding_can = can
         if colliding_can is not None:
-            raise EnvironmentFailure("collision", {colliding_can})
+            raise utils.EnvironmentFailure(
+                "collision", {"offending_objects": {colliding_can}})
 
 
 class ClutteredTablePlaceEnv(ClutteredTableEnv):

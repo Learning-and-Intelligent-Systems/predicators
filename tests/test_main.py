@@ -7,7 +7,7 @@ import sys
 import pytest
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     create_approach
-from predicators.src.envs import CoverEnv, EnvironmentFailure
+from predicators.src.envs import CoverEnv
 from predicators.src.main import main, _run_testing
 from predicators.src.structs import State, Task, Action
 from predicators.src import utils
@@ -32,7 +32,7 @@ class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
 
     def simulate(self, state, action):
-        raise EnvironmentFailure("", set())
+        raise utils.EnvironmentFailure("", {"offending_objects": set()})
 
 
 def test_main():
@@ -63,6 +63,14 @@ def test_main():
         "--results_dir", results_dir
     ]
     main()
+    # Test making videos of failures.
+    sys.argv = [
+        "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
+        "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
+        results_dir, "--max_skeletons_optimized", "1",
+        "--painting_lid_open_prob", "0.0", "--make_failure_videos"
+    ]
+    main()
     shutil.rmtree(video_dir)
     shutil.rmtree(results_dir)
     # Run actual main approach, but without sampler learning.
@@ -90,59 +98,49 @@ def test_main():
         "123", "--load_data", "--cover_initial_holding_prob", "0.0"
     ]
     main()
-    # Try predicate exclusion.
+    # Try running interactive approach with no online learning, to make sure
+    # it doesn't crash. This is also an important test of the full pipeline
+    # in the case where a goal predicate is excluded.
     sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "NotARealPredicate"
-    ]
-    with pytest.raises(AssertionError):
-        main()  # can't exclude a non-existent predicate
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "Covers"
-    ]
-    with pytest.raises(AssertionError):
-        main()  # can't exclude a goal predicate
-    sys.argv = [
-        "dummy", "--env", "cover", "--approach", "random_options", "--seed",
-        "123", "--excluded_predicates", "all", "--num_test_tasks", "5",
-        "--cover_initial_holding_prob", "0.0"
+        "dummy", "--env", "cover", "--approach", "interactive_learning",
+        "--seed", "123", "--num_online_learning_cycles", "0",
+        "--excluded_predicates", "Covers"
     ]
     main()
 
 
 def test_tamp_approach_failure():
     """Test coverage for ApproachFailure in run_testing()."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
-        "seed": 123,
         "timeout": 10,
         "make_videos": False,
     })
     env = CoverEnv()
-    approach = _DummyApproach(env.simulate, env.predicates, env.options,
-                              env.types, env.action_space)
+    train_tasks = env.get_train_tasks()
+    approach = _DummyApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
     assert not approach.is_learning_based
-    task = next(env.train_tasks_generator())[0]
+    task = train_tasks[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)
 
 
 def test_env_failure():
     """Test coverage for EnvironmentFailure in run_testing()."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
-        "seed": 123,
         "timeout": 10,
         "make_videos": False,
         "cover_initial_holding_prob": 0.0,
     })
     env = _DummyCoverEnv()
-    approach = create_approach("random_actions", env.simulate, env.predicates,
-                               env.options, env.types, env.action_space)
+    train_tasks = env.get_train_tasks()
+    approach = create_approach("random_actions", env.predicates, env.options,
+                               env.types, env.action_space, train_tasks)
     assert not approach.is_learning_based
-    task = next(env.train_tasks_generator())[0]
+    task = train_tasks[0]
     approach.solve(task, timeout=500)
     _run_testing(env, approach)

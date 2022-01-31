@@ -7,17 +7,20 @@ Anything that varies between runs should be a command-line arg
 import os
 from collections import defaultdict
 from types import SimpleNamespace
-from typing import Dict, Any
+from typing import Dict, Any, Set
 import numpy as np
 
 
 class GlobalSettings:
     """Unchanging settings."""
-    # parameters for all envs
+    # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
-    max_num_steps_check_policy = 100  # maximum number of steps to run a policy
-    # when checking whether it solves a task
+    num_online_learning_cycles = 10
+    # Maximum number of steps to run a policy when checking if it solves a task.
+    max_num_steps_check_policy = 100
+    # Maximum number of steps to run an InteractionRequest policy.
+    max_num_steps_interaction_request = 100
 
     # cover env parameters
     cover_num_blocks = 2
@@ -43,13 +46,8 @@ class GlobalSettings:
     # painting env parameters
     painting_initial_holding_prob = 0.5
     painting_lid_open_prob = 0.3
-    painting_num_objs_train = [2]
+    painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
-    painting_train_families = [
-        "box_and_shelf",  # placing into both box and shelf
-        # "box_only",  # just placing into the box
-        # "shelf_only",  # just placing into the shelf
-    ]
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
@@ -62,12 +60,12 @@ class GlobalSettings:
     behavior_physics_timestep = 1.0 / 120.0
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
+    behavior_randomize_init_state = False
 
     # parameters for approaches
     random_options_max_tries = 100
 
     # SeSamE parameters
-    option_model_name = "default"
     max_num_steps_option_rollout = 1000
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
@@ -79,6 +77,7 @@ class GlobalSettings:
     data_dir = "saved_datasets"
     video_dir = "videos"
     video_fps = 2
+    failure_video_mode = "longest_only"
 
     # dataset parameters
     offline_data_planning_timeout = 3  # for learning-based approaches, the
@@ -88,7 +87,7 @@ class GlobalSettings:
     teacher_dataset_label_ratio = 1.0
 
     # NSRT learning parameters
-    min_data_for_nsrt = 3
+    min_data_for_nsrt = 0
     learn_side_predicates = False
 
     # torch model parameters
@@ -118,17 +117,11 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_known_predicates = "GripperOpen,Holding,Clear,NextToTable," \
-        "NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom," \
-        "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
-        "LightOn,LightOff,On,OnTable"
-    interactive_num_episodes = 0
-    interactive_max_num_steps = 21
-    interactive_relearn_every = 1
-    interactive_num_babbles = 10
-    interactive_max_num_atoms_babbled = 1
-    interactive_num_tasks_babbled = 5
-    interactive_atom_type_babbled = "ground"
+    interactive_action_strategy = "glib"
+    interactive_query_policy = "strict_best_seen"
+    interactive_score_function = "frequency"
+    interactive_num_babbles = 10  # for action strategy glib
+    interactive_max_num_atoms_babbled = 1  # for action strategy glib
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -186,7 +179,7 @@ class GlobalSettings:
                 lambda: "demo+replay",
                 {
                     # No replays for active learning project.
-                    "interactive_learning": "demo",
+                    "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
 
             # Number of replays used when offline_data_method is demo+replay.
@@ -198,7 +191,23 @@ class GlobalSettings:
                     # replays makes learning slow.
                     "repeated_nextto": 50,
                 })[args.get("env", "")],
+
+            # The name of the option model used by the agent.
+            option_model_name=defaultdict(
+                lambda: "oracle",
+                {
+                    # For the BEHAVIOR environment, use a special option model.
+                    "behavior": "behavior_oracle",
+                })[args.get("env", "")],
         )
+
+
+def get_allowed_query_type_names() -> Set[str]:
+    """Get the set of names of query types that the teacher is allowed to
+    answer, computed based on the configuration CFG."""
+    if CFG.approach in ("interactive_learning", "unittest"):
+        return {"GroundAtomsHoldQuery"}
+    return set()
 
 
 _attr_to_value = {}

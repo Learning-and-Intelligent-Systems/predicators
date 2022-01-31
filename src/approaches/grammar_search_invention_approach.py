@@ -20,8 +20,8 @@ from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Action, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption
+    Type, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption, Task
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -297,7 +297,7 @@ class _DataBasedPredicateGrammar(_PredicateGrammar):
     def types(self) -> Set[Type]:
         """Infer types from the dataset."""
         types: Set[Type] = set()
-        for traj in self.dataset:
+        for traj in self.dataset.trajectories:
             types.update(o.type for o in traj.states[0])
         return types
 
@@ -359,7 +359,7 @@ class _SingleFeatureInequalitiesPredicateGrammar(_DataBasedPredicateGrammar):
     def _get_feature_ranges(
             self) -> Dict[Type, Dict[str, Tuple[float, float]]]:
         feature_ranges: Dict[Type, Dict[str, Tuple[float, float]]] = {}
-        for traj in self.dataset:
+        for traj in self.dataset.trajectories:
             for state in traj.states:
                 for obj in state:
                     if obj.type not in feature_ranges:
@@ -437,7 +437,7 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
         """Returns frozensets of groundatoms for each data point."""
         # Get atoms for this predicate alone on the dataset.
         atom_dataset = utils.create_ground_atom_dataset(
-            self.dataset, {predicate})
+            self.dataset.trajectories, {predicate})
         raw_identifiers = set()
         for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
             for t, atoms in enumerate(atom_traj):
@@ -515,17 +515,19 @@ class _ForallPredicateGrammarWrapper(_PredicateGrammar):
 
 def _create_score_function(
         score_function_name: str, initial_predicates: Set[Predicate],
-        atom_dataset: List[GroundAtomTrajectory],
-        candidates: Dict[Predicate, float]) -> _PredicateSearchScoreFunction:
+        atom_dataset: List[GroundAtomTrajectory], candidates: Dict[Predicate,
+                                                                   float],
+        train_tasks: List[Task]) -> _PredicateSearchScoreFunction:
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
-                                             candidates)
+                                             candidates, train_tasks)
     if score_function_name == "branching_factor":
         return _BranchingFactorScoreFunction(initial_predicates, atom_dataset,
-                                             candidates)
+                                             candidates, train_tasks)
     if score_function_name == "hadd_match":
         return _RelaxationHeuristicMatchBasedScoreFunction(
-            initial_predicates, atom_dataset, candidates, ["hadd"])
+            initial_predicates, atom_dataset, candidates, train_tasks,
+            ["hadd"])
     match = re.match(r"([a-z\,]+)_(\w+)_lookaheaddepth(\d+)",
                      score_function_name)
     if match is not None:
@@ -545,6 +547,7 @@ def _create_score_function(
                 initial_predicates,
                 atom_dataset,
                 candidates,
+                train_tasks,
                 heuristic_names,
                 lookahead_depth=lookahead_depth)
         assert score_name == "count"
@@ -552,24 +555,26 @@ def _create_score_function(
             initial_predicates,
             atom_dataset,
             candidates,
+            train_tasks,
             heuristic_names,
             lookahead_depth=lookahead_depth,
             demos_only=False)
     if score_function_name == "exact_energy":
         return _ExactHeuristicEnergyBasedScoreFunction(initial_predicates,
                                                        atom_dataset,
-                                                       candidates)
+                                                       candidates, train_tasks)
     if score_function_name == "exact_count":
         return _ExactHeuristicCountBasedScoreFunction(initial_predicates,
                                                       atom_dataset,
                                                       candidates,
+                                                      train_tasks,
                                                       demos_only=False)
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
-                                          candidates)
+                                          candidates, train_tasks)
     if score_function_name == "expected_nodes":
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
-                                           candidates)
+                                           candidates, train_tasks)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -580,6 +585,7 @@ class _PredicateSearchScoreFunction(abc.ABC):
     _initial_predicates: Set[Predicate]  # predicates given by the environment
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
+    _train_tasks: List[Task]  # all of the train tasks
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         """Get the score for the given set of candidate predicates.
@@ -712,13 +718,14 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
             objects = set(traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
                 init_atoms, objects, strips_ops, option_specs)
+            traj_goal = self._train_tasks[traj.train_task_idx].goal
             heuristic = utils.create_task_planning_heuristic(
-                CFG.task_planning_heuristic, init_atoms, traj.goal,
+                CFG.task_planning_heuristic, init_atoms, traj_goal,
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
             try:
                 _, _, metrics = next(
-                    task_plan(init_atoms, traj.goal, ground_nsrts,
+                    task_plan(init_atoms, traj_goal, ground_nsrts,
                               reachable_atoms, heuristic, CFG.seed,
                               CFG.grammar_search_task_planning_timeout))
                 node_expansions = metrics["num_nodes_expanded"]
@@ -769,7 +776,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 continue
             seen_demos += 1
             init_atoms = atoms_sequence[0]
-            goal = traj.goal
+            goal = self._train_tasks[traj.train_task_idx].goal
             # Ground everything once per demo.
             objects = set(traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
@@ -929,7 +936,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                 seen_nondemos += 1
             init_atoms = atoms_sequence[0]
             objects = set(traj.states[0])
-            goal = traj.goal
+            goal = self._train_tasks[traj.train_task_idx].goal
             ground_ops = {
                 op
                 for strips_op in strips_ops
@@ -1254,12 +1261,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     """An approach that invents predicates by searching over candidate sets,
     with the candidates proposed from a grammar."""
 
-    def __init__(self, simulator: Callable[[State, Action], State],
-                 initial_predicates: Set[Predicate],
+    def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box) -> None:
-        super().__init__(simulator, initial_predicates, initial_options, types,
-                         action_space)
+                 action_space: Box, train_tasks: List[Task]) -> None:
+        super().__init__(initial_predicates, initial_options, types,
+                         action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
@@ -1267,11 +1273,9 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        self._dataset.extend(dataset)
-        del dataset
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(self._dataset, self._initial_predicates)
+        grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates:")
@@ -1280,20 +1284,20 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(
-            self._dataset,
+            dataset.trajectories,
             set(candidates) | self._initial_predicates)
         print("Done.")
         # Create the score function that will be used to guide search.
         score_function = _create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, candidates)
+            atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
             candidates, score_function)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts()
+        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
 def _select_predicates_to_keep(

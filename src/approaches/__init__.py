@@ -36,32 +36,31 @@ __all__ = [
 ]
 
 
-def create_approach(name: str, simulator: Callable[[State, Action], State],
-                    initial_predicates: Set[Predicate],
+def create_approach(name: str, initial_predicates: Set[Predicate],
                     initial_options: Set[ParameterizedOption],
-                    types: Set[Type], action_space: Box) -> BaseApproach:
+                    types: Set[Type], action_space: Box,
+                    train_tasks: List[Task]) -> BaseApproach:
     """Create an approach given its name."""
     if name == "oracle":
-        return OracleApproach(simulator, initial_predicates, initial_options,
-                              types, action_space)
+        return OracleApproach(initial_predicates, initial_options, types,
+                              action_space, train_tasks)
     if name == "random_actions":
-        return RandomActionsApproach(simulator, initial_predicates,
-                                     initial_options, types, action_space)
+        return RandomActionsApproach(initial_predicates, initial_options,
+                                     types, action_space, train_tasks)
     if name == "random_options":
-        return RandomOptionsApproach(simulator, initial_predicates,
-                                     initial_options, types, action_space)
+        return RandomOptionsApproach(initial_predicates, initial_options,
+                                     types, action_space, train_tasks)
     if name == "nsrt_learning":
-        return NSRTLearningApproach(simulator, initial_predicates,
-                                    initial_options, types, action_space)
+        return NSRTLearningApproach(initial_predicates, initial_options, types,
+                                    action_space, train_tasks)
     if name == "interactive_learning":
-        return InteractiveLearningApproach(simulator, initial_predicates,
-                                           initial_options, types,
-                                           action_space)
+        return InteractiveLearningApproach(initial_predicates, initial_options,
+                                           types, action_space, train_tasks)
     if name == "iterative_invention":
-        return IterativeInventionApproach(simulator, initial_predicates,
-                                          initial_options, types, action_space)
+        return IterativeInventionApproach(initial_predicates, initial_options,
+                                          types, action_space, train_tasks)
     if name == "grammar_search_invention":
-        return GrammarSearchInventionApproach(simulator, initial_predicates,
+        return GrammarSearchInventionApproach(initial_predicates,
                                               initial_options, types,
-                                              action_space)
+                                              action_space, train_tasks)
     raise NotImplementedError(f"Unknown approach: {name}")

@@ -7,15 +7,15 @@ from predicators.src import utils
 
 def test_random_actions_approach():
     """Tests for RandomActionsApproach class."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
-        "seed": 123
     })
     env = CoverEnv()
-    task = next(env.train_tasks_generator())[0]
-    approach = RandomActionsApproach(env.simulate, env.predicates, env.options,
-                                     env.types, env.action_space)
+    train_tasks = env.get_train_tasks()
+    task = train_tasks[0]
+    approach = RandomActionsApproach(env.predicates, env.options, env.types,
+                                     env.action_space, train_tasks)
     assert not approach.is_learning_based
     approach.seed(123)
     policy = approach.solve(task, 500)

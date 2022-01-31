@@ -4,11 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, DefaultDict, Optional, TypeVar
+    Tuple, Any, cast, DefaultDict, Optional, TypeVar, TYPE_CHECKING
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
+if TYPE_CHECKING:
+    from predicators.src.teacher import Query, Response
 
 
 @dataclass(frozen=True, order=True)
@@ -865,25 +867,26 @@ class Action:
 @dataclass(frozen=True, repr=False, eq=False)
 class LowLevelTrajectory:
     """A structure representing a low-level trajectory, containing a state
-    sequence, action sequence, and optional goal. This trajectory may or may
-    not be a demonstration.
+    sequence, action sequence, and optional train task id. This trajectory may
+    or may not be a demonstration.
 
     Invariant 1: If this trajectory is a demonstration, it must contain
-    a goal and achieve that goal. Invariant 2: The length of the state
-    sequence is always one greater than the length of the action
-    sequence.
+    a train task idx and achieve the goal in the respective train task. This
+    invariant is checked upon creation of the trajectory (in datasets) because
+    the trajectory does not have a goal, it only has a train task idx.
+
+    Invariant 2: The length of the state sequence is always one greater than
+    the length of the action sequence.
     """
     _states: List[State]
     _actions: List[Action]
     _is_demo: bool = field(default=False)
-    _goal: Optional[Set[GroundAtom]] = field(default=None)
+    _train_task_idx: Optional[int] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self._states) == len(self._actions) + 1
         if self._is_demo:
-            assert self._goal is not None
-            assert all(
-                goal_atom.holds(self._states[-1]) for goal_atom in self._goal)
+            assert self._train_task_idx is not None
 
     @property
     def states(self) -> List[State]:
@@ -901,10 +904,50 @@ class LowLevelTrajectory:
         return self._is_demo
 
     @property
-    def goal(self) -> Set[GroundAtom]:
-        """The goal of this trajectory."""
-        assert self._goal is not None, "This trajectory doesn't contain a goal!"
-        return self._goal
+    def train_task_idx(self) -> int:
+        """The index of the train task."""
+        assert self._train_task_idx is not None, \
+            "This trajectory doesn't contain a train task idx!"
+        return self._train_task_idx
+
+
+@dataclass(repr=False, eq=False)
+class Dataset:
+    """A collection of LowLevelTrajectory objects, and optionally, lists of
+    annotations, one per trajectory.
+
+    For example, in interactive learning, an annotation for an offline
+    learning Dataset would be of type List[Set[GroundAtom]] (with
+    predicate classifiers deleted).
+    """
+    _trajectories: List[LowLevelTrajectory]
+    _annotations: Optional[List[Any]] = field(default=None)
+
+    def __post_init__(self) -> None:
+        if self._annotations is not None:
+            assert len(self._trajectories) == len(self._annotations)
+
+    @property
+    def trajectories(self) -> List[LowLevelTrajectory]:
+        """The trajectories in the dataset."""
+        return self._trajectories
+
+    @property
+    def annotations(self) -> List[Any]:
+        """The annotations in the dataset."""
+        assert self._annotations is not None
+        return self._annotations
+
+    def append(self,
+               trajectory: LowLevelTrajectory,
+               annotation: Optional[Any] = None) -> None:
+        """Append one more trajectory and annotation to the dataset."""
+        if annotation is None:
+            assert self._annotations is None
+        else:
+            assert self._annotations is not None
+            self._annotations.append(annotation)
+        self._trajectories.append(trajectory)
 
 
 @dataclass(eq=False)
@@ -1020,8 +1063,37 @@ class PartialNSRTAndDatastore:
         return repr(self)
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class InteractionRequest:
+    """A request for interacting with a training task during online learning.
+    Contains the index for that training task, an acting policy, a query
+    policy, and a termination function.
+
+    Note: the act_policy will not be called on the state where the
+    termination_function returns True, but the query_policy will be.
+    """
+    train_task_idx: int
+    act_policy: Callable[[State], Action]
+    query_policy: Callable[[State], Optional[Query]]  # query can be None
+    termination_function: Callable[[State], bool]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class InteractionResult:
+    """The result of an InteractionRequest. Contains a list of states, a list
+    of actions, and a list of responses to queries if provded.
+
+    Invariant: len(states) == len(responses) == len(actions) + 1
+    """
+    states: List[State]
+    actions: List[Action]
+    responses: List[Optional[Response]]
+
+    def __post_init__(self) -> None:
+        assert len(self.states) == len(self.responses) == len(self.actions) + 1
+
+
 # Convenience higher-order types useful throughout the code
-Dataset = List[LowLevelTrajectory]
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]

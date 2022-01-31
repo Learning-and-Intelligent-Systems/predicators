@@ -9,7 +9,8 @@ import itertools
 import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union
+    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
+    TYPE_CHECKING
 import heapq as hq
 import pathos.multiprocessing as mp
 import imageio
@@ -22,10 +23,12 @@ from predicators.src.args import create_arg_parser
 from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
-    Dataset, GroundAtomTrajectory, STRIPSOperator, DummyOption, \
-    _GroundSTRIPSOperator, Array, OptionSpec, LiftedOrGroundAtom, \
-    NSRTOrSTRIPSOperator, GroundNSRTOrSTRIPSOperator, ParameterizedOption
+    GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
+    Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
+    GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
+if TYPE_CHECKING:
+    from predicators.src.envs import BaseEnv
 
 matplotlib.use("Agg")
 
@@ -333,8 +336,34 @@ def option_to_trajectory(init_state: State,
                             option.terminal, max_num_steps)
 
 
+class ExceptionWithInfo(Exception):
+    """An exception with an optional info dictionary that is initially
+    empty."""
+
+    def __init__(self, message: str, info: Optional[Dict] = None) -> None:
+        super().__init__(message)
+        if info is None:
+            info = {}
+        assert isinstance(info, dict)
+        self.info = info
+
+
 class OptionPlanExhausted(Exception):
     """An exception for an option plan running out of options."""
+
+
+class EnvironmentFailure(ExceptionWithInfo):
+    """Exception raised when any type of failure occurs in an environment.
+
+    The info dictionary must contain a key "offending_objects", which
+    maps to a set of objects responsible for the failure.
+    """
+
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}: {self.info}"
+
+    def __str__(self) -> str:
+        return repr(self)
 
 
 def option_plan_to_policy(
@@ -718,6 +747,22 @@ def strip_predicate(predicate: Predicate) -> Predicate:
     return Predicate(predicate.name, predicate.types, lambda s, o: False)
 
 
+def strip_task(task: Task, included_predicates: Set[Predicate]) -> Task:
+    """Create a new task where any excluded predicates have their classifiers
+    removed."""
+    stripped_goal: Set[GroundAtom] = set()
+    for atom in task.goal:
+        # The atom's goal is known.
+        if atom.predicate in included_predicates:
+            stripped_goal.add(atom)
+            continue
+        # The atom's goal is unknown.
+        stripped_pred = strip_predicate(atom.predicate)
+        stripped_atom = GroundAtom(stripped_pred, atom.objects)
+        stripped_goal.add(stripped_atom)
+    return Task(task.init, stripped_goal)
+
+
 def abstract(state: State, preds: Collection[Predicate]) -> Set[GroundAtom]:
     """Get the atomic representation of the given state (i.e., a set of ground
     atoms), using the given set of predicates.
@@ -799,12 +844,30 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
+_T = TypeVar("_T")  # element of a set
+
+
+def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
+                   max_set_size: int,
+                   rng: np.random.Generator) -> Iterator[Set[_T]]:
+    """Sample multiple subsets from a universe."""
+    assert min_set_size <= max_set_size
+    assert max_set_size <= len(universe), "Not enough elements in universe"
+    for _ in range(num_samples):
+        set_size = rng.integers(min_set_size, max_set_size + 1)
+        idxs = rng.choice(np.arange(len(universe)),
+                          size=set_size,
+                          replace=False)
+        sample = {universe[i] for i in idxs}
+        yield sample
+
+
 def create_ground_atom_dataset(
-        dataset: Dataset,
+        trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
     """Apply all predicates to all trajectories in the dataset."""
     ground_atom_dataset = []
-    for traj in dataset:
+    for traj in trajectories:
         atoms = [abstract(s, predicates) for s in traj.states]
         ground_atom_dataset.append((traj, atoms))
     return ground_atom_dataset
@@ -1152,6 +1215,38 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
+def create_video_from_partial_refinements(
+    task: Task, simulator: Callable[[State, Action], State],
+    render: Callable[[State, Task, Optional[Action]], List[Image]],
+    partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
+                                        Sequence[_Option]]]
+) -> Video:
+    """Create a video from a list of skeletons and partial refinements."""
+    # Right now, the video is created by finding the longest partial
+    # refinement. One could also implement an "all_skeletons" mode
+    # that would create one video per skeleton.
+    if CFG.failure_video_mode == "longest_only":
+        # Visualize only the overall longest failed plan.
+        _, plan = max(partial_refinements, key=lambda x: len(x[1]))
+        policy = option_plan_to_policy(plan)
+        video: Video = []
+        state = task.init
+        while True:
+            try:
+                act = policy(state)
+            except OptionPlanExhausted:
+                video.extend(render(state, task, None))
+                break
+            video.extend(render(state, task, act))
+            try:
+                state = simulator(state, act)
+            except EnvironmentFailure:
+                break
+        return video
+    raise NotImplementedError("Unrecognized failure video mode: "
+                              f"{CFG.failure_video_mode}.")
+
+
 def fig2data(fig: matplotlib.figure.Figure, dpi: int = 150) -> Image:
     """Convert matplotlib figure into Image."""
     fig.set_dpi(dpi)
@@ -1173,12 +1268,13 @@ def save_video(outfile: str, video: Video) -> None:
     print(f"Wrote out to {outpath}")
 
 
-def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
+def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
-    # Only override attributes, don't create new ones
-    allowed_args = set(CFG.__dict__)
+    arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
+    # Only override attributes, don't create new ones.
+    allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
     parser = create_arg_parser()
-    # Unfortunately, can't figure out any other way to do this
+    # Unfortunately, can't figure out any other way to do this.
     for parser_action in parser._actions:  # pylint: disable=protected-access
         allowed_args.add(parser_action.dest)
     for k in args:
@@ -1190,14 +1286,34 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
             # pass in a value and this key is already in the
             # configuration dict, add the current value to args.
             args[k] = getattr(CFG, k)
-    # Maintain the invariant that CFG has some seed and some
-    # experiment_id set. This is very useful in unit tests, where
-    # there are often no command line args being passed.
-    args["seed"] = args.get("seed", default_seed)
-    args["experiment_id"] = args.get("experiment_id", "")
-    for d in [GlobalSettings.get_arg_specific_settings(args), args]:
+    for d in [arg_specific_settings, args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
+
+
+def reset_config(args: Optional[Dict[str, Any]] = None,
+                 default_seed: int = 123) -> None:
+    """Reset to the default CFG, overriding with anything in args.
+
+    This utility is meant for use in testing only.
+    """
+    parser = create_arg_parser()
+    default_args = parser.parse_args([
+        "--env",
+        "default env placeholder",
+        "--seed",
+        str(default_seed),
+        "--approach",
+        "default approach placeholder",
+    ])
+    arg_dict = {
+        k: v
+        for k, v in GlobalSettings.__dict__.items() if not k.startswith("_")
+    }
+    arg_dict.update(vars(default_args))
+    if args is not None:
+        arg_dict.update(args)
+    update_config(arg_dict)
 
 
 def get_config_path_str() -> str:
@@ -1212,9 +1328,13 @@ def get_approach_save_path_str() -> str:
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
-def parse_args() -> Dict[str, Any]:
+def parse_args(env_required: bool = True,
+               approach_required: bool = True,
+               seed_required: bool = True) -> Dict[str, Any]:
     """Parses command line arguments."""
-    parser = create_arg_parser()
+    parser = create_arg_parser(env_required=env_required,
+                               approach_required=approach_required,
+                               seed_required=seed_required)
     args, overrides = parser.parse_known_args()
     print_args(args)
     arg_dict = vars(args)
@@ -1269,3 +1389,36 @@ def flush_cache() -> None:
 
     for wrapper in wrappers:
         wrapper.cache_clear()
+
+
+def parse_config_excluded_predicates(
+        env: BaseEnv) -> Tuple[Set[Predicate], Set[Predicate]]:
+    """Parse the CFG.excluded_predicates string, given an environment.
+
+    Return a tuple of (included predicate set, excluded predicate set).
+    """
+    if CFG.excluded_predicates:
+        if CFG.excluded_predicates == "all":
+            excluded_names = {
+                pred.name
+                for pred in env.predicates if pred not in env.goal_predicates
+            }
+            print(f"All non-goal predicates excluded: {excluded_names}")
+            included = env.goal_predicates
+        else:
+            excluded_names = set(CFG.excluded_predicates.split(","))
+            assert excluded_names.issubset(
+                {pred.name for pred in env.predicates}), \
+                "Unrecognized predicate in excluded_predicates!"
+            included = {
+                pred
+                for pred in env.predicates if pred.name not in excluded_names
+            }
+            if CFG.offline_data_method != "demo+ground_atoms":
+                assert env.goal_predicates.issubset(included), \
+                    "Can't exclude a goal predicate!"
+    else:
+        excluded_names = set()
+        included = env.predicates
+    excluded = {pred for pred in env.predicates if pred.name in excluded_names}
+    return included, excluded

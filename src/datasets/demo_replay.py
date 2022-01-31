@@ -1,13 +1,13 @@
 """Create offline datasets by collecting demonstrations and replaying."""
 
-from typing import List
+from typing import List, Set
 import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     ApproachTimeout, create_approach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.envs import BaseEnv, EnvironmentFailure
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
-    LowLevelTrajectory
+    LowLevelTrajectory, GroundAtom
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
 from predicators.src import utils
@@ -23,21 +23,22 @@ def create_demo_replay_data(env: BaseEnv,
     """
     if nonoptimal_only:
         # Oracle is used to check if replays are optimal.
-        oracle_approach = create_approach("oracle", env.simulate,
-                                          env.predicates, env.options,
-                                          env.types, env.action_space)
+        oracle_approach = create_approach("oracle", env.predicates,
+                                          env.options, env.types,
+                                          env.action_space, train_tasks)
     demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
     # all states into one list, is that we want to compute
     # all ground NSRTs once per trajectory only, rather
     # than once per state.
-    weights = np.array([len(traj.states) for traj in demo_dataset])
+    weights = np.array(
+        [len(traj.states) for traj in demo_dataset.trajectories])
     weights = weights / sum(weights)
     # Ground all NSRTs once per trajectory
     all_nsrts = get_gt_nsrts(env.predicates, env.options)
     ground_nsrts = []
-    for traj in demo_dataset:
+    for traj in demo_dataset.trajectories:
         objects = sorted(traj.states[0])
         # Assumes objects should be the same within a traj
         assert all(set(objects) == set(s) for s in traj.states)
@@ -46,14 +47,14 @@ def create_demo_replay_data(env: BaseEnv,
             these_ground_nsrts = utils.all_ground_nsrts(nsrt, objects)
             ground_nsrts_traj.extend(these_ground_nsrts)
         ground_nsrts.append(ground_nsrts_traj)
-    assert len(ground_nsrts) == len(demo_dataset)
+    assert len(ground_nsrts) == len(demo_dataset.trajectories)
     # Perform replays
     rng = np.random.default_rng(CFG.seed)
-    replay_dataset: Dataset = []
-    while len(replay_dataset) < CFG.offline_data_num_replays:
+    replay_trajectories: List[LowLevelTrajectory] = []
+    while len(replay_trajectories) < CFG.offline_data_num_replays:
         # Sample a trajectory
-        traj_idx = rng.choice(len(demo_dataset), p=weights)
-        traj = demo_dataset[traj_idx]
+        traj_idx = rng.choice(len(demo_dataset.trajectories), p=weights)
+        traj = demo_dataset.trajectories[traj_idx]
         # Sample a state
         # We don't allow sampling the final state in the trajectory here,
         # because there's no guarantee that an initiable option exists
@@ -77,31 +78,33 @@ def create_demo_replay_data(env: BaseEnv,
                 option,
                 max_num_steps=CFG.max_num_steps_option_rollout)
             # Add task goal into the trajectory.
-            replay_traj = LowLevelTrajectory(replay_traj.states,
-                                             replay_traj.actions,
-                                             _is_demo=False,
-                                             _goal=traj.goal)
-        except EnvironmentFailure:
+            replay_traj = LowLevelTrajectory(
+                replay_traj.states,
+                replay_traj.actions,
+                _is_demo=False,
+                _train_task_idx=traj.train_task_idx)
+        except utils.EnvironmentFailure:
             # We ignore replay data which leads to an environment failure.
             continue
-
+        goal = train_tasks[traj.train_task_idx].goal
         if nonoptimal_only and _replay_is_optimal(replay_traj, traj, state_idx,
-                                                  oracle_approach, env):
+                                                  oracle_approach, env, goal):
             continue
 
         if CFG.option_learner != "no_learning":
             for act in replay_traj.actions:
                 act.unset_option()
-        replay_dataset.append(replay_traj)
+        replay_trajectories.append(replay_traj)
 
-    assert len(replay_dataset) == CFG.offline_data_num_replays
+    assert len(replay_trajectories) == CFG.offline_data_num_replays
 
-    return demo_dataset + replay_dataset
+    return Dataset(demo_dataset.trajectories + replay_trajectories)
 
 
 def _replay_is_optimal(replay_traj: LowLevelTrajectory,
                        demo_traj: LowLevelTrajectory, state_idx: int,
-                       oracle_approach: BaseApproach, env: BaseEnv) -> bool:
+                       oracle_approach: BaseApproach, env: BaseEnv,
+                       goal: Set[GroundAtom]) -> bool:
     """Plan from the end of the replay to the goal and check whether the result
     is as good as the demo.
 
@@ -110,7 +113,7 @@ def _replay_is_optimal(replay_traj: LowLevelTrajectory,
     """
     assert demo_traj.states[state_idx].allclose(replay_traj.states[0])
     # Plan starting at the end of the replay trajectory to the demo goal.
-    task = Task(replay_traj.states[-1], demo_traj.goal)
+    task = Task(replay_traj.states[-1], goal)
     try:
         policy = oracle_approach.solve(
             task, timeout=CFG.offline_data_planning_timeout)

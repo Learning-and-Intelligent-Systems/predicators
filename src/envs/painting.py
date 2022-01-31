@@ -6,13 +6,12 @@ for placing into the box. The box has a lid which may need to be opened;
 this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any, \
-    Iterator
+from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv, EnvironmentFailure
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
@@ -258,7 +257,8 @@ class PaintingEnv(BaseEnv):
             return next_state
         if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
             # Cannot place in box if lid is not open
-            raise EnvironmentFailure("Box lid is closed.", {self._lid})
+            raise utils.EnvironmentFailure("Box lid is closed.",
+                                           {"offending_objects": {self._lid}})
         # Detect top grasp vs side grasp
         grasp = state.get(held_obj, "grasp")
         if grasp > self.top_grasp_thresh:
@@ -276,8 +276,8 @@ class PaintingEnv(BaseEnv):
         if receptacle == "table" and \
            collider is not None and \
            collider != held_obj:
-            raise EnvironmentFailure("Collision during place on table.",
-                                     {collider})
+            raise utils.EnvironmentFailure("Collision during place on table.",
+                                           {"offending_objects": {collider}})
         # Execute place
         next_state.set(self._robot, "fingers", 1.0)
         next_state.set(held_obj, "pose_x", x)
@@ -287,25 +287,10 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    def train_tasks_generator(self) -> Iterator[List[Task]]:
-        # Split num_train_tasks uniformly over the task families
-        num_tasks = CFG.num_train_tasks // len(CFG.painting_train_families)
-        for family_name in CFG.painting_train_families:
-            if family_name == "box_only":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=[1],
-                                      rng=self._train_rng)
-            elif family_name == "shelf_only":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=CFG.painting_num_objs_train,
-                                      rng=self._train_rng,
-                                      use_box=False)
-            elif family_name == "box_and_shelf":
-                yield self._get_tasks(num_tasks=num_tasks,
-                                      num_objs_lst=CFG.painting_num_objs_train,
-                                      rng=self._train_rng)
-            else:
-                raise ValueError(f"Unrecognized task family: {family_name}")
+    def get_train_tasks(self) -> List[Task]:
+        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                               num_objs_lst=CFG.painting_num_objs_train,
+                               rng=self._train_rng)
 
     def get_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
@@ -451,11 +436,8 @@ class PaintingEnv(BaseEnv):
         plt.close()
         return [img]
 
-    def _get_tasks(self,
-                   num_tasks: int,
-                   num_objs_lst: List[int],
-                   rng: np.random.Generator,
-                   use_box: bool = True) -> List[Task]:
+    def _get_tasks(self, num_tasks: int, num_objs_lst: List[int],
+                   rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
@@ -503,7 +485,7 @@ class PaintingEnv(BaseEnv):
                 ],
                                      dtype=np.float32)
                 # Last object should go in box
-                if use_box and j == num_objs - 1:
+                if j == num_objs - 1:
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
                 else:

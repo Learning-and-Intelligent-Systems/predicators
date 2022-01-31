@@ -5,22 +5,19 @@ playroom environment.
 
 import pytest
 import numpy as np
-from predicators.src.envs import PlayroomEnv, EnvironmentFailure
+from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
 from predicators.src.structs import Action, State
 
 
 def test_playroom():
     """Tests for PlayroomEnv class properties."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -42,7 +39,7 @@ def test_playroom():
 
 def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     On = [o for o in env.predicates if o.name == "On"][0]
@@ -52,7 +49,7 @@ def test_playroom_failure_cases():
     block0 = block_type("block0")
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     robot = None
@@ -142,14 +139,14 @@ def test_playroom_failure_cases():
 def test_playroom_simulate_blocks():
     """Tests for the cases where simulate() allows the robot to interact with
     blocks."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     block_type = [t for t in env.types if t.name == "block"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block1 = block_type("block1")
     block2 = block_type("block2")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     robot = None
     for item in state:
@@ -195,7 +192,7 @@ def test_playroom_simulate_blocks():
 def test_playroom_simulate_doors_and_dial():
     """Tests for the cases where simulate() allows the robot to interact with
     doors and the dial."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     door_type = [t for t in env.types if t.name == "door"][0]
@@ -203,7 +200,7 @@ def test_playroom_simulate_doors_and_dial():
     dial_type = [t for t in env.types if t.name == "dial"][0]
     door1 = door_type("door1")
     door6 = door_type("door6")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     robot = None
     dial = None
@@ -274,7 +271,7 @@ def test_playroom_simulate_doors_and_dial():
     state = next_state
     # Cannot advance through closed door
     act = Action(np.array([109.6, 15, 3, 1, 1]).astype(np.float32))
-    with pytest.raises(EnvironmentFailure):
+    with pytest.raises(utils.EnvironmentFailure):
         next_state = env.simulate(state, act)
     # Move to dial but do not toggle it
     act = Action(np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32))
@@ -309,7 +306,7 @@ def test_playroom_simulate_doors_and_dial():
 
 def test_playroom_options():
     """Tests for predicate option policies."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     robot_type = [t for t in env.types if t.name == "robot"][0]
@@ -339,7 +336,7 @@ def test_playroom_options():
     region5 = region_type("region5")
     region6 = region_type("region6")
     region7 = region_type("region7")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     # Run through a specific plan of options.
     Pick = [o for o in env.options if o.name == "Pick"][0]
@@ -397,11 +394,11 @@ def test_playroom_options():
 
 def test_playroom_action_sequence_video():
     """Test to sanity check rendering."""
-    utils.update_config({"env": "playroom"})
+    utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
     env.seed(123)
     # Run through a specific plan of low-level actions.
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     action_arrs = [
         # Pick up a block
         np.array([11.8, 18, 0.45, -0.15, 0]).astype(np.float32),

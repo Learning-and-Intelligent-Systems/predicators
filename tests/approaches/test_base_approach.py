@@ -28,9 +28,7 @@ class _DummyApproach(BaseApproach):
 
 def test_base_approach():
     """Tests for BaseApproach class."""
-    utils.update_config({
-        "seed": 123,
-    })
+    utils.reset_config()
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     pred1 = Predicate("On", [cup_type, plate_type], _classifier=None)
@@ -62,12 +60,13 @@ def test_base_approach():
                             _initiable=None,
                             _terminal=None)
     }
-    approach = _DummyApproach(_simulator, predicates, options, types,
-                              action_space)
-    assert not approach.is_learning_based
-    assert approach.learn_from_offline_dataset([]) is None
     goal = {pred1([cup, plate1])}
     task = Task(state, goal)
+    train_tasks = [task]
+    approach = _DummyApproach(predicates, options, types, action_space,
+                              train_tasks)
+    assert not approach.is_learning_based
+    assert approach.learn_from_offline_dataset([]) is None
     # Try solving with dummy approach.
     policy = approach.solve(task, 500)
     for _ in range(10):
@@ -79,19 +78,18 @@ def test_base_approach():
 def test_create_approach():
     """Tests for create_approach."""
     env = CoverEnv()
+    train_tasks = env.get_train_tasks()
     for name in [
             "random_actions", "random_options", "oracle", "nsrt_learning",
             "interactive_learning", "iterative_invention"
     ]:
-        utils.update_config({
+        utils.reset_config({
             "env": "cover",
             "approach": name,
-            "seed": 123,
-            "excluded_predicates": ""
         })
-        approach = create_approach(name, env.simulate, env.predicates,
-                                   env.options, env.types, env.action_space)
+        approach = create_approach(name, env.predicates, env.options,
+                                   env.types, env.action_space, train_tasks)
         assert isinstance(approach, BaseApproach)
     with pytest.raises(NotImplementedError):
-        create_approach("Not a real approach", env.simulate, env.predicates,
-                        env.options, env.types, env.action_space)
+        create_approach("Not a real approach", env.predicates, env.options,
+                        env.types, env.action_space, train_tasks)

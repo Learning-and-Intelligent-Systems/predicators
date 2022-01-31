@@ -9,7 +9,7 @@ from predicators.src import utils
 
 def test_random_options_approach():
     """Tests for RandomOptionsApproach class."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     cup_type = Type("cup_type", ["feat1"])
     cup = cup_type("cup")
     state = State({cup: [0.5]})
@@ -38,11 +38,10 @@ def test_random_options_approach():
         return s[o[0]][0] > 7.5
 
     Solved = Predicate("Solved", [cup_type], _solved_classifier)
-    approach = RandomOptionsApproach(_simulator, {Solved},
-                                     {parameterized_option}, {cup_type},
-                                     params_space)
-    assert not approach.is_learning_based
     task = Task(state, {Solved([cup])})
+    approach = RandomOptionsApproach({Solved}, {parameterized_option},
+                                     {cup_type}, params_space, [task])
+    assert not approach.is_learning_based
     approach.seed(123)
     policy = approach.solve(task, 500)
     solved = False
@@ -67,10 +66,9 @@ def test_random_options_approach():
                                                 _policy,
                                                 lambda _1, _2, _3, _4: False,
                                                 _terminal)
-    approach = RandomOptionsApproach(_simulator, {Solved},
-                                     {parameterized_option2}, {cup_type},
-                                     params_space)
     task = Task(state, {Solved([cup])})
+    approach = RandomOptionsApproach({Solved}, {parameterized_option2},
+                                     {cup_type}, params_space, task)
     approach.seed(123)
     policy = approach.solve(task, 500)
     act = policy(state)
@@ -79,10 +77,9 @@ def test_random_options_approach():
     parameterized_option3 = ParameterizedOption("Move", [], params_space,
                                                 _policy, _initiable,
                                                 lambda _1, _2, _3, _4: True)
-    approach = RandomOptionsApproach(_simulator, {Solved},
-                                     {parameterized_option3}, {cup_type},
-                                     params_space)
     task = Task(state, {Solved([cup])})
+    approach = RandomOptionsApproach({Solved}, {parameterized_option3},
+                                     {cup_type}, params_space, [task])
     approach.seed(123)
     policy = approach.solve(task, 500)
     act_var = None

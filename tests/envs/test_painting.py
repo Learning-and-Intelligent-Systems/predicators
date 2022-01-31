@@ -2,50 +2,20 @@
 
 import pytest
 import numpy as np
-from predicators.src.envs import PaintingEnv, EnvironmentFailure
+from predicators.src.envs import PaintingEnv
 from predicators.src import utils
 
 
 def test_painting():
     """Tests for PaintingEnv class."""
-    utils.update_config({
+    utils.reset_config({
         "env": "painting",
-        "painting_train_families": ["not_a_real_family"]
     })
     env = PaintingEnv()
     env.seed(123)
-    train_tasks_gen = env.train_tasks_generator()
-    with pytest.raises(ValueError):  # unrecognized task family
-        next(train_tasks_gen)
-    utils.update_config({
-        "env": "painting",
-        "painting_train_families": ["box_and_shelf"]
-    })
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
+    for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
-    utils.update_config({
-        "env": "painting",
-        "painting_train_families": ["box_only", "shelf_only"]
-    })
-    train_tasks_gen = env.train_tasks_generator()
-    for task in next(train_tasks_gen):
-        # box only
-        for obj in task.init:
-            assert len(obj.type.feature_names) == len(task.init[obj])
-        for atom in task.goal:
-            assert atom.predicate.name != "InShelf"
-    for task in next(train_tasks_gen):
-        # shelf only
-        for obj in task.init:
-            assert len(obj.type.feature_names) == len(task.init[obj])
-        for atom in task.goal:
-            assert atom.predicate.name != "InBox"
-    with pytest.raises(StopIteration):
-        next(train_tasks_gen)
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -92,13 +62,11 @@ def test_painting():
 def test_painting_failure_cases():
     """Tests for the cases where simulate() is a no-op or
     EnvironmentFailure."""
-    utils.update_config({
+    utils.reset_config({
         "env": "painting",
         "approach": "nsrt_learning",
-        "seed": 123,
         "painting_initial_holding_prob": 1.0,
         "painting_lid_open_prob": 0.0,
-        "painting_train_families": ["box_and_shelf"],
     })
     env = PaintingEnv()
     env.seed(123)
@@ -117,7 +85,7 @@ def test_painting_failure_cases():
     obj1 = obj_type("obj1")
     robot = robot_type("robot")
     lid = lid_type("box_lid")
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
     assert OnTable([obj0]) in atoms
@@ -126,7 +94,7 @@ def test_painting_failure_cases():
     # painting_initial_holding_prob = 1.0
     assert Holding([obj0]) in atoms
     # Placing it on another object causes a collision
-    with pytest.raises(EnvironmentFailure):
+    with pytest.raises(utils.EnvironmentFailure):
         x = state.get(obj1, "pose_x")
         y = state.get(obj1, "pose_y")
         z = state.get(obj1, "pose_z")
@@ -216,7 +184,7 @@ def test_painting_failure_cases():
         np.array(
             [PaintingEnv.obj_x, PaintingEnv.box_lb + 1e-3, PaintingEnv.obj_z],
             dtype=np.float32)).policy(state)
-    with pytest.raises(EnvironmentFailure):
+    with pytest.raises(utils.EnvironmentFailure):
         env.simulate(state, act)
     # Open the box lid
     act = OpenLid.ground([robot, lid],
@@ -277,13 +245,13 @@ def test_painting_failure_cases():
     utils.update_config({"painting_initial_holding_prob": 0.0})
     env = PaintingEnv()
     env.seed(123)
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     assert not utils.abstract(state, {Holding})
     # Make sure painting_lid_open_prob = 1.0 works too.
     utils.update_config({"painting_lid_open_prob": 1.0})
     env = PaintingEnv()
     env.seed(123)
-    task = next(env.train_tasks_generator())[0]
+    task = env.get_train_tasks()[0]
     state = task.init
     assert state[lid].item() == 1.0

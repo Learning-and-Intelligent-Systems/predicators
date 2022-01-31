@@ -9,8 +9,7 @@ from predicators.src import utils
 
 def test_basic_mlp_regressor():
     """Tests for MLPRegressor."""
-    utils.update_config({
-        "seed": 123,
+    utils.reset_config({
         "mlp_regressor_max_itr": 100,
         "mlp_regressor_clip_gradients": True
     })
@@ -38,7 +37,7 @@ def test_basic_mlp_regressor():
 
 def test_neural_gaussian_regressor():
     """Tests for NeuralGaussianRegressor."""
-    utils.update_config({"seed": 123, "neural_gaus_regressor_max_itr": 100})
+    utils.reset_config({"neural_gaus_regressor_max_itr": 100})
     input_size = 3
     output_size = 2
     num_samples = 5
@@ -58,7 +57,7 @@ def test_neural_gaussian_regressor():
 
 def test_mlp_classifier():
     """Tests for MLPClassifier."""
-    utils.update_config({"seed": 123})
+    utils.reset_config()
     input_size = 3
     num_class_samples = 5
     X = np.concatenate([
@@ -71,15 +70,40 @@ def test_mlp_classifier():
     model = MLPClassifier(input_size, 100)
     model.fit(X, y)
     prediction = model.classify(np.zeros(input_size))
-    assert prediction == 0
+    assert not prediction
     prediction = model.classify(np.ones(input_size))
-    assert prediction == 1
+    assert prediction
     # Test for early stopping
     start_time = time.time()
-    utils.update_config({
+    utils.reset_config({
         "mlp_classifier_n_iter_no_change": 1,
         "learning_rate": 1e-2
     })
     model = MLPClassifier(input_size, 10000)
     model.fit(X, y)
     assert time.time() - start_time < 3, "Didn't early stop"
+    # Test with no positive examples.
+    num_class_samples = 1000
+    X = np.concatenate([
+        np.zeros((num_class_samples, input_size)),
+        np.ones((num_class_samples, input_size))
+    ])
+    y = np.zeros(len(X))
+    model = MLPClassifier(input_size, 10000)
+    start_time = time.time()
+    model.fit(X, y)
+    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    prediction = model.classify(np.zeros(input_size))
+    assert not prediction
+    prediction = model.classify(np.ones(input_size))
+    assert not prediction
+    # Test with no negative examples.
+    y = np.ones(len(X))
+    model = MLPClassifier(input_size, 10000)
+    start_time = time.time()
+    model.fit(X, y)
+    assert time.time() - start_time < 1, "Fitting was not instantaneous"
+    prediction = model.classify(np.zeros(input_size))
+    assert prediction
+    prediction = model.classify(np.ones(input_size))
+    assert prediction
