@@ -40,10 +40,14 @@ def test_interactive_learning_approach():
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     approach.learn_from_offline_dataset(dataset)
+    approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     interaction_results = _generate_interaction_results(
         env.simulate, teacher, train_tasks, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
+    approach.load(online_learning_cycle=0)
+    with pytest.raises(FileNotFoundError):
+        approach.load(online_learning_cycle=1)
     for task in env.get_test_tasks():
         try:
             approach.solve(task, timeout=CFG.timeout)
