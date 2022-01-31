@@ -129,7 +129,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         act_policy, termination_function = \
             self._create_interaction_action_strategy(train_task_idx)
         # Determine the query policy.
-        query_policy = self._create_query_policy(train_task_idx)
+        query_policy = self._create_interaction_query_policy(train_task_idx)
         return [
             InteractionRequest(train_task_idx, act_policy, query_policy,
                                termination_function)
@@ -165,7 +165,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         raise NotImplementedError("Unrecognized interactive_action_strategy:"
                                   f" {CFG.interactive_action_strategy}")
 
-    def _create_query_policy(
+    def _create_interaction_query_policy(
             self, train_task_idx: int) -> Callable[[State], Optional[Query]]:
         """Returns a query policy."""
         del train_task_idx  # unused right now, but future policies may use

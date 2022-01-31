@@ -849,18 +849,18 @@ _T = TypeVar("_T")  # element of a set
 
 def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
                    max_set_size: int,
-                   rng: np.random.Generator) -> List[Set[_T]]:
+                   rng: np.random.Generator) -> Iteratore[Set[_T]]:
     """Sample multiple subsets from a universe."""
     samples = []
-    assert min_set_size <= len(universe), "Not enough elements in universe"
+    assert min_set_size <= max_set_size
+    assert max_set_size <= len(universe), "Not enough elements in universe"
     for _ in range(num_samples):
         set_size = rng.integers(min_set_size, max_set_size + 1)
         idxs = rng.choice(np.arange(len(universe)),
                           size=set_size,
                           replace=False)
         sample = {universe[i] for i in idxs}
-        samples.append(sample)
-    return samples
+        yield sample
 
 
 def create_ground_atom_dataset(
