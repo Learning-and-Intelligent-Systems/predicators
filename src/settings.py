@@ -117,10 +117,11 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_num_babbles = 10
-    interactive_max_num_atoms_babbled = 1
-    interactive_num_tasks_babbled = 5
-    interactive_atom_type_babbled = "ground"
+    interactive_action_strategy = "glib"
+    interactive_query_policy = "strict_best_seen"
+    interactive_score_function = "frequency"
+    interactive_num_babbles = 10  # for action strategy glib
+    interactive_max_num_atoms_babbled = 1  # for action strategy glib
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
