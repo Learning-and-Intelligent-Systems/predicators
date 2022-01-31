@@ -359,6 +359,31 @@ def test_strip_task():
     assert not new_goal_atom2.holds(state)
 
 
+def test_sample_subsets():
+    """Tests for sample_subsets()."""
+    universe = list(range(10))
+    num_samples = 5
+    min_set_size = 1
+    max_set_size = 2
+    rng = np.random.default_rng(0)
+    samples = list(
+        utils.sample_subsets(universe, num_samples, min_set_size, max_set_size,
+                             rng))
+    assert len(samples) == 5
+    assert {len(s) for s in samples} == {1, 2}
+    assert all(s.issubset(set(universe)) for s in samples)
+    assert not list(
+        utils.sample_subsets(universe, 0, min_set_size, max_set_size, rng))
+    assert list(utils.sample_subsets(
+        [], num_samples, 0, 0, rng)) == [set() for _ in range(num_samples)]
+    with pytest.raises(AssertionError):
+        next(utils.sample_subsets(universe, num_samples, min_set_size, 0, rng))
+    with pytest.raises(AssertionError):
+        next(
+            utils.sample_subsets([], num_samples, min_set_size, max_set_size,
+                                 rng))
+
+
 def test_abstract():
     """Tests for abstract() and wrap_atom_predicates()."""
     cup_type = Type("cup_type", ["feat1"])
