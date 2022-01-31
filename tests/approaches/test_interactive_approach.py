@@ -1,5 +1,6 @@
 """Test cases for the interactive learning approach."""
 
+import pytest
 from predicators.src.approaches import InteractiveLearningApproach, \
     ApproachTimeout, ApproachFailure
 from predicators.src.datasets import create_dataset
@@ -50,3 +51,33 @@ def test_interactive_learning_approach():
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
+    # Cover unrecognized interactive_action_strategy.
+    utils.update_config({
+        "interactive_action_strategy": "not a real action strategy",
+        "interactive_query_policy": "strict_best_seen",
+        "interactive_score_function": "frequency",
+    })
+    with pytest.raises(NotImplementedError) as e:
+        approach.get_interaction_requests()
+    assert "Unrecognized interactive_action_strategy" in str(e)
+    # Cover unrecognized interactive_query_policy.
+    utils.update_config({
+        "interactive_action_strategy": "glib",
+        "interactive_query_policy": "not a real query policy",
+        "interactive_score_function": "frequency",
+    })
+    with pytest.raises(NotImplementedError) as e:
+        approach.get_interaction_requests()
+    assert "Unrecognized interactive_query_policy" in str(e)
+    # Cover unrecognized interactive_score_function.
+    utils.update_config({
+        "interactive_action_strategy":
+        "glib",
+        "interactive_query_policy":
+        "strict_best_seen",
+        "interactive_score_function":
+        "not a real score function",
+    })
+    with pytest.raises(NotImplementedError) as e:
+        approach._score_atom_set(set(), train_tasks[0].init)  # pylint:disable=protected-access
+    assert "Unrecognized interactive_score_function" in str(e)
