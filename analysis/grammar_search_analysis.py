@@ -242,7 +242,8 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 
 def _main() -> None:
-    args = utils.parse_args(env_required=False, approach_required=False,
+    args = utils.parse_args(env_required=False,
+                            approach_required=False,
                             seed_required=False)
     assert args["excluded_predicates"] == ""  # gets ignored
     if args["env"] is not None:
