@@ -5,7 +5,7 @@ from collections import defaultdict
 from operator import le
 import glob
 import os
-from typing import Dict, DefaultDict, Set, List, Tuple, Sequence
+from typing import Dict, DefaultDict, Set, List, Tuple, Sequence, Any
 import pandas as pd
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv, CoverEnv
@@ -19,9 +19,11 @@ from predicators.src.structs import Predicate, Dataset, State, Object, Task
 from predicators.src.settings import CFG
 
 
-def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
-                        run_planning: bool, outdir: str) -> None:
-    utils.update_config({"seed": 0})
+def _run_proxy_analysis(args: Dict[str, Any], env_names: List[str],
+                        score_function_names: List[str], run_planning: bool,
+                        outdir: str) -> None:
+    # Seed needs to be set to instantiate environments.
+    utils.reset_config({"seed": args["seed"]})
     if "cover" in env_names:
         env_name = "cover"
         HandEmpty, Holding, Covers = _get_predicates_by_names(
@@ -48,7 +50,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             {NotHandEmpty},
             {NotHandEmpty, HandEmpty},
         ]
-        _run_proxy_analysis_for_env(env_name, covers_pred_sets,
+        _run_proxy_analysis_for_env(args, env_name, covers_pred_sets,
                                     score_function_names, run_planning, outdir)
 
     if "blocks" in env_names:
@@ -89,7 +91,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             {Clear, GripperOpen, Holding, not_forall_pose_x_pred},
             {Clear, GripperOpen, Holding, not_pose_x35_pred},
         ]
-        _run_proxy_analysis_for_env(env_name, blocks_pred_sets,
+        _run_proxy_analysis_for_env(args, env_name, blocks_pred_sets,
                                     score_function_names, run_planning, outdir)
 
     if "painting" in env_names:
@@ -99,9 +101,18 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
              "GripperOpen", "OnTable", "HoldingTop", "HoldingSide", "Holding",
              "IsWet", "IsDry", "IsDirty", "IsClean"
          ])
+
+        def all_lids_open_classifier(state, objects):
+            for o in state:
+                if o.type.name == "lid" and state.get(o, "is_open") < 0.5:
+                    return False
+            return True
+
+        AllLidsOpen = Predicate("AllLidsOpen", [], all_lids_open_classifier)
+
         all_predicates = {
             GripperOpen, OnTable, HoldingTop, HoldingSide, Holding, IsWet,
-            IsDry, IsDirty, IsClean
+            IsDry, IsDirty, IsClean, AllLidsOpen
         }
 
         # ((0:obj).color<=0.125)
@@ -123,6 +134,7 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
             all_predicates - {HoldingSide},
             all_predicates - {HoldingTop, HoldingSide},
             all_predicates - {HoldingTop, HoldingSide, Holding},
+            all_predicates - {AllLidsOpen},
             all_predicates,
             {IsClean, GripperOpen, Holding, OnTable},
             {IsClean, GripperOpen, Holding, OnTable, NotGripperOpen},
@@ -131,29 +143,17 @@ def _run_proxy_analysis(env_names: List[str], score_function_names: List[str],
                 color_pred
             },
         ]
-        _run_proxy_analysis_for_env(env_name, painting_pred_sets,
+        _run_proxy_analysis_for_env(args, env_name, painting_pred_sets,
                                     score_function_names, run_planning, outdir)
 
 
-def _run_proxy_analysis_for_env(env_name: str,
+def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
                                 non_goal_predicate_sets: List[Set[Predicate]],
                                 score_function_names: List[str],
                                 run_planning: bool, outdir: str) -> None:
-    utils.update_config({
+    utils.reset_config({
         "env": env_name,
-        "seed": 0,
-        "experiment_id": "proxy_analysis",
-    })
-    utils.update_config({
-        "env": env_name,
-        "offline_data_method": "demo+replay",
-        "seed": 0,
-        "timeout": 1,
-        "make_videos": False,
-        "grammar_search_max_predicates": 50,
-        "grammar_search_operator_size_weight": 0.,
-        "grammar_search_pred_complexity_weight": 0.,
-        "excluded_predicates": "",
+        **args,
     })
     env = create_env(env_name)
     train_tasks = env.get_train_tasks()
@@ -242,29 +242,32 @@ def _make_proxy_analysis_results(outdir: str) -> None:
 
 
 def _main() -> None:
-    env_names = [
-        "cover",
-        "blocks",
-        "painting",
-    ]
-    score_function_names = [
-        # "prediction_error",
-        # "hadd_energy_lookaheaddepth0",
-        # "hadd_energy_lookaheaddepth1",
-        # "hadd_energy_lookaheaddepth2",
-        # "exact_energy",
-        # "lmcut_count_lookaheaddepth0",
-        # "hadd_count_lookaheaddepth0",
-        # "exact_count",
-        "expected_nodes",
-    ]
-    run_planning = False
+    args = utils.parse_args(env_required=False, approach_required=False,
+                            seed_required=False)
+    assert args["excluded_predicates"] == ""  # gets ignored
+    if args["env"] is not None:
+        env_names = [args["env"]]
+    else:
+        del args["env"]
+        env_names = [
+            "cover",
+            "blocks",
+            "painting",
+        ]
+    if args["seed"] is None:
+        args["seed"] = 0
+    if "grammar_search_score_function" in args:
+        score_function_names = [args["grammar_search_score_function"]]
+    else:
+        score_function_names = ["expected_nodes"]
+    run_planning = True
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     os.makedirs(outdir, exist_ok=True)
 
-    _run_proxy_analysis(env_names, score_function_names, run_planning, outdir)
+    _run_proxy_analysis(args, env_names, score_function_names, run_planning,
+                        outdir)
     _make_proxy_analysis_results(outdir)
 
 
