@@ -244,7 +244,8 @@ def test_oracle_approach_cover_multistep_options():
         assert utils.policy_solves_task(policy, task, env.simulate)
     # Test cover_multistep_degenerate_oracle_samplers.
     utils.update_config({
-        "cover_multistep_use_learned_equivalents": False,
+        "env": "cover_multistep_options",
+        "cover_multistep_use_learned_equivalents": True,
         "cover_multistep_degenerate_oracle_samplers": True,
         "num_train_tasks": 5,
         "num_test_tasks": 5,
