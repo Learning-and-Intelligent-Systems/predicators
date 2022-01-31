@@ -1252,7 +1252,10 @@ def save_video(outfile: str, video: Video) -> None:
 
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
-    arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
+    arg_specific_settings = GlobalSettings.get_arg_specific_settings({
+        **args,
+        **CFG.__dict__
+    })
     # Only override attributes, don't create new ones.
     allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
     parser = create_arg_parser()
@@ -1262,6 +1265,12 @@ def update_config(args: Dict[str, Any]) -> None:
     for k in args:
         if k not in allowed_args:
             raise ValueError(f"Unrecognized arg: {k}")
+    for k in ("env", "approach", "seed", "experiment_id"):
+        if k not in args and hasattr(CFG, k):
+            # For env, approach, seed, and experiment_id, if we don't
+            # pass in a value and this key is already in the
+            # configuration dict, add the current value to args.
+            args[k] = getattr(CFG, k)
     for d in [arg_specific_settings, args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
@@ -1278,7 +1287,11 @@ def reset_config(args: Dict[str, Any], default_seed: int = 123) -> None:
         "--approach",
         "default approach placeholder",
     ])
-    arg_dict = vars(default_args)
+    arg_dict = {
+        k: v
+        for k, v in GlobalSettings.__dict__.items() if not k.startswith("_")
+    }
+    arg_dict.update(vars(default_args))
     arg_dict.update(args)
     update_config(arg_dict)
 
