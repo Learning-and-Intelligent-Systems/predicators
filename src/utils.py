@@ -1328,9 +1328,13 @@ def get_approach_save_path_str() -> str:
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
-def parse_args() -> Dict[str, Any]:
+def parse_args(env_required: bool = True,
+               approach_required: bool = True,
+               seed_required: bool = True) -> Dict[str, Any]:
     """Parses command line arguments."""
-    parser = create_arg_parser()
+    parser = create_arg_parser(env_required=env_required,
+                               approach_required=approach_required,
+                               seed_required=seed_required)
     args, overrides = parser.parse_known_args()
     print_args(args)
     arg_dict = vars(args)
