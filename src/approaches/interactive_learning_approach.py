@@ -72,7 +72,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         super().load(online_learning_cycle)
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
-            self._dataset, self._predicates_to_learn = pkl.load(f)
+            save_dict = pkl.load(f)
+        self._dataset = save_dict["dataset"]
+        self._predicates_to_learn = save_dict["predicates_to_learn"]
+        self._best_score = save_dict["best_score"]
 
     def _relearn_predicates_and_nsrts(
             self, online_learning_cycle: Optional[int]) -> None:
@@ -127,7 +130,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # saved in the above call to self._learn_nsrts()
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.DATA", "wb") as f:
-            pkl.dump((self._dataset, self._predicates_to_learn), f)
+            pkl.dump(
+                {
+                    "dataset": self._dataset,
+                    "predicates_to_learn": self._predicates_to_learn,
+                    "best_score": self._best_score,
+                }, f)
 
     ########################### Active learning ###############################
 
