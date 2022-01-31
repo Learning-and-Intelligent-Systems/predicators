@@ -126,7 +126,7 @@ def test_overlap():
 
 def test_get_static_preds():
     """Tests for get_static_preds()."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     static_preds = utils.get_static_preds(nsrts, env.predicates)
@@ -135,7 +135,7 @@ def test_get_static_preds():
 
 def test_get_static_atoms():
     """Tests for get_static_atoms()."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_train_tasks()[0]
@@ -1340,7 +1340,7 @@ def test_create_task_planning_heuristic():
 
 def test_create_pddl():
     """Tests for create_pddl_domain() and create_pddl_problem()."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     # All predicates and options
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -1409,7 +1409,7 @@ def test_save_video():
     """Tests for save_video()."""
     dirname = "_fake_tmp_video_dir"
     filename = "video.mp4"
-    utils.update_config({"video_dir": dirname})
+    utils.reset_config({"video_dir": dirname})
     rng = np.random.default_rng(123)
     video = [rng.integers(255, size=(3, 3), dtype=np.uint8) for _ in range(3)]
     utils.save_video(filename, video)
@@ -1419,7 +1419,7 @@ def test_save_video():
 
 def test_get_config_path_str():
     """Tests for get_config_path_str()."""
-    utils.update_config({
+    utils.reset_config({
         "env": "dummyenv",
         "approach": "dummyapproach",
         "seed": 321,
@@ -1434,7 +1434,7 @@ def test_get_approach_save_path_str():
     """Tests for get_approach_save_path_str()."""
     dirname = "_fake_tmp_approach_dir"
     old_approach_dir = CFG.approach_dir
-    utils.update_config({
+    utils.reset_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
@@ -1445,7 +1445,7 @@ def test_get_approach_save_path_str():
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + ("/test_env__test_approach__123__"
                                    "test_pred1,test_pred2__baz.saved")
-    utils.update_config({
+    utils.reset_config({
         "env": "test_env",
         "approach": "test_approach",
         "seed": 123,
@@ -1456,7 +1456,7 @@ def test_get_approach_save_path_str():
     save_path = utils.get_approach_save_path_str()
     assert save_path == dirname + "/test_env__test_approach__123____.saved"
     os.rmdir(dirname)
-    utils.update_config({"approach_dir": old_approach_dir})
+    utils.reset_config({"approach_dir": old_approach_dir})
 
 
 def test_update_config():
@@ -1479,12 +1479,34 @@ def test_update_config():
     assert CFG.seed == 321
     with pytest.raises(ValueError):
         utils.update_config({"not a real setting name": 0})
+
+
+def test_reset_config():
+    """Tests for reset_config()."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "seed": 123,
+    })
+    assert CFG.env == "cover"
+    assert CFG.approach == "random_actions"
+    assert CFG.seed == 123
+    utils.reset_config({
+        "env": "dummyenv",
+        "approach": "dummyapproach",
+        "seed": 321,
+    })
+    assert CFG.env == "dummyenv"
+    assert CFG.approach == "dummyapproach"
+    assert CFG.seed == 321
+    with pytest.raises(ValueError):
+        utils.reset_config({"not a real setting name": 0})
     # Test that default seed gets set automatically.
     del CFG.seed
     assert "seed" not in CFG.__dict__
     with pytest.raises(AttributeError):
         _ = CFG.seed
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     assert CFG.seed == 123
 
 
@@ -1742,12 +1764,12 @@ def test_create_video_from_partial_refinements():
                               np.zeros(PickPlace.params_space.shape,
                                        dtype=np.float32))
     partial_refinements = [([], [option])]
-    utils.update_config({"failure_video_mode": "not a real video mode"})
+    utils.reset_config({"failure_video_mode": "not a real video mode"})
     with pytest.raises(NotImplementedError):
         utils.create_video_from_partial_refinements(task, env.simulate,
                                                     env.render,
                                                     partial_refinements)
-    utils.update_config({"env": "cover", "failure_video_mode": "longest_only"})
+    utils.reset_config({"env": "cover", "failure_video_mode": "longest_only"})
     video = utils.create_video_from_partial_refinements(
         task, env.simulate, env.render, partial_refinements)
     assert len(video) == 2
@@ -1769,7 +1791,7 @@ def test_env_failure():
 def test_parse_config_excluded_predicates():
     """Tests for parse_config_excluded_predicates()."""
     # Test excluding nothing.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "excluded_predicates": "",
     })
@@ -1780,7 +1802,7 @@ def test_parse_config_excluded_predicates():
     ]
     assert not excluded
     # Test excluding specific predicates.
-    utils.update_config({
+    utils.reset_config({
         "excluded_predicates": "IsBlock,HandEmpty",
     })
     included, excluded = utils.parse_config_excluded_predicates(env)
@@ -1788,7 +1810,7 @@ def test_parse_config_excluded_predicates():
                   for p in included) == ["Covers", "Holding", "IsTarget"]
     assert sorted(p.name for p in excluded) == ["HandEmpty", "IsBlock"]
     # Test excluding all (non-goal) predicates.
-    utils.update_config({
+    utils.reset_config({
         "excluded_predicates": "all",
     })
     included, excluded = utils.parse_config_excluded_predicates(env)
@@ -1797,7 +1819,7 @@ def test_parse_config_excluded_predicates():
         "HandEmpty", "Holding", "IsBlock", "IsTarget"
     ]
     # Can exclude goal predicates when offline_data_method is demo+ground_atoms.
-    utils.update_config({
+    utils.reset_config({
         "offline_data_method": "demo+ground_atoms",
         "excluded_predicates": "Covers",
     })
@@ -1807,7 +1829,7 @@ def test_parse_config_excluded_predicates():
     ]
     assert sorted(p.name for p in excluded) == ["Covers"]
     # Cannot exclude goal predicates otherwise..
-    utils.update_config({
+    utils.reset_config({
         "offline_data_method": "demo",
         "excluded_predicates": "Covers",
     })

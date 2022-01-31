@@ -120,7 +120,7 @@ def _run_pipeline(env: BaseEnv,
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
         results["learning_time"] = time.time() - learning_start
-        _save_test_results(results)
+        _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher()
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
@@ -140,12 +140,12 @@ def _run_pipeline(env: BaseEnv,
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
             results["learning_time"] = time.time() - learning_start
-            _save_test_results(results)
+            _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
         results["learning_time"] = 0.0
-        _save_test_results(results)
+        _save_test_results(results, online_learning_cycle=None)
 
 
 def _generate_or_load_offline_dataset(env: BaseEnv,
@@ -275,15 +275,15 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     return metrics
 
 
-def _save_test_results(results: Metrics) -> None:
+def _save_test_results(results: Metrics,
+                       online_learning_cycle: Optional[int]) -> None:
     num_solved = results["num_solved"]
     num_total = results["num_total"]
     avg_suc_time = results["avg_suc_time"]
-    num_transitions = results["num_transitions"]
     print(f"Tasks solved: {num_solved} / {num_total}")
     print(f"Average time for successes: {avg_suc_time:.5f} seconds")
     outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
-               f"{num_transitions}.pkl")
+               f"{online_learning_cycle}.pkl")
     outdata = results.copy()
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)

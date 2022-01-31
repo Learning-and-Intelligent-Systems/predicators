@@ -8,10 +8,9 @@ from predicators.src import utils
 
 def test_repeated_nextto():
     """Tests for RepeatedNextTo class."""
-    utils.update_config({"env": "repeated_nextto", "seed": 123})
+    utils.reset_config({"env": "repeated_nextto"})
     env = RepeatedNextToEnv()
     env.seed(123)
-    utils.update_config({"env": "repeated_nextto"})
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -47,10 +46,9 @@ def test_repeated_nextto():
 
 def test_repeated_nextto_simulate():
     """Tests for the simulate() function."""
-    utils.update_config({
+    utils.reset_config({
         "env": "repeated_nextto",
         "approach": "nsrt_learning",
-        "seed": 123
     })
     env = RepeatedNextToEnv()
     env.seed(123)

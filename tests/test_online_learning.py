@@ -74,16 +74,11 @@ class _MockApproach(BaseApproach):
 def test_interaction():
     """Tests for sending InteractionRequest objects to main.py and receiving
     InteractionResult objects in return."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
-        "excluded_predicates": "",
-        "experiment_id": "",
-        "load_data": False,
-        "load_approach": False,
         "timeout": 1,
-        "make_videos": False,
         "num_train_tasks": 2,
         "num_test_tasks": 1,
         "num_online_learning_cycles": 1
