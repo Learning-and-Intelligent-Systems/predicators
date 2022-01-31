@@ -13,15 +13,15 @@ def _main() -> None:
     all_data = []
     column_names = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
-        "ONLINE_LEARNING_CYCLE", "NUM_TRANSITIONS", "NUM_SOLVED", "NUM_TOTAL",
+        "CYCLE", "NUM_SOLVED", "NUM_TOTAL",
         "AVG_TEST_TIME", "AVG_SKELETONS", "MIN_SKELETONS", "MAX_SKELETONS",
         "AVG_NODES_EXPANDED", "AVG_NODES_CREATED", "AVG_NUM_NSRTS",
         "AVG_NUM_PREDS", "AVG_DISCOVERED_FAILURES", "AVG_PLAN_LEN",
-        "AVG_EXECUTION_FAILURES", "LEARNING_TIME"
+        "AVG_EXECUTION_FAILURES", "LEARNING_TIME", "NUM_TRANSITIONS"
     ]
     groups = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
-        "ONLINE_LEARNING_CYCLE"
+        "CYCLE"
     ]
     some_nonempty_experiment_id = False
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
@@ -37,16 +37,16 @@ def _main() -> None:
             run_data_defaultdict)  # want to crash if key not found!
         data = [
             env, approach, excluded_predicates, experiment_id, seed,
-            online_learning_cycle, run_data["num_transitions"],
-            run_data["num_solved"], run_data["num_total"],
-            run_data["avg_suc_time"], run_data["avg_num_skeletons_optimized"],
+            online_learning_cycle, run_data["num_solved"],
+            run_data["num_total"], run_data["avg_suc_time"],
+            run_data["avg_num_skeletons_optimized"],
             run_data["min_skeletons_optimized"],
             run_data["max_skeletons_optimized"],
             run_data["avg_num_nodes_expanded"],
             run_data["avg_num_nodes_created"], run_data["avg_num_nsrts"],
             run_data["avg_num_preds"], run_data["avg_num_failures_discovered"],
             run_data["avg_plan_length"], run_data["avg_execution_failures"],
-            run_data["learning_time"]
+            run_data["learning_time"], run_data["num_transitions"],
         ]
         assert len(data) == len(column_names)
         all_data.append(data)
