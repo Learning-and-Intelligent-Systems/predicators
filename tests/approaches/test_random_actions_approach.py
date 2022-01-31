@@ -7,10 +7,9 @@ from predicators.src import utils
 
 def test_random_actions_approach():
     """Tests for RandomActionsApproach class."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "approach": "random_actions",
-        "seed": 123
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()

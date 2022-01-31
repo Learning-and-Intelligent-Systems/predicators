@@ -8,7 +8,7 @@ from predicators.src import utils
 
 def test_painting():
     """Tests for PaintingEnv class."""
-    utils.update_config({
+    utils.reset_config({
         "env": "painting",
     })
     env = PaintingEnv()
@@ -62,10 +62,9 @@ def test_painting():
 def test_painting_failure_cases():
     """Tests for the cases where simulate() is a no-op or
     EnvironmentFailure."""
-    utils.update_config({
+    utils.reset_config({
         "env": "painting",
         "approach": "nsrt_learning",
-        "seed": 123,
         "painting_initial_holding_prob": 1.0,
         "painting_lid_open_prob": 0.0,
     })

@@ -12,10 +12,9 @@ from predicators.src import utils
 
 def test_create_sampler_data():
     """Tests for _create_sampler_data()."""
-    utils.update_config({"env": "cover"})
-    utils.update_config({
+    utils.reset_config({
+        "env": "cover",
         "min_data_for_nsrt": 0,
-        "seed": 123,
         "num_train_tasks": 15,
     })
     # Create two datastores
