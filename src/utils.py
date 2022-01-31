@@ -1252,10 +1252,7 @@ def save_video(outfile: str, video: Video) -> None:
 
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
-    arg_specific_settings = GlobalSettings.get_arg_specific_settings({
-        **args,
-        **CFG.__dict__
-    })
+    arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
     # Only override attributes, don't create new ones.
     allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
     parser = create_arg_parser()
