@@ -117,13 +117,6 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_known_predicates = "GripperOpen,Holding,Clear,NextToTable," \
-        "NextToDoor,NextToDial,InRegion,Borders,Connects,IsBoringRoom," \
-        "IsPlayroom,IsBoringRoomDoor,IsPlayroomDoor,DoorOpen,DoorClosed," \
-        "LightOn,LightOff,On,OnTable"
-    interactive_num_episodes = 0
-    interactive_max_num_steps = 21
-    interactive_relearn_every = 1
     interactive_num_babbles = 10
     interactive_max_num_atoms_babbled = 1
     interactive_num_tasks_babbled = 5
@@ -212,7 +205,7 @@ def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
     if CFG.approach in ("interactive_learning", "unittest"):
-        return {"GroundAtomHoldsQuery"}
+        return {"GroundAtomsHoldQuery"}
     return set()
 
 
