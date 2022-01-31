@@ -10,10 +10,10 @@ from predicators.src.structs import Action, GroundAtom
 def test_cluttered_table(place_version=False):
     """Tests for ClutteredTableEnv class."""
     if not place_version:
-        utils.update_config({"env": "cluttered_table"})
+        utils.reset_config({"env": "cluttered_table"})
         env = ClutteredTableEnv()
     else:
-        utils.update_config({"env": "cluttered_table_place"})
+        utils.reset_config({"env": "cluttered_table_place"})
         env = ClutteredTablePlaceEnv()
     env.seed(123)
     for task in env.get_train_tasks():
