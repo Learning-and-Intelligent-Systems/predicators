@@ -9,7 +9,7 @@ from predicators.src import utils
 
 def test_random_options_approach():
     """Tests for RandomOptionsApproach class."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     cup_type = Type("cup_type", ["feat1"])
     cup = cup_type("cup")
     state = State({cup: [0.5]})

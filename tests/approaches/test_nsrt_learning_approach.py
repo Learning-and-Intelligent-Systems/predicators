@@ -15,17 +15,15 @@ def _test_approach(env_name,
                    check_solution=False,
                    sampler_learner="neural",
                    option_learner="no_learning",
-                   learn_side_predicates=False):
+                   learn_side_predicates=False,
+                   additional_settings=None):
     """Integration test for the given approach."""
+    if additional_settings is None:
+        additional_settings = {}
     utils.flush_cache()  # Some extremely nasty bugs arise without this.
-    utils.update_config({
+    utils.reset_config({
         "env": env_name,
         "approach": approach_name,
-        "seed": 123
-    })
-    utils.update_config({
-        "timeout": 10,
-        "max_samples_per_step": 10,
         "neural_gaus_regressor_max_itr": 100,
         "sampler_mlp_classifier_max_itr": 100,
         "predicate_mlp_classifier_max_itr": 100,
@@ -38,6 +36,7 @@ def _test_approach(env_name,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
+        **additional_settings,
     })
     env = create_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
@@ -142,7 +141,7 @@ def test_grammar_search_invention_approach():
     Keeping this here because we can't import test files in github
     checks.
     """
-    utils.update_config({
+    additional_settings = {
         "grammar_search_true_pos_weight": 10,
         "grammar_search_false_pos_weight": 1,
         "grammar_search_operator_size_weight": 1e-2,
@@ -150,31 +149,34 @@ def test_grammar_search_invention_approach():
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
         "grammar_search_search_algorithm": "hill_climbing",
-    })
+    }
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
                    excluded_predicates="Holding",
                    try_solving=False,
-                   sampler_learner="random")
+                   sampler_learner="random",
+                   additional_settings=additional_settings)
     # Test approach with unrecognized search algorithm.
-    utils.update_config({
+    additional_settings = {
         "grammar_search_search_algorithm": "not a real search algorithm",
         "grammar_search_gbfs_num_evals": 10,
-    })
+    }
     with pytest.raises(Exception) as e:
         _test_approach(env_name="cover",
                        approach_name="grammar_search_invention",
                        excluded_predicates="Holding",
                        try_solving=False,
-                       sampler_learner="random")
+                       sampler_learner="random",
+                       additional_settings=additional_settings)
     assert "Unrecognized grammar_search_search_algorithm" in str(e.value)
     # Test approach with gbfs.
-    utils.update_config({
+    additional_settings = {
         "grammar_search_search_algorithm": "gbfs",
         "grammar_search_gbfs_num_evals": 10,
-    })
+    }
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",
                    excluded_predicates="Holding",
                    try_solving=False,
-                   sampler_learner="random")
+                   sampler_learner="random",
+                   additional_settings=additional_settings)
