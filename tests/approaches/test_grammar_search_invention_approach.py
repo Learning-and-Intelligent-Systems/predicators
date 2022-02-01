@@ -789,7 +789,10 @@ def test_expected_nodes_score_function():
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, env.goal_predicates | set(candidates))
         score_function = _ExpectedNodesScoreFunction(
-            env.goal_predicates, atom_dataset, candidates, train_tasks,
+            env.goal_predicates,
+            atom_dataset,
+            candidates,
+            train_tasks,
             metric_name="num_nodes_created")
         all_included_s = score_function.evaluate({Holding, HandEmpty})
         none_included_s = score_function.evaluate(set())
