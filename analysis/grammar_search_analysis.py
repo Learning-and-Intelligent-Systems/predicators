@@ -25,7 +25,7 @@ DEFAULT_ENV_NAMES = [
 ]
 
 DEFAULT_SCORE_FUNCTION_NAMES = [
-    "expected_nodes",
+    "expected_nodes_created",
 ]
 
 DEFAULT_SEED = 0
