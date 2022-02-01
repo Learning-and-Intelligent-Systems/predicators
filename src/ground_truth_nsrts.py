@@ -17,7 +17,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
                  options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
-                   "cover_nonrefinable", "cover_multistep_options",
+                   "cover_regrasp", "cover_multistep_options",
                    "cover_multistep_options_fixed_tasks"):
         nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
@@ -93,7 +93,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                                            "HandEmpty", "Holding"])
 
     # Options
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
                      "cover_multistep_options_fixed_tasks"):
@@ -117,7 +117,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_multistep_options",
@@ -177,7 +177,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
             elif CFG.env in ("cover", "cover_hierarchical_types",
-                             "cover_nonrefinable"):
+                             "cover_regrasp"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -206,7 +206,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
 
-    if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
@@ -284,7 +284,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     nsrts.add(place_nsrt)
 
     # Place (not on any target)
-    if CFG.env == "cover_nonrefinable":
+    if CFG.env == "cover_regrasp":
         parameters = [block]
         preconditions = {
             LiftedAtom(IsBlock, [block]),

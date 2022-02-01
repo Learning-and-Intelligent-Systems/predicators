@@ -3,7 +3,7 @@
 from predicators.src.envs.base_env import BaseEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, CoverEnvNonrefinable
+    CoverMultistepOptionsFixedTasks, CoverEnvRegrasp
 from predicators.src.envs.behavior import BehaviorEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
@@ -17,7 +17,7 @@ __all__ = [
     "CoverEnv",
     "CoverEnvTypedOptions",
     "CoverEnvHierarchicalTypes",
-    "CoverEnvNonrefinable",
+    "CoverEnvRegrasp",
     "CoverMultistepOptions",
     "CoverMultistepOptionsFixedTasks",
     "ClutteredTableEnv",
@@ -42,8 +42,8 @@ def _create_new_env_instance(name: str) -> BaseEnv:
         return CoverEnvTypedOptions()
     if name == "cover_hierarchical_types":
         return CoverEnvHierarchicalTypes()
-    if name == "cover_nonrefinable":
-        return CoverEnvNonrefinable()
+    if name == "cover_regrasp":
+        return CoverEnvRegrasp()
     if name == "cover_multistep_options":
         return CoverMultistepOptions()
     if name == "cover_multistep_options_fixed_tasks":

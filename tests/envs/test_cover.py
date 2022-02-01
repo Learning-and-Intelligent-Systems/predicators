@@ -4,7 +4,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
-    CoverEnvNonrefinable
+    CoverEnvRegrasp
 from predicators.src.structs import State, Action
 from predicators.src import utils
 
@@ -180,10 +180,10 @@ def test_cover_typed_options():
     assert traj.states[0].allclose(traj.states[1])
 
 
-def test_cover_nonrefinable():
-    """Tests for CoverEnvNonrefinable class."""
-    utils.reset_config({"env": "cover_nonrefinable"})
-    env = CoverEnvNonrefinable()
+def test_cover_regrasp():
+    """Tests for CoverEnvRegrasp class."""
+    utils.reset_config({"env": "cover_regrasp"})
+    env = CoverEnvRegrasp()
     env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:

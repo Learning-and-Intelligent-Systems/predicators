@@ -12,7 +12,7 @@ def test_create_env():
             "cover",
             "cover_typed_options",
             "cover_hierarchical_types",
-            "cover_nonrefinable",
+            "cover_regrasp",
             "cluttered_table",
             "blocks",
             "playroom",
