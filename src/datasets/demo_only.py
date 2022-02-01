@@ -1,6 +1,6 @@
 """Create offline datasets by collecting demonstrations."""
 
-import sys
+import os
 from typing import List
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure
@@ -24,7 +24,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # to continue on supercloud, when running batch experiments
             # with analysis/submit.py.
             print(f"WARNING: Approach failed to solve with error: {e}")
-            if not sys.argv[0].endswith("submit.py"):
+            if not os.getcwd().startswith("/home/gridsan"):
                 raise e
             continue
         traj, _, solved = utils.run_policy_on_task(
