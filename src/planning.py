@@ -41,6 +41,7 @@ def sesame_plan(
     timeout: float,
     seed: int,
     check_dr_reachable: bool = True,
+    allow_noops: bool = False,
 ) -> Tuple[List[_Option], Metrics]:
     """Run TAMP.
 
@@ -66,13 +67,13 @@ def sesame_plan(
     # for making videos of failed planning attempts.
     partial_refinements = []
     while True:
-        # There is no point in using NSRTs with empty effects, and they can
+        # Optionally exclude NSRTs with empty effects, because they can
         # slow down search significantly, so we exclude them. Note however
         # that we need to do this inside the while True here, because an NSRT
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
         nonempty_ground_nsrts = [
             nsrt for nsrt in ground_nsrts
-            if nsrt.add_effects | nsrt.delete_effects
+            if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
         ]
         all_reachable_atoms = utils.get_reachable_atoms(
             nonempty_ground_nsrts, init_atoms)
