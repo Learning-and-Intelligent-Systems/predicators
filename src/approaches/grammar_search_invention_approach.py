@@ -572,9 +572,15 @@ def _create_score_function(
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           candidates, train_tasks)
-    if score_function_name == "expected_nodes":
+    match = re.match(r"expected_nodes_(\w+)", score_function_name)
+    if match is not None:
+        # can be either expected_nodes_created or expected_nodes_expanded
+        created_or_expanded = match.groups()[0]
+        assert created_or_expanded in ("created", "expanded")
+        metric_name = f"num_nodes_{created_or_expanded}"
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
-                                           candidates, train_tasks)
+                                           candidates, train_tasks,
+                                           metric_name)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -742,18 +748,20 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     tasks.
 
     The score corresponds to the expected number of nodes that would need to be
-    created before a low-level plan is found. This calculation requires
-    estimating the probability that each goal-reaching skeleton is refinable.
-    To estimate this, we assume a prior on how optimal the demonstrations are,
-    and say that if a skeleton is found by planning that is a different length
-    than the demos, then the likelihood of the predicates/operators goes down
-    as that difference gets larger.
+    created or expanded before a low-level plan is found. This calculation
+    requires estimating the probability that each goal-reaching skeleton is
+    refinable. To estimate this, we assume a prior on how optimal the
+    demonstrations are, and say that if a skeleton is found by planning that
+    is a different length than the demos, then the likelihood of the
+    predicates/operators goes down as that difference gets larger.
 
     We optionally also include into this likelihood the number of
     "suspicious" multistep effects in the atoms sequence induced by the
     skeleton. "Suspicious" means that a particular set of multistep
     effects was never seen in the demonstrations.
     """
+
+    metric_name: str  # num_nodes_created or num_nodes_expanded
 
     def _evaluate_with_operators(self,
                                  candidate_predicates: FrozenSet[Predicate],
@@ -762,6 +770,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
         del segments  # unused
+        assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
         score = 0.0
         demo_multistep_effects = set()
         if CFG.grammar_search_expected_nodes_include_suspicious_score:
@@ -807,8 +816,9 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     refinement_prob = self._get_refinement_prob(
                         atoms_sequence, plan_atoms_sequence,
                         demo_multistep_effects)
-                    # Get the number of nodes that have been created so far.
-                    num_nodes = metrics["num_nodes_created"]
+                    # Get the number of nodes that have been created or
+                    # expanded so far.
+                    num_nodes = metrics[self.metric_name]
                     # This contribution to the expected number of nodes is for
                     # the event that the current skeleton is refinable, but no
                     # previous skeleton has been refinable.
