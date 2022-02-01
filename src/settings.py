@@ -132,7 +132,7 @@ class GlobalSettings:
     grammar_search_bf_weight = 1
     grammar_search_operator_size_weight = 0.0
     grammar_search_pred_complexity_weight = 1e-4
-    grammar_search_max_predicates = 50
+    grammar_search_max_predicates = 200
     grammar_search_predicate_cost_upper_bound = 6
     grammar_search_score_function = "expected_nodes"
     grammar_search_heuristic_based_weight = 10.
@@ -151,7 +151,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_include_suspicious_score = False
-    grammar_search_expected_nodes_allow_noops = False
+    grammar_search_expected_nodes_allow_noops = True
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -173,12 +173,10 @@ class GlobalSettings:
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
-                # Use both demonstrations and random replays by default.
-                # To make sure that all replays are not optimal, use
-                # demo+nonoptimalreplay.
-                lambda: "demo+replay",
+                # Use only demonstrations by default.
+                lambda: "demo",
                 {
-                    # No replays for active learning project.
+                    # Interactive learning project needs ground atom data.
                     "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
 

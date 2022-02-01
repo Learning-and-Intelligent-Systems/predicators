@@ -714,6 +714,5 @@ class PaintingEnv(BaseEnv):
                     state.get(obj, "pose_z")
             ],
                            atol=self.pick_tol):
-                assert target_obj is None
                 target_obj = obj
         return target_obj
