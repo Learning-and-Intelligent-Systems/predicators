@@ -757,8 +757,6 @@ def test_expected_nodes_score_function():
     utils.reset_config({
         "env":
         "cover",
-        "offline_data_method":
-        "demo+replay",
         "grammar_search_max_demos":
         max_num_demos,
         "task_planning_heuristic":
@@ -770,6 +768,7 @@ def test_expected_nodes_score_function():
     })
     for num_train_tasks in [2, 15]:
         utils.update_config({
+            "offline_data_method": "demo+replay",
             "num_train_tasks": num_train_tasks,
             "min_data_for_nsrt": 0,
         })
