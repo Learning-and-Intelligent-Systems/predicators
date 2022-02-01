@@ -1,5 +1,6 @@
 """Create offline datasets by collecting demonstrations."""
 
+import sys
 from typing import List
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure
@@ -18,8 +19,13 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         try:
             policy = oracle_approach.solve(
                 task, timeout=CFG.offline_data_planning_timeout)
-        except (ApproachTimeout, ApproachFailure) as e:
+        except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
+            # This should be extremely rare, so we only allow the script
+            # to continue on supercloud, when running batch experiments
+            # with analysis/submit.py.
             print(f"WARNING: Approach failed to solve with error: {e}")
+            if not sys.argv[0].endswith("submit.py"):
+                raise e
             continue
         traj, _, solved = utils.run_policy_on_task(
             policy, task, env.simulate, CFG.max_num_steps_check_policy)
