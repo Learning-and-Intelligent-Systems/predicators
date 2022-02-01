@@ -19,6 +19,7 @@ try:
     from igibson.objects.articulated_object import (  # pylint: disable=unused-import
         ArticulatedObject, )
     from igibson.objects.articulated_object import URDFObject
+    from igibson.objects.multi_object_wrappers import ObjectMultiplexer 
     from igibson.object_states.on_floor import RoomFloor
     from igibson.robots.behavior_robot import BRBody
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
@@ -185,8 +186,15 @@ class BehaviorEnv(BaseEnv):
         # Currently assumes that the goal is a single AND of
         # ground atoms (this is also assumed by the planner).
         goal = set()
-        assert len(
-            self.igibson_behavior_env.task.ground_goal_state_options) == 1
+        try:
+            assert len(
+                self.igibson_behavior_env.task.ground_goal_state_options) == 1
+        except AssertionError:
+            #import ipdb; ipdb.set_trace()
+            # Quick fix for running experiments, will just take first goal option
+            # TODO (wmcclinton) Fix this
+            self.igibson_behavior_env.task.ground_goal_state_options = [self.igibson_behavior_env.task.ground_goal_state_options[0]]
+            
         for head_expr in self.igibson_behavior_env.task.\
             ground_goal_state_options[0]:
             bddl_name = head_expr.terms[0]  # untyped
@@ -489,7 +497,7 @@ class BehaviorEnv(BaseEnv):
 
     @staticmethod
     def _ig_object_name(ig_obj: "ArticulatedObject") -> str:
-        if isinstance(ig_obj, (URDFObject, RoomFloor)):
+        if isinstance(ig_obj, (URDFObject, ObjectMultiplexer, RoomFloor)):
             return ig_obj.bddl_object_scope
         # Robot does not have a field "bddl_object_scope", so we define
         # its name manually.

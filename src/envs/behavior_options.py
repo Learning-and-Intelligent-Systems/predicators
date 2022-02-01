@@ -315,11 +315,20 @@ def navigate_to_obj_pos(
         return None
 
     obj_pos = obj.get_position()
-    pos = [
-        pos_offset[0] + obj_pos[0],
-        pos_offset[1] + obj_pos[1],
-        env.robots[0].initial_z_offset,
-    ]
+    try:
+        pos = [
+            pos_offset[0] + obj_pos[0],
+            pos_offset[1] + obj_pos[1],
+            env.robots[0].initial_z_offset,
+        ]
+    except AttributeError:
+        env.robots[0].initial_z_offset = 0.7
+        pos = [
+            pos_offset[0] + obj_pos[0],
+            pos_offset[1] + obj_pos[1],
+            env.robots[0].initial_z_offset,
+        ]
+
     yaw_angle = np.arctan2(pos_offset[1], pos_offset[0]) - np.pi
     orn = [0, 0, yaw_angle]
     env.robots[0].set_position_orientation(pos, p.getQuaternionFromEuler(orn))

@@ -1,0 +1,1280 @@
+pybullet build time: Nov  4 2021 18:39:08
+INFO:root:Device 0 is available for rendering
+INFO:root:Command '['/home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/build/test_device', '1']' returned non-zero exit status 1.
+INFO:root:Device 1 is not available for rendering
+INFO:root:Using device 0 for rendering
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/equirect2cube_cs.glsl
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/spmap_cs.glsl
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/irmap_cs.glsl
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/spbrdf_cs.glsl
+Loading image: /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scenes/background/photo_studio_01_2k.hdr
+INFO: compiled pbr shaders
+INFO:root:IndoorScene model: Pomaria_1_int
+INFO:root:StaticIndoorScene scene: Pomaria_1_int
+INFO:root:Category walls
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scenes/Pomaria_1_int/urdf/Pomaria_1_int_walls.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/walls_0.urdf
+INFO:root:Category floors
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scenes/Pomaria_1_int/urdf/Pomaria_1_int_floors.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/floors_0.urdf
+INFO:root:Category ceilings
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scenes/Pomaria_1_int/urdf/Pomaria_1_int_ceilings.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/ceilings_0.urdf
+INFO:root:Category breakfast_table
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/breakfast_table/98bab29db492767bc3bd24f986301745/98bab29db492767bc3bd24f986301745.urdf
+INFO:root:Scale: [1.03580485 0.91723846 1.29531133]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/breakfast_table_0_0.urdf
+INFO:root:Category armchair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/armchair/2f1a67cdabe2a70c492d9da2668ec34c/2f1a67cdabe2a70c492d9da2668ec34c_simplified.urdf
+INFO:root:Scale: [1.64767559 1.27791629 1.10369889]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/armchair_1_0.urdf
+INFO:root:Category armchair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/armchair/2f1a67cdabe2a70c492d9da2668ec34c/2f1a67cdabe2a70c492d9da2668ec34c_simplified.urdf
+INFO:root:Scale: [1.64767559 1.27791629 1.10369889]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/armchair_2_0.urdf
+INFO:root:Category coffee_table
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/coffee_table/21473/21473.urdf
+INFO:root:Scale: [0.38485179 0.49280564 0.44942216]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/coffee_table_3_0.urdf
+INFO:root:Category coffee_table
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/coffee_table/20985/20985.urdf
+INFO:root:Scale: [0.80111402 0.64670359 0.76600656]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/coffee_table_4_0.urdf
+INFO:root:Category pot_plant
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pot_plant/2ccd2b095bd8ec27e2ec5524ed185c34/2ccd2b095bd8ec27e2ec5524ed185c34.urdf
+INFO:root:Scale: [1.43350339 1.42064317 1.34238501]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pot_plant_5_0.urdf
+INFO:root:Category breakfast_table
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/breakfast_table/79f63a1564928af071a782a4379556c7/79f63a1564928af071a782a4379556c7.urdf
+INFO:root:Scale: [1.00536552 1.89025513 2.60702605]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/breakfast_table_6_0.urdf
+INFO:root:Category straight_chair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/straight_chair/8ec95f15623085a7b11ae648ea92233/8ec95f15623085a7b11ae648ea92233_simplified.urdf
+INFO:root:Scale: [1.17924229 1.02361299 1.0010304 ]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_7_0.urdf
+INFO:root:Category straight_chair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/straight_chair/8ec95f15623085a7b11ae648ea92233/8ec95f15623085a7b11ae648ea92233_simplified.urdf
+INFO:root:Scale: [1.17924229 1.02361299 1.0010304 ]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_8_0.urdf
+INFO:root:Category straight_chair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/straight_chair/28a0b2a5afc96922ba63bc389be1ed5a/28a0b2a5afc96922ba63bc389be1ed5a_simplified.urdf
+INFO:root:Scale: [0.88039376 0.90837519 0.89987572]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_9_0.urdf
+INFO:root:Category straight_chair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/straight_chair/28a0b2a5afc96922ba63bc389be1ed5a/28a0b2a5afc96922ba63bc389be1ed5a_simplified.urdf
+INFO:root:Scale: [0.88039376 0.90837519 0.89987572]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_10_0.urdf
+INFO:root:Category straight_chair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/straight_chair/28a0b2a5afc96922ba63bc389be1ed5a/28a0b2a5afc96922ba63bc389be1ed5a_simplified.urdf
+INFO:root:Scale: [0.88039376 0.90837519 0.89987572]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_11_0.urdf
+INFO:root:Category straight_chair
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/straight_chair/28a0b2a5afc96922ba63bc389be1ed5a/28a0b2a5afc96922ba63bc389be1ed5a_simplified.urdf
+INFO:root:Scale: [0.88039376 0.90837519 0.89987572]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_12_0.urdf
+INFO:root:Category carpet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/carpet/carpet_0/carpet_0_simplified.urdf
+INFO:root:Scale: [3.6928585  4.16561369 0.06640285]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carpet_13_0.urdf
+INFO:root:Category shelf
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/shelf/3bff6c7c4ab1e47e2a9a1691b6f98331/3bff6c7c4ab1e47e2a9a1691b6f98331_simplified.urdf
+INFO:root:Scale: [2.637784   2.85857485 3.17916756]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/shelf_14_0.urdf
+INFO:root:Category shelf
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/shelf/b7697d284c38fcade76bc197b3a3ffc0/b7697d284c38fcade76bc197b3a3ffc0_simplified.urdf
+INFO:root:Scale: [2.75236573 1.47298605 0.85092773]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/shelf_15_0.urdf
+INFO:root:Category shelf
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/shelf/b7697d284c38fcade76bc197b3a3ffc0/b7697d284c38fcade76bc197b3a3ffc0_simplified.urdf
+INFO:root:Scale: [2.75236573 1.47298605 0.85092773]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/shelf_16_0.urdf
+INFO:root:Category picture
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/picture/picture_14/picture_14.urdf
+INFO:root:Scale: [0.68320464 0.3565253  0.82059182]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_17_0.urdf
+INFO:root:Category picture
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/picture/picture_15/picture_15.urdf
+INFO:root:Scale: [0.68320464 0.3565253  0.68424123]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_18_0.urdf
+INFO:root:Category picture
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/picture/picture_16/picture_16.urdf
+INFO:root:Scale: [0.63137532 0.3565253  0.59719993]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_19_0.urdf
+INFO:root:Category fridge
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/fridge/11712/11712_simplified.urdf
+INFO:root:Scale: [1.34422253 1.0305905  1.03772174]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/fridge_20_0.urdf
+INFO:root:Category oven
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/oven/oven_0013/oven_0013_simplified.urdf
+INFO:root:Scale: [0.82699305 0.60520118 0.73871837]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/oven_21_0.urdf
+INFO:root:Category oven
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/oven/oven_0013/oven_0013_simplified.urdf
+INFO:root:Scale: [0.82699305 0.60520118 0.72869876]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/oven_22_0.urdf
+INFO:root:Category microwave
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/microwave/7263/7263_simplified.urdf
+INFO:root:Scale: [0.50786021 0.70253297 0.52605224]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/microwave_23_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/46787/46787_simplified.urdf
+INFO:root:Scale: [0.48608381 0.74947368 0.83271282]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_24_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/46787/46787_simplified.urdf
+INFO:root:Scale: [0.45331411 0.76285714 0.68128296]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_25_0.urdf
+INFO:root:Category bottom_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet/45177/45177_simplified.urdf
+INFO:root:Scale: [0.66430849 0.64340797 0.63735136]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_26_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/45747/45747_simplified.urdf
+INFO:root:Scale: [0.7404516  0.71589039 0.61267305]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_27_0.urdf
+INFO:root:Category picture
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/picture/picture_17/picture_17.urdf
+INFO:root:Scale: [0.50415791 0.3565253  0.77624638]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_28_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/49133/49133_simplified.urdf
+INFO:root:Scale: [0.55367044 0.40862661 0.66801419]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_29_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/45420/45420_simplified.urdf
+INFO:root:Scale: [0.49048316 0.40877857 0.6803807 ]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_30_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.96149656 0.39765144 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_31_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/40147/40147_simplified.urdf
+INFO:root:Scale: [0.73200122 0.55672489 0.75381221]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_32_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.26524043 0.95090562 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_33_0.urdf
+INFO:root:Category carpet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/carpet/carpet_0/carpet_0_simplified.urdf
+INFO:root:Scale: [3.13937027 3.30906173 0.06640285]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carpet_34_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/48010/48010_simplified.urdf
+INFO:root:Scale: [0.6635361  0.51131624 0.58986075]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_35_0.urdf
+INFO:root:Category dishwasher
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/dishwasher/12349/12349.urdf
+INFO:root:Scale: [0.78470823 0.6405854  0.81106073]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishwasher_36_0.urdf
+INFO:root:Category sink
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sink/sink_2/sink_2_simplified.urdf
+INFO:root:Scale: [0.94626134 1.21685611 1.13923171]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sink_37_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/45212/45212_simplified.urdf
+INFO:root:Scale: [0.40957538 0.5153114  0.56180449]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_38_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/45212/45212_simplified.urdf
+INFO:root:Scale: [0.33751903 0.47835194 0.56180449]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_39_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.30313192 1.82400987 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_40_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.08525585 0.57054337 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_41_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/45747/45747_simplified.urdf
+INFO:root:Scale: [0.82898386 0.56248531 0.61267305]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_42_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/45747/45747_simplified.urdf
+INFO:root:Scale: [0.81288709 0.56248531 0.61267305]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_43_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/45620/45620_simplified.urdf
+INFO:root:Scale: [0.61310865 0.56633963 0.55931396]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_44_0.urdf
+INFO:root:Category oven
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/oven/oven_0013/oven_0013_simplified.urdf
+INFO:root:Scale: [0.92663077 0.60520118 0.91087345]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/oven_46_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/35059/35059_simplified.urdf
+INFO:root:Scale: [0.52127395 0.50228388 0.58441941]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_47_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.42154283 2.11792615 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_48_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.24155825 0.51867579 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_49_0.urdf
+INFO:root:Category fridge
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/fridge/11712/11712_simplified.urdf
+INFO:root:Scale: [1.28447931 1.05635527 1.03772174]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/fridge_50_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/45420/45420_simplified.urdf
+INFO:root:Scale: [0.62220425 0.63867962 0.6803807 ]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_51_0.urdf
+INFO:root:Category bottom_cabinet_no_top
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet_no_top/48010/48010_simplified.urdf
+INFO:root:Scale: [0.56600282 0.57386367 0.58986075]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_52_0.urdf
+INFO:root:Category countertop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/countertop/counter_0/counter_0_simplified.urdf
+INFO:root:Scale: [0.3268141  1.23617731 0.27051514]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_53_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/45621/45621_simplified.urdf
+INFO:root:Scale: [0.86231738 0.54865306 0.86982576]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_54_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/46787/46787_simplified.urdf
+INFO:root:Scale: [0.47842062 0.86188269 0.83271282]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_55_0.urdf
+INFO:root:Category washer
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/washer/103369/103369_simplified.urdf
+INFO:root:Scale: [0.69244728 0.70973666 0.65758327]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/washer_56_0.urdf
+INFO:root:Category dryer
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/dryer/103361/103361_simplified.urdf
+INFO:root:Scale: [0.67244905 0.77345806 0.72288278]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dryer_57_0.urdf
+INFO:root:Category sink
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sink/bathroom_sink/bathroom_sink_simplified.urdf
+INFO:root:Scale: [0.9752581  0.94644534 0.89032336]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sink_58_0.urdf
+INFO:root:Category bottom_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bottom_cabinet/46380/46380_simplified.urdf
+INFO:root:Scale: [0.44067414 0.47196736 0.65575409]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_59_0.urdf
+INFO:root:Category top_cabinet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/top_cabinet/45747/45747_simplified.urdf
+INFO:root:Scale: [0.90141934 0.49430527 0.61267305]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_60_0.urdf
+INFO:root:Category toilet
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/toilet/102629/102629_simplified.urdf
+INFO:root:Scale: [0.58023757 0.454321   0.55282594]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/toilet_61_0.urdf
+INFO:root:Category sink
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sink/sink_2/sink_2_simplified.urdf
+INFO:root:Scale: [1.1554349  1.07248336 1.13923171]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sink_62_0.urdf
+INFO:root:Category mirror
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/mirror/mirror_0/mirror_0.urdf
+INFO:root:Scale: [0.47538472 0.8735259  0.58828859]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/mirror_63_0.urdf
+INFO:root:Category burner
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/burner/cooktop_0/cooktop_0_simplified.urdf
+INFO:root:Scale: [0.78381397 0.6451369  0.37559992]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/burner_64_0.urdf
+INFO:root:Category door
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/door/8930/8930.urdf
+INFO:root:Scale: [1.13653804 2.13489484 1.56019491]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_65_0.urdf
+INFO:root:Category window
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/window/102896/102896.urdf
+INFO:root:Scale: [0.57929252 0.99957161 1.12478018]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_66_0.urdf
+INFO:root:Category window
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/window/103238/103238.urdf
+INFO:root:Scale: [1.79289751 1.45796885 1.74602998]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_67_0.urdf
+INFO:root:Category window
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/window/102896/102896.urdf
+INFO:root:Scale: [0.77239003 0.99957161 0.83555099]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_68_0.urdf
+INFO:root:Category window
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/window/103238/103238.urdf
+INFO:root:Scale: [1.77576791 1.45796885 1.94003331]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_69_0.urdf
+INFO:root:Category door
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/door/8930/8930.urdf
+INFO:root:Scale: [1.16936766 2.28738733 1.67435552]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_70_0.urdf
+INFO:root:Category door
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/door/8903/8903.urdf
+INFO:root:Scale: [1.00334662 0.75588386 1.19665792]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_71_0.urdf
+INFO:root:Category door
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/door/8903/8903.urdf
+INFO:root:Scale: [1.00334662 0.75588386 1.19665792]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_72_0.urdf
+INFO:root:Category door
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/door/8903/8903.urdf
+INFO:root:Scale: [0.80013718 0.75588386 1.19665792]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_73_0.urdf
+INFO:root:Category window
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/window/102896/102896.urdf
+INFO:root:Scale: [0.63128031 1.07096958 0.70700469]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_74_0.urdf
+INFO:root:Category window
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/window/102896/102896.urdf
+INFO:root:Scale: [0.44560963 1.07096958 1.34973622]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_75_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_78_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_79_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_80_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_81_0.urdf
+INFO:root:Category hamburger
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hamburger/hamburger_000/hamburger_000.urdf
+INFO:root:Scale: [0.04770785 0.04770785 0.04770785]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hamburger_82_0.urdf
+INFO:root:Category hamburger
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hamburger/hamburger_000/hamburger_000.urdf
+INFO:root:Scale: [0.04770785 0.04770785 0.04770785]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hamburger_83_0.urdf
+INFO:root:Category hamburger
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hamburger/hamburger_000/hamburger_000.urdf
+INFO:root:Scale: [0.04770785 0.04770785 0.04770785]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hamburger_84_0.urdf
+INFO:root:Category trash_can
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/trash_can/64393896dc4403c0e88c1d6fc3580355/64393896dc4403c0e88c1d6fc3580355_simplified.urdf
+INFO:root:Scale: [0.77249499 0.77249499 0.77249499]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/trash_can_85_0.urdf
+INFO:root:Category hand_towel
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hand_towel/Threshold_Hand_Towel_Light_Yellow/Threshold_Hand_Towel_Light_Yellow.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hand_towel-Threshold_Hand_Towel_Light_Yellow-1_0.urdf
+INFO:root:Category hand_towel
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hand_towel/Threshold_Hand_Towel_Light_Yellow/Threshold_Hand_Towel_Light_Yellow.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hand_towel-Threshold_Hand_Towel_Light_Yellow-2_0.urdf
+INFO:root:Category hand_towel
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hand_towel/Threshold_Hand_Towel_Light_Yellow/Threshold_Hand_Towel_Light_Yellow.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hand_towel-Threshold_Hand_Towel_Light_Yellow-3_0.urdf
+INFO:root:Category lid
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/lid/43_0/43_0.urdf
+INFO:root:Scale: [2.00935777 2.00935777 2.00935777]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lid-43_0-0_0.urdf
+INFO:root:Category lid
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/lid/43_0/43_0.urdf
+INFO:root:Scale: [2.00935777 2.00935777 2.00935777]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lid-43_0-1_0.urdf
+INFO:root:Category lid
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/lid/43_0/43_0.urdf
+INFO:root:Scale: [2.00935777 2.00935777 2.00935777]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lid-43_0-2_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-0_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-3_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-4_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-7_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-8_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-9_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-11_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-12_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-13_0.urdf
+INFO:root:Category board_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/board_game/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box/Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-14_0.urdf
+INFO:root:Category grater
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/grater/55_0/55_0.urdf
+INFO:root:Scale: [0.64156666 0.64156666 0.64156666]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/grater-55_0-0_0.urdf
+INFO:root:Category lettuce
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/lettuce/31_0/31_0.urdf
+INFO:root:Scale: [0.663365 0.663365 0.663365]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lettuce-31_0-0_0.urdf
+INFO:root:Category lettuce
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/lettuce/31_0/31_0.urdf
+INFO:root:Scale: [0.663365 0.663365 0.663365]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lettuce-31_0-1_0.urdf
+INFO:root:Category kettle
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/kettle/06_0/06_0.urdf
+INFO:root:Scale: [0.54680336 0.54680336 0.54680336]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/kettle-06_0-0_0.urdf
+INFO:root:Category mug
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/mug/08_0/08_0.urdf
+INFO:root:Scale: [0.58108837 0.58108837 0.58108837]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/mug-08_0-0_0.urdf
+INFO:root:Category mug
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/mug/08_0/08_0.urdf
+INFO:root:Scale: [0.58108837 0.58108837 0.58108837]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/mug-08_0-1_0.urdf
+INFO:root:Category carving_knife
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/carving_knife/14_1/14_1.urdf
+INFO:root:Scale: [0.98155455 0.98155455 0.98155455]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carving_knife-14_1-0_0.urdf
+INFO:root:Category carving_knife
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/carving_knife/14_1/14_1.urdf
+INFO:root:Scale: [0.98155455 0.98155455 0.98155455]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carving_knife-14_1-1_0.urdf
+INFO:root:Category bowl
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bowl/68_0/68_0.urdf
+INFO:root:Scale: [0.60678136 0.60678136 0.60678136]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-0_0.urdf
+INFO:root:Category bowl
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bowl/68_0/68_0.urdf
+INFO:root:Scale: [0.60678136 0.60678136 0.60678136]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-1_0.urdf
+INFO:root:Category bowl
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bowl/68_0/68_0.urdf
+INFO:root:Scale: [0.60678136 0.60678136 0.60678136]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-2_0.urdf
+INFO:root:Category bowl
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/bowl/68_0/68_0.urdf
+INFO:root:Scale: [0.60678136 0.60678136 0.60678136]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-3_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-0_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-1_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-2_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-3_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-4_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-5_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-6_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-7_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-8_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-9_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-10_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-11_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-12_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-13_0.urdf
+INFO:root:Category video_game
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/video_game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game/Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game_simplified.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-14_0.urdf
+INFO:root:Category dishtowel
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/dishtowel/Tag_Dishtowel_Green/Tag_Dishtowel_Green.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishtowel-Tag_Dishtowel_Green-0_0.urdf
+INFO:root:Category dishtowel
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/dishtowel/Tag_Dishtowel_Green/Tag_Dishtowel_Green.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishtowel-Tag_Dishtowel_Green-1_0.urdf
+INFO:root:Category dishtowel
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/dishtowel/Tag_Dishtowel_Green/Tag_Dishtowel_Green.urdf
+INFO:root:Scale: [1. 1. 1.]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishtowel-Tag_Dishtowel_Green-3_0.urdf
+INFO:root:Category jar
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/jar/03_5/03_5.urdf
+INFO:root:Scale: [1.69220983 1.69220983 1.69220983]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-0_0.urdf
+INFO:root:Category jar
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/jar/03_5/03_5.urdf
+INFO:root:Scale: [1.69220983 1.69220983 1.69220983]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-1_0.urdf
+INFO:root:Category jar
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/jar/03_5/03_5.urdf
+INFO:root:Scale: [1.69220983 1.69220983 1.69220983]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-2_0.urdf
+INFO:root:Category jar
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/jar/03_5/03_5.urdf
+INFO:root:Scale: [1.69220983 1.69220983 1.69220983]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-3_0.urdf
+INFO:root:Category jar
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/jar/03_5/03_5.urdf
+INFO:root:Scale: [1.69220983 1.69220983 1.69220983]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-4_0.urdf
+INFO:root:Category jar
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/jar/03_5/03_5.urdf
+INFO:root:Scale: [1.69220983 1.69220983 1.69220983]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-5_0.urdf
+INFO:root:Category pop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pop/11/11.urdf
+INFO:root:Scale: [0.58584011 0.58584011 0.58584011]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-0_0.urdf
+INFO:root:Category pop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pop/11/11.urdf
+INFO:root:Scale: [0.58584011 0.58584011 0.58584011]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-1_0.urdf
+INFO:root:Category pop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pop/11/11.urdf
+INFO:root:Scale: [0.58584011 0.58584011 0.58584011]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-2_0.urdf
+INFO:root:Category pop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pop/11/11.urdf
+INFO:root:Scale: [0.58584011 0.58584011 0.58584011]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-3_0.urdf
+INFO:root:Category pop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pop/11/11.urdf
+INFO:root:Scale: [0.58584011 0.58584011 0.58584011]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-4_0.urdf
+INFO:root:Category pop
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/pop/11/11.urdf
+INFO:root:Scale: [0.58584011 0.58584011 0.58584011]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-5_0.urdf
+INFO:root:Category sausage
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sausage/sausage_000/sausage_000.urdf
+INFO:root:Scale: [0.20256931 0.20256931 0.20256931]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-0_0.urdf
+INFO:root:Category sausage
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sausage/sausage_000/sausage_000.urdf
+INFO:root:Scale: [0.20256931 0.20256931 0.20256931]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-1_0.urdf
+INFO:root:Category sausage
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sausage/sausage_000/sausage_000.urdf
+INFO:root:Scale: [0.20256931 0.20256931 0.20256931]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-2_0.urdf
+INFO:root:Category sausage
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sausage/sausage_000/sausage_000.urdf
+INFO:root:Scale: [0.20256931 0.20256931 0.20256931]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-3_0.urdf
+INFO:root:Category sausage
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/sausage/sausage_000/sausage_000.urdf
+INFO:root:Scale: [0.20256931 0.20256931 0.20256931]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-4_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_1077608309807722801_1864618/plate_149_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_11155575991556223909_1864618/plate_150_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_13059219998816162255_1864618/plate_151_0.urdf
+INFO:root:Category plate
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/plate/plate_000/plate_000.urdf
+INFO:root:Scale: [0.00778366 0.00778366 0.00778366]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_1915993071301386342_1864618/plate_152_0.urdf
+INFO:root:Category hamburger
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hamburger/hamburger_000/hamburger_000.urdf
+INFO:root:Scale: [0.04770785 0.04770785 0.04770785]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_17953462125435158838_1864618/hamburger_153_0.urdf
+INFO:root:Category hamburger
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hamburger/hamburger_000/hamburger_000.urdf
+INFO:root:Scale: [0.04770785 0.04770785 0.04770785]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_4327211787912400936_1864618/hamburger_154_0.urdf
+INFO:root:Category hamburger
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/hamburger/hamburger_000/hamburger_000.urdf
+INFO:root:Scale: [0.04770785 0.04770785 0.04770785]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_9108988892135924342_1864618/hamburger_155_0.urdf
+INFO:root:Category trash_can
+INFO:root:Loading the following URDF template /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/objects/trash_can/ae33867e3c5e1703f155d75bbf62b80/ae33867e3c5e1703f155d75bbf62b80_simplified.urdf
+INFO:root:Scale: [0.80542245 0.80542245 0.80542245]
+INFO:root:Number of splits: 1
+INFO:root:Instantiating scene into the following urdfs:
+INFO:root:/home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_18277471402864213944_1864618/trash_can_156_0.urdf
+INFO:root:Device 0 is available for rendering
+INFO:root:Command '['/home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/build/test_device', '1']' returned non-zero exit status 1.
+INFO:root:Device 1 is not available for rendering
+INFO:root:Using device 0 for rendering
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/equirect2cube_cs.glsl
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/spmap_cs.glsl
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/irmap_cs.glsl
+Compiling GLSL shader: /home/wbm3/Documents/GitHub/iGibson/igibson/render/mesh_renderer/shaders/450/spbrdf_cs.glsl
+Loading image: /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scenes/background/photo_studio_01_2k.hdr
+INFO: compiled pbr shaders
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/walls_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0. 0. 0.], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/floors_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0. 0. 0.], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/ceilings_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0. 0. 0.], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/breakfast_table_0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-8.25156403 -2.5899291   0.3459937 ], [-8.71731736e-06  6.25565635e-06  1.00000000e+00  1.50550991e-05]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/armchair_1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-11.28177071   0.97323918   0.50893497], [-3.08068837e-05 -1.76420192e-06 -2.73855197e-06  1.00000000e+00]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/armchair_2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-11.35962009  -0.99317586   0.50893265], [ 3.97975007e-06 -3.27496070e-05  9.99969217e-01  7.84624703e-03]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/coffee_table_3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-11.30786037   0.06446667   0.23806368], [3.18142923e-07 3.74986691e-08 1.01736642e-08 1.00000000e+00]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/coffee_table_4_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-9.58437443 -0.35193983  0.27754802], [1.72010370e-06 1.85604030e-06 7.04272183e-01 7.09930061e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pot_plant_5_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 0.72908884 -3.41448331  0.72173953], [-1.12161267e-05 -7.53060121e-06 -9.99999999e-01  4.35654676e-05]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/breakfast_table_6_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.41570944 -1.95624602  0.39649302], [-4.03206592e-06  7.53358233e-06 -2.20137145e-06  1.00000000e+00]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_7_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.37564665 -1.38467407  0.4392257 ], [ 3.53140384e-03  3.11915374e-05 -1.42311500e-05  9.99993764e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_8_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.3943561  -2.47537327  0.43922532], [-3.75678255e-05  3.53666734e-03  9.99993745e-01  1.58033399e-05]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_9_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.72121561 -0.86120874  0.41841272], [ 1.07286392e-06  6.41583709e-05 -7.32082579e-01  6.81215894e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_10_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.76107001 -1.36707056  0.4184128 ], [-1.31308164e-06  6.38814891e-05 -7.04207401e-01  7.09994318e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_11_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.74107838 -1.81706893  0.41841072], [ 3.82684070e-06  5.74512900e-05 -7.04221172e-01  7.09980660e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/straight_chair_12_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.72146642 -2.34097576  0.41841051], [-1.69349947e-06  5.82337656e-05 -6.61050806e-01  7.50341141e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carpet_13_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-6.68642794e+00 -8.71742963e-01  4.74800137e-04], [ 0.          0.         -0.7017707   0.71240289]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/shelf_14_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-5.17587013 -2.06532476  1.28253667], [ 0.          0.         -0.70825372  0.70595798]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/shelf_15_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.61919304  -1.90219486   0.25      ], [0.         0.         0.70633019 0.70788252]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/shelf_16_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.62919304   1.93576714   0.25      ], [0.         0.         0.70633019 0.70788252]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_17_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.87011249  -1.88593336   1.64907313], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_18_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.89011249   1.94406664   1.64907353], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_19_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-9.96472463  2.98511248  1.69932606], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/fridge_20_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.35932355  0.46515878  0.9345823 ], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/oven_21_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.455       0.54914576  1.08506108], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/oven_22_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.455       0.54914576  0.36001093], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/microwave_23_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.46705581  0.56020218  1.70446384], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_24_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.34624973  0.58748508  2.11385667], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_25_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.46616548  0.58297588  2.16589219], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_26_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.56408726  0.64907963  0.42400913], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_27_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.5552178   0.65212459  1.90694035], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/picture_28_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.99966846 0.08675762 1.77912401], [ 0.          0.         -0.70740677  0.70680667]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_29_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.58711821  0.63381387  0.46469764], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_30_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.13491371 0.63736065 0.45632788], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_31_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.03499421 0.6495105  0.91079973], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_32_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 0.75687993 -0.09746208  0.45914751], [ 0.          0.         -0.70659453  0.70761866]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_33_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 0.7799984  -0.10117055  0.91079973], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carpet_34_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.98712465e-01 -1.68322139e+00  4.74800137e-04], [ 0.          0.         -0.70136238  0.71280489]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_35_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.50953138 -1.17624198  0.47629421], [0.         0.         0.70842959 0.70578149]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishwasher_36_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.46844319 -1.81687943  0.45003267], [0.         0.         0.70842959 0.70578149]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sink_37_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.53504959 -2.61727662  0.32332996], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_38_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.11392118 -2.65699159  0.47386013], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_39_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.52375677 -2.21808238  0.47386013], [0.         0.         0.70878486 0.70542471]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_40_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.51999817 -1.92275467  0.91079973], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_41_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.14000051 -2.65070233  0.91079973], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_42_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.6723836  -1.38964601  1.90694035], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_43_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.6623836  -2.43974997  1.90694035], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_44_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.87704635 -2.63764643  0.47023401], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/oven_46_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.38085424 -1.405       0.45001367], [ 0.          0.         -0.70710667  0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_47_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.3653061  -0.71246816  0.42462802], [ 0.          0.         -0.70412952  0.71007156]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_48_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.22499746 -1.72239286  0.91079973], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_49_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.77499855 -2.63936152  0.91079973], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/fridge_50_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.59578775 2.87890917 0.9345823 ], [ 0.          0.         -0.70710667  0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_51_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.6845945  1.46368791 0.45632788], [ 0.          0.         -0.70694366  0.70726987]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_no_top_52_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.67494958 2.15270008 0.47629421], [ 0.          0.         -0.70555641  0.70865376]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/countertop_53_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.69499803 1.69347828 0.91079973], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_54_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.83851967 1.70260068 1.89277741], [ 0.          0.         -0.70611213  0.70810004]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_55_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.71852024 2.86412664 2.11385667], [ 0.          0.         -0.70622683  0.70798564]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/washer_56_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.20549756  3.80573655  0.51734685], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dryer_57_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.48199953  3.73910894  0.53387284], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sink_58_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.25979636  2.89954314  0.42590518], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bottom_cabinet_59_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.3557531   2.33635007  0.47503243], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/top_cabinet_60_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.4802765   2.64582181  1.90694035], [0.         0.         0.70710667 0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/toilet_61_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.00103978  3.77776318  0.39216066], [ 0.          0.         -0.70313829  0.71105312]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sink_62_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.99680706  2.68114997  0.32332996], [ 0.          0.         -0.70710667  0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/mirror_63_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.75509173  2.67499885  1.59999972], [ 0.          0.         -0.70773995  0.70647305]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/burner_64_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.41948302 -1.40895748  0.93031797], [ 0.          0.         -0.70710667  0.7071069 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_65_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-6.36787752 -3.05544673  1.02342653], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_66_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-7.96132137 -3.02341354  1.16193624], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_67_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-11.26408626  -3.02328041   1.28031613], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_68_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.49176183 -3.02341354  1.54029549], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_69_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.64847397 -3.80328041  1.37812903], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_70_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 1.12298354 -1.94296724  1.09831139], [ 0.          0.         -0.70791655  0.70629609]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_71_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.61603896  2.02383783  1.11529869], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_72_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.78603896  2.02383783  1.11529869], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/door_73_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.65582854  2.02383783  1.11529869], [0.00000000e+00 0.00000000e+00 1.00000000e+00 1.73205103e-07]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_74_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-1.93356004  4.23865736  1.84178849], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/window_75_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.70898356  4.23865736  1.33432349], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_78_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.54458225 0.65350765 0.93623805], [8.10218164e-05 1.98682406e-05 8.48918767e-01 5.28523339e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_79_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.23437642  0.68139404  0.93667662], [-5.08843061e-06 -5.98708273e-06 -9.99745009e-01  2.25813486e-02]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_80_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.15042758 0.61359459 0.93623835], [-3.64548410e-04  3.22948666e-03 -6.23430838e-01  7.81871746e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/plate_81_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.73441541  0.52587664  0.93665695], [-1.13309920e-05  9.71748963e-06  8.29289214e-01  5.58819648e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hamburger_82_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.55969536 0.68167067 0.9481253 ], [ 0.00917983 -0.01974778 -0.47846305  0.87783761]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hamburger_83_0.urdf
+INFO:root:Moving URDF to (pos,ori): [0.20601693 0.61896878 0.94160032], [ 0.06033387  0.01752118 -0.64099991  0.76496532]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hamburger_84_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.19812827  0.72142833  0.94784927], [ 0.03133076 -0.00181249 -0.26483847  0.96378197]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/trash_can_85_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.49577141 -2.70538068  0.43278116], [-1.76838293e-05  1.02786978e-04  7.19093243e-04  9.99999736e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hand_towel-Threshold_Hand_Towel_Light_Yellow-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 0.86074311 -0.58697724  0.92152774], [-0.00697413  0.002493    0.8602143   0.50987891]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hand_towel-Threshold_Hand_Towel_Light_Yellow-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.64468622 -1.5019846   0.92161953], [ 0.0030999   0.00671828 -0.64670003  0.76270855]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/hand_towel-Threshold_Hand_Towel_Light_Yellow-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.13023043 -2.38315892  0.9215132 ], [-0.00133692  0.0072464   0.02861314  0.9995634 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lid-43_0-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.8962009   0.62290663 -0.23581174], [ 1.94560678e-06 -2.47051137e-07  1.68954844e-02  9.99857261e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lid-43_0-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.29133081  0.66170615 -0.23581162], [ 4.07894033e-06 -2.11564421e-06  4.93327330e-01  8.69843747e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lid-43_0-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.59069657  0.61737067 -0.23581193], [ 8.51279827e-08  2.09223472e-06 -9.98508470e-01  5.45970327e-02]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.51550961  -1.32359135   0.48219803], [-0.0080568   0.01323215 -0.99918613  0.03724357]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.39913464   2.06202126   0.07168619], [-0.50031816 -0.4992239   0.49989067  0.50056623]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-4_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.54835892  -1.16978014   0.51535255], [-0.49887262 -0.50112499  0.50112487  0.49887244]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-7_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.68989277   1.82594073   0.48172018], [-0.0084069   0.00740962 -0.97526882  0.22073772]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-8_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-5.08975935 -2.30503821  1.01751053], [-0.0026155  -0.00481984  0.03231693  0.99946263]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-9_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.6447916    2.0188942    0.48210233], [-0.00573356  0.00368245 -0.98818362  0.15312313]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-11_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.66154003   1.27760315   0.48210448], [-0.0049257   0.00241002 -0.99718655  0.07475903]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-12_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.62107754  -2.69625354   0.4821896 ], [-0.00898672  0.01246624 -0.99395144  0.10873986]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-13_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.5190382   -2.78168869   0.48210597], [-0.00483441  0.00248398 -0.99900078  0.04436109]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/board_game-Pass_The_Popcorn_Movie_Guessing_Game_Yellow_Red_White_Box-14_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.36705589  -2.75702667   0.29378447], [-0.49932376 -0.50197238  0.50166744  0.49702042]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/grater-55_0-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 0.88056827 -0.05966229  1.08627474], [ 2.23200194e-05  1.50208103e-05 -2.16750808e-03  9.99997651e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lettuce-31_0-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.57663679  0.46623746  0.31446514], [-0.06397431  0.50041624  0.52267601  0.68724134]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/lettuce-31_0-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.26263046  0.27670521  0.68131006], [-0.47748633  0.0626997  -0.33555245  0.80961726]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/kettle-06_0-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.44000864 -2.28893352  0.97373873], [ 9.64882550e-07 -1.67705697e-06  8.00824884e-01  5.98898577e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/mug-08_0-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.58387351  0.4381988   2.01455355], [1.11333104e-05 6.95684301e-05 4.68389105e-01 8.83522293e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/mug-08_0-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.65667677 -2.10591865  0.82739413], [1.68881033e-04 2.40243176e-04 4.34696862e-01 9.00576788e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carving_knife-14_1-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.13114071 -2.58766484  0.93234795], [ 0.36753824 -0.57846665  0.3572121   0.63457978]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/carving_knife-14_1-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.79645491 -2.79228401  0.93153787], [ 0.21442998 -0.47126803  0.31801653  0.79422397]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.30482846 -1.72890449  0.84235984], [3.55904517e-05 2.20720115e-04 4.71280777e-01 8.81983208e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-8.35446072 -2.42535734  0.45251241], [-4.81245442e-05 -2.94996607e-05  7.79434442e-01  6.26483797e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.75817323 -1.97379017  0.84250897], [4.68438808e-05 2.37659608e-04 6.85545797e-02 9.97647338e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/bowl-68_0-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.63813913 -2.25682855  0.84249943], [-1.72223703e-04  2.35792594e-04 -6.29175949e-01  7.77262851e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.46709442   1.90898943   0.2603521 ], [-0.00162772 -0.00242918  0.74951661  0.66197908]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.5888052   -1.57189345   0.03755032], [0.00405293 0.0045206  0.70616507 0.70802121]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.67137909   2.81771255   0.03860759], [-0.00153557 -0.00244908  0.75249655  0.65858985]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.7369194   -1.92835689   0.26021442], [ 1.42326429e-04 -1.27101896e-03  7.29551414e-01  6.83924775e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-4_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.71599674   2.59763598   0.26029989], [-0.00166712 -0.00282019  0.73901118  0.6736852 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-5_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.54631996  -2.39670467   0.03824738], [7.31223129e-05 8.46992566e-05 7.26629805e-01 6.87029194e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-6_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.45296669   1.57871306   0.26035136], [-0.00169193 -0.00238175  0.73477584  0.67830372]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-7_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.4848547   -1.18570864   0.03860886], [-0.00164256 -0.00241526  0.74865926  0.66294855]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-8_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.49633026   1.8539561    0.03824975], [5.91721243e-05 7.06159030e-05 7.49785587e-01 6.61680864e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-9_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.60258579  -1.1305871    0.25997281], [1.51231056e-04 2.16357032e-04 7.57990541e-01 6.52265491e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-10_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.7016325    2.23973608   0.0382911 ], [-1.54326868e-04 -2.07786426e-04  7.36212108e-01  6.76750815e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-11_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.73787403  -2.42371321   0.03861044], [-0.00172374 -0.00236538  0.71792119  0.69611823]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-12_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.53906631   2.65231514   0.26035288], [-0.0016464  -0.00242027  0.74144103  0.67101165]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-13_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.7228756   -2.23114347   0.03822251], [2.00747544e-04 2.65163868e-04 7.49853978e-01 6.61603280e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/video_game-Luigis_Mansion_Dark_Moon_Nintendo_3DS_Game-14_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-12.48073483   2.48703432   0.03751006], [0.00610623 0.00398771 0.7121069  0.70203318]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishtowel-Tag_Dishtowel_Green-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.13811684 -2.63397336  0.96797377], [ 0.39397414 -0.91810389 -0.04231446  0.00889426]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishtowel-Tag_Dishtowel_Green-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-2.85227942 -2.47070408  0.95096517], [-0.79676119 -0.60368739 -0.00331079  0.02687352]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/dishtowel-Tag_Dishtowel_Green-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 0.6181733  -0.52547556  0.95096332], [-0.99962071 -0.00357416 -0.01900335  0.01960941]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.39953804 -1.90472782  1.07416463], [ 0.01336301 -0.00912471 -0.68603515  0.72738844]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-11.40413189   0.09947611   0.50389063], [0.01618034 0.00253432 0.00315298 0.99986091]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-9.69375134 -0.60630196  0.50274664], [0.00925306 0.01470397 0.77598326 0.6305142 ]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.08381397 -2.20397949  0.9426437 ], [ 0.014763   -0.00619157 -0.53433417  0.84512172]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-4_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-0.30692342 -2.03464866  0.94273567], [0.01604339 0.00310687 0.02364159 0.99958693]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/jar-03_5-5_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-11.15215874   0.02666665   0.50383854], [0.01439091 0.00606913 0.21850929 0.97570987]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.15766668  0.38271028  0.35188189], [-6.53871538e-05 -1.85453991e-05  5.96047146e-04  9.99999820e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.58922434 -2.65107942  2.22601604], [1.61304225e-04 2.10315483e-04 7.06934687e-01 7.07278784e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.03671837  0.20749371  1.52568328], [ 1.49107827e-04 -6.57221526e-05  4.14026812e-06  9.99999987e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.02543926  0.72990888  1.9583956 ], [-9.85678799e-05  6.19694686e-06 -2.66433961e-04  9.99999960e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-4_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-3.14885449  0.75839698  2.05268884], [ 2.35492002e-04 -1.08398076e-04 -1.86173523e-04  9.99999949e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/pop-11-5_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.69538116  0.28992006  0.35187912], [2.90454000e-04 5.61729310e-05 2.42666091e-04 9.99999927e-01]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-0_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.39689398  0.73242742  1.00755155], [ 4.83995785e-05 -5.91330894e-02 -9.98031962e-01  2.08681242e-02]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-1_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.28280592  0.1979021   0.66029286], [-0.17960618  0.98261211 -0.04670808  0.00578003]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-2_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.54002905  0.23949084  0.63615209], [ 0.00798454 -0.05881754 -0.98717319  0.14820874]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-3_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.70202017  0.67016768  0.30138144], [-0.65364779  0.75181235 -0.06690505  0.05519482]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002321_17019214627218025533_1864618/sausage-sausage_000-4_0.urdf
+INFO:root:Moving URDF to (pos,ori): [-4.52520704  0.50933635  1.47935927], [ 0.76959811 -0.63844626 -0.00395124  0.00946087]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_1077608309807722801_1864618/plate_149_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 99.99999784 100.00000585 -99.99978387], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_11155575991556223909_1864618/plate_150_0.urdf
+INFO:root:Moving URDF to (pos,ori): [100.99999784 100.00000585 -99.99978387], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_13059219998816162255_1864618/plate_151_0.urdf
+INFO:root:Moving URDF to (pos,ori): [101.99999784 100.00000585 -99.99978387], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_1915993071301386342_1864618/plate_152_0.urdf
+INFO:root:Moving URDF to (pos,ori): [102.99999784 100.00000585 -99.99978387], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_17953462125435158838_1864618/hamburger_153_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 104.          100.00007757 -100.03607811], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_4327211787912400936_1864618/hamburger_154_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 105.          100.00007757 -100.03607811], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_9108988892135924342_1864618/hamburger_155_0.urdf
+INFO:root:Moving URDF to (pos,ori): [ 106.          100.00007757 -100.03607811], [0. 0. 0. 1.]
+INFO:root:Loading /home/wbm3/Documents/GitHub/iGibson/igibson/data/ig_dataset/scene_instances/20220201-002322_18277471402864213944_1864618/trash_can_156_0.urdf
+INFO:root:Moving URDF to (pos,ori): [107.00028874  99.99603289 -99.87419866], [0. 0. 0. 1.]
+INFO:root:Loading traversable graph
