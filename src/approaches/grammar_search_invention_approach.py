@@ -1304,15 +1304,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
-            candidates, score_function)
+            candidates, score_function, self._initial_predicates, atom_dataset)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
 def _select_predicates_to_keep(
-        candidates: Dict[Predicate, float],
-        score_function: _PredicateSearchScoreFunction) -> Set[Predicate]:
+        candidates: Dict[Predicate,
+                         float], score_function: _PredicateSearchScoreFunction,
+        initial_predicates: set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
     """Perform a greedy search over predicate sets."""
 
     # There are no goal states for this search; run until exhausted.
@@ -1353,6 +1355,18 @@ def _select_predicates_to_keep(
             "Unrecognized grammar_search_search_algorithm: "
             f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
+
+    # Filter out predicates that don't appear in some operator preconditions.
+    pruned_atom_data = utils.prune_ground_atom_dataset(
+        atom_dataset, kept_predicates | initial_predicates)
+    segments = [
+        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
+    ]
+    preds_in_preconds = set()
+    for pnad in learn_strips_operators(segments, verbose=False):
+        for atom in pnad.op.preconditions:
+            preds_in_preconds.add(atom.predicate)
+    kept_predicates &= preds_in_preconds
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
           f"{len(candidates)} candidates:")
