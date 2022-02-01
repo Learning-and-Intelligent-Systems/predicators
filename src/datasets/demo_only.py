@@ -1,7 +1,8 @@
 """Create offline datasets by collecting demonstrations."""
 
 from typing import List
-from predicators.src.approaches import create_approach
+from predicators.src.approaches import create_approach, ApproachTimeout, \
+    ApproachFailure
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Task, LowLevelTrajectory
 from predicators.src.settings import CFG
@@ -14,8 +15,12 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                                       env.types, env.action_space, train_tasks)
     trajectories = []
     for idx, task in enumerate(train_tasks):
-        policy = oracle_approach.solve(
-            task, timeout=CFG.offline_data_planning_timeout)
+        try:
+            policy = oracle_approach.solve(
+                task, timeout=CFG.offline_data_planning_timeout)
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"WARNING: Approach failed to solve with error: {e}")
+            continue
         traj, _, solved = utils.run_policy_on_task(
             policy, task, env.simulate, CFG.max_num_steps_check_policy)
         assert solved, "Oracle failed on training task."
