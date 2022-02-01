@@ -67,8 +67,8 @@ def sesame_plan(
     # for making videos of failed planning attempts.
     partial_refinements = []
     while True:
-        # Optionally exclude NSRTs with empty effects, because they can
-        # slow down search significantly, so we exclude them. Note however
+        # Optionally exclude NSRTs with empty effects, because they can slow
+        # the search significantly, so we may want to exclude them. Note however
         # that we need to do this inside the while True here, because an NSRT
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
         nonempty_ground_nsrts = [
