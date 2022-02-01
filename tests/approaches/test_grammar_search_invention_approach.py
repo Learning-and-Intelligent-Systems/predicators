@@ -223,7 +223,11 @@ def test_create_score_function():
     assert isinstance(score_func, _ExactHeuristicEnergyBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {}, [])
     assert isinstance(score_func, _TaskPlanningScoreFunction)
-    score_func = _create_score_function("expected_nodes", set(), [], {}, [])
+    score_func = _create_score_function("expected_nodes_created", set(), [],
+                                        {}, [])
+    assert isinstance(score_func, _ExpectedNodesScoreFunction)
+    score_func = _create_score_function("expected_nodes_expanded", set(), [],
+                                        {}, [])
     assert isinstance(score_func, _ExpectedNodesScoreFunction)
     score_func = _create_score_function("lmcut_count_lookaheaddepth0", set(),
                                         [], {}, [])
@@ -784,9 +788,9 @@ def test_expected_nodes_score_function():
         dataset = create_dataset(env, train_tasks)
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, env.goal_predicates | set(candidates))
-        score_function = _ExpectedNodesScoreFunction(env.goal_predicates,
-                                                     atom_dataset, candidates,
-                                                     train_tasks)
+        score_function = _ExpectedNodesScoreFunction(
+            env.goal_predicates, atom_dataset, candidates, train_tasks,
+            metric_name="num_nodes_created")
         all_included_s = score_function.evaluate({Holding, HandEmpty})
         none_included_s = score_function.evaluate(set())
         ub = CFG.grammar_search_expected_nodes_upper_bound
