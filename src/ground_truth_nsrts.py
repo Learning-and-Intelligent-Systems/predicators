@@ -17,7 +17,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
                  options: Set[ParameterizedOption]) -> Set[NSRT]:
     """Create ground truth NSRTs for an env."""
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_typed_options",
-                   "cover_multistep_options",
+                   "cover_nonrefinable", "cover_multistep_options",
                    "cover_multistep_options_fixed_tasks"):
         nsrts = _get_cover_gt_nsrts()
     elif CFG.env == "cluttered_table":
@@ -93,7 +93,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                                            "HandEmpty", "Holding"])
 
     # Options
-    if CFG.env in ("cover", "cover_hierarchical_types"):
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
         PickPlace, = _get_options_by_names(CFG.env, ["PickPlace"])
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
                      "cover_multistep_options_fixed_tasks"):
@@ -117,7 +117,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, holding_predicate_args)}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    if CFG.env in ("cover", "cover_hierarchical_types"):
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_multistep_options",
@@ -176,7 +176,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             elif CFG.env == "cover_typed_options":
                 lb = float(-state.get(b, "width") / 2)
                 ub = float(state.get(b, "width") / 2)
-            elif CFG.env in ("cover", "cover_hierarchical_types"):
+            elif CFG.env in ("cover", "cover_hierarchical_types",
+                             "cover_nonrefinable"):
                 lb = float(state.get(b, "pose") - state.get(b, "width") / 2)
                 lb = max(lb, 0.0)
                 ub = float(state.get(b, "pose") + state.get(b, "width") / 2)
@@ -187,7 +188,7 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                      delete_effects, set(), option, option_vars, pick_sampler)
     nsrts.add(pick_nsrt)
 
-    # Place
+    # Place (to Cover)
     parameters = [block, target]
     holding_predicate_args = [block]
     if CFG.env in ("cover_multistep_options",
@@ -204,8 +205,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Covers, [block, target])
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
+    if CFG.env == "cover_nonrefinable":
+        Clear, = _get_predicates_by_names("cover_nonrefinable", ["Clear"])
+        preconditions.add(LiftedAtom(Clear, [target]))
+        delete_effects.add(LiftedAtom(Clear, [target]))
 
-    if CFG.env in ("cover", "cover_hierarchical_types"):
+    if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
         option = PickPlace
         option_vars = []
     elif CFG.env in ("cover_typed_options", "cover_multistep_options",
@@ -281,6 +286,34 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                       parameters, preconditions, add_effects, delete_effects,
                       set(), option, option_vars, place_sampler)
     nsrts.add(place_nsrt)
+
+    # Place (not on any target)
+    if CFG.env == "cover_nonrefinable":
+        parameters = [block]
+        preconditions = {
+            LiftedAtom(IsBlock, [block]),
+            LiftedAtom(Holding, [block])
+        }
+        add_effects = {
+            LiftedAtom(HandEmpty, []),
+        }
+        delete_effects = {LiftedAtom(Holding, [block])}
+        option = PickPlace
+        option_vars = []
+
+        def place_on_table_sampler(state: State, rng: np.random.Generator,
+                                   objs: Sequence[Object]) -> Array:
+            del state  # unused
+            assert len(objs) == 1
+            lb = 0.0
+            ub = 1.0
+            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+
+        place_on_table_nsrt = NSRT("PlaceOnTable", parameters,
+                                   preconditions, add_effects, delete_effects,
+                                   set(), option, option_vars,
+                                   place_on_table_sampler)
+        nsrts.add(place_on_table_nsrt)
 
     return nsrts
 
