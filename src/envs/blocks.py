@@ -32,7 +32,7 @@ class BlocksEnv(BaseEnv):
     open_fingers = 0.8
     pick_tol = 0.08
     assert pick_tol < block_size
-    lift_amt = 1.5
+    pick_z = 1.5
     num_blocks_train = [3, 4]
     num_blocks_test = [5, 6]
 
@@ -108,7 +108,7 @@ class BlocksEnv(BaseEnv):
         # Execute pick
         next_state.set(block, "pose_x", x)
         next_state.set(block, "pose_y", y)
-        next_state.set(block, "pose_z", z + self.lift_amt)
+        next_state.set(block, "pose_z", self.pick_z)
         next_state.set(block, "held", 1.0)
         next_state.set(self._robot, "fingers", fingers)
         return next_state
