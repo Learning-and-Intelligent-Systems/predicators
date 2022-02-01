@@ -70,6 +70,7 @@ class GlobalSettings:
     max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
     max_samples_per_step = 10  # max effort on sampling a single skeleton
     task_planning_heuristic = "lmcut"
+    sesame_allow_noops = True  # recommended to keep this False if using replays
 
     # evaluation parameters
     results_dir = "results"
