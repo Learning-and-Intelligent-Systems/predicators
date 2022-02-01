@@ -397,9 +397,8 @@ class CoverEnvNonrefinable(CoverEnv):
     """A cover environment that is not always downward refinable, because the
     initial holding grasps sometimes require placing and regrasps.
 
-    This environment also has a Clear predicate, to prevent placing on
-    already covered targets, and two different oracle nsrts for placing,
-    one for placing a target and one for placing on the table.
+    This environment also has two different oracle nsrts for placing, one for
+    placing a target and one for placing on the table.
 
     Finally, to allow placing on the table, we need to change the allowed
     hand regions. We implement it so that there is a relatively small hand
@@ -407,17 +406,6 @@ class CoverEnvNonrefinable(CoverEnv):
     """
     _allow_free_space_placing = True
     _initial_pick_offsets = [-0.95, 0.0, 0.95]
-
-    def __init__(self) -> None:
-        super().__init__()
-        # Add a Clear predicate to prevent attempts at placing on already
-        # covered targets.
-        self._Clear = Predicate("Clear", [self._target_type],
-                                self._Clear_holds)
-
-    @property
-    def predicates(self) -> Set[Predicate]:
-        return super().predicates | {self._Clear}
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
@@ -432,16 +420,6 @@ class CoverEnvNonrefinable(CoverEnv):
             left_bound = targ_right + w
         hand_regions.append((left_bound, 1.0))
         return hand_regions
-
-    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        assert len(objects) == 1
-        target = objects[0]
-        for b in state:
-            if b.type != self._block_type:
-                continue
-            if self._Covers_holds(state, [b, target]):
-                return False
-        return True
 
 
 class CoverMultistepOptions(CoverEnvTypedOptions):

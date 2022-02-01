@@ -3,7 +3,8 @@
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverMultistepOptions, CoverMultistepOptionsFixedTasks
+    CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
+    CoverEnvNonrefinable
 from predicators.src.structs import State, Action
 from predicators.src import utils
 
@@ -177,6 +178,27 @@ def test_cover_typed_options():
                                       max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
+
+
+def test_cover_nonrefinable():
+    """Tests for CoverEnvNonrefinable class."""
+    utils.reset_config({"env": "cover_nonrefinable"})
+    env = CoverEnvNonrefinable()
+    env.seed(123)
+    for task in env.get_train_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    for task in env.get_test_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
+    assert len(env.predicates) == 5
+    # Options should be {PickPlace}.
+    assert len(env.options) == 1
+    # Types should be {block, target, robot}
+    assert len(env.types) == 3
+    # Action space should be 1-dimensional.
+    assert env.action_space == Box(0, 1, (1, ))
 
 
 def test_cover_multistep_options():

@@ -205,10 +205,6 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Covers, [block, target])
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
-    if CFG.env == "cover_nonrefinable":
-        Clear, = _get_predicates_by_names("cover_nonrefinable", ["Clear"])
-        preconditions.add(LiftedAtom(Clear, [target]))
-        delete_effects.add(LiftedAtom(Clear, [target]))
 
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_nonrefinable"):
         option = PickPlace
