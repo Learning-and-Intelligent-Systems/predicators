@@ -579,7 +579,8 @@ def _create_score_function(
         assert created_or_expanded in ("created", "expanded")
         metric_name = f"num_nodes_{created_or_expanded}"
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
-                                           candidates, train_tasks, metric_name)
+                                           candidates, train_tasks,
+                                           metric_name)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
