@@ -8,7 +8,7 @@ from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
     BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvNonrefinable
+    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvRegrasp
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src import utils
 
@@ -91,7 +91,7 @@ def test_check_nsrt_parameters():
         "cover": CoverEnv(),
         "cover_typed_options": CoverEnvTypedOptions(),
         "cover_hierarchical_types": CoverEnvHierarchicalTypes(),
-        "cover_nonrefinable": CoverEnvNonrefinable(),
+        "cover_regrasp": CoverEnvRegrasp(),
         "cluttered_table": ClutteredTableEnv(),
         "blocks": BlocksEnv(),
         "painting": PaintingEnv(),
@@ -192,14 +192,14 @@ def test_oracle_approach_cover_hierarchical_types():
                                             env.simulate)
 
 
-def test_oracle_approach_cover_nonrefinable():
-    """Tests for OracleApproach class with CoverEnvNonrefinable."""
+def test_oracle_approach_cover_regrasp():
+    """Tests for OracleApproach class with CoverEnvRegrasp."""
     utils.reset_config({
-        "env": "cover_nonrefinable",
+        "env": "cover_regrasp",
         "num_train_tasks": 5,
         "num_test_tasks": 5
     })
-    env = CoverEnvNonrefinable()
+    env = CoverEnvRegrasp()
     env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,

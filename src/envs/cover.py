@@ -19,7 +19,7 @@ class CoverEnv(BaseEnv):
     """Toy cover domain."""
 
     _allow_free_space_placing = False
-    _initial_pick_offsets: List[float] = []  # see CoverEnvNonrefinable
+    _initial_pick_offsets: List[float] = []  # see CoverEnvRegrasp
 
     def __init__(self) -> None:
         super().__init__()
@@ -267,7 +267,7 @@ class CoverEnv(BaseEnv):
             pick_pose = state.get(block, "pose")
             if self._initial_pick_offsets:
                 offset = rng.choice(self._initial_pick_offsets)
-                assert -1.0 <= offset <= 1.0, \
+                assert -1.0 < offset < 1.0, \
                     "initial pick offset should be between -1 and 1"
                 pick_pose += state.get(block, "width") * offset / 2.
             action = Action(np.array([pick_pose], dtype=np.float32))
@@ -393,11 +393,12 @@ class CoverEnvHierarchicalTypes(CoverEnv):
         }
 
 
-class CoverEnvNonrefinable(CoverEnv):
+class CoverEnvRegrasp(CoverEnv):
     """A cover environment that is not always downward refinable, because the
-    initial holding grasps sometimes require placing and regrasps.
+    grasp on the initially held object sometimes requires placing and
+    regrasping.
 
-    This environment also has two different oracle nsrts for placing, one for
+    This environment also has two different oracle NSRTs for placing, one for
     placing a target and one for placing on the table.
 
     Finally, to allow placing on the table, we need to change the allowed
