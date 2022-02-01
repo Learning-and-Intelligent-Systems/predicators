@@ -33,8 +33,12 @@ class TAMPApproach(BaseApproach):
         seed = self._seed + self._num_calls
         nsrts = self._get_current_nsrts()
         preds = self._get_current_predicates()
-        plan, metrics = sesame_plan(task, self._option_model,
-                                    nsrts, preds, timeout, seed,
+        plan, metrics = sesame_plan(task,
+                                    self._option_model,
+                                    nsrts,
+                                    preds,
+                                    timeout,
+                                    seed,
                                     allow_noops=CFG.sesame_allow_noops)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
