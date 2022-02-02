@@ -309,12 +309,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 print("Solving for policy...")
                 policy = self.solve(task, timeout=CFG.timeout)
                 return task, policy
-            except (ApproachTimeout, ApproachFailure) \
-                    as e:  # pragma: no cover
+            except (ApproachTimeout, ApproachFailure) as e:
                 print(f"Approach failed to solve with error: {e}")
                 continue
         raise ApproachFailure("Failed to sample a task that approach "
-                              "can solve.")  # pragma: no cover
+                              "can solve.")
 
     def _score_atom_set_frequency(self, atom_set: Set[GroundAtom]) -> float:
         """Score an atom set as inversely proportional to the number of
