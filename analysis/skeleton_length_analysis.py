@@ -170,7 +170,7 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
 
     ax.set_title(f"{env_name.capitalize()}: Skeleton Length Errors")
     ax.set_xlabel("Num Non-Goal Predicates Included")
-    ax.set_ylabel("Min Skeleton Length Error")
+    ax.set_ylabel("Skeleton Index")
     fig.tight_layout()
     plt.savefig(outfile)
     print(f"Wrote out to {outfile}.")
@@ -190,7 +190,7 @@ def _create_plot(env_results: NDArray[np.int32], env_name: str,
     ax.set_xticks(np.arange(num_predicate_sets))
     ax.set_title(f"{env_name.capitalize()}: Min Skeleton Length Errors")
     ax.set_xlabel("Num Non-Goal Predicates Included")
-    ax.set_ylabel("Skeleton Index")
+    ax.set_ylabel("Min Skeleton Length Error")
     fig.tight_layout()
     plt.savefig(outfile)
     print(f"Wrote out to {outfile}.")
