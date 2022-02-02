@@ -154,7 +154,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
     # If None, defaults to CFG.max_skeletons_optimized.
-    grammar_search_max_skeletons_optimized = None
+    grammar_search_expected_nodes_max_skeletons = None
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

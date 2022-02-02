@@ -735,8 +735,12 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 objects)
             try:
                 _, _, metrics = next(
-                    task_plan(init_atoms, traj_goal, ground_nsrts,
-                              reachable_atoms, heuristic, CFG.seed,
+                    task_plan(init_atoms,
+                              traj_goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              CFG.seed,
                               CFG.grammar_search_task_planning_timeout,
                               max_skeletons_optimized=1))
                 node_expansions = metrics["num_nodes_expanded"]
@@ -810,10 +814,10 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
             refinable_skeleton_not_found_prob = 1.0
-            if CFG.grammar_search_max_skeletons_optimized is None:
+            if CFG.grammar_search_expected_nodes_max_skeletons is None:
                 max_skeletons = CFG.max_skeletons_optimized
             else:
-                max_skeletons = CFG.grammar_search_max_skeletons_optimized
+                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             generator = task_plan(init_atoms, goal, ground_nsrts,
                                   reachable_atoms, heuristic, CFG.seed,
                                   CFG.grammar_search_task_planning_timeout,
@@ -1220,8 +1224,12 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = next(
-                    task_plan(atoms, goal, ground_nsrts, reachable_atoms,
-                              heuristic, CFG.seed,
+                    task_plan(atoms,
+                              goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              CFG.seed,
                               CFG.grammar_search_task_planning_timeout,
                               max_skeletons_optimized=1))
             except (ApproachFailure, ApproachTimeout):
