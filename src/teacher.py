@@ -2,18 +2,14 @@
 information to assist an agent during online learning."""
 
 from __future__ import annotations
-from predicators.src.structs import State, Task, Query, Response,\
-    GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery,\
-        DemonstrationResponse
+from predicators.src.structs import State, Task, Query, Response, \
+    GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
+    DemonstrationResponse
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import create_env
 from predicators.src.approaches import ApproachTimeout, ApproachFailure
 from predicators.src.approaches import create_approach
 from predicators.src import utils
-
-################################################################################
-#                                Core classes                                  #
-################################################################################
 
 
 class Teacher:

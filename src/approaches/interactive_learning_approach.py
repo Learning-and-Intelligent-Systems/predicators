@@ -9,8 +9,8 @@ from predicators.src.approaches import NSRTLearningApproach, \
     ApproachTimeout, ApproachFailure, RandomOptionsApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
-        InteractionResult, Action, GroundAtomsHoldQuery,\
-            GroundAtomsHoldResponse, Query
+    InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
+    Query
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.settings import CFG
