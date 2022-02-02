@@ -59,6 +59,27 @@ def test_interactive_learning_approach():
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
+    # Test interactive_action_strategy random.
+    utils.update_config({
+        "interactive_action_strategy": "random",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env.simulate, teacher, train_tasks,
+                                  interaction_requests)
+    # Test that glib falls back to random if no solvable task can be found.
+    utils.update_config({
+        "interactive_action_strategy": "glib",
+        "timeout": 0.0,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env.simulate, teacher, train_tasks,
+                                  interaction_requests)
+    # Test that glib also falls back when there are no non-static predicates.
+    approach2 = InteractiveLearningApproach(initial_predicates, env.options,
+                                            env.types, env.action_space,
+                                            train_tasks)
+    approach2.learn_from_offline_dataset(Dataset([]))
+    approach2.get_interaction_requests()
     # Test with a query policy that always queries about every atom.
     utils.update_config({
         "interactive_query_policy": "nonstrict_best_seen",
@@ -72,6 +93,7 @@ def test_interactive_learning_approach():
         "interactive_action_strategy": "not a real action strategy",
         "interactive_query_policy": "strict_best_seen",
         "interactive_score_function": "frequency",
+        "timeout": 10.0,
     })
     with pytest.raises(NotImplementedError) as e:
         approach.get_interaction_requests()
