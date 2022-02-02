@@ -18,7 +18,7 @@ from predicators.src.nsrt_learning import segment_trajectory, \
 
 ENV_NAMES = ["cover", "blocks", "painting"]
 
-SEEDS = [0]  #list(range(10))
+SEEDS = list(range(10))
 
 
 def _run_analysis_for_env(env_name: str,
@@ -147,8 +147,8 @@ def _compute_skeleton_length_errors(
     return errors_arr
 
 
-def _create_plot(env_results: NDArray[np.int32], env_name: str,
-                 outfile: str) -> None:
+def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
+                    outfile: str) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
     # Reorganize into heatmap array of shape (predicate set, skeleton idx)
     # by averaging out seed and task.
@@ -170,6 +170,26 @@ def _create_plot(env_results: NDArray[np.int32], env_name: str,
 
     ax.set_title(f"{env_name.capitalize()}: Skeleton Length Errors")
     ax.set_xlabel("Num Non-Goal Predicates Included")
+    ax.set_ylabel("Min Skeleton Length Error")
+    fig.tight_layout()
+    plt.savefig(outfile)
+    print(f"Wrote out to {outfile}.")
+
+
+def _create_plot(env_results: NDArray[np.int32], env_name: str,
+                 outfile: str) -> None:
+    # Env results shape is (seed, predicate set, task, skeleton idx).
+    # Reorganize into array of shape (predicate set,) by minning over skeleton
+    # idx and averaging out seed and task.
+    arr = np.mean(np.min(env_results, axis=3), axis=(0, 2))  # type: ignore
+    num_predicate_sets, = arr.shape
+
+    fig, ax = plt.subplots()
+    ax.plot(np.arange(num_predicate_sets), arr)
+
+    ax.set_xticks(np.arange(num_predicate_sets))
+    ax.set_title(f"{env_name.capitalize()}: Min Skeleton Length Errors")
+    ax.set_xlabel("Num Non-Goal Predicates Included")
     ax.set_ylabel("Skeleton Index")
     fig.tight_layout()
     plt.savefig(outfile)
@@ -183,7 +203,10 @@ def _main() -> None:
             seed_results = _run_analysis_for_env(env_name, seed)
             env_results.append(seed_results)
         env_results_arr = np.array(env_results, dtype=np.int32)
-        outfile = os.path.join("results", f"skeleton_len_{env_name}.png")
+        # outfile = os.path.join("results",
+        #                        f"skeleton_len_heatmap_{env_name}.png")
+        # _create_heatmap(env_results_arr, env_name, outfile)
+        outfile = os.path.join("results", f"skeleton_len_plot_{env_name}.png")
         _create_plot(env_results_arr, env_name, outfile)
 
 
