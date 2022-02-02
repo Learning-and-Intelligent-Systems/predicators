@@ -211,8 +211,7 @@ def _skeleton_generator(
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
     while queue and (time.time() - start_time < timeout):
-        if (int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized
-            ):
+        if int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized:
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
