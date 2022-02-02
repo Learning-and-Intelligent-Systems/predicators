@@ -94,8 +94,8 @@ def _run_analysis_for_env(env_name: str,
 
 
 def _score_result(result: NDArray[np.int32]) -> float:
-    """Currently using average over skeletons and demos."""
-    return result.mean()
+    """Min over skeleton idx and mean over train tasks."""
+    return result.min(axis=1).mean()
 
 
 def _compute_skeleton_length_errors(
@@ -203,9 +203,9 @@ def _main() -> None:
             seed_results = _run_analysis_for_env(env_name, seed)
             env_results.append(seed_results)
         env_results_arr = np.array(env_results, dtype=np.int32)
-        # outfile = os.path.join("results",
-        #                        f"skeleton_len_heatmap_{env_name}.png")
-        # _create_heatmap(env_results_arr, env_name, outfile)
+        outfile = os.path.join("results",
+                               f"skeleton_len_heatmap_{env_name}.png")
+        _create_heatmap(env_results_arr, env_name, outfile)
         outfile = os.path.join("results", f"skeleton_len_plot_{env_name}.png")
         _create_plot(env_results_arr, env_name, outfile)
 
