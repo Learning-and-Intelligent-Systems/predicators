@@ -763,8 +763,6 @@ def test_expected_nodes_score_function():
         "cover",
         "grammar_search_max_demos":
         max_num_demos,
-        "task_planning_heuristic":
-        "lmcut",
         "cover_initial_holding_prob":
         0.0,
         "grammar_search_expected_nodes_include_suspicious_score":
@@ -805,3 +803,30 @@ def test_expected_nodes_score_function():
         })
         all_included_s = score_function.evaluate({Holding, HandEmpty})
         assert all_included_s >= ub * min(num_train_tasks, max_num_demos)
+    # Test case where max skeletons is specified separately. With a lower
+    # max skeletons, the score should increase slightly.
+    # First, get a baseline score to compare against.
+    utils.update_config({
+        "num_train_tasks": 5,
+        "max_skeletons_optimized": 8,
+        "grammar_search_max_skeletons_optimized": None,
+        "offline_data_method": "demo",
+        "min_data_for_nsrt": 0,
+    })
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.goal_predicates | set(candidates))
+    score_function = _ExpectedNodesScoreFunction(
+        env.goal_predicates,
+        atom_dataset,
+        candidates,
+        train_tasks,
+        metric_name="num_nodes_created")
+    more_skeletons_score = score_function.evaluate({Holding, HandEmpty})
+    # Repeat but with max skeletons 1.
+    utils.update_config({
+        "grammar_search_max_skeletons_optimized": 1,
+    })
+    one_skeleton_score = score_function.evaluate({Holding, HandEmpty})
+    assert one_skeleton_score > more_skeletons_score
