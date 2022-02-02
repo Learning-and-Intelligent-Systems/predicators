@@ -212,6 +212,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         preds = self._predicates_to_learn - static_preds
         # Sample possible goals to plan toward.
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
+        # If there are no possible goals, fall back to random immediately.
+        if not ground_atom_universe:
+            return self._create_random_interaction_strategy(train_task_idx)
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
             num_samples=CFG.interactive_num_babbles,
