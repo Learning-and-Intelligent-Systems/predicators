@@ -1778,6 +1778,7 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("") == ""
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
+    assert utils.string_to_python_object("None") is None
 
 
 def test_create_video_from_partial_refinements():
