@@ -218,6 +218,9 @@ def create_navigate_policy(
                     env.action_space.shape)
                 plan.pop(0)
 
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, False
 
         if (len(plan) == 1
@@ -533,6 +536,9 @@ def create_grasp_policy(
                     ))
                     plan.pop(0)
 
+                # Ensure that the action is clipped to stay within the expected
+                # range
+                low_level_action = np.clip(low_level_action, -1.0, 1.0)
                 return low_level_action, False
 
             if len(plan) <= 1:  # In this case, we're at the final position
@@ -554,6 +560,9 @@ def create_grasp_policy(
                     plan_executed_forwards = True
 
             plan.pop(0)
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, done_bit
 
         if (plan_executed_forwards and not tried_closing_gripper):
@@ -563,6 +572,9 @@ def create_grasp_policy(
             low_level_action[16] = 1.0
             tried_closing_gripper = True
             plan = reversed_plan
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, False
 
         expected_pos = np.array(plan[0][0:3])
@@ -600,6 +612,9 @@ def create_grasp_policy(
                 ))
                 plan.pop(0)
 
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
@@ -1084,6 +1099,9 @@ def create_place_policy(
                     ))
                     plan.pop(0)
 
+                # Ensure that the action is clipped to stay within the expected
+                # range
+                low_level_action = np.clip(low_level_action, -1.0, 1.0)
                 return low_level_action, False
 
             if len(plan) <= 1:  # In this case, we're at the final position
@@ -1106,6 +1124,9 @@ def create_place_policy(
                     plan_executed_forwards = True
 
             plan.pop(0)
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, done_bit
 
         if (plan_executed_forwards and not tried_opening_gripper):
@@ -1115,6 +1136,9 @@ def create_place_policy(
             low_level_action[16] = -1.0
             tried_opening_gripper = True
             plan = reversed_plan
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, False
 
         expected_pos = np.array(plan[0][0:3])
@@ -1151,7 +1175,9 @@ def create_place_policy(
                     np.array(plan[1][3:]),
                 ))
                 plan.pop(0)
-
+            # Ensure that the action is clipped to stay within the expected
+            # range
+            low_level_action = np.clip(low_level_action, -1.0, 1.0)
             return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
