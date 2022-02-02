@@ -55,6 +55,13 @@ def test_interactive_learning_approach():
             pass
         # We won't check the policy here because we don't want unit tests to
         # have to train very good models, since that would be slow.
+    # Test interactive_action_strategy random.
+    utils.update_config({
+        "interactive_action_strategy": "random",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env.simulate, teacher, train_tasks,
+                                  interaction_requests)
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",
