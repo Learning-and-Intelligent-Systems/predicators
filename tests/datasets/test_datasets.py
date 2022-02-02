@@ -221,3 +221,15 @@ def test_ground_atom_dataset():
     for name in ["Holding", "Covers"]:
         ratio = pred_name_to_labels[name] / pred_name_to_total[name]
         assert abs(target_ratio - ratio) < 0.05
+
+
+def test_empty_dataset():
+    """Test creation of empty dataset."""
+    utils.reset_config({
+        "env": "cover",
+        "offline_data_method": "empty",
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks)
+    assert len(dataset.trajectories) == 0
