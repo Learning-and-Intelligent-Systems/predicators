@@ -44,9 +44,9 @@ from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, State, Action, \
-    InteractionRequest, InteractionResult
+    InteractionRequest, InteractionResult, Response
 from predicators.src import utils
-from predicators.src.teacher import Teacher, Response
+from predicators.src.teacher import Teacher
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
