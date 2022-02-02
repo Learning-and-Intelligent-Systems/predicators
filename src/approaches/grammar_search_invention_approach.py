@@ -255,6 +255,10 @@ _DEBUG_PREDICATE_PREFIXES = {
         "NOT-((0:block).grasp<=[idx 0]",  # Holding
         "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
     ],
+    "cover_regrasp": [
+        "NOT-((0:block).grasp<=[idx 0]",  # Holding
+        "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+    ],
     "blocks": [
         "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
@@ -731,9 +735,14 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 objects)
             try:
                 _, _, metrics = next(
-                    task_plan(init_atoms, traj_goal, ground_nsrts,
-                              reachable_atoms, heuristic, CFG.seed,
-                              CFG.grammar_search_task_planning_timeout))
+                    task_plan(init_atoms,
+                              traj_goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              CFG.seed,
+                              CFG.grammar_search_task_planning_timeout,
+                              max_skeletons_optimized=1))
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -805,9 +814,14 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
             refinable_skeleton_not_found_prob = 1.0
+            if CFG.grammar_search_expected_nodes_max_skeletons is None:
+                max_skeletons = CFG.max_skeletons_optimized
+            else:
+                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             generator = task_plan(init_atoms, goal, ground_nsrts,
                                   reachable_atoms, heuristic, CFG.seed,
-                                  CFG.grammar_search_task_planning_timeout)
+                                  CFG.grammar_search_task_planning_timeout,
+                                  max_skeletons)
             try:
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):
@@ -1210,9 +1224,14 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = next(
-                    task_plan(atoms, goal, ground_nsrts, reachable_atoms,
-                              heuristic, CFG.seed,
-                              CFG.grammar_search_task_planning_timeout))
+                    task_plan(atoms,
+                              goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              CFG.seed,
+                              CFG.grammar_search_task_planning_timeout,
+                              max_skeletons_optimized=1))
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
