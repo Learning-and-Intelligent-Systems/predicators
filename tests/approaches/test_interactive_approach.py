@@ -74,6 +74,12 @@ def test_interactive_learning_approach():
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env.simulate, teacher, train_tasks,
                                   interaction_requests)
+    # Test that glib also falls back when there are no non-static predicates.
+    approach = InteractiveLearningApproach(initial_predicates, env.options,
+                                           env.types, env.action_space,
+                                           train_tasks)
+    approach.learn_from_offline_dataset(Dataset([]))
+    approach.get_interaction_requests()
     # Test with a query policy that always queries about every atom.
     utils.update_config({
         "interactive_query_policy": "nonstrict_best_seen",
