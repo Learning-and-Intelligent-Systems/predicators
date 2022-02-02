@@ -221,7 +221,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                            key=self._score_atom_set_frequency,
                            reverse=True)  # largest to smallest
         task_list = [Task(init, goal) for goal in goal_list]
-        task, act_policy = self._find_first_solvable(task_list)
+        try:
+            task, act_policy = self._find_first_solvable(task_list)
+        except ApproachFailure:
+            # Fall back to a random exploration strategy if no solvable task
+            # can be found.
+            return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
 
         def _termination_function(s: State) -> bool:

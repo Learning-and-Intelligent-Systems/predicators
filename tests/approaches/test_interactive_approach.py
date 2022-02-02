@@ -62,11 +62,20 @@ def test_interactive_learning_approach():
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env.simulate, teacher, train_tasks,
                                   interaction_requests)
+    # Test that glib falls back to random if no solvable task can be found.
+    utils.update_config({
+        "interactive_action_strategy": "glib",
+        "timeout": 0.0,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env.simulate, teacher, train_tasks,
+                                  interaction_requests)
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",
         "interactive_query_policy": "strict_best_seen",
         "interactive_score_function": "frequency",
+        "timeout": 10.0,
     })
     with pytest.raises(NotImplementedError) as e:
         approach.get_interaction_requests()
