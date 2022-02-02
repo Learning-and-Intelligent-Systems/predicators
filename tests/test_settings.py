@@ -19,4 +19,6 @@ def test_get_allowed_query_type_names():
         "option_learner": "no_learning",
         "approach": "unittest"
     })
-    assert {"GroundAtomsHoldQuery", "DemonstrationQuery"}
+    assert get_allowed_query_type_names() == {
+        "GroundAtomsHoldQuery", "DemonstrationQuery"
+    }
