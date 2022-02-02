@@ -5,11 +5,15 @@ NUM_SEEDS=10
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
-    COMMON_ARGS="--seed $SEED --grammar_search_max_skeletons_optimized 1"
+    COMMON_ARGS="--seed $SEED --grammar_search_expected_nodes_max_skeletons_optimized 1"
 
     # cover_regrasp
     python $FILE --experiment_id cover_regrasp_invent_noexclude --env cover_regrasp --approach grammar_search_invention $COMMON_ARGS
     python $FILE --experiment_id cover_regrasp_invent_allexclude --env cover_regrasp --approach grammar_search_invention --excluded_predicates all $COMMON_ARGS
+
+    # cover_regrasp with original grammar_search_expected_nodes_max_skeletons_optimized (COMMON_ARGS excluded!)
+    python $FILE --experiment_id cover_regrasp_invent_noexclude_multiskeleton --env cover_regrasp --approach grammar_search_invention --seed $SEED
+    python $FILE --experiment_id cover_regrasp_invent_allexclude_multiskeleton --env cover_regrasp --approach grammar_search_invention --excluded_predicates all --seed $SEED
 
     # cover
     python $FILE --experiment_id cover_invent_noexclude --env cover --approach grammar_search_invention $COMMON_ARGS
