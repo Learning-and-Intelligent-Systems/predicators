@@ -206,8 +206,12 @@ class GlobalSettings:
 def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
-    if CFG.approach in ("interactive_learning", "unittest"):
+    if CFG.option_learner == "neural":
+        return {"DemonstrationQuery"}
+    if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "unittest":
+        return {"GroundAtomsHoldQuery", "DemonstrationQuery"}
     return set()
 
 
