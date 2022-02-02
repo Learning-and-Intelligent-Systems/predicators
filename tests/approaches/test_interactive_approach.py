@@ -67,6 +67,11 @@ def test_interactive_learning_approach():
         "interactive_action_strategy": "glib",
         "timeout": 0.0,
     })
+    # Test with a query policy that always queries about every atom.
+    utils.update_config({
+        "interactive_query_policy": "nonstrict_best_seen",
+        "interactive_score_function": "trivial",
+    })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env.simulate, teacher, train_tasks,
                                   interaction_requests)
