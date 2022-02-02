@@ -26,7 +26,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         # Track score of best atom seen so far.
-        self._best_score = 0.0
+        self._best_score = -np.inf
         # Initialize things that will be set correctly in offline learning.
         self._dataset = Dataset([], [])
         self._predicates_to_learn: Set[Predicate] = set()
@@ -163,6 +163,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         del state  # not currently used, but will be by future score functions
         if CFG.interactive_score_function == "frequency":
             return self._score_atom_set_frequency(atom_set)
+        if CFG.interactive_score_function == "trivial":
+            return 0.0  # always return the same score
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
@@ -188,7 +190,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Returns a query policy."""
         del train_task_idx  # unused right now, but future policies may use
         if CFG.interactive_query_policy == "strict_best_seen":
-            return self._create_best_seen_query_policy()
+            return self._create_best_seen_query_policy(strict=True)
+        if CFG.interactive_query_policy == "nonstrict_best_seen":
+            return self._create_best_seen_query_policy(strict=False)
         raise NotImplementedError("Unrecognized interactive_query_policy:"
                                   f" {CFG.interactive_query_policy}")
 
@@ -229,7 +233,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         return act_policy, _termination_function
 
     def _create_best_seen_query_policy(
-            self) -> Callable[[State], Optional[Query]]:
+            self, strict: bool) -> Callable[[State], Optional[Query]]:
         """Only query if the atom has the best score seen so far."""
 
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
@@ -240,7 +244,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             for atom in ground_atoms:
                 score = self._score_atom_set({atom}, s)
                 # Ask about this atom if it is the best seen so far.
-                if score > self._best_score:
+                if (strict and score > self._best_score) or \
+                   (not strict and score >= self._best_score):
                     atoms_to_query.add(atom)
                     self._best_score = score
             return GroundAtomsHoldQuery(atoms_to_query)
