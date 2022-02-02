@@ -809,7 +809,7 @@ def test_expected_nodes_score_function():
     utils.update_config({
         "num_train_tasks": 5,
         "max_skeletons_optimized": 8,
-        "grammar_search_max_skeletons_optimized": None,
+        "grammar_search_expected_nodes_max_skeletons": None,
         "offline_data_method": "demo",
         "min_data_for_nsrt": 0,
     })
@@ -826,7 +826,7 @@ def test_expected_nodes_score_function():
     more_skeletons_score = score_function.evaluate({Holding, HandEmpty})
     # Repeat but with max skeletons 1.
     utils.update_config({
-        "grammar_search_max_skeletons_optimized": 1,
+        "grammar_search_expected_nodes_max_skeletons": 1,
     })
     one_skeleton_score = score_function.evaluate({Holding, HandEmpty})
     assert one_skeleton_score > more_skeletons_score
