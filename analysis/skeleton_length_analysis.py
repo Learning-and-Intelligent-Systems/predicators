@@ -179,9 +179,11 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
 def _create_plot(env_results: NDArray[np.int32], env_name: str,
                  outfile: str) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
-    # Reorganize into array of shape (predicate set,) by minning over skeleton
-    # idx and averaging out seed and task.
-    arr = np.mean(np.min(env_results, axis=3), axis=(0, 2))  # type: ignore
+    # Reorganize into array of shape (predicate set,) by taking a min over
+    # skeleton idx and averaging out seed and task.
+    arr = np.mean([[_score_result(r) for r in seed_rs]
+                   for seed_rs in env_results],
+                  axis=0)
     num_predicate_sets, = arr.shape
 
     fig, ax = plt.subplots()
