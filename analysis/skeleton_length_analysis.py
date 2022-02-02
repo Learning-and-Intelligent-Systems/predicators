@@ -16,7 +16,7 @@ from predicators.src.structs import Dataset, Task, Predicate
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 
-ENV_NAMES = ["cover", "blocks", "painting"]
+ENV_NAMES = ["cover", "cover_regrasp", "blocks", "painting"]
 
 SEEDS = list(range(10))
 
@@ -163,7 +163,7 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
         for j in range(num_predicate_sets):
             ax.text(j,
                     i,
-                    heatmap_arr[j, i],
+                    f"{heatmap_arr[j, i]:.2f}",
                     ha="center",
                     va="center",
                     color="w")
