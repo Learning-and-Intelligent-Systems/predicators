@@ -1357,6 +1357,8 @@ def parse_args(env_required: bool = True,
 
 def string_to_python_object(value: str) -> Any:
     """Return the Python object corresponding to the given string value."""
+    if value == "None":
+        return None
     if value == "True":
         return True
     if value == "False":
