@@ -1123,7 +1123,7 @@ class GroundAtomsHoldResponse(Response):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class DemonstrationQuery(Query):
-    """A query requesting demonstration to get from a certain state to a
+    """A query requesting a demonstration to get from a certain state to a
     goal."""
     goal: Set[GroundAtom]
 
@@ -1131,7 +1131,7 @@ class DemonstrationQuery(Query):
 @dataclass(frozen=True, eq=False, repr=False)
 class DemonstrationResponse(Response):
     """A response to a DemonstrationQuery; provides a LowLevelTrajectory if one
-    exists, otherwise returns None."""
+    can be found by the teacher, otherwise returns None."""
     teacher_traj: Optional[LowLevelTrajectory]
 
 

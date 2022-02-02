@@ -2,10 +2,11 @@
 
 from predicators.src.envs import create_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
-from predicators.src.structs import GroundAtom, LowLevelTrajectory
 from predicators.src import utils
-from predicators.src.teacher import DemonstrationQuery, DemonstrationResponse,\
-    Teacher, GroundAtomsHoldQuery, GroundAtomsHoldResponse
+from predicators.src.teacher import Teacher
+from predicators.src.structs import DemonstrationQuery, DemonstrationResponse,\
+    GroundAtomsHoldQuery, GroundAtomsHoldResponse, GroundAtom,\
+        LowLevelTrajectory
 
 
 def test_GroundAtomsHold():
@@ -66,12 +67,7 @@ def test_DemonstrationQuery():
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
     print(len(response.teacher_traj.actions))
     assert len(response.teacher_traj.actions) == 2
-    # (leverage GroundAtomsHoldQuery to test if the teacher_traj
-    # successfully achieves the goal)
-    goal_query = GroundAtomsHoldQuery(goal)
-    goal_holds_response = teacher.answer_query(
-        response.teacher_traj.states[-1], goal_query)
-    assert False not in goal_holds_response.holds.items()
+    assert all(atom.holds(response.teacher_traj.states[-1]) for atom in goal)
     # Test usage when goal is already achieved
     response = teacher.answer_query(response.teacher_traj.states[-1], query)
     assert isinstance(response, DemonstrationResponse)
