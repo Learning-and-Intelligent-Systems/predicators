@@ -209,7 +209,8 @@ def create_navigate_policy(
 
             # But if the corrective action is 0, take the next action
             if np.allclose(low_level_action,
-                           np.zeros((env.action_space.shape[0], 1)),
+                           np.zeros((env.action_space.shape[0], 1),
+                                    dtype=np.float32),
                            atol=atol_vel):
                 low_level_action = get_delta_low_level_base_action(
                     env.robots[0].get_position()[2],
@@ -226,7 +227,8 @@ def create_navigate_policy(
         if (len(plan) == 1
             ):  # In this case, we're at the final position we wanted
             # to reach
-            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape,
+                                        dtype=np.float32)
             done_bit = True
             print("PRIMITIVE: navigation policy completed execution!")
 
@@ -264,7 +266,7 @@ def create_navigate_option_model(
         env.robots[0].set_position_orientation(target_pos, target_orn)
         # this is running a zero action to step simulator so
         # the environment updates to the correct final position
-        env.step(np.zeros(env.action_space.shape))
+        env.step(np.zeros(env.action_space.shape, dtype=np.float32))
 
     return navigateToOptionModel
 
@@ -524,7 +526,8 @@ def create_grasp_policy(
                 # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
+                        np.zeros((env.action_space.shape[0], 1),
+                                 dtype=np.float32),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -543,7 +546,7 @@ def create_grasp_policy(
 
             if len(plan) <= 1:  # In this case, we're at the final position
                 low_level_action = np.zeros(env.action_space.shape,
-                                            dtype=float)
+                                            dtype=np.float32)
                 done_bit = False
                 plan_executed_forwards = True
             else:
@@ -568,7 +571,8 @@ def create_grasp_policy(
         if (plan_executed_forwards and not tried_closing_gripper):
             # Close the gripper to see if you've gotten the
             # object
-            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape,
+                                        dtype=np.float32)
             low_level_action[16] = 1.0
             tried_closing_gripper = True
             plan = reversed_plan
@@ -600,7 +604,7 @@ def create_grasp_policy(
             # But if the corrective action is 0, take the next action
             if np.allclose(
                     low_level_action,
-                    np.zeros((env.action_space.shape, 1)),
+                    np.zeros((env.action_space.shape, 1), dtype=np.float32),
                     atol=atol_vel,
             ):
                 low_level_action = (get_delta_low_level_hand_action(
@@ -618,7 +622,8 @@ def create_grasp_policy(
             return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
-            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape,
+                                        dtype=np.float32)
             done_bit = True
             print("PRIMITIVE: grasp policy completed execution!")
 
@@ -699,7 +704,8 @@ def create_grasp_option_model(
                 # if the corrective action is 0, move on
                 if np.allclose(
                         low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
+                        np.zeros((env.action_space.shape[0], 1),
+                                 dtype=np.float32),
                         atol=atol_vel,
                 ):
                     low_level_action = get_delta_low_level_hand_action(
@@ -718,9 +724,9 @@ def create_grasp_option_model(
             ec_loop_counter += 1
 
         # 3. Close hand and simulate grasp
-        a = np.zeros(env.action_space.shape, dtype=float)
+        a = np.zeros(env.action_space.shape, dtype=np.float32)
         a[16] = 1.0
-        assisted_grasp_action = np.zeros(28, dtype=float)
+        assisted_grasp_action = np.zeros(28, dtype=np.float32)
         assisted_grasp_action[26] = 1.0
         if isinstance(obj_to_grasp.body_id, List):
             grasp_obj_body_id = obj_to_grasp.body_id[0]
@@ -743,7 +749,7 @@ def create_grasp_option_model(
             obj_to_grasp.force_wakeup()
         # Step a zero-action in the environment to update the visuals of the
         # environment.
-        env.step(np.zeros(env.action_space.shape))
+        env.step(np.zeros(env.action_space.shape, dtype=np.float32))
 
     return graspObjectOptionModel
 
@@ -851,9 +857,9 @@ def grasp_obj_at_pos(
         euler_angles = r.as_euler("xyz")
     else:
         if c_var == 1.0:
-            euler_angles = np.zeros(3, dtype=float)
+            euler_angles = np.zeros(3, dtype=np.float32)
         else:
-            euler_angles = np.array([0.0, np.pi, 0.0])
+            euler_angles = np.array([0.0, np.pi, 0.0], dtype=np.float32)
 
     state = p.saveState()
     # plan a motion to the pose [x, y, z, euler_angles[0],
@@ -1087,7 +1093,8 @@ def create_place_policy(
                 # But if the corrective action is 0, take the next action
                 if np.allclose(
                         low_level_action,
-                        np.zeros((env.action_space.shape[0], 1)),
+                        np.zeros((env.action_space.shape[0], 1),
+                                 dtype=np.float32),
                         atol=atol_vel,
                 ):
                     low_level_action = (get_delta_low_level_hand_action(
@@ -1106,7 +1113,7 @@ def create_place_policy(
 
             if len(plan) <= 1:  # In this case, we're at the final position
                 low_level_action = np.zeros(env.action_space.shape,
-                                            dtype=float)
+                                            dtype=np.float32)
                 done_bit = False
                 plan_executed_forwards = True
 
@@ -1132,7 +1139,8 @@ def create_place_policy(
         if (plan_executed_forwards and not tried_opening_gripper):
             # Open the gripper to see if you've released the
             # object
-            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape,
+                                        dtype=np.float32)
             low_level_action[16] = -1.0
             tried_opening_gripper = True
             plan = reversed_plan
@@ -1164,7 +1172,7 @@ def create_place_policy(
             # But if the corrective action is 0, take the next action
             if np.allclose(
                     low_level_action,
-                    np.zeros((env.action_space.shape[0], 1)),
+                    np.zeros((env.action_space.shape[0], 1), dtype=np.float32),
                     atol=atol_vel,
             ):
                 low_level_action = (get_delta_low_level_hand_action(
@@ -1181,7 +1189,8 @@ def create_place_policy(
             return low_level_action, False
 
         if len(plan) == 1:  # In this case, we're at the final position
-            low_level_action = np.zeros(env.action_space.shape, dtype=float)
+            low_level_action = np.zeros(env.action_space.shape,
+                                        dtype=np.float32)
             done_bit = True
             print("PRIMITIVE: place policy completed execution!")
 
@@ -1229,7 +1238,7 @@ def create_place_option_model(
         env.robots[0].parts["right_hand"].force_release_obj()
         obj_to_place.force_wakeup()
         # this is running a zero action to step simulator
-        env.step(np.zeros(env.action_space.shape))
+        env.step(np.zeros(env.action_space.shape, dtype=np.float32))
         # reset the released object to zero velocity so it doesn't
         # fly away because of residual warp speeds from teleportation!
         p.resetBaseVelocity(
@@ -1242,7 +1251,7 @@ def create_place_option_model(
         # this is running a series of zero action to step simulator
         # to let the object fall into its place
         for _ in range(15):
-            env.step(np.zeros(env.action_space.shape))
+            env.step(np.zeros(env.action_space.shape, dtype=np.float32))
 
     return placeOntopObjectOptionModel
 

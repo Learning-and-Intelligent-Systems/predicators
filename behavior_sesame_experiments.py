@@ -41,7 +41,6 @@ timeout = 2000
 experiment_id = None
 test_tasks = test_tasks_nk + test_tasks_wb
 
-
 json_file = open('scene_tasks.json', 'r')
 scene_tasks = json.load(json_file)
 
