@@ -251,6 +251,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             self, results: Sequence[InteractionResult]) -> None:
         assert len(results) == 1
         result = results[0]
+        assert len(result.states) == len(result.responses) == \
+            len(result.actions) + 1
+        new_annotations = []
         for state, response in zip(result.states, result.responses):
             assert isinstance(response, GroundAtomsHoldResponse)
             state_annotation: Dict[str, Set[GroundAtom]] = {
@@ -261,8 +264,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             for query_atom, atom_holds in response.holds.items():
                 label = "positive" if atom_holds else "negative"
                 state_annotation[label].add(query_atom)
-            traj = LowLevelTrajectory([state], [])
-            self._dataset.append(traj, [state_annotation])
+            new_annotations.append(state_annotation)
+        traj = LowLevelTrajectory(result.states, result.actions)
+        self._dataset.append(traj, new_annotations)
         self._relearn_predicates_and_nsrts(
             online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
