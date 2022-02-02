@@ -197,16 +197,19 @@ def _create_plot(env_results: NDArray[np.int32], env_name: str,
 
 
 def _main() -> None:
+    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "results")
+    os.makedirs(outdir, exist_ok=True)
+
     for env_name in ENV_NAMES:
         env_results = []
         for seed in SEEDS:
             seed_results = _run_analysis_for_env(env_name, seed)
             env_results.append(seed_results)
         env_results_arr = np.array(env_results, dtype=np.int32)
-        outfile = os.path.join("results",
-                               f"skeleton_len_heatmap_{env_name}.png")
+        outfile = os.path.join(outdir, f"skeleton_len_heatmap_{env_name}.png")
         _create_heatmap(env_results_arr, env_name, outfile)
-        outfile = os.path.join("results", f"skeleton_len_plot_{env_name}.png")
+        outfile = os.path.join(outdir, f"skeleton_len_plot_{env_name}.png")
         _create_plot(env_results_arr, env_name, outfile)
 
 
