@@ -90,7 +90,8 @@ def sesame_plan(
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
-                    timeout - (time.time() - start_time), metrics):
+                    timeout - (time.time() - start_time), metrics,
+                    CFG.max_skeletons_optimized):
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time))
@@ -159,6 +160,7 @@ def task_plan(
     heuristic: _TaskPlanningHeuristic,
     seed: int,
     timeout: float,
+    max_skeletons_optimized: int,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
     """Run only the task planning portion of SeSamE. A* search is run, and
     skeletons that achieve the goal symbolically are yielded. Specifically,
@@ -181,18 +183,18 @@ def task_plan(
     dummy_task = Task(State({}), goal)
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
-                                    heuristic, seed, timeout, metrics)
+                                    heuristic, seed, timeout, metrics,
+                                    max_skeletons_optimized)
     # Note that we use this pattern to avoid having to catch an ApproachFailure
     # when _skeleton_generator runs out of skeletons to optimize.
-    for skeleton, atoms_sequence in islice(generator,
-                                           CFG.max_skeletons_optimized):
+    for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
         yield skeleton, atoms_sequence, metrics.copy()
 
 
 def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
     heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
-    metrics: Metrics
+    metrics: Metrics, max_skeletons_optimized: int
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -209,8 +211,8 @@ def _skeleton_generator(
                 (heuristic(root_node.atoms), rng_prio.uniform(), root_node))
     # Start search.
     while queue and (time.time() - start_time < timeout):
-        if (int(metrics["num_skeletons_optimized"]) ==
-                CFG.max_skeletons_optimized):
+        if (int(metrics["num_skeletons_optimized"]) == max_skeletons_optimized
+            ):
             raise _MaxSkeletonsFailure(
                 "Planning reached max_skeletons_optimized!")
         _, _, node = hq.heappop(queue)
