@@ -6,7 +6,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach, \
-    ApproachTimeout, ApproachFailure
+    ApproachTimeout, ApproachFailure, RandomOptionsApproach
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
     InteractionResult, Action
@@ -185,6 +185,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         """Returns an action policy and a termination function."""
         if CFG.interactive_action_strategy == "glib":
             return self._create_glib_interaction_strategy(train_task_idx)
+        if CFG.interactive_action_strategy == "random":
+            return self._create_random_interaction_strategy(train_task_idx)
         raise NotImplementedError("Unrecognized interactive_action_strategy:"
                                   f" {CFG.interactive_action_strategy}")
 
@@ -210,6 +212,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         preds = self._predicates_to_learn - static_preds
         # Sample possible goals to plan toward.
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
+        # If there are no possible goals, fall back to random immediately.
+        if not ground_atom_universe:
+            return self._create_random_interaction_strategy(train_task_idx)
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
             num_samples=CFG.interactive_num_babbles,
@@ -226,12 +231,36 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                            key=self._score_atom_set_frequency,
                            reverse=True)  # largest to smallest
         task_list = [Task(init, goal) for goal in goal_list]
-        task, act_policy = self._find_first_solvable(task_list)
+        try:
+            task, act_policy = self._find_first_solvable(task_list)
+        except ApproachFailure:
+            # Fall back to a random exploration strategy if no solvable task
+            # can be found.
+            return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
 
         def _termination_function(s: State) -> bool:
             # Stop the episode if we reach the goal that we babbled.
             return all(goal_atom.holds(s) for goal_atom in task.goal)
+
+        return act_policy, _termination_function
+
+    def _create_random_interaction_strategy(
+        self, train_task_idx: int
+    ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
+        """Sample and execute random initiable options until timeout."""
+
+        random_options_approach = RandomOptionsApproach(
+            self._get_current_predicates(), self._initial_options, self._types,
+            self._action_space, self._train_tasks)
+        task = self._train_tasks[train_task_idx]
+        act_policy = random_options_approach.solve(task, CFG.timeout)
+
+        def _termination_function(s: State) -> bool:
+            # Termination is left to the environment, as in
+            # CFG.max_num_steps_interaction_request.
+            del s  # not used
+            return False
 
         return act_policy, _termination_function
 
@@ -283,12 +312,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 print("Solving for policy...")
                 policy = self.solve(task, timeout=CFG.timeout)
                 return task, policy
-            except (ApproachTimeout, ApproachFailure) \
-                    as e:  # pragma: no cover
+            except (ApproachTimeout, ApproachFailure) as e:
                 print(f"Approach failed to solve with error: {e}")
                 continue
         raise ApproachFailure("Failed to sample a task that approach "
-                              "can solve.")  # pragma: no cover
+                              "can solve.")
 
     def _score_atom_set_frequency(self, atom_set: Set[GroundAtom]) -> float:
         """Score an atom set as inversely proportional to the number of
