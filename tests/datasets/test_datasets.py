@@ -233,3 +233,5 @@ def test_empty_dataset():
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     assert len(dataset.trajectories) == 0
+    with pytest.raises(AssertionError):
+        _ = dataset.annotations
