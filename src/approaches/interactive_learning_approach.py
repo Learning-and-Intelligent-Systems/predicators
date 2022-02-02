@@ -242,7 +242,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _create_random_interaction_strategy(
         self, train_task_idx: int
     ) -> Tuple[Callable[[State], Action], Callable[[State], bool]]:
-        """Find a random applicable NSRT and sample an option."""
+        """Sample and execute random initiable options until timeout."""
 
         random_options_approach = RandomOptionsApproach(
             self._get_current_predicates(), self._initial_options, self._types,
