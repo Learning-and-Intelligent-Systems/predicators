@@ -6,6 +6,7 @@ from predicators.src.approaches import InteractiveLearningApproach, \
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
+from predicators.src.structs import Dataset
 from predicators.src.main import _generate_interaction_results
 from predicators.src.teacher import Teacher
 from predicators.src import utils
@@ -39,6 +40,9 @@ def test_interactive_learning_approach():
     teacher = Teacher()
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
+    # Learning with an empty dataset should not crash.
+    approach.learn_from_offline_dataset(Dataset([]))
+    # Learning with the actual dataset.
     approach.learn_from_offline_dataset(dataset)
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()

@@ -38,6 +38,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     ######################## Semi-supervised learning #########################
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # Special case: empty offline dataset. Annotations may be None.
+        if not dataset.trajectories:
+            return
         # First, go through the dataset's annotations and figure out the
         # set of predicates to learn. Note that their classifiers were
         # stripped away during the creation of the annotations.
