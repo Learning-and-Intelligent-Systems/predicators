@@ -1,16 +1,15 @@
 """Structs used throughout the codebase."""
 
 from __future__ import annotations
+import abc
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
 from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, DefaultDict, Optional, TypeVar, TYPE_CHECKING
+    Tuple, Any, cast, DefaultDict, Optional, TypeVar
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
-if TYPE_CHECKING:
-    from predicators.src.teacher import Query, Response
 
 
 @dataclass(frozen=True, order=True)
@@ -1091,6 +1090,48 @@ class InteractionResult:
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.responses) == len(self.actions) + 1
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class Query(abc.ABC):
+    """Base class for a Query.
+
+    Has no API.
+    """
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class Response(abc.ABC):
+    """Base class for a Response to a query.
+
+    All responses contain the Query object itself, for convenience.
+    """
+    query: Query
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class GroundAtomsHoldQuery(Query):
+    """A query for whether ground atoms hold in the state."""
+    ground_atoms: Collection[GroundAtom]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class GroundAtomsHoldResponse(Response):
+    """A response to a GroundAtomsHoldQuery, providing boolean answers."""
+    holds: Dict[GroundAtom, bool]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class DemonstrationQuery(Query):
+    """A query requesting a demonstration to get from the state to a goal."""
+    goal: Set[GroundAtom]
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class DemonstrationResponse(Response):
+    """A response to a DemonstrationQuery; provides a LowLevelTrajectory if one
+    can be found by the teacher, otherwise returns None."""
+    teacher_traj: Optional[LowLevelTrajectory]
 
 
 # Convenience higher-order types useful throughout the code
