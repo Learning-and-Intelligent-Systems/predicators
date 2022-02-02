@@ -27,6 +27,7 @@ def test_interactive_learning_approach():
         "teacher_dataset_label_ratio": 1.0,
         "num_train_tasks": 5,
         "num_test_tasks": 5,
+        "option_learner": "neural",
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
