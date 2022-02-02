@@ -55,6 +55,7 @@ class Teacher:
         except (ApproachTimeout, ApproachFailure):
             return DemonstrationResponse(query, teacher_traj=None)
 
-        teacher_traj, _, _ = utils.run_policy_on_task(
+        teacher_traj, _, goal_reached = utils.run_policy_on_task(
             policy, task, self._simulator, CFG.max_num_steps_option_rollout)
+        assert goal_reached
         return DemonstrationResponse(query, teacher_traj)

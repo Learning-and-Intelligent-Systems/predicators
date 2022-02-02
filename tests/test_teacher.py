@@ -65,7 +65,6 @@ def test_DemonstrationQuery():
     assert isinstance(response, DemonstrationResponse)
     assert response.query is query
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
-    print(len(response.teacher_traj.actions))
     assert len(response.teacher_traj.actions) == 2
     assert all(atom.holds(response.teacher_traj.states[-1]) for atom in goal)
     # Test usage when goal is already achieved

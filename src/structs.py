@@ -1123,7 +1123,7 @@ class GroundAtomsHoldResponse(Response):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class DemonstrationQuery(Query):
-    """A query requesting a demonstration to get from a certain state to a
+    """A query requesting a demonstration to get from the state to a
     goal."""
     goal: Set[GroundAtom]
 
