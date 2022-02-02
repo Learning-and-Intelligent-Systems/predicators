@@ -26,4 +26,6 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         ratio = CFG.teacher_dataset_label_ratio
         return create_ground_atom_data(env, base_dataset, excluded_preds,
                                        ratio)
+    if CFG.offline_data_method == "empty":
+        return Dataset([])
     raise NotImplementedError("Unrecognized dataset method.")
