@@ -119,3 +119,10 @@ def test_interactive_learning_approach():
     with pytest.raises(NotImplementedError) as e:
         approach._score_atom_set(set(), train_tasks[0].init)  # pylint:disable=protected-access
     assert "Unrecognized interactive_score_function" in str(e)
+    # Test assertion that all predicates are seen in the data
+    utils.update_config({
+        "approach": "interactive_learning",
+        "teacher_dataset_label_ratio": 0.0,
+    })
+    with pytest.raises(AssertionError):
+        create_dataset(env, train_tasks)
