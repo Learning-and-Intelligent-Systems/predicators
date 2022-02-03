@@ -26,7 +26,11 @@ SEEDS = list(range(10))
 def _setup_data_for_env(env_name: str,
                         seed: int) -> Tuple[List[Task], Dataset, List[int]]:
     # Create data for this environment and seed.
-    utils.reset_config({"seed": seed, "env": env_name})
+    utils.reset_config({
+        "seed": seed,
+        "env": env_name,
+        "offline_data_planning_timeout": 10
+    })
     env = create_env(env_name)
     env.seed(seed)
     train_tasks = env.get_train_tasks()
