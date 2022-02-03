@@ -18,13 +18,13 @@ from predicators.src.structs import Dataset, Task, Predicate
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 
-FORCE_REMAKE_RESULTS = True
+FORCE_REMAKE_RESULTS = False
 
 ENV_NAMES = {
     "cover": "Cover",
     "cover_regrasp": "Cover Regrasp",
     "blocks": "Blocks",
-    "painting": "Painting",
+    # "painting": "Painting",
 }
 
 SEEDS = list(range(10))
@@ -210,12 +210,11 @@ def _compute_num_nodes(env_name: str,
 
 
 @functools.lru_cache(maxsize=None)
-def _compute_expected_nodes(
-        env_name: str,
-        seed: int,
-        frozen_predicate_set: FrozenSet[Predicate],
-        max_skeletons: int = 8,
-        timeout: float = 10) -> NDArray[np.float64]:
+def _compute_expected_nodes(env_name: str,
+                            seed: int,
+                            frozen_predicate_set: FrozenSet[Predicate],
+                            max_skeletons: int = 8,
+                            timeout: float = 10) -> NDArray[np.float64]:
     # Horribly horribly hacky, but oh well...
     p = CFG.grammar_search_expected_nodes_optimal_demo_prob
     w = CFG.grammar_search_expected_nodes_backtracking_cost
@@ -287,7 +286,7 @@ def _create_heatmap(env_results: NDArray[np.float64], env_name: str,
     ax.set_title(f"{env_label}: {score_label}")
     ax.set_xlabel("Skeleton Index")
     fig.tight_layout()
-    plt.savefig(outfile)
+    plt.savefig(outfile, bbox_inches='tight')
     print(f"Wrote out to {outfile}.")
 
 
@@ -299,8 +298,9 @@ def _create_plot(env_results: NDArray[np.float64], env_name: str,
     # Reorganize into array of shape (predicate set,) by scoring each seed's
     # result and then averaging out seed.
     aggregate = _create_aggregation_function(aggregation_name)
-    arr = np.mean([[aggregate(r) for r in seed_rs] for seed_rs in env_results],
-                  axis=0)
+    seed_results = [[aggregate(r) for r in seed_rs] for seed_rs in env_results]
+    arr = np.mean(seed_results, axis=0)
+    std_arr = np.std(seed_results, axis=0)
     num_predicate_sets, = arr.shape
     assert num_predicate_sets == len(predicate_set_order)
     labels = _create_predicate_labels(predicate_set_order)
@@ -308,7 +308,10 @@ def _create_plot(env_results: NDArray[np.float64], env_name: str,
     score_label = SCORE_AND_AGGREGATION_NAMES[(score_name, aggregation_name)]
 
     fig, ax = plt.subplots()
-    ax.plot(np.arange(num_predicate_sets), arr)
+    xs = np.arange(num_predicate_sets)
+    ax.plot(xs, arr)
+    # Pretty ugly and distracting, so disabling for now.
+    # ax.fill_between(xs, arr - std_arr, arr + std_arr, alpha=0.5)
     ax.set_xticks(np.arange(num_predicate_sets), labels=labels)
     plt.setp(ax.get_xticklabels(),
              rotation=45,
@@ -317,7 +320,7 @@ def _create_plot(env_results: NDArray[np.float64], env_name: str,
     ax.set_title(f"{env_label}: {score_label}")
     ax.set_ylabel(score_label)
     fig.tight_layout()
-    plt.savefig(outfile)
+    plt.savefig(outfile, bbox_inches='tight')
     print(f"Wrote out to {outfile}.")
 
 
