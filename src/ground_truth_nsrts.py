@@ -205,6 +205,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Covers, [block, target])
     }
     delete_effects = {LiftedAtom(Holding, holding_predicate_args)}
+    if CFG.env == "cover_regrasp":
+        Clear, = _get_predicates_by_names("cover_regrasp", ["Clear"])
+        preconditions.add(LiftedAtom(Clear, [target]))
+        delete_effects.add(LiftedAtom(Clear, [target]))
 
     if CFG.env in ("cover", "cover_hierarchical_types", "cover_regrasp"):
         option = PickPlace
@@ -299,11 +303,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
 
         def place_on_table_sampler(state: State, rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
-            del state  # unused
+            # Always at the current location.
+            del rng  # this sampler is deterministic
             assert len(objs) == 1
-            lb = 0.0
-            ub = 1.0
-            return np.array(rng.uniform(lb, ub, size=(1, )), dtype=np.float32)
+            held_obj = objs[0]
+            x = state.get(held_obj, "pose") + state.get(held_obj, "grasp")
+            return np.array([x], dtype=np.float32)
 
         place_on_table_nsrt = NSRT("PlaceOnTable", parameters,
                                    preconditions, add_effects, delete_effects,
