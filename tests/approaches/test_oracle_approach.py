@@ -17,8 +17,8 @@ def test_cover_get_gt_nsrts():
     """Tests for get_gt_nsrts in CoverEnv."""
     utils.reset_config({
         "env": "cover",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     # All predicates and options
     env = CoverEnv()
@@ -109,8 +109,8 @@ def test_oracle_approach_cover():
     """Tests for OracleApproach class with CoverEnv."""
     utils.reset_config({
         "env": "cover",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = CoverEnv()
     env.seed(123)
@@ -138,8 +138,8 @@ def test_oracle_approach_cover_typed_options():
     """Tests for OracleApproach class with CoverEnvTypedOptions."""
     utils.reset_config({
         "env": "cover_typed_options",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = CoverEnvTypedOptions()
     env.seed(123)
@@ -167,8 +167,8 @@ def test_oracle_approach_cover_hierarchical_types():
     """Tests for OracleApproach class with CoverEnvHierarchicalTypes."""
     utils.reset_config({
         "env": "cover_hierarchical_types",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = CoverEnvHierarchicalTypes()
     env.seed(123)
@@ -196,8 +196,8 @@ def test_oracle_approach_cover_regrasp():
     """Tests for OracleApproach class with CoverEnvRegrasp."""
     utils.reset_config({
         "env": "cover_regrasp",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
     })
     env = CoverEnvRegrasp()
     env.seed(123)
@@ -227,8 +227,8 @@ def test_oracle_approach_cover_multistep_options():
         "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": False,
         "cover_multistep_degenerate_oracle_samplers": False,
-        "num_train_tasks": 5,
-        "num_test_tasks": 5,
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -255,8 +255,8 @@ def test_oracle_approach_cover_multistep_options():
         "cover_multistep_use_learned_equivalents": True,
         "cover_multistep_degenerate_oracle_samplers": False,
         "sampler_learner": "neural",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5,
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -277,8 +277,8 @@ def test_oracle_approach_cover_multistep_options():
         "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": True,
         "cover_multistep_degenerate_oracle_samplers": True,
-        "num_train_tasks": 5,
-        "num_test_tasks": 5,
+        "num_train_tasks": 2,
+        "num_test_tasks": 2,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -307,8 +307,8 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
     utils.reset_config({
         "env": "cover_multistep_options_fixed_tasks",
         "cover_multistep_use_learned_equivalents": True,
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = CoverMultistepOptionsFixedTasks()
     env.seed(123)
@@ -337,16 +337,18 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
     if not place_version:
         utils.reset_config({
             "env": "cluttered_table",
+            # Keep num_train_tasks high enough to ensure hitting the
+            # EnvironmentFailure check below at least once
             "num_train_tasks": 5,
-            "num_test_tasks": 5
+            "num_test_tasks": 2
         })
         # All predicates and options
         env = ClutteredTableEnv()
     else:
         utils.reset_config({
             "env": "cluttered_table_place",
-            "num_train_tasks": 5,
-            "num_test_tasks": 5
+            "num_train_tasks": 2,
+            "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -405,15 +407,21 @@ def test_cluttered_table_place_get_gt_nsrts():
 def test_oracle_approach_cluttered_table(place_version=False):
     """Tests for OracleApproach class with ClutteredTableEnv."""
     if not place_version:
-        utils.reset_config({"env": "cluttered_table"})
+        utils.reset_config({
+            "env": "cluttered_table",
+            "cluttered_table_num_cans_train": 3,
+            "cluttered_table_num_cans_test": 3,
+            "num_train_tasks": 2,
+            "num_test_tasks": 2,
+        })
         env = ClutteredTableEnv()
     else:
         utils.reset_config({
             "env": "cluttered_table_place",
             "cluttered_table_num_cans_train": 3,
             "cluttered_table_num_cans_test": 3,
-            "num_train_tasks": 5,
-            "num_test_tasks": 5,
+            "num_train_tasks": 2,
+            "num_test_tasks": 2,
         })
         env = ClutteredTablePlaceEnv()
     env.seed(123)
@@ -439,8 +447,8 @@ def test_oracle_approach_blocks():
     """Tests for OracleApproach class with BlocksEnv."""
     utils.reset_config({
         "env": "blocks",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = BlocksEnv()
     env.seed(123)
@@ -463,8 +471,8 @@ def test_oracle_approach_painting():
     """Tests for OracleApproach class with PaintingEnv."""
     utils.reset_config({
         "env": "painting",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = PaintingEnv()
     env.seed(123)
@@ -485,8 +493,8 @@ def test_oracle_approach_playroom():
     """Tests for OracleApproach class with PlayroomEnv."""
     utils.reset_config({
         "env": "playroom",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = PlayroomEnv()
     env.seed(123)
@@ -554,8 +562,8 @@ def test_oracle_approach_repeated_nextto():
     """Tests for OracleApproach class with RepeatedNextToEnv."""
     utils.reset_config({
         "env": "repeated_nextto",
-        "num_train_tasks": 5,
-        "num_test_tasks": 5
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
     })
     env = RepeatedNextToEnv()
     env.seed(123)
