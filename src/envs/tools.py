@@ -30,10 +30,10 @@ class ToolsEnv(BaseEnv):
     table_uy = 10.0
     contraption_size = 1.0
     close_thresh = 0.1
-    # For a screw of a particular shape, if the shape of every screwdriver
-    # differs by at least this amount, then this screw is required to be
-    # fastened by hand. Otherwise, it is required to be fastened by the
-    # screwdriver that has the smallest difference in shape.
+    # For a screw of a particular shape, if the shape of every graspable
+    # screwdriver differs by at least this amount, then this screw is required
+    # to be fastened by hand. Otherwise, it is required to be fastened by the
+    # graspable screwdriver that has the smallest difference in shape.
     screw_shape_hand_thresh = 0.25
 
     def __init__(self) -> None:
@@ -345,8 +345,11 @@ class ToolsEnv(BaseEnv):
                 data[contraption] = np.array(
                     [pose_lx, pose_ly, pose_ux, pose_uy], dtype=np.float32)
             # Initialize items (screws, nails, bolts) and set goal
+            # We enforce that there can only be at most one screw, to make
+            # the problems generally easier to solve
             items = []
             screw_cnt, nail_cnt, bolt_cnt = 0, 0, 0
+            screw_created = False
             goal = set()
             for _ in range(num_items):
                 while True:
@@ -366,7 +369,10 @@ class ToolsEnv(BaseEnv):
                     break
                 is_fastened = 0.0  # always start off not fastened
                 is_held = 0.0  # always start off not held
-                choice = rng.choice(["screw", "nail", "bolt"])
+                choices = ["screw", "nail", "bolt"]
+                if screw_created:
+                    choices.remove("screw")
+                choice = rng.choice(choices)
                 goal_contraption = rng.choice(contraptions)
                 if choice == "screw":
                     item = Object(f"screw{screw_cnt}", self._screw_type)
@@ -376,6 +382,7 @@ class ToolsEnv(BaseEnv):
                     goal.add(GroundAtom(self._ScrewFastened, [item]))
                     goal.add(GroundAtom(
                         self._ScrewPlaced, [item, goal_contraption]))
+                    screw_created = True
                 elif choice == "nail":
                     item = Object(f"nail{nail_cnt}", self._nail_type)
                     nail_cnt += 1
@@ -557,9 +564,9 @@ class ToolsEnv(BaseEnv):
 
     def _get_best_screwdriver_or_none(self, state: State, screw: Object
                                       ) -> Optional[Object]:
-        """Use the shape of the given screw to figure out the best
-        screwdriver for it, or None if no screwdriver has a shape within
-        the threshold self.screw_shape_hand_thresh.
+        """Use the shape of the given screw to figure out the best graspable
+        screwdriver for it, or None if no graspable screwdriver has a shape
+        within the threshold self.screw_shape_hand_thresh.
         """
         assert screw.type == self._screw_type
         closest_screwdriver = None
@@ -567,6 +574,9 @@ class ToolsEnv(BaseEnv):
         screw_shape = state.get(screw, "shape")
         for obj in state:
             if obj.type != self._screwdriver_type:
+                continue
+            if state.get(obj, "size") > 0.5:
+                # Ignore non-graspable screwdrivers
                 continue
             screwdriver_shape = state.get(obj, "shape")
             diff = abs(screw_shape - screwdriver_shape)
