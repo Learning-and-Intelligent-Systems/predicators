@@ -191,14 +191,24 @@ def test_cover_regrasp():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    # Predicates should be {IsBlock, IsTarget, Covers, HandEmpty, Holding}.
-    assert len(env.predicates) == 5
+    # Predicates should be same as CoverEnv, plus Clear.
+    assert len(env.predicates) == 6
     # Options should be {PickPlace}.
     assert len(env.options) == 1
     # Types should be {block, target, robot}
     assert len(env.types) == 3
     # Action space should be 1-dimensional.
     assert env.action_space == Box(0, 1, (1, ))
+    # Tests for Clear.
+    task = env.get_train_tasks()[0]
+    Clear = [p for p in env.predicates if p.name == "Clear"][0]
+    init_atoms = utils.abstract(task.init, {Clear})
+    assert len(init_atoms) == 2
+    # Clear should not be true after a place.
+    state = task.init.copy()
+    block0, _, _, target0, _ = sorted(state)
+    state.set(block0, "pose", state.get(target0, "pose"))
+    assert not Clear([target0]).holds(state)
 
 
 def test_cover_multistep_options():
