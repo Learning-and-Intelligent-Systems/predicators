@@ -18,16 +18,21 @@ from predicators.src.structs import Dataset, Task, Predicate
 from predicators.src.nsrt_learning import segment_trajectory, \
     learn_strips_operators
 
-ENV_NAMES = [
-    "cover",
-    "cover_regrasp",
-    "blocks",
-    "painting"
-]
+FORCE_REMAKE_RESULTS = True
+
+ENV_NAMES = {
+    "cover": "Cover",
+    "cover_regrasp": "Cover Regrasp",
+    "blocks": "Blocks",
+    "painting": "Painting",
+}
 
 SEEDS = list(range(10))
 
-SCORE_AND_AGGREGATION_NAMES = [("skeleton_len", "min")]
+SCORE_AND_AGGREGATION_NAMES = {
+    ("skeleton_len", "min"): "Min Skeleton Length",
+    ("num_nodes", "sum"): "Total Nodes Created",
+}
 
 
 @functools.lru_cache(maxsize=None)
@@ -53,15 +58,17 @@ def _setup_data_for_env(env_name: str,
 
 def _create_score_function(
     score_name: str
-) -> Callable[[str, int, FrozenSet[Predicate]], NDArray[np.int32]]:
+) -> Callable[[str, int, FrozenSet[Predicate]], NDArray[np.float64]]:
     if score_name == "skeleton_len":
         return _compute_skeleton_length_errors
+    if score_name == "num_nodes":
+        return _compute_num_nodes
     raise NotImplementedError("Unrecognized score function:"
                               f" {score_name}.")
 
 
 def _create_aggregation_function(
-        aggregation_name: str) -> Callable[[NDArray[np.int32]], float]:
+        aggregation_name: str) -> Callable[[NDArray[np.float64]], float]:
     if aggregation_name == "min":
         return lambda result: result.min(axis=1).mean()
     if aggregation_name == "sum":
@@ -108,14 +115,14 @@ def _order_predicate_sets(
     return tuple(order)
 
 
-@functools.lru_cache(maxsize=None)
-def _compute_skeleton_length_errors(
+def _skeleton_based_score_function(
         env_name: str,
         seed: int,
         frozen_predicate_set: FrozenSet[Predicate],
+        skeleton_score_fn: Callable,  # too complicated...
+        default_result: float,
         max_skeletons: int = 8,
-        timeout: float = 10,
-        error_upper_bound: int = 100) -> NDArray[np.int32]:
+        timeout: float = 10) -> NDArray[np.float64]:
     current_predicate_set = set(frozen_predicate_set)
     # Load cached data for this env and seed.
     train_tasks, dataset, demo_skeleton_lengths = _setup_data_for_env(
@@ -129,9 +136,7 @@ def _compute_skeleton_length_errors(
     pnads = learn_strips_operators(segments, verbose=False)
     strips_ops = [pnad.op for pnad in pnads]
     option_specs = [pnad.option_spec for pnad in pnads]
-    # For each train task / demo, run task planning, and measure the error
-    # in skeleton length relative to the demos.
-    skeleton_length_errors = []  # shape (num tasks, max skeletons)
+    per_skeleton_results = []  # shape (num tasks, max skeletons)
     for traj, demo_len in zip(dataset.trajectories, demo_skeleton_lengths):
         # Run task planning.
         train_task = train_tasks[traj.train_task_idx]
@@ -145,20 +150,53 @@ def _compute_skeleton_length_errors(
         generator = task_plan(init_atoms, train_task.goal, ground_nsrts,
                               reachable_atoms, heuristic, seed, timeout,
                               max_skeletons)
-        task_skeleton_length_errors = []
+        task_results = []
         try:
-            for plan_skeleton, _, _ in generator:
-                error = abs(len(plan_skeleton) - demo_len)
-                task_skeleton_length_errors.append(error)
+            for idx, (plan_skeleton, plan_atoms_sequence, metrics) in \
+                enumerate(generator):
+                result = skeleton_score_fn(plan_skeleton, plan_atoms_sequence,
+                                           metrics, idx, demo_len)
+                task_results.append(result)
         except (ApproachTimeout, ApproachFailure):
             # Use an upper bound on the error.
-            num_missing = max_skeletons - len(task_skeleton_length_errors)
+            num_missing = max_skeletons - len(task_results)
             for _ in range(num_missing):
-                task_skeleton_length_errors.append(error_upper_bound)
-        skeleton_length_errors.append(task_skeleton_length_errors)
-    errors_arr = np.array(skeleton_length_errors, dtype=np.int32)
-    assert errors_arr.shape == (len(train_tasks), max_skeletons)
-    return errors_arr
+                task_results.append(default_result)
+        per_skeleton_results.append(task_results)
+    results_arr = np.array(per_skeleton_results, dtype=np.float64)
+    assert results_arr.shape == (len(train_tasks), max_skeletons)
+    return results_arr
+
+
+@functools.lru_cache(maxsize=None)
+def _compute_skeleton_length_errors(
+        env_name: str,
+        seed: int,
+        frozen_predicate_set: FrozenSet[Predicate],
+        max_skeletons: int = 8,
+        timeout: float = 10,
+        error_upper_bound: int = 100) -> NDArray[np.float64]:
+    skeleton_score_fn = lambda plan_skeleton, _1, _2, _3, demo_len: \
+        abs(len(plan_skeleton) - demo_len)
+    default_result = error_upper_bound
+    return _skeleton_based_score_function(env_name, seed, frozen_predicate_set,
+                                          skeleton_score_fn, default_result,
+                                          max_skeletons, timeout)
+
+
+@functools.lru_cache(maxsize=None)
+def _compute_num_nodes(env_name: str,
+                       seed: int,
+                       frozen_predicate_set: FrozenSet[Predicate],
+                       max_skeletons: int = 8,
+                       timeout: float = 10,
+                       error_upper_bound: int = 100) -> NDArray[np.float64]:
+    skeleton_score_fn = lambda _1, _2, metrics, _3, _4: \
+        metrics["num_nodes_created"]
+    default_result = CFG.grammar_search_expected_nodes_upper_bound
+    return _skeleton_based_score_function(env_name, seed, frozen_predicate_set,
+                                          skeleton_score_fn, default_result,
+                                          max_skeletons, timeout)
 
 
 def _create_predicate_labels(
@@ -172,8 +210,8 @@ def _create_predicate_labels(
     return labels
 
 
-def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
-                    score_name: str,
+def _create_heatmap(env_results: NDArray[np.float64], env_name: str,
+                    score_name: str, aggregation_name: str,
                     predicate_set_order: Tuple[FrozenSet[Predicate],
                                                ...], outfile: str) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
@@ -183,6 +221,8 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
     num_predicate_sets, num_skeletons = heatmap_arr.shape
     assert num_predicate_sets == len(predicate_set_order)
     labels = _create_predicate_labels(predicate_set_order)
+    env_label = ENV_NAMES[env_name]
+    score_label = SCORE_AND_AGGREGATION_NAMES[(score_name, aggregation_name)]
 
     fig, ax = plt.subplots()
     ax.imshow(heatmap_arr)
@@ -197,15 +237,14 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
                     va="center",
                     color="w")
 
-    ax.set_title(f"{env_name.capitalize()}: "
-                 f"{score_name.capitalize()}")
+    ax.set_title(f"{env_label}: {score_label}")
     ax.set_xlabel("Skeleton Index")
     fig.tight_layout()
     plt.savefig(outfile)
     print(f"Wrote out to {outfile}.")
 
 
-def _create_plot(env_results: NDArray[np.int32], env_name: str,
+def _create_plot(env_results: NDArray[np.float64], env_name: str,
                  score_name: str, aggregation_name: str,
                  predicate_set_order: Tuple[FrozenSet[Predicate],
                                             ...], outfile: str) -> None:
@@ -218,6 +257,8 @@ def _create_plot(env_results: NDArray[np.int32], env_name: str,
     num_predicate_sets, = arr.shape
     assert num_predicate_sets == len(predicate_set_order)
     labels = _create_predicate_labels(predicate_set_order)
+    env_label = ENV_NAMES[env_name]
+    score_label = SCORE_AND_AGGREGATION_NAMES[(score_name, aggregation_name)]
 
     fig, ax = plt.subplots()
     ax.plot(np.arange(num_predicate_sets), arr)
@@ -227,30 +268,28 @@ def _create_plot(env_results: NDArray[np.int32], env_name: str,
              rotation=45,
              ha="right",
              rotation_mode="anchor")
-    ax.set_title(f"{env_name.capitalize()}: "
-                 f"{score_name.capitalize()}")
-    ax.set_ylabel(score_name.capitalize())
+    ax.set_title(f"{env_label}: {score_label}")
+    ax.set_ylabel(score_label)
     fig.tight_layout()
     plt.savefig(outfile)
     print(f"Wrote out to {outfile}.")
 
 
 def _main() -> None:
-    force_remake_results = True
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     os.makedirs(outdir, exist_ok=True)
 
-    for env_name in ENV_NAMES:
+    for env_name in sorted(ENV_NAMES):
         outfile = os.path.join(outdir, f"skeleton_results_{env_name}.p")
-        if not force_remake_results and os.path.exists(outfile):
+        if not FORCE_REMAKE_RESULTS and os.path.exists(outfile):
             with open(outfile, "rb") as f:
                 predicate_set_order, results = pkl.load(f)
             print(f"Loaded results from {outfile}.")
         else:
             # First determine the predicate sets that we want for this env.
             # Do this by hill climbing over all seeds and taking the mode,
-            # using only the TODO score function.
+            # using only the skeleton len score function.
             # Cache everything to avoid redundant computation.
             predicate_set_orders = [
                 _order_predicate_sets(env_name,
@@ -263,16 +302,16 @@ def _main() -> None:
             # Now create the per-score-function and per-seed results that we
             # will actually plot.
             results = {}
-            for score_name, aggregation_name in \
-                SCORE_AND_AGGREGATION_NAMES:
+            for score_name, aggregation_name in SCORE_AND_AGGREGATION_NAMES:
+                score_function = _create_score_function(score_name)
                 env_results = []
                 for seed in SEEDS:
                     seed_results = [
-                        _compute_skeleton_length_errors(env_name, seed, p)
+                        score_function(env_name, seed, p)
                         for p in predicate_set_order
                     ]
                     env_results.append(seed_results)
-                results_arr = np.array(env_results, dtype=np.int32)
+                results_arr = np.array(env_results, dtype=np.float64)
                 results[(score_name, aggregation_name)] = results_arr
             # Save raw results.
             with open(outfile, "wb") as f:
@@ -282,7 +321,7 @@ def _main() -> None:
             # Create heat map.
             outfile = os.path.join(outdir, f"{score_name}_{env_name}_heat.png")
             _create_heatmap(results_arr, env_name, score_name,
-                            predicate_set_order, outfile)
+                            aggregation_name, predicate_set_order, outfile)
             # Create plot.
             outfile = os.path.join(outdir, f"{score_name}_{env_name}_plot.png")
             _create_plot(results_arr, env_name, score_name, aggregation_name,
