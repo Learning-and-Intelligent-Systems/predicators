@@ -49,6 +49,12 @@ class GlobalSettings:
     painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
 
+    # tools env parameters
+    tools_num_items_train = [2, 3]
+    tools_num_items_test = [3, 4]
+    tools_num_contraptions_train = [2]
+    tools_num_contraptions_test = [3]
+
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
         "examples",
