@@ -337,7 +337,9 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
     if not place_version:
         utils.reset_config({
             "env": "cluttered_table",
-            "num_train_tasks": 2,
+            # Keep num_train_tasks high enough to ensure hitting the
+            # EnvironmentFailure check below at least once
+            "num_train_tasks": 5,
             "num_test_tasks": 2
         })
         # All predicates and options
