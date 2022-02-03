@@ -280,12 +280,7 @@ def _create_heatmap(env_results: NDArray[np.float64], env_name: str,
                 text = ">100"
             else:
                 text = f"{heatmap_arr[j, i]:.2f}"
-            ax.text(i,
-                    j,
-                    text,
-                    ha="center",
-                    va="center",
-                    color="w")
+            ax.text(i, j, text, ha="center", va="center", color="w")
 
     ax.set_title(f"{env_label}: {score_label}")
     ax.set_xlabel("Skeleton Index")
