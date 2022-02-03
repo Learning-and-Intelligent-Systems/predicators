@@ -11,6 +11,7 @@ from predicators.src.settings import CFG
 from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
     grasp_obj_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs import get_cached_env_instance
+from predicators.src.utils import null_sampler
 
 
 def get_gt_nsrts(predicates: Set[Predicate],
@@ -384,7 +385,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         }
         dump_nsrt = NSRT("Dump", parameters, preconditions, add_effects,
                          delete_effects, set(), option, option_vars,
-                         lambda s, r, o: np.array([], dtype=np.float32))
+                         null_sampler)
         nsrts.add(dump_nsrt)
 
     else:
@@ -769,14 +770,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = set()
     delete_effects = set()
 
-    def openlid_sampler(state: State, rng: np.random.Generator,
-                        objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
-        return np.array([], dtype=np.float32)
-
     openlid_nsrt = NSRT("OpenLid",
                         parameters, preconditions, add_effects, delete_effects,
-                        set(), option, option_vars, openlid_sampler)
+                        set(), option, option_vars, null_sampler)
     nsrts.add(openlid_nsrt)
 
     # PlaceOnTable (from somewhere else on the table)
@@ -845,11 +841,6 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
                       "PickBolt", "PickWrench", "Place",
                       "FastenScrewWithScrewdriver", "FastenScrewByHand",
                       "FastenNailWithHammer", "FastenBoltWithWrench"])
-
-    def null_sampler(state: State, rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
-        return np.array([], dtype=np.float32)  # no continuous parameters
 
     def placeback_sampler(state: State, rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:

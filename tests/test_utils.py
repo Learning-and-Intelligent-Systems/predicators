@@ -1861,3 +1861,9 @@ def test_parse_config_excluded_predicates():
     })
     with pytest.raises(AssertionError):
         utils.parse_config_excluded_predicates(env)
+
+
+def test_null_sampler():
+    """Tests for null_sampler().
+    """
+    assert utils.null_sampler(None, None, None).shape == (0,)

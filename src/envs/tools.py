@@ -35,6 +35,10 @@ class ToolsEnv(BaseEnv):
     # to be fastened by hand. Otherwise, it is required to be fastened by the
     # graspable screwdriver that has the smallest difference in shape.
     screw_shape_hand_thresh = 0.25
+    # Number of each type of tool is fixed
+    num_screwdrivers = 3
+    num_hammers = 2
+    num_wrenches = 1
 
     def __init__(self) -> None:
         super().__init__()
@@ -216,7 +220,10 @@ class ToolsEnv(BaseEnv):
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
         x, y, is_pick, is_place = action.arr
-        held = self._get_held_object(state)
+        if is_pick > 0.5 and is_place > 0.5:
+            # Failure: both is_pick and is_place can't be on
+            return next_state
+        held = self._get_held_item_or_tool(state)
         if is_place > 0.5:
             # Handle placing
             if held is None:
@@ -230,10 +237,10 @@ class ToolsEnv(BaseEnv):
             next_state.set(held, "pose_x", x)
             next_state.set(held, "pose_y", y)
             if self._is_item(held):
-                next_state.set(held, "on_table", float(int(on_table)))
+                next_state.set(held, "on_table", float(on_table))
             next_state.set(self._robot, "fingers", 1.0)
             return next_state
-        target = self._get_closest_object(state, x, y)
+        target = self._get_closest_item_or_tool(state, x, y)
         if target is None:
             # Failure: not placing, so something must be at this (x, y)
             return next_state
@@ -357,8 +364,8 @@ class ToolsEnv(BaseEnv):
             num_contraptions = num_contraptions_lst[i %
                                                     len(num_contraptions_lst)]
             data = {}
-            # Initialize robot
-            data[self._robot] = np.array([1.0])  # fingers start off open
+            # Initialize robot with open fingers
+            data[self._robot] = np.array([1.0], dtype=np.float32)
             contraptions: List[Object] = []
             # Initialize contraptions
             for j in range(num_contraptions):
@@ -384,7 +391,6 @@ class ToolsEnv(BaseEnv):
             # the problems generally easier to solve
             items: List[Object] = []
             screw_cnt, nail_cnt, bolt_cnt = 0, 0, 0
-            screw_created = False
             goal = set()
             for _ in range(num_items):
                 while True:
@@ -406,7 +412,7 @@ class ToolsEnv(BaseEnv):
                 is_fastened = 0.0  # always start off not fastened
                 is_held = 0.0  # always start off not held
                 choices = ["screw", "nail", "bolt"]
-                if screw_created:
+                if screw_cnt > 0:
                     choices.remove("screw")
                 choice = rng.choice(choices)
                 goal_contraption = contraptions[rng.integers(
@@ -422,7 +428,6 @@ class ToolsEnv(BaseEnv):
                     goal.add(
                         GroundAtom(self._ScrewPlaced,
                                    [item, goal_contraption]))
-                    screw_created = True
                 elif choice == "nail":
                     item = Object(f"nail{nail_cnt}", self._nail_type)
                     nail_cnt += 1
@@ -439,17 +444,18 @@ class ToolsEnv(BaseEnv):
                         GroundAtom(self._BoltPlaced, [item, goal_contraption]))
                 items.append(item)
                 data[item] = np.array(feats, dtype=np.float32)
-            # Initialize tools (screwdrivers, hammers, wrenches)
-            # We will always generate the same number of tools:
-            # 3 screwdrivers (two graspable, one not)
-            # 2 hammers (one graspable, one not)
-            # 1 wrench (wrenches are always graspable)
+            # Initialize tools (screwdrivers, hammers, wrenches).
+            # We'll force one of the screwdrivers and one of the hammers to
+            # be too large for grasping. Wrenches are always graspable.
             tools: List[Object] = []
-            screwdriver_sizes = [rng.uniform(0, 0.5) for _ in range(3)]
-            screwdriver_sizes[rng.integers(3)] = rng.uniform(0.5, 1)
-            hammer_sizes = [rng.uniform(0, 0.5) for _ in range(2)]
-            hammer_sizes[rng.integers(2)] = rng.uniform(0.5, 1)
-            wrench_sizes = [rng.uniform(0, 1) for _ in range(1)]
+            screwdriver_sizes = [rng.uniform(0, 0.5) for _ in range(
+                self.num_screwdrivers)]
+            screwdriver_sizes[rng.integers(
+                self.num_screwdrivers)] = rng.uniform(0.5, 1)
+            hammer_sizes = [rng.uniform(0, 0.5) for _ in range(
+                self.num_hammers)]
+            hammer_sizes[rng.integers(self.num_hammers)] = rng.uniform(0.5, 1)
+            wrench_sizes = [rng.uniform(0, 1) for _ in range(self.num_wrenches)]
             sizes = screwdriver_sizes + hammer_sizes + wrench_sizes
             for j, size in enumerate(sizes):
                 while True:
@@ -460,28 +466,25 @@ class ToolsEnv(BaseEnv):
                            data[c][1] < pose_y < data[c][3]
                            for c in contraptions):
                         continue
-                    # If collision with any item, try again
-                    if any(abs(data[i][0] - pose_x) < self.close_thresh and \
-                           abs(data[i][1] - pose_y) < self.close_thresh
-                           for i in items):
-                        continue
-                    # If collision with any tool, try again
-                    if any(abs(data[t][0] - pose_x) < self.close_thresh and \
-                           abs(data[t][1] - pose_y) < self.close_thresh
-                           for t in tools):
+                    # If collision with any item or tool, try again
+                    if any(abs(data[it][0] - pose_x) < self.close_thresh and \
+                           abs(data[it][1] - pose_y) < self.close_thresh
+                           for it in items + tools):
                         continue
                     # Otherwise, we found a valid pose
                     break
                 is_held = 0.0  # always start off not held
-                if j < 3:
+                if j < self.num_screwdrivers:
                     tool = Object(f"screwdriver{j}", self._screwdriver_type)
                     shape = rng.uniform(0, 1)
                     feats = [pose_x, pose_y, shape, size, is_held]
-                elif j < 5:
-                    tool = Object(f"hammer{j - 3}", self._hammer_type)
+                elif j < self.num_screwdrivers + self.num_hammers:
+                    ind = j - self.num_screwdrivers
+                    tool = Object(f"hammer{ind}", self._hammer_type)
                     feats = [pose_x, pose_y, size, is_held]
                 else:
-                    tool = Object(f"wrench{j - 5}", self._wrench_type)
+                    ind = j - self.num_screwdrivers - self.num_hammers
+                    tool = Object(f"wrench{ind}", self._wrench_type)
                     feats = [pose_x, pose_y, size, is_held]
                 tools.append(tool)
                 data[tool] = np.array(feats, dtype=np.float32)
@@ -559,8 +562,8 @@ class ToolsEnv(BaseEnv):
         arr = np.array([pose_x, pose_y, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
 
-    def _get_closest_object(self, state: State, x: float,
-                            y: float) -> Optional[Object]:
+    def _get_closest_item_or_tool(self, state: State, x: float,
+                                  y: float) -> Optional[Object]:
         closest_obj = None
         closest_dist = float("inf")
         for obj in state:
@@ -578,7 +581,7 @@ class ToolsEnv(BaseEnv):
                 closest_obj = obj
         return closest_obj
 
-    def _get_held_object(self, state: State) -> Optional[Object]:
+    def _get_held_item_or_tool(self, state: State) -> Optional[Object]:
         held_obj = None
         for obj in state:
             if obj == self._robot:
