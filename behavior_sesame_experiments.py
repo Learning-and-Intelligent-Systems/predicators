@@ -36,8 +36,8 @@ test_tasks_nk = [
     # "assembling_gift_baskets",
 ]
 
-num_test_tasks = 5
-timeout = 2000
+num_test_tasks = 1
+timeout = 20000
 experiment_id = None
 test_tasks = test_tasks_nk + test_tasks_wb
 
@@ -47,11 +47,12 @@ scene_tasks = json.load(json_file)
 for scene, tasks in scene_tasks.items():
     for task in tasks:
         if task in test_tasks:
-            for online_sampling in ["True", "False"]:
-                experiment_id = scene + "_" + task
-                print(scene, task, "running...")
-                cmd = f"python src/main.py --experiment_id {experiment_id} --env behavior --approach oracle --seed 0 --timeout {timeout} --max_samples_per_step 100 --behavior_mode simple --max_num_steps_check_policy 1000 --option_model_name behavior_oracle --num_train_tasks 2 --num_test_tasks {num_test_tasks} --behavior_randomize_init_state {online_sampling} --behavior_scene_name {scene} --behavior_task_name {task}"
-                filename = "outputs/output_" + scene + "_" + task + "_" + online_sampling + ".txt"
-                os.system(f'{cmd} 2>&1 | tee {filename}')
+            #for online_sampling in ["True", "False"]:
+            online_sampling = "False"
+            experiment_id = scene + "_" + task
+            print(scene, task, "running...")
+            cmd = f"python src/main.py --experiment_id {experiment_id} --env behavior --approach oracle --seed 0 --timeout {timeout} --max_samples_per_step 100 --behavior_mode simple --max_num_steps_check_policy 10000 --option_model_name behavior_oracle --num_train_tasks 2 --num_test_tasks {num_test_tasks} --behavior_randomize_init_state {online_sampling} --behavior_scene_name {scene} --behavior_task_name {task}"
+            filename = "outputs/final_output_" + scene + "_" + task + "_" + online_sampling + ".txt"
+            os.system(f'{cmd} 2>&1 | tee {filename}')
 
 # grep -l "ValueError: No predicate found for name" * | xargs rm
