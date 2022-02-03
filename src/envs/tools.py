@@ -1,17 +1,17 @@
-"""Tools domain, where the robot must interact with a variety of items
-and tools. Items are screws, nails, and bolts. Tools are screwdrivers,
-wrenches, and hammers. Screws are fastened using screwdrivers or the
-robot's hand. Nails are fastened using hammers. Bolts are fastened using
-wrenches.
+"""Tools domain, where the robot must interact with a variety of items and
+tools. Items are screws, nails, and bolts. Tools are screwdrivers, wrenches,
+and hammers. Screws are fastened using screwdrivers or the robot's hand. Nails
+are fastened using hammers. Bolts are fastened using wrenches.
 
-Screwdrivers have a shape and a size. The shape must match the screw shape,
-but is not captured using any given predicate. Some screw shapes can be
-fastened using hands directly. The screwdriver's size must be small enough
-that it is graspable by the robot, which is captured by a predicate. Hammer
-sizes work the same way as screwdriver sizes. Wrench sizes don't matter.
+Screwdrivers have a shape and a size. The shape must match the screw
+shape, but is not captured using any given predicate. Some screw shapes
+can be fastened using hands directly. The screwdriver's size must be
+small enough that it is graspable by the robot, which is captured by a
+predicate. Hammer sizes work the same way as screwdriver sizes. Wrench
+sizes don't matter.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
+from typing import List, Set, Sequence, Dict, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import BaseEnv
@@ -40,56 +40,57 @@ class ToolsEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["fingers"])
-        self._screw_type = Type("screw", [
-            "pose_x", "pose_y", "shape", "is_fastened", "is_held"])
-        self._screwdriver_type = Type("screwdriver", [
-            "pose_x", "pose_y", "shape", "size", "is_held"])
-        self._nail_type = Type("nail", [
-            "pose_x", "pose_y", "is_fastened", "is_held"])
-        self._hammer_type = Type("hammer", [
-            "pose_x", "pose_y", "size", "is_held"])
-        self._bolt_type = Type("bolt", [
-            "pose_x", "pose_y", "is_fastened", "is_held"])
-        self._wrench_type = Type("wrench", [
-            "pose_x", "pose_y", "size", "is_held"])
-        self._contraption_type = Type("contraption", [
-            "pose_lx", "pose_ly", "pose_ux", "pose_uy"])
+        self._screw_type = Type(
+            "screw", ["pose_x", "pose_y", "shape", "is_fastened", "is_held"])
+        self._screwdriver_type = Type(
+            "screwdriver", ["pose_x", "pose_y", "shape", "size", "is_held"])
+        self._nail_type = Type("nail",
+                               ["pose_x", "pose_y", "is_fastened", "is_held"])
+        self._hammer_type = Type("hammer",
+                                 ["pose_x", "pose_y", "size", "is_held"])
+        self._bolt_type = Type("bolt",
+                               ["pose_x", "pose_y", "is_fastened", "is_held"])
+        self._wrench_type = Type("wrench",
+                                 ["pose_x", "pose_y", "size", "is_held"])
+        self._contraption_type = Type(
+            "contraption", ["pose_lx", "pose_ly", "pose_ux", "pose_uy"])
         # Predicates
-        self._HandEmpty = Predicate(
-            "HandEmpty", [self._robot_type], self._HandEmpty_holds)
-        self._HoldingScrew = Predicate(
-            "HoldingScrew", [self._screw_type], self._Holding_holds)
-        self._HoldingScrewdriver = Predicate(
-            "HoldingScrewdriver", [self._screwdriver_type], self._Holding_holds)
-        self._HoldingNail = Predicate(
-            "HoldingNail", [self._nail_type], self._Holding_holds)
-        self._HoldingHammer = Predicate(
-            "HoldingHammer", [self._hammer_type], self._Holding_holds)
-        self._HoldingBolt = Predicate(
-            "HoldingBolt", [self._bolt_type], self._Holding_holds)
-        self._HoldingWrench = Predicate(
-            "HoldingWrench", [self._wrench_type], self._Holding_holds)
+        self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
+                                    self._HandEmpty_holds)
+        self._HoldingScrew = Predicate("HoldingScrew", [self._screw_type],
+                                       self._Holding_holds)
+        self._HoldingScrewdriver = Predicate("HoldingScrewdriver",
+                                             [self._screwdriver_type],
+                                             self._Holding_holds)
+        self._HoldingNail = Predicate("HoldingNail", [self._nail_type],
+                                      self._Holding_holds)
+        self._HoldingHammer = Predicate("HoldingHammer", [self._hammer_type],
+                                        self._Holding_holds)
+        self._HoldingBolt = Predicate("HoldingBolt", [self._bolt_type],
+                                      self._Holding_holds)
+        self._HoldingWrench = Predicate("HoldingWrench", [self._wrench_type],
+                                        self._Holding_holds)
         self._ScrewPlaced = Predicate(
             "ScrewPlaced", [self._screw_type, self._contraption_type],
             self._Placed_holds)
-        self._NailPlaced = Predicate(
-            "NailPlaced", [self._nail_type, self._contraption_type],
-            self._Placed_holds)
-        self._BoltPlaced = Predicate(
-            "BoltPlaced", [self._bolt_type, self._contraption_type],
-            self._Placed_holds)
-        self._ScrewFastened = Predicate(
-            "ScrewFastened", [self._screw_type], self._Fastened_holds)
-        self._NailFastened = Predicate(
-            "NailFastened", [self._nail_type], self._Fastened_holds)
-        self._BoltFastened = Predicate(
-            "BoltFastened", [self._bolt_type], self._Fastened_holds)
+        self._NailPlaced = Predicate("NailPlaced",
+                                     [self._nail_type, self._contraption_type],
+                                     self._Placed_holds)
+        self._BoltPlaced = Predicate("BoltPlaced",
+                                     [self._bolt_type, self._contraption_type],
+                                     self._Placed_holds)
+        self._ScrewFastened = Predicate("ScrewFastened", [self._screw_type],
+                                        self._Fastened_holds)
+        self._NailFastened = Predicate("NailFastened", [self._nail_type],
+                                       self._Fastened_holds)
+        self._BoltFastened = Predicate("BoltFastened", [self._bolt_type],
+                                       self._Fastened_holds)
         self._ScrewdriverGraspable = Predicate(
             "ScrewdriverGraspable", [self._screwdriver_type],
             self._ScrewdriverGraspable_holds)
-        self._HammerGraspable = Predicate(
-            "HammerGraspable", [self._hammer_type],
-            self._HammerGraspable_holds)
+        self._HammerGraspable = Predicate("HammerGraspable",
+                                          [self._hammer_type],
+                                          self._HammerGraspable_holds)
         # Options
         self._PickScrew = ParameterizedOption(
             # variables: [robot, screw to pick]
@@ -160,8 +161,10 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, screw, screwdriver]
             # params: []
             "FastenScrewWithScrewdriver",
-            types=[self._robot_type, self._screw_type, self._screwdriver_type,
-                   self._contraption_type],
+            types=[
+                self._robot_type, self._screw_type, self._screwdriver_type,
+                self._contraption_type
+            ],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -179,8 +182,10 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, nail, hammer]
             # params: []
             "FastenNailWithHammer",
-            types=[self._robot_type, self._nail_type, self._hammer_type,
-                   self._contraption_type],
+            types=[
+                self._robot_type, self._nail_type, self._hammer_type,
+                self._contraption_type
+            ],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -189,8 +194,10 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, bolt, wrench]
             # params: []
             "FastenBoltWithWrench",
-            types=[self._robot_type, self._bolt_type, self._wrench_type,
-                   self._contraption_type],
+            types=[
+                self._robot_type, self._bolt_type, self._wrench_type,
+                self._contraption_type
+            ],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -271,58 +278,64 @@ class ToolsEnv(BaseEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return {self._HandEmpty, self._HoldingScrew, self._HoldingScrewdriver,
-                self._HoldingNail, self._HoldingHammer, self._HoldingBolt,
-                self._HoldingWrench, self._ScrewPlaced, self._NailPlaced,
-                self._BoltPlaced, self._ScrewFastened, self._NailFastened,
-                self._BoltFastened, self._ScrewdriverGraspable,
-                self._HammerGraspable}
+        return {
+            self._HandEmpty, self._HoldingScrew, self._HoldingScrewdriver,
+            self._HoldingNail, self._HoldingHammer, self._HoldingBolt,
+            self._HoldingWrench, self._ScrewPlaced, self._NailPlaced,
+            self._BoltPlaced, self._ScrewFastened, self._NailFastened,
+            self._BoltFastened, self._ScrewdriverGraspable,
+            self._HammerGraspable
+        }
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        return {self._ScrewPlaced, self._NailPlaced, self._BoltPlaced,
-                self._ScrewFastened, self._NailFastened, self._BoltFastened}
+        return {
+            self._ScrewPlaced, self._NailPlaced, self._BoltPlaced,
+            self._ScrewFastened, self._NailFastened, self._BoltFastened
+        }
 
     @property
     def types(self) -> Set[Type]:
-        return {self._robot_type, self._screw_type, self._screwdriver_type,
-                self._nail_type, self._hammer_type, self._bolt_type,
-                self._wrench_type, self._contraption_type}
+        return {
+            self._robot_type, self._screw_type, self._screwdriver_type,
+            self._nail_type, self._hammer_type, self._bolt_type,
+            self._wrench_type, self._contraption_type
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return {self._PickScrew, self._PickScrewdriver, self._PickNail,
-                self._PickHammer, self._PickBolt, self._PickWrench,
-                self._Place, self._FastenScrewWithScrewdriver,
-                self._FastenNailWithHammer, self._FastenBoltWithWrench,
-                self._FastenScrewByHand}
+        return {
+            self._PickScrew, self._PickScrewdriver, self._PickNail,
+            self._PickHammer, self._PickBolt, self._PickWrench, self._Place,
+            self._FastenScrewWithScrewdriver, self._FastenNailWithHammer,
+            self._FastenBoltWithWrench, self._FastenScrewByHand
+        }
 
     @property
     def action_space(self) -> Box:
         # Actions are 3-dimensional vectors: [x, y, is_place bit]
-        return Box(np.array([self.table_lx, self.table_ly, 0],
-                            dtype=np.float32),
-                   np.array([self.table_ux, self.table_uy, 1],
-                            dtype=np.float32))
+        return Box(
+            np.array([self.table_lx, self.table_ly, 0], dtype=np.float32),
+            np.array([self.table_ux, self.table_uy, 1], dtype=np.float32))
 
     def render(self,
                state: State,
                task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        raise NotImplementedError  # TODO
+        raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_items_lst: List[int],
-                   num_contraptions_lst: List[int], rng: np.random.Generator
-                   ) -> List[Task]:
+                   num_contraptions_lst: List[int],
+                   rng: np.random.Generator) -> List[Task]:
         tasks = []
         for i in range(num_tasks):
             num_items = num_items_lst[i % len(num_items_lst)]
-            num_contraptions = num_contraptions_lst[
-                i % len(num_contraptions_lst)]
+            num_contraptions = num_contraptions_lst[i %
+                                                    len(num_contraptions_lst)]
             data = {}
             # Initialize robot
             data[self._robot] = np.array([1.0])  # fingers start off open
-            contraptions = []
+            contraptions: List[Object] = []
             # Initialize contraptions
             for j in range(num_contraptions):
                 contraption = Object(f"contraption{j}", self._contraption_type)
@@ -345,7 +358,7 @@ class ToolsEnv(BaseEnv):
             # Initialize items (screws, nails, bolts) and set goal
             # We enforce that there can only be at most one screw, to make
             # the problems generally easier to solve
-            items = []
+            items: List[Object] = []
             screw_cnt, nail_cnt, bolt_cnt = 0, 0, 0
             screw_created = False
             goal = set()
@@ -371,30 +384,32 @@ class ToolsEnv(BaseEnv):
                 if screw_created:
                     choices.remove("screw")
                 choice = rng.choice(choices)
-                goal_contraption = rng.choice(contraptions)
+                goal_contraption = contraptions[rng.integers(
+                    len(contraptions))]
                 if choice == "screw":
                     item = Object(f"screw{screw_cnt}", self._screw_type)
                     screw_cnt += 1
                     shape = rng.uniform(0, 1)
                     feats = [pose_x, pose_y, shape, is_fastened, is_held]
                     goal.add(GroundAtom(self._ScrewFastened, [item]))
-                    goal.add(GroundAtom(
-                        self._ScrewPlaced, [item, goal_contraption]))
+                    goal.add(
+                        GroundAtom(self._ScrewPlaced,
+                                   [item, goal_contraption]))
                     screw_created = True
                 elif choice == "nail":
                     item = Object(f"nail{nail_cnt}", self._nail_type)
                     nail_cnt += 1
                     feats = [pose_x, pose_y, is_fastened, is_held]
                     goal.add(GroundAtom(self._NailFastened, [item]))
-                    goal.add(GroundAtom(
-                        self._NailPlaced, [item, goal_contraption]))
+                    goal.add(
+                        GroundAtom(self._NailPlaced, [item, goal_contraption]))
                 elif choice == "bolt":
                     item = Object(f"bolt{bolt_cnt}", self._bolt_type)
                     bolt_cnt += 1
                     feats = [pose_x, pose_y, is_fastened, is_held]
                     goal.add(GroundAtom(self._BoltFastened, [item]))
-                    goal.add(GroundAtom(
-                        self._BoltPlaced, [item, goal_contraption]))
+                    goal.add(
+                        GroundAtom(self._BoltPlaced, [item, goal_contraption]))
                 items.append(item)
                 data[item] = np.array(feats, dtype=np.float32)
             # Initialize tools (screwdrivers, hammers, wrenches)
@@ -402,7 +417,7 @@ class ToolsEnv(BaseEnv):
             # 3 screwdrivers (two graspable, one not)
             # 2 hammers (one graspable, one not)
             # 1 wrench (wrenches are always graspable)
-            tools = []
+            tools: List[Object] = []
             screwdriver_sizes = [rng.uniform(0, 0.5) for _ in range(3)]
             screwdriver_sizes[rng.integers(3)] = rng.uniform(0.5, 1)
             hammer_sizes = [rng.uniform(0, 0.5) for _ in range(2)]
@@ -472,13 +487,14 @@ class ToolsEnv(BaseEnv):
         return state.get(item, "is_fastened") > 0.5
 
     @staticmethod
-    def _ScrewdriverGraspable_holds(
-            state: State, objects: Sequence[Object]) -> bool:
+    def _ScrewdriverGraspable_holds(state: State,
+                                    objects: Sequence[Object]) -> bool:
         screwdriver, = objects
         return state.get(screwdriver, "size") < 0.5
 
     @staticmethod
-    def _HammerGraspable_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _HammerGraspable_holds(state: State,
+                               objects: Sequence[Object]) -> bool:
         hammer, = objects
         return state.get(hammer, "size") < 0.5
 
@@ -510,8 +526,8 @@ class ToolsEnv(BaseEnv):
         arr = np.array([pose_x, pose_y, 0.0], dtype=np.float32)
         return Action(arr)
 
-    def _get_object_at(self, state: State, x: float, y: float
-                       ) -> Optional[Object]:
+    def _get_object_at(self, state: State, x: float,
+                       y: float) -> Optional[Object]:
         for obj in state:
             if obj == self._robot:
                 continue
@@ -532,8 +548,8 @@ class ToolsEnv(BaseEnv):
                 return obj
         return None
 
-    def _get_contraption_pose_is_on(self, state: State, x: float, y: float
-                                    ) -> Optional[Object]:
+    def _get_contraption_pose_is_on(self, state: State, x: float,
+                                    y: float) -> Optional[Object]:
         for obj in state:
             if obj.type != self._contraption_type:
                 continue
@@ -551,8 +567,8 @@ class ToolsEnv(BaseEnv):
         return pose_lx < x < pose_ux and pose_ly < y < pose_uy
 
     def _is_tool(self, obj: Object) -> bool:
-        return obj.type in (
-            self._screwdriver_type, self._hammer_type, self._wrench_type)
+        return obj.type in (self._screwdriver_type, self._hammer_type,
+                            self._wrench_type)
 
     def _is_item(self, obj: Object) -> bool:
         return obj.type in (self._screw_type, self._nail_type, self._bolt_type)
@@ -560,12 +576,11 @@ class ToolsEnv(BaseEnv):
     def _is_screwdriver_or_hammer(self, obj: Object) -> bool:
         return obj.type in (self._screwdriver_type, self._hammer_type)
 
-    def _get_best_screwdriver_or_none(self, state: State, screw: Object
-                                      ) -> Optional[Object]:
+    def _get_best_screwdriver_or_none(self, state: State,
+                                      screw: Object) -> Optional[Object]:
         """Use the shape of the given screw to figure out the best graspable
         screwdriver for it, or None if no graspable screwdriver has a shape
-        within the threshold self.screw_shape_hand_thresh.
-        """
+        within the threshold self.screw_shape_hand_thresh."""
         assert screw.type == self._screw_type
         closest_screwdriver = None
         closest_diff = float("inf")

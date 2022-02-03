@@ -881,9 +881,9 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(HandEmpty, [robot])}
     add_effects = {LiftedAtom(HoldingScrew, [screw])}
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    nsrts.add(NSRT("PickScrew", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("PickScrew", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # PickScrewdriver
     robot = Variable("?robot", robot_type)
@@ -891,13 +891,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, screwdriver]
     option_vars = [robot, screwdriver]
     option = PickScrewdriver
-    preconditions = {LiftedAtom(HandEmpty, [robot]),
-                     LiftedAtom(ScrewdriverGraspable, [screwdriver])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(ScrewdriverGraspable, [screwdriver])
+    }
     add_effects = {LiftedAtom(HoldingScrewdriver, [screwdriver])}
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    nsrts.add(NSRT("PickScrewDriver", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("PickScrewDriver", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # PickNail
     robot = Variable("?robot", robot_type)
@@ -908,9 +910,9 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(HandEmpty, [robot])}
     add_effects = {LiftedAtom(HoldingNail, [nail])}
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    nsrts.add(NSRT("PickNail", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("PickNail", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # PickHammer
     robot = Variable("?robot", robot_type)
@@ -918,13 +920,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, hammer]
     option_vars = [robot, hammer]
     option = PickHammer
-    preconditions = {LiftedAtom(HandEmpty, [robot]),
-                     LiftedAtom(HammerGraspable, [hammer])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(HammerGraspable, [hammer])
+    }
     add_effects = {LiftedAtom(HoldingHammer, [hammer])}
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    nsrts.add(NSRT("PickHammer", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("PickHammer", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # PickBolt
     robot = Variable("?robot", robot_type)
@@ -935,9 +939,9 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(HandEmpty, [robot])}
     add_effects = {LiftedAtom(HoldingBolt, [bolt])}
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    nsrts.add(NSRT("PickBolt", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("PickBolt", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # PickWrench
     robot = Variable("?robot", robot_type)
@@ -948,9 +952,9 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(HandEmpty, [robot])}
     add_effects = {LiftedAtom(HoldingWrench, [wrench])}
     delete_effects = {LiftedAtom(HandEmpty, [robot])}
-    nsrts.add(NSRT("PickWrench", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("PickWrench", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # PlaceScrewdriverBack
     robot = Variable("?robot", robot_type)
@@ -958,13 +962,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, screwdriver]
     option_vars = [robot]
     option = Place
-    preconditions = {LiftedAtom(HoldingScrewdriver, [screwdriver]),
-                     LiftedAtom(ScrewdriverGraspable, [screwdriver])}
+    preconditions = {
+        LiftedAtom(HoldingScrewdriver, [screwdriver]),
+        LiftedAtom(ScrewdriverGraspable, [screwdriver])
+    }
     add_effects = {LiftedAtom(HandEmpty, [robot])}
     delete_effects = {LiftedAtom(HoldingScrewdriver, [screwdriver])}
-    nsrts.add(NSRT("PlaceScrewdriverBack", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, placeback_sampler))
+    nsrts.add(
+        NSRT("PlaceScrewdriverBack", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, placeback_sampler))
 
     # PlaceHammerBack
     robot = Variable("?robot", robot_type)
@@ -972,13 +978,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, hammer]
     option_vars = [robot]
     option = Place
-    preconditions = {LiftedAtom(HoldingHammer, [hammer]),
-                     LiftedAtom(HammerGraspable, [hammer])}
+    preconditions = {
+        LiftedAtom(HoldingHammer, [hammer]),
+        LiftedAtom(HammerGraspable, [hammer])
+    }
     add_effects = {LiftedAtom(HandEmpty, [robot])}
     delete_effects = {LiftedAtom(HoldingHammer, [hammer])}
-    nsrts.add(NSRT("PlaceHammerBack", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, placeback_sampler))
+    nsrts.add(
+        NSRT("PlaceHammerBack", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, placeback_sampler))
 
     # PlaceWrenchBack
     robot = Variable("?robot", robot_type)
@@ -989,9 +997,9 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     preconditions = {LiftedAtom(HoldingWrench, [wrench])}
     add_effects = {LiftedAtom(HandEmpty, [robot])}
     delete_effects = {LiftedAtom(HoldingWrench, [wrench])}
-    nsrts.add(NSRT("PlaceWrenchBack", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, placeback_sampler))
+    nsrts.add(
+        NSRT("PlaceWrenchBack", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, placeback_sampler))
 
     # PlaceScrewOnContraption
     robot = Variable("?robot", robot_type)
@@ -1001,12 +1009,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     option_vars = [robot]
     option = Place
     preconditions = {LiftedAtom(HoldingScrew, [screw])}
-    add_effects = {LiftedAtom(HandEmpty, [robot]),
-                   LiftedAtom(ScrewPlaced, [screw, contraption])}
+    add_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(ScrewPlaced, [screw, contraption])
+    }
     delete_effects = {LiftedAtom(HoldingScrew, [screw])}
-    nsrts.add(NSRT("PlaceScrewOnContraption", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, placeoncontraption_sampler))
+    nsrts.add(
+        NSRT("PlaceScrewOnContraption", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars,
+             placeoncontraption_sampler))
 
     # PlaceNailOnContraption
     robot = Variable("?robot", robot_type)
@@ -1016,12 +1027,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     option_vars = [robot]
     option = Place
     preconditions = {LiftedAtom(HoldingNail, [nail])}
-    add_effects = {LiftedAtom(HandEmpty, [robot]),
-                   LiftedAtom(NailPlaced, [nail, contraption])}
+    add_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NailPlaced, [nail, contraption])
+    }
     delete_effects = {LiftedAtom(HoldingNail, [nail])}
-    nsrts.add(NSRT("PlaceNailOnContraption", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, placeoncontraption_sampler))
+    nsrts.add(
+        NSRT("PlaceNailOnContraption", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars,
+             placeoncontraption_sampler))
 
     # PlaceBoltOnContraption
     robot = Variable("?robot", robot_type)
@@ -1031,12 +1045,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     option_vars = [robot]
     option = Place
     preconditions = {LiftedAtom(HoldingBolt, [bolt])}
-    add_effects = {LiftedAtom(HandEmpty, [robot]),
-                   LiftedAtom(BoltPlaced, [bolt, contraption])}
+    add_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(BoltPlaced, [bolt, contraption])
+    }
     delete_effects = {LiftedAtom(HoldingBolt, [bolt])}
-    nsrts.add(NSRT("PlaceBoltOnContraption", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, placeoncontraption_sampler))
+    nsrts.add(
+        NSRT("PlaceBoltOnContraption", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars,
+             placeoncontraption_sampler))
 
     # FastenScrewWithScrewdriver
     robot = Variable("?robot", robot_type)
@@ -1046,13 +1063,16 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, screw, screwdriver, contraption]
     option_vars = [robot, screw, screwdriver, contraption]
     option = FastenScrewWithScrewdriver
-    preconditions = {LiftedAtom(HoldingScrewdriver, [screwdriver]),
-                     LiftedAtom(ScrewPlaced, [screw, contraption])}
+    preconditions = {
+        LiftedAtom(HoldingScrewdriver, [screwdriver]),
+        LiftedAtom(ScrewPlaced, [screw, contraption])
+    }
     add_effects = {LiftedAtom(ScrewFastened, [screw])}
     delete_effects = set()
-    nsrts.add(NSRT("FastenScrewWithScrewdriver", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("FastenScrewWithScrewdriver", parameters, preconditions,
+             add_effects, delete_effects, set(), option, option_vars,
+             null_sampler))
 
     # FastenScrewByHand
     robot = Variable("?robot", robot_type)
@@ -1061,13 +1081,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, screw, contraption]
     option_vars = [robot, screw, contraption]
     option = FastenScrewByHand
-    preconditions = {LiftedAtom(HandEmpty, [robot]),
-                     LiftedAtom(ScrewPlaced, [screw, contraption])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(ScrewPlaced, [screw, contraption])
+    }
     add_effects = {LiftedAtom(ScrewFastened, [screw])}
     delete_effects = set()
-    nsrts.add(NSRT("FastenScrewByHand", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("FastenScrewByHand", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # FastenNailWithHammer
     robot = Variable("?robot", robot_type)
@@ -1077,13 +1099,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, nail, hammer, contraption]
     option_vars = [robot, nail, hammer, contraption]
     option = FastenNailWithHammer
-    preconditions = {LiftedAtom(HoldingHammer, [hammer]),
-                     LiftedAtom(NailPlaced, [nail, contraption])}
+    preconditions = {
+        LiftedAtom(HoldingHammer, [hammer]),
+        LiftedAtom(NailPlaced, [nail, contraption])
+    }
     add_effects = {LiftedAtom(NailFastened, [nail])}
     delete_effects = set()
-    nsrts.add(NSRT("FastenNailWithHammer", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("FastenNailWithHammer", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     # FastenBoltWithWrench
     robot = Variable("?robot", robot_type)
@@ -1093,13 +1117,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, bolt, wrench, contraption]
     option_vars = [robot, bolt, wrench, contraption]
     option = FastenBoltWithWrench
-    preconditions = {LiftedAtom(HoldingWrench, [wrench]),
-                     LiftedAtom(BoltPlaced, [bolt, contraption])}
+    preconditions = {
+        LiftedAtom(HoldingWrench, [wrench]),
+        LiftedAtom(BoltPlaced, [bolt, contraption])
+    }
     add_effects = {LiftedAtom(BoltFastened, [bolt])}
     delete_effects = set()
-    nsrts.add(NSRT("FastenBoltWithWrench", parameters, preconditions,
-                   add_effects, delete_effects, set(), option,
-                   option_vars, null_sampler))
+    nsrts.add(
+        NSRT("FastenBoltWithWrench", parameters, preconditions, add_effects,
+             delete_effects, set(), option, option_vars, null_sampler))
 
     return nsrts
 
