@@ -826,12 +826,14 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
                       "bolt", "wrench", "contraption"])
 
     HandEmpty, HoldingScrew, HoldingScrewdriver, HoldingNail, HoldingHammer, \
-        HoldingBolt, HoldingWrench, ScrewPlaced, NailPlaced, BoltPlaced, \
-        ScrewFastened, NailFastened, BoltFastened, ScrewdriverGraspable, \
+        HoldingBolt, HoldingWrench, ScrewOnTable, NailOnTable, BoltOnTable, \
+        ScrewPlaced, NailPlaced, BoltPlaced, ScrewFastened, NailFastened, \
+        BoltFastened, ScrewdriverGraspable, \
         HammerGraspable = _get_predicates_by_names(
             "tools", ["HandEmpty", "HoldingScrew", "HoldingScrewdriver",
                       "HoldingNail", "HoldingHammer", "HoldingBolt",
-                      "HoldingWrench", "ScrewPlaced", "NailPlaced",
+                      "HoldingWrench", "ScrewOnTable", "NailOnTable",
+                      "BoltOnTable", "ScrewPlaced", "NailPlaced",
                       "BoltPlaced", "ScrewFastened", "NailFastened",
                       "BoltFastened", "ScrewdriverGraspable",
                       "HammerGraspable"])
@@ -866,8 +868,11 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
         pose_ly = state.get(contraption, "pose_ly")
         pose_ux = state.get(contraption, "pose_ux")
         pose_uy = state.get(contraption, "pose_uy")
-        pose_x = rng.uniform(pose_lx, pose_ux)
-        pose_y = rng.uniform(pose_ly, pose_uy)
+        # Note: Here we just use the average (plus noise), to make sampler
+        # learning easier. We found that it's harder to learn to imitate the
+        # more preferable sampler, which uses rng.uniform over the bounds.
+        pose_x = pose_lx + (pose_ux - pose_lx) / 2.0 + rng.uniform() * 0.01
+        pose_y = pose_ly + (pose_uy - pose_ly) / 2.0 + rng.uniform() * 0.01
         return np.array([pose_x, pose_y], dtype=np.float32)
 
     nsrts = set()
@@ -878,9 +883,11 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, screw]
     option_vars = [robot, screw]
     option = PickScrew
-    preconditions = {LiftedAtom(HandEmpty, [robot])}
+    preconditions = {LiftedAtom(HandEmpty, [robot]),
+                     LiftedAtom(ScrewOnTable, [screw])}
     add_effects = {LiftedAtom(HoldingScrew, [screw])}
-    delete_effects = {LiftedAtom(HandEmpty, [robot])}
+    delete_effects = {LiftedAtom(HandEmpty, [robot]),
+                      LiftedAtom(ScrewOnTable, [screw])}
     nsrts.add(
         NSRT("PickScrew", parameters, preconditions, add_effects,
              delete_effects, set(), option, option_vars, null_sampler))
@@ -907,9 +914,11 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, nail]
     option_vars = [robot, nail]
     option = PickNail
-    preconditions = {LiftedAtom(HandEmpty, [robot])}
+    preconditions = {LiftedAtom(HandEmpty, [robot]),
+                     LiftedAtom(NailOnTable, [nail])}
     add_effects = {LiftedAtom(HoldingNail, [nail])}
-    delete_effects = {LiftedAtom(HandEmpty, [robot])}
+    delete_effects = {LiftedAtom(HandEmpty, [robot]),
+                      LiftedAtom(NailOnTable, [nail])}
     nsrts.add(
         NSRT("PickNail", parameters, preconditions, add_effects,
              delete_effects, set(), option, option_vars, null_sampler))
@@ -936,9 +945,11 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, bolt]
     option_vars = [robot, bolt]
     option = PickBolt
-    preconditions = {LiftedAtom(HandEmpty, [robot])}
+    preconditions = {LiftedAtom(HandEmpty, [robot]),
+                     LiftedAtom(BoltOnTable, [bolt])}
     add_effects = {LiftedAtom(HoldingBolt, [bolt])}
-    delete_effects = {LiftedAtom(HandEmpty, [robot])}
+    delete_effects = {LiftedAtom(HandEmpty, [robot]),
+                      LiftedAtom(BoltOnTable, [bolt])}
     nsrts.add(
         NSRT("PickBolt", parameters, preconditions, add_effects,
              delete_effects, set(), option, option_vars, null_sampler))

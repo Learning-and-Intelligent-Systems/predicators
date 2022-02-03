@@ -28,7 +28,7 @@ class ToolsEnv(BaseEnv):
     table_ly = -10.0
     table_ux = 10.0
     table_uy = 10.0
-    contraption_size = 1.0
+    contraption_size = 2.0
     close_thresh = 0.1
     # For a screw of a particular shape, if the shape of every graspable
     # screwdriver differs by at least this amount, then this screw is required
@@ -41,15 +41,18 @@ class ToolsEnv(BaseEnv):
         # Types
         self._robot_type = Type("robot", ["fingers"])
         self._screw_type = Type(
-            "screw", ["pose_x", "pose_y", "shape", "is_fastened", "is_held"])
+            "screw", ["pose_x", "pose_y", "on_table", "shape",
+                      "is_fastened", "is_held"])
         self._screwdriver_type = Type(
             "screwdriver", ["pose_x", "pose_y", "shape", "size", "is_held"])
         self._nail_type = Type("nail",
-                               ["pose_x", "pose_y", "is_fastened", "is_held"])
+                               ["pose_x", "pose_y", "on_table", "is_fastened",
+                                "is_held"])
         self._hammer_type = Type("hammer",
                                  ["pose_x", "pose_y", "size", "is_held"])
         self._bolt_type = Type("bolt",
-                               ["pose_x", "pose_y", "is_fastened", "is_held"])
+                               ["pose_x", "pose_y", "on_table", "is_fastened",
+                                "is_held"])
         self._wrench_type = Type("wrench",
                                  ["pose_x", "pose_y", "size", "is_held"])
         self._contraption_type = Type(
@@ -70,6 +73,12 @@ class ToolsEnv(BaseEnv):
                                       self._Holding_holds)
         self._HoldingWrench = Predicate("HoldingWrench", [self._wrench_type],
                                         self._Holding_holds)
+        self._ScrewOnTable = Predicate(
+            "ScrewOnTable", [self._screw_type], self._OnTable_holds)
+        self._NailOnTable = Predicate(
+            "NailOnTable", [self._nail_type], self._OnTable_holds)
+        self._BoltOnTable = Predicate(
+            "BoltOnTable", [self._bolt_type], self._OnTable_holds)
         self._ScrewPlaced = Predicate(
             "ScrewPlaced", [self._screw_type, self._contraption_type],
             self._Placed_holds)
@@ -208,33 +217,39 @@ class ToolsEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        x, y, is_place = action.arr
+        x, y, is_pick, is_place = action.arr
         held = self._get_held_object(state)
         if is_place > 0.5:
             # Handle placing
             if held is None:
                 # Failure: not holding anything
                 return next_state
-            if self._is_tool(held) and \
-               self._get_contraption_pose_is_on(state, x, y) is not None:
+            on_table = self._get_contraption_pose_is_on(state, x, y) is None
+            if self._is_tool(held) and not on_table:
                 # Failure: cannot place a tool on a contraption
                 return next_state
             next_state.set(held, "is_held", 0.0)
             next_state.set(held, "pose_x", x)
             next_state.set(held, "pose_y", y)
+            if self._is_item(held):
+                next_state.set(held, "on_table", float(int(on_table)))
             next_state.set(self._robot, "fingers", 1.0)
             return next_state
-        target = self._get_object_at(state, x, y)
+        target = self._get_closest_object(state, x, y)
         if target is None:
             # Failure: not placing, so something must be at this (x, y)
             return next_state
         del x, y  # no longer needed
         pose_x = state.get(target, "pose_x")
         pose_y = state.get(target, "pose_y")
-        contraption = self._get_contraption_pose_is_on(state, pose_x, pose_y)
-        if contraption is not None:
-            assert self._is_item(target)  # tool can't be on contraption...
+        if is_pick < 0.5:
             # Handle fastening
+            contraption = self._get_contraption_pose_is_on(
+                state, pose_x, pose_y)
+            if contraption is None:
+                # Failure: trying to fasten, but not on a contraption
+                return next_state
+            assert self._is_item(target)  # tool can't be on contraption...
             if target.type == self._screw_type:
                 if held != self._get_best_screwdriver_or_none(state, target):
                     # Failure: held object doesn't match desired screwdriver
@@ -258,7 +273,17 @@ class ToolsEnv(BaseEnv):
            state.get(target, "size") > 0.5:
             # Failure: screwdriver/hammer is not graspable
             return next_state
+        if self._is_item(target) and state.get(target, "on_table") < 0.5:
+            # Failure: can't pick an item when it's not on the table
+            return next_state
+        # Note: we don't update the pose of an object when it is
+        # picked. This is a sort of hack that provides "memory",
+        # so that when placing tools down, there is always the
+        # easy choice of placing it back where you got it from.
+        # The oracle sampler makes use of this.
         next_state.set(target, "is_held", 1.0)
+        if self._is_item(target):
+            next_state.set(target, "on_table", 0.0)
         next_state.set(self._robot, "fingers", 0.0)
         return next_state
 
@@ -281,7 +306,8 @@ class ToolsEnv(BaseEnv):
         return {
             self._HandEmpty, self._HoldingScrew, self._HoldingScrewdriver,
             self._HoldingNail, self._HoldingHammer, self._HoldingBolt,
-            self._HoldingWrench, self._ScrewPlaced, self._NailPlaced,
+            self._HoldingWrench, self._ScrewOnTable, self._NailOnTable,
+            self._BoltOnTable, self._ScrewPlaced, self._NailPlaced,
             self._BoltPlaced, self._ScrewFastened, self._NailFastened,
             self._BoltFastened, self._ScrewdriverGraspable,
             self._HammerGraspable
@@ -313,10 +339,10 @@ class ToolsEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # Actions are 3-dimensional vectors: [x, y, is_place bit]
+        # Actions are 4-dimensional vectors: [x, y, is_pick bit, is_place bit]
         return Box(
-            np.array([self.table_lx, self.table_ly, 0], dtype=np.float32),
-            np.array([self.table_ux, self.table_uy, 1], dtype=np.float32))
+            np.array([self.table_lx, self.table_ly, 0, 0], dtype=np.float32),
+            np.array([self.table_ux, self.table_uy, 1, 1], dtype=np.float32))
 
     def render(self,
                state: State,
@@ -378,6 +404,7 @@ class ToolsEnv(BaseEnv):
                         continue
                     # Otherwise, we found a valid pose
                     break
+                on_table = 1.0  # always start off on table
                 is_fastened = 0.0  # always start off not fastened
                 is_held = 0.0  # always start off not held
                 choices = ["screw", "nail", "bolt"]
@@ -390,7 +417,8 @@ class ToolsEnv(BaseEnv):
                     item = Object(f"screw{screw_cnt}", self._screw_type)
                     screw_cnt += 1
                     shape = rng.uniform(0, 1)
-                    feats = [pose_x, pose_y, shape, is_fastened, is_held]
+                    feats = [pose_x, pose_y, on_table, shape,
+                             is_fastened, is_held]
                     goal.add(GroundAtom(self._ScrewFastened, [item]))
                     goal.add(
                         GroundAtom(self._ScrewPlaced,
@@ -399,14 +427,14 @@ class ToolsEnv(BaseEnv):
                 elif choice == "nail":
                     item = Object(f"nail{nail_cnt}", self._nail_type)
                     nail_cnt += 1
-                    feats = [pose_x, pose_y, is_fastened, is_held]
+                    feats = [pose_x, pose_y, on_table, is_fastened, is_held]
                     goal.add(GroundAtom(self._NailFastened, [item]))
                     goal.add(
                         GroundAtom(self._NailPlaced, [item, goal_contraption]))
                 elif choice == "bolt":
                     item = Object(f"bolt{bolt_cnt}", self._bolt_type)
                     bolt_cnt += 1
-                    feats = [pose_x, pose_y, is_fastened, is_held]
+                    feats = [pose_x, pose_y, on_table, is_fastened, is_held]
                     goal.add(GroundAtom(self._BoltFastened, [item]))
                     goal.add(
                         GroundAtom(self._BoltPlaced, [item, goal_contraption]))
@@ -473,6 +501,12 @@ class ToolsEnv(BaseEnv):
         item_or_tool, = objects
         return state.get(item_or_tool, "is_held") > 0.5
 
+    @staticmethod
+    def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool:
+        # Works for any item
+        item, = objects
+        return state.get(item, "on_table") > 0.5
+
     def _Placed_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # Works for any item
         item, contraption = objects
@@ -506,14 +540,14 @@ class ToolsEnv(BaseEnv):
         _, item_or_tool = objects
         pose_x = state.get(item_or_tool, "pose_x")
         pose_y = state.get(item_or_tool, "pose_y")
-        arr = np.array([pose_x, pose_y, 0.0], dtype=np.float32)
+        arr = np.array([pose_x, pose_y, 1.0, 0.0], dtype=np.float32)
         return Action(arr)
 
     @staticmethod
     def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> Action:
         del state, memory, objects  # unused
-        return Action(np.r_[params, 1.0])
+        return Action(np.r_[params, 0.0, 1.0])
 
     def _Fasten_policy(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> Action:
@@ -523,30 +557,39 @@ class ToolsEnv(BaseEnv):
         assert self._is_item(item)
         pose_x = state.get(item, "pose_x")
         pose_y = state.get(item, "pose_y")
-        arr = np.array([pose_x, pose_y, 0.0], dtype=np.float32)
+        arr = np.array([pose_x, pose_y, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
 
-    def _get_object_at(self, state: State, x: float,
-                       y: float) -> Optional[Object]:
+    def _get_closest_object(self, state: State, x: float,
+                            y: float) -> Optional[Object]:
+        closest_obj = None
+        closest_dist = float("inf")
         for obj in state:
             if obj == self._robot:
                 continue
             if obj.type == self._contraption_type:
                 continue
-            if abs(state.get(obj, "pose_x") - x) < self.close_thresh and \
-               abs(state.get(obj, "pose_y") - y) < self.close_thresh:
-                return obj
-        return None
+            x_dist = abs(state.get(obj, "pose_x") - x)
+            y_dist = abs(state.get(obj, "pose_y") - y)
+            if x_dist > self.close_thresh or y_dist > self.close_thresh:
+                continue
+            dist = x_dist + y_dist
+            if dist < closest_dist:
+                closest_dist = dist
+                closest_obj = obj
+        return closest_obj
 
     def _get_held_object(self, state: State) -> Optional[Object]:
+        held_obj = None
         for obj in state:
             if obj == self._robot:
                 continue
             if obj.type == self._contraption_type:
                 continue
             if state.get(obj, "is_held") > 0.5:
-                return obj
-        return None
+                assert held_obj is None
+                held_obj = obj
+        return held_obj
 
     def _get_contraption_pose_is_on(self, state: State, x: float,
                                     y: float) -> Optional[Object]:
