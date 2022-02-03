@@ -131,17 +131,15 @@ def test_demo_nonoptimal_replay_dataset():
     # that we consistently cover the failure case.
     utils.reset_config({
         "env": "cover",
-        "approach": "random_actions",
         "offline_data_method": "demo+nonoptimalreplay",
-        "offline_data_planning_timeout": 1e-1,
-        "offline_data_num_replays": 50,
-        "option_learner": "no_learning",
+        "offline_data_planning_timeout": 1.0,
+        "offline_data_num_replays": 5,
         "num_train_tasks": 5,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
-    assert len(dataset.trajectories) == 5 + 50
+    assert len(dataset.trajectories) == 5 + 5
     assert len(dataset.trajectories[-1].states) == 2
     assert len(dataset.trajectories[-1].actions) == 1
 
