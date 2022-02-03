@@ -151,8 +151,8 @@ def _create_predicate_labels(
 
 
 def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
-                    predicate_set_order: Tuple[FrozenSet[Predicate], ...],
-                    outfile: str) -> None:
+                    predicate_set_order: Tuple[FrozenSet[Predicate],
+                                               ...], outfile: str) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
     # Reorganize into heatmap array of shape (predicate set, skeleton idx)
     # by averaging out seed and task.
@@ -182,8 +182,8 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
 
 
 def _create_plot(env_results: NDArray[np.int32], env_name: str,
-                 predicate_set_order: Tuple[FrozenSet[Predicate], ...],
-                 outfile: str) -> None:
+                 predicate_set_order: Tuple[FrozenSet[Predicate],
+                                            ...], outfile: str) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
     # Reorganize into array of shape (predicate set,) by scoring each seed's
     # result and then averaging out seed.
