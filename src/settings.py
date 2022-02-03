@@ -50,8 +50,8 @@ class GlobalSettings:
     painting_num_objs_test = [3, 4]
 
     # tools env parameters
-    tools_num_items_train = [2, 3]
-    tools_num_items_test = [3, 4]
+    tools_num_items_train = [1, 2]
+    tools_num_items_test = [2, 3]
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]
 
@@ -73,8 +73,6 @@ class GlobalSettings:
 
     # SeSamE parameters
     max_num_steps_option_rollout = 1000
-    max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
-    max_samples_per_step = 10  # max effort on sampling a single skeleton
     task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
 
@@ -205,6 +203,25 @@ class GlobalSettings:
                 {
                     # For the BEHAVIOR environment, use a special option model.
                     "behavior": "behavior_oracle",
+                })[args.get("env", "")],
+
+            # In SeSamE, the maximum number of skeletons optimized before
+            # giving up. If 1, can only solve downward refinable tasks.
+            max_skeletons_optimized=defaultdict(
+                lambda: 8,
+                {
+                    # For the tools environment, allow many more skeletons.
+                    "tools": 1000,
+                })[args.get("env", "")],
+
+            # In SeSamE, the maximum effort put into sampling a single skeleton.
+            # Concretely, this effort refers to the maximum number of calls to
+            # the sampler on each step before backtracking.
+            max_samples_per_step=defaultdict(
+                lambda: 10,
+                {
+                    # For the tools environment, don't do any backtracking.
+                    "tools": 1,
                 })[args.get("env", "")],
         )
 
