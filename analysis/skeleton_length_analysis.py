@@ -2,6 +2,7 @@
 a function of the number of predicates included."""
 
 from typing import Tuple, FrozenSet, List
+import dill as pkl
 import functools
 import os
 import numpy as np
@@ -214,30 +215,43 @@ def _create_plot(env_results: NDArray[np.int32], env_name: str,
 
 
 def _main() -> None:
+    force_remake_results = True
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     os.makedirs(outdir, exist_ok=True)
 
     for env_name in ENV_NAMES:
-        # First determine the predicate sets that we want to use for this env.
-        # Do this by hill climbing over all seeds and taking the mode.
-        # Cache everything to avoid redundant computation.
-        predicate_set_orders = [
-            _order_predicate_sets(env_name, seed) for seed in SEEDS
-        ]
-        predicate_set_order = max(predicate_set_orders,
-                                  key=predicate_set_orders.count)
-        # Now create the per-seed results that we will actually plot.
-        env_results = []
-        for seed in SEEDS:
-            seed_results = [
-                _compute_skeleton_length_errors(env_name, seed, p)
-                for p in predicate_set_order
+        outfile = os.path.join(outdir, f"skeleton_len_results_{env_name}.p")
+        if not force_remake_results and os.path.exists(outfile):
+            with open(outfile, "rb") as f:
+                predicate_set_order, results_arr = pkl.load(f)
+            print(f"Loaded results from {outfile}.")
+        else:
+            # First determine the predicate sets that we want for this env.
+            # Do this by hill climbing over all seeds and taking the mode.
+            # Cache everything to avoid redundant computation.
+            predicate_set_orders = [
+                _order_predicate_sets(env_name, seed) for seed in SEEDS
             ]
-            env_results.append(seed_results)
-        results_arr = np.array(env_results, dtype=np.int32)
+            predicate_set_order = max(predicate_set_orders,
+                                      key=predicate_set_orders.count)
+            # Now create the per-seed results that we will actually plot.
+            env_results = []
+            for seed in SEEDS:
+                seed_results = [
+                    _compute_skeleton_length_errors(env_name, seed, p)
+                    for p in predicate_set_order
+                ]
+                env_results.append(seed_results)
+            results_arr = np.array(env_results, dtype=np.int32)
+            # Save raw results.
+            with open(outfile, "wb") as f:
+                pkl.dump((predicate_set_order, results_arr), f)
+            print(f"Wrote out results to {outfile}.")
+        # Create heat map.
         outfile = os.path.join(outdir, f"skeleton_len_heatmap_{env_name}.png")
         _create_heatmap(results_arr, env_name, predicate_set_order, outfile)
+        # Create plot.
         outfile = os.path.join(outdir, f"skeleton_len_plot_{env_name}.png")
         _create_plot(results_arr, env_name, predicate_set_order, outfile)
 
