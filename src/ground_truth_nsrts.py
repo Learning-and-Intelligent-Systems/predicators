@@ -6,7 +6,7 @@ import numpy as np
 from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
     PlayroomEnv, BehaviorEnv
 from predicators.src.structs import NSRT, Predicate, State, \
-    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
+    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array, GroundAtom
 from predicators.src.settings import CFG
 from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
     grasp_obj_param_sampler, place_ontop_obj_pos_sampler
@@ -344,8 +344,10 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, [can])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    def grasp_sampler(state: State, rng: np.random.Generator,
+    def grasp_sampler(state: State, goal: Set[GroundAtom],
+                      rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
+        del goal  # not used
         assert len(objs) == 1
         can = objs[0]
         # Need a max here in case the can is trashed already, in which case
@@ -397,12 +399,36 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         }
         add_effects = {LiftedAtom(HandEmpty, [])}
         delete_effects = {LiftedAtom(Holding, [can])}
-        place_sampler = lambda s, r, o: np.array([
-            r.uniform(0, 0.2),
-            r.uniform(0, 0.2),
-            r.uniform(0, 1.),
-            r.uniform(0, 1.)
-        ])
+    
+        def place_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+            start_x, start_y = 0.0, 0.0
+            # Goal-conditioned sampling
+            if CFG.cluttered_table_place_goal_conditioned_sampling:
+                # Get the pose of the goal object
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert goal_atom.predicate == Holding
+                goal_obj = goal_atom.objects[0]
+                goal_x = state.get(goal_obj, "pose_x")
+                goal_y = state.get(goal_obj, "pose_y")
+                # Place left and up w.r.t the goal
+                return np.array([
+                    start_x,
+                    start_y,
+                    goal_x * 0.1,
+                    goal_y * 1.1,
+                ], dtype=np.float32)
+            # Non-goal-conditioned sampling
+            del state, goal, rng, objs
+            return np.array([
+                start_x,
+                start_y,
+                rng.uniform(0, 1.),
+                rng.uniform(0, 1.)
+            ], dtype=np.float32)
+
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
                           delete_effects, set(), option, option_vars,
                           place_sampler)
