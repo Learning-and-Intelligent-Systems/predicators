@@ -40,19 +40,17 @@ class ToolsEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["fingers"])
-        self._screw_type = Type(
-            "screw", ["pose_x", "pose_y", "on_table", "shape",
-                      "is_fastened", "is_held"])
+        self._screw_type = Type("screw", [
+            "pose_x", "pose_y", "on_table", "shape", "is_fastened", "is_held"
+        ])
         self._screwdriver_type = Type(
             "screwdriver", ["pose_x", "pose_y", "shape", "size", "is_held"])
-        self._nail_type = Type("nail",
-                               ["pose_x", "pose_y", "on_table", "is_fastened",
-                                "is_held"])
+        self._nail_type = Type(
+            "nail", ["pose_x", "pose_y", "on_table", "is_fastened", "is_held"])
         self._hammer_type = Type("hammer",
                                  ["pose_x", "pose_y", "size", "is_held"])
-        self._bolt_type = Type("bolt",
-                               ["pose_x", "pose_y", "on_table", "is_fastened",
-                                "is_held"])
+        self._bolt_type = Type(
+            "bolt", ["pose_x", "pose_y", "on_table", "is_fastened", "is_held"])
         self._wrench_type = Type("wrench",
                                  ["pose_x", "pose_y", "size", "is_held"])
         self._contraption_type = Type(
@@ -73,12 +71,12 @@ class ToolsEnv(BaseEnv):
                                       self._Holding_holds)
         self._HoldingWrench = Predicate("HoldingWrench", [self._wrench_type],
                                         self._Holding_holds)
-        self._ScrewOnTable = Predicate(
-            "ScrewOnTable", [self._screw_type], self._OnTable_holds)
-        self._NailOnTable = Predicate(
-            "NailOnTable", [self._nail_type], self._OnTable_holds)
-        self._BoltOnTable = Predicate(
-            "BoltOnTable", [self._bolt_type], self._OnTable_holds)
+        self._ScrewOnTable = Predicate("ScrewOnTable", [self._screw_type],
+                                       self._OnTable_holds)
+        self._NailOnTable = Predicate("NailOnTable", [self._nail_type],
+                                      self._OnTable_holds)
+        self._BoltOnTable = Predicate("BoltOnTable", [self._bolt_type],
+                                      self._OnTable_holds)
         self._ScrewPlaced = Predicate(
             "ScrewPlaced", [self._screw_type, self._contraption_type],
             self._Placed_holds)
@@ -417,8 +415,9 @@ class ToolsEnv(BaseEnv):
                     item = Object(f"screw{screw_cnt}", self._screw_type)
                     screw_cnt += 1
                     shape = rng.uniform(0, 1)
-                    feats = [pose_x, pose_y, on_table, shape,
-                             is_fastened, is_held]
+                    feats = [
+                        pose_x, pose_y, on_table, shape, is_fastened, is_held
+                    ]
                     goal.add(GroundAtom(self._ScrewFastened, [item]))
                     goal.add(
                         GroundAtom(self._ScrewPlaced,
