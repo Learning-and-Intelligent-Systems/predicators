@@ -160,7 +160,8 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, screw, screwdriver]
             # params: []
             "FastenScrewWithScrewdriver",
-            types=[self._robot_type, self._screw_type, self._screwdriver_type],
+            types=[self._robot_type, self._screw_type, self._screwdriver_type,
+                   self._contraption_type],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -169,7 +170,7 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, screw]
             # params: []
             "FastenScrewByHand",
-            types=[self._robot_type, self._screw_type],
+            types=[self._robot_type, self._screw_type, self._contraption_type],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -178,7 +179,8 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, nail, hammer]
             # params: []
             "FastenNailWithHammer",
-            types=[self._robot_type, self._nail_type, self._hammer_type],
+            types=[self._robot_type, self._nail_type, self._hammer_type,
+                   self._contraption_type],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -187,7 +189,8 @@ class ToolsEnv(BaseEnv):
             # variables: [robot, bolt, wrench]
             # params: []
             "FastenBoltWithWrench",
-            types=[self._robot_type, self._bolt_type, self._wrench_type],
+            types=[self._robot_type, self._bolt_type, self._wrench_type,
+                   self._contraption_type],
             params_space=Box(0, 1, (0, )),  # no parameters
             _policy=self._Fasten_policy,
             _initiable=utils.always_initiable,
@@ -198,20 +201,9 @@ class ToolsEnv(BaseEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
-        x, y = action.arr
-        target = self._get_object_at(state, x, y)
+        x, y, is_place = action.arr
         held = self._get_held_object(state)
-        # The following line, which provides a condition for placing,
-        # is sort of strange. There are two conditions under which
-        # this action is a place: there is nothing at the target pose
-        # (e.g., placing onto a contraption), or the object at the
-        # target pose is the held object. How is the latter possible?
-        # It's because we don't update the pose of an object when it
-        # is picked. This is a sort of hack that provides "memory", so
-        # that when placing tools down, there is always the easy
-        # choice of placing it back where you got it from. The
-        # samplers can choose to make use of this.
-        if target is None or target == held:
+        if is_place > 0.5:
             # Handle placing
             if held is None:
                 # Failure: not holding anything
@@ -224,6 +216,10 @@ class ToolsEnv(BaseEnv):
             next_state.set(held, "pose_x", x)
             next_state.set(held, "pose_y", y)
             next_state.set(self._robot, "fingers", 1.0)
+            return next_state
+        target = self._get_object_at(state, x, y)
+        if target is None:
+            # Failure: not placing, so something must be at this (x, y)
             return next_state
         del x, y  # no longer needed
         pose_x = state.get(target, "pose_x")
@@ -303,9 +299,11 @@ class ToolsEnv(BaseEnv):
 
     @property
     def action_space(self) -> Box:
-        # Actions are 2-dimensional vectors: [x, y]
-        return Box(np.array([self.table_lx, self.table_ly], dtype=np.float32),
-                   np.array([self.table_ux, self.table_uy], dtype=np.float32))
+        # Actions are 3-dimensional vectors: [x, y, is_place bit]
+        return Box(np.array([self.table_lx, self.table_ly, 0],
+                            dtype=np.float32),
+                   np.array([self.table_ux, self.table_uy, 1],
+                            dtype=np.float32))
 
     def render(self,
                state: State,
@@ -492,14 +490,14 @@ class ToolsEnv(BaseEnv):
         _, item_or_tool = objects
         pose_x = state.get(item_or_tool, "pose_x")
         pose_y = state.get(item_or_tool, "pose_y")
-        arr = np.array([pose_x, pose_y], dtype=np.float32)
+        arr = np.array([pose_x, pose_y, 0.0], dtype=np.float32)
         return Action(arr)
 
     @staticmethod
     def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> Action:
         del state, memory, objects  # unused
-        return Action(params)
+        return Action(np.r_[params, 1.0])
 
     def _Fasten_policy(self, state: State, memory: Dict,
                        objects: Sequence[Object], params: Array) -> Action:
@@ -509,7 +507,7 @@ class ToolsEnv(BaseEnv):
         assert self._is_item(item)
         pose_x = state.get(item, "pose_x")
         pose_y = state.get(item, "pose_y")
-        arr = np.array([pose_x, pose_y], dtype=np.float32)
+        arr = np.array([pose_x, pose_y, 0.0], dtype=np.float32)
         return Action(arr)
 
     def _get_object_at(self, state: State, x: float, y: float

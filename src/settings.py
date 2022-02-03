@@ -50,7 +50,7 @@ class GlobalSettings:
     painting_num_objs_test = [3, 4]
 
     # tools env parameters
-    tools_num_items_train = [1, 2]
+    tools_num_items_train = [2]
     tools_num_items_test = [2, 3]
     tools_num_contraptions_train = [2]
     tools_num_contraptions_test = [3]

@@ -7,7 +7,7 @@ from predicators.src.approaches import OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
-    BlocksEnv, PaintingEnv, PlayroomEnv, CoverMultistepOptions, \
+    BlocksEnv, PaintingEnv, ToolsEnv, PlayroomEnv, CoverMultistepOptions, \
     CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvRegrasp
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src import utils
@@ -95,6 +95,7 @@ def test_check_nsrt_parameters():
         "cluttered_table": ClutteredTableEnv(),
         "blocks": BlocksEnv(),
         "painting": PaintingEnv(),
+        "tools": ToolsEnv(),
         "playroom": PlayroomEnv(),
         "cover_multistep_options": CoverMultistepOptions(),
         "repeated_nextto": RepeatedNextToEnv()
@@ -475,6 +476,30 @@ def test_oracle_approach_painting():
         "num_test_tasks": 2
     })
     env = PaintingEnv()
+    env.seed(123)
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    approach.seed(123)
+    for train_task in train_tasks[:2]:
+        policy = approach.solve(train_task, timeout=500)
+        assert utils.policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks()[:2]:
+        policy = approach.solve(test_task, timeout=500)
+        assert utils.policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_tools():
+    """Tests for OracleApproach class with ToolsEnv."""
+    utils.reset_config({
+        "env": "tools",
+        "tools_num_items_train": [2],
+        "tools_num_items_test": [2],
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = ToolsEnv()
     env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,

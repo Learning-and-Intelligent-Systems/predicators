@@ -17,6 +17,7 @@ def test_create_env():
             "blocks",
             "playroom",
             "painting",
+            "tools",
             "repeated_nextto",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
