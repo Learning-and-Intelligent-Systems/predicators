@@ -32,8 +32,7 @@ def _run_analysis_for_env(env_name: str,
     env.seed(seed)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
-    assert [t.train_task_idx for t in dataset.trajectories] == \
-        list(range(len(train_tasks)))
+    assert all(traj.is_demo for traj in dataset.trajectories)
     demo_skeleton_lengths = [
         utils.num_options_in_action_sequence(t.actions)
         for t in dataset.trajectories
@@ -119,10 +118,11 @@ def _compute_skeleton_length_errors(
     # For each train task / demo, run task planning, and measure the error
     # in skeleton length relative to the demos.
     skeleton_length_errors = []  # shape (num tasks, max skeletons)
-    for train_task, demo_len in zip(train_tasks, demo_skeleton_lengths):
+    for traj, demo_len in zip(dataset.trajectories, demo_skeleton_lengths):
         # Run task planning.
-        init_atoms = utils.abstract(train_task.init, current_predicate_set)
-        objects = set(train_task.init)
+        train_task = train_tasks[traj.train_task_idx]
+        init_atoms = utils.abstract(traj.states[0], current_predicate_set)
+        objects = set(traj.states[0])
         ground_nsrts, reachable_atoms = task_plan_grounding(
             init_atoms, objects, strips_ops, option_specs)
         heuristic = utils.create_task_planning_heuristic(
@@ -179,8 +179,8 @@ def _create_heatmap(env_results: NDArray[np.int32], env_name: str,
 def _create_plot(env_results: NDArray[np.int32], env_name: str,
                  outfile: str) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
-    # Reorganize into array of shape (predicate set,) by taking a min over
-    # skeleton idx and averaging out seed and task.
+    # Reorganize into array of shape (predicate set,) by scoring each seed's
+    # result and then averaging out seed.
     arr = np.mean([[_score_result(r) for r in seed_rs]
                    for seed_rs in env_results],
                   axis=0)
