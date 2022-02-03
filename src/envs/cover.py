@@ -93,7 +93,8 @@ class CoverEnv(BaseEnv):
             if self._any_intersection(new_pose,
                                       state.get(held_block, "width"),
                                       state.data,
-                                      block_only=True):
+                                      block_only=True,
+                                      excluded_object=held_block):
                 return next_state
             # Only place if free space placing is allowed, or if we're
             # placing onto some target.
@@ -320,10 +321,13 @@ class CoverEnv(BaseEnv):
                           width: float,
                           data: Dict[Object, Array],
                           block_only: bool = False,
-                          larger_gap: bool = False) -> bool:
+                          larger_gap: bool = False,
+                          excluded_object: Optional[Object] = None) -> bool:
         mult = 1.5 if larger_gap else 0.5
         for other in data:
             if block_only and other not in self._blocks:
+                continue
+            if other == excluded_object:
                 continue
             other_feats = data[other]
             distance = abs(other_feats[3] - pose)
@@ -401,12 +405,26 @@ class CoverEnvRegrasp(CoverEnv):
     This environment also has two different oracle NSRTs for placing, one for
     placing a target and one for placing on the table.
 
+    This environment also has a Clear predicate, to prevent placing on already
+    covered targets.
+
     Finally, to allow placing on the table, we need to change the allowed
     hand regions. We implement it so that there is a relatively small hand
     region centered at each target, but then everywhere else is allowed.
     """
     _allow_free_space_placing = True
     _initial_pick_offsets = [-0.95, 0.0, 0.95]
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Add a Clear predicate to prevent attempts at placing on already
+        # covered targets.
+        self._Clear = Predicate("Clear", [self._target_type],
+                                self._Clear_holds)
+
+    @property
+    def predicates(self) -> Set[Predicate]:
+        return super().predicates | {self._Clear}
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
@@ -421,6 +439,16 @@ class CoverEnvRegrasp(CoverEnv):
             left_bound = targ_right + w
         hand_regions.append((left_bound, 1.0))
         return hand_regions
+
+    def _Clear_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        assert len(objects) == 1
+        target = objects[0]
+        for b in state:
+            if b.type != self._block_type:
+                continue
+            if self._Covers_holds(state, [b, target]):
+                return False
+        return True
 
 
 class CoverMultistepOptions(CoverEnvTypedOptions):
