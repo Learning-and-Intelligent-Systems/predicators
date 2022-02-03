@@ -1,8 +1,10 @@
 """Make pretty plots by hill-climbing with respect to different score functions
 that operator over skeletons, and different aggregation functions for combining
-the results over skeletons. Mostly used for decomposing the expected_nodes
-score function in grammar search into skeleton length error and number of nodes
-expanded."""
+the results over skeletons.
+
+Mostly used for decomposing the expected_nodes score function in grammar
+search into skeleton length error and number of nodes expanded.
+"""
 
 from typing import Tuple, FrozenSet, List, Callable
 import functools
