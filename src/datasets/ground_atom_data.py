@@ -27,6 +27,7 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
     labeleds = {p: 0 for p in annotating_predicates}
     totals = {p: 0 for p in annotating_predicates}
     annotations: List[List[Set[GroundAtom]]] = []
+    annotated_preds = set()
     for traj in base_dataset.trajectories:
         ground_atoms_traj: List[Set[GroundAtom]] = []
         for s in traj.states:
@@ -42,9 +43,12 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
                         stripped_ga = GroundAtom(stripped_pred, ga.objects)
                         subset_atoms.add(stripped_ga)
                         labeleds[pred] += 1
+                        annotated_preds.add(pred)
                     totals[pred] += 1
             ground_atoms_traj.append(subset_atoms)
         assert len(traj.states) == len(ground_atoms_traj)
         annotations.append(ground_atoms_traj)
     assert len(annotations) == len(base_dataset.trajectories)
+    assert annotated_preds == annotating_predicates, \
+        "Not all predicates are seen in the dataset"
     return Dataset(base_dataset.trajectories, annotations)
