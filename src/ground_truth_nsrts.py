@@ -417,11 +417,11 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
                 return np.array([
                     start_x,
                     start_y,
-                    goal_x * 0.1,
-                    goal_y * 1.1,
+                    goal_x * 0.05,
+                    goal_y * 1.25,
                 ], dtype=np.float32)
             # Non-goal-conditioned sampling
-            del state, goal, rng, objs
+            del state, goal, objs
             return np.array([
                 start_x,
                 start_y,
