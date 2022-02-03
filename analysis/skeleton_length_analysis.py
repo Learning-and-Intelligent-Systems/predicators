@@ -30,8 +30,9 @@ ENV_NAMES = {
 SEEDS = list(range(10))
 
 SCORE_AND_AGGREGATION_NAMES = {
-    ("skeleton_len", "min"): "Min Skeleton Length",
+    ("skeleton_len", "min"): "Min Skeleton Length Error",
     ("num_nodes", "sum"): "Total Nodes Created",
+    ("expected_nodes", "sum"): "Expected Planning Time",
 }
 
 
@@ -63,6 +64,8 @@ def _create_score_function(
         return _compute_skeleton_length_errors
     if score_name == "num_nodes":
         return _compute_num_nodes
+    if score_name == "expected_nodes":
+        return _compute_expected_nodes
     raise NotImplementedError("Unrecognized score function:"
                               f" {score_name}.")
 
@@ -87,7 +90,13 @@ def _order_predicate_sets(
     score_function = _create_score_function(score_name)
     aggregate = _create_aggregation_function(aggregation_name)
     env = create_env(env_name)
-    oracle_predicates = env.predicates
+    oracle_predicates = set(env.predicates)
+    # Hack: remove these unnecessary predicates for cover.
+    if env_name.startswith("cover"):
+        oracle_predicates -= {
+            p
+            for p in oracle_predicates if p.name in ("IsTarget", "IsBlock")
+        }
     # Starting with an empty predicate set (plus goal predicates),
     # build up to the oracle predicate set, adding one predicate at a time.
     current_predicate_set = frozenset(env.goal_predicates)
@@ -120,7 +129,7 @@ def _skeleton_based_score_function(
         seed: int,
         frozen_predicate_set: FrozenSet[Predicate],
         skeleton_score_fn: Callable,  # too complicated...
-        default_result: float,
+        get_default_result: Callable[[int], float],
         max_skeletons: int = 8,
         timeout: float = 10) -> NDArray[np.float64]:
     current_predicate_set = set(frozen_predicate_set)
@@ -159,9 +168,8 @@ def _skeleton_based_score_function(
                 task_results.append(result)
         except (ApproachTimeout, ApproachFailure):
             # Use an upper bound on the error.
-            num_missing = max_skeletons - len(task_results)
-            for _ in range(num_missing):
-                task_results.append(default_result)
+            for idx in range(len(task_results), max_skeletons):
+                task_results.append(get_default_result(idx))
         per_skeleton_results.append(task_results)
     results_arr = np.array(per_skeleton_results, dtype=np.float64)
     assert results_arr.shape == (len(train_tasks), max_skeletons)
@@ -178,10 +186,11 @@ def _compute_skeleton_length_errors(
         error_upper_bound: int = 100) -> NDArray[np.float64]:
     skeleton_score_fn = lambda plan_skeleton, _1, _2, _3, demo_len: \
         abs(len(plan_skeleton) - demo_len)
-    default_result = error_upper_bound
+    get_default_result = lambda _: error_upper_bound
     return _skeleton_based_score_function(env_name, seed, frozen_predicate_set,
-                                          skeleton_score_fn, default_result,
-                                          max_skeletons, timeout)
+                                          skeleton_score_fn,
+                                          get_default_result, max_skeletons,
+                                          timeout)
 
 
 @functools.lru_cache(maxsize=None)
@@ -189,14 +198,52 @@ def _compute_num_nodes(env_name: str,
                        seed: int,
                        frozen_predicate_set: FrozenSet[Predicate],
                        max_skeletons: int = 8,
-                       timeout: float = 10,
-                       error_upper_bound: int = 100) -> NDArray[np.float64]:
+                       timeout: float = 10) -> NDArray[np.float64]:
     skeleton_score_fn = lambda _1, _2, metrics, _3, _4: \
         metrics["num_nodes_created"]
     default_result = CFG.grammar_search_expected_nodes_upper_bound
+    get_default_result = lambda _: default_result
     return _skeleton_based_score_function(env_name, seed, frozen_predicate_set,
-                                          skeleton_score_fn, default_result,
-                                          max_skeletons, timeout)
+                                          skeleton_score_fn,
+                                          get_default_result, max_skeletons,
+                                          timeout)
+
+
+@functools.lru_cache(maxsize=None)
+def _compute_expected_nodes(
+        env_name: str,
+        seed: int,
+        frozen_predicate_set: FrozenSet[Predicate],
+        max_skeletons: int = 8,
+        timeout: float = 10) -> NDArray[np.float64]:
+    # Horribly horribly hacky, but oh well...
+    p = CFG.grammar_search_expected_nodes_optimal_demo_prob
+    w = CFG.grammar_search_expected_nodes_backtracking_cost
+    ub = CFG.grammar_search_expected_nodes_upper_bound
+    refinable_skeleton_not_found_prob = 1.0
+
+    def helper_fn(skeleton_len_error: int, skeleton_idx: int,
+                  num_nodes_created: int) -> float:
+        nonlocal refinable_skeleton_not_found_prob
+        if skeleton_idx == max_skeletons - 1:
+            return refinable_skeleton_not_found_prob * ub
+        refinement_prob = p * (1 - p)**skeleton_len_error
+        skeleton_prob = refinable_skeleton_not_found_prob * refinement_prob
+        refinable_skeleton_not_found_prob *= (1 - refinement_prob)
+        expected_planning_time = skeleton_prob * num_nodes_created
+        if skeleton_idx > 0:
+            expected_planning_time += skeleton_prob * w
+        return expected_planning_time
+
+    def get_default_result(_skeleton_idx: int) -> float:
+        return refinable_skeleton_not_found_prob * ub
+    skeleton_score_fn = lambda plan_skeleton, _1, metrics, idx, demo_len: \
+        helper_fn(abs(len(plan_skeleton) - demo_len), idx,
+        metrics["num_nodes_created"])
+    return _skeleton_based_score_function(env_name, seed, frozen_predicate_set,
+                                          skeleton_score_fn,
+                                          get_default_result, max_skeletons,
+                                          timeout)
 
 
 def _create_predicate_labels(
@@ -262,7 +309,6 @@ def _create_plot(env_results: NDArray[np.float64], env_name: str,
 
     fig, ax = plt.subplots()
     ax.plot(np.arange(num_predicate_sets), arr)
-
     ax.set_xticks(np.arange(num_predicate_sets), labels=labels)
     plt.setp(ax.get_xticklabels(),
              rotation=45,
@@ -288,14 +334,13 @@ def _main() -> None:
             print(f"Loaded results from {outfile}.")
         else:
             # First determine the predicate sets that we want for this env.
-            # Do this by hill climbing over all seeds and taking the mode,
-            # using only the skeleton len score function.
+            # Do this by hill climbing over all seeds and taking the mode.
             # Cache everything to avoid redundant computation.
             predicate_set_orders = [
                 _order_predicate_sets(env_name,
                                       seed,
-                                      score_name="skeleton_len",
-                                      aggregation_name="min") for seed in SEEDS
+                                      score_name="expected_nodes",
+                                      aggregation_name="sum") for seed in SEEDS
             ]
             predicate_set_order = max(predicate_set_orders,
                                       key=predicate_set_orders.count)
