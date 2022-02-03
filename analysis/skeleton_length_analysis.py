@@ -24,7 +24,7 @@ ENV_NAMES = {
     "cover": "Cover",
     "cover_regrasp": "Cover Regrasp",
     "blocks": "Blocks",
-    # "painting": "Painting",
+    "painting": "Painting",
 }
 
 SEEDS = list(range(10))
@@ -276,9 +276,13 @@ def _create_heatmap(env_results: NDArray[np.float64], env_name: str,
     ax.set_yticks(np.arange(num_predicate_sets), labels=labels)
     for i in range(num_skeletons):
         for j in range(num_predicate_sets):
+            if heatmap_arr[j, i] >= 100:
+                text = ">100"
+            else:
+                text = f"{heatmap_arr[j, i]:.2f}"
             ax.text(i,
                     j,
-                    f"{heatmap_arr[j, i]:.2f}",
+                    text,
                     ha="center",
                     va="center",
                     color="w")
@@ -300,7 +304,7 @@ def _create_plot(env_results: NDArray[np.float64], env_name: str,
     aggregate = _create_aggregation_function(aggregation_name)
     seed_results = [[aggregate(r) for r in seed_rs] for seed_rs in env_results]
     arr = np.mean(seed_results, axis=0)
-    std_arr = np.std(seed_results, axis=0)
+    # std_arr = np.std(seed_results, axis=0)
     num_predicate_sets, = arr.shape
     assert num_predicate_sets == len(predicate_set_order)
     labels = _create_predicate_labels(predicate_set_order)
