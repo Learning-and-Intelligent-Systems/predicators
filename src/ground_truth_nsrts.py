@@ -883,11 +883,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, screw]
     option_vars = [robot, screw]
     option = PickScrew
-    preconditions = {LiftedAtom(HandEmpty, [robot]),
-                     LiftedAtom(ScrewOnTable, [screw])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(ScrewOnTable, [screw])
+    }
     add_effects = {LiftedAtom(HoldingScrew, [screw])}
-    delete_effects = {LiftedAtom(HandEmpty, [robot]),
-                      LiftedAtom(ScrewOnTable, [screw])}
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(ScrewOnTable, [screw])
+    }
     nsrts.add(
         NSRT("PickScrew", parameters, preconditions, add_effects,
              delete_effects, set(), option, option_vars, null_sampler))
@@ -914,11 +918,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, nail]
     option_vars = [robot, nail]
     option = PickNail
-    preconditions = {LiftedAtom(HandEmpty, [robot]),
-                     LiftedAtom(NailOnTable, [nail])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NailOnTable, [nail])
+    }
     add_effects = {LiftedAtom(HoldingNail, [nail])}
-    delete_effects = {LiftedAtom(HandEmpty, [robot]),
-                      LiftedAtom(NailOnTable, [nail])}
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(NailOnTable, [nail])
+    }
     nsrts.add(
         NSRT("PickNail", parameters, preconditions, add_effects,
              delete_effects, set(), option, option_vars, null_sampler))
@@ -945,11 +953,15 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, bolt]
     option_vars = [robot, bolt]
     option = PickBolt
-    preconditions = {LiftedAtom(HandEmpty, [robot]),
-                     LiftedAtom(BoltOnTable, [bolt])}
+    preconditions = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(BoltOnTable, [bolt])
+    }
     add_effects = {LiftedAtom(HoldingBolt, [bolt])}
-    delete_effects = {LiftedAtom(HandEmpty, [robot]),
-                      LiftedAtom(BoltOnTable, [bolt])}
+    delete_effects = {
+        LiftedAtom(HandEmpty, [robot]),
+        LiftedAtom(BoltOnTable, [bolt])
+    }
     nsrts.add(
         NSRT("PickBolt", parameters, preconditions, add_effects,
              delete_effects, set(), option, option_vars, null_sampler))
