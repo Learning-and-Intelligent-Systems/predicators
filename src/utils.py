@@ -1011,7 +1011,7 @@ def ops_and_specs_to_dummy_nsrts(
         nsrt = op.make_nsrt(
             param_option,
             option_vars,  # dummy sampler
-            lambda s, rng, o: np.zeros(1, dtype=np.float32))
+            lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
     return nsrts
 
@@ -1426,8 +1426,8 @@ def parse_config_excluded_predicates(
     return included, excluded
 
 
-def null_sampler(state: State, rng: np.random.Generator,
+def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
                  objs: Sequence[Object]) -> Array:
     """A sampler for an NSRT with no continuous parameters."""
-    del state, rng, objs  # unused
+    del state, goal, rng, objs  # unused
     return np.array([], dtype=np.float32)  # no continuous parameters
