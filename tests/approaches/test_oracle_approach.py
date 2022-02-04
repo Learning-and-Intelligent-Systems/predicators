@@ -35,12 +35,12 @@ def test_cover_get_gt_nsrts():
     assert target0.name == "target0"
     pick0_nsrt = pick_nsrt.ground([block0])
     rng = np.random.default_rng(123)
-    pick_option = pick0_nsrt.sample_option(state, rng)
+    pick_option = pick0_nsrt.sample_option(state, train_task.goal, rng)
     pick_action = pick_option.policy(state)
     assert env.action_space.contains(pick_action.arr)
     state = env.simulate(state, pick_action)
     place0_nsrt = place_nsrt.ground([block0, target0])
-    place_option = place0_nsrt.sample_option(state, rng)
+    place_option = place0_nsrt.sample_option(state, train_task.goal, rng)
     place_action = place_option.policy(state)
     assert env.action_space.contains(place_action.arr)
     # Excluded option
@@ -372,7 +372,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         with pytest.raises(AssertionError):
             grasp_nsrt.ground([])
         rng = np.random.default_rng(123)
-        grasp_option = grasp0_nsrt.sample_option(state, rng)
+        grasp_option = grasp0_nsrt.sample_option(state, task.goal, rng)
         grasp_action = grasp_option.policy(state)
         assert env.action_space.contains(grasp_action.arr)
         try:
@@ -383,7 +383,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             dump0_nsrt = dump_nsrt.ground([can3])
             with pytest.raises(AssertionError):
                 dump_nsrt.ground([can3, can1])
-            dump_option = dump0_nsrt.sample_option(state, rng)
+            dump_option = dump0_nsrt.sample_option(state, task.goal, rng)
             dump_action = dump_option.policy(state)
             assert env.action_space.contains(dump_action.arr)
             env.simulate(state, dump_action)  # never raises EnvironmentFailure
@@ -391,7 +391,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             place3_nsrt = place_nsrt.ground([can3])
             with pytest.raises(AssertionError):
                 place_nsrt.ground([can3, can1])
-            place_option = place3_nsrt.sample_option(state, rng)
+            place_option = place3_nsrt.sample_option(state, task.goal, rng)
             place_action = place_option.policy(state)
             assert env.action_space.contains(place_action.arr)
             try:
@@ -553,7 +553,8 @@ def test_oracle_approach_playroom():
     assert region7.name == "region7"
     movedialtodoor_nsrt = movedialtodoor.ground([robot, dial, door6, region7])
     rng = np.random.default_rng(123)
-    movetodoor_option = movedialtodoor_nsrt.sample_option(state, rng)
+    movetodoor_option = movedialtodoor_nsrt.sample_option(
+        state, train_task.goal, rng)
     movetodoor_action = movetodoor_option.policy(state)
     assert env.action_space.contains(movetodoor_action.arr)
     assert np.all(movetodoor_action.arr == np.array([110.1, 15, 1, -1, 1],
@@ -562,7 +563,8 @@ def test_oracle_approach_playroom():
     movedoortotable = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDoorToTable"][0]
     movedoortotable_nsrt = movedoortotable.ground([robot, door6, region7])
-    movedoortotable_option = movedoortotable_nsrt.sample_option(state, rng)
+    movedoortotable_option = movedoortotable_nsrt.sample_option(
+        state, train_task.goal, rng)
     movedoortotable_action = movedoortotable_option.policy(state)
     assert env.action_space.contains(movedoortotable_action.arr)
     # Test AdvanceThroughDoor (moving left) for coverage.
@@ -571,14 +573,16 @@ def test_oracle_approach_playroom():
                       if nsrt.name == "AdvanceThroughDoor"][0]
     advancethroughdoor_nsrt = advancethroughdoor.ground(
         [robot, door6, region7, region6])
-    movetodoor_option2 = advancethroughdoor_nsrt.sample_option(state, rng)
+    movetodoor_option2 = advancethroughdoor_nsrt.sample_option(
+        state, train_task.goal, rng)
     movetodoor_action2 = movetodoor_option2.policy(state)
     assert env.action_space.contains(movetodoor_action2.arr)
     # Test MoveDoorToDoor (moving left) for coverage.
     movedoortodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDoorToDoor"][0]
     movedoortodoor_nsrt = movedoortodoor.ground([robot, door6, door5, region6])
-    movedoortodoor_option = movedoortodoor_nsrt.sample_option(state, rng)
+    movedoortodoor_option = movedoortodoor_nsrt.sample_option(
+        state, train_task.goal, rng)
     movedoortodoor_action = movedoortodoor_option.policy(state)
     assert env.action_space.contains(movedoortodoor_action.arr)
 

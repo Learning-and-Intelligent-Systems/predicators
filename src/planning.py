@@ -285,7 +285,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         nsrt = skeleton[cur_idx]
         # Ground the NSRT's ParameterizedOption into an _Option.
         # This invokes the NSRT's sampler.
-        option = nsrt.sample_option(state, rng_sampler)
+        option = nsrt.sample_option(state, task.goal, rng_sampler)
         plan[cur_idx] = option
         # Increment cur_idx. It will be decremented later on if we get stuck.
         cur_idx += 1
