@@ -1367,13 +1367,23 @@ def _select_predicates_to_keep(
 
     # Greedy local hill climbing search.
     if CFG.grammar_search_search_algorithm == "hill_climbing":
-        path, _ = utils.run_hill_climbing(
+        path, _, heuristics = utils.run_hill_climbing(
             init,
             _check_goal,
             _get_successors,
             score_function.evaluate,
             enforced_depth=CFG.grammar_search_hill_climbing_depth,
             parallelize=CFG.grammar_search_parallelize_hill_climbing)
+        print("\nHill climbing summary:")
+        for i in range(1, len(path)):
+            new_additions = path[i] - path[i - 1]
+            assert len(new_additions) == 1
+            new_addition = next(iter(new_additions))
+            h = heuristics[i]
+            prev_h = heuristics[i - 1]
+            print(f"\tOn step {i}, added {new_addition}, with heuristic "
+                  f"{h:.3f} (an improvement of {prev_h - h:.3f} over the "
+                  "previous step)")
     elif CFG.grammar_search_search_algorithm == "gbfs":
         path, _ = utils.run_gbfs(init,
                                  _check_goal,
@@ -1387,6 +1397,7 @@ def _select_predicates_to_keep(
     kept_predicates = path[-1]
 
     # Filter out predicates that don't appear in some operator preconditions.
+    print("\nFiltering out predicates that don't appear in preconditions...")
     pruned_atom_data = utils.prune_ground_atom_dataset(
         atom_dataset, kept_predicates | initial_predicates)
     segments = [
