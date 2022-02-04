@@ -1,7 +1,4 @@
-"""Test cases for the boring room vs.
-
-playroom environment.
-"""
+"""Test cases for the boring room vs playroom environment."""
 
 import pytest
 import numpy as np
