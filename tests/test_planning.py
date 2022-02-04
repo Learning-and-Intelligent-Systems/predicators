@@ -16,7 +16,7 @@ from predicators.src.option_model import create_option_model
 
 def test_sesame_plan():
     """Tests for sesame_plan()."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_train_tasks()[0]
@@ -35,10 +35,7 @@ def test_sesame_plan():
 
 def test_task_plan():
     """Tests for task_plan()."""
-    utils.update_config({
-        "env": "cover",
-        "max_skeletons_optimized": 3,
-    })
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_train_tasks()[0]
@@ -63,7 +60,8 @@ def test_task_plan():
                                     reachable_atoms,
                                     heuristic,
                                     timeout=1,
-                                    seed=123)
+                                    seed=123,
+                                    max_skeletons_optimized=3)
     skeleton, _, metrics = next(task_plan_generator)
     initial_metrics = metrics
     assert len(skeleton) == 2
@@ -84,13 +82,14 @@ def test_task_plan():
                       reachable_atoms,
                       heuristic,
                       timeout=1e-6,
-                      seed=123))
+                      seed=123,
+                      max_skeletons_optimized=3))
 
 
 def test_sesame_plan_failures():
     """Tests for failures in the planner using the OracleApproach on
     CoverEnv."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     train_tasks = env.get_train_tasks()
@@ -152,7 +151,7 @@ def test_sesame_plan_uninitiable_option():
     """Tests planning in the presence of an option whose initiation set is
     nontrivial."""
     # pylint: disable=protected-access
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     env.seed(123)
     option_model = create_option_model(CFG.option_model_name)
@@ -185,7 +184,7 @@ def test_sesame_plan_uninitiable_option():
 def test_planning_determinism():
     """Tests that planning is deterministic when there are multiple ways of
     achieving a goal."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     robot_type = Type("robot_type", ["asleep", "cried"])
     robot_var = robot_type("?robot")
     robby = robot_type("robby")
@@ -287,7 +286,8 @@ def test_planning_determinism():
                           reachable_atoms,
                           heuristic,
                           timeout=10,
-                          seed=123))
+                          seed=123,
+                          max_skeletons_optimized=1))
             all_plans.append([(act.name, act.objects) for act in skeleton])
 
     assert len(all_plans) == 4

@@ -844,6 +844,24 @@ def all_possible_ground_atoms(state: State,
     return sorted(ground_atoms)
 
 
+_T = TypeVar("_T")  # element of a set
+
+
+def sample_subsets(universe: Sequence[_T], num_samples: int, min_set_size: int,
+                   max_set_size: int,
+                   rng: np.random.Generator) -> Iterator[Set[_T]]:
+    """Sample multiple subsets from a universe."""
+    assert min_set_size <= max_set_size
+    assert max_set_size <= len(universe), "Not enough elements in universe"
+    for _ in range(num_samples):
+        set_size = rng.integers(min_set_size, max_set_size + 1)
+        idxs = rng.choice(np.arange(len(universe)),
+                          size=set_size,
+                          replace=False)
+        sample = {universe[i] for i in idxs}
+        yield sample
+
+
 def create_ground_atom_dataset(
         trajectories: Sequence[LowLevelTrajectory],
         predicates: Set[Predicate]) -> List[GroundAtomTrajectory]:
@@ -1250,12 +1268,13 @@ def save_video(outfile: str, video: Video) -> None:
     print(f"Wrote out to {outpath}")
 
 
-def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
+def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
-    # Only override attributes, don't create new ones
-    allowed_args = set(CFG.__dict__)
+    arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)
+    # Only override attributes, don't create new ones.
+    allowed_args = set(CFG.__dict__) | set(arg_specific_settings)
     parser = create_arg_parser()
-    # Unfortunately, can't figure out any other way to do this
+    # Unfortunately, can't figure out any other way to do this.
     for parser_action in parser._actions:  # pylint: disable=protected-access
         allowed_args.add(parser_action.dest)
     for k in args:
@@ -1267,14 +1286,34 @@ def update_config(args: Dict[str, Any], default_seed: int = 123) -> None:
             # pass in a value and this key is already in the
             # configuration dict, add the current value to args.
             args[k] = getattr(CFG, k)
-    # Maintain the invariant that CFG has some seed and some
-    # experiment_id set. This is very useful in unit tests, where
-    # there are often no command line args being passed.
-    args["seed"] = args.get("seed", default_seed)
-    args["experiment_id"] = args.get("experiment_id", "")
-    for d in [GlobalSettings.get_arg_specific_settings(args), args]:
+    for d in [arg_specific_settings, args]:
         for k, v in d.items():
             CFG.__setattr__(k, v)
+
+
+def reset_config(args: Optional[Dict[str, Any]] = None,
+                 default_seed: int = 123) -> None:
+    """Reset to the default CFG, overriding with anything in args.
+
+    This utility is meant for use in testing only.
+    """
+    parser = create_arg_parser()
+    default_args = parser.parse_args([
+        "--env",
+        "default env placeholder",
+        "--seed",
+        str(default_seed),
+        "--approach",
+        "default approach placeholder",
+    ])
+    arg_dict = {
+        k: v
+        for k, v in GlobalSettings.__dict__.items() if not k.startswith("_")
+    }
+    arg_dict.update(vars(default_args))
+    if args is not None:
+        arg_dict.update(args)
+    update_config(arg_dict)
 
 
 def get_config_path_str() -> str:
@@ -1289,9 +1328,13 @@ def get_approach_save_path_str() -> str:
     return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
-def parse_args() -> Dict[str, Any]:
+def parse_args(env_required: bool = True,
+               approach_required: bool = True,
+               seed_required: bool = True) -> Dict[str, Any]:
     """Parses command line arguments."""
-    parser = create_arg_parser()
+    parser = create_arg_parser(env_required=env_required,
+                               approach_required=approach_required,
+                               seed_required=seed_required)
     args, overrides = parser.parse_known_args()
     print_args(args)
     arg_dict = vars(args)
@@ -1314,6 +1357,8 @@ def parse_args() -> Dict[str, Any]:
 
 def string_to_python_object(value: str) -> Any:
     """Return the Python object corresponding to the given string value."""
+    if value == "None":
+        return None
     if value == "True":
         return True
     if value == "False":
@@ -1379,3 +1424,10 @@ def parse_config_excluded_predicates(
         included = env.predicates
     excluded = {pred for pred in env.predicates if pred.name in excluded_names}
     return included, excluded
+
+
+def null_sampler(state: State, rng: np.random.Generator,
+                 objs: Sequence[Object]) -> Array:
+    """A sampler for an NSRT with no continuous parameters."""
+    del state, rng, objs  # unused
+    return np.array([], dtype=np.float32)  # no continuous parameters

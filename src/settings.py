@@ -46,8 +46,14 @@ class GlobalSettings:
     # painting env parameters
     painting_initial_holding_prob = 0.5
     painting_lid_open_prob = 0.3
-    painting_num_objs_train = [2]
+    painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
+
+    # tools env parameters
+    tools_num_items_train = [2]
+    tools_num_items_test = [2, 3]
+    tools_num_contraptions_train = [2]
+    tools_num_contraptions_test = [3]
 
     # behavior env parameters
     behavior_config_file = os.path.join(  # relative to igibson.root_path
@@ -67,9 +73,8 @@ class GlobalSettings:
 
     # SeSamE parameters
     max_num_steps_option_rollout = 1000
-    max_skeletons_optimized = 8  # if 1, can only solve downward refinable tasks
-    max_samples_per_step = 10  # max effort on sampling a single skeleton
     task_planning_heuristic = "lmcut"
+    sesame_allow_noops = True  # recommended to keep this False if using replays
 
     # evaluation parameters
     results_dir = "results"
@@ -87,7 +92,7 @@ class GlobalSettings:
     teacher_dataset_label_ratio = 1.0
 
     # NSRT learning parameters
-    min_data_for_nsrt = 3
+    min_data_for_nsrt = 0
     learn_side_predicates = False
 
     # torch model parameters
@@ -117,10 +122,11 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
-    interactive_num_babbles = 10
-    interactive_max_num_atoms_babbled = 1
-    interactive_num_tasks_babbled = 5
-    interactive_atom_type_babbled = "ground"
+    interactive_action_strategy = "glib"
+    interactive_query_policy = "strict_best_seen"
+    interactive_score_function = "frequency"
+    interactive_num_babbles = 10  # for action strategy glib
+    interactive_max_num_atoms_babbled = 1  # for action strategy glib
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -131,9 +137,9 @@ class GlobalSettings:
     grammar_search_bf_weight = 1
     grammar_search_operator_size_weight = 0.0
     grammar_search_pred_complexity_weight = 1e-4
-    grammar_search_max_predicates = 50
+    grammar_search_max_predicates = 200
     grammar_search_predicate_cost_upper_bound = 6
-    grammar_search_score_function = "expected_nodes"
+    grammar_search_score_function = "expected_nodes_created"
     grammar_search_heuristic_based_weight = 10.
     grammar_search_max_demos = float("inf")
     grammar_search_max_nondemos = 50
@@ -150,7 +156,9 @@ class GlobalSettings:
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_include_suspicious_score = False
-    grammar_search_expected_nodes_allow_noops = False
+    grammar_search_expected_nodes_allow_noops = True
+    # If None, defaults to CFG.max_skeletons_optimized.
+    grammar_search_expected_nodes_max_skeletons = None
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -172,12 +180,10 @@ class GlobalSettings:
 
             # For learning-based approaches, the data collection strategy.
             offline_data_method=defaultdict(
-                # Use both demonstrations and random replays by default.
-                # To make sure that all replays are not optimal, use
-                # demo+nonoptimalreplay.
-                lambda: "demo+replay",
+                # Use only demonstrations by default.
+                lambda: "demo",
                 {
-                    # No replays for active learning project.
+                    # Interactive learning project needs ground atom data.
                     "interactive_learning": "demo+ground_atoms",
                 })[args.get("approach", "")],
 
@@ -198,14 +204,37 @@ class GlobalSettings:
                     # For the BEHAVIOR environment, use a special option model.
                     "behavior": "behavior_oracle",
                 })[args.get("env", "")],
+
+            # In SeSamE, the maximum number of skeletons optimized before
+            # giving up. If 1, can only solve downward refinable tasks.
+            max_skeletons_optimized=defaultdict(
+                lambda: 8,
+                {
+                    # For the tools environment, allow many more skeletons.
+                    "tools": 1000,
+                })[args.get("env", "")],
+
+            # In SeSamE, the maximum effort put into sampling a single skeleton.
+            # Concretely, this effort refers to the maximum number of calls to
+            # the sampler on each step before backtracking.
+            max_samples_per_step=defaultdict(
+                lambda: 10,
+                {
+                    # For the tools environment, don't do any backtracking.
+                    "tools": 1,
+                })[args.get("env", "")],
         )
 
 
 def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
-    if CFG.approach in ("interactive_learning", "unittest"):
+    if CFG.option_learner == "neural":
+        return {"DemonstrationQuery"}
+    if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "unittest":
+        return {"GroundAtomsHoldQuery", "DemonstrationQuery"}
     return set()
 
 

@@ -7,15 +7,17 @@ from predicators.src import utils
 
 def test_create_env():
     """Tests for create_env() and get_cached_env_instance()."""
-    utils.update_config({"seed": 123})
+    utils.reset_config()
     for name in [
             "cover",
             "cover_typed_options",
             "cover_hierarchical_types",
+            "cover_regrasp",
             "cluttered_table",
             "blocks",
             "playroom",
             "painting",
+            "tools",
             "repeated_nextto",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",

@@ -1,7 +1,4 @@
-"""Boring room vs.
-
-playroom domain.
-"""
+"""Boring room vs playroom domain."""
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
@@ -15,10 +12,7 @@ from predicators.src import utils
 
 
 class PlayroomEnv(BlocksEnv):
-    """Boring room vs.
-
-    playroom domain.
-    """
+    """Boring room vs playroom domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     block_size = 0.5
     x_lb = 0.0

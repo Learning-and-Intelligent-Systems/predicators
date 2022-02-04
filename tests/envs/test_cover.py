@@ -3,14 +3,15 @@
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverMultistepOptions, CoverMultistepOptionsFixedTasks
+    CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
+    CoverEnvRegrasp
 from predicators.src.structs import State, Action
 from predicators.src import utils
 
 
 def test_cover():
     """Tests for CoverEnv class."""
-    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
+    utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnv()
     env.seed(123)
     for task in env.get_train_tasks():
@@ -103,13 +104,11 @@ def test_cover():
             assert sum(
                 task.init.get(obj, "grasp") != -1 for obj in task.init
                 if obj.type.name == "block") == 1
-    # Revert to 0.0 for other tests.
-    utils.update_config({"cover_initial_holding_prob": 0.0})
 
 
 def test_cover_typed_options():
     """Tests for CoverEnvTypedOptions class."""
-    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
+    utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnvTypedOptions()
     env.seed(123)
     for task in env.get_train_tasks():
@@ -181,9 +180,40 @@ def test_cover_typed_options():
     assert traj.states[0].allclose(traj.states[1])
 
 
+def test_cover_regrasp():
+    """Tests for CoverEnvRegrasp class."""
+    utils.reset_config({"env": "cover_regrasp"})
+    env = CoverEnvRegrasp()
+    env.seed(123)
+    for task in env.get_train_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    for task in env.get_test_tasks():
+        for obj in task.init:
+            assert len(obj.type.feature_names) == len(task.init[obj])
+    # Predicates should be same as CoverEnv, plus Clear.
+    assert len(env.predicates) == 6
+    # Options should be {PickPlace}.
+    assert len(env.options) == 1
+    # Types should be {block, target, robot}
+    assert len(env.types) == 3
+    # Action space should be 1-dimensional.
+    assert env.action_space == Box(0, 1, (1, ))
+    # Tests for Clear.
+    task = env.get_train_tasks()[0]
+    Clear = [p for p in env.predicates if p.name == "Clear"][0]
+    init_atoms = utils.abstract(task.init, {Clear})
+    assert len(init_atoms) == 2
+    # Clear should not be true after a place.
+    state = task.init.copy()
+    block0, _, _, target0, _ = sorted(state)
+    state.set(block0, "pose", state.get(target0, "pose"))
+    assert not Clear([target0]).holds(state)
+
+
 def test_cover_multistep_options():
     """Tests for CoverMultistepOptions."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover_multistep_options",
         "num_train_tasks": 10,
         "num_test_tasks": 10
@@ -487,7 +517,7 @@ def test_cover_multistep_options():
 
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover_multistep_options_fixed_tasks",
         "num_train_tasks": 10,
         "num_test_tasks": 10

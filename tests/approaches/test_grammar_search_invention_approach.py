@@ -28,7 +28,7 @@ from predicators.src import utils
 
 def test_predicate_grammar():
     """Tests for _PredicateGrammar class."""
-    utils.update_config({"env": "cover"})
+    utils.reset_config({"env": "cover"})
     env = CoverEnv()
     train_task = env.get_train_tasks()[0]
     state = train_task.init
@@ -60,7 +60,7 @@ def test_predicate_grammar():
     assert len(forall_grammar.generate(max_num=100)) == 12
     # Test CFG.grammar_search_predicate_cost_upper_bound.
     default = CFG.grammar_search_predicate_cost_upper_bound
-    utils.update_config({"grammar_search_predicate_cost_upper_bound": 0})
+    utils.reset_config({"grammar_search_predicate_cost_upper_bound": 0})
     assert len(single_ineq_grammar.generate(max_num=10)) == 0
     # With an empty dataset, all predicates should look the same, so zero
     # predicates should be enumerated. The reason that it's zero and not one
@@ -73,7 +73,7 @@ def test_predicate_grammar():
     # Reset to default just in case.
     utils.update_config({"grammar_search_predicate_cost_upper_bound": default})
     # Test debug grammar.
-    utils.update_config({"env": "unittest"})
+    utils.reset_config({"env": "unittest"})
     utils.update_config({"grammar_search_use_handcoded_debug_grammar": True})
     debug_grammar = _create_grammar(dataset, set())
     assert len(debug_grammar.generate(max_num=10)) == 2
@@ -223,7 +223,11 @@ def test_create_score_function():
     assert isinstance(score_func, _ExactHeuristicEnergyBasedScoreFunction)
     score_func = _create_score_function("task_planning", set(), [], {}, [])
     assert isinstance(score_func, _TaskPlanningScoreFunction)
-    score_func = _create_score_function("expected_nodes", set(), [], {}, [])
+    score_func = _create_score_function("expected_nodes_created", set(), [],
+                                        {}, [])
+    assert isinstance(score_func, _ExpectedNodesScoreFunction)
+    score_func = _create_score_function("expected_nodes_expanded", set(), [],
+                                        {}, [])
     assert isinstance(score_func, _ExpectedNodesScoreFunction)
     score_func = _create_score_function("lmcut_count_lookaheaddepth0", set(),
                                         [], {}, [])
@@ -245,7 +249,7 @@ def test_predicate_search_heuristic_base_classes():
         set(), [], {}, [])
     with pytest.raises(NotImplementedError):
         op_learning_score_function.evaluate(set())
-    utils.update_config({"env": "cover", "cover_initial_holding_prob": 0.0})
+    utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
     state = train_tasks[0].init
@@ -280,10 +284,9 @@ def test_predicate_search_heuristic_base_classes():
 def test_prediction_error_score_function():
     """Tests for _PredictionErrorScoreFunction()."""
     # Tests for CoverEnv.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
         "cover_initial_holding_prob": 0.0,
     })
@@ -313,10 +316,9 @@ def test_prediction_error_score_function():
 
     # Tests for BlocksEnv.
     utils.flush_cache()
-    utils.update_config({
+    utils.reset_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = BlocksEnv()
@@ -350,10 +352,9 @@ def test_prediction_error_score_function():
 def test_hadd_match_score_function():
     """Tests for _RelaxationHeuristicMatchBasedScoreFunction() with hAdd.."""
     # We know that this score function is bad, and this test shows why.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
         "cover_initial_holding_prob": 0.0,
     })
@@ -381,12 +382,9 @@ def test_hadd_match_score_function():
 def test_relaxation_energy_score_function():
     """Tests for _RelaxationHeuristicEnergyBasedScoreFunction()."""
     # Tests for CoverEnv.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
-    })
-    utils.update_config({
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
         "cover_initial_holding_prob": 0.0,
     })
@@ -443,10 +441,9 @@ def test_relaxation_energy_score_function():
 
     # Tests for BlocksEnv.
     utils.flush_cache()
-    utils.update_config({
+    utils.reset_config({
         "env": "blocks",
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
     })
     env = BlocksEnv()
@@ -499,10 +496,9 @@ def test_relaxation_energy_score_function():
     # Tests for PaintingEnv.
     # Comment out this test because it's flaky.
     # utils.flush_cache()
-    # utils.update_config({
+    # utils.reset_config({
     #     "env": "painting",
     #     "offline_data_method": "demo+replay",
-    #     "seed": 123,
     #     "painting_train_families": ["box_and_shelf"],
     # })
     # env = PaintingEnv()
@@ -573,12 +569,9 @@ def test_exact_energy_score_function():
     # Just test this on BlocksEnv, since that's a known problem case
     # for hadd_energy_lookaheaddepth*.
     utils.flush_cache()
-    utils.update_config({
+    utils.reset_config({
         "env": "blocks",
-    })
-    utils.update_config({
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 2,
     })
     env = BlocksEnv()
@@ -634,12 +627,9 @@ def test_count_score_functions():
     _ExactHeuristicCountBasedScoreFunction."""
 
     utils.flush_cache()
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
-    })
-    utils.update_config({
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
         "offline_data_num_replays": 50,
         "min_data_for_nsrt": 0,
@@ -682,12 +672,9 @@ def test_branching_factor_score_function():
     """Tests for _BranchingFactorScoreFunction()."""
     # We know that this score function is bad, because it prefers predicates
     # that make segmentation collapse demo actions into one.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
-    })
-    utils.update_config({
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 2,
         "offline_data_num_replays": 500,
         "min_data_for_nsrt": 3,
@@ -730,12 +717,9 @@ def test_task_planning_score_function():
     # We know that this score function is bad, because it's way too
     # optimistic: it thinks that any valid sequence of operators can
     # be refined into a plan. This unit test illustrates that pitfall.
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
-    })
-    utils.update_config({
         "offline_data_method": "demo+replay",
-        "seed": 123,
         "num_train_tasks": 5,
         "cover_initial_holding_prob": 0.0,
     })
@@ -767,29 +751,18 @@ def test_task_planning_score_function():
     assert score_function.evaluate(set()) == len(train_tasks) * 1e7
     assert score_function.evaluate({Holding, HandEmpty}) == \
         2 * CFG.grammar_search_pred_complexity_weight + len(train_tasks) * 1e7
-    # Set this back to avoid screwing up other tests...
-    utils.update_config({
-        "min_data_for_nsrt": 3,
-    })
 
 
 def test_expected_nodes_score_function():
     """Tests for _ExpectedNodesScoreFunction()."""
-    utils.update_config({
-        "env": "cover",
-    })
     # Cover cases where the number of training tasks is less than or greater
     # than the max number of demos.
     max_num_demos = 5
-    utils.update_config({
-        "offline_data_method":
-        "demo+replay",
-        "seed":
-        123,
+    utils.reset_config({
+        "env":
+        "cover",
         "grammar_search_max_demos":
         max_num_demos,
-        "task_planning_heuristic":
-        "lmcut",
         "cover_initial_holding_prob":
         0.0,
         "grammar_search_expected_nodes_include_suspicious_score":
@@ -797,6 +770,7 @@ def test_expected_nodes_score_function():
     })
     for num_train_tasks in [2, 15]:
         utils.update_config({
+            "offline_data_method": "demo+replay",
             "num_train_tasks": num_train_tasks,
             "min_data_for_nsrt": 0,
         })
@@ -812,9 +786,12 @@ def test_expected_nodes_score_function():
         dataset = create_dataset(env, train_tasks)
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, env.goal_predicates | set(candidates))
-        score_function = _ExpectedNodesScoreFunction(env.goal_predicates,
-                                                     atom_dataset, candidates,
-                                                     train_tasks)
+        score_function = _ExpectedNodesScoreFunction(
+            env.goal_predicates,
+            atom_dataset,
+            candidates,
+            train_tasks,
+            metric_name="num_nodes_created")
         all_included_s = score_function.evaluate({Holding, HandEmpty})
         none_included_s = score_function.evaluate(set())
         ub = CFG.grammar_search_expected_nodes_upper_bound
@@ -826,12 +803,30 @@ def test_expected_nodes_score_function():
         })
         all_included_s = score_function.evaluate({Holding, HandEmpty})
         assert all_included_s >= ub * min(num_train_tasks, max_num_demos)
-    # Revert, to avoid interfering with other tests.
+    # Test case where max skeletons is specified separately. With a lower
+    # max skeletons, the score should increase slightly.
+    # First, get a baseline score to compare against.
     utils.update_config({
-        "min_data_for_nsrt":
-        3,
-        "num_train_tasks":
-        15,
-        "grammar_search_expected_nodes_include_suspicious_score":
-        False,
+        "num_train_tasks": 5,
+        "max_skeletons_optimized": 8,
+        "grammar_search_expected_nodes_max_skeletons": None,
+        "offline_data_method": "demo",
+        "min_data_for_nsrt": 0,
     })
+    train_tasks = env.get_train_tasks()
+    dataset = create_dataset(env, train_tasks)
+    atom_dataset = utils.create_ground_atom_dataset(
+        dataset.trajectories, env.goal_predicates | set(candidates))
+    score_function = _ExpectedNodesScoreFunction(
+        env.goal_predicates,
+        atom_dataset,
+        candidates,
+        train_tasks,
+        metric_name="num_nodes_created")
+    more_skeletons_score = score_function.evaluate({Holding, HandEmpty})
+    # Repeat but with max skeletons 1.
+    utils.update_config({
+        "grammar_search_expected_nodes_max_skeletons": 1,
+    })
+    one_skeleton_score = score_function.evaluate({Holding, HandEmpty})
+    assert one_skeleton_score > more_skeletons_score

@@ -255,6 +255,10 @@ _DEBUG_PREDICATE_PREFIXES = {
         "NOT-((0:block).grasp<=[idx 0]",  # Holding
         "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
     ],
+    "cover_regrasp": [
+        "NOT-((0:block).grasp<=[idx 0]",  # Holding
+        "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
+    ],
     "blocks": [
         "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
@@ -572,9 +576,15 @@ def _create_score_function(
     if score_function_name == "task_planning":
         return _TaskPlanningScoreFunction(initial_predicates, atom_dataset,
                                           candidates, train_tasks)
-    if score_function_name == "expected_nodes":
+    match = re.match(r"expected_nodes_(\w+)", score_function_name)
+    if match is not None:
+        # can be either expected_nodes_created or expected_nodes_expanded
+        created_or_expanded = match.groups()[0]
+        assert created_or_expanded in ("created", "expanded")
+        metric_name = f"num_nodes_{created_or_expanded}"
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
-                                           candidates, train_tasks)
+                                           candidates, train_tasks,
+                                           metric_name)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -725,9 +735,14 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 objects)
             try:
                 _, _, metrics = next(
-                    task_plan(init_atoms, traj_goal, ground_nsrts,
-                              reachable_atoms, heuristic, CFG.seed,
-                              CFG.grammar_search_task_planning_timeout))
+                    task_plan(init_atoms,
+                              traj_goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              CFG.seed,
+                              CFG.grammar_search_task_planning_timeout,
+                              max_skeletons_optimized=1))
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -742,18 +757,20 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     tasks.
 
     The score corresponds to the expected number of nodes that would need to be
-    created before a low-level plan is found. This calculation requires
-    estimating the probability that each goal-reaching skeleton is refinable.
-    To estimate this, we assume a prior on how optimal the demonstrations are,
-    and say that if a skeleton is found by planning that is a different length
-    than the demos, then the likelihood of the predicates/operators goes down
-    as that difference gets larger.
+    created or expanded before a low-level plan is found. This calculation
+    requires estimating the probability that each goal-reaching skeleton is
+    refinable. To estimate this, we assume a prior on how optimal the
+    demonstrations are, and say that if a skeleton is found by planning that
+    is a different length than the demos, then the likelihood of the
+    predicates/operators goes down as that difference gets larger.
 
     We optionally also include into this likelihood the number of
     "suspicious" multistep effects in the atoms sequence induced by the
     skeleton. "Suspicious" means that a particular set of multistep
     effects was never seen in the demonstrations.
     """
+
+    metric_name: str  # num_nodes_created or num_nodes_expanded
 
     def _evaluate_with_operators(self,
                                  candidate_predicates: FrozenSet[Predicate],
@@ -762,6 +779,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                                  strips_ops: List[STRIPSOperator],
                                  option_specs: List[OptionSpec]) -> float:
         del segments  # unused
+        assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
         score = 0.0
         demo_multistep_effects = set()
         if CFG.grammar_search_expected_nodes_include_suspicious_score:
@@ -796,9 +814,14 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
             refinable_skeleton_not_found_prob = 1.0
+            if CFG.grammar_search_expected_nodes_max_skeletons is None:
+                max_skeletons = CFG.max_skeletons_optimized
+            else:
+                max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             generator = task_plan(init_atoms, goal, ground_nsrts,
                                   reachable_atoms, heuristic, CFG.seed,
-                                  CFG.grammar_search_task_planning_timeout)
+                                  CFG.grammar_search_task_planning_timeout,
+                                  max_skeletons)
             try:
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):
@@ -807,8 +830,9 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     refinement_prob = self._get_refinement_prob(
                         atoms_sequence, plan_atoms_sequence,
                         demo_multistep_effects)
-                    # Get the number of nodes that have been created so far.
-                    num_nodes = metrics["num_nodes_created"]
+                    # Get the number of nodes that have been created or
+                    # expanded so far.
+                    num_nodes = metrics[self.metric_name]
                     # This contribution to the expected number of nodes is for
                     # the event that the current skeleton is refinable, but no
                     # previous skeleton has been refinable.
@@ -1200,9 +1224,14 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                 return cache[frozenset(atoms)]
             try:
                 skeleton, atoms_sequence, _ = next(
-                    task_plan(atoms, goal, ground_nsrts, reachable_atoms,
-                              heuristic, CFG.seed,
-                              CFG.grammar_search_task_planning_timeout))
+                    task_plan(atoms,
+                              goal,
+                              ground_nsrts,
+                              reachable_atoms,
+                              heuristic,
+                              CFG.seed,
+                              CFG.grammar_search_task_planning_timeout,
+                              max_skeletons_optimized=1))
             except (ApproachFailure, ApproachTimeout):
                 return float("inf")
             assert atoms_sequence[0] == atoms
@@ -1294,15 +1323,17 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
-            candidates, score_function)
+            candidates, score_function, self._initial_predicates, atom_dataset)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
 
 def _select_predicates_to_keep(
-        candidates: Dict[Predicate, float],
-        score_function: _PredicateSearchScoreFunction) -> Set[Predicate]:
+        candidates: Dict[Predicate,
+                         float], score_function: _PredicateSearchScoreFunction,
+        initial_predicates: set[Predicate],
+        atom_dataset: List[GroundAtomTrajectory]) -> Set[Predicate]:
     """Perform a greedy search over predicate sets."""
 
     # There are no goal states for this search; run until exhausted.
@@ -1343,6 +1374,18 @@ def _select_predicates_to_keep(
             "Unrecognized grammar_search_search_algorithm: "
             f"{CFG.grammar_search_search_algorithm}.")
     kept_predicates = path[-1]
+
+    # Filter out predicates that don't appear in some operator preconditions.
+    pruned_atom_data = utils.prune_ground_atom_dataset(
+        atom_dataset, kept_predicates | initial_predicates)
+    segments = [
+        seg for traj in pruned_atom_data for seg in segment_trajectory(traj)
+    ]
+    preds_in_preconds = set()
+    for pnad in learn_strips_operators(segments, verbose=False):
+        for atom in pnad.op.preconditions:
+            preds_in_preconds.add(atom.predicate)
+    kept_predicates &= preds_in_preconds
 
     print(f"\nSelected {len(kept_predicates)} predicates out of "
           f"{len(candidates)} candidates:")
