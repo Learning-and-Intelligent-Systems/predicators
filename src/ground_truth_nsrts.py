@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
     PlayroomEnv, BehaviorEnv
-from predicators.src.structs import NSRT, Predicate, State, \
+from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
 from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
@@ -137,10 +137,12 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                    "cover_multistep_options_fixed_tasks") and \
         CFG.cover_multistep_use_learned_equivalents:
 
-        def pick_sampler(state: State, rng: np.random.Generator,
+        def pick_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
             # The only things that change are the block's grasp, and the
             # robot's grip, holding, x, and y.
+            del goal  # unused
             assert len(objs) == 2
             block, robot = objs
             assert block.is_instance(block_type)
@@ -163,8 +165,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             return np.array(param, dtype=np.float32)
     else:
 
-        def pick_sampler(state: State, rng: np.random.Generator,
+        def pick_sampler(state: State, goal: Set[GroundAtom],
+                         rng: np.random.Generator,
                          objs: Sequence[Object]) -> Array:
+            del goal  # unused
             if CFG.env in ("cover_multistep_options",
                            "cover_multistep_options_fixed_tasks"):
                 assert len(objs) == 2
@@ -230,8 +234,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                    "cover_multistep_options_fixed_tasks") and \
         CFG.cover_multistep_use_learned_equivalents:
 
-        def place_sampler(state: State, rng: np.random.Generator,
+        def place_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
+            del goal  # unused
             # The x, y, and held features of the block change, and the x, y,
             # grasp, and holding features of the robot change.
             # Note that the y features changing is a little surprising. One
@@ -265,8 +271,10 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             return np.array(param, dtype=np.float32)
     else:
 
-        def place_sampler(state: State, rng: np.random.Generator,
+        def place_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
+            del goal  # unused
             if CFG.env in ("cover_multistep_options",
                            "cover_multistep_options_fixed_tasks"):
                 assert len(objs) == 3
@@ -304,10 +312,11 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
         option = PickPlace
         option_vars = []
 
-        def place_on_table_sampler(state: State, rng: np.random.Generator,
+        def place_on_table_sampler(state: State, goal: Set[GroundAtom],
+                                   rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
             # Always at the current location.
-            del rng  # this sampler is deterministic
+            del goal, rng  # this sampler is deterministic
             assert len(objs) == 1
             held_obj = objs[0]
             x = state.get(held_obj, "pose") + state.get(held_obj, "grasp")
@@ -347,8 +356,10 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, [can])}
     delete_effects = {LiftedAtom(HandEmpty, [])}
 
-    def grasp_sampler(state: State, rng: np.random.Generator,
+    def grasp_sampler(state: State, goal: Set[GroundAtom],
+                      rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
+        del goal  # unused
         assert len(objs) == 1
         can = objs[0]
         # Need a max here in case the can is trashed already, in which case
@@ -400,7 +411,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         }
         add_effects = {LiftedAtom(HandEmpty, [])}
         delete_effects = {LiftedAtom(Holding, [can])}
-        place_sampler = lambda s, r, o: np.array([
+        place_sampler = lambda s, g, r, o: np.array([
             r.uniform(0, 0.2),
             r.uniform(0, 0.2),
             r.uniform(0, 1.),
@@ -444,9 +455,10 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot])
     }
 
-    def pick_sampler(state: State, rng: np.random.Generator,
+    def pick_sampler(state: State, goal: Set[GroundAtom],
+                     rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.zeros(3, dtype=np.float32)
 
     pickfromtable_nsrt = NSRT("PickFromTable", parameters, preconditions,
@@ -501,9 +513,10 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Clear, [otherblock])
     }
 
-    def stack_sampler(state: State, rng: np.random.Generator,
+    def stack_sampler(state: State, goal: Set[GroundAtom],
+                      rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([0, 0, BlocksEnv.block_size], dtype=np.float32)
 
     stack_nsrt = NSRT("Stack",
@@ -525,9 +538,10 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(Holding, [block])}
 
-    def putontable_sampler(state: State, rng: np.random.Generator,
+    def putontable_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-        del state, objs  # unused
+        del state, goal, objs  # unused
         x = rng.uniform()
         y = rng.uniform()
         return np.array([x, y], dtype=np.float32)
@@ -570,9 +584,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
-    def pickfromtop_sampler(state: State, rng: np.random.Generator,
+    def pickfromtop_sampler(state: State, goal: Set[GroundAtom],
+                            rng: np.random.Generator,
                             objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
 
     pickfromtop_nsrt = NSRT("PickFromTop", parameters, preconditions,
@@ -593,9 +608,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingSide, [obj])}
     delete_effects = {LiftedAtom(GripperOpen, [robot])}
 
-    def pickfromside_sampler(state: State, rng: np.random.Generator,
+    def pickfromside_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
     pickfromside_nsrt = NSRT("PickFromSide", parameters, preconditions,
@@ -617,9 +633,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsWet, [obj]), LiftedAtom(IsClean, [obj])}
     delete_effects = {LiftedAtom(IsDry, [obj]), LiftedAtom(IsDirty, [obj])}
 
-    def wash_sampler(state: State, rng: np.random.Generator,
+    def wash_sampler(state: State, goal: Set[GroundAtom],
+                     rng: np.random.Generator,
                      objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([1.0], dtype=np.float32)
 
     wash_nsrt = NSRT("Wash", parameters, preconditions, add_effects,
@@ -636,9 +653,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsDry, [obj])}
     delete_effects = {LiftedAtom(IsWet, [obj])}
 
-    def dry_sampler(state: State, rng: np.random.Generator,
-                    objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+    def dry_sampler(state: State, goal: Set[GroundAtom],
+                    rng: np.random.Generator, objs: Sequence[Object]) -> Array:
+        del state, goal, rng, objs  # unused
         return np.array([1.0], dtype=np.float32)
 
     dry_nsrt = NSRT("Dry", parameters, preconditions, add_effects,
@@ -660,9 +677,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsBoxColor, [obj, box])}
     delete_effects = set()
 
-    def painttobox_sampler(state: State, rng: np.random.Generator,
+    def painttobox_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         box_color = state.get(objs[1], "color")
         return np.array([box_color], dtype=np.float32)
 
@@ -686,9 +704,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsShelfColor, [obj, shelf])}
     delete_effects = set()
 
-    def painttoshelf_sampler(state: State, rng: np.random.Generator,
+    def painttoshelf_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         shelf_color = state.get(objs[1], "color")
         return np.array([shelf_color], dtype=np.float32)
 
@@ -715,8 +734,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [obj])
     }
 
-    def placeinbox_sampler(state: State, rng: np.random.Generator,
+    def placeinbox_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
+        del goal  # unused
         x = state.get(objs[0], "pose_x")
         y = rng.uniform(PaintingEnv.box_lb, PaintingEnv.box_ub)
         z = state.get(objs[0], "pose_z")
@@ -748,8 +769,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(OnTable, [obj])
     }
 
-    def placeinshelf_sampler(state: State, rng: np.random.Generator,
+    def placeinshelf_sampler(state: State, goal: Set[GroundAtom],
+                             rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
+        del goal  # unused
         x = state.get(objs[0], "pose_x")
         y = rng.uniform(PaintingEnv.shelf_lb, PaintingEnv.shelf_ub)
         z = state.get(objs[0], "pose_z")
@@ -795,11 +818,12 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(holding_rot_pred, [obj]),
         }
 
-        def placeontable_sampler(state: State, rng: np.random.Generator,
+        def placeontable_sampler(state: State, goal: Set[GroundAtom],
+                                 rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
             # Always release the object where it is, to avoid the possibility
             # of collisions with other objects.
-            del rng  # unused
+            del goal, rng  # unused
             x = state.get(objs[0], "pose_x")
             y = state.get(objs[0], "pose_y")
             z = state.get(objs[0], "pose_z")
@@ -840,18 +864,21 @@ def _get_tools_gt_nsrts() -> Set[NSRT]:
                       "FastenScrewWithScrewdriver", "FastenScrewByHand",
                       "FastenNailWithHammer", "FastenBoltWithWrench"])
 
-    def placeback_sampler(state: State, rng: np.random.Generator,
+    def placeback_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
         # Sampler for placing an item back in its initial spot.
-        del rng  # unused
+        del goal, rng  # unused
         _, item = objs
         pose_x = state.get(item, "pose_x")
         pose_y = state.get(item, "pose_y")
         return np.array([pose_x, pose_y], dtype=np.float32)
 
-    def placeoncontraption_sampler(state: State, rng: np.random.Generator,
+    def placeoncontraption_sampler(state: State, goal: Set[GroundAtom],
+                                   rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
         # Sampler for placing an item on a contraption.
+        del goal  # unused
         _, _, contraption = objs
         pose_lx = state.get(contraption, "pose_lx")
         pose_ly = state.get(contraption, "pose_ly")
@@ -1180,9 +1207,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot])
     }
 
-    def pickfromtable_sampler(state: State, rng: np.random.Generator,
+    def pickfromtable_sampler(state: State, goal: Set[GroundAtom],
+                              rng: np.random.Generator,
                               objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         assert len(objs) == 2
         _, block = objs
         assert block.is_instance(block_type)
@@ -1222,9 +1250,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot])
     }
 
-    def unstack_sampler(state: State, rng: np.random.Generator,
+    def unstack_sampler(state: State, goal: Set[GroundAtom],
+                        rng: np.random.Generator,
                         objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         assert len(objs) == 3
         block, _, _ = objs
         assert block.is_instance(block_type)
@@ -1263,9 +1292,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Clear, [otherblock])
     }
 
-    def stack_sampler(state: State, rng: np.random.Generator,
+    def stack_sampler(state: State, goal: Set[GroundAtom],
+                      rng: np.random.Generator,
                       objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         assert len(objs) == 3
         _, otherblock, _ = objs
         assert otherblock.is_instance(block_type)
@@ -1300,9 +1330,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {LiftedAtom(Holding, [block])}
 
-    def putontable_sampler(state: State, rng: np.random.Generator,
+    def putontable_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-        del state, objs  # unused
+        del state, goal, objs  # unused
         x = rng.uniform()
         y = rng.uniform()
         # find rotation of robot that faces the table
@@ -1334,9 +1365,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(InRegion, [robot, to_region])}
     delete_effects = {LiftedAtom(InRegion, [robot, from_region])}
 
-    def advancethroughdoor_sampler(state: State, rng: np.random.Generator,
+    def advancethroughdoor_sampler(state: State, goal: Set[GroundAtom],
+                                   rng: np.random.Generator,
                                    objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         assert len(objs) == 4
         robot, door, _, _ = objs
         assert robot.is_instance(robot_type)
@@ -1367,9 +1399,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(NextToDoor, [robot, door])}
     delete_effects = {LiftedAtom(NextToTable, [robot])}
 
-    def movetabletodoor_sampler(state: State, rng: np.random.Generator,
+    def movetabletodoor_sampler(state: State, goal: Set[GroundAtom],
+                                rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([-0.2, 0.0, 0.0], dtype=np.float32)
 
     movetabletodoor_nsrt = NSRT("MoveTableToDoor", parameters,
@@ -1394,9 +1427,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(NextToTable, [robot])}
     delete_effects = {LiftedAtom(NextToDoor, [robot, door])}
 
-    def movedoortotable_sampler(state: State, rng: np.random.Generator,
+    def movedoortotable_sampler(state: State, goal: Set[GroundAtom],
+                                rng: np.random.Generator,
                                 objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
     movedoortotable_nsrt = NSRT("MoveDoorToTable", parameters,
@@ -1421,9 +1455,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(NextToDoor, [robot, todoor])}
     delete_effects = {LiftedAtom(NextToDoor, [robot, fromdoor])}
 
-    def movedoortodoor_sampler(state: State, rng: np.random.Generator,
+    def movedoortodoor_sampler(state: State, goal: Set[GroundAtom],
+                               rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         assert len(objs) == 4
         _, fromdoor, todoor, _ = objs
         assert fromdoor.is_instance(door_type)
@@ -1454,9 +1489,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(NextToDial, [robot, dial])}
     delete_effects = {LiftedAtom(NextToDoor, [robot, door])}
 
-    def movedoortodial_sampler(state: State, rng: np.random.Generator,
+    def movedoortodial_sampler(state: State, goal: Set[GroundAtom],
+                               rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([0.0, 0.0, 0.0], dtype=np.float32)
 
     movedoortodial_nsrt = NSRT("MoveDoorToDial", parameters, preconditions,
@@ -1481,9 +1517,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(NextToDoor, [robot, door])}
     delete_effects = {LiftedAtom(NextToDial, [robot, dial])}
 
-    def movedialtodoor_sampler(state: State, rng: np.random.Generator,
+    def movedialtodoor_sampler(state: State, goal: Set[GroundAtom],
+                               rng: np.random.Generator,
                                objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([0.1, 0.0, -1.0], dtype=np.float32)
 
     movedialtodoor_nsrt = NSRT("MoveDialToDoor", parameters, preconditions,
@@ -1505,9 +1542,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(DoorOpen, [door])}
     delete_effects = {LiftedAtom(DoorClosed, [door])}
 
-    def toggledoor_sampler(state: State, rng: np.random.Generator,
+    def toggledoor_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-        del rng  # unused
+        del goal, rng  # unused
         assert len(objs) == 2
         robot, door = objs
         assert robot.is_instance(robot_type)
@@ -1554,9 +1592,10 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(LightOn, [dial])}
     delete_effects = {LiftedAtom(LightOff, [dial])}
 
-    def toggledial_sampler(state: State, rng: np.random.Generator,
+    def toggledial_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
-        del state, rng, objs  # unused
+        del state, goal, rng, objs  # unused
         return np.array([-0.2, 0, 0, 0.0], dtype=np.float32)
 
     turnondial_nsrt = NSRT("TurnOnDial", parameters, preconditions,
@@ -1610,7 +1649,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     side_predicates = {NextTo, NextToNothing}
     move_nsrt = NSRT("Move", parameters, preconditions, add_effects,
                      delete_effects, side_predicates, option, option_vars,
-                     lambda s, rng, o: np.zeros(1, dtype=np.float32))
+                     lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
     nsrts.add(move_nsrt)
 
     # Grasp
@@ -1630,7 +1669,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     side_predicates = {NextToNothing}
     grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
                       delete_effects, side_predicates, option, option_vars,
-                      lambda s, rng, o: np.zeros(0, dtype=np.float32))
+                      lambda s, g, rng, o: np.zeros(0, dtype=np.float32))
     nsrts.add(grasp_nsrt)
 
     return nsrts
@@ -1702,7 +1741,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                 f"{option.name}-{next(op_name_count_nav)}", parameters,
                 preconditions, add_effects, delete_effects,
                 reachable_predicates, option, option_vars,
-                lambda s, r, o: navigate_to_param_sampler(
+                lambda s, g, r, o: navigate_to_param_sampler(
                     r,
                     [env.object_to_ig_object(o_i) for o_i in o],
                 ))
@@ -1727,7 +1766,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     f"{option.name}-{next(op_name_count_nav)}", parameters,
                     preconditions, add_effects, delete_effects,
                     reachable_predicates, option, option_vars,
-                    lambda s, r, o: navigate_to_param_sampler(
+                    lambda s, g, r, o: navigate_to_param_sampler(
                         r, [env.object_to_ig_object(o_i) for o_i in o]))
                 nsrts.add(nsrt)
 
@@ -1759,7 +1798,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     set(),
                     option,
                     option_vars,
-                    lambda s, r, o: grasp_obj_param_sampler(r),
+                    lambda s, g, r, o: grasp_obj_param_sampler(r),
                 )
                 nsrts.add(nsrt)
 
@@ -1791,7 +1830,7 @@ def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
                     set(),
                     option,
                     option_vars,
-                    lambda s, r, o: place_ontop_obj_pos_sampler(
+                    lambda s, g, r, o: place_ontop_obj_pos_sampler(
                         [env.object_to_ig_object(o_i) for o_i in o],
                         rng=r,
                     ),

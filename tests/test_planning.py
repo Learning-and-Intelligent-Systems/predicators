@@ -204,7 +204,7 @@ def test_planning_determinism():
                               delete_effects, side_predicates)
     sleep_nsrt = sleep_op.make_nsrt(
         sleep_option, [robot_var],
-        lambda s, rng, objs: neg_params_space.sample())
+        lambda s, g, rng, objs: neg_params_space.sample())
     cried = Predicate("Cried", [robot_type], lambda s, o: s[o[0]][1])
     parameters = [robot_var]
     preconditions = set()
@@ -218,8 +218,9 @@ def test_planning_determinism():
         utils.always_initiable, utils.onestep_terminal)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
-    cry_nsrt = cry_op.make_nsrt(cry_option, [robot_var],
-                                lambda s, rng, objs: pos_params_space.sample())
+    cry_nsrt = cry_op.make_nsrt(
+        cry_option, [robot_var],
+        lambda s, g, rng, objs: pos_params_space.sample())
 
     def _simulator(s, a):
         ns = s.copy()
