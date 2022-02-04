@@ -5,7 +5,7 @@ from typing import Set, Tuple, List, Sequence, Dict, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
-    NSRTSampler, NSRT, EntToEntSub
+    NSRTSampler, NSRT, EntToEntSub, GroundAtom
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
@@ -92,7 +92,8 @@ def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
                             sub: EntToEntSub) -> NSRTSampler:
     """Helper for _extract_oracle_samplers()."""
 
-    def _reordered_sampler(state: State, rng: np.random.Generator,
+    def _reordered_sampler(state: State, goal: Set[GroundAtom],
+                           rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
         # Use the sub dictionary to correctly order the arguments
         # to the NSRT sampler.
@@ -100,7 +101,7 @@ def _make_reordered_sampler(nsrt: NSRT, op: STRIPSOperator,
         for param in nsrt.parameters:
             param_idx = op.parameters.index(sub[param])
             reordered_objs.append(objs[param_idx])
-        return nsrt.sampler(state, rng, reordered_objs)
+        return nsrt.sampler(state, goal, rng, reordered_objs)
 
     return _reordered_sampler
 
@@ -225,12 +226,13 @@ class _LearnedSampler:
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
 
-    def sampler(self, state: State, rng: np.random.Generator,
-                objects: Sequence[Object]) -> Array:
+    def sampler(self, state: State, goal: Set[GroundAtom],
+                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
         """The sampler corresponding to the given models.
 
         May be used as the _sampler field in an NSRT.
         """
+        del goal  # unused
         x_lst: List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
@@ -258,11 +260,11 @@ class _RandomSampler:
     """A convenience class for implementing a random sampler."""
     _param_option: ParameterizedOption
 
-    def sampler(self, state: State, rng: np.random.Generator,
-                objects: Sequence[Object]) -> Array:
+    def sampler(self, state: State, goal: Set[GroundAtom],
+                rng: np.random.Generator, objects: Sequence[Object]) -> Array:
         """A random sampler for this option.
 
         Ignores all arguments.
         """
-        del state, rng, objects  # unused
+        del state, goal, rng, objects  # unused
         return self._param_option.params_space.sample()

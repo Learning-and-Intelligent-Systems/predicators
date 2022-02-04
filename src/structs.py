@@ -798,7 +798,8 @@ class _GroundNSRT:
         assert isinstance(other, _GroundNSRT)
         return str(self) > str(other)
 
-    def sample_option(self, state: State, rng: np.random.Generator) -> _Option:
+    def sample_option(self, state: State, goal: Set[GroundAtom],
+                      rng: np.random.Generator) -> _Option:
         """Sample an _Option for this ground NSRT, by invoking the contained
         sampler.
 
@@ -807,7 +808,7 @@ class _GroundNSRT:
         """
         # Note that the sampler takes in ALL self.objects, not just the subset
         # self.option_objs of objects that are passed into the option.
-        params = self._sampler(state, rng, self.objects)
+        params = self._sampler(state, goal, rng, self.objects)
         return self.option.ground(self.option_objs, params)
 
     def copy_with(self, **kwargs: Any) -> _GroundNSRT:
@@ -1146,7 +1147,8 @@ VarToObjSub = Dict[Variable, Object]
 VarToVarSub = Dict[Variable, Variable]
 EntToEntSub = Dict[_TypedEntity, _TypedEntity]
 Datastore = List[Tuple[Segment, ObjToVarSub]]
-NSRTSampler = Callable[[State, np.random.Generator, Sequence[Object]], Array]
+NSRTSampler = Callable[
+    [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
 LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
