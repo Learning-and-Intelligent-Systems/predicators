@@ -1676,7 +1676,7 @@ def test_run_hill_climbing():
         return float(abs(state[0] - 4) + abs(state[1] - 4))
 
     initial_state = (0, 0)
-    state_sequence, action_sequence = utils.run_hill_climbing(
+    state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
         initial_state, _grid_check_goal_fn, _grid_successor_fn,
         _grid_heuristic_fn)
     assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
@@ -1684,9 +1684,10 @@ def test_run_hill_climbing():
     assert action_sequence == [
         "down", "down", "down", "down", "right", "right", "right", "right"
     ]
+    assert heuristics == [8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0]
 
     # Same, but actually reaching the goal is impossible.
-    state_sequence, action_sequence = utils.run_hill_climbing(
+    state_sequence, action_sequence, _ = utils.run_hill_climbing(
         initial_state, lambda s: False, _grid_successor_fn, _grid_heuristic_fn)
     assert state_sequence == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (4, 1),
                               (4, 2), (4, 3), (4, 4)]
@@ -1699,7 +1700,7 @@ def test_run_hill_climbing():
         if state == initial_state:
             yield "dummy_action", (2, 2), 1.0
 
-    state_sequence, action_sequence = utils.run_hill_climbing(
+    state_sequence, action_sequence, _ = utils.run_hill_climbing(
         initial_state, lambda s: False, _no_successor_fn, _grid_heuristic_fn)
     assert state_sequence == [(0, 0), (2, 2)]
     assert action_sequence == ["dummy_action"]
@@ -1713,7 +1714,7 @@ def test_run_hill_climbing():
 
     for parallelize in (False, True):
         # With enforced_depth 0, search fails.
-        state_sequence, action_sequence = utils.run_hill_climbing(
+        state_sequence, action_sequence, _ = utils.run_hill_climbing(
             initial_state,
             _grid_check_goal_fn,
             _grid_successor_fn,
@@ -1723,7 +1724,7 @@ def test_run_hill_climbing():
         assert not action_sequence
 
         # With enforced_depth 1, search succeeds.
-        state_sequence, action_sequence = utils.run_hill_climbing(
+        state_sequence, action_sequence, _ = utils.run_hill_climbing(
             initial_state,
             _grid_check_goal_fn,
             _grid_successor_fn,
