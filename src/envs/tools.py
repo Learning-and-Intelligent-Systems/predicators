@@ -242,7 +242,7 @@ class ToolsEnv(BaseEnv):
             return next_state
         target = self._get_closest_item_or_tool(state, x, y)
         if target is None:
-            # Failure: not placing, so something must be at this (x, y)
+            # Failure: not doing a place, so something must be at this (x, y)
             return next_state
         del x, y  # no longer needed
         pose_x = state.get(target, "pose_x")
@@ -396,18 +396,18 @@ class ToolsEnv(BaseEnv):
                 while True:
                     pose_x = rng.uniform(self.table_lx, self.table_ux)
                     pose_y = rng.uniform(self.table_ly, self.table_uy)
-                    # If collision with any contraption, try again
-                    if any(data[c][0] < pose_x < data[c][2] and \
-                           data[c][1] < pose_y < data[c][3]
-                           for c in contraptions):
-                        continue
-                    # If collision with any item, try again
-                    if any(abs(data[i][0] - pose_x) < self.close_thresh and \
-                           abs(data[i][1] - pose_y) < self.close_thresh
-                           for i in items):
-                        continue
-                    # Otherwise, we found a valid pose
-                    break
+                    # Make sure no contraption or other item intersects
+                    # with this one
+                    some_contraption_collides = any(
+                        data[c][0] < pose_x < data[c][2] and \
+                        data[c][1] < pose_y < data[c][3]
+                        for c in contraptions)
+                    some_item_collides = any(
+                        abs(data[i][0] - pose_x) < self.close_thresh and \
+                        abs(data[i][1] - pose_y) < self.close_thresh
+                        for i in items)
+                    if not some_contraption_collides and not some_item_collides:
+                        break
                 on_table = 1.0  # always start off on table
                 is_fastened = 0.0  # always start off not fastened
                 is_held = 0.0  # always start off not held
@@ -448,31 +448,36 @@ class ToolsEnv(BaseEnv):
             # We'll force one of the screwdrivers and one of the hammers to
             # be too large for grasping. Wrenches are always graspable.
             tools: List[Object] = []
-            screwdriver_sizes = [rng.uniform(0, 0.5) for _ in range(
-                self.num_screwdrivers)]
+            screwdriver_sizes = [
+                rng.uniform(0, 0.5) for _ in range(self.num_screwdrivers)
+            ]
             screwdriver_sizes[rng.integers(
                 self.num_screwdrivers)] = rng.uniform(0.5, 1)
-            hammer_sizes = [rng.uniform(0, 0.5) for _ in range(
-                self.num_hammers)]
+            hammer_sizes = [
+                rng.uniform(0, 0.5) for _ in range(self.num_hammers)
+            ]
             hammer_sizes[rng.integers(self.num_hammers)] = rng.uniform(0.5, 1)
-            wrench_sizes = [rng.uniform(0, 1) for _ in range(self.num_wrenches)]
+            wrench_sizes = [
+                rng.uniform(0, 1) for _ in range(self.num_wrenches)
+            ]
             sizes = screwdriver_sizes + hammer_sizes + wrench_sizes
             for j, size in enumerate(sizes):
                 while True:
                     pose_x = rng.uniform(self.table_lx, self.table_ux)
                     pose_y = rng.uniform(self.table_ly, self.table_uy)
-                    # If collision with any contraption, try again
-                    if any(data[c][0] < pose_x < data[c][2] and \
-                           data[c][1] < pose_y < data[c][3]
-                           for c in contraptions):
-                        continue
-                    # If collision with any item or tool, try again
-                    if any(abs(data[it][0] - pose_x) < self.close_thresh and \
-                           abs(data[it][1] - pose_y) < self.close_thresh
-                           for it in items + tools):
-                        continue
-                    # Otherwise, we found a valid pose
-                    break
+                    # Make sure no contraption, item, or other tool intersects
+                    # with this one
+                    some_contraption_collides = any(
+                        data[c][0] < pose_x < data[c][2] and \
+                        data[c][1] < pose_y < data[c][3]
+                        for c in contraptions)
+                    some_item_or_tool_collides = any(
+                        abs(data[it][0] - pose_x) < self.close_thresh and \
+                        abs(data[it][1] - pose_y) < self.close_thresh
+                        for it in items + tools)
+                    if not some_contraption_collides and \
+                       not some_item_or_tool_collides:
+                        break
                 is_held = 0.0  # always start off not held
                 if j < self.num_screwdrivers:
                     tool = Object(f"screwdriver{j}", self._screwdriver_type)
