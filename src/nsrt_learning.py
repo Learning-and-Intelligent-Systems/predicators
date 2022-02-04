@@ -58,7 +58,7 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     # STEP 7: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
     print("\nLearned NSRTs:")
-    for nsrt in sorted(nsrts):
+    for nsrt in nsrts:
         print(nsrt)
     print()
     return set(nsrts)
