@@ -469,10 +469,8 @@ def test_nsrts():
                                                lambda s, m, o, p: True,
                                                lambda s, m, o, p: True)
 
-    def sampler(s, rng, objs):
-        del s  # unused
-        del rng  # unused
-        del objs  # unused
+    def sampler(s, g, rng, objs):
+        del s, g, rng, objs  # unused
         return params_space.sample()
 
     # STRIPSOperator
@@ -557,7 +555,7 @@ def test_nsrts():
     assert ground_nsrt4 < ground_nsrt2
     assert ground_nsrt2 > ground_nsrt4
     state = test_state()
-    ground_nsrt.sample_option(state, np.random.default_rng(123))
+    ground_nsrt.sample_option(state, set(), np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
     assert len(filtered_nsrt.parameters) == 2
     assert len(filtered_nsrt.preconditions) == 0

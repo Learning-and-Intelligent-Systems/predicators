@@ -55,6 +55,7 @@ def create_demo_replay_data(env: BaseEnv,
         # Sample a trajectory
         traj_idx = rng.choice(len(demo_dataset.trajectories), p=weights)
         traj = demo_dataset.trajectories[traj_idx]
+        goal = train_tasks[traj.train_task_idx].goal
         # Sample a state
         # We don't allow sampling the final state in the trajectory here,
         # because there's no guarantee that an initiable option exists
@@ -67,7 +68,7 @@ def create_demo_replay_data(env: BaseEnv,
         assert len(nsrts) > 0
         while True:
             sampled_nsrt = nsrts[rng.choice(len(nsrts))]
-            option = sampled_nsrt.sample_option(state, rng)
+            option = sampled_nsrt.sample_option(state, goal, rng)
             if option.initiable(state):
                 break
         # Execute the option
