@@ -13,10 +13,10 @@ def _main() -> None:
     all_data = []
     column_names = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
-        "CYCLE", "NUM_SOLVED", "NUM_TOTAL", "AVG_TEST_TIME", "AVG_SKELETONS",
+        "CYCLE", "NUM_SOLVED", "AVG_TEST_TIME", "AVG_SKELETONS",
         "MIN_SKELETONS", "MAX_SKELETONS", "AVG_NODES_EXPANDED",
-        "AVG_NODES_CREATED", "AVG_NUM_NSRTS", "AVG_NUM_PREDS",
-        "AVG_DISCOVERED_FAILURES", "AVG_PLAN_LEN", "AVG_EXECUTION_FAILURES",
+        "AVG_NODES_CREATED", "AVG_NUM_NSRTS", "AVG_DISCOVERED_FAILURES",
+        "AVG_PLAN_LEN", "AVG_EXECUTION_FAILURES", "AVG_NUM_PREDS",
         "LEARNING_TIME", "NUM_TRANSITIONS"
     ]
     groups = [
@@ -42,7 +42,6 @@ def _main() -> None:
             seed,
             online_learning_cycle,
             run_data["num_solved"],
-            run_data["num_total"],
             run_data["avg_suc_time"],
             run_data["avg_num_skeletons_optimized"],
             run_data["min_skeletons_optimized"],
@@ -50,10 +49,10 @@ def _main() -> None:
             run_data["avg_num_nodes_expanded"],
             run_data["avg_num_nodes_created"],
             run_data["avg_num_nsrts"],
-            run_data["avg_num_preds"],
             run_data["avg_num_failures_discovered"],
             run_data["avg_plan_length"],
             run_data["avg_execution_failures"],
+            run_data["avg_num_preds"],
             run_data["learning_time"],
             run_data["num_transitions"],
         ]
@@ -62,7 +61,16 @@ def _main() -> None:
     if not all_data:
         print(f"No data found in {CFG.results_dir}/, terminating")
         return
-    if not some_nonempty_experiment_id:
+    if some_nonempty_experiment_id:
+        assert column_names[0] == groups[0] == "ENV"
+        assert column_names[1] == groups[1] == "APPROACH"
+        assert column_names[2] == groups[2] == "EXCLUDED_PREDICATES"
+        for _ in range(3):
+            for data in all_data:
+                del data[0]
+            del column_names[0]
+            del groups[0]
+    else:
         assert column_names[3] == groups[3] == "EXPERIMENT_ID"
         for data in all_data:
             del data[3]
