@@ -44,21 +44,19 @@ class ToolsEnv(BaseEnv):
         super().__init__()
         # Types
         self._robot_type = Type("robot", ["fingers"])
-        self._screw_type = Type("screw", [
-            "pose_x", "pose_y", "on_table", "shape", "is_fastened", "is_held"
-        ])
+        self._screw_type = Type(
+            "screw", ["pose_x", "pose_y", "shape", "is_fastened", "is_held"])
         self._screwdriver_type = Type(
             "screwdriver", ["pose_x", "pose_y", "shape", "size", "is_held"])
-        self._nail_type = Type(
-            "nail", ["pose_x", "pose_y", "on_table", "is_fastened", "is_held"])
+        self._nail_type = Type("nail",
+                               ["pose_x", "pose_y", "is_fastened", "is_held"])
         self._hammer_type = Type("hammer",
                                  ["pose_x", "pose_y", "size", "is_held"])
-        self._bolt_type = Type(
-            "bolt", ["pose_x", "pose_y", "on_table", "is_fastened", "is_held"])
+        self._bolt_type = Type("bolt",
+                               ["pose_x", "pose_y", "is_fastened", "is_held"])
         self._wrench_type = Type("wrench",
                                  ["pose_x", "pose_y", "size", "is_held"])
-        self._contraption_type = Type(
-            "contraption", ["pose_lx", "pose_ly", "pose_ux", "pose_uy"])
+        self._contraption_type = Type("contraption", ["pose_lx", "pose_ly"])
         # Predicates
         self._HandEmpty = Predicate("HandEmpty", [self._robot_type],
                                     self._HandEmpty_holds)
@@ -75,12 +73,6 @@ class ToolsEnv(BaseEnv):
                                       self._Holding_holds)
         self._HoldingWrench = Predicate("HoldingWrench", [self._wrench_type],
                                         self._Holding_holds)
-        self._ScrewOnTable = Predicate("ScrewOnTable", [self._screw_type],
-                                       self._OnTable_holds)
-        self._NailOnTable = Predicate("NailOnTable", [self._nail_type],
-                                      self._OnTable_holds)
-        self._BoltOnTable = Predicate("BoltOnTable", [self._bolt_type],
-                                      self._OnTable_holds)
         self._ScrewPlaced = Predicate(
             "ScrewPlaced", [self._screw_type, self._contraption_type],
             self._Placed_holds)
@@ -229,15 +221,13 @@ class ToolsEnv(BaseEnv):
             if held is None:
                 # Failure: not holding anything
                 return next_state
-            on_table = self._get_contraption_pose_is_on(state, x, y) is None
-            if self._is_tool(held) and not on_table:
+            if self._is_tool(held) and \
+               self._get_contraption_pose_is_on(state, x, y) is not None:
                 # Failure: cannot place a tool on a contraption
                 return next_state
             next_state.set(held, "is_held", 0.0)
             next_state.set(held, "pose_x", x)
             next_state.set(held, "pose_y", y)
-            if self._is_item(held):
-                next_state.set(held, "on_table", float(on_table))
             next_state.set(self._robot, "fingers", 1.0)
             return next_state
         target = self._get_closest_item_or_tool(state, x, y)
@@ -247,10 +237,9 @@ class ToolsEnv(BaseEnv):
         del x, y  # no longer needed
         pose_x = state.get(target, "pose_x")
         pose_y = state.get(target, "pose_y")
+        contraption = self._get_contraption_pose_is_on(state, pose_x, pose_y)
         if is_pick < 0.5:
             # Handle fastening
-            contraption = self._get_contraption_pose_is_on(
-                state, pose_x, pose_y)
             if contraption is None:
                 # Failure: trying to fasten, but not on a contraption
                 return next_state
@@ -278,8 +267,8 @@ class ToolsEnv(BaseEnv):
            state.get(target, "size") > 0.5:
             # Failure: screwdriver/hammer is not graspable
             return next_state
-        if self._is_item(target) and state.get(target, "on_table") < 0.5:
-            # Failure: can't pick an item when it's not on the table
+        if self._is_item(target) and contraption is not None:
+            # Failure: can't pick an item when it's on a contraption
             return next_state
         # Note: we don't update the pose of an object when it is
         # picked. This is a sort of hack that provides "memory",
@@ -287,8 +276,6 @@ class ToolsEnv(BaseEnv):
         # easy choice of placing it back where you got it from.
         # The oracle sampler makes use of this.
         next_state.set(target, "is_held", 1.0)
-        if self._is_item(target):
-            next_state.set(target, "on_table", 0.0)
         next_state.set(self._robot, "fingers", 0.0)
         return next_state
 
@@ -311,8 +298,7 @@ class ToolsEnv(BaseEnv):
         return {
             self._HandEmpty, self._HoldingScrew, self._HoldingScrewdriver,
             self._HoldingNail, self._HoldingHammer, self._HoldingBolt,
-            self._HoldingWrench, self._ScrewOnTable, self._NailOnTable,
-            self._BoltOnTable, self._ScrewPlaced, self._NailPlaced,
+            self._HoldingWrench, self._ScrewPlaced, self._NailPlaced,
             self._BoltPlaced, self._ScrewFastened, self._NailFastened,
             self._BoltFastened, self._ScrewdriverGraspable,
             self._HammerGraspable
@@ -378,14 +364,14 @@ class ToolsEnv(BaseEnv):
                     pose_ux = pose_lx + self.contraption_size
                     pose_uy = pose_ly + self.contraption_size
                     # Make sure no other contraption intersects with this one
-                    if all(data[other][2] < pose_lx or \
+                    if all(data[other][0] + self.contraption_size < pose_lx or \
                            data[other][0] > pose_ux or \
-                           data[other][3] < pose_ly or \
+                           data[other][1] + self.contraption_size < pose_ly or \
                            data[other][1] > pose_uy for other in contraptions):
                         break
                 contraptions.append(contraption)
-                data[contraption] = np.array(
-                    [pose_lx, pose_ly, pose_ux, pose_uy], dtype=np.float32)
+                data[contraption] = np.array([pose_lx, pose_ly],
+                                             dtype=np.float32)
             # Initialize items (screws, nails, bolts) and set goal
             # We enforce that there can only be at most one screw, to make
             # the problems generally easier to solve
@@ -399,8 +385,10 @@ class ToolsEnv(BaseEnv):
                     # Make sure no contraption or other item intersects
                     # with this one
                     some_contraption_collides = any(
-                        data[c][0] < pose_x < data[c][2] and \
-                        data[c][1] < pose_y < data[c][3]
+                        (data[c][0] < pose_x <
+                         data[c][0] + self.contraption_size) and \
+                        (data[c][1] < pose_y <
+                         data[c][1] + self.contraption_size)
                         for c in contraptions)
                     some_item_collides = any(
                         abs(data[i][0] - pose_x) < self.close_thresh and \
@@ -408,7 +396,6 @@ class ToolsEnv(BaseEnv):
                         for i in items)
                     if not some_contraption_collides and not some_item_collides:
                         break
-                on_table = 1.0  # always start off on table
                 is_fastened = 0.0  # always start off not fastened
                 is_held = 0.0  # always start off not held
                 choices = ["screw", "nail", "bolt"]
@@ -421,9 +408,7 @@ class ToolsEnv(BaseEnv):
                     item = Object(f"screw{screw_cnt}", self._screw_type)
                     screw_cnt += 1
                     shape = rng.uniform(0, 1)
-                    feats = [
-                        pose_x, pose_y, on_table, shape, is_fastened, is_held
-                    ]
+                    feats = [pose_x, pose_y, shape, is_fastened, is_held]
                     goal.add(GroundAtom(self._ScrewFastened, [item]))
                     goal.add(
                         GroundAtom(self._ScrewPlaced,
@@ -431,14 +416,14 @@ class ToolsEnv(BaseEnv):
                 elif choice == "nail":
                     item = Object(f"nail{nail_cnt}", self._nail_type)
                     nail_cnt += 1
-                    feats = [pose_x, pose_y, on_table, is_fastened, is_held]
+                    feats = [pose_x, pose_y, is_fastened, is_held]
                     goal.add(GroundAtom(self._NailFastened, [item]))
                     goal.add(
                         GroundAtom(self._NailPlaced, [item, goal_contraption]))
                 elif choice == "bolt":
                     item = Object(f"bolt{bolt_cnt}", self._bolt_type)
                     bolt_cnt += 1
-                    feats = [pose_x, pose_y, on_table, is_fastened, is_held]
+                    feats = [pose_x, pose_y, is_fastened, is_held]
                     goal.add(GroundAtom(self._BoltFastened, [item]))
                     goal.add(
                         GroundAtom(self._BoltPlaced, [item, goal_contraption]))
@@ -468,8 +453,10 @@ class ToolsEnv(BaseEnv):
                     # Make sure no contraption, item, or other tool intersects
                     # with this one
                     some_contraption_collides = any(
-                        data[c][0] < pose_x < data[c][2] and \
-                        data[c][1] < pose_y < data[c][3]
+                        (data[c][0] < pose_x <
+                         data[c][0] + self.contraption_size) and \
+                        (data[c][1] < pose_y <
+                         data[c][1] + self.contraption_size)
                         for c in contraptions)
                     some_item_or_tool_collides = any(
                         abs(data[it][0] - pose_x) < self.close_thresh and \
@@ -507,12 +494,6 @@ class ToolsEnv(BaseEnv):
         # Works for any item or tool
         item_or_tool, = objects
         return state.get(item_or_tool, "is_held") > 0.5
-
-    @staticmethod
-    def _OnTable_holds(state: State, objects: Sequence[Object]) -> bool:
-        # Works for any item
-        item, = objects
-        return state.get(item, "on_table") > 0.5
 
     def _Placed_holds(self, state: State, objects: Sequence[Object]) -> bool:
         # Works for any item
@@ -607,13 +588,12 @@ class ToolsEnv(BaseEnv):
                 return obj
         return None
 
-    @staticmethod
-    def _is_pose_on_contraption(state: State, x: float, y: float,
+    def _is_pose_on_contraption(self, state: State, x: float, y: float,
                                 contraption: Object) -> bool:
         pose_lx = state.get(contraption, "pose_lx")
         pose_ly = state.get(contraption, "pose_ly")
-        pose_ux = state.get(contraption, "pose_ux")
-        pose_uy = state.get(contraption, "pose_uy")
+        pose_ux = pose_lx + self.contraption_size
+        pose_uy = pose_ly + self.contraption_size
         return pose_lx < x < pose_ux and pose_ly < y < pose_uy
 
     def _is_tool(self, obj: Object) -> bool:
