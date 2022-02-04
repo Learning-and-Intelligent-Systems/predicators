@@ -26,7 +26,7 @@ def test_tools():
     for task in env.get_test_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
-    assert len(env.predicates) == 18
+    assert len(env.predicates) == 15
     assert {pred.name for pred in env.goal_predicates} == \
         {"ScrewPlaced", "ScrewFastened", "NailPlaced",
          "NailFastened", "BoltPlaced", "BoltFastened"}
@@ -43,9 +43,6 @@ def test_tools_failure_cases():
     utils.reset_config({"env": "tools", "tools_num_items_train": [25]})
     env = DummyToolsEnv()
     env.seed(123)
-    ScrewOnTable = [o for o in env.predicates if o.name == "ScrewOnTable"][0]
-    NailOnTable = [o for o in env.predicates if o.name == "NailOnTable"][0]
-    BoltOnTable = [o for o in env.predicates if o.name == "BoltOnTable"][0]
     HandEmpty = [o for o in env.predicates if o.name == "HandEmpty"][0]
     task = env.get_train_tasks()[0]
     state = task.init
@@ -64,14 +61,11 @@ def test_tools_failure_cases():
         elif obj.type.name == "contraption":
             contraption = obj
         elif obj.type.name == "screw":
-            assert ScrewOnTable([obj]) in atoms
             assert screw is None  # only 1 screw possible
             screw = obj
         elif obj.type.name == "nail":
-            assert NailOnTable([obj]) in atoms
             nail = obj
         elif obj.type.name == "bolt":
-            assert BoltOnTable([obj]) in atoms
             bolt = obj
         elif obj.type.name == "hammer" and \
              state.get(obj, "size") > 0.5:

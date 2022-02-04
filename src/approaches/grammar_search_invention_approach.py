@@ -238,6 +238,17 @@ class _PredicateGrammar(abc.ABC):
 
 
 _DEBUG_PREDICATE_PREFIXES = {
+    "tools": [
+        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # HandEmpty
+        "NOT-((0:screw).is_held<=[idx 0]0.5)",  # HoldingScrew
+        "NOT-((0:screwdriver).is_held<=[idx 0]0.5)",  # HoldingScrewdriver
+        "NOT-((0:nail).is_held<=[idx 0]0.5)",  # HoldingNail
+        "NOT-((0:hammer).is_held<=[idx 0]0.5)",  # HoldingHammer
+        "NOT-((0:bolt).is_held<=[idx 0]0.5)",  # HoldingBolt
+        "NOT-((0:wrench).is_held<=[idx 0]0.5)",  # HoldingWrench
+        "((0:screwdriver).size<=[idx 0]",  # ScrewdriverGraspable
+        "((0:hammer).size<=[idx 0]",  # HammerGraspable
+    ],
     "painting": [
         "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
         "((0:obj).pose_y<=[idx 2]",  # OnTable
@@ -814,7 +825,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # not been found, updated after each new goal-reaching skeleton is
             # considered.
             refinable_skeleton_not_found_prob = 1.0
-            if CFG.grammar_search_expected_nodes_max_skeletons is None:
+            if CFG.grammar_search_expected_nodes_max_skeletons == -1:
                 max_skeletons = CFG.max_skeletons_optimized
             else:
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
