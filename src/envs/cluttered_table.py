@@ -249,19 +249,22 @@ class ClutteredTableEnv(BaseEnv):
                           end_x: float,
                           end_y: float,
                           state: State,
-                          desired_can: Optional[Object] = None) -> None:
+                          ignored_can: Optional[Object] = None) -> None:
         """Handle collision checking.
 
         We'll just threshold the angle between the grasp approach vector
-        and the vector between the desired_can and any other can. Doing
+        and the vector between (end_x, end_y) and any other can. Doing
         an actually correct geometric computation would involve the
-        radii somehow, but we don't really care about this.
+        radii somehow, but we don't really care about this. The argument
+        ignored_can is a can with which we don't care about colliding.
+        This is generally the desired can, but when attempting to place
+        a can, could also be the grasped can.
         """
         vec1 = np.array([end_x - start_x, end_y - start_y])
         colliding_can = None
         colliding_can_max_dist = float("-inf")
         for can in state:
-            if can == desired_can:
+            if can == ignored_can:
                 continue
             this_x = state.get(can, "pose_x")
             this_y = state.get(can, "pose_y")
@@ -344,7 +347,8 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             next_state.set(grasped_can, "pose_x", end_x)
             next_state.set(grasped_can, "pose_y", end_y)
             next_state.set(grasped_can, "is_grasped", 0.0)
-            self._check_collisions(start_x, start_y, end_x, end_y, state, None)
+            self._check_collisions(start_x, start_y, end_x, end_y, state,
+                                   grasped_can)
             return next_state
         # If no grasped can, use action vector to try to grasp a desired can.
         start_x, start_y, end_x, end_y = action.arr
