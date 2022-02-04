@@ -809,7 +809,7 @@ def test_expected_nodes_score_function():
     utils.update_config({
         "num_train_tasks": 5,
         "max_skeletons_optimized": 8,
-        "grammar_search_expected_nodes_max_skeletons": None,
+        "grammar_search_expected_nodes_max_skeletons": -1,
         "offline_data_method": "demo",
         "min_data_for_nsrt": 0,
     })

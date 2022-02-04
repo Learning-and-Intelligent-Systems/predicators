@@ -157,8 +157,6 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
-    # If None, defaults to CFG.max_skeletons_optimized.
-    grammar_search_expected_nodes_max_skeletons = None
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -221,6 +219,15 @@ class GlobalSettings:
                 lambda: 10,
                 {
                     # For the tools environment, don't do any backtracking.
+                    "tools": 1,
+                })[args.get("env", "")],
+
+            # Maximum number of skeletons used by ExpectedNodesScoreFunction.
+            # If -1, defaults to CFG.max_skeletons_optimized.
+            grammar_search_expected_nodes_max_skeletons=defaultdict(
+                lambda: -1,
+                {
+                    # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
         )
