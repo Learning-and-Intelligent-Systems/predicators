@@ -9,6 +9,7 @@ from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
     ClutteredTablePlaceEnv
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.painting import PaintingEnv
+from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 
@@ -23,6 +24,7 @@ __all__ = [
     "ClutteredTableEnv",
     "BlocksEnv",
     "PaintingEnv",
+    "ToolsEnv",
     "PlayroomEnv",
     "BehaviorEnv",
     "RepeatedNextToEnv",
@@ -56,6 +58,8 @@ def _create_new_env_instance(name: str) -> BaseEnv:
         return BlocksEnv()
     if name == "painting":
         return PaintingEnv()
+    if name == "tools":
+        return ToolsEnv()
     if name == "playroom":
         return PlayroomEnv()
     if name == "behavior":

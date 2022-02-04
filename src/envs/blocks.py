@@ -317,7 +317,7 @@ class BlocksEnv(BaseEnv):
             # [pose_x, pose_y, pose_z, held]
             data[block] = np.array([x, y, z, 0.0])
         # [fingers]
-        data[self._robot] = np.array([1.0])  # fingers start off open
+        data[self._robot] = np.array([1.0], dtype=np.float32)
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,
