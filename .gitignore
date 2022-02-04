@@ -6,6 +6,7 @@ __pycache__
 *~
 *.python-version
 *.csv
+*.zip
 build
 dist
 pylint_recursive.py

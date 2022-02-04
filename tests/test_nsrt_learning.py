@@ -75,7 +75,7 @@ def test_segment_trajectory():
 
 def test_learn_strips_operators():
     """Tests for learn_strips_operators()."""
-    utils.update_config({"min_data_for_nsrt": 0})
+    utils.reset_config({"min_data_for_nsrt": 0})
     known_option_segments, unknown_option_segments = test_segment_trajectory()
     known_option_pnads = learn_strips_operators(known_option_segments)
     known_option_ops = [pnad.op for pnad in known_option_pnads]
@@ -99,9 +99,8 @@ def test_learn_strips_operators():
 
 def test_nsrt_learning_specific_nsrts():
     """Tests with a specific desired set of NSRTs."""
-    utils.update_config({
+    utils.reset_config({
         "min_data_for_nsrt": 0,
-        "seed": 123,
         "sampler_mlp_classifier_max_itr": 1000,
         "neural_gaus_regressor_max_itr": 1000
     })
@@ -179,7 +178,7 @@ def test_nsrt_learning_specific_nsrts():
     preds = {pred0}
     state1 = State({cup0: [0.4], cup1: [0.8], cup2: [0.1]})
     option1 = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p),
+        "dummy", [], Box(0.1, 0.5, (1, )), lambda s, m, o, p: Action(p),
         utils.always_initiable, utils.onestep_terminal).ground([],
                                                                np.array([0.3]))
     action1 = option1.policy(state1)
@@ -187,9 +186,9 @@ def test_nsrt_learning_specific_nsrts():
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
     option2 = ParameterizedOption(
-        "dummy", [], Box(0.1, 1, (1, )), lambda s, m, o, p: Action(p),
+        "dummy", [], Box(0.1, 0.5, (1, )), lambda s, m, o, p: Action(p),
         utils.always_initiable, utils.onestep_terminal).ground([],
-                                                               np.array([0.7]))
+                                                               np.array([0.5]))
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
@@ -265,7 +264,6 @@ def test_nsrt_learning_specific_nsrts():
     utils.update_config({
         "min_data_for_nsrt": 0,
         "max_rejection_sampling_tries": 0,
-        "seed": 1234,
         "sampler_mlp_classifier_max_itr": 1,
         "neural_gaus_regressor_max_itr": 1
     })
@@ -273,6 +271,6 @@ def test_nsrt_learning_specific_nsrts():
     assert len(nsrts) == 2
     for nsrt in nsrts:
         for _ in range(10):
-            assert option1.parent.params_space.contains(
-                nsrt.ground([cup0, cup1]).sample_option(
-                    state1, np.random.default_rng(123)).params)
+            sampled_params = nsrt.ground([cup0, cup1]).sample_option(
+                state1, np.random.default_rng(123)).params
+            assert option1.parent.params_space.contains(sampled_params)

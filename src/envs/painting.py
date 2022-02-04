@@ -442,8 +442,8 @@ class PaintingEnv(BaseEnv):
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
-            # Initialize robot
-            data[self._robot] = np.array([1.0])  # fingers start off open
+            # Initialize robot with open fingers
+            data[self._robot] = np.array([1.0], dtype=np.float32)
             # Sample distinct colors for shelf and box
             color1 = rng.uniform(0.2, 0.4)
             color2 = rng.uniform(0.6, 1.0)
@@ -714,6 +714,5 @@ class PaintingEnv(BaseEnv):
                     state.get(obj, "pose_z")
             ],
                            atol=self.pick_tol):
-                assert target_obj is None
                 target_obj = obj
         return target_obj

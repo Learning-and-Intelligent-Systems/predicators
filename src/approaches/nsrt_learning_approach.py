@@ -30,7 +30,6 @@ class NSRTLearningApproach(TAMPApproach):
         return True
 
     def _get_current_nsrts(self) -> Set[NSRT]:
-        assert self._nsrts, "NSRTs not learned"
         return self._nsrts
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:

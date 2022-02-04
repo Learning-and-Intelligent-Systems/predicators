@@ -4,10 +4,9 @@ import pytest
 from predicators.src.approaches import BaseApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Action, InteractionRequest, \
-    InteractionResult, Predicate, GroundAtom
+    InteractionResult, Predicate, GroundAtom, GroundAtomsHoldQuery
 from predicators.src.main import _run_pipeline
 from predicators.src.envs import create_env
-from predicators.src.teacher import GroundAtomsHoldQuery
 from predicators.src import utils
 from predicators.src.settings import CFG
 
@@ -74,16 +73,11 @@ class _MockApproach(BaseApproach):
 def test_interaction():
     """Tests for sending InteractionRequest objects to main.py and receiving
     InteractionResult objects in return."""
-    utils.update_config({
+    utils.reset_config({
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
         "approach": "unittest",
-        "excluded_predicates": "",
-        "experiment_id": "",
-        "load_data": False,
-        "load_approach": False,
         "timeout": 1,
-        "make_videos": False,
         "num_train_tasks": 2,
         "num_test_tasks": 1,
         "num_online_learning_cycles": 1
