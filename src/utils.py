@@ -629,7 +629,7 @@ def _run_heuristic_search(
 
 def _finish_plan(
         node: _HeuristicSearchNode[_S, _A]) -> Tuple[List[_S], List[_A]]:
-    """Helper for _run_heuristic_search."""
+    """Helper for _run_heuristic_search and run_hill_climbing."""
     rev_state_sequence: List[_S] = []
     rev_action_sequence: List[_A] = []
 
@@ -657,13 +657,13 @@ def run_gbfs(initial_state: _S,
                                  lazy_expansion)
 
 
-def run_hill_climbing(initial_state: _S,
-                      check_goal: Callable[[_S], bool],
-                      get_successors: Callable[[_S], Iterator[Tuple[_A, _S,
-                                                                    float]]],
-                      heuristic: Callable[[_S], float],
-                      enforced_depth: int = 0,
-                      parallelize: bool = False) -> Tuple[List[_S], List[_A]]:
+def run_hill_climbing(
+        initial_state: _S,
+        check_goal: Callable[[_S], bool],
+        get_successors: Callable[[_S], Iterator[Tuple[_A, _S, float]]],
+        heuristic: Callable[[_S], float],
+        enforced_depth: int = 0,
+        parallelize: bool = False) -> Tuple[List[_S], List[_A], List[float]]:
     """Enforced hill climbing local search.
 
     For each node, the best child node is always selected, if that child is
@@ -678,6 +678,7 @@ def run_hill_climbing(initial_state: _S,
     cur_node: _HeuristicSearchNode[_S, _A] = _HeuristicSearchNode(
         initial_state, 0, 0)
     last_heuristic = heuristic(cur_node.state)
+    heuristics = [last_heuristic]
     visited = {initial_state}
     print(f"\n\nStarting hill climbing at state {cur_node.state} "
           f"with heuristic {last_heuristic}")
@@ -739,7 +740,9 @@ def run_hill_climbing(initial_state: _S,
         last_heuristic = best_heuristic
         print(f"\nHill climbing reached new state {cur_node.state} "
               f"with heuristic {last_heuristic}")
-    return _finish_plan(cur_node)
+        heuristics.append(last_heuristic)
+    states, actions = _finish_plan(cur_node)
+    return states, actions, heuristics
 
 
 def strip_predicate(predicate: Predicate) -> Predicate:
