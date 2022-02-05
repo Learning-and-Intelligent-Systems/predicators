@@ -1351,46 +1351,55 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._relearn_predicates_and_nsrts(online_learning_cycle=None)
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        interaction_requests = []
+        selected_train_task_idx = None
+        plan = []  # plan to re-run with the act policy
         for train_task_idx, train_task in enumerate(self._train_tasks):
-            # Try to plan in this train task.
-            try:
-                self._solve(train_task, timeout=CFG.timeout)
-                print(f"Found a plan for task {train_task_idx}.")
-            except (ApproachTimeout, ApproachFailure) as e:
-                # If planning failed, request a demo from the end of the
-                # longest partial refinement, i.e., where we got stuck.
-                print(f"Failed to plan for task {train_task_idx}.")
-                if e.info.get("partial_refinements"):
-                    _, plan = max(e.info["partial_refinements"],
-                                  key=lambda x: len(x[1]))
-                else:
-                    # Got stuck in initial state, ask for demo from there.
-                    plan = []
-                print(f"Setting up query for state at depth {len(plan)}.")
-                interaction_request = self._create_interaction_request(
-                    train_task_idx, plan)
-                interaction_requests.append(interaction_request)
-                # Only make one request per cycle.
-                break
-        return interaction_requests
+            if CFG.grammar_search_interactive_strategy == "targeted":
+                # Try to plan in this train task.
+                try:
+                    self._solve(train_task, timeout=CFG.timeout)
+                    print(f"Found a plan for task {train_task_idx}.")
+                except (ApproachTimeout, ApproachFailure) as e:
+                    # If planning failed, request a demo from the end of the
+                    # longest partial refinement, i.e., where we got stuck.
+                    print(f"Failed to plan for task {train_task_idx}.")
+                    if e.info.get("partial_refinements"):
+                        _, plan = max(e.info["partial_refinements"],
+                                      key=lambda x: len(x[1]))
+                    else:
+                        # Got stuck in initial state, ask for demo from there.
+                        plan = []
+                    selected_train_task_idx = train_task_idx
+                    break
+            elif CFG.grammar_search_interactive_strategy == "naive":
+                # Query about any train task for which we don't have a demo.
+                if not any(traj.is_demo and \
+                           traj.train_task_idx == train_task_idx
+                           for traj in self._dataset.trajectories):
+                    selected_train_task_idx = train_task_idx
+                    break
+        if selected_train_task_idx is None:
+            return []
+        print(f"Setting up query for task {selected_train_task_idx} "
+              f"at depth {len(plan)}.")
+        # Only make one request per cycle.
+        interaction_request = self._create_interaction_request(
+            selected_train_task_idx, plan)
+        return [interaction_request]
 
     def _create_interaction_request(
             self, train_task_idx: int,
             plan: Sequence[_Option]) -> InteractionRequest:
-        if CFG.grammar_search_interactive_strategy == "targeted":
-            # Get the state where planning failed.
-            train_task = self._train_tasks[train_task_idx]
-            query_state = train_task.init
-            for option in plan:
-                query_state = self._option_model.get_next_state(
-                    query_state, option)
-        else:
-            raise NotImplementedError
+        train_task = self._train_tasks[train_task_idx]
+        query_state = train_task.init
+        for option in plan:
+            query_state = self._option_model.get_next_state(
+                query_state, option)
         # Create an act policy that will run through the plan.
         act_policy = utils.option_plan_to_policy(plan)
         # Terminate after we get to the state that we want to query about.
         termination_function = lambda s: s.allclose(query_state)
+
         # Ask for a demonstration on the query_state.
         def query_policy(s: State) -> Optional[Query]:
             if s.allclose(query_state):
