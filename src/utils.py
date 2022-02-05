@@ -11,7 +11,6 @@ from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
     TYPE_CHECKING
-from typing import Type as TypingType  # avoid collisions with structs Type
 import heapq as hq
 import pathos.multiprocessing as mp
 import imageio
@@ -260,14 +259,11 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy_until(
-    policy: Callable[[State], Action],
-    simulator: Callable[[State, Action], State],
-    init_state: State,
-    termination_function: Callable[[State], bool],
-    max_num_steps: int,
-    caught_exceptions: Tuple[TypingType[Exception], ...] = tuple()
-) -> LowLevelTrajectory:
+def run_policy_until(policy: Callable[[State], Action],
+                     simulator: Callable[[State, Action], State],
+                     init_state: State, termination_function: Callable[[State],
+                                                                       bool],
+                     max_num_steps: int) -> LowLevelTrajectory:
     """Execute a policy from an initial state, using a simulator.
 
     Terminates when any of these conditions hold:
@@ -281,11 +277,8 @@ def run_policy_until(
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            try:
-                act = policy(state)
-                state = simulator(state, act)
-            except caught_exceptions:
-                break
+            act = policy(state)
+            state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):

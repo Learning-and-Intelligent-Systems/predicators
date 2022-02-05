@@ -1378,21 +1378,22 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
     def _create_interaction_request(
             self, train_task_idx: int,
             plan: Sequence[_Option]) -> InteractionRequest:
-        # Get the state where planning failed.
-        train_task = self._train_tasks[train_task_idx]
-        failure_state = train_task.init
-        for option in plan:
-            failure_state = self._option_model.get_next_state(
-                failure_state, option)
+        if CFG.grammar_search_interactive_strategy == "targeted":
+            # Get the state where planning failed.
+            train_task = self._train_tasks[train_task_idx]
+            query_state = train_task.init
+            for option in plan:
+                query_state = self._option_model.get_next_state(
+                    query_state, option)
+        else:
+            raise NotImplementedError
         # Create an act policy that will run through the plan.
         act_policy = utils.option_plan_to_policy(plan)
-        # The episode will also terminate automatically when the option plan
-        # is exhausted.
-        termination_function = lambda s: s.allclose(failure_state)
-
-        # Ask for a demonstration on the last state.
+        # Terminate after we get to the state that we want to query about.
+        termination_function = lambda s: s.allclose(query_state)
+        # Ask for a demonstration on the query_state.
         def query_policy(s: State) -> Optional[Query]:
-            if s.allclose(failure_state):
+            if s.allclose(query_state):
                 return DemonstrationQuery(train_task.goal, train_task_idx)
             return None
 
