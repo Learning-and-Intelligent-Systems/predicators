@@ -16,6 +16,8 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                                       env.types, env.action_space, train_tasks)
     trajectories = []
     for idx, task in enumerate(train_tasks):
+        if idx >= CFG.max_initial_demos:
+            break
         try:
             policy = oracle_approach.solve(
                 task, timeout=CFG.offline_data_planning_timeout)
@@ -39,4 +41,5 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             for act in traj.actions:
                 act.unset_option()
         trajectories.append(traj)
+    print(f"Created {len(trajectories)} initial demo(s).")
     return Dataset(trajectories)
