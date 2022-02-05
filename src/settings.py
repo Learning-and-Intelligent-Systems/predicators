@@ -17,7 +17,7 @@ class GlobalSettings:
     num_train_tasks = 50
     num_test_tasks = 50
     num_online_learning_cycles = 10
-    max_initial_demos = 1
+    max_initial_demos = 10
     # Maximum number of steps to run a policy when checking if it solves a task.
     max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
@@ -241,6 +241,8 @@ def get_allowed_query_type_names() -> Set[str]:
         return {"DemonstrationQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
+    if CFG.approach == "grammar_search_invention":
+        return {"DemonstrationQuery"}
     if CFG.approach == "unittest":
         return {"GroundAtomsHoldQuery", "DemonstrationQuery"}
     return set()

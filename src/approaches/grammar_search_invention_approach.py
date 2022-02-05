@@ -10,7 +10,7 @@ from functools import cached_property
 import itertools
 from operator import le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
-    Dict, Collection
+    Dict, Collection, Optional, cast
 from gym.spaces import Box
 import numpy as np
 from predicators.src import utils
@@ -21,7 +21,9 @@ from predicators.src.nsrt_learning import segment_trajectory, \
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Dataset, Object, GroundAtomTrajectory, STRIPSOperator, \
-    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption, Task
+    OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, DummyOption, \
+    Task, InteractionRequest, InteractionResult, Query, DemonstrationQuery, \
+    _Option, DemonstrationResponse
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -1307,15 +1309,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
+        self._dataset = Dataset([])
+        self._online_learning_cycle = 0
         self._num_inventions = 0
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
-    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+    def _relearn_predicates_and_nsrts(
+            self, online_learning_cycle: Optional[int]) -> None:
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
-        grammar = _create_grammar(dataset, self._initial_predicates)
+        grammar = _create_grammar(self._dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
         print(f"Done: created {len(candidates)} candidates:")
@@ -1324,7 +1329,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(
-            dataset.trajectories,
+            self._dataset.trajectories,
             set(candidates) | self._initial_predicates)
         print("Done.")
         # Create the score function that will be used to guide search.
@@ -1337,7 +1342,83 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             candidates, score_function, self._initial_predicates, atom_dataset)
         print("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
-        self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+        self._learn_nsrts(self._dataset.trajectories,
+                          online_learning_cycle=online_learning_cycle)
+
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        assert not self._dataset.trajectories
+        self._dataset = dataset
+        return self._relearn_predicates_and_nsrts(online_learning_cycle=None)
+
+    def get_interaction_requests(self) -> List[InteractionRequest]:
+        interaction_requests = []
+        for train_task_idx, train_task in enumerate(self._train_tasks):
+            # Try to plan in this train task.
+            try:
+                self._solve(train_task, timeout=CFG.timeout)
+                print(f"Found a plan for task {train_task_idx}.")
+            except (ApproachTimeout, ApproachFailure) as e:
+                # If planning failed, request a demo from the end of the
+                # longest partial refinement, i.e., where we got stuck.
+                print(f"Failed to plan for task {train_task_idx}.")
+                if e.info.get("partial_refinements"):
+                    _, plan = max(e.info["partial_refinements"],
+                                  key=lambda x: len(x[1]))
+                else:
+                    # Got stuck in initial state, ask for demo from there.
+                    plan = []
+                print(f"Setting up query for state at depth {len(plan)}.")
+                interaction_request = self._create_interaction_request(
+                    train_task_idx, plan)
+                interaction_requests.append(interaction_request)
+                # Only make one request per cycle.
+                break
+        return interaction_requests
+
+    def _create_interaction_request(
+            self, train_task_idx: int,
+            plan: Sequence[_Option]) -> InteractionRequest:
+        # Get the state where planning failed.
+        train_task = self._train_tasks[train_task_idx]
+        failure_state = train_task.init
+        for option in plan:
+            failure_state = self._option_model.get_next_state(
+                failure_state, option)
+        # Create an act policy that will run through the plan.
+        act_policy = utils.option_plan_to_policy(plan)
+        # The episode will also terminate automatically when the option plan
+        # is exhausted.
+        termination_function = lambda s: s.allclose(failure_state)
+
+        # Ask for a demonstration on the last state.
+        def query_policy(s: State) -> Optional[Query]:
+            if s.allclose(failure_state):
+                return DemonstrationQuery(train_task.goal, train_task_idx)
+            return None
+
+        interaction_request = InteractionRequest(train_task_idx, act_policy,
+                                                 query_policy,
+                                                 termination_function)
+        return interaction_request
+
+    def learn_from_interaction_results(
+            self, results: Sequence[InteractionResult]) -> None:
+        assert len(results) == 1
+        result = results[0]
+        # Sanity check that exactly one teacher trajectory was returned.
+        teacher_traj_found = False
+        for response in result.responses:
+            response = cast(DemonstrationResponse, response)
+            if response and response.teacher_traj:
+                assert not teacher_traj_found
+                # Add the teacher trajectory to our dataset.
+                self._dataset.append(response.teacher_traj)
+                teacher_traj_found = True
+        assert teacher_traj_found, "TODO: handle dead-ends somehow."
+        # Re-run learning.
+        self._relearn_predicates_and_nsrts(
+            online_learning_cycle=self._online_learning_cycle)
+        self._online_learning_cycle += 1
 
 
 def _select_predicates_to_keep(

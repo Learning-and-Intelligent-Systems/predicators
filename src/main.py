@@ -183,7 +183,8 @@ def _generate_interaction_results(
             simulator,
             task.init,
             request.termination_function,
-            max_num_steps=CFG.max_num_steps_interaction_request)
+            max_num_steps=CFG.max_num_steps_interaction_request,
+            caught_exceptions=(utils.OptionPlanExhausted, ))
         # Now, go through the trajectory and handle queries.
         # Note: we do this in a second pass so that we can use
         # the utils.run_policy_until() function called above.

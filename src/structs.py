@@ -1126,6 +1126,7 @@ class GroundAtomsHoldResponse(Response):
 class DemonstrationQuery(Query):
     """A query requesting a demonstration to get from the state to a goal."""
     goal: Set[GroundAtom]
+    train_task_idx: int
 
 
 @dataclass(frozen=True, eq=False, repr=False)
