@@ -5,7 +5,7 @@ NUM_SEEDS=10
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
-    COMMON_ARGS="--seed $SEED  --cover_initial_holding_prob 0.0 --painting_initial_holding_prob 0.0"
+    COMMON_ARGS="--seed $SEED --num_online_learning_cycles 25 --cover_initial_holding_prob 0.0 --painting_initial_holding_prob 0.0"
 
     # cover regrasp
     python $FILE --experiment_id cover_regrasp_targeted_noexclude --env cover_regrasp --approach grammar_search_invention --grammar_search_interactive_strategy targeted $COMMON_ARGS
