@@ -1,7 +1,8 @@
 """Create offline data by annotating low-level trajectories with ground atoms
 that hold in the respective states."""
 
-from typing import List, Set
+import numpy as np
+from typing import DefaultDict, List, Set, Dict, Tuple
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Predicate, GroundAtom
 from predicators.src import utils
@@ -9,7 +10,7 @@ from predicators.src import utils
 
 def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
                             annotating_predicates: Set[Predicate],
-                            annotating_ratio: float) -> Dataset:
+                            num_examples: int) -> Dataset:
     """Create offline data by annotating low-level trajectories with ground
     atoms. The ground atoms must hold in the respective states. Only the
     predicates in annotating_predicates are used in the annotations.
@@ -24,31 +25,29 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
         p: utils.strip_predicate(p)
         for p in annotating_predicates
     }
-    labeleds = {p: 0 for p in annotating_predicates}
-    totals = {p: 0 for p in annotating_predicates}
-    annotations: List[List[Set[GroundAtom]]] = []
-    annotated_preds = set()
-    for traj in base_dataset.trajectories:
-        ground_atoms_traj: List[Set[GroundAtom]] = []
-        for s in traj.states:
-            ground_atoms = sorted(utils.abstract(s, annotating_predicates))
-            subset_atoms = set()
-            if annotating_ratio > 0:
-                for ga in ground_atoms:
-                    pred = ga.predicate
-                    if (totals[pred] == 0 or \
-                            labeleds[pred] / totals[pred] <= annotating_ratio):
-                        # Teacher comments on this atom
-                        stripped_pred = predicates_to_stripped[pred]
-                        stripped_ga = GroundAtom(stripped_pred, ga.objects)
-                        subset_atoms.add(stripped_ga)
-                        labeleds[pred] += 1
-                        annotated_preds.add(pred)
-                    totals[pred] += 1
-            ground_atoms_traj.append(subset_atoms)
-        assert len(traj.states) == len(ground_atoms_traj)
-        annotations.append(ground_atoms_traj)
-    assert len(annotations) == len(base_dataset.trajectories)
-    assert annotated_preds == annotating_predicates, \
-        "Not all predicates are seen in the dataset"
+    # Generate all positive and negative examples and sample `num_examples` from each list
+    pos_examples = DefaultDict(list)  # predicate: [(i, j, ground_atom), ...]
+    neg_examples = DefaultDict(list)
+    for i, traj in enumerate(base_dataset.trajectories):
+        for j, s in enumerate(traj.states):
+            ground_atoms = utils.abstract(s, annotating_predicates)
+            ground_atom_universe = utils.all_possible_ground_atoms(s, annotating_predicates)
+            for ga in ground_atom_universe:
+                if ga in ground_atoms:  # positive example
+                    pos_examples[ga.predicate].append((i, j, ga))
+                else:
+                    neg_examples[ga.predicate].append((i, j, ga))
+    # Sample examples
+    pos_picks = []
+    neg_picks = []
+    for p in annotating_predicates:
+        for examples, picks in zip((pos_examples, neg_examples), (pos_picks, neg_picks)):
+            idxs = np.random.choice(len(examples[p]), size=num_examples, replace=False)
+            picks.extend([examples[p][idx] for idx in idxs])
+    annotations: List[List[List[Set[GroundAtom]]]] = [[[set(), set()] for _ in traj.states] for traj in base_dataset.trajectories]
+    for label, picks in enumerate([neg_picks, pos_picks]):
+        for (i, j, ga) in picks:
+            stripped_pred = predicates_to_stripped[ga.predicate]
+            stripped_ga = GroundAtom(stripped_pred, ga.objects)
+            annotations[i][j][label].add(stripped_ga)
     return Dataset(base_dataset.trajectories, annotations)
