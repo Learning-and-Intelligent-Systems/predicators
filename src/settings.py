@@ -44,6 +44,7 @@ class GlobalSettings:
     cluttered_table_num_cans_test = 10
     cluttered_table_can_radius = 0.01
     cluttered_table_collision_angle_thresh = np.pi / 4
+    cluttered_table_place_goal_conditioned_sampling = True
 
     # repeated nextto env parameters
     repeated_nextto_num_dots = 25

@@ -348,7 +348,8 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
     else:
         utils.reset_config({
             "env": "cluttered_table_place",
-            "num_train_tasks": 2,
+            # Higher num of train tasks needed for full coverage.
+            "num_train_tasks": 5,
             "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
@@ -363,17 +364,34 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         assert grasp_nsrt.name == "Grasp"
         assert place_nsrt.name == "Place"
     env.seed(123)
-    for task in env.get_train_tasks():
+    train_tasks = env.get_train_tasks()
+    for (i, task) in enumerate(train_tasks):
+        if i < len(train_tasks) / 2:
+            utils.reset_config(
+                {"cluttered_table_place_goal_conditioned_sampling": False})
+        else:
+            utils.reset_config(
+                {"cluttered_table_place_goal_conditioned_sampling": True})
         state = task.init
-        can0, can1, _, can3, _ = list(state)
-        assert can0.name == "can0"
-        assert can3.name == "can3"
+        if not place_version:
+            can0, can1, _, can3, _ = list(state)
+            assert can0.name == "can0"
+            assert can3.name == "can3"
+        else:
+            can0, can1 = list(state)
+            assert can0.name == "can0"
+            assert can1.name == "can1"
         grasp0_nsrt = grasp_nsrt.ground([can0])
         with pytest.raises(AssertionError):
             grasp_nsrt.ground([])
         rng = np.random.default_rng(123)
-        grasp_option = grasp0_nsrt.sample_option(state, task.goal, rng)
-        grasp_action = grasp_option.policy(state)
+        if i == 0 and place_version:
+            # This case checks for exception when placing collides.
+            grasp_action = Action(
+                np.array([0.2, 0, 0.2, 0.5], dtype=np.float32))
+        else:
+            grasp_option = grasp0_nsrt.sample_option(state, task.goal, rng)
+            grasp_action = grasp_option.policy(state)
         assert env.action_space.contains(grasp_action.arr)
         try:
             state = env.simulate(state, grasp_action)
@@ -388,12 +406,18 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             assert env.action_space.contains(dump_action.arr)
             env.simulate(state, dump_action)  # never raises EnvironmentFailure
         else:
-            place3_nsrt = place_nsrt.ground([can3])
+            place1_nsrt = place_nsrt.ground([can1])
             with pytest.raises(AssertionError):
-                place_nsrt.ground([can3, can1])
-            place_option = place3_nsrt.sample_option(state, task.goal, rng)
-            place_action = place_option.policy(state)
-            assert env.action_space.contains(place_action.arr)
+                place_nsrt.ground([can0, can1])
+            if i == 0:
+                # This case checks for exception when placing collides.
+                place_action = Action(
+                    np.array([0.2, 0, 0.1, 0.75], dtype=np.float32))
+                assert env.action_space.contains(place_action.arr)
+            else:
+                place_option = place1_nsrt.sample_option(state, task.goal, rng)
+                place_action = place_option.policy(state)
+                assert env.action_space.contains(place_action.arr)
             try:
                 env.simulate(state, place_action)
             except utils.EnvironmentFailure as e:
