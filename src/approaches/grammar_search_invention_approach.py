@@ -741,7 +741,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 init_atoms, objects, strips_ops, option_specs)
             traj_goal = self._train_tasks[traj.train_task_idx].goal
             heuristic = utils.create_task_planning_heuristic(
-                CFG.task_planning_heuristic, init_atoms, traj_goal,
+                CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
             try:
@@ -815,8 +815,9 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 option_specs,
                 allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
             heuristic = utils.create_task_planning_heuristic(
-                CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
-                candidate_predicates | self._initial_predicates, objects)
+                CFG.sesame_task_planning_heuristic, init_atoms, goal,
+                ground_nsrts, candidate_predicates | self._initial_predicates,
+                objects)
             # The expected time needed before a low-level plan is found. We
             # approximate this using node creations and by adding a penalty
             # for every skeleton after the first to account for backtracking.
@@ -826,9 +827,10 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             # considered.
             refinable_skeleton_not_found_prob = 1.0
             if CFG.grammar_search_expected_nodes_max_skeletons == -1:
-                max_skeletons = CFG.max_skeletons_optimized
+                max_skeletons = CFG.sesame_max_skeletons_optimized
             else:
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+            assert max_skeletons <= CFG.sesame_max_skeletons_optimized
             generator = task_plan(init_atoms, goal, ground_nsrts,
                                   reachable_atoms, heuristic, CFG.seed,
                                   CFG.grammar_search_task_planning_timeout,
@@ -1225,7 +1227,7 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
         ground_nsrts, reachable_atoms = task_plan_grounding(
             init_atoms, objects, strips_ops, option_specs)
         heuristic = utils.create_task_planning_heuristic(
-            CFG.task_planning_heuristic, init_atoms, goal, ground_nsrts,
+            CFG.sesame_task_planning_heuristic, init_atoms, goal, ground_nsrts,
             set(candidate_predicates) | self._initial_predicates, objects)
 
         def _task_planning_h(atoms: Set[GroundAtom]) -> float:
