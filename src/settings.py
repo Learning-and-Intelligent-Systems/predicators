@@ -14,6 +14,7 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings."""
     # global parameters
+    num_train_tasks = 50
     num_test_tasks = 50
     num_online_learning_cycles = 10
     # Maximum number of steps to roll out an option policy.
@@ -163,15 +164,6 @@ class GlobalSettings:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
         return dict(
-            # Number of training tasks / demonstrations per environment.
-            num_train_tasks=defaultdict(
-                # Default number.
-                lambda: 50,
-                {
-                    # For the tools environment, provide more data.
-                    "tools": 200,
-                })[args.get("env", "")],
-
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
