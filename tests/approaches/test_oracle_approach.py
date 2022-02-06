@@ -363,11 +363,20 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         assert grasp_nsrt.name == "Grasp"
         assert place_nsrt.name == "Place"
     env.seed(123)
-    for task in env.get_train_tasks():
+    for (i, task) in enumerate(env.get_train_tasks()):
+        if i == 0: 
+            utils.reset_config({"cluttered_table_place_goal_conditioned_sampling": False})
+        else: 
+            utils.reset_config({"cluttered_table_place_goal_conditioned_sampling": True})
         state = task.init
-        can0, can1, _, can3, _ = list(state)
-        assert can0.name == "can0"
-        assert can3.name == "can3"
+        if not place_version: 
+            can0, can1, _, can3, _ = list(state)
+            assert can0.name == "can0"
+            assert can3.name == "can3"
+        else:
+            can0, can1 = list(state)
+            assert can0.name == "can0"
+            assert can1.name == "can1"
         grasp0_nsrt = grasp_nsrt.ground([can0])
         with pytest.raises(AssertionError):
             grasp_nsrt.ground([])
@@ -388,15 +397,19 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             assert env.action_space.contains(dump_action.arr)
             env.simulate(state, dump_action)  # never raises EnvironmentFailure
         else:
-            place3_nsrt = place_nsrt.ground([can3])
+            print("hihi again")
+            place1_nsrt = place_nsrt.ground([can1])
             with pytest.raises(AssertionError):
-                place_nsrt.ground([can3, can1])
-            place_option = place3_nsrt.sample_option(state, task.goal, rng)
+                place_nsrt.ground([can0, can1])
+
+            print("hihi again 2!")
+            place_option = place1_nsrt.sample_option(state, task.goal, rng)
+            print("hihi again 3!")
             place_action = place_option.policy(state)
             assert env.action_space.contains(place_action.arr)
             try:
                 env.simulate(state, place_action)
-            except utils.EnvironmentFailure as e:
+            except utils.EnvironmentFailure as e: # pragma: no cover
                 assert len(e.info["offending_objects"]) == 1
 
 

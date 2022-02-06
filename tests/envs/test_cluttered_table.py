@@ -34,8 +34,8 @@ def test_cluttered_table(place_version=False):
     if not place_version:
         assert env.action_space == Box(0, 1, (4, ))
     else:
-        assert env.action_space == Box(np.array([0, 0, 0, 0]),
-                                       np.array([0.2, 0.2, 1, 1]))
+        assert env.action_space == Box(np.array([0.2, 0, 0, 0]),
+                                       np.array([0.2, 0, 0.4, 1]))
     HandEmpty = [pred for pred in env.predicates
                  if pred.name == "HandEmpty"][0]
     Untrashed = [pred for pred in env.predicates
@@ -44,6 +44,7 @@ def test_cluttered_table(place_version=False):
     # Test init state and simulate()
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
+        print("hihi")
         for can1 in state:
             pose_x1 = state.get(can1, "pose_x")
             pose_y1 = state.get(can1, "pose_y")
@@ -57,26 +58,24 @@ def test_cluttered_table(place_version=False):
                 assert np.linalg.norm([pose_y2 - pose_y1, pose_x2 - pose_x1
                                        ]) > rad1 + rad2
         can = list(state)[0]
+        print('hihi2')
         act = Action(env.action_space.sample())
-        if i == 0:
-            env.render(state, task, act)
+        if i == 0: 
+            env.render(state, task, act)            
         try:
             env.simulate(state, act)
         except utils.EnvironmentFailure:  # pragma: no cover
             pass
-        atoms = utils.abstract(state, env.predicates)
-        assert GroundAtom(HandEmpty, []) in atoms
-        for can1 in state:
-            assert Untrashed([can1]) in atoms
-        state.set(can, "is_grasped", 1.0)
-        pose_x = state.get(can, "pose_x")
-        pose_y = state.get(can, "pose_y")
-        act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
+        print('hihi3')
         if not place_version:
-            next_state = env.simulate(state,
-                                      act)  # grasp while already grasping
-            assert state.allclose(next_state)
-        if not place_version:
+            atoms = utils.abstract(state, env.predicates)
+            assert GroundAtom(HandEmpty, []) in atoms
+            for can1 in state:
+                assert Untrashed([can1]) in atoms
+            state.set(can, "is_grasped", 1.0)
+            pose_x = state.get(can, "pose_x")
+            pose_y = state.get(can, "pose_y")
+            act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
             next_state = env.simulate(state,
                                       act)  # grasp while already grasping
             assert state.allclose(next_state)
@@ -85,6 +84,10 @@ def test_cluttered_table(place_version=False):
             assert Holding([can]) in atoms
             for can1 in state:
                 assert Untrashed([can1]) in atoms
+            # Additionally test when grasp is not on top of can coordinates
+            act = Action(np.array([0.0, 0.0, 0.9, 0.9], dtype=np.float32))
+            next_state = env.simulate(state, act)
+            assert state.allclose(next_state)
         if i == 0:
             env.render(state, task, act)
 
