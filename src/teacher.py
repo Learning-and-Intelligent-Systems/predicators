@@ -4,7 +4,7 @@ information to assist an agent during online learning."""
 from __future__ import annotations
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
-    DemonstrationResponse
+    DemonstrationResponse, LowLevelTrajectory
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import create_env
 from predicators.src.approaches import ApproachTimeout, ApproachFailure
@@ -51,7 +51,11 @@ class Teacher:
         except (ApproachTimeout, ApproachFailure):
             return DemonstrationResponse(query, teacher_traj=None)
 
-        teacher_traj, _, goal_reached = utils.run_policy_on_task(
+        traj, _, goal_reached = utils.run_policy_on_task(
             policy, task, self._simulator, CFG.max_num_steps_option_rollout)
         assert goal_reached
+        teacher_traj = LowLevelTrajectory(traj.states,
+                                          traj.actions,
+                                          _is_demo=True,
+                                          _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)

@@ -56,17 +56,20 @@ def test_DemonstrationQuery():
     utils.reset_config({"env": "cover", "approach": "unittest"})
     teacher = Teacher()
     env = create_env("cover")
-    task = env.get_train_tasks()[0]
+    train_task_idx = 0
+    task = env.get_train_tasks()[train_task_idx]
     state = task.init
     goal = task.goal
     # Test normal usage
-    query = DemonstrationQuery(goal)
+    query = DemonstrationQuery(goal, train_task_idx)
     response = teacher.answer_query(state, query)
     assert isinstance(response, DemonstrationResponse)
     assert response.query is query
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
     assert len(response.teacher_traj.actions) == 2
     assert all(atom.holds(response.teacher_traj.states[-1]) for atom in goal)
+    assert response.teacher_traj.is_demo
+    assert response.teacher_traj.train_task_idx == train_task_idx
     # Test usage when goal is already achieved
     response = teacher.answer_query(response.teacher_traj.states[-1], query)
     assert isinstance(response, DemonstrationResponse)
@@ -80,7 +83,7 @@ def test_DemonstrationQuery():
     IsBlock = utils.strip_predicate(IsBlock)
     NotIsBlock = IsBlock.get_negation()
     not_is_block_block = GroundAtom(NotIsBlock, [block])
-    query = DemonstrationQuery({not_is_block_block})
+    query = DemonstrationQuery({not_is_block_block}, train_task_idx)
     response = teacher.answer_query(state, query)
     assert isinstance(response, DemonstrationResponse)
     assert response.query is query
