@@ -17,6 +17,9 @@ class GlobalSettings:
     num_train_tasks = 50
     num_test_tasks = 50
     num_online_learning_cycles = 10
+    # Maximum number of training tasks to give a demonstration for, if the
+    # offline_data_method is demo-based.
+    max_initial_demos = float("inf")
     # Maximum number of steps to roll out an option policy.
     max_num_steps_option_rollout = 1000
     # Maximum number of steps to run a policy when checking if it solves a task.
