@@ -834,5 +834,5 @@ def test_expected_nodes_score_function():
     utils.update_config({
         "grammar_search_expected_nodes_max_skeletons": 10,
     })
-    with pytest.raises(AssertionError) as e:
+    with pytest.raises(AssertionError):
         score_function.evaluate({Holding, HandEmpty})
