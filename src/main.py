@@ -121,7 +121,7 @@ def _run_pipeline(env: BaseEnv,
         results["num_transitions"] = total_num_transitions
         results["learning_time"] = time.time() - learning_start
         _save_test_results(results, online_learning_cycle=None)
-        teacher = Teacher()
+        teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
             print(f"\n\nONLINE LEARNING CYCLE {i}\n\n")
