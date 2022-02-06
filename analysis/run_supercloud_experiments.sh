@@ -13,8 +13,8 @@ ALL_NUM_TRAIN_TASKS=(
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id cover_oracle --env cover --approach oracle --seed $SEED
     python $FILE --experiment_id blocks_oracle --env blocks --approach oracle --seed $SEED
-    python $FILE --experiment_id painting_oracle_TRAIN_TASKS --env painting --approach oracle --seed $SEED
-    python $FILE --experiment_id tools_oracle_TRAIN_TASKS --env tools --approach oracle --seed $SEED
+    python $FILE --experiment_id painting_oracle --env painting --approach oracle --seed $SEED
+    python $FILE --experiment_id tools_oracle --env tools --approach oracle --seed $SEED
 
     for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
         COMMON_ARGS="--seed $SEED --num_train_tasks $NUM_TRAIN_TASKS"
