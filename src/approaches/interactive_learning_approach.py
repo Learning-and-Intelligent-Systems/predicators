@@ -43,10 +43,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # First, go through the dataset's annotations and figure out the
         # set of predicates to learn. Note that their classifiers were
         # stripped away during the creation of the annotations.
-        for ground_atom_sets in dataset.annotations:
-            for pos_and_neg_sets in ground_atom_sets:
-                assert len(pos_and_neg_sets) == 2
-                for atom in pos_and_neg_sets[0] | pos_and_neg_sets[1]:
+        for ground_atom_traj in dataset.annotations:
+            for ground_atom_sets in ground_atom_traj:
+                assert len(ground_atom_sets) == 2
+                for atom in ground_atom_sets[0] | ground_atom_sets[1]:
                     assert atom.predicate not in self._initial_predicates
                     self._predicates_to_learn.add(atom.predicate)
         self._dataset = Dataset(dataset.trajectories, dataset.annotations)
@@ -267,14 +267,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         result = results[0]
         for state, response in zip(result.states, result.responses):
             assert isinstance(response, GroundAtomsHoldResponse)
-            state_annotation: Dict[str, Set[GroundAtom]] = {
-                "positive": set(),
-                "negative": set(),
-                "unlabeled": set()
-            }
+            state_annotation: List[Set[GroundAtom]] = [set(), set()]
             for query_atom, atom_holds in response.holds.items():
-                label = "positive" if atom_holds else "negative"
-                state_annotation[label].add(query_atom)
+                state_annotation[atom_holds].add(query_atom)
             traj = LowLevelTrajectory([state], [])
             self._dataset.append(traj, [state_annotation])
         self._relearn_predicates_and_nsrts(
@@ -300,6 +295,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         examples seen during training."""
         count = 1  # Avoid division by 0
         for ground_atom_traj in self._dataset.annotations:
-            for ground_atom_set in ground_atom_traj:
-                count += 1 if atom_set.issubset(ground_atom_set) else 0
+            for ground_atom_sets in ground_atom_traj:
+                assert len(ground_atom_sets) == 2
+                _, pos_examples = ground_atom_sets
+                count += 1 if atom_set.issubset(pos_examples) else 0
         return 1.0 / count
