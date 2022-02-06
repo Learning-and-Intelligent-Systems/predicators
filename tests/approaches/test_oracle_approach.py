@@ -399,14 +399,10 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             assert env.action_space.contains(dump_action.arr)
             env.simulate(state, dump_action)  # never raises EnvironmentFailure
         else:
-            print("hihi again")
             place1_nsrt = place_nsrt.ground([can1])
             with pytest.raises(AssertionError):
                 place_nsrt.ground([can0, can1])
-
-            print("hihi again 2!")
             place_option = place1_nsrt.sample_option(state, task.goal, rng)
-            print("hihi again 3!")
             place_action = place_option.policy(state)
             assert env.action_space.contains(place_action.arr)
             try:
