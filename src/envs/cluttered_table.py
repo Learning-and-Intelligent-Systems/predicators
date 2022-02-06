@@ -173,7 +173,10 @@ class ClutteredTableEnv(BaseEnv):
         tasks = []
         goal = {GroundAtom(self._Holding, [self._cans[0]])}
         for _ in range(num):
-            tasks.append(Task(self._create_initial_state(train_or_test), goal))
+            if CFG.cluttered_table_place_custom_setting:
+                tasks.append(Task(self._create_custom_initial_state(), goal))
+            else:
+                tasks.append(Task(self._create_initial_state(train_or_test), goal))  
         return tasks
 
     def _create_initial_state(self, train_or_test: str) -> State:
@@ -196,6 +199,21 @@ class ClutteredTableEnv(BaseEnv):
                     break
             # [pose_x, pose_y, radius, is_grasped, is_trashed]
             data[can] = np.array([pose[0], pose[1], radius, 0.0, 0.0])
+        return State(data)
+
+    def _create_custom_initial_state(self) -> State:
+        # Two cans
+        self._cans = []
+        for i in range(2):
+            self._cans.append(Object(f"can{i}", self._can_type))
+        data: Dict[Object, Array] = {}
+        radius = CFG.cluttered_table_can_radius
+        # The goal can is placed behind an obstructing can and randomly either
+        # on the left or right. The obstructing can is in the middle of the
+        # action space.
+        goal_x = 0.3 if self._train_rng.uniform() < 0.5 else 0.1
+        data[self._cans[0]] = np.array([goal_x, 0.7, radius, 0.0, 0.0])
+        data[self._cans[1]] = np.array([0.2, 0.5, radius, 0.0, 0.0])
         return State(data)
 
     @staticmethod
@@ -319,10 +337,10 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
 
     @property
     def action_space(self) -> Box:
-        # The action's starting x,y coordinates are limited between 0 and 0.2,
-        # so that the robot must be more consistent in the direction it reaches
-        # from.
-        return Box(np.array([0, 0, 0, 0]), np.array([0.2, 0.2, 1, 1]))
+        # The action's starting x,y coordinates are always (0.2,0), and the
+        # ending coordinates are in a more narrow region than in the original
+        # task. Constraints make this version of the task more challenging.
+        return Box(np.array([0.2, 0, 0, 0]), np.array([0.2, 0, 0.4, 1]))
 
     @staticmethod
     def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],

@@ -367,8 +367,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         end_x = max(0.0, state.get(can, "pose_x"))
         end_y = max(0.0, state.get(can, "pose_y"))
         if with_place:
-            start_x, start_y = rng.uniform(0.0, 0.2,
-                                           size=2)  # start from 0.2x0.2 corner
+            start_x, start_y = 0.2, 0
         else:
             start_x, start_y = rng.uniform(0.0, 1.0,
                                            size=2)  # start from anywhere
