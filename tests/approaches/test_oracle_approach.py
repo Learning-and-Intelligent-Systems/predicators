@@ -364,12 +364,14 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         assert place_nsrt.name == "Place"
     env.seed(123)
     for (i, task) in enumerate(env.get_train_tasks()):
-        if i == 0: 
-            utils.reset_config({"cluttered_table_place_goal_conditioned_sampling": False})
-        else: 
-            utils.reset_config({"cluttered_table_place_goal_conditioned_sampling": True})
+        if i == 0:
+            utils.reset_config(
+                {"cluttered_table_place_goal_conditioned_sampling": False})
+        else:
+            utils.reset_config(
+                {"cluttered_table_place_goal_conditioned_sampling": True})
         state = task.init
-        if not place_version: 
+        if not place_version:
             can0, can1, _, can3, _ = list(state)
             assert can0.name == "can0"
             assert can3.name == "can3"
@@ -409,7 +411,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             assert env.action_space.contains(place_action.arr)
             try:
                 env.simulate(state, place_action)
-            except utils.EnvironmentFailure as e: # pragma: no cover
+            except utils.EnvironmentFailure as e:  # pragma: no cover
                 assert len(e.info["offending_objects"]) == 1
 
 
