@@ -28,17 +28,17 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id painting_invent_noexclude --env painting --approach grammar_search_invention $COMMON_ARGS
     python $FILE --experiment_id painting_invent_allexclude --env painting --approach grammar_search_invention --excluded_predicates all $COMMON_ARGS
 
-    # painting with lid always open
-    python $FILE --experiment_id painting_always_open_oracle --painting_lid_open_prob 1.0 --env painting --approach oracle $COMMON_ARGS
-    python $FILE --experiment_id painting_always_open_noinvent_noexclude --painting_lid_open_prob 1.0 --env painting --approach nsrt_learning $COMMON_ARGS
-    python $FILE --experiment_id painting_always_open_noinvent_allexclude --painting_lid_open_prob 1.0 --env painting --approach nsrt_learning --excluded_predicates all $COMMON_ARGS
-    python $FILE --experiment_id painting_always_open_invent_noexclude --painting_lid_open_prob 1.0 --env painting --approach grammar_search_invention $COMMON_ARGS
-    python $FILE --experiment_id painting_always_open_invent_allexclude --painting_lid_open_prob 1.0 --env painting --approach grammar_search_invention --excluded_predicates all $COMMON_ARGS
-
     # cluttered_table
     python $FILE --experiment_id ctable_oracle --env cluttered_table --approach oracle $COMMON_ARGS
     python $FILE --experiment_id ctable_noinvent_noexclude --env cluttered_table --approach nsrt_learning $COMMON_ARGS
     python $FILE --experiment_id ctable_noinvent_allexclude --env cluttered_table --approach nsrt_learning --excluded_predicates all $COMMON_ARGS
     python $FILE --experiment_id ctable_invent_noexclude --env cluttered_table --approach grammar_search_invention $COMMON_ARGS
     python $FILE --experiment_id ctable_invent_allexclude --env cluttered_table --approach grammar_search_invention --excluded_predicates all $COMMON_ARGS
+
+    # tools
+    python $FILE --experiment_id tools_oracle --env tools --approach oracle $COMMON_ARGS
+    python $FILE --experiment_id tools_noinvent_noexclude --env tools --approach nsrt_learning $COMMON_ARGS
+    python $FILE --experiment_id tools_noinvent_allexclude --env tools --approach nsrt_learning --excluded_predicates all $COMMON_ARGS
+    python $FILE --experiment_id tools_invent_noexclude --env tools --approach grammar_search_invention $COMMON_ARGS
+    python $FILE --experiment_id tools_invent_allexclude --env tools --approach grammar_search_invention --excluded_predicates all $COMMON_ARGS
 done

@@ -829,6 +829,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 max_skeletons = CFG.max_skeletons_optimized
             else:
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
+            assert max_skeletons <= CFG.max_skeletons_optimized
             generator = task_plan(init_atoms, goal, ground_nsrts,
                                   reachable_atoms, heuristic, CFG.seed,
                                   CFG.grammar_search_task_planning_timeout,
