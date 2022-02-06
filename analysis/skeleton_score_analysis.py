@@ -159,7 +159,7 @@ def _skeleton_based_score_function(
         ground_nsrts, reachable_atoms = task_plan_grounding(
             init_atoms, objects, strips_ops, option_specs)
         heuristic = utils.create_task_planning_heuristic(
-            CFG.task_planning_heuristic, init_atoms, train_task.goal,
+            CFG.sesame_task_planning_heuristic, init_atoms, train_task.goal,
             ground_nsrts, current_predicate_set, objects)
         generator = task_plan(init_atoms, train_task.goal, ground_nsrts,
                               reachable_atoms, heuristic, seed, timeout,

@@ -115,16 +115,16 @@ def test_sesame_plan_failures():
         approach.solve(impossible_task, timeout=0.1)  # times out
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=-100)  # times out
-    old_max_samples_per_step = CFG.max_samples_per_step
-    old_max_skeletons = CFG.max_skeletons_optimized
-    CFG.max_samples_per_step = 1
-    CFG.max_skeletons_optimized = float("inf")
+    old_max_samples_per_step = CFG.sesame_max_samples_per_step
+    old_max_skeletons = CFG.sesame_max_skeletons_optimized
+    CFG.sesame_max_samples_per_step = 1
+    CFG.sesame_max_skeletons_optimized = float("inf")
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=1)  # backtracking occurs
-    CFG.max_skeletons_optimized = old_max_skeletons
+    CFG.sesame_max_skeletons_optimized = old_max_skeletons
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
-    CFG.max_samples_per_step = old_max_samples_per_step
+    CFG.sesame_max_samples_per_step = old_max_samples_per_step
     nsrts = get_gt_nsrts(env.predicates, env.options)
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(ApproachFailure):
@@ -171,7 +171,7 @@ def test_sesame_plan_uninitiable_option():
                  nsrt._sampler))
     task = env.get_train_tasks()[0]
     with pytest.raises(ApproachFailure) as e:
-        # Planning should reach max_skeletons_optimized
+        # Planning should reach sesame_max_skeletons_optimized
         sesame_plan(task,
                     option_model,
                     new_nsrts,

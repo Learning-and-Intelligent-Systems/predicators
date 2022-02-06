@@ -77,7 +77,7 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    task_planning_heuristic = "lmcut"
+    sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
 
     # evaluation parameters
@@ -209,7 +209,7 @@ class GlobalSettings:
 
             # In SeSamE, the maximum number of skeletons optimized before
             # giving up. If 1, can only solve downward refinable tasks.
-            max_skeletons_optimized=defaultdict(
+            sesame_max_skeletons_optimized=defaultdict(
                 lambda: 8,
                 {
                     # For the tools environment, allow many more skeletons.
@@ -219,7 +219,7 @@ class GlobalSettings:
             # In SeSamE, the maximum effort put into sampling a single skeleton.
             # Concretely, this effort refers to the maximum number of calls to
             # the sampler on each step before backtracking.
-            max_samples_per_step=defaultdict(
+            sesame_max_samples_per_step=defaultdict(
                 lambda: 10,
                 {
                     # For the tools environment, don't do any backtracking.
@@ -227,7 +227,7 @@ class GlobalSettings:
                 })[args.get("env", "")],
 
             # Maximum number of skeletons used by ExpectedNodesScoreFunction.
-            # If -1, defaults to CFG.max_skeletons_optimized.
+            # If -1, defaults to CFG.sesame_max_skeletons_optimized.
             grammar_search_expected_nodes_max_skeletons=defaultdict(
                 lambda: -1,
                 {
