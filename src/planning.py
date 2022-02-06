@@ -84,14 +84,14 @@ def sesame_plan(
             if nsrt.preconditions.issubset(all_reachable_atoms)
         ]
         heuristic = utils.create_task_planning_heuristic(
-            CFG.task_planning_heuristic, init_atoms, task.goal,
+            CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
             reachable_nsrts, predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
-                    CFG.max_skeletons_optimized):
+                    CFG.sesame_max_skeletons_optimized):
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time))
@@ -276,7 +276,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
     while cur_idx < len(skeleton):
         if time.time() - start_time > timeout:
             return longest_failed_refinement, False
-        assert num_tries[cur_idx] < CFG.max_samples_per_step
+        assert num_tries[cur_idx] < CFG.sesame_max_samples_per_step
         # Good debug point #2: if you have a skeleton that you think is
         # reasonable, but sampling isn't working, print num_tries here to
         # see at what step the backtracking search is getting stuck.
@@ -339,7 +339,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
             # is exhausted, backtrack.
             cur_idx -= 1
             assert cur_idx >= 0
-            while num_tries[cur_idx] == CFG.max_samples_per_step:
+            while num_tries[cur_idx] == CFG.sesame_max_samples_per_step:
                 num_tries[cur_idx] = 0
                 plan[cur_idx] = DummyOption
                 traj[cur_idx + 1] = DefaultState
