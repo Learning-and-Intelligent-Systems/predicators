@@ -176,7 +176,8 @@ class ClutteredTableEnv(BaseEnv):
             if CFG.cluttered_table_place_custom_setting:
                 tasks.append(Task(self._create_custom_initial_state(), goal))
             else:
-                tasks.append(Task(self._create_initial_state(train_or_test), goal))  
+                tasks.append(
+                    Task(self._create_initial_state(train_or_test), goal))
         return tasks
 
     def _create_initial_state(self, train_or_test: str) -> State:

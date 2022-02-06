@@ -425,26 +425,21 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
                 goal_x = state.get(goal_obj, "pose_x")
                 goal_y = state.get(goal_obj, "pose_y")
                 # Place up w.r.t the goal, and to some distance left
-                # or right such that we're not going out of x bounds 
-                # 0 to 0.4. 
-                end_y = goal_y * 1.2 
-                end_x = goal_x + 0.2 
-                if end_x > 0.4: 
+                # or right such that we're not going out of x bounds
+                # 0 to 0.4.
+                end_y = goal_y * 1.2
+                end_x = goal_x + 0.2
+                if end_x > 0.4:
                     end_x = goal_x - 0.2
-                return np.array([
-                    start_x,
-                    start_y,
-                    end_x, 
-                    end_y
-                ], dtype=np.float32)
+                return np.array([start_x, start_y, end_x, end_y],
+                                dtype=np.float32)
             # Non-goal-conditioned sampling
             del state, goal, objs
-            return np.array([
-                start_x,
-                start_y,
-                rng.uniform(0, 0.4),
-                rng.uniform(0, 0.4)
-            ], dtype=np.float32)
+            return np.array(
+                [start_x, start_y,
+                 rng.uniform(0, 0.4),
+                 rng.uniform(0, 0.4)],
+                dtype=np.float32)
 
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
                           delete_effects, set(), option, option_vars,
