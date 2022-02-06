@@ -10,7 +10,7 @@ from predicators.src.settings import CFG
 
 
 def create_dataframes() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Returns means standard deviations, and sizes."""
+    """Returns means, standard deviations, and sizes."""
     all_data = []
     column_names = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
