@@ -414,7 +414,6 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            print("sample in place sampler")
             start_x, start_y = 0.2, 0.0
             # Goal-conditioned sampling
             if CFG.cluttered_table_place_goal_conditioned_sampling:

@@ -44,7 +44,6 @@ def test_cluttered_table(place_version=False):
     # Test init state and simulate()
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
-        print("hihi")
         for can1 in state:
             pose_x1 = state.get(can1, "pose_x")
             pose_y1 = state.get(can1, "pose_y")
@@ -58,7 +57,6 @@ def test_cluttered_table(place_version=False):
                 assert np.linalg.norm([pose_y2 - pose_y1, pose_x2 - pose_x1
                                        ]) > rad1 + rad2
         can = list(state)[0]
-        print('hihi2')
         act = Action(env.action_space.sample())
         if i == 0:
             env.render(state, task, act)
@@ -66,7 +64,6 @@ def test_cluttered_table(place_version=False):
             env.simulate(state, act)
         except utils.EnvironmentFailure:  # pragma: no cover
             pass
-        print('hihi3')
         if not place_version:
             atoms = utils.abstract(state, env.predicates)
             assert GroundAtom(HandEmpty, []) in atoms
