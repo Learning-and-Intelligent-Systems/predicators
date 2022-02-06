@@ -1,6 +1,7 @@
 """Script to analyze experiments resulting from running the script
 analysis/run_supercloud_experiments.sh."""
 
+from typing import Tuple
 import glob
 import dill as pkl
 import numpy as np
@@ -8,8 +9,8 @@ import pandas as pd
 from predicators.src.settings import CFG
 
 
-def _main() -> None:
-    # Gather data.
+def create_dataframes() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    # Returns means standard deviations, and sizes.
     all_data = []
     column_names = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
@@ -87,6 +88,11 @@ def _main() -> None:
     means = grouped.mean()
     stds = grouped.std(ddof=0)
     sizes = grouped.size()
+    return means, stds, sizes
+
+
+def _main() -> None:
+    means, stds, sizes = create_dataframes()
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
