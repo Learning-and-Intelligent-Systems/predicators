@@ -44,29 +44,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # set of predicates to learn. Note that their classifiers were
         # stripped away during the creation of the annotations.
         for ground_atom_sets in dataset.annotations:
-            for ground_atom_set in ground_atom_sets:
-                for atom in ground_atom_set:
+            for pos_and_neg_sets in ground_atom_sets:
+                assert len(pos_and_neg_sets) == 2
+                for atom in pos_and_neg_sets[0] | pos_and_neg_sets[1]:
                     assert atom.predicate not in self._initial_predicates
                     self._predicates_to_learn.add(atom.predicate)
-        # Next, convert the dataset with positive annotations only into a
-        # dataset with positive and unlabeled annotations.
-        new_annotations = []
-        for traj, ground_atom_sets in zip(dataset.trajectories,
-                                          dataset.annotations):
-            new_traj_annotation = []
-            # Get all possible ground atoms given the objects in traj.
-            possible = set(
-                utils.all_possible_ground_atoms(traj.states[0],
-                                                self._predicates_to_learn))
-            for positives in ground_atom_sets:
-                unlabeled = possible - positives
-                new_traj_annotation.append({
-                    "positive": positives,
-                    "unlabeled": unlabeled,
-                    "negative": set(),
-                })
-            new_annotations.append(new_traj_annotation)
-        self._dataset = Dataset(dataset.trajectories, new_annotations)
+        self._dataset = Dataset(dataset.trajectories, dataset.annotations)
         # Learn predicates and NSRTs.
         self._relearn_predicates_and_nsrts(online_learning_cycle=None)
 
@@ -92,14 +75,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 assert len(traj.states) == len(traj_annotations)
                 for (state, state_annotation) in zip(traj.states,
                                                      traj_annotations):
-                    # Here we make the (wrong in general!) assumption that
-                    # unlabeled ground atoms are negative. In the future, we
-                    # may want to modify this, e.g., downweight or remove
-                    # the unlabeled examples once we collect enough negatives.
-                    for label, target_class in [("positive", 1),
-                                                ("unlabeled", 0),
-                                                ("negative", 0)]:
-                        for atom in state_annotation[label]:
+                    assert len(state_annotation) == 2
+                    for target_class, examples in enumerate(state_annotation):
+                        for atom in examples:
                             if not atom.predicate == pred:
                                 continue
                             x = state.vec(atom.objects)
