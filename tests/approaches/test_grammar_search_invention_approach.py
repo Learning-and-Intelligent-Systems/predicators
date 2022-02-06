@@ -830,3 +830,9 @@ def test_expected_nodes_score_function():
     })
     one_skeleton_score = score_function.evaluate({Holding, HandEmpty})
     assert one_skeleton_score > more_skeletons_score
+    # Repeat but with max skeletons 10 (should crash).
+    utils.update_config({
+        "grammar_search_expected_nodes_max_skeletons": 10,
+    })
+    with pytest.raises(AssertionError) as e:
+        score_function.evaluate({Holding, HandEmpty})
