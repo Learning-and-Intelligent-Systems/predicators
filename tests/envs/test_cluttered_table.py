@@ -60,8 +60,8 @@ def test_cluttered_table(place_version=False):
         can = list(state)[0]
         print('hihi2')
         act = Action(env.action_space.sample())
-        if i == 0: 
-            env.render(state, task, act)            
+        if i == 0:
+            env.render(state, task, act)
         try:
             env.simulate(state, act)
         except utils.EnvironmentFailure:  # pragma: no cover
@@ -75,7 +75,8 @@ def test_cluttered_table(place_version=False):
             state.set(can, "is_grasped", 1.0)
             pose_x = state.get(can, "pose_x")
             pose_y = state.get(can, "pose_y")
-            act = Action(np.array([0.0, 0.0, pose_x, pose_y], dtype=np.float32))
+            act = Action(np.array([0.0, 0.0, pose_x, pose_y],
+                                  dtype=np.float32))
             next_state = env.simulate(state,
                                       act)  # grasp while already grasping
             assert state.allclose(next_state)
