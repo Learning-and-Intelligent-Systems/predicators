@@ -16,6 +16,8 @@ class GlobalSettings:
     # global parameters
     num_test_tasks = 50
     num_online_learning_cycles = 10
+    # Maximum number of steps to roll out an option policy.
+    max_num_steps_option_rollout = 1000
     # Maximum number of steps to run a policy when checking if it solves a task.
     max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
@@ -71,7 +73,6 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    max_num_steps_option_rollout = 1000
     task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
 
@@ -84,8 +85,8 @@ class GlobalSettings:
     failure_video_mode = "longest_only"
 
     # dataset parameters
-    offline_data_planning_timeout = 3  # for learning-based approaches, the
-    # data collection timeout for planning
+    # For learning-based approaches, the data collection timeout for planning.
+    offline_data_planning_timeout = 3
 
     # teacher dataset parameters
     teacher_dataset_label_ratio = 1.0
