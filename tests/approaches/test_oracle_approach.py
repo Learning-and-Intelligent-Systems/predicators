@@ -348,7 +348,8 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
     else:
         utils.reset_config({
             "env": "cluttered_table_place",
-            "num_train_tasks": 2,
+            # Higher num of train tasks needed for full coverage.
+            "num_train_tasks": 5,
             "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
@@ -363,8 +364,9 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         assert grasp_nsrt.name == "Grasp"
         assert place_nsrt.name == "Place"
     env.seed(123)
-    for (i, task) in enumerate(env.get_train_tasks()):
-        if i == 0:
+    train_tasks = env.get_train_tasks() 
+    for (i, task) in enumerate(train_tasks):
+        if i < len(train_tasks)/2:
             utils.reset_config(
                 {"cluttered_table_place_goal_conditioned_sampling": False})
         else:
@@ -383,8 +385,12 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         with pytest.raises(AssertionError):
             grasp_nsrt.ground([])
         rng = np.random.default_rng(123)
-        grasp_option = grasp0_nsrt.sample_option(state, task.goal, rng)
-        grasp_action = grasp_option.policy(state)
+        if i ==0 and place_version: 
+            # This case checks for exception when placing collides.
+            grasp_action = Action(np.array([0.2, 0, 0.2, 0.5], dtype=np.float32))
+        else: 
+            grasp_option = grasp0_nsrt.sample_option(state, task.goal, rng)
+            grasp_action = grasp_option.policy(state)
         assert env.action_space.contains(grasp_action.arr)
         try:
             state = env.simulate(state, grasp_action)
@@ -402,12 +408,17 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             place1_nsrt = place_nsrt.ground([can1])
             with pytest.raises(AssertionError):
                 place_nsrt.ground([can0, can1])
-            place_option = place1_nsrt.sample_option(state, task.goal, rng)
-            place_action = place_option.policy(state)
-            assert env.action_space.contains(place_action.arr)
+            if i == 0:
+                # This case checks for exception when placing collides.
+                place_action = Action(np.array([0.2, 0, 0.1, 0.75], dtype=np.float32))
+                assert env.action_space.contains(place_action.arr)
+            else:
+                place_option = place1_nsrt.sample_option(state, task.goal, rng)
+                place_action = place_option.policy(state)
+                assert env.action_space.contains(place_action.arr)
             try:
                 env.simulate(state, place_action)
-            except utils.EnvironmentFailure as e:  # pragma: no cover
+            except utils.EnvironmentFailure as e:
                 assert len(e.info["offending_objects"]) == 1
 
 
