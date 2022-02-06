@@ -25,8 +25,8 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
         p: utils.strip_predicate(p)
         for p in annotating_predicates
     }
-    # Generate all positive and negative examples and sample `num_examples` from each list
-    pos_examples = DefaultDict(list)  # predicate: [(i, j, ground_atom), ...]
+    # Generate all positive and negative examples
+    pos_examples = DefaultDict(list)  # predicate: [(i, j, ground_atom)]
     neg_examples = DefaultDict(list)
     for i, traj in enumerate(base_dataset.trajectories):
         for j, s in enumerate(traj.states):
@@ -37,9 +37,9 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
                     pos_examples[ga.predicate].append((i, j, ga))
                 else:
                     neg_examples[ga.predicate].append((i, j, ga))
-    # Sample examples
-    pos_picks = []
-    neg_picks = []
+    # Sample `num_examples` from each list
+    pos_picks: List[Tuple] = []
+    neg_picks: List[Tuple] = []
     for p in annotating_predicates:
         for examples, picks in zip((pos_examples, neg_examples), (pos_picks, neg_picks)):
             idxs = np.random.choice(len(examples[p]), size=num_examples, replace=False)
