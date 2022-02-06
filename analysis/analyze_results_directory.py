@@ -10,7 +10,7 @@ from predicators.src.settings import CFG
 
 
 def create_dataframes() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    # Returns means standard deviations, and sizes.
+    """Returns means standard deviations, and sizes."""
     all_data = []
     column_names = [
         "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
@@ -60,8 +60,7 @@ def create_dataframes() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         assert len(data) == len(column_names)
         all_data.append(data)
     if not all_data:
-        print(f"No data found in {CFG.results_dir}/, terminating")
-        return
+        raise ValueError(f"No data found in {CFG.results_dir}/")
     if some_nonempty_experiment_id:
         assert column_names[0] == groups[0] == "ENV"
         assert column_names[1] == groups[1] == "APPROACH"
