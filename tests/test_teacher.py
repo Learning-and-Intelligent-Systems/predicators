@@ -80,7 +80,7 @@ def test_DemonstrationQuery():
     assert len(response.teacher_traj.actions) == 0
     # Test usage when achieving goal is impossible
     state = train_tasks[0].init
-    block = [b for b in state if b.name == "block1"][0]
+    block = [b for b in state if b.name == "block0"][0]
     IsBlock = _get_predicates_by_names("cover", ["IsBlock"])[0]
     IsBlock = utils.strip_predicate(IsBlock)
     NotIsBlock = IsBlock.get_negation()
