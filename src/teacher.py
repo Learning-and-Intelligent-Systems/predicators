@@ -2,6 +2,7 @@
 information to assist an agent during online learning."""
 
 from __future__ import annotations
+from typing import Sequence
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
     DemonstrationResponse, LowLevelTrajectory
@@ -15,7 +16,8 @@ from predicators.src import utils
 class Teacher:
     """The teacher can respond to queries of various types."""
 
-    def __init__(self) -> None:
+    def __init__(self, train_tasks: Sequence[Task]) -> None:
+        self._train_tasks = train_tasks
         env = create_env(CFG.env)
         self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
         self._allowed_query_type_names = get_allowed_query_type_names()
@@ -45,7 +47,10 @@ class Teacher:
     def _answer_Demonstration_query(
             self, state: State,
             query: DemonstrationQuery) -> DemonstrationResponse:
-        task = Task(state, query.goal)
+        # The query is asking for a demonstration from the current state to
+        # the goal from the train task.
+        goal = self._train_tasks[query.train_task_idx].goal
+        task = Task(state, goal)
         try:
             policy = self._oracle_approach.solve(task, CFG.timeout)
         except (ApproachTimeout, ApproachFailure):
