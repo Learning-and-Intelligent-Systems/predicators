@@ -367,8 +367,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         end_x = max(0.0, state.get(can, "pose_x"))
         end_y = max(0.0, state.get(can, "pose_y"))
         if with_place:
-            start_x, start_y = rng.uniform(0.0, 0.2,
-                                           size=2)  # start from 0.2x0.2 corner
+            start_x, start_y = 0.2, 0
         else:
             start_x, start_y = rng.uniform(0.0, 1.0,
                                            size=2)  # start from anywhere
@@ -411,12 +410,37 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         }
         add_effects = {LiftedAtom(HandEmpty, [])}
         delete_effects = {LiftedAtom(Holding, [can])}
-        place_sampler = lambda s, g, r, o: np.array([
-            r.uniform(0, 0.2),
-            r.uniform(0, 0.2),
-            r.uniform(0, 1.),
-            r.uniform(0, 1.)
-        ])
+
+        def place_sampler(state: State, goal: Set[GroundAtom],
+                          rng: np.random.Generator,
+                          objs: Sequence[Object]) -> Array:
+            start_x, start_y = 0.2, 0.0
+            # Goal-conditioned sampling
+            if CFG.cluttered_table_place_goal_conditioned_sampling:
+                # Get the pose of the goal object
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert goal_atom.predicate == Holding
+                goal_obj = goal_atom.objects[0]
+                goal_x = state.get(goal_obj, "pose_x")
+                goal_y = state.get(goal_obj, "pose_y")
+                # Place up w.r.t the goal, and to some distance left
+                # or right such that we're not going out of x bounds
+                # 0 to 0.4.
+                end_y = goal_y * 1.2
+                end_x = goal_x + 0.2
+                if end_x > 0.4:
+                    end_x = goal_x - 0.2
+                return np.array([start_x, start_y, end_x, end_y],
+                                dtype=np.float32)
+            # Non-goal-conditioned sampling
+            del state, goal, objs
+            return np.array(
+                [start_x, start_y,
+                 rng.uniform(0, 0.4),
+                 rng.uniform(0, 1.0)],
+                dtype=np.float32)
+
         place_nsrt = NSRT("Place", parameters, preconditions, add_effects,
                           delete_effects, set(), option, option_vars,
                           place_sampler)
