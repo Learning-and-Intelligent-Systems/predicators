@@ -196,7 +196,8 @@ def test_ground_atom_dataset():
                                      dataset.annotations):
         assert len(traj.states) == len(ground_atom_seq)
         for ground_atom_sets, s in zip(ground_atom_seq, traj.states):
-            assert len(ground_atom_sets) == 2, f"Should be two sets of ground atoms per state"
+            assert len(ground_atom_sets
+                       ) == 2, "Should be two sets of ground atoms per state"
             all_ground_atoms = utils.abstract(s, all_predicates)
             all_ground_atom_names = set()
             for ground_truth_atom in all_ground_atoms:
@@ -204,7 +205,8 @@ def test_ground_atom_dataset():
                                            tuple(ground_truth_atom.objects)))
             for label, ground_atoms in enumerate(ground_atom_sets):
                 for annotated_atom in ground_atoms:
-                    pred_name_to_counts[annotated_atom.predicate.name][label] += 1
+                    pred_name_to_counts[
+                        annotated_atom.predicate.name][label] += 1
                     # Make sure the annotations are correct.
                     annotated_atom_name = (annotated_atom.predicate.name,
                                            tuple(annotated_atom.objects))
