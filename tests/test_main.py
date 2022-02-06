@@ -67,7 +67,7 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "painting", "--approach", "oracle", "--seed", "123",
         "--num_test_tasks", "1", "--video_dir", video_dir, "--results_dir",
-        results_dir, "--max_skeletons_optimized", "1",
+        results_dir, "--sesame_max_skeletons_optimized", "1",
         "--painting_lid_open_prob", "0.0", "--make_failure_videos"
     ]
     main()
