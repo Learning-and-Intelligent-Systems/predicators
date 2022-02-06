@@ -1,6 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List, Optional, Tuple, Callable, Sequence, Dict
+from typing import Set, List, Optional, Tuple, Callable, Sequence
 import dill as pkl
 import numpy as np
 from gym.spaces import Box

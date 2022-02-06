@@ -1,8 +1,8 @@
 """Create offline data by annotating low-level trajectories with ground atoms
 that hold in the respective states."""
 
+from typing import DefaultDict, List, Set, Tuple
 import numpy as np
-from typing import DefaultDict, List, Set, Dict, Tuple
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Predicate, GroundAtom
 from predicators.src import utils
@@ -31,7 +31,8 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
     for i, traj in enumerate(base_dataset.trajectories):
         for j, s in enumerate(traj.states):
             ground_atoms = utils.abstract(s, annotating_predicates)
-            ground_atom_universe = utils.all_possible_ground_atoms(s, annotating_predicates)
+            ground_atom_universe = utils.all_possible_ground_atoms(
+                s, annotating_predicates)
             for ga in ground_atom_universe:
                 if ga in ground_atoms:  # positive example
                     pos_examples[ga.predicate].append((i, j, ga))
@@ -41,10 +42,15 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
     pos_picks: List[Tuple] = []
     neg_picks: List[Tuple] = []
     for p in annotating_predicates:
-        for examples, picks in zip((pos_examples, neg_examples), (pos_picks, neg_picks)):
-            idxs = np.random.choice(len(examples[p]), size=num_examples, replace=False)
+        for examples, picks in zip((pos_examples, neg_examples),
+                                   (pos_picks, neg_picks)):
+            idxs = np.random.choice(len(examples[p]),
+                                    size=num_examples,
+                                    replace=False)
             picks.extend([examples[p][idx] for idx in idxs])
-    annotations: List[List[List[Set[GroundAtom]]]] = [[[set(), set()] for _ in traj.states] for traj in base_dataset.trajectories]
+    annotations: List[List[List[Set[GroundAtom]]]] = [[[
+        set(), set()
+    ] for _ in traj.states] for traj in base_dataset.trajectories]
     for label, picks in enumerate([neg_picks, pos_picks]):
         for (i, j, ga) in picks:
             stripped_pred = predicates_to_stripped[ga.predicate]
