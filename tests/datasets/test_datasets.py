@@ -69,6 +69,14 @@ def test_demo_dataset():
     })
     with pytest.raises(NotImplementedError):
         create_dataset(env, train_tasks)
+    utils.update_config({
+        "offline_data_method":
+        "demo",
+        "offline_data_task_planning_heuristic":
+        "not a real heuristic",
+    })
+    with pytest.raises(ValueError):
+        create_dataset(env, train_tasks)
 
 
 def test_demo_replay_dataset():

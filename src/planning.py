@@ -40,6 +40,8 @@ def sesame_plan(
     initial_predicates: Set[Predicate],
     timeout: float,
     seed: int,
+    task_planning_heuristic: str,
+    max_skeletons_optimized: int,
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
 ) -> Tuple[List[_Option], Metrics]:
@@ -84,14 +86,14 @@ def sesame_plan(
             if nsrt.preconditions.issubset(all_reachable_atoms)
         ]
         heuristic = utils.create_task_planning_heuristic(
-            CFG.sesame_task_planning_heuristic, init_atoms, task.goal,
-            reachable_nsrts, predicates, objects)
+            task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
+            predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
-                    CFG.sesame_max_skeletons_optimized):
+                    max_skeletons_optimized):
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time))

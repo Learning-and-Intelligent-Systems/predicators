@@ -92,6 +92,10 @@ class GlobalSettings:
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
     offline_data_planning_timeout = 3
+    # If "default", defaults to CFG.task_planning_heuristic.
+    offline_data_task_planning_heuristic = "default"
+    # If -1, defaults to CFG.sesame_max_skeletons_optimized.
+    offline_data_max_skeletons_optimized = -1
 
     # teacher dataset parameters
     # Number of positive examples and negative examples per predicate.
