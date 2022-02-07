@@ -642,8 +642,8 @@ def test_get_random_object_combination():
                                                rng)
     assert len(objs) == 3
     assert len(set(objs)) == 1
-    with pytest.raises(ValueError):
-        objs = utils.get_random_object_combination({cup0}, [plate_type], rng)
+    objs = utils.get_random_object_combination({cup0}, [plate_type], rng)
+    assert objs is None  # no object of type plate
 
 
 def test_get_all_groundings():

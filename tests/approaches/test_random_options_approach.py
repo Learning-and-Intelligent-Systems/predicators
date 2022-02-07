@@ -3,7 +3,7 @@
 from gym.spaces import Box
 from predicators.src.approaches import RandomOptionsApproach
 from predicators.src.structs import Type, ParameterizedOption, State, Action, \
-    Task, Predicate
+    Task, Predicate, DefaultState
 from predicators.src import utils
 
 
@@ -73,12 +73,24 @@ def test_random_options_approach():
     policy = approach.solve(task, 500)
     act = policy(state)
     assert not act.has_option()  # should have fallen back to random action
+    # Test what happens when there's no object of the right type.
+    parameterized_option3 = ParameterizedOption("Move", [cup_type],
+                                                params_space, _policy,
+                                                lambda _1, _2, _3, _4: False,
+                                                _terminal)
+    task = Task(state, {Solved([cup])})
+    approach = RandomOptionsApproach({Solved}, {parameterized_option3},
+                                     {cup_type}, params_space, task)
+    approach.seed(123)
+    policy = approach.solve(task, 500)
+    act = policy(DefaultState)
+    assert not act.has_option()  # should have fallen back to random action
     # Test what happens when the option is always terminal.
-    parameterized_option3 = ParameterizedOption("Move", [], params_space,
+    parameterized_option4 = ParameterizedOption("Move", [], params_space,
                                                 _policy, _initiable,
                                                 lambda _1, _2, _3, _4: True)
     task = Task(state, {Solved([cup])})
-    approach = RandomOptionsApproach({Solved}, {parameterized_option3},
+    approach = RandomOptionsApproach({Solved}, {parameterized_option4},
                                      {cup_type}, params_space, [task])
     approach.seed(123)
     policy = approach.solve(task, 500)
