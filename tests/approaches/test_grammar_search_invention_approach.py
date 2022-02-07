@@ -600,8 +600,8 @@ def test_exact_energy_score_function():
     # Note: this test will crash pyperplan's implementation of LM-Cut, because
     #       there is a predicate (On) named in the goal that doesn't appear in
     #       any of the reachable facts. So, we'll use HAdd.
-    old_heur = CFG.task_planning_heuristic
-    utils.update_config({"task_planning_heuristic": "hadd"})
+    old_heur = CFG.sesame_task_planning_heuristic
+    utils.update_config({"sesame_task_planning_heuristic": "hadd"})
     ablated = {"On"}
     initial_predicates = set()
     name_to_pred = {}
@@ -615,7 +615,7 @@ def test_exact_energy_score_function():
     score_function = _ExactHeuristicEnergyBasedScoreFunction(
         initial_predicates, atom_dataset, candidates, train_tasks)
     assert score_function.evaluate(set()) == float("inf")
-    utils.update_config({"task_planning_heuristic": old_heur})
+    utils.update_config({"sesame_task_planning_heuristic": old_heur})
     old_hbmd = CFG.grammar_search_max_demos
     utils.update_config({"grammar_search_max_demos": 0})
     assert score_function.evaluate(set()) == 0.0
@@ -808,7 +808,7 @@ def test_expected_nodes_score_function():
     # First, get a baseline score to compare against.
     utils.update_config({
         "num_train_tasks": 5,
-        "max_skeletons_optimized": 8,
+        "sesame_max_skeletons_optimized": 8,
         "grammar_search_expected_nodes_max_skeletons": -1,
         "offline_data_method": "demo",
         "min_data_for_nsrt": 0,
@@ -830,3 +830,9 @@ def test_expected_nodes_score_function():
     })
     one_skeleton_score = score_function.evaluate({Holding, HandEmpty})
     assert one_skeleton_score > more_skeletons_score
+    # Repeat but with max skeletons 10 (should crash).
+    utils.update_config({
+        "grammar_search_expected_nodes_max_skeletons": 10,
+    })
+    with pytest.raises(AssertionError):
+        score_function.evaluate({Holding, HandEmpty})

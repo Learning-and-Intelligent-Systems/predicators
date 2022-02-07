@@ -289,11 +289,12 @@ class ClutteredTableEnv(BaseEnv):
 class ClutteredTablePlaceEnv(ClutteredTableEnv):
     """Toy cluttered table domain (place version).
 
-    This version places grasped cans instead of dumping them. As an
-    additional challenge, the action space is restricted so that actions
-    can only begin from within a 0.2 x 0.2 corner. The goal behavior is
-    to learn to pick up colliding cans and place them out of the way of
-    the desired can.
+    This version places grasped cans instead of dumping them, and has
+    several additional constraints. There are two cans, a goal can and
+    an obstructing can in front of it. The action space is restricted so
+    that actions can only begin from the point (0.2,0) and end in the
+    [0,0.4] by [0,1.0] region. The goal behavior is to learn to pick up
+    the colliding can and place it out of the way of the goal can.
     """
 
     def __init__(self) -> None:
@@ -312,6 +313,10 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
                                           _policy=self._Grasp_policy,
                                           _initiable=utils.always_initiable,
                                           _terminal=utils.onestep_terminal)
+        # Place env will always use two cans.
+        self._cans = []
+        for i in range(2):
+            self._cans.append(Object(f"can{i}", self._can_type))
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -319,10 +324,10 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
 
     @property
     def action_space(self) -> Box:
-        # The action's starting x,y coordinates are limited between 0 and 0.2,
-        # so that the robot must be more consistent in the direction it reaches
-        # from.
-        return Box(np.array([0, 0, 0, 0]), np.array([0.2, 0.2, 1, 1]))
+        # The action's starting x,y coordinates are always (0.2,0), and the
+        # ending coordinates are in a more narrow region than in the original
+        # task. Constraints make this version of the task more challenging.
+        return Box(np.array([0.2, 0, 0, 0]), np.array([0.2, 0, 0.4, 1]))
 
     @staticmethod
     def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
@@ -368,3 +373,14 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
         # No collisions, update state and return.
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
+
+    def _create_initial_state(self, train_or_test: str) -> State:
+        data: Dict[Object, Array] = {}
+        radius = CFG.cluttered_table_can_radius
+        # The goal can is placed behind an obstructing can and randomly either
+        # on the left or right. The obstructing can is in the middle of the
+        # action space.
+        goal_x = 0.3 if self._train_rng.uniform() < 0.5 else 0.1
+        data[self._cans[0]] = np.array([goal_x, 0.7, radius, 0.0, 0.0])
+        data[self._cans[1]] = np.array([0.2, 0.5, radius, 0.0, 0.0])
+        return State(data)
