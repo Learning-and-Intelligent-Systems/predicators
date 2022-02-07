@@ -133,8 +133,6 @@ def test_sesame_plan_failures():
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
-    approach = OracleApproach(env.predicates, env.options, env.types,
-                              env.action_space, train_tasks)
     nsrts = get_gt_nsrts(env.predicates, env.options)
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(ApproachFailure):
