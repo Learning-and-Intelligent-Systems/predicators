@@ -94,7 +94,8 @@ class GlobalSettings:
     offline_data_planning_timeout = 3
 
     # teacher dataset parameters
-    teacher_dataset_label_ratio = 1.0
+    # Number of positive examples and negative examples per predicate.
+    teacher_dataset_num_examples = 1
 
     # NSRT learning parameters
     min_data_for_nsrt = 0

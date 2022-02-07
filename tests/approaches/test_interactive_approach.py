@@ -24,7 +24,7 @@ def test_interactive_learning_approach():
         "predicate_mlp_classifier_max_itr": 100,
         "neural_gaus_regressor_max_itr": 100,
         "num_online_learning_cycles": 1,
-        "teacher_dataset_label_ratio": 1.0,
+        "teacher_dataset_num_examples": 5,
         "num_train_tasks": 5,
         "num_test_tasks": 5,
     })
@@ -122,7 +122,7 @@ def test_interactive_learning_approach():
     # Test assertion that all predicates are seen in the data
     utils.update_config({
         "approach": "interactive_learning",
-        "teacher_dataset_label_ratio": 0.0,
+        "teacher_dataset_num_examples": 0,
     })
     with pytest.raises(AssertionError):
         create_dataset(env, train_tasks)
