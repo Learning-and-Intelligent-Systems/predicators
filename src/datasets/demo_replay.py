@@ -3,7 +3,7 @@
 from typing import List, Set
 import numpy as np
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
-    ApproachTimeout, create_approach
+    ApproachTimeout, OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
@@ -23,9 +23,14 @@ def create_demo_replay_data(env: BaseEnv,
     """
     if nonoptimal_only:
         # Oracle is used to check if replays are optimal.
-        oracle_approach = create_approach("oracle", env.predicates,
-                                          env.options, env.types,
-                                          env.action_space, train_tasks)
+        oracle_approach = OracleApproach(
+            env.predicates,
+            env.options,
+            env.types,
+            env.action_space,
+            train_tasks,
+            task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
+            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
     demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
