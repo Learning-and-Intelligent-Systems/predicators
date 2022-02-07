@@ -1738,8 +1738,9 @@ def test_run_hill_climbing():
         assert action_sequence == [
             "down", "down", "down", "down", "right", "right", "right", "right"
         ]
-        assert heuristics == [8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0,
-                              1.0, 0.0]
+        assert heuristics == [
+            8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0
+        ]
 
 
 def test_ops_and_specs_to_dummy_nsrts():
