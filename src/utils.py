@@ -689,6 +689,7 @@ def run_hill_climbing(
         best_heuristic = float("inf")
         best_child_node = None
         current_depth_nodes = [cur_node]
+        all_best_heuristics = []
         for depth in range(0, enforced_depth + 1):
             print(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
@@ -723,8 +724,9 @@ def run_hill_climbing(
                         if child_heuristic < best_heuristic:
                             best_heuristic = child_heuristic
                             best_child_node = child_node
-            # Some improvement found.
+            all_best_heuristics.append(best_heuristic)
             if last_heuristic > best_heuristic:
+                # Some improvement found.
                 print(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
@@ -736,12 +738,13 @@ def run_hill_climbing(
         if last_heuristic <= best_heuristic:
             print("\nTerminating hill climbing, could not improve score")
             break
+        heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
         print(f"\nHill climbing reached new state {cur_node.state} "
               f"with heuristic {last_heuristic}")
-        heuristics.append(last_heuristic)
     states, actions = _finish_plan(cur_node)
+    assert len(states) == len(heuristics)
     return states, actions, heuristics
 
 
