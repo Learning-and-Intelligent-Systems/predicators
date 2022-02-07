@@ -89,8 +89,8 @@ class GlobalSettings:
     # data collection timeout for planning
 
     # teacher dataset parameters
-    teacher_dataset_num_examples = 1  # num of positive examples and negative
-    # examples per predicate
+    # Number of positive examples and negative examples per predicate.
+    teacher_dataset_num_examples = 1
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
