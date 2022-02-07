@@ -191,7 +191,7 @@ def test_ground_atom_dataset():
         "approach": "interactive_learning",
         "num_train_tasks": 15,
         "offline_data_method": "demo+ground_atoms",
-        "teacher_dataset_label_ratio": 0.5,
+        "teacher_dataset_num_examples": 1,
         "excluded_predicates": "Holding,Covers",
     })
     env = CoverEnv()
@@ -202,35 +202,51 @@ def test_ground_atom_dataset():
     Covers, HandEmpty, Holding = _get_predicates_by_names(
         "cover", ["Covers", "HandEmpty", "Holding"])
     all_predicates = {Covers, HandEmpty, Holding}
-    # Test that the approximately correct ratio of atoms are annotated.
-    pred_name_to_total = {p.name: 0 for p in all_predicates}
-    pred_name_to_labels = {p.name: 0 for p in all_predicates}
+    # Test that the right number of atoms are annotated.
+    pred_name_to_counts = {p.name: [0, 0] for p in all_predicates}
     for traj, ground_atom_seq in zip(dataset.trajectories,
                                      dataset.annotations):
         assert len(traj.states) == len(ground_atom_seq)
-        for ground_atoms, s in zip(ground_atom_seq, traj.states):
+        for ground_atom_sets, s in zip(ground_atom_seq, traj.states):
+            assert len(ground_atom_sets
+                       ) == 2, "Should be two sets of ground atoms per state"
             all_ground_atoms = utils.abstract(s, all_predicates)
             all_ground_atom_names = set()
             for ground_truth_atom in all_ground_atoms:
-                pred_name_to_total[ground_truth_atom.predicate.name] += 1
                 all_ground_atom_names.add((ground_truth_atom.predicate.name,
                                            tuple(ground_truth_atom.objects)))
-            for annotated_atom in ground_atoms:
-                pred_name_to_labels[annotated_atom.predicate.name] += 1
-                # Make sure the annotations are correct.
-                annotated_atom_name = (annotated_atom.predicate.name,
-                                       tuple(annotated_atom.objects))
-                assert annotated_atom_name in all_ground_atom_names
-                # Make sure we're not leaking information.
-                assert not annotated_atom.holds(s)
-    # HandEmpty was excluded.
-    assert pred_name_to_labels["HandEmpty"] == 0
-    assert pred_name_to_total["HandEmpty"] > 0
-    # Holding and Covers were included.
-    target_ratio = CFG.teacher_dataset_label_ratio
+            for label, ground_atoms in enumerate(ground_atom_sets):
+                for annotated_atom in ground_atoms:
+                    pred_name_to_counts[
+                        annotated_atom.predicate.name][label] += 1
+                    # Make sure the annotations are correct.
+                    annotated_atom_name = (annotated_atom.predicate.name,
+                                           tuple(annotated_atom.objects))
+                    if label:
+                        assert annotated_atom_name in all_ground_atom_names
+                    else:
+                        assert annotated_atom_name not in all_ground_atom_names
+                    # Make sure we're not leaking information.
+                    assert not annotated_atom.holds(s)
+    # HandEmpty was included, so no annotations.
+    assert pred_name_to_counts["HandEmpty"] == [0, 0]
+    # Holding and Covers were excluded.
+    target_num = CFG.teacher_dataset_num_examples
     for name in ["Holding", "Covers"]:
-        ratio = pred_name_to_labels[name] / pred_name_to_total[name]
-        assert abs(target_ratio - ratio) < 0.05
+        assert pred_name_to_counts[name] == [target_num, target_num]
+    # Test error when not enough examples to sample from
+    utils.reset_config({
+        "env": "cover",
+        "approach": "interactive_learning",
+        "num_train_tasks": 15,
+        "offline_data_method": "demo+ground_atoms",
+        "teacher_dataset_num_examples": 100,
+        "excluded_predicates": "Holding,Covers",
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    with pytest.raises(ValueError):
+        create_dataset(env, train_tasks)
 
 
 def test_empty_dataset():
