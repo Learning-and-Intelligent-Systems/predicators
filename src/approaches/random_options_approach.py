@@ -26,6 +26,8 @@ class RandomOptionsApproach(BaseApproach):
                     param_opt = options[self._rng.choice(len(options))]
                     objs = utils.get_random_object_combination(
                         list(state), param_opt.types, self._rng)
+                    if objs is None:
+                        continue
                     params = param_opt.params_space.sample()
                     opt = param_opt.ground(objs, params)
                     if opt.initiable(state):
