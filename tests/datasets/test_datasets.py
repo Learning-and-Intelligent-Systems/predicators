@@ -222,6 +222,19 @@ def test_ground_atom_dataset():
     target_num = CFG.teacher_dataset_num_examples
     for name in ["Holding", "Covers"]:
         assert pred_name_to_counts[name] == [target_num, target_num]
+    # Test error when not enough examples to sample from
+    utils.reset_config({
+        "env": "cover",
+        "approach": "interactive_learning",
+        "num_train_tasks": 15,
+        "offline_data_method": "demo+ground_atoms",
+        "teacher_dataset_num_examples": 100,
+        "excluded_predicates": "Holding,Covers",
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    with pytest.raises(ValueError):
+        create_dataset(env, train_tasks)
 
 
 def test_empty_dataset():

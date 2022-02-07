@@ -1,10 +1,12 @@
 """Create offline data by annotating low-level trajectories with ground atoms
 that hold in the respective states."""
 
-from typing import DefaultDict, List, Set, Tuple
+from collections import defaultdict
+from typing import List, Set, Tuple
 import numpy as np
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Predicate, GroundAtom
+from predicators.src.settings import CFG
 from predicators.src import utils
 
 
@@ -26,8 +28,8 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
         for p in annotating_predicates
     }
     # Generate all positive and negative examples
-    pos_examples = DefaultDict(list)  # predicate: [(i, j, ground_atom)]
-    neg_examples = DefaultDict(list)
+    pos_examples = defaultdict(list)  # predicate: [(i, j, ground_atom)]
+    neg_examples = defaultdict(list)
     for i, traj in enumerate(base_dataset.trajectories):
         for j, s in enumerate(traj.states):
             ground_atoms = utils.abstract(s, annotating_predicates)
@@ -41,12 +43,15 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
     # Sample `num_examples` from each list
     pos_picks: List[Tuple] = []
     neg_picks: List[Tuple] = []
+    rng = np.random.default_rng(CFG.seed)
     for p in annotating_predicates:
-        for examples, picks in zip((pos_examples, neg_examples),
-                                   (pos_picks, neg_picks)):
-            idxs = np.random.choice(len(examples[p]),
-                                    size=num_examples,
-                                    replace=False)
+        for examples, picks in zip((neg_examples, pos_examples),
+                                   (neg_picks, pos_picks)):
+            if num_examples > len(examples[p]):
+                raise ValueError(f"Found fewer than {num_examples} examples to sample from!")
+            idxs = rng.choice(len(examples[p]),
+                              size=num_examples,
+                              replace=False)
             picks.extend([examples[p][idx] for idx in idxs])
     annotations: List[List[List[Set[GroundAtom]]]] = [[[
         set(), set()
