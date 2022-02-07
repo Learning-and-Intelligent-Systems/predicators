@@ -2,9 +2,10 @@
 information to assist an agent during online learning."""
 
 from __future__ import annotations
+from typing import Sequence
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
-    DemonstrationResponse
+    DemonstrationResponse, LowLevelTrajectory
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import create_env
 from predicators.src.approaches import ApproachTimeout, ApproachFailure
@@ -15,7 +16,8 @@ from predicators.src import utils
 class Teacher:
     """The teacher can respond to queries of various types."""
 
-    def __init__(self) -> None:
+    def __init__(self, train_tasks: Sequence[Task]) -> None:
+        self._train_tasks = train_tasks
         env = create_env(CFG.env)
         self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
         self._allowed_query_type_names = get_allowed_query_type_names()
@@ -45,13 +47,20 @@ class Teacher:
     def _answer_Demonstration_query(
             self, state: State,
             query: DemonstrationQuery) -> DemonstrationResponse:
-        task = Task(state, query.goal)
+        # The query is asking for a demonstration from the current state to
+        # the goal from the train task.
+        goal = self._train_tasks[query.train_task_idx].goal
+        task = Task(state, goal)
         try:
             policy = self._oracle_approach.solve(task, CFG.timeout)
         except (ApproachTimeout, ApproachFailure):
             return DemonstrationResponse(query, teacher_traj=None)
 
-        teacher_traj, _, goal_reached = utils.run_policy_on_task(
+        traj, _, goal_reached = utils.run_policy_on_task(
             policy, task, self._simulator, CFG.max_num_steps_option_rollout)
         assert goal_reached
+        teacher_traj = LowLevelTrajectory(traj.states,
+                                          traj.actions,
+                                          _is_demo=True,
+                                          _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)

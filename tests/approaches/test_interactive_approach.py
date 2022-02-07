@@ -37,7 +37,7 @@ def test_interactive_learning_approach():
     approach = InteractiveLearningApproach(initial_predicates, env.options,
                                            env.types, env.action_space,
                                            train_tasks)
-    teacher = Teacher()
+    teacher = Teacher(train_tasks)
     dataset = create_dataset(env, train_tasks)
     assert approach.is_learning_based
     # Learning with an empty dataset should not crash.

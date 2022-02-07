@@ -52,6 +52,18 @@ def test_demo_dataset():
             assert action.has_option()
     with pytest.raises(AssertionError):
         _ = dataset.annotations
+    # Test max_initial_demos.
+    utils.reset_config({
+        "env": "cover",
+        "offline_data_method": "demo",
+        "num_train_tasks": 7,
+        "max_initial_demos": 3,
+    })
+    env = CoverEnv()
+    train_tasks = env.get_train_tasks()
+    assert len(train_tasks) == 7
+    dataset = create_dataset(env, train_tasks)
+    assert len(dataset.trajectories) == 3
     utils.update_config({
         "offline_data_method": "not a real method",
     })
