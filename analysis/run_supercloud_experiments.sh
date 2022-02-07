@@ -22,7 +22,7 @@ ALL_ENVS=(
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     for ENV in ${ALL_ENVS[@]}; do
-        echo "$FILE --experiment_id $ENV_random --env $ENV --approach random_options --seed $SEED"
+        echo "$FILE --experiment_id ${ENV}_random --env $ENV --approach random_options --seed $SEED"
 
         for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
             echo "$FILE --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS"
