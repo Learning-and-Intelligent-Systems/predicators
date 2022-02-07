@@ -2,7 +2,7 @@
 
 import os
 from typing import List
-from predicators.src.approaches import create_approach, ApproachTimeout, \
+from predicators.src.approaches import OracleApproach, ApproachTimeout, \
     ApproachFailure
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Task, LowLevelTrajectory
@@ -12,8 +12,14 @@ from predicators.src import utils
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
     """Create offline datasets by collecting demos."""
-    oracle_approach = create_approach("oracle", env.predicates, env.options,
-                                      env.types, env.action_space, train_tasks)
+    oracle_approach = OracleApproach(
+        env.predicates,
+        env.options,
+        env.types,
+        env.action_space,
+        train_tasks,
+        task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
+        max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
     trajectories = []
     for idx, task in enumerate(train_tasks):
         if idx >= CFG.max_initial_demos:

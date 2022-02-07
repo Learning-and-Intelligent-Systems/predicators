@@ -19,11 +19,22 @@ from predicators.src import utils
 class TAMPApproach(BaseApproach):
     """TAMP approach."""
 
-    def __init__(self, initial_predicates: Set[Predicate],
-                 initial_options: Set[ParameterizedOption], types: Set[Type],
-                 action_space: Box, train_tasks: List[Task]) -> None:
+    def __init__(self,
+                 initial_predicates: Set[Predicate],
+                 initial_options: Set[ParameterizedOption],
+                 types: Set[Type],
+                 action_space: Box,
+                 train_tasks: List[Task],
+                 task_planning_heuristic: str = "default",
+                 max_skeletons_optimized: int = -1) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
+        if task_planning_heuristic == "default":
+            task_planning_heuristic = CFG.sesame_task_planning_heuristic
+        if max_skeletons_optimized == -1:
+            max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
+        self._task_planning_heuristic = task_planning_heuristic
+        self._max_skeletons_optimized = max_skeletons_optimized
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
 
@@ -39,6 +50,8 @@ class TAMPApproach(BaseApproach):
                                     preds,
                                     timeout,
                                     seed,
+                                    self._task_planning_heuristic,
+                                    self._max_skeletons_optimized,
                                     allow_noops=CFG.sesame_allow_noops)
         for metric in [
                 "num_skeletons_optimized", "num_failures_discovered",
@@ -65,10 +78,10 @@ class TAMPApproach(BaseApproach):
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
-        # Initialize min to CFG.sesame_max_skeletons_optimized (max gets
-        # initialized to 0 by default)
+        # Initialize min to self._max_skeletons_optimized (max gets initialized
+        # to 0 by default)
         self._metrics[
-            "min_num_skeletons_optimized"] = CFG.sesame_max_skeletons_optimized
+            "min_num_skeletons_optimized"] = self._max_skeletons_optimized
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:

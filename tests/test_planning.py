@@ -21,12 +21,16 @@ def test_sesame_plan():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     task = env.get_train_tasks()[0]
     option_model = create_option_model(CFG.option_model_name)
-    plan, metrics = sesame_plan(task,
-                                option_model,
-                                nsrts,
-                                env.predicates,
-                                timeout=1,
-                                seed=123)
+    plan, metrics = sesame_plan(
+        task,
+        option_model,
+        nsrts,
+        env.predicates,
+        1,  # timeout
+        123,  # seed
+        CFG.sesame_task_planning_heuristic,
+        CFG.sesame_max_skeletons_optimized,
+    )
     assert len(plan) == 2
     assert isinstance(plan[0], _Option)
     assert isinstance(plan[1], _Option)
@@ -119,32 +123,44 @@ def test_sesame_plan_failures():
     old_max_skeletons = CFG.sesame_max_skeletons_optimized
     CFG.sesame_max_samples_per_step = 1
     CFG.sesame_max_skeletons_optimized = float("inf")
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
     with pytest.raises(ApproachTimeout):
         approach.solve(impossible_task, timeout=1)  # backtracking occurs
     CFG.sesame_max_skeletons_optimized = old_max_skeletons
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
     with pytest.raises(ApproachFailure):
         approach.solve(impossible_task, timeout=1)  # hits skeleton limit
     CFG.sesame_max_samples_per_step = old_max_samples_per_step
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
     nsrts = get_gt_nsrts(env.predicates, env.options)
     nsrts = {nsrt for nsrt in nsrts if nsrt.name == "Place"}
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, should fail fast.
-        sesame_plan(task,
-                    option_model,
-                    nsrts,
-                    env.predicates,
-                    timeout=500,
-                    seed=123)
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            500,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized)
     with pytest.raises(ApproachFailure):
         # Goal is not dr-reachable, but we disable that check.
         # Should run out of skeletons.
-        sesame_plan(task,
-                    option_model,
-                    nsrts,
-                    env.predicates,
-                    timeout=500,
-                    seed=123,
-                    check_dr_reachable=False)
+        sesame_plan(
+            task,
+            option_model,
+            nsrts,
+            env.predicates,
+            500,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+            check_dr_reachable=False)
 
 
 def test_sesame_plan_uninitiable_option():
@@ -172,12 +188,15 @@ def test_sesame_plan_uninitiable_option():
     task = env.get_train_tasks()[0]
     with pytest.raises(ApproachFailure) as e:
         # Planning should reach sesame_max_skeletons_optimized
-        sesame_plan(task,
-                    option_model,
-                    new_nsrts,
-                    env.predicates,
-                    timeout=500,
-                    seed=123)
+        sesame_plan(
+            task,
+            option_model,
+            new_nsrts,
+            env.predicates,
+            500,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized)
     assert "Planning reached max_skeletons_optimized!" in str(e.value)
 
 
@@ -240,30 +259,54 @@ def test_planning_determinism():
     option_model = create_option_model("oracle")
     option_model._simulator = _simulator  # pylint:disable=protected-access
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
-    plan1 = [(act.name, act.objects)
-             for act in sesame_plan(task1,
-                                    option_model, [sleep_nsrt, cry_nsrt],
-                                    set(),
-                                    timeout=10,
-                                    seed=123)[0]]
-    plan2 = [(act.name, act.objects)
-             for act in sesame_plan(task1,
-                                    option_model, [cry_nsrt, sleep_nsrt],
-                                    set(),
-                                    timeout=10,
-                                    seed=123)[0]]
-    plan3 = [(act.name, act.objects)
-             for act in sesame_plan(task2,
-                                    option_model, [sleep_nsrt, cry_nsrt],
-                                    set(),
-                                    timeout=10,
-                                    seed=123)[0]]
-    plan4 = [(act.name, act.objects)
-             for act in sesame_plan(task2,
-                                    option_model, [cry_nsrt, sleep_nsrt],
-                                    set(),
-                                    timeout=10,
-                                    seed=123)[0]]
+    plan1 = [
+        (act.name, act.objects) for act in sesame_plan(
+            task1,
+            option_model,
+            [sleep_nsrt, cry_nsrt],
+            set(),
+            10,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+        )[0]
+    ]
+    plan2 = [
+        (act.name, act.objects) for act in sesame_plan(
+            task1,
+            option_model,
+            [cry_nsrt, sleep_nsrt],
+            set(),
+            10,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+        )[0]
+    ]
+    plan3 = [
+        (act.name, act.objects) for act in sesame_plan(
+            task2,
+            option_model,
+            [sleep_nsrt, cry_nsrt],
+            set(),
+            10,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+        )[0]
+    ]
+    plan4 = [
+        (act.name, act.objects) for act in sesame_plan(
+            task2,
+            option_model,
+            [cry_nsrt, sleep_nsrt],
+            set(),
+            10,  # timeout
+            123,  # seed
+            CFG.sesame_task_planning_heuristic,
+            CFG.sesame_max_skeletons_optimized,
+        )[0]
+    ]
     assert plan1 == plan2 == plan3 == plan4
     # Check that task_plan is deterministic, over both NSRTs and objects.
     predicates = {asleep, cried}
