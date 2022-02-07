@@ -1714,7 +1714,7 @@ def test_run_hill_climbing():
 
     for parallelize in (False, True):
         # With enforced_depth 0, search fails.
-        state_sequence, action_sequence, _ = utils.run_hill_climbing(
+        state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
             initial_state,
             _grid_check_goal_fn,
             _grid_successor_fn,
@@ -1722,9 +1722,10 @@ def test_run_hill_climbing():
             parallelize=parallelize)
         assert state_sequence == [(0, 0)]
         assert not action_sequence
+        assert heuristics == [8.0]
 
         # With enforced_depth 1, search succeeds.
-        state_sequence, action_sequence, _ = utils.run_hill_climbing(
+        state_sequence, action_sequence, heuristics = utils.run_hill_climbing(
             initial_state,
             _grid_check_goal_fn,
             _grid_successor_fn,
@@ -1737,6 +1738,8 @@ def test_run_hill_climbing():
         assert action_sequence == [
             "down", "down", "down", "down", "right", "right", "right", "right"
         ]
+        assert heuristics == [8.0, float("inf"), 6.0, 5.0, 4.0, 3.0, 2.0,
+                              1.0, 0.0]
 
 
 def test_ops_and_specs_to_dummy_nsrts():
