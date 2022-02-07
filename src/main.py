@@ -284,7 +284,8 @@ def _save_test_results(results: Metrics,
     print(f"Average time for successes: {avg_suc_time:.5f} seconds")
     outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
                f"{online_learning_cycle}.pkl")
-    outdata = results.copy()
+    # Save CFG alongside results.
+    outdata = {"config": CFG, "results": results.copy()}
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
     print(f"Test results: {outdata}")

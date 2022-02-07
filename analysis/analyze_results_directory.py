@@ -1,81 +1,87 @@
 """Script to analyze experiments resulting from running the script
 analysis/run_supercloud_experiments.sh."""
 
-from typing import Tuple
+from typing import Tuple, Sequence
 import glob
 import dill as pkl
 import numpy as np
 import pandas as pd
 from predicators.src.settings import CFG
 
+GROUPS = [
+    # "ENV",
+    # "APPROACH",
+    # "EXCLUDED_PREDICATES",
+    "EXPERIMENT_ID",
+    # "NUM_TRAIN_TASKS",
+    # "CYCLE"
+]
 
-def create_dataframes() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Returns means, standard deviations, and sizes."""
+COLUMN_NAMES_AND_KEYS = [
+    ("ENV", "env"),
+    ("APPROACH", "approach"),
+    ("EXCLUDED_PREDICATES", "excluded_predicates"),
+    ("EXPERIMENT_ID", "experiment_id"),
+    ("SEED", "seed"),
+    ("NUM_TRAIN_TASKS", "num_train_tasks"),
+    ("CYCLE", "cycle"),
+    ("NUM_SOLVED", "num_solved"),
+    ("AVG_NUM_PREDS", "avg_num_preds"),
+    ("AVG_TEST_TIME", "avg_suc_time"),
+    ("AVG_NODES_CREATED", "avg_num_nodes_created"),
+    ("LEARNING_TIME", "learning_time"),
+    # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
+    # ("MIN_SKELETONS", "min_skeletons_optimized"),
+    # ("MAX_SKELETONS", "max_skeletons_optimized"),
+    # ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
+    # ("AVG_NUM_NSRTS", "avg_num_nsrts"),
+    # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
+    # ("AVG_PLAN_LEN", "avg_plan_length"),
+    # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
+    # ("NUM_TRANSITIONS", "num_transitions"),
+]
+
+
+def create_dataframes(
+        column_names_and_keys: Sequence[Tuple[str, str]], groups: Sequence[str]
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Returns means, standard deviations, and sizes.
+
+    When included, config_keys_to_include is a dict from column display
+    name to config name (in CFG).
+    """
     all_data = []
-    column_names = [
-        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "SEED",
-        "CYCLE", "NUM_SOLVED", "AVG_TEST_TIME", "AVG_SKELETONS",
-        "MIN_SKELETONS", "MAX_SKELETONS", "AVG_NODES_EXPANDED",
-        "AVG_NODES_CREATED", "AVG_NUM_NSRTS", "AVG_DISCOVERED_FAILURES",
-        "AVG_PLAN_LEN", "AVG_EXECUTION_FAILURES", "AVG_NUM_PREDS",
-        "LEARNING_TIME", "NUM_TRANSITIONS"
-    ]
-    groups = [
-        "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID", "CYCLE"
-    ]
-    some_nonempty_experiment_id = False
+    column_names = [c for (c, _) in column_names_and_keys]
+    for group in groups:
+        assert group in column_names, f"Missing column {group}"
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
-            run_data_defaultdict = pkl.load(f)
+            outdata = pkl.load(f)
+        if "config" in outdata:
+            config = outdata["config"].__dict__.copy()
+            run_data_defaultdict = outdata["results"]
+            assert not set(config.keys()) & set(run_data_defaultdict.keys())
+            run_data_defaultdict.update(config)
+        else:
+            run_data_defaultdict = outdata
         (env, approach, seed, excluded_predicates, experiment_id,
          online_learning_cycle) = filepath[8:-4].split("__")
         if not excluded_predicates:
             excluded_predicates = "none"
-        if experiment_id:
-            some_nonempty_experiment_id = True
         run_data = dict(
             run_data_defaultdict)  # want to crash if key not found!
-        data = [
-            env,
-            approach,
-            excluded_predicates,
-            experiment_id,
-            seed,
-            online_learning_cycle,
-            run_data["num_solved"],
-            run_data["avg_suc_time"],
-            run_data["avg_num_skeletons_optimized"],
-            run_data["min_skeletons_optimized"],
-            run_data["max_skeletons_optimized"],
-            run_data["avg_num_nodes_expanded"],
-            run_data["avg_num_nodes_created"],
-            run_data["avg_num_nsrts"],
-            run_data["avg_num_failures_discovered"],
-            run_data["avg_plan_length"],
-            run_data["avg_execution_failures"],
-            run_data["avg_num_preds"],
-            run_data["learning_time"],
-            run_data["num_transitions"],
-        ]
-        assert len(data) == len(column_names)
+        run_data.update({
+            "env": env,
+            "approach": approach,
+            "seed": seed,
+            "excluded_predicates": excluded_predicates,
+            "experiment_id": experiment_id,
+            "cycle": online_learning_cycle,
+        })
+        data = [run_data.get(k, np.nan) for (_, k) in column_names_and_keys]
         all_data.append(data)
     if not all_data:
         raise ValueError(f"No data found in {CFG.results_dir}/")
-    if some_nonempty_experiment_id:
-        assert column_names[0] == groups[0] == "ENV"
-        assert column_names[1] == groups[1] == "APPROACH"
-        assert column_names[2] == groups[2] == "EXCLUDED_PREDICATES"
-        for _ in range(3):
-            for data in all_data:
-                del data[0]
-            del column_names[0]
-            del groups[0]
-    else:
-        assert column_names[3] == groups[3] == "EXPERIMENT_ID"
-        for data in all_data:
-            del data[3]
-        del column_names[3]
-        del groups[3]
     # Group & aggregate data.
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
@@ -91,7 +97,7 @@ def create_dataframes() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
 
 def _main() -> None:
-    means, stds, sizes = create_dataframes()
+    means, stds, sizes = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS)
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():

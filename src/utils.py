@@ -444,18 +444,25 @@ def get_all_ground_atoms(predicates: FrozenSet[Predicate],
     return ground_atoms
 
 
-def get_random_object_combination(objects: Collection[Object],
-                                  types: Sequence[Type],
-                                  rng: np.random.Generator) -> List[Object]:
+def get_random_object_combination(
+        objects: Collection[Object], types: Sequence[Type],
+        rng: np.random.Generator) -> Optional[List[Object]]:
     """Get a random list of objects from the given collection that satisfy the
     given sequence of types.
 
-    Duplicates are always allowed.
+    Duplicates are always allowed. If a particular type has no object,
+    return None.
     """
     types_to_objs = defaultdict(list)
     for obj in objects:
         types_to_objs[obj.type].append(obj)
-    return [types_to_objs[t][rng.choice(len(types_to_objs[t]))] for t in types]
+    result = []
+    for t in types:
+        t_objs = types_to_objs[t]
+        if not t_objs:
+            return None
+        result.append(t_objs[rng.choice(len(t_objs))])
+    return result
 
 
 def find_substitution(
