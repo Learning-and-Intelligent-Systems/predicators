@@ -182,7 +182,7 @@ def task_plan(
     """
     if not goal.issubset(reachable_atoms):
         raise ApproachFailure(f"Goal {goal} not dr-reachable")
-    dummy_task = Task(State({}), goal)
+    dummy_task = Task(DefaultState, goal)
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics,

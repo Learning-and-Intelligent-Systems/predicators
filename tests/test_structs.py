@@ -7,7 +7,7 @@ from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
     STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, LowLevelTrajectory, \
     PartialNSRTAndDatastore, _GroundSTRIPSOperator, InteractionRequest, \
-    InteractionResult
+    InteractionResult, DefaultState
 from predicators.src import utils
 
 
@@ -392,7 +392,7 @@ def test_option_memory_incorrect():
     param_opt = _make_option()
     opt1 = param_opt.ground([], [0.7])
     opt2 = param_opt.ground([], [0.4])
-    state = State({})
+    state = DefaultState
     assert abs(opt1.policy(state).arr[0] - 0.7) < 1e-6
     assert abs(opt2.policy(state).arr[0] - 0.4) < 1e-6
     # Since memory is shared between the two ground options, both will be
@@ -428,7 +428,7 @@ def test_option_memory_correct():
     param_opt = _make_option()
     opt1 = param_opt.ground([], [0.7])
     opt2 = param_opt.ground([], [0.4])
-    state = State({})
+    state = DefaultState
     assert opt1.initiable(state)
     assert opt2.initiable(state)
     assert abs(opt1.policy(state).arr[0] - 0.7) < 1e-6
