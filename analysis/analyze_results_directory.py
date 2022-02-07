@@ -63,7 +63,6 @@ def create_dataframes(
             assert not set(config.keys()) & set(run_data_defaultdict.keys())
             run_data_defaultdict.update(config)
         else:
-            print("WARNING: results are old format. Support ending soon.")
             run_data_defaultdict = outdata
         (env, approach, seed, excluded_predicates, experiment_id,
          online_learning_cycle) = filepath[8:-4].split("__")

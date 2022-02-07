@@ -30,17 +30,17 @@ COLUMN_NAMES_AND_KEYS = [
     ("NUM_SOLVED", "num_solved"),
     ("AVG_NUM_PREDS", "avg_num_preds"),
     ("AVG_TEST_TIME", "avg_suc_time"),
-    ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
-    ("MIN_SKELETONS", "min_skeletons_optimized"),
-    ("MAX_SKELETONS", "max_skeletons_optimized"),
-    ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
-    ("AVG_NUM_NSRTS", "avg_num_nsrts"),
-    ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
-    ("AVG_PLAN_LEN", "avg_plan_length"),
-    ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
-    ("NUM_TRANSITIONS", "num_transitions"),
     ("LEARNING_TIME", "learning_time"),
+    # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
+    # ("MIN_SKELETONS", "min_skeletons_optimized"),
+    # ("MAX_SKELETONS", "max_skeletons_optimized"),
+    # ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
+    # ("AVG_NUM_NSRTS", "avg_num_nsrts"),
+    # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
+    # ("AVG_PLAN_LEN", "avg_plan_length"),
+    # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
+    # ("NUM_TRANSITIONS", "num_transitions"),
 ]
 
 # The first element is the name of the metric that will be plotted on the
@@ -60,7 +60,7 @@ Y_KEY_AND_LABEL = [
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
 # and each inner entry corresponds to one line on the plot.
-# The keys of the outer dict are are plot titles.
+# The keys of the outer dict are plot titles.
 # The keys of the inner dict are (df key, df value), and the dict values are
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
