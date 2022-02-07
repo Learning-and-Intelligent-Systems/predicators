@@ -1,5 +1,6 @@
 """Create plots for online learning."""
 
+from typing import Any
 import os
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,12 +12,43 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 ############################ Change below here ################################
 
+# Groups over which to take mean/std.
+GROUPS = [
+    "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
+    "NUM_TRAIN_TASKS", "CYCLE"
+]
+
+# All column names and keys to load into the pandas tables before plotting.
+COLUMN_NAMES_AND_KEYS = [
+    ("ENV", "env"),
+    ("APPROACH", "approach"),
+    ("EXCLUDED_PREDICATES", "excluded_predicates"),
+    ("EXPERIMENT_ID", "experiment_id"),
+    ("SEED", "seed"),
+    ("NUM_TRAIN_TASKS", "num_train_tasks"),
+    ("CYCLE", "cycle"),
+    ("NUM_SOLVED", "num_solved"),
+    ("AVG_NUM_PREDS", "avg_num_preds"),
+    ("AVG_TEST_TIME", "avg_suc_time"),
+    ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
+    ("MIN_SKELETONS", "min_skeletons_optimized"),
+    ("MAX_SKELETONS", "max_skeletons_optimized"),
+    ("AVG_NODES_EXPANDED", "avg_num_nodes_expanded"),
+    ("AVG_NODES_CREATED", "avg_num_nodes_created"),
+    ("AVG_NUM_NSRTS", "avg_num_nsrts"),
+    ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
+    ("AVG_PLAN_LEN", "avg_plan_length"),
+    ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
+    ("NUM_TRANSITIONS", "num_transitions"),
+    ("LEARNING_TIME", "learning_time"),
+]
+
 # The first element is the name of the metric that will be plotted on the
-# x axis. See analyze_results_directory.py for all available metrics. The
-# second element is used to label the x axis.
+# x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
+# element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("CYCLE", "Num online learning episodes"),
-    ("NUM_TRANSITIONS", "Num transitions"),
+    ("NUM_TRAIN_TASKS", "Num train tasks"),
+    # ("NUM_TRANSITIONS", "Num transitions"),
     # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
@@ -29,34 +61,28 @@ Y_KEY_AND_LABEL = [
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
 # and each inner entry corresponds to one line on the plot.
 # The keys of the outer dict are are plot titles.
-# The keys of the inner dict are experiment IDs, and the values are labels
-# for the legend.
+# The keys of the inner dict are (df key, df value), and the dict values are
+# labels for the legend. The df key/value are used to select a subset from
+# the overall pandas dataframe.
 PLOT_GROUPS = {
-    "Cover (Regrasp)": {
-        "cover_regrasp_naive_allexclude": "Naive (All Excluded)",
-        "cover_regrasp_targeted_allexclude": "Targeted (All Excluded)",
-    },
-    "Blocks": {
-        "blocks_naive_allexclude": "Naive (All Excluded)",
-        "blocks_targeted_allexclude": "Targeted (All Excluded)",
+    "Performance vs Number of Demos": {
+        ("ENV", "cover"): "Cover",
     },
 }
 
 #################### Should not need to change below here #####################
 
 
-def _get_df_for_experiment_id(x_key: str, df: pd.DataFrame,
-                              experiment_id: str) -> pd.DataFrame:
-    df = df[df["EXPERIMENT_ID"] == experiment_id]
+def _get_df_for_plot_line(x_key: str, df: pd.DataFrame, select_key: str,
+                          select_value: Any) -> pd.DataFrame:
+    df = df[df[select_key] == select_value]
     # Handle CYCLE as a special case, since the offline learning phase is
     # logged as None. Note that we shift everything by 1 so the first data
     # point is 0, meaning 0 online learning cycles have happened so far.
-    df["CYCLE"].replace("None", "-1", inplace=True)
-    df["CYCLE"] = df["CYCLE"].map(pd.to_numeric) + 1
-    # Always sort by cycle. We're assuming the other metrics of interest,
-    # like num transitions or num queries, will be monotonically increasing
-    # as the number of cycles increases.
-    df = df.sort_values("CYCLE")
+    if "CYCLE" in df:
+        df["CYCLE"].replace("None", "-1", inplace=True)
+        df["CYCLE"] = df["CYCLE"].map(pd.to_numeric) + 1
+    df = df.sort_values(x_key)
     df[x_key] = df[x_key].map(pd.to_numeric)
     return df
 
@@ -66,24 +92,25 @@ def _main() -> None:
                           "results")
     os.makedirs(outdir, exist_ok=True)
     matplotlib.rcParams.update({'font.size': 16})
-    grouped_means, grouped_stds, _ = create_dataframes()
+    grouped_means, grouped_stds, _ = create_dataframes(COLUMN_NAMES_AND_KEYS,
+                                                       GROUPS)
     means = grouped_means.reset_index()
     stds = grouped_stds.reset_index()
     for x_key, x_label in X_KEY_AND_LABEL:
         for y_key, y_label in Y_KEY_AND_LABEL:
-            for plot_title, experiment_id_dict in PLOT_GROUPS.items():
+            for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for experiment_id, label in experiment_id_dict.items():
-                    exp_means = _get_df_for_experiment_id(
-                        x_key, means, experiment_id)
-                    exp_stds = _get_df_for_experiment_id(
-                        x_key, stds, experiment_id)
+                for (select_key, select_value), label in d.items():
+                    exp_means = _get_df_for_plot_line(x_key, means, select_key,
+                                                      select_value)
+                    exp_stds = _get_df_for_plot_line(x_key, stds, select_key,
+                                                     select_value)
                     ax.errorbar(exp_means[x_key],
                                 exp_means[y_key],
                                 yerr=exp_stds[y_key],
                                 label=label)
                 # Automatically make x ticks integers for certain X KEYS.
-                if y_key in ("CYCLE", "NUM_TRANSITIONS"):
+                if x_key in ("CYCLE", "NUM_TRANSITIONS", "NUM_TRAIN_TASKS"):
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
