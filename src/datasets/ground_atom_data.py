@@ -48,7 +48,9 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
         for examples, picks in zip((neg_examples, pos_examples),
                                    (neg_picks, pos_picks)):
             if num_examples > len(examples[p]):
-                raise ValueError(f"Found fewer than {num_examples} examples to sample from!")
+                raise ValueError(
+                    f"Found fewer than {num_examples} examples to sample from!"
+                )
             idxs = rng.choice(len(examples[p]),
                               size=num_examples,
                               replace=False)
