@@ -42,6 +42,44 @@ COLUMN_NAMES_AND_KEYS = [
 ]
 
 
+def pd_create_equal_selector(
+        key: str, value: str) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    """Create a mask for a dataframe by checking key == value."""
+    return lambda df: df[key] == value
+
+
+def combine_selectors(
+    selectors: Sequence[Callable[[pd.DataFrame], pd.DataFrame]]
+) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    """And together multiple selectors."""
+    assert len(selectors) > 0
+
+    def _selector(df: pd.DataFrame) -> pd.DataFrame:
+        mask = selectors[0](df)
+        for i in range(1, len(selectors)):
+            mask = mask & selectors[i](df)
+        return mask
+
+    return _selector
+
+
+def get_df_for_entry(
+        x_key: str, df: pd.DataFrame,
+        selector: Callable[[pd.DataFrame], pd.DataFrame]) -> pd.DataFrame:
+    """Create a dataframe with a subset selected by selector and with rows
+    sorted by x_key."""
+    df = df[selector(df)]
+    # Handle CYCLE as a special case, since the offline learning phase is
+    # logged as None. Note that we shift everything by 1 so the first data
+    # point is 0, meaning 0 online learning cycles have happened so far.
+    if "CYCLE" in df:
+        df["CYCLE"].replace("None", "-1", inplace=True)
+        df["CYCLE"] = df["CYCLE"].map(pd.to_numeric) + 1
+    df = df.sort_values(x_key)
+    df[x_key] = df[x_key].map(pd.to_numeric)
+    return df
+
+
 def create_dataframes(
     column_names_and_keys: Sequence[Tuple[str, str]], groups: Sequence[str],
     derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]]

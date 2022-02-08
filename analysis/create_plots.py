@@ -1,12 +1,12 @@
 """Create plots for online learning."""
 
-from typing import Any
 import os
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pandas as pd
-from predicators.analysis.analyze_results_directory import create_dataframes
+from predicators.analysis.analyze_results_directory import create_dataframes, \
+    pd_create_equal_selector, get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -69,32 +69,18 @@ Y_KEY_AND_LABEL = [
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = {
-    "Learning from Few Demonstrations": {
-        ("ENV", "cover_regrasp"): "PickPlace1D",
-        ("ENV", "blocks"): "Blocks",
-        ("ENV", "painting"): "Painting",
-        ("ENV", "tools"): "Tools",
-    },
+    "Learning from Few Demonstrations": [
+        ("PickPlace1D", pd_create_equal_selector("ENV", "cover_regrasp")),
+        ("Blocks", pd_create_equal_selector("ENV", "blocks")),
+        ("Painting", pd_create_equal_selector("ENV", "painting")),
+        ("Tools", pd_create_equal_selector("ENV", "tools")),
+    ],
 }
 
 # If True, add (0, 0) to every plot
 ADD_ZERO_POINT = True
 
 #################### Should not need to change below here #####################
-
-
-def _get_df_for_plot_line(x_key: str, df: pd.DataFrame, select_key: str,
-                          select_value: Any) -> pd.DataFrame:
-    df = df[df[select_key] == select_value]
-    # Handle CYCLE as a special case, since the offline learning phase is
-    # logged as None. Note that we shift everything by 1 so the first data
-    # point is 0, meaning 0 online learning cycles have happened so far.
-    if "CYCLE" in df:
-        df["CYCLE"].replace("None", "-1", inplace=True)
-        df["CYCLE"] = df["CYCLE"].map(pd.to_numeric) + 1
-    df = df.sort_values(x_key)
-    df[x_key] = df[x_key].map(pd.to_numeric)
-    return df
 
 
 def _main() -> None:
@@ -110,11 +96,9 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for (select_key, select_value), label in d.items():
-                    exp_means = _get_df_for_plot_line(x_key, means, select_key,
-                                                      select_value)
-                    exp_stds = _get_df_for_plot_line(x_key, stds, select_key,
-                                                     select_value)
+                for label, selector in d:
+                    exp_means = get_df_for_entry(x_key, means, selector)
+                    exp_stds = get_df_for_entry(x_key, stds, selector)
                     xs = exp_means[x_key].tolist()
                     ys = exp_means[y_key].tolist()
                     y_stds = exp_stds[y_key].tolist()
