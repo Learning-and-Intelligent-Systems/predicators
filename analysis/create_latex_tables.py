@@ -62,31 +62,32 @@ ROW_GROUPS = [
 
 # See ROW_GROUPS comment.
 OUTER_HEADER_GROUPS = [
-    ("\\bf{Ours}",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_" in v)),
-    ("\\bf{One-Skel Score}",
+    ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_" in v)),
+    ("1-Skel Score",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_" in v)),
-    ("\\bf{One-Skel Eval}",
+    ("1-Skel Eval",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_" in v)),
-    ("\\bf{Prediction}",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_" in v)),
-    ("\\bf{Branching}",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_" in v)),
-    ("\\bf{Energy}",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_" in v)),
-    ("\\bf{No Invent}", lambda df: df["EXPERIMENT_ID"].apply(
+    ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventallexclude_" in v)),
-    ("\\bf{Random}", pd_create_equal_selector("APPROACH", "random_options")),
-    ("\\bf{Oracle}",
+    ("Prediction",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_" in v)),
+    ("Branching",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_" in v)),
+    ("Energy",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_" in v)),
+    ("Random", pd_create_equal_selector("APPROACH", "random_options")),
+    ("Oracle",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_noinventnoexclude_" in v)
      ),
 ]
 
+DOUBLE_LINES_AFTER = ["Ours", "No Invent", "Random"]
+
 # See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
 # whether higher or lower is better.
 INNER_HEADER_GROUPS = [
-    ("Solved", "PERC_SOLVED", "higher"),
-    ("Nodes", "AVG_NODES_CREATED", "lower"),
+    ("Succ", "PERC_SOLVED", "higher"),
+    ("Node", "AVG_NODES_CREATED", "lower"),
 ]
 
 # For bolding, how many stds to use.
@@ -112,17 +113,25 @@ def _main() -> None:
     num_inner_headers = len(INNER_HEADER_GROUPS)
     num_outer_headers = len(OUTER_HEADER_GROUPS)
 
+    outer_labels = [label for label, _ in OUTER_HEADER_GROUPS]
+    outer_lines = [
+        "||" if l in DOUBLE_LINES_AFTER else "|" for l in outer_labels
+    ]
+    inner_lines = ["|" for _ in range(2 * len(outer_labels))]
+    for i, outer_line in enumerate(outer_lines):
+        inner_lines[1 + 2 * i] = outer_line
+
     preamble = """\\begin{table*}
 \t\\centering
 \t\\scriptsize
 \t\\begin{tabular}{| l | """ + \
-    "".join("p{0.52cm} | "
-            for _ in range(num_inner_headers * num_outer_headers)) + \
+    "".join("p{0.52cm} " + inner_lines[i] + " "
+            for i in range(num_inner_headers * num_outer_headers)) + \
     """}
 \t\\hline
 \t\\multicolumn{1}{|c|}{} &""" + \
     "\n\t".join("\\multicolumn{" + str(num_inner_headers) + \
-                "}{c|}{" + outer_label + "} " + (
+                "}{c" + outer_lines[i] + "}{\\bf{" + outer_label + "}} " + (
     "&" if i != num_outer_headers-1 else "\\\\")
     for i, (outer_label, _) in enumerate(OUTER_HEADER_GROUPS)) + \
 """
@@ -202,14 +211,12 @@ def _main() -> None:
                 if DO_BOLDING and (outer_label, inner_label) in bolded:
                     pre = "\\bf{" + pre
                     end = end + "}"
-                # Special case random options, not sure why necessary...
+                # Special case random options / node expansions
                 if np.isnan(m) or (outer_label == "Random" and \
-                    inner_label == "Nodes"):
+                    inner_label == "Node"):
                     formatted_m = "\\;\\;\\;--"
-                elif len(str(m)) > 4:
-                    formatted_m = f"{m:.1f}"
                 else:
-                    formatted_m = f"{m:.2f}"
+                    formatted_m = f"{m:.1f}"
                 body += " & " + pre + formatted_m + end
         body += " \\\\"
 
