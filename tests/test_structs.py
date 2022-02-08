@@ -449,7 +449,7 @@ def test_option_memory_correct():
     assert opt2.terminal(state)
 
 
-def test_nsrts():
+def test_operators_and_nsrts():
     """Tests for STRIPSOperator, _GroundSTRIPSOperator, NSRT and
     _GroundNSRT."""
     cup_type = Type("cup_type", ["feat1"])
@@ -494,6 +494,34 @@ def test_nsrts():
                                       delete_effects, side_predicates)
     assert strips_operator < strips_operator3
     assert strips_operator3 > strips_operator
+    with pytest.raises(AssertionError):
+        strips_operator.effect_to_side_predicate(next(
+            iter(add_effects)), [], "dummy")  # invalid last argument
+    with pytest.raises(AssertionError):
+        strips_operator.effect_to_side_predicate(next(
+            iter(add_effects)), [], "delete")  # not a delete effect!
+    with pytest.raises(AssertionError):
+        strips_operator.effect_to_side_predicate(next(iter(delete_effects)),
+                                                 [],
+                                                 "add")  # not an add effect!
+    sidelined_add = strips_operator.effect_to_side_predicate(
+        next(iter(add_effects)), [], "add")
+    assert str(sidelined_add) == repr(sidelined_add) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: []
+    Delete Effects: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Side Predicates: [On]"""
+    sidelined_delete = strips_operator.effect_to_side_predicate(
+        next(iter(delete_effects)), [], "delete")
+    assert str(sidelined_delete) == repr(sidelined_delete) == \
+        """STRIPS-Pick:
+    Parameters: [?cup:cup_type, ?plate:plate_type]
+    Preconditions: [NotOn(?cup:cup_type, ?plate:plate_type)]
+    Add Effects: [On(?cup:cup_type, ?plate:plate_type)]
+    Delete Effects: []
+    Side Predicates: [NotOn, On]"""
     # _GroundSTRIPSOperator
     cup = cup_type("cup")
     plate = plate_type("plate")
