@@ -32,6 +32,7 @@ COLUMN_NAMES_AND_KEYS = [
     ("AVG_TEST_TIME", "avg_suc_time"),
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
+    ("PERC_SOLVED", "perc_solved"),
     # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
     # ("MIN_SKELETONS", "min_skeletons_optimized"),
     # ("MAX_SKELETONS", "max_skeletons_optimized"),
@@ -43,19 +44,22 @@ COLUMN_NAMES_AND_KEYS = [
     # ("NUM_TRANSITIONS", "num_transitions"),
 ]
 
+DERIVED_KEYS = [("perc_solved",
+                 lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
+
 # The first element is the name of the metric that will be plotted on the
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("NUM_TRAIN_TASKS", "Num train tasks"),
+    ("NUM_TRAIN_TASKS", "Num demos"),
     # ("NUM_TRANSITIONS", "Num transitions"),
     # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
-    ("NUM_SOLVED", "Num test tasks solved"),
-    ("AVG_NODES_CREATED", "Averaged nodes created"),
+    ("PERC_SOLVED", "% test tasks solved"),
+    # ("AVG_NODES_CREATED", "Averaged nodes created"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
@@ -65,10 +69,16 @@ Y_KEY_AND_LABEL = [
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 PLOT_GROUPS = {
-    "Performance vs Number of Demos": {
-        ("ENV", "cover"): "Cover",
+    "Learning from Few Demonstrations": {
+        ("ENV", "cover_regrasp"): "PickPlace1D",
+        ("ENV", "blocks"): "Blocks",
+        ("ENV", "painting"): "Painting",
+        ("ENV", "tools"): "Tools",
     },
 }
+
+# If True, add (0, 0) to every plot
+ADD_ZERO_POINT = True
 
 #################### Should not need to change below here #####################
 
@@ -93,7 +103,7 @@ def _main() -> None:
     os.makedirs(outdir, exist_ok=True)
     matplotlib.rcParams.update({'font.size': 16})
     grouped_means, grouped_stds, _ = create_dataframes(COLUMN_NAMES_AND_KEYS,
-                                                       GROUPS)
+                                                       GROUPS, DERIVED_KEYS)
     means = grouped_means.reset_index()
     stds = grouped_stds.reset_index()
     for x_key, x_label in X_KEY_AND_LABEL:
@@ -105,13 +115,19 @@ def _main() -> None:
                                                       select_value)
                     exp_stds = _get_df_for_plot_line(x_key, stds, select_key,
                                                      select_value)
-                    ax.errorbar(exp_means[x_key],
-                                exp_means[y_key],
-                                yerr=exp_stds[y_key],
-                                label=label)
+                    xs = exp_means[x_key].tolist()
+                    ys = exp_means[y_key].tolist()
+                    y_stds = exp_stds[y_key].tolist()
+                    if ADD_ZERO_POINT:
+                        xs = [0] + xs
+                        ys = [0] + ys
+                        y_stds = [0] + y_stds
+                    ax.errorbar(xs, ys, yerr=y_stds, label=label)
                 # Automatically make x ticks integers for certain X KEYS.
-                if x_key in ("CYCLE", "NUM_TRANSITIONS", "NUM_TRAIN_TASKS"):
+                if x_key in ("CYCLE", "NUM_TRANSITIONS"):
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                elif x_key == "NUM_TRAIN_TASKS":
+                    ax.set_xticks(xs)
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)

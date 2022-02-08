@@ -1,7 +1,7 @@
 """Script to analyze experiments resulting from running the script
 analysis/run_supercloud_experiments.sh."""
 
-from typing import Tuple, Sequence
+from typing import Tuple, Sequence, Callable, Dict
 import glob
 import dill as pkl
 import numpy as np
@@ -43,7 +43,8 @@ COLUMN_NAMES_AND_KEYS = [
 
 
 def create_dataframes(
-        column_names_and_keys: Sequence[Tuple[str, str]], groups: Sequence[str]
+    column_names_and_keys: Sequence[Tuple[str, str]], groups: Sequence[str],
+    derived_keys: Sequence[Tuple[str, Callable[[Dict[str, float]], float]]]
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Returns means, standard deviations, and sizes.
 
@@ -78,6 +79,8 @@ def create_dataframes(
             "experiment_id": experiment_id,
             "cycle": online_learning_cycle,
         })
+        for key, fn in derived_keys:
+            run_data[key] = fn(run_data)
         data = [run_data.get(k, np.nan) for (_, k) in column_names_and_keys]
         all_data.append(data)
     if not all_data:
@@ -97,7 +100,7 @@ def create_dataframes(
 
 
 def _main() -> None:
-    means, stds, sizes = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS)
+    means, stds, sizes = create_dataframes(COLUMN_NAMES_AND_KEYS, GROUPS, [])
     # Add standard deviations to the printout.
     for col in means:
         for row in means[col].keys():
