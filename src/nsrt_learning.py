@@ -5,7 +5,7 @@ from typing import Set, List, Sequence, cast
 from predicators.src.structs import STRIPSOperator, NSRT, \
     LiftedAtom, Variable, Predicate, ObjToVarSub, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption, \
-    State, Action
+    State, Action, Task
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.sampler_learning import learn_samplers
@@ -13,7 +13,7 @@ from predicators.src.option_learning import create_option_learner
 
 
 def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
-                          predicates: Set[Predicate],
+                          train_tasks: List[Task], predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
@@ -40,20 +40,27 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    pnads = learn_strips_operators(
-        segments, verbose=(CFG.option_learner != "no_learning"))
+    pnads = learn_strips_operators(segments,
+                                   verbose=(CFG.option_learner != "no_learning"
+                                            or CFG.learn_side_predicates))
 
     # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
-        _learn_pnad_side_predicates(pnads)
+        pnads = _learn_pnad_side_predicates(
+            pnads,
+            ground_atom_dataset,
+            train_tasks,
+            predicates,
+            segments,
+            verbose=(CFG.option_learner != "no_learning"))
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
-    _learn_pnad_options(pnads)
+    _learn_pnad_options(pnads)  # in-place update
 
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
-    _learn_pnad_samplers(pnads, sampler_learner)
+    _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
     # STEP 7: Print and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
@@ -157,7 +164,7 @@ def learn_strips_operators(
             # and also the objects that are arguments to the options.
             (pnad_param_option, pnad_option_vars) = pnad.option_spec
             suc, ent_to_ent_sub = utils.unify_preconds_effects_options(
-                frozenset(),
+                frozenset(),  # no preconditions
                 frozenset(),  # no preconditions
                 frozenset(segment.add_effects),
                 frozenset(pnad.op.add_effects),
@@ -230,13 +237,18 @@ def learn_strips_operators(
 
     # Print and return the PNADs.
     if verbose:
-        print("\nLearned operators (before option learning):")
+        print("\nLearned operators (before side predicate & option learning):")
         for pnad in pnads:
             print(pnad)
     return pnads
 
 
-def _learn_pnad_side_predicates(pnads: List[PartialNSRTAndDatastore]) -> None:
+def _learn_pnad_side_predicates(
+        pnads: List[PartialNSRTAndDatastore],
+        ground_atom_dataset: List[GroundAtomTrajectory],
+        train_tasks: List[Task], predicates: Set[Predicate],
+        segments: List[Segment],
+        verbose: bool) -> List[PartialNSRTAndDatastore]:
     raise NotImplementedError
 
 
