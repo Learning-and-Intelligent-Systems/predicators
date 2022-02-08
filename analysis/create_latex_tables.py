@@ -30,9 +30,9 @@ COLUMN_NAMES_AND_KEYS = [
     # ("CYCLE", "cycle"),
     # ("NUM_SOLVED", "num_solved"),
     # ("AVG_NUM_PREDS", "avg_num_preds"),
-    # ("AVG_TEST_TIME", "avg_suc_time"),
+    ("AVG_TEST_TIME", "avg_suc_time"),
     ("AVG_NODES_CREATED", "avg_num_nodes_created"),
-    # ("LEARNING_TIME", "learning_time"),
+    ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
     # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
     # ("MIN_SKELETONS", "min_skeletons_optimized"),
@@ -83,13 +83,6 @@ OUTER_HEADER_GROUPS = [
 
 DOUBLE_LINES_AFTER = ["Ours", "No Invent", "Random"]
 
-# See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
-# whether higher or lower is better.
-INNER_HEADER_GROUPS = [
-    ("Succ", "PERC_SOLVED", "higher"),
-    ("Node", "AVG_NODES_CREATED", "lower"),
-]
-
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
 DO_BOLDING = False
@@ -97,8 +90,29 @@ DO_BOLDING = False
 # If less than this, entry will be red.
 RED_MIN_SIZE = 10
 
+# #### Main results ###
+
+# See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
+# whether higher or lower is better.
+INNER_HEADER_GROUPS = [
+    ("Succ", "PERC_SOLVED", "higher"),
+    ("Node", "AVG_NODES_CREATED", "lower"),
+]
+
 CAPTION = "TODO"
 TABLE_LABEL = "tab:mainresults"
+
+# #### Timing results ###
+
+# # See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
+# # whether higher or lower is better.
+# INNER_HEADER_GROUPS = [
+#     ("Learn", "LEARNING_TIME", "lower"),
+#     ("Plan", "AVG_TEST_TIME", "lower"),
+# ]
+
+# CAPTION = "TODO"
+# TABLE_LABEL = "tab:timeresults"
 
 #################### Should not need to change below here #####################
 
