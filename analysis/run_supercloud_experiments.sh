@@ -26,7 +26,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
         for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
             python $FILE --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
-            python $FILE --experiment_id ${ENV}_downref_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --sesame_max_skeletons_optimized 1 --offline_data_max_skeletons_optimized 8 --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
+            # Note: downrefeval is main but with --sesame_max_skeletons_optimized 1 during evaluation only. We can only run this using `--load_approach` since we don't allow grammar_search_expected_nodes_max_skeletons to be greater than sesame_max_skeletons_optimized during invention.
+            python $FILE --experiment_id ${ENV}_downrefscore_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --grammar_search_expected_nodes_max_skeletons 1 --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
             python $FILE --experiment_id ${ENV}_prederror_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --grammar_search_score_function prediction_error --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
             python $FILE --experiment_id ${ENV}_branchfac_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --grammar_search_score_function branching_factor --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
             python $FILE --experiment_id ${ENV}_energy_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --grammar_search_score_function lmcut_energy_lookaheaddepth0 --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
