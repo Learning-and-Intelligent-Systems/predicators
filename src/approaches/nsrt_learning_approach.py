@@ -42,6 +42,7 @@ class NSRTLearningApproach(TAMPApproach):
                      online_learning_cycle: Optional[int]) -> None:
         self._nsrts = learn_nsrts_from_data(
             trajectories,
+            self._train_tasks,
             self._get_current_predicates(),
             sampler_learner=CFG.sampler_learner)
         save_path = utils.get_approach_save_path_str()

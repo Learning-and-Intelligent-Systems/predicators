@@ -576,6 +576,32 @@ class STRIPSOperator:
         assert isinstance(other, STRIPSOperator)
         return str(self) > str(other)
 
+    def effect_to_side_predicate(self, effect: LiftedAtom,
+                                 option_vars: Sequence[Variable],
+                                 add_or_delete: str) -> STRIPSOperator:
+        """Return a new STRIPS operator resulting from turning the given effect
+        (either add or delete) into a side predicate."""
+        assert add_or_delete in ("add", "delete")
+        if add_or_delete == "add":
+            assert effect in self.add_effects
+            new_add_effects = self.add_effects - {effect}
+            new_delete_effects = self.delete_effects
+        else:
+            new_add_effects = self.add_effects
+            assert effect in self.delete_effects
+            new_delete_effects = self.delete_effects - {effect}
+        # Since we are removing an effect, it could be the case
+        # that parameters need to be removed from the operator.
+        remaining_params = {
+            p
+            for atom in self.preconditions | new_add_effects
+            | new_delete_effects for p in atom.variables
+        } | set(option_vars)
+        new_params = [p for p in self.parameters if p in remaining_params]
+        return STRIPSOperator(self.name, new_params, self.preconditions,
+                              new_add_effects, new_delete_effects,
+                              self.side_predicates | {effect.predicate})
+
 
 @dataclass(frozen=True, repr=False, eq=False)
 class _GroundSTRIPSOperator:
