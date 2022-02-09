@@ -15,7 +15,7 @@ In `src/`, the environments are defined in the `envs/` directory, and the approa
 * Learn samplers.
 * Finalize the NSRTs.
 
-Methods for predicate learning are implemented as Approaches (e.g., `src/approaches/grammar_search_invention_approach.py`), and may interface with the core structure of `src/nsrt_learning/nsrt_learning_main.py` in various ways. Meanwhile, sampler learning and option learning are implemented in `src/nsrt_learning/sampler_learning.py` and `src/nsrt_learning/option_learning.py` respectively.
+Methods for predicate learning are implemented as Approaches (e.g., `src/approaches/grammar_search_invention_approach.py`), and may interface with the core structure of `src/nsrt_learning/nsrt_learning_main.py` in various ways.
 
 A simple implementation of search-then-sample task and motion planning is provided in `src/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
 
