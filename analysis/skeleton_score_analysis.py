@@ -20,7 +20,7 @@ from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import Dataset, Task, Predicate
-from predicators.src.nsrt_learning import segment_trajectory, \
+from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 
 FORCE_REMAKE_RESULTS = False

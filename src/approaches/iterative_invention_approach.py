@@ -11,7 +11,7 @@ from predicators.src.structs import Predicate, ParameterizedOption, \
     LiftedAtom, GroundAtom, OptionSpec, Task
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
-from predicators.src.nsrt_learning import segment_trajectory, \
+from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.settings import CFG
 

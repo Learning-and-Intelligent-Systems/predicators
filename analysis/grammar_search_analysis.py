@@ -11,7 +11,9 @@ from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_env, BaseEnv, CoverEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
-    _create_score_function, _ForallClassifier, _SingleAttributeCompareClassifier
+    _ForallClassifier, _SingleAttributeCompareClassifier
+from predicators.src.predicate_search_score_functions import \
+    create_score_function
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src import utils
@@ -214,10 +216,10 @@ def _run_proxy_analysis_for_predicates(
     results = {}
     # Compute scores.
     for score_function_name in score_function_names:
-        score_function = _create_score_function(score_function_name,
-                                                initial_predicates,
-                                                atom_dataset, candidates,
-                                                train_tasks)
+        score_function = create_score_function(score_function_name,
+                                               initial_predicates,
+                                               atom_dataset, candidates,
+                                               train_tasks)
         start_time = time.time()
         score = score_function.evaluate(frozenset(predicates))
         eval_time = time.time() - start_time
