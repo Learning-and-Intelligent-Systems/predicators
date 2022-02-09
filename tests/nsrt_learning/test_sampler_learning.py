@@ -3,8 +3,8 @@
 import pytest
 from gym.spaces import Box
 import numpy as np
-from predicators.src.sampler_learning import _create_sampler_data, \
-    learn_samplers
+from predicators.src.nsrt_learning.sampler_learning import \
+    _create_sampler_data, learn_samplers
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
 from predicators.src import utils
