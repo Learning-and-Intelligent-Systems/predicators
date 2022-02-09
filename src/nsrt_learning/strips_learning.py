@@ -48,13 +48,9 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
-        pnads = _learn_pnad_side_predicates(
-            pnads,
-            ground_atom_dataset,
-            train_tasks,
-            predicates,
-            segments,
-            segmented_trajs)
+        pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
+                                            train_tasks, predicates, segments,
+                                            segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -253,20 +249,20 @@ def _learn_pnad_side_predicates(
         segments: List[Segment],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
     # There are no goal states for this search; run until exhausted.
-    def _check_goal(s: List[PartialNSRTAndDatastore]) -> bool:
+    def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
         del s  # unused
         return False
 
     # Consider changing each effect to a side predicate.
     def _get_successors(
-            s: List[PartialNSRTAndDatastore],
-    ) -> Iterator[Tuple[None, List[PartialNSRTAndDatastore], float]]:
+        s: Tuple[PartialNSRTAndDatastore, ...],
+    ) -> Iterator[Tuple[None, Tuple[PartialNSRTAndDatastore, ...], float]]:
         for i in range(len(s)):
             pnad = s[i]
             _, option_vars = pnad.option_spec
-            for effect_set, add_or_delete in [
-                    (pnad.op.add_effects, "add"),
-                    (pnad.op.delete_effects, "delete")]:
+            for effect_set, add_or_delete in [(pnad.op.add_effects, "add"),
+                                              (pnad.op.delete_effects,
+                                               "delete")]:
                 for effect in effect_set:
                     new_pnad = PartialNSRTAndDatastore(
                         pnad.op.effect_to_side_predicate(
@@ -278,19 +274,21 @@ def _learn_pnad_side_predicates(
 
     # Hard to avoid this circular import, since approaches need nsrt_learning.
     from predicators.src.approaches.grammar_search_invention_approach import \
-        _create_score_function  # pylint:disable=import-outside-toplevel
-    score_func = _create_score_function("prediction_error", predicates,
-                                        None, {}, train_tasks)
-    def _evaluate(s: List[PartialNSRTAndDatastore]):
+        _PredictionErrorScoreFunction  # pylint:disable=import-outside-toplevel
+    score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
+
+    def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
-        score = score_func._evaluate_with_operators(
-            set(), ground_atom_dataset, segments, strips_ops, option_specs)
+        score = score_func.evaluate_with_operators(frozenset(),
+                                                   ground_atom_dataset,
+                                                   segments, strips_ops,
+                                                   option_specs)
         return score
 
     # Run the search, starting from original PNADs.
-    path, _, _ = utils.run_hill_climbing(
-        tuple(pnads), _check_goal, _get_successors, _evaluate)
+    path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
+                                         _get_successors, _evaluate)
     # Final PNADs are the last ones in the path.
     pnads = list(path[-1])
     # Recompute the datastores in the PNADs. We need to do this
@@ -298,6 +296,7 @@ def _learn_pnad_side_predicates(
     # assigned to *multiple* datastores.
     _recompute_datastores_from_segments(segmented_trajs, pnads)
     return pnads
+
 
 def _recompute_datastores_from_segments(
         segmented_trajs: List[List[Segment]],
@@ -326,7 +325,8 @@ def _recompute_datastores_from_segments(
                 for ground_op in utils.all_ground_operators_given_partial(
                         pnad.op, objects, isub):
                     # Check if preconditions hold.
-                    if not ground_op.preconditions.issubset(segment.init_atoms):
+                    if not ground_op.preconditions.issubset(
+                            segment.init_atoms):
                         continue
                     # Check if effects match. Note that we're using the side
                     # predicates semantics here!

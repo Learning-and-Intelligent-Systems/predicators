@@ -1055,7 +1055,8 @@ class PartialNSRTAndDatastore:
     # The sampler for this NSRT.
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
 
-    def add_to_datastore(self, member: Tuple[Segment, ObjToVarSub],
+    def add_to_datastore(self,
+                         member: Tuple[Segment, ObjToVarSub],
                          check_consistency: bool = True) -> None:
         """Add a new member to self.datastore."""
         if check_consistency:
