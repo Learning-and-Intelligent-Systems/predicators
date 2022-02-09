@@ -1359,9 +1359,10 @@ def _select_predicates_to_keep(
         s: FrozenSet[Predicate]
     ) -> Iterator[Tuple[None, FrozenSet[Predicate], float]]:
         for predicate in sorted(set(candidates) - s):  # determinism
-            # Actions not needed. Frozensets for hashing.
-            # The cost of 1.0 is irrelevant because we're doing GBFS
-            # and not A* (because we don't care about the path).
+            # Actions not needed. Frozensets for hashing. The cost of
+            # 1.0 is irrelevant because we're doing GBFS / hill
+            # climbing and not A* (because we don't care about the
+            # path).
             yield (None, frozenset(s | {predicate}), 1.0)
 
     # Start the search with no candidates.
