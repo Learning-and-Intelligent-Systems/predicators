@@ -54,8 +54,7 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
             train_tasks,
             predicates,
             segments,
-            segmented_trajs,
-            verbose=(CFG.option_learner != "no_learning"))
+            segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -252,8 +251,7 @@ def _learn_pnad_side_predicates(
         ground_atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task], predicates: Set[Predicate],
         segments: List[Segment],
-        segmented_trajs: List[List[Segment]],
-        verbose: bool) -> List[PartialNSRTAndDatastore]:
+        segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
     # There are no goal states for this search; run until exhausted.
     def _check_goal(s: List[PartialNSRTAndDatastore]) -> bool:
         del s  # unused
@@ -278,21 +276,22 @@ def _learn_pnad_side_predicates(
                     sprime[i] = new_pnad
                     yield (None, tuple(sprime), 1.0)
 
-    from predicators.src.approaches.grammar_search_invention_approach import _create_score_function
+    # Hard to avoid this circular import, since approaches need nsrt_learning.
+    from predicators.src.approaches.grammar_search_invention_approach import \
+        _create_score_function  # pylint:disable=import-outside-toplevel
     score_func = _create_score_function("prediction_error", predicates,
                                         None, {}, train_tasks)
     def _evaluate(s: List[PartialNSRTAndDatastore]):
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
-        score= score_func._evaluate_with_operators(set(), ground_atom_dataset, segments, strips_ops, option_specs)
-        # Incentivize more side predicates.
-        for op in strips_ops:
-            score -= len(op.side_predicates) * CFG.side_predicates_numsidepreds_weight
+        score = score_func._evaluate_with_operators(
+            set(), ground_atom_dataset, segments, strips_ops, option_specs)
         return score
 
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(
         tuple(pnads), _check_goal, _get_successors, _evaluate)
+    # Final PNADs are the last ones in the path.
     pnads = list(path[-1])
     # Recompute the datastores in the PNADs. We need to do this
     # because now that we have side predicates, each transition may be
