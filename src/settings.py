@@ -47,7 +47,7 @@ class GlobalSettings:
     cluttered_table_place_goal_conditioned_sampling = True
 
     # repeated nextto env parameters
-    repeated_nextto_num_dots = 25
+    repeated_nextto_num_dots = 15
 
     # painting env parameters
     painting_initial_holding_prob = 0.5
@@ -104,6 +104,7 @@ class GlobalSettings:
     # NSRT learning parameters
     min_data_for_nsrt = 0
     learn_side_predicates = False
+    side_predicates_numsidepreds_weight = 15.0
 
     # torch model parameters
     normalization_scale_clip = 1

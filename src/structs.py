@@ -1055,23 +1055,25 @@ class PartialNSRTAndDatastore:
     # The sampler for this NSRT.
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
 
-    def add_to_datastore(self, member: Tuple[Segment, ObjToVarSub]) -> None:
+    def add_to_datastore(self, member: Tuple[Segment, ObjToVarSub],
+                         check_consistency: bool = True) -> None:
         """Add a new member to self.datastore."""
-        seg, sub = member
-        # Check for consistency.
-        if len(self.datastore) > 0:
-            # The effects should match.
-            lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
-            lifted_delete_effects = {a.lift(sub) for a in seg.delete_effects}
-            assert lifted_add_effects == self.op.add_effects
-            assert lifted_delete_effects == self.op.delete_effects
-            if seg.has_option():
-                option = seg.get_option()
-                part_param_option, part_option_args = self.option_spec
-                assert option.parent == part_param_option
-                option_args = [sub[o] for o in option.objects]
-                assert option_args == part_option_args
-        # Add to members.
+        if check_consistency:
+            seg, sub = member
+            if len(self.datastore) > 0:
+                # The effects should match.
+                lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
+                lifted_del_effects = {a.lift(sub) for a in seg.delete_effects}
+                assert lifted_add_effects == self.op.add_effects
+                assert lifted_del_effects == self.op.delete_effects
+                if seg.has_option():
+                    # The option should match.
+                    option = seg.get_option()
+                    part_param_option, part_option_args = self.option_spec
+                    assert option.parent == part_param_option
+                    option_args = [sub[o] for o in option.objects]
+                    assert option_args == part_option_args
+        # Add to datastore.
         self.datastore.append(member)
 
     def make_nsrt(self) -> NSRT:
