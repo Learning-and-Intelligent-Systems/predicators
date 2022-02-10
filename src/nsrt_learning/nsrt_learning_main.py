@@ -50,6 +50,8 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
+        assert CFG.option_learner == "no_learning", \
+            "Can't learn options and side predicates together."
         pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
                                             train_tasks, predicates, segments,
                                             segmented_trajs)
@@ -137,13 +139,10 @@ def _recompute_datastores_from_segments(
     for seg_traj in segmented_trajs:
         objects = set(seg_traj[0].states[0])
         for segment in seg_traj:
-            if segment.has_option():
-                segment_option = segment.get_option()
-                segment_param_option = segment_option.parent
-                segment_option_objs = tuple(segment_option.objects)
-            else:
-                segment_param_option = DummyOption.parent
-                segment_option_objs = tuple()
+            assert segment.has_option()
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
             # Get ground operators given these objects and option objs.
             for pnad in pnads:
                 param_opt, opt_vars = pnad.option_spec
