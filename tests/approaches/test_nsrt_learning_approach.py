@@ -81,8 +81,8 @@ def test_nsrt_learning_approach():
                    try_solving=False)
     _test_approach(env_name="repeated_nextto",
                    approach_name="nsrt_learning",
-                   sampler_learner="random",
                    try_solving=False,
+                   sampler_learner="random",
                    learn_side_predicates=True)
 
 
