@@ -1,7 +1,7 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-from typing import Set, List, Sequence
+from typing import Set, List, Sequence, Iterator, Tuple
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
 from predicators.src import utils
@@ -10,6 +10,8 @@ from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
+from predicators.src.predicate_search_score_functions import \
+    _PredictionErrorScoreFunction
 
 
 def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
@@ -48,6 +50,8 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
     if CFG.learn_side_predicates:
+        assert CFG.option_learner == "no_learning", \
+            "Can't learn options and side predicates together."
         pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
                                             train_tasks, predicates, segments,
                                             segmented_trajs)
@@ -73,7 +77,94 @@ def _learn_pnad_side_predicates(
         train_tasks: List[Task], predicates: Set[Predicate],
         segments: List[Segment],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
-    raise NotImplementedError
+
+    def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
+        del s  # unused
+        # There are no goal states for this search; run until exhausted.
+        return False
+
+    def _get_successors(
+        s: Tuple[PartialNSRTAndDatastore, ...],
+    ) -> Iterator[Tuple[None, Tuple[PartialNSRTAndDatastore, ...], float]]:
+        # For each PNAD/operator...
+        for i in range(len(s)):
+            pnad = s[i]
+            _, option_vars = pnad.option_spec
+            # ...consider changing each of its effects to a side predicate.
+            for effect_set, add_or_delete in [(pnad.op.add_effects, "add"),
+                                              (pnad.op.delete_effects,
+                                               "delete")]:
+                for effect in effect_set:
+                    new_pnad = PartialNSRTAndDatastore(
+                        pnad.op.effect_to_side_predicate(
+                            effect, option_vars, add_or_delete),
+                        pnad.datastore, pnad.option_spec)
+                    sprime = list(s)
+                    sprime[i] = new_pnad
+                    yield (None, tuple(sprime), 1.0)
+            # ...consider removing it.
+            sprime = list(s)
+            del sprime[i]
+            yield (None, tuple(sprime), 1.0)
+
+    score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
+
+    def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+        # Score function for search. Lower is better.
+        strips_ops = [pnad.op for pnad in s]
+        option_specs = [pnad.option_spec for pnad in s]
+        score = score_func.evaluate_with_operators(frozenset(),
+                                                   ground_atom_dataset,
+                                                   segments, strips_ops,
+                                                   option_specs)
+        return score
+
+    # Run the search, starting from original PNADs.
+    path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
+                                         _get_successors, _evaluate)
+    # The last state in the search holds the final PNADs.
+    pnads = list(path[-1])
+    # Recompute the datastores in the PNADs. We need to do this
+    # because now that we have side predicates, each transition may be
+    # assigned to *multiple* datastores.
+    _recompute_datastores_from_segments(segmented_trajs, pnads)
+    return pnads
+
+
+def _recompute_datastores_from_segments(
+        segmented_trajs: List[List[Segment]],
+        pnads: List[PartialNSRTAndDatastore]) -> None:
+    for pnad in pnads:
+        pnad.datastore = []  # reset all PNAD datastores
+    for seg_traj in segmented_trajs:
+        objects = set(seg_traj[0].states[0])
+        for segment in seg_traj:
+            assert segment.has_option()
+            segment_option = segment.get_option()
+            segment_param_option = segment_option.parent
+            segment_option_objs = tuple(segment_option.objects)
+            # Get ground operators given these objects and option objs.
+            for pnad in pnads:
+                param_opt, opt_vars = pnad.option_spec
+                if param_opt != segment_param_option:
+                    continue
+                isub = dict(zip(opt_vars, segment_option_objs))
+                # Consider adding this segment to each datastore.
+                for ground_op in utils.all_ground_operators_given_partial(
+                        pnad.op, objects, isub):
+                    # Check if preconditions hold.
+                    if not ground_op.preconditions.issubset(
+                            segment.init_atoms):
+                        continue
+                    # Check if effects match. Note that we're using the side
+                    # predicates semantics here!
+                    atoms = utils.apply_operator(ground_op, segment.init_atoms)
+                    if not atoms.issubset(segment.final_atoms):
+                        continue
+                    # This segment belongs in this datastore, so add it.
+                    sub = dict(zip(pnad.op.parameters, ground_op.objects))
+                    pnad.add_to_datastore((segment, sub),
+                                          check_effect_equality=False)
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:

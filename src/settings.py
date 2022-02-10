@@ -47,7 +47,7 @@ class GlobalSettings:
     cluttered_table_place_goal_conditioned_sampling = True
 
     # repeated nextto env parameters
-    repeated_nextto_num_dots = 25
+    repeated_nextto_num_dots = 15
 
     # painting env parameters
     painting_initial_holding_prob = 0.5
