@@ -30,6 +30,7 @@ ENV_NAMES = {
     "cover_regrasp": "Cover Regrasp",
     "blocks": "Blocks",
     "painting": "Painting",
+    "tools": "Tools",
 }
 
 SEEDS = list(range(10))
@@ -252,7 +253,10 @@ def _compute_expected_nodes(env_name: str,
 
 def _create_predicate_labels(
         predicate_set_order: Tuple[FrozenSet[Predicate], ...]) -> List[str]:
-    labels = [", ".join(p.name for p in predicate_set_order[0])]
+    if len(predicate_set_order[0]) > 5:
+        labels = ["[Goal Predicates]"]
+    else:
+        labels = [", ".join(p.name for p in predicate_set_order[0])]
     for i in range(len(predicate_set_order) - 1):
         new_predicates = predicate_set_order[i + 1] - predicate_set_order[i]
         assert len(new_predicates) == 1

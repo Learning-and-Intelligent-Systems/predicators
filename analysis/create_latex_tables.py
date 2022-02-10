@@ -48,7 +48,7 @@ COLUMN_NAMES_AND_KEYS = [
 DERIVED_KEYS = [("perc_solved",
                  lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
 
-TOP_ROW_LABEL = "\\bf{Environments}"
+TOP_ROW_LABEL = "\\bf{Environment}"
 
 # The keys of the dict are (df key, df value), and the dict values are
 # labels for the legend. The df key/value are used to select a subset from
@@ -62,23 +62,22 @@ ROW_GROUPS = [
 
 # See ROW_GROUPS comment.
 OUTER_HEADER_GROUPS = [
-    ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_" in v)),
+    ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
     ("1-Skel Score",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_" in v)),
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
     ("1-Skel Eval",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_" in v)),
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_200" in v)),
     ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
-        lambda v: "_noinventallexclude_" in v)),
+        lambda v: "_noinventallexclude_200" in v)),
     ("Prediction",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_" in v)),
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
     ("Branching",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_" in v)),
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
     ("Energy",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_" in v)),
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
     ("Random", pd_create_equal_selector("APPROACH", "random_options")),
-    ("Oracle",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_noinventnoexclude_" in v)
-     ),
+    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+        lambda v: "_noinventnoexclude_200" in v)),
 ]
 
 DOUBLE_LINES_AFTER = ["Ours", "No Invent", "Random"]
@@ -90,7 +89,7 @@ DO_BOLDING = False
 # If less than this, entry will be red.
 RED_MIN_SIZE = 10
 
-# #### Main results ###
+#### Main results ###
 
 # See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
 # whether higher or lower is better.
@@ -113,6 +112,31 @@ TABLE_LABEL = "tab:mainresults"
 
 # CAPTION = "TODO"
 # TABLE_LABEL = "tab:timeresults"
+
+# #### Heuristic results ###
+
+# TOP_ROW_LABEL = "\\bf{Heuristic}"
+
+# INNER_HEADER_GROUPS = [
+#     ("Succ", "PERC_SOLVED", "higher"),
+#     ("Node", "AVG_NODES_CREATED", "lower"),
+# ]
+
+# CAPTION = "TODO"
+# TABLE_LABEL = "tab:haddresults"
+
+# OUTER_HEADER_GROUPS = [
+#     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main" in v)),
+#     ("Handwritten",
+#      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "noinventnoexclude" in v)
+#      ),
+# ]
+
+# ROW_GROUPS = [
+#     ("lmcut", lambda df: df["EXPERIMENT_ID"].apply(
+#        lambda v: "blocks_main_" in v or "blocks_noinventnoexclude_" in v)),
+#     ("hadd", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "hadd" in v)),
+# ]
 
 #################### Should not need to change below here #####################
 
@@ -191,8 +215,8 @@ def _main() -> None:
                 inner_label_to_comp[inner_label] = lt
         for (outer_label, inner_label), (mean, std,
                                          _) in entry_to_mean_std_size.items():
-            # Special case: exclude oracle
-            if outer_label == "Oracle":
+            # Special case: exclude Handwritten
+            if outer_label == "Handwritten":
                 continue
             if inner_label not in inner_label_to_best_mean_std:
                 inner_label_to_best_mean_std[inner_label] = (mean, std)
@@ -202,8 +226,8 @@ def _main() -> None:
                     inner_label_to_best_mean_std[inner_label] = (mean, std)
         for (outer_label, inner_label), (mean, _,
                                          _) in entry_to_mean_std_size.items():
-            # Special case: exclude oracle
-            if outer_label == "Oracle":
+            # Special case: exclude Handwritten
+            if outer_label == "Handwritten":
                 continue
             best_mean, best_std = inner_label_to_best_mean_std[inner_label]
             if abs(mean - best_mean) <= BOLD_NUM_STDS * best_std:
