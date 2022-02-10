@@ -37,7 +37,7 @@ def test_create_sampler_data():
     next_atoms = utils.abstract(next_state, predicates)
     segment1 = Segment(LowLevelTrajectory([state, next_state], [action]),
                        atoms, next_atoms, option)
-    obj_to_var1 = {cup0: var_cup0}
+    var_to_obj1 = {var_cup0: cup0}
 
     # Transition 2: does nothing
     state = State({cup0: [0.4]})
@@ -48,9 +48,9 @@ def test_create_sampler_data():
     next_atoms = utils.abstract(next_state, predicates)
     segment2 = Segment(LowLevelTrajectory([state, next_state], [action]),
                        atoms, next_atoms, option)
-    obj_to_var2 = {cup0: var_cup0}
+    var_to_obj2 = {var_cup0: cup0}
 
-    datastores = [[(segment1, obj_to_var1)], [(segment2, obj_to_var2)]]
+    datastores = [[(segment1, var_to_obj1)], [(segment2, var_to_obj2)]]
     variables = [var_cup0]
     preconditions = set()
     add_effects = {LiftedAtom(pred0, [var_cup0])}

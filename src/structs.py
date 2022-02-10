@@ -325,7 +325,7 @@ class LiftedAtom(_Atom):
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
 
-    def ground(self, sub: dict[Variable, Object]) -> GroundAtom:
+    def ground(self, sub: VarToObjSub) -> GroundAtom:
         """Create a GroundAtom with a given substitution."""
         assert set(self.variables).issubset(set(sub.keys()))
         return GroundAtom(self.predicate, [sub[v] for v in self.variables])
