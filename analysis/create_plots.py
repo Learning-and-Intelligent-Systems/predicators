@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pandas as pd
 from predicators.analysis.analyze_results_directory import create_dataframes, \
-    pd_create_equal_selector, get_df_for_entry
+    get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
