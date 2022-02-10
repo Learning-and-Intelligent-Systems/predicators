@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Set, List, Sequence, Iterator, Tuple
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task, DummyOption
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
@@ -75,18 +75,19 @@ def _learn_pnad_side_predicates(
         train_tasks: List[Task], predicates: Set[Predicate],
         segments: List[Segment],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
-    # There are no goal states for this search; run until exhausted.
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
         del s  # unused
+        # There are no goal states for this search; run until exhausted.
         return False
 
-    # Consider changing each effect to a side predicate.
     def _get_successors(
         s: Tuple[PartialNSRTAndDatastore, ...],
     ) -> Iterator[Tuple[None, Tuple[PartialNSRTAndDatastore, ...], float]]:
+        # For each PNAD/operator...
         for i in range(len(s)):
             pnad = s[i]
             _, option_vars = pnad.option_spec
+            # ...consider changing each of its effects to a side predicate.
             for effect_set, add_or_delete in [(pnad.op.add_effects, "add"),
                                               (pnad.op.delete_effects,
                                                "delete")]:
@@ -98,10 +99,15 @@ def _learn_pnad_side_predicates(
                     sprime = list(s)
                     sprime[i] = new_pnad
                     yield (None, tuple(sprime), 1.0)
+            # ...consider removing it.
+            sprime = list(s)
+            del sprime[i]
+            yield (None, tuple(sprime), 1.0)
 
     score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
 
     def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+        # Score function for search. Lower is better.
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
         score = score_func.evaluate_with_operators(frozenset(),
@@ -113,7 +119,7 @@ def _learn_pnad_side_predicates(
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
                                          _get_successors, _evaluate)
-    # Final PNADs are the last ones in the path.
+    # The last state in the search holds the final PNADs.
     pnads = list(path[-1])
     # Recompute the datastores in the PNADs. We need to do this
     # because now that we have side predicates, each transition may be
@@ -124,14 +130,12 @@ def _learn_pnad_side_predicates(
 
 def _recompute_datastores_from_segments(
         segmented_trajs: List[List[Segment]],
-        pnads: List[PartialNSRTAndDatastore]) -> List[Set[Tuple[int, int]]]:
+        pnads: List[PartialNSRTAndDatastore]) -> None:
     for pnad in pnads:
         pnad.datastore = []  # reset all PNAD datastores
-    all_indices: List[Set[Tuple[int, int]]] = [set() for _ in pnads]
-    for traj_idx, seg_traj in enumerate(segmented_trajs):
+    for seg_traj in segmented_trajs:
         objects = set(seg_traj[0].states[0])
-        for segment_idx, segment in enumerate(seg_traj):
-            identifier = (traj_idx, segment_idx)
+        for segment in seg_traj:
             if segment.has_option():
                 segment_option = segment.get_option()
                 segment_param_option = segment_option.parent
@@ -140,7 +144,7 @@ def _recompute_datastores_from_segments(
                 segment_param_option = DummyOption.parent
                 segment_option_objs = tuple()
             # Get ground operators given these objects and option objs.
-            for pnad_idx, pnad in enumerate(pnads):
+            for pnad in pnads:
                 param_opt, opt_vars = pnad.option_spec
                 if param_opt != segment_param_option:
                     continue
@@ -165,8 +169,6 @@ def _recompute_datastores_from_segments(
                     sub = dict(zip(ground_op.objects, pnad.op.parameters))
                     pnad.add_to_datastore((segment, sub),
                                           check_consistency=False)
-                    all_indices[pnad_idx].add(identifier)
-    return all_indices
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
