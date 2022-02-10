@@ -1693,7 +1693,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
     side_predicates = {NextToNothing}
     grasp_nsrt = NSRT("Grasp", parameters, preconditions, add_effects,
                       delete_effects, side_predicates, option, option_vars,
-                      lambda s, g, rng, o: np.zeros(0, dtype=np.float32))
+                      null_sampler)
     nsrts.add(grasp_nsrt)
 
     return nsrts
