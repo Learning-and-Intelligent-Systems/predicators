@@ -174,7 +174,7 @@ def _create_sampler_data(
     positive_data = []
     negative_data = []
     for idx, datastore in enumerate(datastores):
-        for (segment, obj_to_var) in datastore:
+        for (segment, obj_var_map) in datastore:
             assert segment.has_option()
             option = segment.get_option()
             state = segment.states[0]
@@ -189,7 +189,7 @@ def _create_sampler_data(
                 # sampler for, and this datapoint matches the actual grounding,
                 # add it to the positive data and continue.
                 if idx == datastore_idx:
-                    var_to_obj = {v: k for k, v in obj_to_var.items()}
+                    var_to_obj = {v: k for k, v in obj_var_map}
                     actual_grounding = [var_to_obj[var] for var in variables]
                     if grounding == actual_grounding:
                         assert all(

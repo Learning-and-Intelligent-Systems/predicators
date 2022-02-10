@@ -2,7 +2,7 @@
 
 from typing import Set, List, Sequence, cast
 from predicators.src.structs import STRIPSOperator, LiftedAtom, Variable, \
-    Predicate, ObjToVarSub, LowLevelTrajectory, Segment, State, Action, \
+    Predicate, ObjVarMap, LowLevelTrajectory, Segment, State, Action, \
     PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption
 from predicators.src import utils
 from predicators.src.settings import CFG
@@ -111,11 +111,10 @@ def learn_strips_operators(
                 pnad_param_option,
                 segment_option_objs,
                 tuple(pnad_option_vars))
-            sub = cast(ObjToVarSub, ent_to_ent_sub)
+            obj_var_map = cast(ObjVarMap, set(ent_to_ent_sub.items()))
             if suc:
                 # Add to this PNAD.
-                assert set(sub.values()) == set(pnad.op.parameters)
-                pnad.add_to_datastore((segment, sub))
+                pnad.add_to_datastore((segment, obj_var_map))
                 break
         else:
             # Otherwise, create a new PNAD.
@@ -136,7 +135,8 @@ def learn_strips_operators(
             side_predicates: Set[Predicate] = set()  # will be learned later
             op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                 add_effects, delete_effects, side_predicates)
-            datastore = [(segment, sub)]
+            obj_var_map = set(sub.items())
+            datastore = [(segment, obj_var_map)]
             option_vars = [sub[o] for o in segment_option_objs]
             option_spec = (segment_param_option, option_vars)
             pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
@@ -148,7 +148,8 @@ def learn_strips_operators(
 
     # Learn the preconditions of the operators in the PNADs via intersection.
     for pnad in pnads:
-        for i, (segment, sub) in enumerate(pnad.datastore):
+        for i, (segment, obj_var_map) in enumerate(pnad.datastore):
+            sub = dict(obj_var_map)
             objects = set(sub.keys())
             atoms = {
                 atom

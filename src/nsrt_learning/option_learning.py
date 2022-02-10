@@ -68,19 +68,23 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
         for datastore in datastores:
             param_option = None
             option_vars = None
-            for i, (segment, sub) in enumerate(datastore):
+            for i, (segment, obj_var_map) in enumerate(datastore):
                 option = segment.actions[0].get_option()
+                var_obj_sub = {v: o for o, v in obj_var_map}
                 if i == 0:
                     param_option = option.parent
+                    sub = dict(obj_var_map)
                     option_vars = [sub[o] for o in option.objects]
                 else:
                     assert param_option == option.parent
-                    assert option_vars == [sub[o] for o in option.objects]
+                    option_args = [var_obj_sub[v] for v in option_vars]
+                    assert option.objects == option_args
                 # Make sure the option is consistent within a trajectory.
                 for a in segment.actions:
                     option_a = a.get_option()
                     assert param_option == option_a.parent
-                    assert option_vars == [sub[o] for o in option_a.objects]
+                    option_args = [var_obj_sub[v] for v in option_vars]
+                    assert option_a.objects == option_args
             assert param_option is not None and option_vars is not None, \
                 "No data in this datastore?"
             option_specs.append((param_option, option_vars))
@@ -373,8 +377,8 @@ class _NeuralOptionLearner(_OptionLearnerBase):
                 v for v in op.parameters if v in changing_parameters
             ]
 
-            for segment, sub in datastore:
-                inv_sub = {v: o for o, v in sub.items()}
+            for segment, obj_var_map in datastore:
+                inv_sub = {v: o for o, v in obj_var_map}
                 all_objects_in_operator = [inv_sub[v] for v in op.parameters]
 
                 # First, determine the absolute goal vector for this segment.
@@ -424,10 +428,10 @@ class _NeuralOptionLearner(_OptionLearnerBase):
     @staticmethod
     def _get_changing_parameters(datastore: Datastore) -> Set[Variable]:
         all_changing_variables = set()
-        for segment, sub in datastore:
+        for segment, obj_var_map in datastore:
             start = segment.states[0]
             end = segment.states[-1]
-            for o, v in sub.items():
+            for o, v in obj_var_map:
                 if not np.array_equal(start[o], end[o]):
                     all_changing_variables.add(v)
         return all_changing_variables

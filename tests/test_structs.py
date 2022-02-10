@@ -774,7 +774,7 @@ def test_pnad():
     params = [0.5]
     option = parameterized_option.ground([], params)
     segment1 = Segment(traj, init_atoms, final_atoms, option)
-    objtovar = {cup: cup_var, plate: plate_var}
+    objtovar = {(cup, cup_var), (plate, plate_var)}
     segment2 = Segment(traj, init_atoms, final_atoms, option)
     segment3 = Segment(traj, init_atoms, set(), option)
     datastore = [(segment1, objtovar)]
