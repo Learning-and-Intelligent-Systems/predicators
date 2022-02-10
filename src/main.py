@@ -152,7 +152,8 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
                                       train_tasks: List[Task]) -> Dataset:
     """Create offline dataset from training tasks."""
     dataset_filename = (
-        f"{CFG.env}__{CFG.offline_data_method}__{CFG.seed}.data")
+        f"{CFG.env}__{CFG.offline_data_method}__{CFG.num_train_tasks}"
+        f"__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
         assert os.path.exists(dataset_filepath)
