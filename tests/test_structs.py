@@ -774,10 +774,10 @@ def test_pnad():
     params = [0.5]
     option = parameterized_option.ground([], params)
     segment1 = Segment(traj, init_atoms, final_atoms, option)
-    objtovar = {cup: cup_var, plate: plate_var}
+    var_to_obj = {cup_var: cup, plate_var: plate}
     segment2 = Segment(traj, init_atoms, final_atoms, option)
     segment3 = Segment(traj, init_atoms, set(), option)
-    datastore = [(segment1, objtovar)]
+    datastore = [(segment1, var_to_obj)]
     parameters = [cup_var, plate_var]
     preconditions = {on([cup_var, plate_var])}
     add_effects = {not_on([cup_var, plate_var])}
@@ -789,10 +789,10 @@ def test_pnad():
     pnad = PartialNSRTAndDatastore(strips_operator, datastore,
                                    (parameterized_option, []))
     assert len(pnad.datastore) == 1
-    pnad.add_to_datastore((segment2, objtovar))
+    pnad.add_to_datastore((segment2, var_to_obj))
     assert len(pnad.datastore) == 2
     with pytest.raises(AssertionError):  # doesn't fit add effects
-        pnad.add_to_datastore((segment3, objtovar))
+        pnad.add_to_datastore((segment3, var_to_obj))
     assert repr(pnad) == str(pnad) == """STRIPS-Pick:
     Parameters: [?cup:cup_type, ?plate:plate_type]
     Preconditions: [On(?cup:cup_type, ?plate:plate_type)]
