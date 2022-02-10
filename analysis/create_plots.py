@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pandas as pd
 from predicators.analysis.analyze_results_directory import create_dataframes, \
-    pd_create_equal_selector, get_df_for_entry
+    get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -70,10 +70,15 @@ Y_KEY_AND_LABEL = [
 # the overall pandas dataframe.
 PLOT_GROUPS = {
     "Learning from Few Demonstrations": [
-        ("PickPlace1D", pd_create_equal_selector("ENV", "cover_regrasp")),
-        ("Blocks", pd_create_equal_selector("ENV", "blocks")),
-        ("Painting", pd_create_equal_selector("ENV", "painting")),
-        ("Tools", pd_create_equal_selector("ENV", "tools")),
+        ("PickPlace1D", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "cover_regrasp_main_" in v)),
+        ("Blocks",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "blocks_main_" in v)),
+        ("Painting",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "painting_main_" in v)
+         ),
+        ("Tools",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "tools_main_" in v)),
     ],
 }
 
