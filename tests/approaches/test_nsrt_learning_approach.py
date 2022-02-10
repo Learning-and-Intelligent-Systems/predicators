@@ -77,7 +77,8 @@ def _test_approach(env_name,
 
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
-    _test_approach(env_name="blocks", approach_name="nsrt_learning",
+    _test_approach(env_name="blocks",
+                   approach_name="nsrt_learning",
                    try_solving=False)
     _test_approach(env_name="repeated_nextto",
                    approach_name="nsrt_learning",

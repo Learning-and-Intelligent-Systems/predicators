@@ -75,6 +75,7 @@ def _learn_pnad_side_predicates(
         train_tasks: List[Task], predicates: Set[Predicate],
         segments: List[Segment],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
+
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
         del s  # unused
         # There are no goal states for this search; run until exhausted.
@@ -162,13 +163,9 @@ def _recompute_datastores_from_segments(
                     if not atoms.issubset(segment.final_atoms):
                         continue
                     # This segment belongs in this datastore, so add it.
-                    # TODO: this is an edge case we need to fix by changing
-                    # ObjToVarSubs in the partition to VarToObjSubs.
-                    if len(set(ground_op.objects)) != len(ground_op.objects):
-                        continue
-                    sub = dict(zip(ground_op.objects, pnad.op.parameters))
+                    sub = dict(zip(pnad.op.parameters, ground_op.objects))
                     pnad.add_to_datastore((segment, sub),
-                                          check_consistency=False)
+                                          check_effect_equality=False)
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
