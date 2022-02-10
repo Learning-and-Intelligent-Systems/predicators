@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import Set, List, Sequence, Iterator, Tuple
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task, DummyOption
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
