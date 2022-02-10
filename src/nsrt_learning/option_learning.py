@@ -67,7 +67,7 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
         option_specs = []
         for datastore in datastores:
             param_option = None
-            option_vars = None
+            option_vars: List[Variable] = []
             for i, (segment, obj_var_map) in enumerate(datastore):
                 option = segment.actions[0].get_option()
                 var_obj_sub = {v: o for o, v in obj_var_map}
