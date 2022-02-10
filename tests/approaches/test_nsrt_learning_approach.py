@@ -16,6 +16,7 @@ def _test_approach(env_name,
                    sampler_learner="neural",
                    option_learner="no_learning",
                    learn_side_predicates=False,
+                   num_train_tasks=1,
                    additional_settings=None):
     """Integration test for the given approach."""
     if additional_settings is None:
@@ -24,12 +25,12 @@ def _test_approach(env_name,
     utils.reset_config({
         "env": env_name,
         "approach": approach_name,
-        "neural_gaus_regressor_max_itr": 100,
-        "sampler_mlp_classifier_max_itr": 100,
-        "predicate_mlp_classifier_max_itr": 100,
-        "mlp_regressor_max_itr": 100,
-        "num_train_tasks": 3,
-        "num_test_tasks": 3,
+        "neural_gaus_regressor_max_itr": 50,
+        "sampler_mlp_classifier_max_itr": 50,
+        "predicate_mlp_classifier_max_itr": 50,
+        "mlp_regressor_max_itr": 50,
+        "num_train_tasks": num_train_tasks,
+        "num_test_tasks": 1,
         "offline_data_method": "demo+replay",
         "sesame_allow_noops": False,
         "offline_data_num_replays": 50,
@@ -76,13 +77,14 @@ def _test_approach(env_name,
 
 def test_nsrt_learning_approach():
     """Tests for NSRTLearningApproach class."""
-    _test_approach(env_name="blocks", approach_name="nsrt_learning")
-    with pytest.raises(NotImplementedError):
-        _test_approach(env_name="repeated_nextto",
-                       approach_name="nsrt_learning",
-                       try_solving=False,
-                       sampler_learner="random",
-                       learn_side_predicates=True)
+    _test_approach(env_name="blocks",
+                   approach_name="nsrt_learning",
+                   try_solving=False)
+    _test_approach(env_name="repeated_nextto",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   learn_side_predicates=True)
 
 
 def test_neural_option_learning():
@@ -102,24 +104,28 @@ def test_oracle_samplers():
     _test_approach(env_name="cover",
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
-                   check_solution=True)
+                   check_solution=True,
+                   num_train_tasks=3)
     _test_approach(env_name="blocks",
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
-                   check_solution=True)
+                   check_solution=True,
+                   num_train_tasks=3)
     # Test oracle samplers + option learning.
     _test_approach(env_name="cover",
                    approach_name="nsrt_learning",
                    sampler_learner="oracle",
                    option_learner="oracle",
-                   check_solution=True)
+                   check_solution=True,
+                   num_train_tasks=3)
     with pytest.raises(Exception) as e:
         # In painting, we learn operators that are different from the
         # oracle ones, so oracle sampler learning is not possible.
         _test_approach(env_name="painting",
                        approach_name="nsrt_learning",
                        sampler_learner="oracle",
-                       check_solution=True)
+                       check_solution=True,
+                       num_train_tasks=3)
     assert "no match for ground truth NSRT" in str(e)
 
 
@@ -157,6 +163,7 @@ def test_grammar_search_invention_approach():
                    excluded_predicates="Holding",
                    try_solving=False,
                    sampler_learner="random",
+                   num_train_tasks=3,
                    additional_settings=additional_settings)
     # Test approach with unrecognized search algorithm.
     additional_settings = {
