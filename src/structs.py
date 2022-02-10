@@ -325,7 +325,7 @@ class LiftedAtom(_Atom):
         return (str(self.predicate) + "(" +
                 ", ".join(map(str, self.variables)) + ")")
 
-    def ground(self, sub: dict[Variable, Object]) -> GroundAtom:
+    def ground(self, sub: VarToObjSub) -> GroundAtom:
         """Create a GroundAtom with a given substitution."""
         assert set(self.variables).issubset(set(sub.keys()))
         return GroundAtom(self.predicate, [sub[v] for v in self.variables])
@@ -348,7 +348,7 @@ class GroundAtom(_Atom):
         return (str(self.predicate) + "(" + ", ".join(map(str, self.objects)) +
                 ")")
 
-    def lift(self, sub: dict[Object, Variable]) -> LiftedAtom:
+    def lift(self, sub: ObjToVarSub) -> LiftedAtom:
         """Create a LiftedAtom with a given substitution."""
         assert set(self.objects).issubset(set(sub.keys()))
         return LiftedAtom(self.predicate, [sub[o] for o in self.objects])
@@ -1046,7 +1046,7 @@ class PartialNSRTAndDatastore:
     op: STRIPSOperator
     # The datastore, a list of segments that are covered by the
     # STRIPSOperator self.op. For each such segment, the datastore also
-    # maintains a substitution dictionary of type ObjToVarSub,
+    # maintains a substitution dictionary of type VarToObjSub,
     # under which the ParameterizedOption and effects for all
     # segments in the datastore are equivalent.
     datastore: Datastore
@@ -1056,24 +1056,33 @@ class PartialNSRTAndDatastore:
     sampler: Optional[NSRTSampler] = field(init=False, default=None)
 
     def add_to_datastore(self,
-                         member: Tuple[Segment, ObjToVarSub],
-                         check_consistency: bool = True) -> None:
+                         member: Tuple[Segment, VarToObjSub],
+                         check_effect_equality: bool = True) -> None:
         """Add a new member to self.datastore."""
-        if check_consistency:
-            seg, sub = member
-            if len(self.datastore) > 0:
-                # The effects should match.
-                lifted_add_effects = {a.lift(sub) for a in seg.add_effects}
-                lifted_del_effects = {a.lift(sub) for a in seg.delete_effects}
+        seg, var_obj_sub = member
+        if len(self.datastore) > 0:
+            obj_var_sub = {o: v for (v, o) in var_obj_sub.items()}
+            # All variables should have a corresponding object.
+            assert set(var_obj_sub) == set(self.op.parameters)
+            # The effects should match.
+            if check_effect_equality:
+                lifted_add_effects = {
+                    a.lift(obj_var_sub)
+                    for a in seg.add_effects
+                }
+                lifted_del_effects = {
+                    a.lift(obj_var_sub)
+                    for a in seg.delete_effects
+                }
                 assert lifted_add_effects == self.op.add_effects
                 assert lifted_del_effects == self.op.delete_effects
-                if seg.has_option():
-                    # The option should match.
-                    option = seg.get_option()
-                    part_param_option, part_option_args = self.option_spec
-                    assert option.parent == part_param_option
-                    option_args = [sub[o] for o in option.objects]
-                    assert option_args == part_option_args
+            if seg.has_option():
+                # The option should match.
+                option = seg.get_option()
+                part_param_option, part_option_args = self.option_spec
+                assert option.parent == part_param_option
+                option_args = [var_obj_sub[v] for v in part_option_args]
+                assert option.objects == option_args
         # Add to datastore.
         self.datastore.append(member)
 
@@ -1175,7 +1184,7 @@ ObjToObjSub = Dict[Object, Object]
 VarToObjSub = Dict[Variable, Object]
 VarToVarSub = Dict[Variable, Variable]
 EntToEntSub = Dict[_TypedEntity, _TypedEntity]
-Datastore = List[Tuple[Segment, ObjToVarSub]]
+Datastore = List[Tuple[Segment, VarToObjSub]]
 NSRTSampler = Callable[
     [State, Set[GroundAtom], np.random.Generator, Sequence[Object]], Array]
 Metrics = DefaultDict[str, float]
