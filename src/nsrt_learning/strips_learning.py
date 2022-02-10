@@ -2,7 +2,7 @@
 
 from typing import Set, List, Sequence, cast
 from predicators.src.structs import STRIPSOperator, LiftedAtom, Variable, \
-    Predicate, ObjToVarSub, LowLevelTrajectory, Segment, State, Action, \
+    Predicate, VarToObjSub, LowLevelTrajectory, Segment, State, Action, \
     PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption
 from predicators.src import utils
 from predicators.src.settings import CFG
@@ -111,10 +111,10 @@ def learn_strips_operators(
                 pnad_param_option,
                 segment_option_objs,
                 tuple(pnad_option_vars))
-            sub = cast(ObjToVarSub, ent_to_ent_sub)
+            sub = cast(VarToObjSub, {v: o for o, v in ent_to_ent_sub.items()})
             if suc:
                 # Add to this PNAD.
-                assert set(sub.values()) == set(pnad.op.parameters)
+                assert set(sub.keys()) == set(pnad.op.parameters)
                 pnad.add_to_datastore((segment, sub))
                 break
         else:
@@ -127,17 +127,21 @@ def learn_strips_operators(
                 Variable(f"?x{i}", o.type) for i, o in enumerate(objects_lst)
             ]
             preconds: Set[LiftedAtom] = set()  # will be learned later
-            sub = dict(zip(objects_lst, params))
-            add_effects = {atom.lift(sub) for atom in segment.add_effects}
+            obj_to_var = dict(zip(objects_lst, params))
+            var_to_obj = dict(zip(params, objects_lst))
+            add_effects = {
+                atom.lift(obj_to_var)
+                for atom in segment.add_effects
+            }
             delete_effects = {
-                atom.lift(sub)
+                atom.lift(obj_to_var)
                 for atom in segment.delete_effects
             }
             side_predicates: Set[Predicate] = set()  # will be learned later
             op = STRIPSOperator(f"Op{len(pnads)}", params, preconds,
                                 add_effects, delete_effects, side_predicates)
-            datastore = [(segment, sub)]
-            option_vars = [sub[o] for o in segment_option_objs]
+            datastore = [(segment, var_to_obj)]
+            option_vars = [obj_to_var[o] for o in segment_option_objs]
             option_spec = (segment_param_option, option_vars)
             pnads.append(PartialNSRTAndDatastore(op, datastore, option_spec))
 
@@ -148,18 +152,19 @@ def learn_strips_operators(
 
     # Learn the preconditions of the operators in the PNADs via intersection.
     for pnad in pnads:
-        for i, (segment, sub) in enumerate(pnad.datastore):
-            objects = set(sub.keys())
+        for i, (segment, var_to_obj) in enumerate(pnad.datastore):
+            objects = set(var_to_obj.values())
+            obj_to_var = {o: v for v, o in var_to_obj.items()}
             atoms = {
                 atom
                 for atom in segment.init_atoms
                 if all(o in objects for o in atom.objects)
             }
-            lifted_atoms = {atom.lift(sub) for atom in atoms}
+            lifted_atoms = {atom.lift(obj_to_var) for atom in atoms}
             if i == 0:
-                variables = sorted(set(sub.values()))
+                variables = sorted(set(var_to_obj.keys()))
             else:
-                assert variables == sorted(set(sub.values()))
+                assert variables == sorted(set(var_to_obj.keys()))
             if i == 0:
                 preconditions = lifted_atoms
             else:
