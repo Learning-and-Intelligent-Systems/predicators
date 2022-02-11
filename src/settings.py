@@ -30,7 +30,7 @@ class GlobalSettings:
     # cover env parameters
     cover_num_blocks = 2
     cover_num_targets = 2
-    cover_block_widths = [0.1, 0.07]
+    cover_block_widths = [0.1, 0.06]
     cover_target_widths = [0.05, 0.03]
     cover_initial_holding_prob = 0.75
 

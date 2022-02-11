@@ -139,7 +139,7 @@ class CoverEnv(BaseEnv):
 
     def render(self,
                state: State,
-               task: Task,
+               task: Optional[Task],
                action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         # Draw main line
@@ -510,6 +510,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             self._blocks.append(Object(f"block{i}", self._block_type))
         for i in range(CFG.cover_num_targets):
             self._targets.append(Object(f"target{i}", self._target_type))
+        self.block_hand_regions = {b: None for b in self._blocks}
+        self.target_hand_regions = {t: None for t in self._targets}
         self._robot = Object("robby", self._robot_type)
         # Override the original options to make them multi-step.
         self._Pick = ParameterizedOption("Pick",
@@ -667,7 +669,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Note: unlike parent env, we also need to check the grip.
         if held_block is None and above_block is not None and \
             grip > self.grasp_thresh and any(hand_lb <= x <= hand_rb for
-            hand_lb, hand_rb in self._get_hand_regions(state)):
+            hand_lb, hand_rb in self._get_hand_regions_block(state)):
             by = state.get(above_block, "y")
             by_ub = by + self.grasp_height_tol
             by_lb = by - self.grasp_height_tol
@@ -676,13 +678,18 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 next_state.set(above_block, "grasp", 1)
                 next_state.set(self._robot, "holding", 1)
 
-        # If we are holding anything and we're not above a block, place it if
+        # If we are holding something and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed
-        # and possible overlaps with other blocks is handled by the
-        # collision checker.
+        # but if we are over a target, we must be in its hand region. Possible
+        # overlaps with other blocks is handled by the collision checker.
         # Note: unlike parent env, we also need to check the grip.
         if held_block is not None and above_block is None and \
             grip < self.grasp_thresh and (hy-hh) < self.placing_height:
+            if any(state.get(targ, "x")-state.get(targ, "width")/2 <= x <=
+                state.get(targ, "x")+state.get(targ, "width")/2 for targ in \
+                self._targets) and not any(hand_lb <= x <= hand_rb for \
+                hand_lb, hand_rb in self._get_hand_regions_target(state)):
+                    return state.copy()
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
             next_state.set(self._robot, "holding", -1)
@@ -691,7 +698,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
     def render(self,
                state: State,
-               task: Task,
+               task: Optional[Task],
                action: Optional[Action] = None) -> List[Image]:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
@@ -802,6 +809,116 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # [x, y, grip, holding]
         data[self._robot] = np.array([0.0, self.initial_robot_y, -1.0, -1.0])
         return State(data)
+
+        # # NEW WAY
+        # # (1) place targets and blocks
+        # placements_satisfied = False
+        # target_placements = []
+        # block_placements = []
+        # while not placements_satisfied:
+        #     overlap = False
+        #     block_placements = []
+        #     for block, bw in zip(self._blocks, CFG.cover_block_widths):
+        #         xb = rng.uniform(bw/2, 1-bw/2)
+        #         left_pt = xb - bw/2
+        #         right_pt = xb + bw/2
+        #         block_placements.append((left_pt, xb, right_pt, "block"))
+        #     target_placements = []
+        #     for target, tw, bw in zip(self._targets, CFG.cover_target_widths, CFG.cover_block_widths):
+        #         x = rng.uniform(bw-tw/2, 1-bw+tw/2)
+        #         # log the left and right points
+        #         left_pt = x + tw/2 - bw
+        #         right_pt = x - tw/2 + bw
+        #         target_placements.append((left_pt, x, right_pt, "target"))
+        #     # check if any overlap
+        #     all_placements = target_placements + block_placements
+        #     all_placements = sorted(all_placements, key=lambda x: x[0])
+        #     for i in range(1, len(all_placements) - 1):
+        #         curr = all_placements[i]
+        #         prev = all_placements[i-1]
+        #         if curr[0] < prev[2]:
+        #             overlap = True
+        #     if overlap==False:
+        #         placements_satisfied = True
+        #
+        # # now make the target and block objects and robot
+        # target_placements = [t for t in all_placements if t[3] == "target"]
+        # block_placements = [b for b in all_placements if b[3] == "block"]
+        # for target, width, placement in zip(self._targets, CFG.cover_target_widths, target_placements):
+        #     l, x, r, name = placement
+        #     # [is_block, is_target, width, x]
+        #     data[target] = np.array([0.0, 1.0, width, x])
+        # for block, width, placement in zip(self._blocks, CFG.cover_block_widths, block_placements):
+        #     l, x, r, name = placement
+        #     # [is_block, is_target, width, x, grasp, y, height]
+        #     data[block] = np.array([
+        #         1.0, 0.0, width, x, -1.0, self.initial_block_y,
+        #         self.block_height
+        #     ])
+        # # [x, y, grip, holding]
+        # data[self._robot] = np.array([0.0, self.initial_robot_y, -1.0, -1.0])
+        #
+        # # (2) sample some interval in each target for its hand region
+        # # for now, just do some interval that is 50% the length of it
+        # target_hand_regions = []
+        # for target, tw, placement in zip(self._targets, CFG.cover_target_widths, target_placements):
+        #     l, x, r, name = placement
+        #     region_length = 0.5 * tw
+        #     ht = rng.uniform(x-tw/2, x+tw/2-region_length)
+        #     region = [ht, ht+region_length]
+        #     self.target_hand_regions[target] = region
+        #     target_hand_regions.append(region)
+        #
+        # # (3) sample intervals on the blocks so that the problem is solveable
+        # # need to make hand region relative to center of block for _get_hand_regions()
+        # for block, target_placement, thr, bw, tw, block_placement in zip(self._blocks, target_placements, target_hand_regions, CFG.cover_block_widths, CFG.cover_target_widths, block_placements):
+        #     bl, bx, br, bname = block_placement
+        #     tl, tx, tr, tname = target_placement
+        #     region_length = 2 * (thr[1]-thr[0]) # twice length of target hand region
+        #     # make sure interval is not in region that makes place impossible
+        #     valid_interval = False
+        #     while not valid_interval:
+        #         # sample hand region
+        #         # make its left and right interval relative to block x value
+        #         hb = rng.uniform(bx-bw/2, bx+bw/2-region_length)
+        #         region = [hb, hb+region_length]
+        #         relative_region = [region[0]-x, region[1]-x]
+        #         # check if valid interval
+        #         # LEFT CASE
+        #         # make sure left end of block hand region is not past left end of red region
+        #         # RIGHT CASE
+        #         # make sure right end of block hand region is not past right of red region
+        #         relative_l = bx + bw/2 - region[0]
+        #         relative_r = region[1] - (bx - bw/2)
+        #         if relative_l >= (tx + tw/2 - thr[1]) and relative_r >= (thr[0]-(tx - tw/2)):
+        #             valid_interval = True
+        #     self.block_hand_regions[block] = relative_region
+        #
+        # print("get block hand regions: ", self.block_hand_regions, id(self))
+        # s = State(data)
+        # # save
+        # # img = self.render(s)
+        # # outdir = CFG.video_dir
+        # # os.makedirs(outdir, exist_ok=True)
+        # # outfile = "initial_state" + str(rng.randint((0, 1000)))
+        # # outpath = os.path.join(outdir, outfile)
+        # # imageio.mimwrite(outpath, video, fps=CFG.video_fps)
+        # return s
+
+    # def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
+    #     # Overriding because of the change from "pose" to "x".
+    #     hand_regions = []
+    #     print("HERE")
+    #     print("_get_hand_regions, block hand regions: ", self.block_hand_regions, id(self))
+    #     for block in self._blocks:
+    #         hand_regions.append(
+    #             (state.get(block, "x") + self.block_hand_regions[block][0],
+    #              state.get(block, "x") + self.block_hand_regions[block][1]))
+    #     for targ in self._targets:
+    #         hand_regions.append(
+    #             (self.target_hand_regions[targ][0],
+    #              self.target_hand_regions[targ][1]))
+    #     return hand_regions
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
@@ -1044,6 +1161,22 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             hand_regions.append(
                 (state.get(block, "x") - state.get(block, "width") / 2,
                  state.get(block, "x") + state.get(block, "width") / 2))
+        for targ in self._targets:
+            hand_regions.append(
+                (state.get(targ, "x") - state.get(targ, "width") / 10,
+                 state.get(targ, "x") + state.get(targ, "width") / 10))
+        return hand_regions
+
+    def _get_hand_regions_block(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
+        for block in self._blocks:
+            hand_regions.append(
+                (state.get(block, "x") - state.get(block, "width") / 2,
+                 state.get(block, "x") + state.get(block, "width") / 2))
+        return hand_regions
+
+    def _get_hand_regions_target(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
         for targ in self._targets:
             hand_regions.append(
                 (state.get(targ, "x") - state.get(targ, "width") / 10,
