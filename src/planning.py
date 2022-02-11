@@ -4,7 +4,9 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
+import os
 from collections import defaultdict
+import subprocess
 import heapq as hq
 from itertools import islice
 import time
@@ -14,7 +16,7 @@ import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    Metrics, STRIPSOperator, OptionSpec, Object
+    Metrics, STRIPSOperator, OptionSpec, Object, NSRTOrSTRIPSOperator, Type
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, ExceptionWithInfo, \
     EnvironmentFailure
@@ -38,6 +40,7 @@ def sesame_plan(
     option_model: _OptionModelBase,
     nsrts: Set[NSRT],
     initial_predicates: Set[Predicate],
+    types: Set[Type],
     timeout: float,
     seed: int,
     task_planning_heuristic: str,
@@ -51,18 +54,18 @@ def sesame_plan(
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
     planning, then Execution.
     """
-    nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
+    # nsrt_preds, _ = utils.extract_preds_and_types(nsrts)
     # Ensure that initial predicates are always included.
-    predicates = initial_predicates | set(nsrt_preds.values())
-    init_atoms = utils.abstract(task.init, predicates)
-    objects = list(task.init)
+    # predicates = initial_predicates | set(nsrt_preds.values())
+    # init_atoms = utils.abstract(task.init, predicates)
+    # objects = list(task.init)
     start_time = time.time()
-    ground_nsrts = []
-    for nsrt in sorted(nsrts):
-        for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
-            ground_nsrts.append(ground_nsrt)
-            if time.time() - start_time > timeout:
-                raise ApproachTimeout("Planning timed out in grounding!")
+    # ground_nsrts = []
+    # for nsrt in sorted(nsrts):
+    #     for ground_nsrt in utils.all_ground_nsrts(nsrt, objects):
+    #         ground_nsrts.append(ground_nsrt)
+    #         if time.time() - start_time > timeout:
+    #             raise ApproachTimeout("Planning timed out in grounding!")
     # Keep restarting the A* search while we get new discovered failures.
     metrics: Metrics = defaultdict(float)
     # Keep track of partial refinements: skeletons and partial plans. This is
@@ -73,26 +76,29 @@ def sesame_plan(
         # the search significantly, so we may want to exclude them. Note however
         # that we need to do this inside the while True here, because an NSRT
         # that initially has empty effects may later have a _NOT_CAUSES_FAILURE.
-        nonempty_ground_nsrts = [
-            nsrt for nsrt in ground_nsrts
-            if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
-        ]
-        all_reachable_atoms = utils.get_reachable_atoms(
-            nonempty_ground_nsrts, init_atoms)
-        if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
-            raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
-        reachable_nsrts = [
-            nsrt for nsrt in nonempty_ground_nsrts
-            if nsrt.preconditions.issubset(all_reachable_atoms)
-        ]
-        heuristic = utils.create_task_planning_heuristic(
-            task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
-            predicates, objects)
+        # nonempty_ground_nsrts = [
+        #     nsrt for nsrt in ground_nsrts
+        #     if allow_noops or (nsrt.add_effects | nsrt.delete_effects)
+        # ]
+        # all_reachable_atoms = utils.get_reachable_atoms(
+        #     nonempty_ground_nsrts, init_atoms)
+        # if check_dr_reachable and not task.goal.issubset(all_reachable_atoms):
+        #     raise ApproachFailure(f"Goal {task.goal} not dr-reachable")
+        # reachable_nsrts = [
+        #     nsrt for nsrt in nonempty_ground_nsrts
+        #     if nsrt.preconditions.issubset(all_reachable_atoms)
+        # ]
+        # heuristic = utils.create_task_planning_heuristic(
+        #     task_planning_heuristic, init_atoms, task.goal, reachable_nsrts,
+        #     predicates, objects)
         try:
             new_seed = seed + int(metrics["num_failures_discovered"])
-            for skeleton, atoms_sequence in _skeleton_generator(
-                    task, reachable_nsrts, init_atoms, heuristic, new_seed,
-                    timeout - (time.time() - start_time), metrics,
+            # for skeleton, atoms_sequence in _skeleton_generator(
+            #         task, reachable_nsrts, init_atoms, heuristic, new_seed,
+            #         timeout - (time.time() - start_time), metrics,
+            #         max_skeletons_optimized):
+            for skeleton, atoms_sequence in _skeleton_generator_topk(
+                    task, nsrts, initial_predicates, types, metrics,
                     max_skeletons_optimized):
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
@@ -246,6 +252,49 @@ def _skeleton_generator(
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
     raise _SkeletonSearchTimeout
+
+
+def _skeleton_generator_topk(
+        task: Task, operators: Set[NSRTOrSTRIPSOperator],
+        initial_predicates: Set[Predicate], types: Set[Type],
+        metrics: Metrics,
+        max_skeletons_optimized: int) -> Iterator[
+            Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
+    op_preds, _ = utils.extract_preds_and_types(operators)
+    # Ensure that initial predicates are always included.
+    predicates = initial_predicates | set(op_preds.values())
+    init_atoms = utils.abstract(task.init, predicates)
+    objects = list(task.init)
+    dom_str = utils.create_pddl_domain(operators, predicates, types, "mydomain")
+    prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
+                                         "mydomain", "myproblem")
+    with open("dom.pddl", "w", encoding="utf8") as f:
+        f.write(dom_str)
+    with open("prob.pddl", "w", encoding="utf8") as f:
+        f.write(prob_str)
+    args = (f"--search 'symk-bd(plan_selection=top_k"
+            f"(num_plans={max_skeletons_optimized}))'")
+    subprocess.getoutput(f"../symk/fast-downward.py dom.pddl prob.pddl {args}")
+    cnt = 1
+    op_name_to_op = {op.name.lower(): op for op in operators}
+    obj_name_to_obj = {obj.name: obj for obj in objects}
+    while os.path.exists(f"found_plans/sas_plan.{cnt}"):
+        with open(f"found_plans/sas_plan.{cnt}", "r", encoding="utf8") as f:
+            file_str = f.read()
+        plan_str = file_str.split(";")[0].split("\n")[:-1]
+        skeleton = []
+        atoms_sequence = [init_atoms]
+        for act_str in plan_str:
+            act_str_split = act_str[1:-1].split()
+            op = op_name_to_op[act_str_split[0]]
+            objs = [obj_name_to_obj[name] for name in act_str_split[1:]]
+            ground_op = op.ground(objs)
+            skeleton.append(ground_op)
+            atoms_sequence.append(utils.apply_operator(ground_op, atoms_sequence[-1]))
+        metrics["num_skeletons_optimized"] += 1
+        yield skeleton, atoms_sequence
+        cnt += 1
+    raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
 
 
 def _run_low_level_search(task: Task, option_model: _OptionModelBase,
