@@ -289,7 +289,7 @@ def _save_test_results(results: Metrics,
     outdata = {"config": CFG, "results": results.copy()}
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
-    print(f"Test results: {outdata}")
+    print(f"Test results: {outdata['results']}")
     print(f"Wrote out test results to {outfile}")
 
 
