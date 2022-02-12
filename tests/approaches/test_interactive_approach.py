@@ -1,5 +1,6 @@
 """Test cases for the interactive learning approach."""
 
+import numpy as np
 import pytest
 from predicators.src.approaches import InteractiveLearningApproach, \
     ApproachTimeout, ApproachFailure
@@ -46,7 +47,7 @@ def test_interactive_learning_approach():
     approach.learn_from_offline_dataset(dataset)
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
-    interaction_results = _generate_interaction_results(
+    interaction_results, _ = _generate_interaction_results(
         env.simulate, teacher, train_tasks, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
@@ -63,6 +64,7 @@ def test_interactive_learning_approach():
     utils.update_config({
         "interactive_action_strategy": "random",
     })
+    approach._best_score = -np.inf  # reset
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env.simulate, teacher, train_tasks,
                                   interaction_requests)
@@ -71,6 +73,7 @@ def test_interactive_learning_approach():
         "interactive_action_strategy": "glib",
         "timeout": 0.0,
     })
+    approach._best_score = -np.inf  # reset
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env.simulate, teacher, train_tasks,
                                   interaction_requests)
@@ -85,9 +88,19 @@ def test_interactive_learning_approach():
         "interactive_query_policy": "nonstrict_best_seen",
         "interactive_score_function": "trivial",
     })
+    approach._best_score = -np.inf  # reset
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    interaction_results, num_queries = _generate_interaction_results(
+        env.simulate, teacher, train_tasks,
+        interaction_requests)
+    assert len(interaction_results) == 1
+    interaction_result = interaction_results[0]
+    expected_num_queries = 0
+    for s in interaction_result.states:
+        ground_atoms = utils.all_possible_ground_atoms(
+                s, approach._predicates_to_learn)
+        expected_num_queries += len(ground_atoms)
+    assert num_queries == expected_num_queries
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",
