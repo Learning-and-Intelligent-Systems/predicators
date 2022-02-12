@@ -1134,9 +1134,11 @@ class InteractionResult:
 @dataclass(frozen=True, eq=False, repr=False)
 class Query(abc.ABC):
     """Base class for a Query.
-
-    Has no API.
     """
+    def __len__(self) -> int:
+        """The number of queries in this Query. Defaults to 1.
+        """
+        return 1
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1152,6 +1154,9 @@ class Response(abc.ABC):
 class GroundAtomsHoldQuery(Query):
     """A query for whether ground atoms hold in the state."""
     ground_atoms: Collection[GroundAtom]
+
+    def __len__(self) -> int:
+        return len(self.ground_atoms)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
