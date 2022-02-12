@@ -1133,10 +1133,12 @@ class InteractionResult:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class Query(abc.ABC):
-    """Base class for a Query.
-    """
+    """Base class for a Query."""
+
     def __len__(self) -> int:
-        """The number of queries in this Query. Defaults to 1.
+        """The number of queries in this Query.
+
+        Defaults to 1.
         """
         return 1
 

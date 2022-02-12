@@ -176,9 +176,9 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-        simulator: Callable[[State, Action],
-                            State], teacher: Teacher, train_tasks: List[Task],
-        requests: Sequence[InteractionRequest]) -> Tuple[List[InteractionResult], int]:
+    simulator: Callable[[State, Action], State], teacher: Teacher,
+    train_tasks: List[Task], requests: Sequence[InteractionRequest]
+) -> Tuple[List[InteractionResult], int]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
     print("Generating interaction results...")
