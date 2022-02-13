@@ -2,6 +2,7 @@
 
 import re
 import os
+import socket
 from urllib.request import urlopen
 import abc
 from typing import List, Optional, Type
@@ -345,6 +346,7 @@ def _callback(ack, body):
     inquirer = event["user"]
     channel_id = event["channel"]
     home_dir = os.path.expanduser("~")
+    host_name = socket.gethostname()
     bot_user_id = app.client.auth_test().data["user_id"]
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
@@ -353,7 +355,7 @@ def _callback(ack, body):
     # Post an initial response, so the inquirer knows this bot is alive.
     app.client.chat_postMessage(
         channel=channel_id,
-        text=(f"Hello from {home_dir} (PID: {pid})! Generating a "
+        text=(f"Hello from {host_name}:{home_dir} (PID: {pid})! Generating a "
               f"response to your query, <@{inquirer}>."))
     # Generate response object from query.
     response = _get_response_object(query, inquirer)
