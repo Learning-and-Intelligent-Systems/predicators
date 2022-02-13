@@ -10,7 +10,6 @@ import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-CHANNEL_NAME = "predicators-bot-interaction"
 REPO_NAME = "Learning-and-Intelligent-Systems/predicators"
 ANALYSIS_CMD = "python analysis/analyze_results_directory.py"
 MAX_CHARS_PER_MESSAGE = 3500  # actual limit is 4000, but we keep a buffer
@@ -313,15 +312,6 @@ class SupercloudAnalysisResponse(SupercloudResponse):
         return "supercloud_analysis.csv"
 
 
-def _get_channel_id_by_name(name: str) -> str:
-    for result in app.client.conversations_list():
-        for channel in result["channels"]:
-            if channel["name"] == name:
-                channel_id = channel["id"]
-                return channel_id
-    raise Exception(f"No channel found with name: {name}")
-
-
 def _get_response_object(query: str, inquirer: str) -> Response:
     """Parse the query to find the appropriate Response class.
 
@@ -353,12 +343,12 @@ def _callback(ack, body):
     event = body["event"]
     query = event["text"]
     inquirer = event["user"]
+    channel_id = event["channel"]
     home_dir = os.path.expanduser("~")
     bot_user_id = app.client.auth_test().data["user_id"]
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
     print(f"Got query from user {inquirer}: {query}")
-    channel_id = _get_channel_id_by_name(CHANNEL_NAME)
     pid = os.getpid()
     # Post an initial response, so the inquirer knows this bot is alive.
     app.client.chat_postMessage(
