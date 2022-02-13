@@ -1,11 +1,10 @@
-"""Predicatorobot slack bot code.
-"""
+"""Predicatorobot slack bot code."""
 
 import re
 import os
 from urllib.request import urlopen
 import abc
-from typing import List, Optional
+from typing import List, Optional, Type
 import subprocess
 import requests
 from slack_bolt import App
@@ -38,33 +37,34 @@ app = App(token=PREDICATORS_SLACK_BOT_TOKEN,
 
 
 class Response:
-    """A response subclass defines a method for generating a message and
-    a method for optionally generating the name of a file to upload.
-    """
-    def __init__(self, query: str, inquirer: str):
+    """A response subclass defines a method for generating a message and a
+    method for optionally generating the name of a file to upload."""
+
+    def __init__(self, query: str, inquirer: str) -> None:
         self._query = query
         self._inquirer = inquirer
 
     @abc.abstractmethod
     def get_message_chunks(self) -> List[str]:
-        """Return a list of messages. No message should be longer
-        than MAX_CHARS_PER_MESSAGE. The self._chunk_message() helper
-        function may be helpful here.
+        """Return a list of messages.
+
+        No message should be longer than MAX_CHARS_PER_MESSAGE. The
+        self._chunk_message() helper function may be helpful here.
         """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def get_filename(self) -> Optional[str]:
-        """Optionally return the name of a file to upload.
-        """
+        """Optionally return the name of a file to upload."""
         raise NotImplementedError("Override me!")
 
     @staticmethod
     def _chunk_message(message: str, prefix: str,
                        include_code_blocks: bool) -> List[str]:
         """Slack enforces a per-message character limit when using the API, so
-        we need to split up our message into chunks. We do this by line to
-        preserve the quality of the output.
+        we need to split up our message into chunks.
+
+        We do this by line to preserve the quality of the output.
         """
         chunks = [prefix]
         if include_code_blocks:
@@ -83,8 +83,8 @@ class Response:
 
 
 class DefaultResponse(Response):
-    """A default response, for when the query wasn't understood.
-    """
+    """A default response, for when the query wasn't understood."""
+
     def get_message_chunks(self) -> List[str]:
         ret = (f"Sorry <@{self._inquirer}>, I'm pretty dumb. I couldn't "
                f"understand your query ({self._query}). Right now, here's "
@@ -102,8 +102,8 @@ class DefaultResponse(Response):
 
 
 class TomEmojiResponse(Response):
-    """A Tom emoji response!
-    """
+    """A Tom emoji response!"""
+
     def get_message_chunks(self) -> List[str]:
         return [":tom:"]
 
@@ -112,22 +112,24 @@ class TomEmojiResponse(Response):
 
 
 class GithubSearchResponse(Response):
-    """A response that looks for the queried search string on Github.
-    """
-    def __init__(self, query: str, inquirer: str, search_string: str):
+    """A response that looks for the queried search string on Github."""
+
+    def __init__(self, query: str, inquirer: str, search_string: str) -> None:
         super().__init__(query, inquirer)
         self._search_string = search_string
 
     def get_message_chunks(self) -> List[str]:
-        query = (f'https://api.github.com/search/code?q="{self._search_string}"'
-                 f'+in:file+extension:py+repo:{REPO_NAME}')
+        query = (
+            f'https://api.github.com/search/code?q="{self._search_string}"'
+            f'+in:file+extension:py+repo:{REPO_NAME}')
         headers = {"Authorization": f"token {GITHUB_TOKEN}"}
         response = requests.request("GET", query, headers=headers).json()
         chunks = [f'Github matches for string "{self._search_string}":']
         num_matches = len(response["items"])
         if num_matches > GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES:
-            chunks.append(f"There are {num_matches} files matching this search "
-                          "string. Can you be more specific?")
+            chunks.append(
+                f"There are {num_matches} files matching this search "
+                "string. Can you be more specific?")
             return chunks
         # Github's code search API doesn't return which lines match. So we
         # have to search through the files ourselves to find matches.
@@ -148,9 +150,9 @@ class GithubSearchResponse(Response):
 
 
 class SupercloudResponse(Response):
-    """An abstract response for supercloud that handles SSH and SCP stuff.
-    """
-    def __init__(self, query: str, inquirer: str, user: str):
+    """An abstract response for supercloud that handles SSH and SCP stuff."""
+
+    def __init__(self, query: str, inquirer: str, user: str) -> None:
         super().__init__(query, inquirer)
         self._user = user
         if "gridsan" not in os.getcwd():
@@ -164,12 +166,16 @@ class SupercloudResponse(Response):
 
     def get_message_chunks(self) -> List[str]:
         if self._not_on_supercloud:
-            return [f"Sorry <@{self._inquirer}>, I'm not running on "
-                    f"supercloud!"]
+            return [
+                f"Sorry <@{self._inquirer}>, I'm not running on "
+                f"supercloud!"
+            ]
         if self._invalid_user:
-            return [f"Sorry <@{self._inquirer}>, {self._user} is not "
-                    "registered. You may need to update "
-                    "SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV."]
+            return [
+                f"Sorry <@{self._inquirer}>, {self._user} is not "
+                "registered. You may need to update "
+                "SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV."
+            ]
         # There are a bunch of steps that need to be done correctly in order
         # for the SSHing to work out the way we want. The ultimate goal is
         # to launch each command in self._get_commands() sequentially, and
@@ -182,19 +188,20 @@ class SupercloudResponse(Response):
         commands = ["rm -f output.txt"]
         for command in self._get_commands():
             # 2) SSH into the user's login server.
-            commands.append(f"ssh {user}@{SUPERCLOUD_LOGIN_SERVER} "
-                            # 3) Change into the desired directory and source
-                            # the user's conda environment.
-                            f"'cd {dir_name} && source {CONDA} {conda_env} "
-                            # 4) This step is tricky! For some reason, when you
-                            # SSH, the PYTHONPATH isn't preserved, so we update
-                            # it here to be the directory one level up from the
-                            # predicators repository, so that the imports in our
-                            # repository work as expected (from predicators...).
-                            f"&& export PYTHONPATH=$PYTHONPATH:{dir_name_up}"
-                            # 5) Run the actual command, appending both stdout
-                            # and stderr onto the end of output.txt.
-                            f"&& {command}' >> output.txt 2>&1")
+            commands.append(
+                f"ssh {user}@{SUPERCLOUD_LOGIN_SERVER} "
+                # 3) Change into the desired directory and source
+                # the user's conda environment.
+                f"'cd {dir_name} && source {CONDA} {conda_env} "
+                # 4) This step is tricky! For some reason, when you
+                # SSH, the PYTHONPATH isn't preserved, so we update
+                # it here to be the directory one level up from the
+                # predicators repository, so that the imports in our
+                # repository work as expected (from predicators...).
+                f"&& export PYTHONPATH=$PYTHONPATH:{dir_name_up}"
+                # 5) Run the actual command, appending both stdout
+                # and stderr onto the end of output.txt.
+                f"&& {command}' >> output.txt 2>&1")
         cmd_str = " && ".join(commands)
         print(f"Running SSH command: {cmd_str}")
         subprocess.getoutput(cmd_str)
@@ -209,6 +216,7 @@ class SupercloudResponse(Response):
 
     def _scp_filename(self, path: str) -> None:
         """Helper method that SCPs over a file with the given path.
+
         The given path is relative to the directory stored in
         SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV.
         """
@@ -220,9 +228,10 @@ class SupercloudResponse(Response):
 
     @abc.abstractmethod
     def _get_commands(self) -> List[str]:
-        """Return a list of commands to run from within the directory
-        stored in SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV. Each command's
-        output will be appended to the end of output.txt.
+        """Return a list of commands to run from within the directory stored in
+        SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV.
+
+        Each command's output will be appended to the end of output.txt.
         """
         raise NotImplementedError("Override me!")
 
@@ -236,9 +245,9 @@ class SupercloudResponse(Response):
 
 
 class SupercloudProgressResponse(SupercloudResponse):
-    """A response that gets the number of jobs running on supercloud,
-    and the number of results generated.
-    """
+    """A response that gets the number of jobs running on supercloud, and the
+    number of results generated."""
+
     def _get_commands(self) -> List[str]:
         return ["squeue | wc -l", "ls results/ | wc -l"]
 
@@ -246,23 +255,27 @@ class SupercloudProgressResponse(SupercloudResponse):
         with open("output.txt", "r", encoding="utf-8") as f:
             lines = f.readlines()
         if len(lines) != 2:
-            return [f"Sorry <@{self._inquirer}>, malformed output.txt. "
-                    f"Check that the SSH command printed out on the server "
-                    f"is working as expected."]
+            return [
+                f"Sorry <@{self._inquirer}>, malformed output.txt. "
+                f"Check that the SSH command printed out on the server "
+                f"is working as expected."
+            ]
         num_jobs = int(lines[0].strip()) - 1
         num_res = int(lines[1].strip())
-        return [f"<@{self._inquirer}>: On {self._user}'s supercloud, "
-                f"{num_jobs} jobs are currently running, and there "
-                f"are {num_res} files in results/."]
+        return [
+            f"<@{self._inquirer}>: On {self._user}'s supercloud, "
+            f"{num_jobs} jobs are currently running, and there "
+            f"are {num_res} files in results/."
+        ]
 
     def _supercloud_get_filename(self) -> Optional[str]:
         return None
 
 
 class SupercloudAnalysisResponse(SupercloudResponse):
-    """A response that runs analysis on supercloud.
-    """
-    def __init__(self, query: str, inquirer: str, user: str):
+    """A response that runs analysis on supercloud."""
+
+    def __init__(self, query: str, inquirer: str, user: str) -> None:
         super().__init__(query, inquirer, user)
         self._generated_csv = False
 
@@ -273,18 +286,23 @@ class SupercloudAnalysisResponse(SupercloudResponse):
         with open("output.txt", "r", encoding="utf-8") as f:
             output = f.read()
         if "No data found" in output:
-            return [f"<@{self._inquirer}>: No data in results/ on "
-                    f"{self._user}'s supercloud."]
+            return [
+                f"<@{self._inquirer}>: No data in results/ on "
+                f"{self._user}'s supercloud."
+            ]
         if "AGGREGATED DATA OVER SEEDS:" not in output:
-            return [f"Sorry <@{self._inquirer}>, malformed output.txt. "
-                    f"Check that the SSH command printed out on the server "
-                    f"is working as expected."]
+            return [
+                f"Sorry <@{self._inquirer}>, malformed output.txt. "
+                f"Check that the SSH command printed out on the server "
+                f"is working as expected."
+            ]
         self._generated_csv = True
         message = output.split("AGGREGATED DATA OVER SEEDS:")[1].split(
             "Wrote out")[0].strip("\n")
         chunks = self._chunk_message(
-            message, prefix=(f"<@{self._inquirer}>: Here are results on "
-                             f"{self._user}'s supercloud.\n"),
+            message,
+            prefix=(f"<@{self._inquirer}>: Here are results on "
+                    f"{self._user}'s supercloud.\n"),
             include_code_blocks=True)
         return chunks
 
@@ -306,12 +324,13 @@ def _get_channel_id_by_name(name: str) -> str:
 
 def _get_response_object(query: str, inquirer: str) -> Response:
     """Parse the query to find the appropriate Response class.
+
     Return an instantiation of that class.
     """
     match = re.match(r"(analysis|analyze|progress) (\w+)", query)
     if match is not None:
         if match.groups()[0] in ("analysis", "analyze"):
-            cls = SupercloudAnalysisResponse
+            cls: Type[SupercloudResponse] = SupercloudAnalysisResponse
         else:
             assert match.groups()[0] == "progress"
             cls = SupercloudProgressResponse
@@ -329,8 +348,7 @@ def _get_response_object(query: str, inquirer: str) -> Response:
 
 @app.event("app_mention")
 def _callback(ack, body):
-    """This callback is triggered whenever someone @mentions this bot.
-    """
+    """This callback is triggered whenever someone @mentions this bot."""
     ack()  # all callback functions must run this
     event = body["event"]
     query = event["text"]
@@ -362,4 +380,4 @@ def _callback(ack, body):
 
 
 if __name__ == "__main__":
-    SocketModeHandler(app, PREDICATORS_SLACK_APP_TOKEN).start()
+    SocketModeHandler(app, PREDICATORS_SLACK_APP_TOKEN).start()  # type: ignore
