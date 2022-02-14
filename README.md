@@ -46,7 +46,7 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Log into supercloud (ask Rohan if you don't know how to do this).
 * Go into the `predicators` folder and `git pull` if necessary.
 * Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
-* Monitor with `squeue -u ronuchit`, or cancel jobs with `scancel -u ronuchit` (standard Slurm commands).
+* Monitor with `squeue`, or cancel jobs with `scancel` (standard Slurm commands).
 * When all jobs are done, run `python analysis/analyze_supercloud_experiments.py` (still on supercloud) to print out the results table.
 
 ### Running Experiments on BEHAVIOR
