@@ -831,4 +831,3 @@ def test_query():
         _ = query.cost
     demo_query = DemonstrationQuery(0)
     assert demo_query.cost == 1
-    
