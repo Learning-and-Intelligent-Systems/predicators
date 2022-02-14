@@ -146,6 +146,7 @@ def _main() -> None:
             std = stds.loc[row, col]
             means.loc[row, col] = f"{mean:.2f} ({std:.2f})"
     means["NUM_SEEDS"] = sizes
+    pd.set_option("expand_frame_repr", False)
     print("\n\nAGGREGATED DATA OVER SEEDS:")
     print(means)
     means.to_csv("supercloud_analysis.csv")

@@ -11,3 +11,5 @@ tabulate
 dill
 pyperplan
 pathos
+requests
+slack_bolt
