@@ -4,13 +4,13 @@ START_SEED=456
 NUM_SEEDS=10
 FILE="analysis/submit.py"
 ALL_NUM_TRAIN_TASKS=(
-    "25"
-    "50"
-    "75"
-    "100"
-    "125"
-    "150"
-    "175"
+    # "25"
+    # "50"
+    # "75"
+    # "100"
+    # "125"
+    # "150"
+    # "175"
     "200"
 )
 ALL_ENVS=(
