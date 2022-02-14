@@ -198,7 +198,7 @@ class SupercloudResponse(Response):
                 # it here to be the directory one level up from the
                 # predicators repository, so that the imports in our
                 # repository work as expected (from predicators...).
-                f"&& export PYTHONPATH=$PYTHONPATH:{dir_name_up}"
+                f"&& export PYTHONPATH=$PYTHONPATH:{dir_name_up} "
                 # 5) Run the actual command, appending both stdout
                 # and stderr onto the end of output.txt.
                 f"&& {command}' >> output.txt 2>&1")
