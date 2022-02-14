@@ -828,7 +828,7 @@ def test_query():
     """Test for Query classes."""
     query = Query()
     with pytest.raises(NotImplementedError):
-        query.cost
+        _ = query.cost
     demo_query = DemonstrationQuery(0)
     assert demo_query.cost == 1
     
