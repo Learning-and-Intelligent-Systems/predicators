@@ -47,7 +47,7 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Go into the `predicators` folder and `git pull` if necessary.
 * Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
 * Monitor with `squeue`, or cancel jobs with `scancel` (standard Slurm commands).
-* When all jobs are done, run `python analysis/analyze_supercloud_experiments.py` (still on supercloud) to print out the results table.
+* When all jobs are done, run `python analysis/analyze_results_directory.py` (still on supercloud) to print out the results table.
 
 ### Running Experiments on BEHAVIOR
 * Currently, only the `oracle` approach is implemented to integrate with BEHAVIOR.
