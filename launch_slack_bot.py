@@ -252,16 +252,21 @@ class SupercloudProgressResponse(SupercloudResponse):
         return ["squeue | wc -l", "ls results/ | wc -l"]
 
     def _supercloud_get_message_chunks(self) -> List[str]:
+        lines = []
         with open("output.txt", "r", encoding="utf-8") as f:
-            lines = f.readlines()
+            for line in f.readlines():
+                try:
+                    lines.append(int(line.strip()))
+                except ValueError:
+                    pass
         if len(lines) != 2:
             return [
                 f"Sorry <@{self._inquirer}>, malformed output.txt. "
                 f"Check that the SSH command printed out on the server "
                 f"is working as expected."
             ]
-        num_jobs = int(lines[0].strip()) - 1
-        num_res = int(lines[1].strip())
+        num_jobs = lines[0] - 1
+        num_res = lines[1]
         return [
             f"<@{self._inquirer}>: On {self._user}'s supercloud, "
             f"{num_jobs} jobs are currently running, and there "
