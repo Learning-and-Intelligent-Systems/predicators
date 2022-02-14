@@ -191,6 +191,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
         # If there are no possible goals, fall back to random immediately.
         if not ground_atom_universe:
+            print("No possible goals, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
@@ -213,6 +214,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         except ApproachFailure:
             # Fall back to a random exploration strategy if no solvable task
             # can be found.
+            print("No solvable task found, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
 

@@ -1133,10 +1133,12 @@ class InteractionResult:
 
 @dataclass(frozen=True, eq=False, repr=False)
 class Query(abc.ABC):
-    """Base class for a Query.
+    """Base class for a Query."""
 
-    Has no API.
-    """
+    @property
+    def cost(self) -> float:
+        """The cost of making this Query."""
+        raise NotImplementedError("Override me")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1153,6 +1155,10 @@ class GroundAtomsHoldQuery(Query):
     """A query for whether ground atoms hold in the state."""
     ground_atoms: Collection[GroundAtom]
 
+    @property
+    def cost(self) -> float:
+        return len(self.ground_atoms)
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class GroundAtomsHoldResponse(Response):
@@ -1164,6 +1170,10 @@ class GroundAtomsHoldResponse(Response):
 class DemonstrationQuery(Query):
     """A query requesting a demonstration to finish a train task."""
     train_task_idx: int
+
+    @property
+    def cost(self) -> float:
+        return 1
 
 
 @dataclass(frozen=True, eq=False, repr=False)

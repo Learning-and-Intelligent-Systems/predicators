@@ -7,7 +7,7 @@ from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
     STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, LowLevelTrajectory, \
     PartialNSRTAndDatastore, _GroundSTRIPSOperator, InteractionRequest, \
-    InteractionResult, DefaultState
+    InteractionResult, DefaultState, Query, DemonstrationQuery
 from predicators.src import utils
 
 
@@ -822,3 +822,12 @@ def test_interaction_request_and_result():
         InteractionResult([None, None], [None], [None])
     InteractionResult([None, None], [None], [None, None])
     InteractionResult([None], [], [None])
+
+
+def test_query():
+    """Test for Query classes."""
+    query = Query()
+    with pytest.raises(NotImplementedError):
+        _ = query.cost
+    demo_query = DemonstrationQuery(0)
+    assert demo_query.cost == 1

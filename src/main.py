@@ -32,7 +32,7 @@ To run grammar search predicate invention (example):
 """
 
 from collections import defaultdict
-from typing import List, Sequence, Callable, Optional
+from typing import List, Sequence, Callable, Optional, Tuple
 import os
 import sys
 import subprocess
@@ -111,6 +111,7 @@ def _run_pipeline(env: BaseEnv,
         assert offline_dataset is not None, "Missing offline dataset"
         total_num_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
+        total_query_cost = 0.0
         learning_start = time.time()
         if CFG.load_approach:
             approach.load(online_learning_cycle=None)
@@ -119,19 +120,23 @@ def _run_pipeline(env: BaseEnv,
         # Run evaluation once before online learning starts.
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
+        results["cumulative_query_cost"] = total_query_cost
         results["learning_time"] = time.time() - learning_start
         _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
-            print(f"\n\nONLINE LEARNING CYCLE {i}\n\n")
+            print(f"\n\nONLINE LEARNING CYCLE {i}\n")
+            print("Getting interaction requests...")
             interaction_requests = approach.get_interaction_requests()
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
-            interaction_results = _generate_interaction_results(
+            interaction_results, query_cost = _generate_interaction_results(
                 env.simulate, teacher, train_tasks, interaction_requests)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
+            total_query_cost += query_cost
+            print(f"Query cost incurred this cycle: {query_cost}")
             if CFG.load_approach:
                 approach.load(online_learning_cycle=i)
             else:
@@ -139,6 +144,7 @@ def _run_pipeline(env: BaseEnv,
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
+            results["cumulative_query_cost"] = total_query_cost
             results["learning_time"] = time.time() - learning_start
             _save_test_results(results, online_learning_cycle=i)
     else:
@@ -170,12 +176,14 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-        simulator: Callable[[State, Action],
-                            State], teacher: Teacher, train_tasks: List[Task],
-        requests: Sequence[InteractionRequest]) -> List[InteractionResult]:
+    simulator: Callable[[State, Action], State], teacher: Teacher,
+    train_tasks: List[Task], requests: Sequence[InteractionRequest]
+) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
+    print("Generating interaction results...")
     results = []
+    query_cost = 0.0
     for request in requests:
         # First, roll out the acting policy.
         task = train_tasks[request.train_task_idx]
@@ -197,10 +205,11 @@ def _generate_interaction_results(
                 responses.append(None)
             else:
                 responses.append(teacher.answer_query(state, query))
+                query_cost += query.cost
         # Finally, assemble the InteractionResult object.
         result = InteractionResult(traj.states, traj.actions, responses)
         results.append(result)
-    return results
+    return results, query_cost
 
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
