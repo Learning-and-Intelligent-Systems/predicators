@@ -203,7 +203,7 @@ class SupercloudResponse(Response):
                 # and stderr onto the end of output.txt.
                 f"&& {command}' >> output.txt 2>&1")
         cmd_str = " && ".join(commands)
-        print(f"Running SSH command: {cmd_str}")
+        print(f"Running SSH command: {cmd_str}", flush=True)
         subprocess.getoutput(cmd_str)
         # This should be impossible unless self._get_commands() was empty.
         assert os.path.exists("output.txt")
@@ -223,7 +223,7 @@ class SupercloudResponse(Response):
         user = self._user
         dir_name, _ = SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV[user]
         cmd_str = f"scp {user}@{SUPERCLOUD_LOGIN_SERVER}:{dir_name}/{path} ."
-        print(f"Running SCP command: {cmd_str}")
+        print(f"Running SCP command: {cmd_str}", flush=True)
         subprocess.getoutput(cmd_str)
 
     @abc.abstractmethod
@@ -350,7 +350,7 @@ def _callback(ack, body):
     bot_user_id = app.client.auth_test().data["user_id"]
     assert f"<@{bot_user_id}" in query
     query = query.replace(f"<@{bot_user_id}>", "").strip()
-    print(f"Got query from user {inquirer}: {query}")
+    print(f"Got query from user {inquirer}: {query}", flush=True)
     pid = os.getpid()
     # Post an initial response, so the inquirer knows this bot is alive.
     app.client.chat_postMessage(
@@ -368,7 +368,7 @@ def _callback(ack, body):
     fname = response.get_filename()
     if fname is not None:
         app.client.files_upload(channels=channel_id, file=fname, title=fname)
-    print("Finished handling query")
+    print("Finished handling query", flush=True)
 
 
 if __name__ == "__main__":
