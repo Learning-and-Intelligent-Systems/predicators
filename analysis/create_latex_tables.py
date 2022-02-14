@@ -63,6 +63,8 @@ ROW_GROUPS = [
 # See ROW_GROUPS comment.
 OUTER_HEADER_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
+    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+        lambda v: "_noinventnoexclude_200" in v)),
     ("1-Skel Score",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
     ("1-Skel Eval",
@@ -76,11 +78,9 @@ OUTER_HEADER_GROUPS = [
     ("Energy",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
     ("Random", pd_create_equal_selector("APPROACH", "random_options")),
-    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
-        lambda v: "_noinventnoexclude_200" in v)),
 ]
 
-DOUBLE_LINES_AFTER = ["Ours", "No Invent", "Random"]
+DOUBLE_LINES_AFTER = ["Ours", "Handwritten", "No Invent"]
 
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
@@ -95,7 +95,8 @@ RED_MIN_SIZE = 10
 # whether higher or lower is better.
 INNER_HEADER_GROUPS = [
     ("Succ", "PERC_SOLVED", "higher"),
-    ("Node", "AVG_NODES_CREATED", "lower"),
+    # ("Node", "AVG_NODES_CREATED", "lower"),
+    ("Time", "AVG_TEST_TIME", "lower"),
 ]
 
 CAPTION = "TODO"
@@ -253,6 +254,8 @@ def _main() -> None:
                 if np.isnan(m) or (outer_label == "Random" and \
                     inner_label == "Node"):
                     formatted_m = "\\;\\;\\;--"
+                elif inner_label == "Time":
+                    formatted_m = f"{m:.3f}"
                 else:
                     formatted_m = f"{m:.1f}"
                 body += " & " + pre + formatted_m + end
