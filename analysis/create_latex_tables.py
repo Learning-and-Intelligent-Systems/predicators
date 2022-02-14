@@ -65,9 +65,9 @@ OUTER_HEADER_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
     ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventnoexclude_200" in v)),
-    ("1-Skel Score",
+    ("Down Learn",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
-    ("1-Skel Eval",
+    ("Down Eval",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_200" in v)),
     ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventallexclude_200" in v)),
