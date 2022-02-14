@@ -110,7 +110,11 @@ def _main() -> None:
                         xs = [0] + xs
                         ys = [0] + ys
                         y_stds = [0] + y_stds
-                    ax.errorbar(xs, ys, yerr=y_stds, label=label, marker=marker)
+                    ax.errorbar(xs,
+                                ys,
+                                yerr=y_stds,
+                                label=label,
+                                marker=marker)
                 # Automatically make x ticks integers for certain X KEYS.
                 if x_key in ("CYCLE", "NUM_TRANSITIONS"):
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
