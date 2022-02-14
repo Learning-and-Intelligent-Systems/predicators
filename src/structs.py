@@ -1135,12 +1135,10 @@ class InteractionResult:
 class Query(abc.ABC):
     """Base class for a Query."""
 
-    def __len__(self) -> int:
-        """The number of queries in this Query.
-
-        Defaults to 1.
-        """
-        return 1
+    @property
+    def cost(self) -> float:
+        """The cost of making this Query."""
+        raise NotImplementedError("Override me")
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1157,7 +1155,8 @@ class GroundAtomsHoldQuery(Query):
     """A query for whether ground atoms hold in the state."""
     ground_atoms: Collection[GroundAtom]
 
-    def __len__(self) -> int:
+    @property
+    def cost(self) -> float:
         return len(self.ground_atoms)
 
 
@@ -1171,6 +1170,10 @@ class GroundAtomsHoldResponse(Response):
 class DemonstrationQuery(Query):
     """A query requesting a demonstration to finish a train task."""
     train_task_idx: int
+
+    @property
+    def cost(self) -> float:
+        return 1
 
 
 @dataclass(frozen=True, eq=False, repr=False)
