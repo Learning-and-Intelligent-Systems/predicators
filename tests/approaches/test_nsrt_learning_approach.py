@@ -196,7 +196,7 @@ def test_sampler_learning_with_goals():
     """Tests for NSRT learning when samplers learn with goals."""
     _test_approach(env_name="cluttered_table_place",
                    approach_name="nsrt_learning",
-                   check_solution=False,
+                   try_solving=False,
                    sampler_learner="neural",
                    offline_data_method="demo",
                    additional_settings={"sampler_learning_use_goals": True})
