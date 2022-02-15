@@ -4,7 +4,7 @@ import pytest
 from gym.spaces import Box
 import numpy as np
 from predicators.src.nsrt_learning.sampler_learning import \
-    _create_sampler_data, learn_samplers
+    _create_sampler_data, learn_samplers, _LearnedSampler
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
 from predicators.src import utils
@@ -92,3 +92,12 @@ def test_learn_samplers_failure():
                                  lambda s, m, o, p: False)
     with pytest.raises(NotImplementedError):  # bad sampler_learner
         learn_samplers([None], None, [(option, [])], "bad sampler learner")
+
+
+def test_learned_sampler_with_goal():
+    """Tests _LearnedSampler() when goals are used."""
+    # TODO
+    utils.reset_config({
+        "sampler_learning_use_goals": True,
+    })
+    raise NotImplementedError("TODO")
