@@ -9,6 +9,7 @@ from predicators.analysis.analyze_results_directory import create_dataframes, \
     get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
+plt.rcParams["font.family"] = "CMU Serif"
 
 ############################ Change below here ################################
 
@@ -51,33 +52,31 @@ DERIVED_KEYS = [("perc_solved",
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("NUM_TRAIN_TASKS", "Num demos"),
+    ("NUM_TRAIN_TASKS", "Number of Training Tasks"),
     # ("NUM_TRANSITIONS", "Num transitions"),
     # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
-    ("PERC_SOLVED", "% test tasks solved"),
+    ("PERC_SOLVED", "% Evaluation Tasks Solved"),
     # ("AVG_NODES_CREATED", "Averaged nodes created"),
 ]
 
 # PLOT_GROUPS is a nested dict where each outer dict corresponds to one plot,
 # and each inner entry corresponds to one line on the plot.
 # The keys of the outer dict are plot titles.
-# The keys of the inner dict are (df key, df value), and the dict values are
-# labels for the legend. The df key/value are used to select a subset from
-# the overall pandas dataframe.
+# The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Learning from Few Demonstrations": [
-        ("PickPlace1D", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "cover_regrasp_main_" in v)),
-        ("Blocks",
+    "Ours: Learning from Few Demonstrations": [
+        ("PickPlace1D", "o",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "cover_main_" in v)),
+        ("Blocks", ".",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "blocks_main_" in v)),
-        ("Painting",
+        ("Painting", "*",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "painting_main_" in v)
          ),
-        ("Tools",
+        ("Tools", "s",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "tools_main_" in v)),
     ],
 }
@@ -101,7 +100,7 @@ def _main() -> None:
         for y_key, y_label in Y_KEY_AND_LABEL:
             for plot_title, d in PLOT_GROUPS.items():
                 _, ax = plt.subplots()
-                for label, selector in d:
+                for label, marker, selector in d:
                     exp_means = get_df_for_entry(x_key, means, selector)
                     exp_stds = get_df_for_entry(x_key, stds, selector)
                     xs = exp_means[x_key].tolist()
@@ -111,7 +110,11 @@ def _main() -> None:
                         xs = [0] + xs
                         ys = [0] + ys
                         y_stds = [0] + y_stds
-                    ax.errorbar(xs, ys, yerr=y_stds, label=label)
+                    ax.errorbar(xs,
+                                ys,
+                                yerr=y_stds,
+                                label=label,
+                                marker=marker)
                 # Automatically make x ticks integers for certain X KEYS.
                 if x_key in ("CYCLE", "NUM_TRANSITIONS"):
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -125,7 +128,7 @@ def _main() -> None:
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
                 outfile = os.path.join(outdir, filename)
-                plt.savefig(outfile)
+                plt.savefig(outfile, dpi=300)
                 print(f"Wrote out to {outfile}.")
 
 

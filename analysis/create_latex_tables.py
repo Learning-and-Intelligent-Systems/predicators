@@ -54,7 +54,7 @@ TOP_ROW_LABEL = "\\bf{Environment}"
 # labels for the legend. The df key/value are used to select a subset from
 # the overall pandas dataframe.
 ROW_GROUPS = [
-    ("PickPlace1D", pd_create_equal_selector("ENV", "cover_regrasp")),
+    ("PickPlace1D", pd_create_equal_selector("ENV", "cover")),
     ("Blocks", pd_create_equal_selector("ENV", "blocks")),
     ("Painting", pd_create_equal_selector("ENV", "painting")),
     ("Tools", pd_create_equal_selector("ENV", "tools")),
@@ -63,9 +63,11 @@ ROW_GROUPS = [
 # See ROW_GROUPS comment.
 OUTER_HEADER_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("1-Skel Score",
+    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+        lambda v: "_noinventnoexclude_200" in v)),
+    ("Down Learn",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
-    ("1-Skel Eval",
+    ("Down Eval",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_200" in v)),
     ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventallexclude_200" in v)),
@@ -76,11 +78,9 @@ OUTER_HEADER_GROUPS = [
     ("Energy",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
     ("Random", pd_create_equal_selector("APPROACH", "random_options")),
-    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
-        lambda v: "_noinventnoexclude_200" in v)),
 ]
 
-DOUBLE_LINES_AFTER = ["Ours", "No Invent", "Random"]
+DOUBLE_LINES_AFTER = ["Ours", "Handwritten", "No Invent"]
 
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
@@ -95,7 +95,8 @@ RED_MIN_SIZE = 10
 # whether higher or lower is better.
 INNER_HEADER_GROUPS = [
     ("Succ", "PERC_SOLVED", "higher"),
-    ("Node", "AVG_NODES_CREATED", "lower"),
+    # ("Node", "AVG_NODES_CREATED", "lower"),
+    ("Time", "AVG_TEST_TIME", "lower"),
 ]
 
 CAPTION = "TODO"
@@ -103,8 +104,8 @@ TABLE_LABEL = "tab:mainresults"
 
 # #### Timing results ###
 
-# # See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
-# # whether higher or lower is better.
+# See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
+# whether higher or lower is better.
 # INNER_HEADER_GROUPS = [
 #     ("Learn", "LEARNING_TIME", "lower"),
 #     ("Plan", "AVG_TEST_TIME", "lower"),
@@ -113,12 +114,15 @@ TABLE_LABEL = "tab:mainresults"
 # CAPTION = "TODO"
 # TABLE_LABEL = "tab:timeresults"
 
-# #### Heuristic results ###
+#### Heuristic results ###
+
+# DOUBLE_LINES_AFTER = []
 
 # TOP_ROW_LABEL = "\\bf{Heuristic}"
 
 # INNER_HEADER_GROUPS = [
 #     ("Succ", "PERC_SOLVED", "higher"),
+#     ("Time", "AVG_TEST_TIME", "lower"),
 #     ("Node", "AVG_NODES_CREATED", "lower"),
 # ]
 
@@ -126,10 +130,11 @@ TABLE_LABEL = "tab:mainresults"
 # TABLE_LABEL = "tab:haddresults"
 
 # OUTER_HEADER_GROUPS = [
-#     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "main" in v)),
-#     ("Handwritten",
-#      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "noinventnoexclude" in v)
-#      ),
+#     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(
+#         lambda v: "_main_200" in v or "mainhadd_200" in v)),
+#     ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+#         lambda v: "_noinventnoexclude_200" in v or \
+#                   "_noinventnoexcludehadd_200" in v)),
 # ]
 
 # ROW_GROUPS = [
@@ -155,9 +160,9 @@ def _main() -> None:
     outer_lines = [
         "||" if l in DOUBLE_LINES_AFTER else "|" for l in outer_labels
     ]
-    inner_lines = ["|" for _ in range(2 * len(outer_labels))]
+    inner_lines = ["|" for _ in range(num_inner_headers * len(outer_labels))]
     for i, outer_line in enumerate(outer_lines):
-        inner_lines[1 + 2 * i] = outer_line
+        inner_lines[1 + num_inner_headers * i] = outer_line
 
     preamble = """\\begin{table*}
 \t\\centering
@@ -253,6 +258,8 @@ def _main() -> None:
                 if np.isnan(m) or (outer_label == "Random" and \
                     inner_label == "Node"):
                     formatted_m = "\\;\\;\\;--"
+                elif inner_label == "Time":
+                    formatted_m = f"{m:.3f}"
                 else:
                     formatted_m = f"{m:.1f}"
                 body += " & " + pre + formatted_m + end
