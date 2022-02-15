@@ -745,6 +745,15 @@ def test_segment():
     segment.set_option(option)
     assert segment.has_option()
     assert segment.get_option() == option
+    # Test adding and accessing goals to segments.
+    assert not segment.has_goal()
+    with pytest.raises(AssertionError):
+        segment.get_goal()
+    clear = Predicate("Clear", [plate_type], lambda s, o: True)
+    goal = {clear([plate])}
+    segment.set_goal(goal)
+    assert segment.has_goal()
+    assert segment.get_goal() == goal
 
 
 def test_pnad():
