@@ -63,7 +63,7 @@ ROW_GROUPS = [
 # See ROW_GROUPS comment.
 OUTER_HEADER_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+    ("Manual", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventnoexclude_200" in v)),
     ("Down Learn",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
@@ -71,16 +71,16 @@ OUTER_HEADER_GROUPS = [
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_200" in v)),
     ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventallexclude_200" in v)),
-    ("Prediction",
+    ("Bisimulation",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
     ("Branching",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
-    ("Energy",
+    ("Boltzmann",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
     ("Random", pd_create_equal_selector("APPROACH", "random_options")),
 ]
 
-DOUBLE_LINES_AFTER = ["Ours", "Handwritten", "No Invent"]
+DOUBLE_LINES_AFTER = ["Ours", "Manual", "No Invent"]
 
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
@@ -132,7 +132,7 @@ TABLE_LABEL = "tab:mainresults"
 # OUTER_HEADER_GROUPS = [
 #     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(
 #         lambda v: "_main_200" in v or "mainhadd_200" in v)),
-#     ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+#     ("Manual", lambda df: df["EXPERIMENT_ID"].apply(
 #         lambda v: "_noinventnoexclude_200" in v or \
 #                   "_noinventnoexcludehadd_200" in v)),
 # ]
@@ -220,8 +220,8 @@ def _main() -> None:
                 inner_label_to_comp[inner_label] = lt
         for (outer_label, inner_label), (mean, std,
                                          _) in entry_to_mean_std_size.items():
-            # Special case: exclude Handwritten
-            if outer_label == "Handwritten":
+            # Special case: exclude Manual
+            if outer_label == "Manual":
                 continue
             if inner_label not in inner_label_to_best_mean_std:
                 inner_label_to_best_mean_std[inner_label] = (mean, std)
@@ -231,8 +231,8 @@ def _main() -> None:
                     inner_label_to_best_mean_std[inner_label] = (mean, std)
         for (outer_label, inner_label), (mean, _,
                                          _) in entry_to_mean_std_size.items():
-            # Special case: exclude Handwritten
-            if outer_label == "Handwritten":
+            # Special case: exclude Manual
+            if outer_label == "Manual":
                 continue
             best_mean, best_std = inner_label_to_best_mean_std[inner_label]
             if abs(mean - best_mean) <= BOLD_NUM_STDS * best_std:
