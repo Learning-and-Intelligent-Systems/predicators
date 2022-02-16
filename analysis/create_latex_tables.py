@@ -259,7 +259,7 @@ def _main() -> None:
                         inner_label == "Node"):
                         formatted_entry = "\\;\\;\\;--"
                     elif inner_label == "Node":
-                        if entry > 1000:
+                        if entry > 1000:  # type: ignore
                             formatted_entry = f"{entry:.0f}"
                         else:
                             formatted_entry = f"{entry:.1f}"
