@@ -99,9 +99,6 @@ INNER_HEADER_GROUPS = [
     ("Time", "AVG_TEST_TIME", "lower"),
 ]
 
-CAPTION = "TODO"
-TABLE_LABEL = "tab:mainresults"
-
 # #### Timing results ###
 
 # See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
@@ -111,10 +108,7 @@ TABLE_LABEL = "tab:mainresults"
 #     ("Plan", "AVG_TEST_TIME", "lower"),
 # ]
 
-# CAPTION = "TODO"
-# TABLE_LABEL = "tab:timeresults"
-
-#### Heuristic results ###
+# #### Heuristic results ###
 
 # DOUBLE_LINES_AFTER = []
 
@@ -125,9 +119,6 @@ TABLE_LABEL = "tab:mainresults"
 #     ("Time", "AVG_TEST_TIME", "lower"),
 #     ("Node", "AVG_NODES_CREATED", "lower"),
 # ]
-
-# CAPTION = "TODO"
-# TABLE_LABEL = "tab:haddresults"
 
 # OUTER_HEADER_GROUPS = [
 #     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(
@@ -164,10 +155,7 @@ def _main() -> None:
     for i, outer_line in enumerate(outer_lines):
         inner_lines[1 + num_inner_headers * i] = outer_line
 
-    preamble = """\\begin{table*}
-\t\\centering
-\t\\scriptsize
-\t\\begin{tabular}{| l | """ + \
+    preamble = """\t\\begin{tabular}{| l | """ + \
     "".join("p{0.52cm} " + inner_lines[i] + " "
             for i in range(num_inner_headers * num_outer_headers)) + \
     """}
@@ -258,6 +246,11 @@ def _main() -> None:
                 if np.isnan(m) or (outer_label == "Random" and \
                     inner_label == "Node"):
                     formatted_m = "\\;\\;\\;--"
+                elif inner_label == "Node":
+                    if m > 1000:
+                        formatted_m = f"{m:.0f}"
+                    else:
+                        formatted_m = f"{m:.1f}"
                 elif inner_label == "Time":
                     formatted_m = f"{m:.3f}"
                 else:
@@ -267,9 +260,6 @@ def _main() -> None:
 
     footer = """\\hline
 \t\\end{tabular}
-\t\\caption{""" + CAPTION + """}
-\t\\label{""" + TABLE_LABEL + """}
-\\end{table*}
 """
 
     final = preamble + body + footer
