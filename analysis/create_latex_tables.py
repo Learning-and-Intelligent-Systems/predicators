@@ -86,6 +86,9 @@ DOUBLE_LINES_AFTER = ["Ours", "Manual", "No Invent"]
 BOLD_NUM_STDS = 2
 DO_BOLDING = False
 
+# Report the standard deviations instead of the means.
+MEANS_OR_STDS = "means"
+
 # If less than this, entry will be red.
 RED_MIN_SIZE = 10
 
@@ -101,12 +104,12 @@ INNER_HEADER_GROUPS = [
 
 # #### Timing results ###
 
-# See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
-# whether higher or lower is better.
 # INNER_HEADER_GROUPS = [
-#     ("Learn", "LEARNING_TIME", "lower"),
-#     ("Plan", "AVG_TEST_TIME", "lower"),
+#     ("Learn Time", "LEARNING_TIME", "lower"),
+#     # ("Plan", "AVG_TEST_TIME", "lower"),
 # ]
+
+# MEANS_OR_STDS = "both"
 
 # #### Heuristic results ###
 
@@ -153,7 +156,8 @@ def _main() -> None:
     ]
     inner_lines = ["|" for _ in range(num_inner_headers * len(outer_labels))]
     for i, outer_line in enumerate(outer_lines):
-        inner_lines[1 + num_inner_headers * i] = outer_line
+        inner_lines[(num_inner_headers - 1) +
+                    num_inner_headers * i] = outer_line
 
     preamble = """\t\\begin{tabular}{| l | """ + \
     "".join("p{0.52cm} " + inner_lines[i] + " "
@@ -234,7 +238,6 @@ def _main() -> None:
         body += "\n\t" + row_label
         for (outer_label, _) in OUTER_HEADER_GROUPS:
             for (inner_label, _, _) in INNER_HEADER_GROUPS:
-                m, _, _ = entry_to_mean_std_size[(outer_label, inner_label)]
                 pre, end = "", ""
                 if (outer_label, inner_label) in red:
                     pre = "{\\textcolor{red}" + pre
@@ -242,20 +245,34 @@ def _main() -> None:
                 if DO_BOLDING and (outer_label, inner_label) in bolded:
                     pre = "\\bf{" + pre
                     end = end + "}"
-                # Special case random options / node expansions
-                if np.isnan(m) or (outer_label == "Random" and \
-                    inner_label == "Node"):
-                    formatted_m = "\\;\\;\\;--"
-                elif inner_label == "Node":
-                    if m > 1000:
-                        formatted_m = f"{m:.0f}"
+
+                mean, std, _ = entry_to_mean_std_size[(outer_label,
+                                                       inner_label)]
+
+                if MEANS_OR_STDS in ["stds", "means"]:
+                    if MEANS_OR_STDS == "stds":
+                        entry = std
+                    elif MEANS_OR_STDS == "means":
+                        entry = mean
+                    # Special case random options / node expansions
+                    if np.isnan(entry) or (outer_label == "Random" and \
+                        inner_label == "Node"):
+                        formatted_entry = "\\;\\;\\;--"
+                    elif inner_label == "Node":
+                        if entry > 1000:
+                            formatted_entry = f"{entry:.0f}"
+                        else:
+                            formatted_entry = f"{entry:.1f}"
+                    elif inner_label == "Time":
+                        formatted_entry = f"{entry:.3f}"
                     else:
-                        formatted_m = f"{m:.1f}"
-                elif inner_label == "Time":
-                    formatted_m = f"{m:.3f}"
+                        formatted_entry = f"{entry:.1f}"
+
                 else:
-                    formatted_m = f"{m:.1f}"
-                body += " & " + pre + formatted_m + end
+                    assert MEANS_OR_STDS == "both"
+                    formatted_entry = f"{mean:.0f} ({std:.0f})"
+
+                body += " & " + pre + formatted_entry + end
         body += " \\\\"
 
     footer = """\\hline
