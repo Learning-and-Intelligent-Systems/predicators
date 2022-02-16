@@ -138,9 +138,9 @@ TABLE_LABEL = "tab:mainresults"
 # ]
 
 # ROW_GROUPS = [
-#     ("lmcut", lambda df: df["EXPERIMENT_ID"].apply(
+#     ("LMCut", lambda df: df["EXPERIMENT_ID"].apply(
 #        lambda v: "blocks_main_" in v or "blocks_noinventnoexclude_" in v)),
-#     ("hadd", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "hadd" in v)),
+#     ("hAdd", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "hadd" in v)),
 # ]
 
 #################### Should not need to change below here #####################
