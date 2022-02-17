@@ -140,8 +140,8 @@ def test_single_attribute_compare_classifier():
     cup1 = cup_type("cup1")
     cup2 = cup_type("cup2")
     cup3 = cup_type("cup3")
-    classifier = _SingleAttributeCompareClassifier(
-        2, cup_type, "feat1", 1.0, 5, gt, ">")
+    classifier = _SingleAttributeCompareClassifier(2, cup_type, "feat1", 1.0,
+                                                   5, gt, ">")
     state0 = State({cup1: [0.0], cup2: [1.0], cup3: [2.0]})
     assert not classifier(state0, [cup1])
     assert not classifier(state0, [cup2])
