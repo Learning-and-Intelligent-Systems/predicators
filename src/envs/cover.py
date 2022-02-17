@@ -489,6 +489,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                  ["is_block", "is_target", "width", "x"])
         # Also removing "hand" because that's ambiguous.
         self._robot_type = Type("robot", ["x", "y", "grip", "holding"])
+        self._hand_region_type = Type("hand_region", ["lb", "ub"])
+
         # Need to override predicate creation because the types are
         # now different (in terms of equality).
         self._IsBlock = Predicate("IsBlock", [self._block_type],
@@ -506,10 +508,17 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # different (in terms of equality).
         self._blocks = []
         self._targets = []
+        self._block_hand_regions = []
+        self._target_hand_regions = []
         for i in range(CFG.cover_num_blocks):
             self._blocks.append(Object(f"block{i}", self._block_type))
+            self._block_hand_regions.append(Object(f"block_{i}_hand_region", \
+            self._hand_region_type))
         for i in range(CFG.cover_num_targets):
-            self._targets.append(Object(f"target{i}", self._target_type))
+            target = Object(f"target{i}", self._target_type)
+            self._targets.append(target)
+            self._target_hand_regions.append(Object(f"target_{i}_hand_region", \
+            self._hand_region_type))
         self._robot = Object("robby", self._robot_type)
         # Override the original options to make them multi-step.
         self._Pick = ParameterizedOption("Pick",
@@ -687,7 +696,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 state.get(targ, "x")+state.get(targ, "width")/2 for targ in \
                 self._targets) and not any(hand_lb <= x <= hand_rb for \
                 hand_lb, hand_rb in self._get_hand_regions_target(state)):
-                    return state.copy()
+                return state.copy()
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
             next_state.set(self._robot, "holding", -1)
@@ -825,12 +834,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Make the targets, blocks, and robot objects
         for target, width, placement in zip(self._targets, \
             CFG.cover_target_widths, target_placements):
-            l, x, r = placement
+            _, x, _ = placement
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])
         for block, width, placement in zip(self._blocks, \
             CFG.cover_block_widths, block_placements):
-            l, x, r = placement
+            _, x, _ = placement
             # [is_block, is_target, width, x, grasp, y, height]
             data[block] = np.array([
                 1.0, 0.0, width, x, -1.0, self.initial_block_y,
@@ -845,7 +854,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         for i, target in enumerate(self._targets):
             target_hr = self._target_hand_regions[i]
             tw = CFG.cover_target_widths[i]
-            l, x, r = target_placements[i]
+            _, x, _ = target_placements[i]
             region_length = tw * CFG.cover_multistep_thr_percent
             left_pt = rng.uniform(x - tw/2, x + tw/2 - region_length)
             region = [left_pt, left_pt + region_length]
@@ -858,8 +867,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             thr_left, thr_right = target_hand_regions[i]
             bw = CFG.cover_block_widths[i]
             tw = CFG.cover_target_widths[i]
-            bl, bx, br = block_placements[i]
-            tl, tx, tr = target_placements[i]
+            _, bx, _ = block_placements[i]
+            _, tx, _ = target_placements[i]
             region_length = bw * CFG.cover_multistep_bhr_percent
 
             # The hand region we assign must not make it impossible to
@@ -905,7 +914,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         return State(data)
 
-    def _get_hand_regions_block(self, state: State) -> List[Tuple[float, float]]:
+    def _get_hand_regions_block(self, state: State) \
+        -> List[Tuple[float, float]]:
         hand_regions = []
         for block, block_hr in zip(self._blocks, self._block_hand_regions):
             hand_regions.append(
@@ -913,9 +923,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                  state.get(block, "x") + state.get(block_hr, "ub")))
         return hand_regions
 
-    def _get_hand_regions_target(self, state: State) -> List[Tuple[float, float]]:
+    def _get_hand_regions_target(self, state: State) \
+        -> List[Tuple[float, float]]:
         hand_regions = []
-        for target, target_hr in zip(self._targets, self._target_hand_regions):
+        for target_hr in self._target_hand_regions:
             hand_regions.append(
                 (state.get(target_hr, "lb"),
                  state.get(target_hr, "ub")))
