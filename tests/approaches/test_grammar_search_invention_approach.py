@@ -1,11 +1,13 @@
 """Test cases for the grammar search invention approach."""
 
+from operator import gt
 import pytest
 import numpy as np
 from predicators.src.approaches.grammar_search_invention_approach import (
     _PredicateGrammar, _DataBasedPredicateGrammar,
     _SingleFeatureInequalitiesPredicateGrammar, _create_grammar,
-    _halving_constant_generator, _ForallClassifier, _UnaryFreeForallClassifier)
+    _halving_constant_generator, _ForallClassifier, _UnaryFreeForallClassifier,
+    _SingleAttributeCompareClassifier, _NegationClassifier)
 from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
 from predicators.src.envs import CoverEnv
@@ -132,6 +134,22 @@ def test_halving_constant_generator():
         assert abs(expected_cost - cost) < 1e-6
 
 
+def test_single_attribute_compare_classifier():
+    """Tests for _SingleAttributeCompareClassifier."""
+    cup_type = Type("cup_type", ["feat1"])
+    cup1 = cup_type("cup1")
+    cup2 = cup_type("cup2")
+    cup3 = cup_type("cup3")
+    classifier = _SingleAttributeCompareClassifier(
+        2, cup_type, "feat1", 1.0, 5, gt, ">")
+    state0 = State({cup1: [0.0], cup2: [1.0], cup3: [2.0]})
+    assert not classifier(state0, [cup1])
+    assert not classifier(state0, [cup2])
+    assert classifier(state0, [cup3])
+    assert str(classifier) == "((2:cup_type).feat1>[idx 5]1.0)"
+    assert classifier.pretty_str() == ("?z:cup_type", "(?z.feat1 > 1.0)")
+
+
 def test_forall_classifier():
     """Tests for _ForallClassifier()."""
     cup_type = Type("cup_type", ["feat1"])
@@ -147,6 +165,7 @@ def test_forall_classifier():
     assert not classifier(state1, [])
     assert classifier(state2, [])
     assert str(classifier) == "Forall[0:cup_type].[Pred(0)]"
+    assert classifier.pretty_str() == ("", "(∀ ?x:cup_type . Pred(?x))")
 
 
 def test_unary_free_forall_classifier():
@@ -160,6 +179,24 @@ def test_unary_free_forall_classifier():
     classifier0 = _UnaryFreeForallClassifier(on, 0)
     assert classifier0(state0, [cup0])
     assert str(classifier0) == "Forall[1:plate_type].[On(0,1)]"
+    assert classifier0.pretty_str() == ("?x:cup_type",
+                                        "(∀ ?y:plate_type . On(?x, ?y))")
     classifier1 = _UnaryFreeForallClassifier(on, 1)
     assert classifier1(state0, [plate0])
     assert str(classifier1) == "Forall[0:cup_type].[On(0,1)]"
+    assert classifier1.pretty_str() == ("?y:plate_type",
+                                        "(∀ ?x:cup_type . On(?x, ?y))")
+    noton_classifier = _NegationClassifier(on)
+    noton = Predicate(str(noton_classifier), [cup_type, plate_type],
+                      noton_classifier)
+    classifier2 = _UnaryFreeForallClassifier(noton, 0)
+    assert not classifier2(state0, [cup0])
+    assert str(classifier2) == "Forall[1:plate_type].[NOT-On(0,1)]"
+    assert classifier2.pretty_str() == ("?x:cup_type",
+                                        "(∀ ?y:plate_type . ¬On(?x, ?y))")
+    forallnoton = Predicate(str(classifier2), [cup_type], classifier2)
+    classifier3 = _NegationClassifier(forallnoton)
+    assert classifier3(state0, [cup0])
+    assert str(classifier3) == "NOT-Forall[1:plate_type].[NOT-On(0,1)]"
+    assert classifier3.pretty_str() == ("?x:cup_type",
+                                        "¬(∀ ?y:plate_type . ¬On(?x, ?y))")
