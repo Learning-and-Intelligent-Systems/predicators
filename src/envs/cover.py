@@ -723,7 +723,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             plt.plot([hand_lb, hand_rb], [-0.08, -0.08],
                      color="red",
                      alpha=0.5,
-                     lw=8.,
+                     lw=4.,
                      label=label)
         # Draw hand
         plt.scatter(state.get(self._robot, "x"),
@@ -911,7 +911,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 if relative_l >= (tx + tw/2 - thr_right) and \
                     relative_r >= (thr_left-(tx - tw/2)):
                     break
-
             data[block_hr] = np.array(relative_region)
 
         return State(data)
