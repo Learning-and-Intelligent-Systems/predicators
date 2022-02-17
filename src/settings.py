@@ -26,6 +26,8 @@ class GlobalSettings:
     max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
+    # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
+    pretty_print_when_loading = False
 
     # cover env parameters
     cover_num_blocks = 2
@@ -167,6 +169,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
+    grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
