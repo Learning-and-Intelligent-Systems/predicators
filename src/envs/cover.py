@@ -712,7 +712,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.001, -0.001], color="black", linewidth=0.4)
         # Draw hand regions
-        hand_regions = self._get_hand_regions(state)
+        block_hand_regions = self._get_hand_regions_block(state)
+        target_hand_regions = self._get_hand_regions_target(state)
+        hand_regions = block_hand_regions + target_hand_regions
         for i, (hand_lb, hand_rb) in enumerate(hand_regions):
             if i == 0:
                 label = "Allowed hand region"
