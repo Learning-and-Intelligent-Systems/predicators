@@ -19,6 +19,7 @@ def test_create_env():
             "painting",
             "tools",
             "repeated_nextto",
+            "repeated_nextto_painting",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
     ]:
