@@ -667,7 +667,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Note: unlike parent env, we also need to check the grip.
         if held_block is None and above_block is not None and \
             grip > self.grasp_thresh and any(hand_lb <= x <= hand_rb for
-            hand_lb, hand_rb in self._get_hand_regions(state)):
+            hand_lb, hand_rb in self._get_hand_regions_block(state)):
             by = state.get(above_block, "y")
             by_ub = by + self.grasp_height_tol
             by_lb = by - self.grasp_height_tol
@@ -676,13 +676,18 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 next_state.set(above_block, "grasp", 1)
                 next_state.set(self._robot, "holding", 1)
 
-        # If we are holding anything and we're not above a block, place it if
+        # If we are holding something and we're not above a block, place it if
         # the gripper is off and we are low enough. Placing anywhere is allowed
-        # and possible overlaps with other blocks is handled by the
-        # collision checker.
+        # but if we are over a target, we must be in its hand region. Possible
+        # overlaps with other blocks is handled by the collision checker.
         # Note: unlike parent env, we also need to check the grip.
         if held_block is not None and above_block is None and \
             grip < self.grasp_thresh and (hy-hh) < self.placing_height:
+            if any(state.get(targ, "x")-state.get(targ, "width")/2 <= x <=
+                state.get(targ, "x")+state.get(targ, "width")/2 for targ in \
+                self._targets) and not any(hand_lb <= x <= hand_rb for \
+                hand_lb, hand_rb in self._get_hand_regions_target(state)):
+                    return state.copy()
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
             next_state.set(self._robot, "holding", -1)
@@ -775,33 +780,146 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         return [img]
 
     def _create_initial_state(self, rng: np.random.Generator) -> State:
-        # Need to override to account for new low-level state features.
-        # Note: I originally tried to use super(), but ran into issues
-        # because the parent class types and this class types are
-        # actually different (in terms of equality checking).
+        """Creates initial state by (1) placing targets and blocks in random
+        locations such that each target has enough space on either side to
+        ensure no covering placement will cause a collision (note that this is
+        not necessary to make the task solveable; but we can do this and instead
+        sufficiently tune the difficulty through hand region specification), and
+        (2) choosing hand region intervals on the targets and blocks such that
+        the problem is solveable.
+        """
         data: Dict[Object, Array] = {}
-        assert len(CFG.cover_block_widths) == len(self._blocks)
-        for block, width in zip(self._blocks, CFG.cover_block_widths):
-            while True:
-                x = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(x, width, data):
-                    break
+
+        # Place targets and blocks
+        counter = 0
+        while True:
+            overlap = False
+            counter += 1
+            if counter > CFG.cover_multistep_max_placements:
+                raise MaxPlacementsFailure("Reached maximum number of " \
+                "placements of targets and blocks.")
+            block_placements = []
+            for block, bw in zip(self._blocks, CFG.cover_block_widths):
+                xb = rng.uniform(bw/2, 1-bw/2)
+                left_pt = xb - bw/2
+                right_pt = xb + bw/2
+                block_placements.append((left_pt, xb, right_pt))
+            target_placements = []
+            for target, tw, bw in zip(self._targets, CFG.cover_target_widths, \
+                CFG.cover_block_widths):
+                xt = rng.uniform(bw-tw/2, 1-bw+tw/2)
+                left_pt = xt + tw/2 - bw
+                right_pt = xt - tw/2 + bw
+                target_placements.append((left_pt, xt, right_pt))
+            # check for overlap
+            all_placements = target_placements + block_placements
+            all_placements.sort(key=lambda x: x[0])
+            for i in range(1, len(all_placements)):
+                curr = all_placements[i]
+                prev = all_placements[i-1]
+                if curr[0] < prev[2]:
+                    overlap = True
+            if not overlap:
+                break
+
+        # Make the targets, blocks, and robot objects
+        for target, width, placement in zip(self._targets, \
+            CFG.cover_target_widths, target_placements):
+            l, x, r = placement
+            # [is_block, is_target, width, x]
+            data[target] = np.array([0.0, 1.0, width, x])
+        for block, width, placement in zip(self._blocks, \
+            CFG.cover_block_widths, block_placements):
+            l, x, r = placement
             # [is_block, is_target, width, x, grasp, y, height]
             data[block] = np.array([
                 1.0, 0.0, width, x, -1.0, self.initial_block_y,
                 self.block_height
             ])
-        assert len(CFG.cover_target_widths) == len(self._targets)
-        for target, width in zip(self._targets, CFG.cover_target_widths):
-            while True:
-                x = rng.uniform(width / 2, 1.0 - width / 2)
-                if not self._any_intersection(x, width, data, larger_gap=True):
-                    break
-            # [is_block, is_target, width, x]
-            data[target] = np.array([0.0, 1.0, width, x])
         # [x, y, grip, holding]
         data[self._robot] = np.array([0.0, self.initial_robot_y, -1.0, -1.0])
+
+        # Make the hand regions
+        # sample a hand region interval in each target
+        target_hand_regions = []
+        for i, target in enumerate(self._targets):
+            target_hr = self._target_hand_regions[i]
+            tw = CFG.cover_target_widths[i]
+            l, x, r = target_placements[i]
+            region_length = tw * CFG.cover_multistep_thr_percent
+            left_pt = rng.uniform(x - tw/2, x + tw/2 - region_length)
+            region = [left_pt, left_pt + region_length]
+            data[target_hr] = np.array(region)
+            target_hand_regions.append(region)
+
+        # sample a hand region interval in each block
+        for i, block in enumerate(self._blocks):
+            block_hr = self._block_hand_regions[i]
+            thr_left, thr_right = target_hand_regions[i]
+            bw = CFG.cover_block_widths[i]
+            tw = CFG.cover_target_widths[i]
+            bl, bx, br = block_placements[i]
+            tl, tx, tr = target_placements[i]
+            region_length = bw * CFG.cover_multistep_bhr_percent
+
+            # The hand region we assign must not make it impossible to
+            # cover the block's target.
+            # To check this, we perform the following operation:
+            # "Place" the block in the leftmost position that still covers
+            # the target. Move the block to the right until it reaches the
+            # rightmost position that still covers the target. During this,
+            # check that there is nonzero overlap between the interval
+            # spanned by the moving block's hand region, and the target's
+            # hand region. In other words, make sure that there is at least
+            # one placement of the block which covers the target, and in
+            # which the block's hand region and the target's hand region
+            # have nonzero overlap.
+            # A proxy for this operation is to check:
+            # (1) That in the block's rightmost covering placement, its
+            # interval IS NOT completely to the left of the target's
+            # hand region, and
+            # (2) That in the block's leftmost covering placement, its
+            # interval IS NOT completely to the right of the target's
+            # hand region.
+            counter = 0
+            while True:
+                counter += 1
+                if counter > CFG.cover_multistep_max_placements:
+                    raise MaxPlacementsFailure("Reached maximum number of " \
+                    "placements of hand regions.")
+                # sample hand region
+                left_pt = rng.uniform(bx - bw/2, bx + bw/2 - region_length)
+                region = [left_pt, left_pt + region_length]
+                # need to make hand region relative to center of block for
+                # the hand region to move with the block for use by
+                # _get_hand_regions()
+                relative_region = [region[0]-bx, region[1]-bx]
+                # perform the valid interval check
+                relative_r = region[1] - (bx - bw/2)  # for (1)
+                relative_l = bx + bw/2 - region[0]  # for (2)
+                if relative_l >= (tx + tw/2 - thr_right) and \
+                    relative_r >= (thr_left-(tx - tw/2)):
+                    break
+
+            data[block_hr] = np.array(relative_region)
+
         return State(data)
+
+    def _get_hand_regions_block(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
+        for block, block_hr in zip(self._blocks, self._block_hand_regions):
+            hand_regions.append(
+                (state.get(block, "x") + state.get(block_hr, "lb"),
+                 state.get(block, "x") + state.get(block_hr, "ub")))
+        return hand_regions
+
+    def _get_hand_regions_target(self, state: State) -> List[Tuple[float, float]]:
+        hand_regions = []
+        for target, target_hr in zip(self._targets, self._target_hand_regions):
+            hand_regions.append(
+                (state.get(target_hr, "lb"),
+                 state.get(target_hr, "ub")))
+        return hand_regions
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
                         p: Array) -> bool:
@@ -1037,19 +1155,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             assert np.allclose(absolute_params, param_from_terminal, atol=1e-5)
         return terminal
 
-    def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
-        # Overriding because of the change from "pose" to "x".
-        hand_regions = []
-        for block in self._blocks:
-            hand_regions.append(
-                (state.get(block, "x") - state.get(block, "width") / 2,
-                 state.get(block, "x") + state.get(block, "width") / 2))
-        for targ in self._targets:
-            hand_regions.append(
-                (state.get(targ, "x") - state.get(targ, "width") / 10,
-                 state.get(targ, "x") + state.get(targ, "width") / 10))
-        return hand_regions
-
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
         block, robot = objects
@@ -1089,3 +1194,6 @@ class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
         del rng
         zero_rng = np.random.default_rng(0)
         return super()._create_initial_state(zero_rng)
+
+class MaxPlacementsFailure(Exception):
+    """Raised when the maximum number of placement attempts has been reached."""
