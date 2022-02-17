@@ -512,12 +512,12 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._target_hand_regions = []
         for i in range(CFG.cover_num_blocks):
             self._blocks.append(Object(f"block{i}", self._block_type))
-            self._block_hand_regions.append(Object(f"block_{i}_hand_region", \
+            self._block_hand_regions.append(Object(f"block{i}_hand_region", \
             self._hand_region_type))
         for i in range(CFG.cover_num_targets):
             target = Object(f"target{i}", self._target_type)
             self._targets.append(target)
-            self._target_hand_regions.append(Object(f"target_{i}_hand_region", \
+            self._target_hand_regions.append(Object(f"target{i}_hand_region", \
             self._hand_region_type))
         self._robot = Object("robby", self._robot_type)
         # Override the original options to make them multi-step.

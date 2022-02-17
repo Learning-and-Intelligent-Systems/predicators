@@ -5,7 +5,7 @@ from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
     CoverEnvRegrasp
-from predicators.src.structs import State, Action
+from predicators.src.structs import State, Action, Task
 from predicators.src import utils
 
 
@@ -237,6 +237,27 @@ def test_cover_multistep_options():
     assert len(env.action_space.low) == 3
     # Run through a specific plan of low-level actions.
     task = env.get_test_tasks()[0]
+    state = task.init
+    goal = task.goal
+    block0 = [b for b in state if b.name == "block0"][0]
+    block1 = [b for b in state if b.name == "block1"][0]
+    target0 = [b for b in state if b.name == "target0"][0]
+    target1 = [b for b in state if b.name == "target1"][0]
+    block0_hr = [b for b in state if b.name == "block0_hand_region"][0]
+    block1_hr = [b for b in state if b.name == "block1_hand_region"][0]
+    target0_hr = [b for b in state if b.name == "target0_hand_region"][0]
+    target1_hr = [b for b in state if b.name == "target1_hand_region"][0]
+    state.data[block0] = np.array([1., 0., 0.1, 0.43592563, -1., 0.1, 0.1])
+    state.data[block1] = np.array([1., 0., 0.07, 0.8334956, -1., 0.1, 0.1])
+    state.data[target0] = np.array([0., 1., 0.05, 0.17778981])
+    state.data[target1] = np.array([0., 1., 0.03, 0.63629464])
+    state.data[block0_hr] = np.array([0.43592563 - 0.1/2, 0.43592563 + 0.1/2])
+    state.data[block1_hr] = np.array([0.8334956 - 0.07/2, 0.8334956 + 0.07/2])
+    state.data[target0_hr] = np.array([0.17778981 - 0.05/2, 0.17778981 + 0.05/2])
+    state.data[target1_hr] = np.array([0.63629464 - 0.03/2, 0.63629464 + 0.03/2])
+    task = Task(state, goal)
+    env.render(state, task)
+    break
     action_arrs = [
         # Move to above block0
         np.array([0.05, 0., 0.], dtype=np.float32),
@@ -284,7 +305,7 @@ def test_cover_multistep_options():
         # Ungrasp
         np.array([0., 0., -0.1], dtype=np.float32),
     ]
-    make_video = False  # Can toggle to true for debugging
+    make_video = True  # Can toggle to true for debugging
 
     def policy(s: State) -> Action:
         del s  # unused
@@ -300,12 +321,6 @@ def test_cover_multistep_options():
     env.render(state, task)
     # Render a state where we're grasping
     env.render(traj.states[20], task)
-    block0 = [b for b in state if b.name == "block0"][0]
-    block1 = [b for b in state if b.name == "block1"][0]
-    target0 = [b for b in state if b.name == "target0"][0]
-    target1 = [b for b in state if b.name == "target1"][0]
-    block0 = [b for b in state if b.name == "block0"][0]
-    target0 = [b for b in state if b.name == "target0"][0]
     Covers = [p for p in env.predicates if p.name == "Covers"][0]
     init_atoms = utils.abstract(state, env.predicates)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
