@@ -12,7 +12,8 @@ from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
-from predicators.src.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
+from predicators.src.envs.repeated_nextto_painting import \
+    RepeatedNextToPaintingEnv
 
 __all__ = [
     "BaseEnv",

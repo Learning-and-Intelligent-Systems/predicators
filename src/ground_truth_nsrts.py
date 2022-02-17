@@ -867,20 +867,24 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
 def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for Repeated_NextTo_PaintingEnv."""
     obj_type, box_type, lid_type, shelf_type, robot_type = \
-        _get_types_by_names("repeated_nextto_painting", ["obj", "box", "lid", "shelf", "robot"])
+        _get_types_by_names("repeated_nextto_painting", \
+        ["obj", "box", "lid", "shelf", "robot"])
 
-    (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable,
-     HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean, NextTo, NextToBox, NextToShelf, NextToNothing) = \
+    (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable,\
+        HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean,\
+        NextTo, NextToBox, NextToShelf, NextToNothing) = \
          _get_predicates_by_names(
-             "repeated_nextto_painting", ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
-                          "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-                          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean", "NextTo", "NextToBox", "NextToShelf", "NextToNothing"])
+             "repeated_nextto_painting",
+             ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
+             "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+             "Holding", "IsWet", "IsDry", "IsDirty", "IsClean",
+             "NextTo", "NextToBox", "NextToShelf", "NextToNothing"])
 
-    Pick, Wash, Dry, Paint, Place, OpenLid, MoveToObj, MoveToBox, MoveToShelf = _get_options_by_names(
-        "repeated_nextto_painting", [
-            "Pick", "Wash", "Dry", "Paint", "Place", "OpenLid", "MoveToObj",
-            "MoveToBox", "MoveToShelf"
-        ])
+    Pick, Wash, Dry, Paint, Place, OpenLid, MoveToObj, MoveToBox,\
+        MoveToShelf = _get_options_by_names(
+        "repeated_nextto_painting",
+        ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid", "MoveToObj",
+        "MoveToBox", "MoveToShelf"])
 
     nsrts = set()
 

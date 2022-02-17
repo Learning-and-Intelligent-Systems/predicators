@@ -429,8 +429,9 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         # List of NextTo objects to render
         nextto_objs = []
         for obj in state:
-            if obj.is_instance(self._obj_type) or obj.is_instance(self._box_type) \
-               or obj.is_instance(self._shelf_type):
+            if obj.is_instance(self._obj_type) or \
+                obj.is_instance(self._box_type) or \
+                obj.is_instance(self._shelf_type):
                 if abs(state.get(self._robot, "y") -
                        state.get(obj, "pose_y")) < self.nextto_thresh:
                     nextto_objs.append(obj)
@@ -632,10 +633,11 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         arr = np.array([x, y, z, 0.5, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
 
-    def _Move_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
+    @staticmethod
+    def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
+                     params: Array) -> Action:
         del memory  # unused
-        robot, obj = objects
+        _, obj = objects
         next_x = state.get(obj, "pose_x")
         next_y = params[0]
         return Action(
@@ -756,7 +758,8 @@ class RepeatedNextToPaintingEnv(BaseEnv):
                              objects: Sequence[Object]) -> bool:
         robot, = objects
         for typed_obj in state:
-            if typed_obj.type in [self._obj_type, self._box_type, self._shelf_type] and \
+            if typed_obj.type in \
+                [self._obj_type, self._box_type, self._shelf_type] and \
                 self._NextTo_holds(state, [robot, typed_obj]):
                 return False
         return True
