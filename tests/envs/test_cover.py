@@ -1,5 +1,6 @@
 """Test cases for the cover environment."""
 
+import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
@@ -7,7 +8,7 @@ from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvRegrasp
 from predicators.src.structs import State, Action, Task
 from predicators.src import utils
-
+from predicators.src.envs.cover import MaxPlacementsFailure
 
 def test_cover():
     """Tests for CoverEnv class."""
@@ -238,7 +239,6 @@ def test_cover_multistep_options():
     # Run through a specific plan of low-level actions.
     task = env.get_test_tasks()[0]
     state = task.init
-    goal = task.goal
     block0 = [b for b in state if b.name == "block0"][0]
     block1 = [b for b in state if b.name == "block1"][0]
     target0 = [b for b in state if b.name == "target0"][0]
@@ -253,9 +253,9 @@ def test_cover_multistep_options():
     state.data[target1] = np.array([0., 1., 0.03, 0.63629464])
     state.data[block0_hr] = np.array([-0.1/2, 0.1/2])
     state.data[block1_hr] = np.array([-0.07/2, 0.07/2])
-    state.data[target0_hr] = np.array([0.17778981 - 0.05/2, 0.17778981 + 0.05/2])
-    state.data[target1_hr] = np.array([0.63629464 - 0.03/2, 0.63629464 + 0.03/2])
-    task = Task(state, goal)
+    state.data[target0_hr] = np.array([0.17778981-0.05/2, 0.17778981+0.05/2])
+    state.data[target1_hr] = np.array([0.63629464-0.03/2, 0.63629464+0.03/2])
+    task = Task(state, task.goal)
     action_arrs = [
         # Move to above block0
         np.array([0.05, 0., 0.], dtype=np.float32),
@@ -527,6 +527,32 @@ def test_cover_multistep_options():
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
+    # Check max placement failure for target and block placement
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10,
+        "cover_block_widths": [0.25, 0.25],
+        "cover_target_widths": [0.25, 0.25]
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    with pytest.raises(MaxPlacementsFailure):
+        env.get_test_tasks()
+
+    # Check max placement failure for hand region placement
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10,
+        "cover_multistep_max_placements": 2,
+        "cover_multistep_thr_percent": 0.001,
+        "cover_multistep_bhr_percent": 0.001
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    with pytest.raises(MaxPlacementsFailure):
+        env.get_test_tasks()
 
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
