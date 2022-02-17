@@ -8,7 +8,8 @@ from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
     BlocksEnv, PaintingEnv, ToolsEnv, PlayroomEnv, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvRegrasp
+    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvRegrasp, \
+    RepeatedNextToPaintingEnv
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src import utils
 
@@ -98,7 +99,8 @@ def test_check_nsrt_parameters():
         "tools": ToolsEnv(),
         "playroom": PlayroomEnv(),
         "cover_multistep_options": CoverMultistepOptions(),
-        "repeated_nextto": RepeatedNextToEnv()
+        "repeated_nextto": RepeatedNextToEnv(),
+        "repeated_nextto_painting": RepeatedNextToPaintingEnv()
     }
     for name, env in envs.items():
         utils.reset_config({"env": name})
@@ -501,6 +503,28 @@ def test_oracle_approach_painting():
     })
     env = PaintingEnv()
     env.seed(123)
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
+    approach.seed(123)
+    for train_task in train_tasks[:2]:
+        policy = approach.solve(train_task, timeout=500)
+        assert utils.policy_solves_task(policy, train_task, env.simulate)
+    for test_task in env.get_test_tasks()[:2]:
+        policy = approach.solve(test_task, timeout=500)
+        assert utils.policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_oracle_approach_repeated_nextto_painting():
+    """Tests for OracleApproach class with RepeatedNextToPaintingEnv."""
+    utils.reset_config({
+        "env": "repeated_nextto_painting",
+        "num_train_tasks": 2,
+        "num_test_tasks": 2
+    })
+    env = RepeatedNextToPaintingEnv()
+    env.seed(2310)  # This random seed necessary to get full coverage.
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)

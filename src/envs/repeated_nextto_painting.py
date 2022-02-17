@@ -1,10 +1,5 @@
-"""Painting domain, which allows for two different grasps on an object (side or
-top).
-
-Side grasping allows for placing into the shelf, and top grasping allows
-for placing into the box. The box has a lid which may need to be opened;
-this lid is NOT modeled by any of the given predicates.
-"""
+"""RepeatedNextToPainting domain, which is a merge of our Painting and
+RepeatedNextTo environments."""
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
 import numpy as np
@@ -94,10 +89,10 @@ class RepeatedNextToPaintingEnv(BaseEnv):
                                  self._NextTo_holds)
         self._NextToBox = Predicate("NextToBox",
                                     [self._robot_type, self._box_type],
-                                    self._NextToBox_holds)
+                                    self._NextTo_holds)
         self._NextToShelf = Predicate("NextToShelf",
                                       [self._robot_type, self._shelf_type],
-                                      self._NextToShelf_holds)
+                                      self._NextTo_holds)
         self._NextToNothing = Predicate("NextToNothing", [self._robot_type],
                                         self._NextToNothing_holds)
         # Options
@@ -380,11 +375,9 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         # [x, y, z, grasp, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
         # while grasp, water level, heat level, and color are in [0, 1].
-        lowers = np.array([
-            self.obj_x - 1e-2, self.env_lb, 0.0, 0.0, -1.0, 0.0,
-            0.0, 0.0
-        ],
-                          dtype=np.float32)
+        lowers = np.array(
+            [self.obj_x - 1e-2, self.env_lb, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+            dtype=np.float32)
         uppers = np.array([
             self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2, 1.0, 1.0, 1.0,
             1.0, 1.0
@@ -759,34 +752,14 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         return abs(state.get(robot, "y") -
                    state.get(obj, "pose_y")) < self.nextto_thresh
 
-    def _NextToBox_holds(self, state: State,
-                         objects: Sequence[Object]) -> bool:
-        robot, box = objects
-        return abs(state.get(robot, "y") -
-                   state.get(box, "pose_y")) < self.nextto_thresh
-
-    def _NextToShelf_holds(self, state: State,
-                           objects: Sequence[Object]) -> bool:
-        robot, shelf = objects
-        return abs(state.get(robot, "y") -
-                   state.get(shelf, "pose_y")) < self.nextto_thresh
-
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
         robot, = objects
         for typed_obj in state:
-            if typed_obj.type == self._obj_type and \
-               self._NextTo_holds(state, [robot, typed_obj]):
-                return False
-            elif typed_obj.type == self._box_type and \
-               self._NextToBox_holds(state, [robot, typed_obj]):
-                return False
-            elif typed_obj.type == self._shelf_type and \
-               self._NextToShelf_holds(state, [robot, typed_obj]):
+            if typed_obj.type in [self._obj_type, self._box_type, self._shelf_type] and \
+                self._NextTo_holds(state, [robot, typed_obj]):
                 return False
         return True
-
-    #
 
     def _get_held_object(self, state: State) -> Optional[Object]:
         for obj in state:

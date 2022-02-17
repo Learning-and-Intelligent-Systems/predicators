@@ -1177,9 +1177,9 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, targetobj]
     option_vars = [robot, targetobj]
     option = MoveToObj
-    preconditions: Set[LiftedAtom] = set()
+    preconditions = set()
     add_effects = {LiftedAtom(NextTo, [robot, targetobj])}
-    delete_effects: Set[LiftedAtom] = set()
+    delete_effects = set()
     # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
     side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
@@ -1195,9 +1195,9 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, targetbox]
     option_vars = [robot, targetbox]
     option = MoveToBox
-    preconditions: Set[LiftedAtom] = set()
+    preconditions = set()
     add_effects = {LiftedAtom(NextToBox, [robot, targetbox])}
-    delete_effects: Set[LiftedAtom] = set()
+    delete_effects = set()
     # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
     side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
@@ -1212,9 +1212,9 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     parameters = [robot, targetshelf]
     option_vars = [robot, targetshelf]
     option = MoveToShelf
-    preconditions: Set[LiftedAtom] = set()
+    preconditions = set()
     add_effects = {LiftedAtom(NextToShelf, [robot, targetshelf])}
-    delete_effects: Set[LiftedAtom] = set()
+    delete_effects = set()
     # Moving could have us end up NextTo other objects. It could also
     # include NextToNothing as a delete effect.
     side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}

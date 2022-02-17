@@ -75,7 +75,7 @@ def test_painting_failure_cases():
     Dry = [o for o in env.options if o.name == "Dry"][0]
     Paint = [o for o in env.options if o.name == "Paint"][0]
     Place = [o for o in env.options if o.name == "Place"][0]
-    MoveToObj= [o for o in env.options if o.name == "MoveToObj"][0]
+    MoveToObj = [o for o in env.options if o.name == "MoveToObj"][0]
     MoveToBox = [o for o in env.options if o.name == "MoveToBox"][0]
     MoveToShelf = [o for o in env.options if o.name == "MoveToShelf"][0]
     OpenLid = [o for o in env.options if o.name == "OpenLid"][0]
@@ -150,8 +150,9 @@ def test_painting_failure_cases():
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Perform valid move to obj and change the state
-    act = MoveToObj.ground([robot, obj0], np.array([state.get(obj0, "pose_y")],
-                                              dtype=np.float32)).policy(state)
+    act = MoveToObj.ground([robot, obj0],
+                           np.array([state.get(obj0, "pose_y")],
+                                    dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
@@ -216,8 +217,9 @@ def test_painting_failure_cases():
     # Change the state
     state = next_state
     # Perform valid move to box and change the state
-    act = MoveToBox.ground([robot, box], np.array([state.get(box, "pose_y")],
-                                              dtype=np.float32)).policy(state)
+    act = MoveToBox.ground([robot, box],
+                           np.array([state.get(box, "pose_y")],
+                                    dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
@@ -235,8 +237,9 @@ def test_painting_failure_cases():
     # Reset state
     state = handempty_state
     # Perform valid move to obj and change the state
-    act = MoveToObj.ground([robot, obj0], np.array([state.get(obj0, "pose_y")],
-                                              dtype=np.float32)).policy(state)
+    act = MoveToObj.ground([robot, obj0],
+                           np.array([state.get(obj0, "pose_y")],
+                                    dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
@@ -265,9 +268,10 @@ def test_painting_failure_cases():
                                 dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-     # Perform valid move to shelf and change the state
-    act = MoveToShelf.ground([robot, shelf], np.array([state.get(shelf, "pose_y")],
-                                              dtype=np.float32)).policy(state)
+    # Perform valid move to shelf and change the state
+    act = MoveToShelf.ground([robot, shelf],
+                             np.array([state.get(shelf, "pose_y")],
+                                      dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
