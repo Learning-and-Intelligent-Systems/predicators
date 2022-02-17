@@ -863,7 +863,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
 
     return nsrts
 
-# TODO (wmcclinton) ... Done
 def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for Repeated_NextTo_PaintingEnv."""
     obj_type, box_type, lid_type, shelf_type, robot_type = \
@@ -1219,7 +1218,6 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
 
 
     return nsrts
-#
 
 def _get_tools_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for ToolsEnv."""

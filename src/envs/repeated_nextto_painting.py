@@ -48,7 +48,7 @@ class RepeatedNextToPaintingEnv(BaseEnv):
     open_fingers = 0.8
     top_grasp_thresh = 0.5 + 1e-2
     side_grasp_thresh = 0.5 - 1e-2
-    nextto_thresh = 0.7
+    nextto_thresh = 1.0
     robot_x = table_x - 0.5
 
     def __init__(self) -> None:
@@ -90,7 +90,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
                                   self._IsDirty_holds)
         self._IsClean = Predicate("IsClean", [self._obj_type],
                                   self._IsClean_holds)
-        # TODO (wmcclinton) ... Done
         self._NextTo = Predicate("NextTo", [self._robot_type, self._obj_type],
                                  self._NextTo_holds)
         self._NextToBox = Predicate("NextToBox", [self._robot_type, self._box_type],
@@ -99,8 +98,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
                                  self._NextToShelf_holds)
         self._NextToNothing = Predicate("NextToNothing", [self._robot_type],
                                         self._NextToNothing_holds)
-        #
-
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
@@ -162,8 +159,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             _policy=self._OpenLid_policy,
             _initiable=self._handempty_initiable,
             _terminal=utils.onestep_terminal)
-
-        # TODO (wmcclinton) ... Done
         self._MoveToObj = ParameterizedOption(
             "MoveToObj",
             types=[self._robot_type, self._obj_type],
@@ -171,7 +166,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
-
         self._MoveToBox = ParameterizedOption(
             "MoveToBox",
             types=[self._robot_type, self._box_type],
@@ -179,7 +173,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
-
         self._MoveToShelf = ParameterizedOption(
             "MoveToShelf",
             types=[self._robot_type, self._shelf_type],
@@ -187,8 +180,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
-        #
-
         # Objects
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
@@ -204,12 +195,16 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         dry_affinity = 0 if arr[6] > 0.5 else abs(arr[6] - 0.5)
         paint_affinity = min(abs(arr[7] - state.get(self._box, "color")),
                              abs(arr[7] - state.get(self._shelf, "color")))
+        move_affinity = sum(abs(val) for val in arr[4:])
+
         affinities = [
             (abs(1 - arr[4]), self._transition_pick_or_openlid),
             (wash_affinity, self._transition_wash),
             (dry_affinity, self._transition_dry),
             (paint_affinity, self._transition_paint),
             (abs(-1 - arr[4]), self._transition_place),
+            (move_affinity, self._transition_move),
+
         ]
         _, transition_fn = min(affinities, key=lambda item: item[0])
         return transition_fn(state, action)
@@ -332,22 +327,13 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    # TODO (wmcclinton) ... Done
     def _transition_move(self, state: State, action: Action) -> State:
-        # Action args are target pose for robot
-        y = action.arr[:1]
+        # Action args are target y for robot
+        y = action.arr[1]
         next_state = state.copy()
-        # Detect collisions
-        collider = self._get_object_at_xyz(state, self.robot_x, y, self.table_height)
-        held_obj = self._get_held_object(state)
-        if collider is not None and \
-           collider != held_obj:
-            raise utils.EnvironmentFailure("Collision during place on table.",
-                                           {"offending_objects": {collider}})
         # Execute move
         next_state.set(self._robot, "y", y)
         return next_state
-    #
 
     def get_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
@@ -446,12 +432,16 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         ax.add_patch(rect)
         # Draw objects
         held_obj = self._get_held_object(state)
-        nextto_objs = []
-        for obj in sorted(objs):
-            if abs(state.get(self._robot, "x") - state.get(obj, "pose_x")) < self.nextto_thresh and \
-            abs(state.get(self._robot, "y") - state.get(obj, "pose_y")) < self.nextto_thresh:
-                nextto_objs.append(obj)
 
+        # List of NextTo objects to render
+        nextto_objs = []
+        for obj in state:
+            if obj.is_instance(self._obj_type) or obj.is_instance(self._box_type) \
+               or obj.is_instance(self._shelf_type):
+                if abs(state.get(self._robot, "y") - state.get(obj, "pose_y")) < self.nextto_thresh:
+                        nextto_objs.append(obj)
+
+        for obj in sorted(objs):
             x = state.get(obj, "pose_x")
             y = state.get(obj, "pose_y")
             z = state.get(obj, "pose_z")
@@ -495,11 +485,10 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             ax.add_patch(rect)
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
-        print(nextto_objs)
-        import ipdb; ipdb.set_trace()
         plt.suptitle(
             "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-            "yellow border = side grasp, orange border = top grasp",
+            "yellow border = side grasp, orange border = top grasp\n"
+            "NextTo: " + str(nextto_objs),
             fontsize=12)
         img = utils.fig2data(fig)
         plt.close()
@@ -511,7 +500,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
-            # TODO (wmcclinton)
             # Initialize robot pos with open fingers
             robot_init_y = rng.uniform(self.table_lb, self.table_ub)
             data[self._robot] = np.array([self.robot_x, robot_init_y, 1.0], dtype=np.float32)
@@ -527,7 +515,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             data[self._box] = np.array([self.box_x, self.box_y, box_color], dtype=np.float32)
             data[self._lid] = np.array([lid_is_open], dtype=np.float32)
             data[self._shelf] = np.array([self.shelf_x, self.shelf_y, shelf_color], dtype=np.float32)
-            #
             # Create moveable objects
             objs = []
             obj_poses: List[Tuple[float, float, float]] = []
@@ -649,7 +636,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         arr = np.array([x, y, z, 0.5, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return Action(arr)
 
-    # TODO (wmcclinton) ... Done
     def _Move_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
         del memory  # unused
@@ -658,7 +644,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         next_y = params[0]
         next_z = self.obj_z
         return Action(np.array([next_x, next_y, next_z, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
-    #
 
     def _holding_initiable(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
@@ -765,21 +750,17 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         obj, = objects
         return not self._IsDirty_holds(state, [obj])
 
-    # TODO (wmcclinton) ... Done
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
-        return abs(state.get(robot, "x") - state.get(obj, "pose_x")) < self.nextto_thresh and \
-            abs(state.get(robot, "y") - state.get(obj, "pose_y")) < self.nextto_thresh
+        return abs(state.get(robot, "y") - state.get(obj, "pose_y")) < self.nextto_thresh
     
     def _NextToBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, box = objects
-        return abs(state.get(robot, "x") - state.get(box, "pose_x")) < self.nextto_thresh and \
-            abs(state.get(robot, "y") - state.get(box, "pose_y")) < self.nextto_thresh
+        return abs(state.get(robot, "y") - state.get(box, "pose_y")) < self.nextto_thresh
 
     def _NextToShelf_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, shelf = objects
-        return abs(state.get(robot, "x") - state.get(shelf, "pose_x")) < self.nextto_thresh and \
-            abs(state.get(robot, "y") - state.get(shelf, "pose_y")) < self.nextto_thresh
+        return abs(state.get(robot, "y") - state.get(shelf, "pose_y")) < self.nextto_thresh
 
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
