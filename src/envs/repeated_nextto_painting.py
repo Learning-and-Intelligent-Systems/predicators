@@ -6,14 +6,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
+from predicators.src.envs.painting import PaintingEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-class RepeatedNextToPaintingEnv(BaseEnv):
+class RepeatedNextToPaintingEnv(PaintingEnv):
     """RepeatedNextToPainting domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_lb = -10.1
@@ -203,124 +203,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         _, transition_fn = min(affinities, key=lambda item: item[0])
         return transition_fn(state, action)
 
-    def _transition_pick_or_openlid(self, state: State,
-                                    action: Action) -> State:
-        x, y, z, grasp = action.arr[:4]
-        next_state = state.copy()
-        # Open lid
-        if self.box_lb < y < self.box_ub:
-            next_state.set(self._lid, "is_open", 1.0)
-            return next_state
-        held_obj = self._get_held_object(state)
-        # Cannot pick if already holding something
-        if held_obj is not None:
-            return next_state
-        # Cannot pick if object pose not on table
-        if not self.table_lb < y < self.table_ub:
-            return next_state
-        # Cannot pick if grasp is invalid
-        if self.side_grasp_thresh < grasp < self.top_grasp_thresh:
-            return next_state
-        # Check if some object is close enough to (x, y, z)
-        target_obj = self._get_object_at_xyz(state, x, y, z)
-        if target_obj is None:
-            return next_state
-        # Execute pick
-        next_state.set(self._robot, "fingers", 0.0)
-        next_state.set(target_obj, "grasp", grasp)
-        next_state.set(target_obj, "held", 1.0)
-        return next_state
-
-    def _transition_wash(self, state: State, action: Action) -> State:
-        target_wetness = action.arr[5]
-        next_state = state.copy()
-        held_obj = self._get_held_object(state)
-        # Can only wash if holding obj
-        if held_obj is None:
-            return next_state
-        # Execute wash
-        cur_dirtiness = state.get(held_obj, "dirtiness")
-        next_dirtiness = max(cur_dirtiness - target_wetness, 0.0)
-        next_state.set(held_obj, "wetness", target_wetness)
-        next_state.set(held_obj, "dirtiness", next_dirtiness)
-        return next_state
-
-    def _transition_dry(self, state: State, action: Action) -> State:
-        target_wetness = max(1.0 - action.arr[6], 0.0)
-        next_state = state.copy()
-        held_obj = self._get_held_object(state)
-        # Can only dry if holding obj
-        if held_obj is None:
-            return next_state
-        # Execute dry
-        next_state.set(held_obj, "wetness", target_wetness)
-        return next_state
-
-    def _transition_paint(self, state: State, action: Action) -> State:
-        color = action.arr[7]
-        next_state = state.copy()
-        # Can only paint if holding obj
-        held_obj = self._get_held_object(state)
-        if held_obj is None:
-            return next_state
-        # Can only paint if dry and clean
-        if state.get(held_obj, "dirtiness") > self.dirtiness_tol or \
-           state.get(held_obj, "wetness") > self.wetness_tol:
-            return next_state
-        # Execute paint
-        next_state.set(held_obj, "color", color)
-        return next_state
-
-    def _transition_place(self, state: State, action: Action) -> State:
-        # Action args are target pose for held obj
-        x, y, z = action.arr[:3]
-        next_state = state.copy()
-        # Can only place if holding obj
-        held_obj = self._get_held_object(state)
-        if held_obj is None:
-            return next_state
-        # Detect table vs shelf vs box place
-        if self.table_lb < y < self.table_ub:
-            receptacle = "table"
-        elif self.shelf_lb < y < self.shelf_ub:
-            receptacle = "shelf"
-        elif self.box_lb < y < self.box_ub:
-            receptacle = "box"
-        else:
-            # Cannot place outside of table, shelf, or box
-            return next_state
-        if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
-            # Cannot place in box if lid is not open
-            raise utils.EnvironmentFailure("Box lid is closed.",
-                                           {"offending_objects": {self._lid}})
-        # Detect top grasp vs side grasp
-        grasp = state.get(held_obj, "grasp")
-        if grasp > self.top_grasp_thresh:
-            top_or_side = "top"
-        elif grasp < self.side_grasp_thresh:
-            top_or_side = "side"
-        # Can only place in shelf if side grasping, box if top grasping. If the
-        # receptacle is table, we don't care what kind of grasp it is.
-        if receptacle == "shelf" and top_or_side != "side":
-            return next_state
-        if receptacle == "box" and top_or_side != "top":
-            return next_state
-        # Detect collisions
-        collider = self._get_object_at_xyz(state, x, y, z)
-        if receptacle == "table" and \
-           collider is not None and \
-           collider != held_obj:
-            raise utils.EnvironmentFailure("Collision during place on table.",
-                                           {"offending_objects": {collider}})
-        # Execute place
-        next_state.set(self._robot, "fingers", 1.0)
-        next_state.set(held_obj, "pose_x", x)
-        next_state.set(held_obj, "pose_y", y)
-        next_state.set(held_obj, "pose_z", z)
-        next_state.set(held_obj, "grasp", 0.5)
-        next_state.set(held_obj, "held", 0.0)
-        return next_state
-
     def _transition_move(self, state: State, action: Action) -> State:
         # Action args are target y for robot
         y = action.arr[1]
@@ -328,16 +210,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         # Execute move
         next_state.set(self._robot, "y", y)
         return next_state
-
-    def get_train_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=CFG.painting_num_objs_train,
-                               rng=self._train_rng)
-
-    def get_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=CFG.painting_num_objs_test,
-                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -347,19 +219,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             self._HoldingSide, self._Holding, self._IsWet, self._IsDry,
             self._IsDirty, self._IsClean, self._NextTo, self._NextToBox,
             self._NextToShelf, self._NextToNothing
-        }
-
-    @property
-    def goal_predicates(self) -> Set[Predicate]:
-        return {
-            self._InBox, self._InShelf, self._IsBoxColor, self._IsShelfColor
-        }
-
-    @property
-    def types(self) -> Set[Type]:
-        return {
-            self._obj_type, self._box_type, self._lid_type, self._shelf_type,
-            self._robot_type
         }
 
     @property
@@ -561,78 +420,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
             tasks.append(Task(state, goal))
         return tasks
 
-    def _sample_initial_object_pose(
-            self, existing_poses: List[Tuple[float, float, float]],
-            rng: np.random.Generator) -> Tuple[float, float, float]:
-        existing_ys = [p[1] for p in existing_poses]
-        while True:
-            this_y = rng.uniform(self.table_lb, self.table_ub)
-            if all(
-                    abs(this_y - other_y) > 3.5 * self.obj_radius
-                    for other_y in existing_ys):
-                return (self.obj_x, this_y,
-                        self.table_height + self.obj_height / 2)
-
-    def _Pick_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
-        _, obj = objects
-        obj_x = state.get(obj, "pose_x")
-        obj_y = state.get(obj, "pose_y")
-        obj_z = state.get(obj, "pose_z")
-        dx, dy, dz, grasp = params
-        arr = np.array(
-            [obj_x + dx, obj_y + dy, obj_z + dz, grasp, 1.0, 0.0, 0.0, 0.0],
-            dtype=np.float32)
-        # The addition of dx, dy, and dz could cause the action to go
-        # out of bounds, so we clip it back into the bounds for safety.
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
-
-    def _Wash_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        water_level, = params
-        water_level = min(max(water_level, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, water_level, 0.0,
-            0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    def _Dry_policy(self, state: State, memory: Dict,
-                    objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        heat_level, = params
-        heat_level = min(max(heat_level, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, heat_level,
-            0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    def _Paint_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        new_color, = params
-        new_color = min(max(new_color, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 0.0,
-            new_color
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    @staticmethod
-    def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> Action:
-        del state, memory, objects  # unused
-        x, y, z = params
-        arr = np.array([x, y, z, 0.5, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        return Action(arr)
-
     @staticmethod
     def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> Action:
@@ -643,111 +430,6 @@ class RepeatedNextToPaintingEnv(BaseEnv):
         return Action(
             np.array([next_x, next_y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                      dtype=np.float32))
-
-    def _holding_initiable(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> bool:
-        # An initiation function for an option that requires holding an object.
-        del objects, params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
-        return self._get_held_object(state) is not None
-
-    def _handempty_initiable(self, state: State, memory: Dict,
-                             objects: Sequence[Object], params: Array) -> bool:
-        # An initiation function for an option that requires holding nothing.
-        del objects, params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
-        return self._get_held_object(state) is None
-
-    def _OpenLid_policy(self, state: State, memory: Dict,
-                        objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects, params  # unused
-        arr = np.array([
-            self.obj_x, (self.box_lb + self.box_ub) / 2, self.obj_z, 0.0, 1.0,
-            0.0, 0.0, 0.0
-        ],
-                       dtype=np.float32)
-        return Action(arr)
-
-    def _InBox_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, _ = objects
-        # If the object is held, not yet in box
-        if self._obj_is_held(state, obj):
-            return False
-        # Check pose of object
-        obj_y = state.get(obj, "pose_y")
-        return self.box_lb < obj_y < self.box_ub
-
-    def _InShelf_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, _ = objects
-        # If the object is held, not yet in shelf
-        if self._obj_is_held(state, obj):
-            return False
-        # Check pose of object
-        obj_y = state.get(obj, "pose_y")
-        return self.shelf_lb < obj_y < self.shelf_ub
-
-    def _IsBoxColor_holds(self, state: State,
-                          objects: Sequence[Object]) -> bool:
-        obj, box = objects
-        return abs(state.get(obj, "color") -
-                   state.get(box, "color")) < self.color_tol
-
-    def _IsShelfColor_holds(self, state: State,
-                            objects: Sequence[Object]) -> bool:
-        obj, shelf = objects
-        return abs(state.get(obj, "color") -
-                   state.get(shelf, "color")) < self.color_tol
-
-    def _GripperOpen_holds(self, state: State,
-                           objects: Sequence[Object]) -> bool:
-        robot, = objects
-        fingers = state.get(robot, "fingers")
-        return fingers >= self.open_fingers
-
-    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        obj_y = state.get(obj, "pose_y")
-        return self.table_lb < obj_y < self.table_ub
-
-    def _HoldingTop_holds(self, state: State,
-                          objects: Sequence[Object]) -> bool:
-        obj, = objects
-        grasp = state.get(obj, "grasp")
-        return grasp > self.top_grasp_thresh
-
-    def _HoldingSide_holds(self, state: State,
-                           objects: Sequence[Object]) -> bool:
-        obj, = objects
-        grasp = state.get(obj, "grasp")
-        return grasp < self.side_grasp_thresh
-
-    def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return self._obj_is_held(state, obj)
-
-    def _IsWet_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return state.get(obj, "wetness") > self.wetness_tol
-
-    def _IsDry_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return not self._IsWet_holds(state, [obj])
-
-    def _IsDirty_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return state.get(obj, "dirtiness") > self.dirtiness_tol
-
-    def _IsClean_holds(self, state: State, objects: Sequence[Object]) -> bool:
-        obj, = objects
-        return not self._IsDirty_holds(state, [obj])
 
     def _NextTo_holds(self, state: State, objects: Sequence[Object]) -> bool:
         robot, obj = objects
@@ -763,38 +445,3 @@ class RepeatedNextToPaintingEnv(BaseEnv):
                 self._NextTo_holds(state, [robot, typed_obj]):
                 return False
         return True
-
-    def _get_held_object(self, state: State) -> Optional[Object]:
-        for obj in state:
-            if obj.type != self._obj_type:
-                continue
-            if self._obj_is_held(state, obj):
-                return obj
-        return None
-
-    def _obj_is_held(self, state: State, obj: Object) -> bool:
-        # These two pieces of information are redundant. We include
-        # the "held" feature only because it allows the Holding
-        # predicate to be expressed with a single inequality.
-        # Either feature can be used to implement this method.
-        grasp = state.get(obj, "grasp")
-        held_feat = state.get(obj, "held")
-        is_held = (grasp > self.top_grasp_thresh
-                   or grasp < self.side_grasp_thresh)
-        assert is_held == (held_feat > 0.5)  # ensure redundancy
-        return is_held
-
-    def _get_object_at_xyz(self, state: State, x: float, y: float,
-                           z: float) -> Optional[Object]:
-        target_obj = None
-        for obj in state:
-            if obj.type != self._obj_type:
-                continue
-            if np.allclose([x, y, z], [
-                    state.get(obj, "pose_x"),
-                    state.get(obj, "pose_y"),
-                    state.get(obj, "pose_z")
-            ],
-                           atol=self.pick_tol):
-                target_obj = obj
-        return target_obj
