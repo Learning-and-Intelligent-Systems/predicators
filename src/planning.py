@@ -219,9 +219,10 @@ def _skeleton_generator(
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        # for act in node.skeleton:
-        #     print(act.name, act.objects)
-        # print()
+        for act in node.skeleton:
+            print(act.name, act.objects)
+        print()
+        #
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1

@@ -12,6 +12,7 @@ from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.src.envs.repeated_nextto_painting import RepeatedNextToPaintingEnv
 
 __all__ = [
     "BaseEnv",
@@ -28,6 +29,7 @@ __all__ = [
     "PlayroomEnv",
     "BehaviorEnv",
     "RepeatedNextToEnv",
+    "RepeatedNextToPaintingEnv",
 ]
 
 _MOST_RECENT_ENV_INSTANCE = {}
@@ -66,6 +68,8 @@ def _create_new_env_instance(name: str) -> BaseEnv:
         return BehaviorEnv()  # pragma: no cover
     if name == "repeated_nextto":
         return RepeatedNextToEnv()
+    if name == "repeated_nextto_painting":
+        return RepeatedNextToPaintingEnv()
     raise NotImplementedError(f"Unknown env: {name}")
 
 
