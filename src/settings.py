@@ -40,6 +40,9 @@ class GlobalSettings:
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
+    cover_multistep_max_placements = 100
+    cover_multistep_thr_percent = 0.5 # target hand region percent of width
+    cover_multistep_bhr_percent = 0.5 # block hand region percent of width
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
