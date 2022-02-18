@@ -197,6 +197,10 @@ def _create_sampler_data(
                             for pre in preconditions)
                         positive_data.append((state, var_to_obj, option))
                         continue
+                if CFG.sampler_disable_classifier:
+                    # We disable the classifier by not providing it any
+                    # negative examples, so that it always outputs 1.
+                    continue
                 sub = dict(zip(variables, grounding))
                 # When building data for a datastore with effects X, if we
                 # encounter a transition with effects Y, and if Y is a superset
