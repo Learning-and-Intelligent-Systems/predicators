@@ -8,7 +8,6 @@ from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvRegrasp
 from predicators.src.structs import State, Action, Task
 from predicators.src import utils
-from predicators.src.envs.cover import MaxPlacementsFailure
 
 def test_cover():
     """Tests for CoverEnv class."""
@@ -537,7 +536,7 @@ def test_cover_multistep_options():
     })
     env = CoverMultistepOptions()
     env.seed(123)
-    with pytest.raises(MaxPlacementsFailure):
+    with pytest.raises(RuntimeError):
         env.get_test_tasks()
 
     # Check max placement failure for hand region placement
@@ -551,7 +550,7 @@ def test_cover_multistep_options():
     })
     env = CoverMultistepOptions()
     env.seed(123)
-    with pytest.raises(MaxPlacementsFailure):
+    with pytest.raises(RuntimeError):
         env.get_test_tasks()
 
     # Test that new _create_initial_state is working
@@ -565,8 +564,7 @@ def test_cover_multistep_options():
     env = CoverMultistepOptions()
     env.seed(123)
     task = env.get_test_tasks()[0]
-    print(task.init.pretty_str())
-    make_video = True  # Can toggle to true for debugging
+    make_video = False  # Can toggle to true for debugging
 
     action_arrs = [
         np.array([0.88, 0., 0.], dtype=np.float32),
@@ -603,7 +601,6 @@ def test_cover_multistep_options():
     Covers = [p for p in env.predicates if p.name == "Covers"][0]
     init_atoms = utils.abstract(state, env.predicates)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
-    print("final state: ", traj.states[-1].pretty_str())
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
 

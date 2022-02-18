@@ -182,7 +182,6 @@ def test_learned_neural_parameterized_option():
     task = env.get_test_tasks()[0]
 
     state = task.init.copy()
-    print("SORTED STATE: ", sorted(state))
     block0, _, block1, _, robot, _, _, _, _ = sorted(state)
     assert block0.name == "block0"
     assert robot.name == "robby"
