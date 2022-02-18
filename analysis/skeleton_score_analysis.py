@@ -10,6 +10,7 @@ from typing import Tuple, FrozenSet, List, Callable
 import functools
 import os
 import dill as pkl
+import matplotlib
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
@@ -23,11 +24,15 @@ from predicators.src.structs import Dataset, Task, Predicate
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 
+plt.rcParams["font.family"] = "CMU Serif"
+matplotlib.rcParams.update({'font.size': 20})
+
+
 FORCE_REMAKE_RESULTS = False
 
 ENV_NAMES = {
-    "cover": "Cover",
-    "cover_regrasp": "Cover Regrasp",
+    "cover": "PickPlace1D",
+    # "cover_regrasp": "Cover Regrasp",
     "blocks": "Blocks",
     "painting": "Painting",
     "tools": "Tools",
@@ -36,9 +41,9 @@ ENV_NAMES = {
 SEEDS = list(range(10))
 
 SCORE_AND_AGGREGATION_NAMES = {
-    ("skeleton_len", "min"): "Min Skeleton Length Error",
-    ("num_nodes", "sum"): "Total Nodes Created",
-    ("expected_nodes", "sum"): "Expected Planning Time",
+    ("skeleton_len", "min"): "Plan Cost Error",
+    ("num_nodes", "sum"): "Nodes Created",
+    ("expected_nodes", "sum"): "Proxy Objective",
 }
 
 
@@ -253,10 +258,7 @@ def _compute_expected_nodes(env_name: str,
 
 def _create_predicate_labels(
         predicate_set_order: Tuple[FrozenSet[Predicate], ...]) -> List[str]:
-    if len(predicate_set_order[0]) > 5:
-        labels = ["[Goal Predicates]"]
-    else:
-        labels = [", ".join(p.name for p in predicate_set_order[0])]
+    labels = ["{Goal Predicates}"]
     for i in range(len(predicate_set_order) - 1):
         new_predicates = predicate_set_order[i + 1] - predicate_set_order[i]
         assert len(new_predicates) == 1
@@ -294,14 +296,14 @@ def _create_heatmap(env_results: NDArray[np.float64], env_name: str,
     ax.set_title(f"{env_label}: {score_label}")
     ax.set_xlabel("Skeleton Index")
     fig.tight_layout()
-    plt.savefig(outfile, bbox_inches='tight')
+    plt.savefig(outfile, bbox_inches='tight', dpi=300)
     print(f"Wrote out to {outfile}.")
 
 
-def _create_plot(env_results: NDArray[np.float64], env_name: str,
+def _create_plot(ax, env_results: NDArray[np.float64], env_name: str,
                  score_name: str, aggregation_name: str,
                  predicate_set_order: Tuple[FrozenSet[Predicate],
-                                            ...], outfile: str) -> None:
+                                            ...], outfile: str, use_x_labels=False) -> None:
     # Env results shape is (seed, predicate set, task, skeleton idx).
     # Reorganize into array of shape (predicate set,) by scoring each seed's
     # result and then averaging out seed.
@@ -315,27 +317,31 @@ def _create_plot(env_results: NDArray[np.float64], env_name: str,
     env_label = ENV_NAMES[env_name]
     score_label = SCORE_AND_AGGREGATION_NAMES[(score_name, aggregation_name)]
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
     xs = np.arange(num_predicate_sets)
     ax.plot(xs, arr)
     # Pretty ugly and distracting, so disabling for now.
     # ax.fill_between(xs, arr - std_arr, arr + std_arr, alpha=0.5)
+    if not use_x_labels:
+        labels = ["" for _ in labels]
     ax.set_xticks(np.arange(num_predicate_sets), labels=labels)
     plt.setp(ax.get_xticklabels(),
              rotation=45,
              ha="right",
              rotation_mode="anchor")
-    ax.set_title(f"{env_label}: {score_label}")
-    ax.set_ylabel(score_label)
-    fig.tight_layout()
-    plt.savefig(outfile, bbox_inches='tight')
-    print(f"Wrote out to {outfile}.")
+    # ax.set_title(f"{env_label}", fontsize=32)
+    # ax.set_ylabel(score_label, fontsize=28)
+    # fig.tight_layout()
+    # plt.savefig(outfile, bbox_inches='tight', dpi=300)
+    # print(f"Wrote out to {outfile}.")
 
 
 def _main() -> None:
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     os.makedirs(outdir, exist_ok=True)
+
+    fig, axes = plt.subplots(3, 4, figsize=(24, 16))
 
     for env_name in sorted(ENV_NAMES):
         outfile = os.path.join(outdir, f"skeleton_results_{env_name}.p")
@@ -375,13 +381,21 @@ def _main() -> None:
             print(f"Wrote out results to {outfile}.")
         for (score_name, aggregation_name), results_arr in results.items():
             # Create heat map.
-            outfile = os.path.join(outdir, f"{score_name}_{env_name}_heat.png")
-            _create_heatmap(results_arr, env_name, score_name,
-                            aggregation_name, predicate_set_order, outfile)
+            # outfile = os.path.join(outdir, f"{score_name}_{env_name}_heat.png")
+            # _create_heatmap(results_arr, env_name, score_name,
+            #                 aggregation_name, predicate_set_order, outfile)
             # Create plot.
+
+            row = ["expected_nodes", "skeleton_len", "num_nodes"].index(score_name)
+            col = ["cover", "blocks", "painting", "tools"].index(env_name)
+            ax = axes[row][col]
+
             outfile = os.path.join(outdir, f"{score_name}_{env_name}_plot.png")
-            _create_plot(results_arr, env_name, score_name, aggregation_name,
-                         predicate_set_order, outfile)
+            _create_plot(ax, results_arr, env_name, score_name, aggregation_name,
+                         predicate_set_order, outfile, use_x_labels=(row == 2))
+
+    fig.tight_layout()
+    plt.savefig("all_subplots.png", bbox_inches='tight', dpi=600)
 
 
 if __name__ == "__main__":
