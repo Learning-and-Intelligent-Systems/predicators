@@ -794,10 +794,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         """Creates initial state by (1) placing targets and blocks in random
         locations such that each target has enough space on either side to
         ensure no covering placement will cause a collision (note that this is
-        not necessary to make the task solveable; but we can do this and instead
+        not necessary to make the task solvable; but we can do this and instead
         sufficiently tune the difficulty through hand region specification), and
         (2) choosing hand region intervals on the targets and blocks such that
-        the problem is solveable.
+        the problem is solvable.
         """
         data: Dict[Object, Array] = {}
 
@@ -807,7 +807,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             overlap = False
             counter += 1
             if counter > CFG.cover_multistep_max_placements:
-                raise MaxPlacementsFailure("Reached maximum number of " \
+                raise RuntimeError("Reached maximum number of " \
                 "placements of targets and blocks.")
             block_placements = []
             for block, bw in zip(self._blocks, CFG.cover_block_widths):
@@ -851,7 +851,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         data[self._robot] = np.array([0.0, self.initial_robot_y, -1.0, -1.0])
 
         # Make the hand regions
-        # sample a hand region interval in each target
+        # Sample a hand region interval in each target
         target_hand_regions = []
         for i, target in enumerate(self._targets):
             target_hr = self._target_hand_regions[i]
@@ -863,7 +863,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             data[target_hr] = np.array(region)
             target_hand_regions.append(region)
 
-        # sample a hand region interval in each block
+        # Sample a hand region interval in each block
         for i, block in enumerate(self._blocks):
             block_hr = self._block_hand_regions[i]
             thr_left, thr_right = target_hand_regions[i]
@@ -885,7 +885,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             # one placement of the block which covers the target, and in
             # which the block's hand region and the target's hand region
             # have nonzero overlap.
-            # A proxy for this operation is to check:
+            # A proxy for this operation, which we do below, is to check:
             # (1) That in the block's rightmost covering placement, its
             # interval IS NOT completely to the left of the target's
             # hand region, and
@@ -896,16 +896,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             while True:
                 counter += 1
                 if counter > CFG.cover_multistep_max_placements:
-                    raise MaxPlacementsFailure("Reached maximum number of " \
+                    raise RuntimeError("Reached maximum number of " \
                     "placements of hand regions.")
-                # sample hand region
+                # Sample hand region
                 left_pt = rng.uniform(bx - bw/2, bx + bw/2 - region_length)
                 region = [left_pt, left_pt + region_length]
-                # need to make hand region relative to center of block for
+                # Need to make hand region relative to center of block for
                 # the hand region to move with the block for use by
                 # _get_hand_regions()
                 relative_region = [region[0]-bx, region[1]-bx]
-                # perform the valid interval check
+                # Perform the valid interval check
                 relative_r = region[1] - (bx - bw/2)  # for (1)
                 relative_l = bx + bw/2 - region[0]  # for (2)
                 if relative_l >= (tx + tw/2 - thr_right) and \
@@ -1206,6 +1206,3 @@ class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
         del rng
         zero_rng = np.random.default_rng(0)
         return super()._create_initial_state(zero_rng)
-
-class MaxPlacementsFailure(Exception):
-    """Raised when the maximum number of placement attempts has been reached."""
