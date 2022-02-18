@@ -141,10 +141,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
                                 [0 for _ in negative_data])
     classifier = MLPClassifier(X_arr_classifier.shape[1],
                                CFG.sampler_mlp_classifier_max_itr)
-    if CFG.sampler_disable_classifier:
-        classifier.fit(X_arr_classifier, np.ones_like(y_arr_classifier))
-    else:
-        classifier.fit(X_arr_classifier, y_arr_classifier)
+    classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
     print("Fitting regressor...")
@@ -200,11 +197,11 @@ def _create_sampler_data(
                             for pre in preconditions)
                         positive_data.append((state, var_to_obj, option))
                         continue
-                sub = dict(zip(variables, grounding))
-                ground_preconditions = {p.ground(sub) for p in preconditions}
-                if CFG.sampler_classifier_neg_check_pre and \
-                   not ground_preconditions.issubset(segment.init_atoms):
+                if CFG.sampler_disable_classifier:
+                    # We disable the classifier by not providing it any
+                    # negative examples, so that it always outputs 1.
                     continue
+                sub = dict(zip(variables, grounding))
                 # When building data for a datastore with effects X, if we
                 # encounter a transition with effects Y, and if Y is a superset
                 # of X, then we do not want to include the transition as a

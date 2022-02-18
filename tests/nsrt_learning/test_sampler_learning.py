@@ -16,6 +16,7 @@ def test_create_sampler_data():
         "env": "cover",
         "min_data_for_nsrt": 0,
         "num_train_tasks": 15,
+        "sampler_disable_classifier": False,
     })
     # Create two datastores
     cup_type = Type("cup_type", ["feat1"])
