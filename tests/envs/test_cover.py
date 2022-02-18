@@ -554,6 +554,59 @@ def test_cover_multistep_options():
     with pytest.raises(MaxPlacementsFailure):
         env.get_test_tasks()
 
+    # Test that new _create_initial_state is working
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10,
+        "cover_multistep_thr_percent": 0.2,
+        "cover_multistep_bhr_percent": 0.2
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    task = env.get_test_tasks()[0]
+    print(task.init.pretty_str())
+    make_video = True  # Can toggle to true for debugging
+
+    action_arrs = [
+        np.array([0.88, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([-0.14, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.01, -0.1], dtype=np.float32),
+    ]
+
+    def policy(s: State) -> Action:
+        del s  # unused
+        return Action(action_arrs.pop(0))
+
+    traj, video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, len(action_arrs),
+        env.render if make_video else None)
+    if make_video:
+        outfile = "hardcoded_actions_com_2.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    Covers = [p for p in env.predicates if p.name == "Covers"][0]
+    init_atoms = utils.abstract(state, env.predicates)
+    final_atoms = utils.abstract(traj.states[-1], env.predicates)
+    print("final state: ", traj.states[-1].pretty_str())
+    assert Covers([block0, target0]) not in init_atoms
+    assert Covers([block0, target0]) in final_atoms
+
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
     utils.reset_config({
