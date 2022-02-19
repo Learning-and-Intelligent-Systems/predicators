@@ -900,6 +900,21 @@ def prune_ground_atom_dataset(
     return new_ground_atom_dataset
 
 
+def combine_atom_datasets(
+    ground_atom_dataset1: List[GroundAtomTrajectory],
+    ground_atom_dataset2: List[GroundAtomTrajectory]
+) -> List[GroundAtomTrajectory]:
+    """Combine two atom datasets over the same trajectory into one."""
+    dataset = []
+    assert len(ground_atom_dataset1) == len(ground_atom_dataset2)
+    for (traj1, atoms1), (traj2, atoms2) in zip(ground_atom_dataset1,
+                                                ground_atom_dataset2):
+        assert traj1 is traj2
+        assert len(atoms1) == len(atoms2)
+        dataset.append((traj1, [a1 | a2 for a1, a2 in zip(atoms1, atoms2)]))
+    return dataset
+
+
 def extract_preds_and_types(
     ops: Collection[NSRTOrSTRIPSOperator]
 ) -> Tuple[Dict[str, Predicate], Dict[str, Type]]:

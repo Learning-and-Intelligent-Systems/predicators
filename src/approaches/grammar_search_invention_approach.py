@@ -581,15 +581,24 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # Start by learning goal predicates.
+        # Create a dataset using the initial predicates.
+        initial_atom_dataset = utils.create_ground_atom_dataset(
+            dataset.trajectories, self._initial_predicates)
+        # Learn excluded goal predicates.
         if CFG.grammar_search_learn_goal_predicates:
             # Extract all of the goal predicates to learn from the data.
+            # Also create a ground atom dataset based on the annotations.
             goal_predicates_to_learn = set()
-            for annotation_traj in dataset.annotations:
+            learned_goal_atom_dataset = []
+            for traj, annotation_traj in zip(dataset.trajectories,
+                                             dataset.annotations):
                 for state_annotation in annotation_traj:
                     for atom_sets in state_annotation:
                         for atom in atom_sets:
                             goal_predicates_to_learn.add(atom.predicate)
+                # Read off the positive annotations.
+                goal_atom_traj = (traj, [s[1] for s in annotation_traj])
+                learned_goal_atom_dataset.append(goal_atom_traj)
             assert not goal_predicates_to_learn & self._initial_predicates
             # Run predicate classifier learning.
             for pred in sorted(goal_predicates_to_learn):
@@ -598,6 +607,11 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                 # the code will just use self._initial_predicates, and we will
                 # never relearn these goal predicates after they're fixed.
                 self._initial_predicates.add(new_pred)
+            # Use the annotations to create an initial atoms for the excluded,
+            # goal predicates, rather than the learned classifiers, because the
+            # annotations are more reliable than the learned classifiers.
+            initial_atom_dataset = utils.combine_atom_datasets(
+                initial_atom_dataset, learned_goal_atom_dataset)
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
@@ -608,9 +622,12 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
             print(predicate, cost)
         # Apply the candidate predicates to the data.
         print("Applying predicates to data...")
-        atom_dataset = utils.create_ground_atom_dataset(
-            dataset.trajectories,
-            set(candidates) | self._initial_predicates)
+        candidate_atom_dataset = utils.create_ground_atom_dataset(
+            dataset.trajectories, set(candidates))
+        assert len(candidate_atom_dataset) == len(initial_atom_dataset)
+        # Create a final atom dataset that combines the two.
+        atom_dataset = utils.combine_atom_datasets(initial_atom_dataset,
+                                                   candidate_atom_dataset)
         print("Done.")
         # Create the score function that will be used to guide search.
         score_function = create_score_function(
