@@ -11,8 +11,7 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
     InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     Query
-from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPClassifier
+from predicators.src.torch_models import learn_predicate_from_annotated_data
 from predicators.src.settings import CFG
 
 
@@ -68,38 +67,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         print("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
-            input_examples = []
-            output_examples = []
-            for (traj, traj_annotations) in zip(self._dataset.trajectories,
-                                                self._dataset.annotations):
-                assert len(traj.states) == len(traj_annotations)
-                for (state, state_annotation) in zip(traj.states,
-                                                     traj_annotations):
-                    assert len(state_annotation) == 2
-                    for target_class, examples in enumerate(state_annotation):
-                        for atom in examples:
-                            if not atom.predicate == pred:
-                                continue
-                            x = state.vec(atom.objects)
-                            input_examples.append(x)
-                            output_examples.append(target_class)
-            num_positives = sum(y == 1 for y in output_examples)
-            num_negatives = sum(y == 0 for y in output_examples)
-            assert num_positives + num_negatives == len(output_examples)
-            print(f"Generated {num_positives} positive and "
-                  f"{num_negatives} negative examples for "
-                  f"predicate {pred}")
-
-            # Train MLP
-            X = np.array(input_examples)
-            Y = np.array(output_examples)
-            model = MLPClassifier(X.shape[1],
-                                  CFG.predicate_mlp_classifier_max_itr)
-            model.fit(X, Y)
-
-            # Construct classifier function, create new Predicate, and save it
-            classifier = LearnedPredicateClassifier(model).classifier
-            new_pred = Predicate(pred.name, pred.types, classifier)
+            new_pred = learn_predicate_from_annotated_data(pred, self._dataset)
             self._predicates_to_learn = \
                 (self._predicates_to_learn - {pred}) | {new_pred}
 

@@ -26,6 +26,11 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         n = int(CFG.teacher_dataset_num_examples)
         assert n >= 1, "Must have at least 1 example of each predicate"
         return create_ground_atom_data(env, base_dataset, excluded_preds, n)
+    if CFG.offline_data_method == "demo+goal_atoms":
+        base_dataset = create_demo_data(env, train_tasks)
+        # Annotate all goal predicates.
+        excluded_preds = set(env.goal_predicates)
+        return create_ground_atom_data(env, base_dataset, excluded_preds)
     if CFG.offline_data_method == "empty":
         return Dataset([])
     raise NotImplementedError("Unrecognized dataset method.")

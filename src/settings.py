@@ -171,6 +171,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
+    grammar_search_learn_goal_predicates = False
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:

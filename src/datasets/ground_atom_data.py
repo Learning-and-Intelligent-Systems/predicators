@@ -2,7 +2,7 @@
 that hold in the respective states."""
 
 from collections import defaultdict
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, Optional
 import numpy as np
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Predicate, GroundAtom
@@ -10,9 +10,10 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
+def create_ground_atom_data(env: BaseEnv,
+                            base_dataset: Dataset,
                             annotating_predicates: Set[Predicate],
-                            num_examples: int) -> Dataset:
+                            num_examples: Optional[int] = None) -> Dataset:
     """Create offline data by annotating low-level trajectories with ground
     atoms. The ground atoms must hold in the respective states. Only the
     predicates in annotating_predicates are used in the annotations.
@@ -40,20 +41,24 @@ def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,
                     pos_examples[ga.predicate].append((i, j, ga))
                 else:
                     neg_examples[ga.predicate].append((i, j, ga))
-    # Sample `num_examples` from each list
+    # Sample num_examples from each list, or keep all if num_examples is None.
     pos_picks: List[Tuple] = []
     neg_picks: List[Tuple] = []
     rng = np.random.default_rng(CFG.seed)
     for p in annotating_predicates:
         for examples, picks in zip((neg_examples, pos_examples),
                                    (neg_picks, pos_picks)):
-            if num_examples > len(examples[p]):
+            if num_examples is None:
+                idxs = list(range(len(examples[p])))
+            elif num_examples > len(examples[p]):
                 raise ValueError(
                     f"Found fewer than {num_examples} examples to sample from!"
                 )
-            idxs = rng.choice(len(examples[p]),
-                              size=num_examples,
-                              replace=False)
+            else:
+                idxs = list(
+                    rng.choice(len(examples[p]),
+                               size=num_examples,
+                               replace=False))
             picks.extend([examples[p][idx] for idx in idxs])
     annotations: List[List[List[Set[GroundAtom]]]] = [[[
         set(), set()

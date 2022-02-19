@@ -18,6 +18,7 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Dataset, Object, GroundAtomTrajectory, Task
 from predicators.src.predicate_search_score_functions import \
     create_score_function, _PredicateSearchScoreFunction
+from predicators.src.torch_models import learn_predicate_from_annotated_data
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -580,6 +581,23 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # Start by learning goal predicates.
+        if CFG.grammar_search_learn_goal_predicates:
+            # Extract all of the goal predicates to learn from the data.
+            goal_predicates_to_learn = set()
+            for annotation_traj in dataset.annotations:
+                for state_annotation in annotation_traj:
+                    for atom_sets in state_annotation:
+                        for atom in atom_sets:
+                            goal_predicates_to_learn.add(atom.predicate)
+            assert not goal_predicates_to_learn & self._initial_predicates
+            # Run predicate classifier learning.
+            for pred in sorted(goal_predicates_to_learn):
+                new_pred = learn_predicate_from_annotated_data(pred, dataset)
+                # Update self._initial_predicates directly, since the rest of
+                # the code will just use self._initial_predicates, and we will
+                # never relearn these goal predicates after they're fixed.
+                self._initial_predicates.add(new_pred)
         # Generate a candidate set of predicates.
         print("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
