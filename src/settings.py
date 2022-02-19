@@ -128,7 +128,7 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
-    sampler_disable_classifier = True
+    sampler_disable_classifier = False
 
     # iterative invention parameters
     iterative_invention_accept_score = 1 - 1e-3
