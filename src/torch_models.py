@@ -281,8 +281,12 @@ class NeuralGaussianRegressor(nn.Module):
 class MLPClassifier(nn.Module):
     """MLPClassifier definition."""
 
-    def __init__(self, in_size: int, max_itr: int) -> None:
+    def __init__(self,
+                 in_size: int,
+                 max_itr: int,
+                 balance_data: bool = True) -> None:
         super().__init__()  # type: ignore
+        self._balance_data = balance_data
         self._rng = np.random.default_rng(CFG.seed)
         torch.manual_seed(CFG.seed)
         hid_sizes = CFG.mlp_classifier_hid_sizes
@@ -318,7 +322,7 @@ class MLPClassifier(nn.Module):
             return
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         # Balance the classes
-        if CFG.mlp_classifier_balance_data and len(y) // 2 > sum(y):
+        if self._balance_data and len(y) // 2 > sum(y):
             old_len = len(y)
             pos_idxs_np = np.argwhere(np.array(y) == 1).squeeze()
             neg_idxs_np = np.argwhere(np.array(y) == 0).squeeze()
@@ -468,7 +472,8 @@ def learn_predicate_from_annotated_data(stripped_predicate: Predicate,
     # Train MLP
     X = np.array(input_examples)
     Y = np.array(output_examples)
-    model = MLPClassifier(X.shape[1], CFG.predicate_mlp_classifier_max_itr)
+    model = MLPClassifier(X.shape[1], CFG.predicate_mlp_classifier_max_itr,
+                          CFG.predicate_mlp_classifier_balance_data)
     model.fit(X, Y)
 
     # Construct classifier function, create new Predicate, and save it

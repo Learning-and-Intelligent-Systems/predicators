@@ -140,7 +140,8 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     y_arr_classifier = np.array([1 for _ in positive_data] +
                                 [0 for _ in negative_data])
     classifier = MLPClassifier(X_arr_classifier.shape[1],
-                               CFG.sampler_mlp_classifier_max_itr)
+                               CFG.sampler_mlp_classifier_max_itr,
+                               CFG.sampler_mlp_classifier_balance_data)
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data

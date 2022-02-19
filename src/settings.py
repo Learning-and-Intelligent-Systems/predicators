@@ -115,7 +115,6 @@ class GlobalSettings:
     mlp_regressor_clip_gradients = False
     mlp_regressor_gradient_clip_value = 5
     mlp_classifier_hid_sizes = [32, 32]
-    mlp_classifier_balance_data = True
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 10000
     neural_gaus_regressor_sample_clip = 1
@@ -128,11 +127,13 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
+    sampler_mlp_classifier_balance_data = True
     sampler_disable_classifier = False
 
     # iterative invention parameters
     iterative_invention_accept_score = 1 - 1e-3
     predicate_mlp_classifier_max_itr = 10000
+    predicate_mlp_classifier_balance_data = False
 
     # interactive learning parameters
     interactive_action_strategy = "glib"
