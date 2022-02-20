@@ -90,16 +90,23 @@ def test_painting_failure_cases():
     obj1 = obj_type("obj1")
     box = box_type("receptacle_box")
     shelf = shelf_type("receptacle_shelf")
-    robot = robot_type("robot")
+    robot = robot_type("robby")
     lid = lid_type("box_lid")
     task = env.get_train_tasks()[0]
     state = task.init
     atoms = utils.abstract(state, env.predicates)
-    assert OnTable([obj0]) in atoms
     assert OnTable([obj1]) in atoms
     # In the first initial state, we are holding an object, because
     # painting_initial_holding_prob = 1.0
     assert Holding([obj0]) in atoms
+    before_move_y = state.get(obj0, "pose_y")
+    # Perform valid move to obj and change the state
+    act = MoveToObj.ground([robot, obj1],
+                           np.array([state.get(obj1, "pose_y")],
+                                    dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    # Change the state
+    state = next_state
     # Placing it on another object causes a collision
     with pytest.raises(utils.EnvironmentFailure):
         x = state.get(obj1, "pose_x")
@@ -108,15 +115,24 @@ def test_painting_failure_cases():
         act = Place.ground([robot], np.array([x, y, z],
                                              dtype=np.float32)).policy(state)
         env.simulate(state, act)
+    # Change the y back to initial y
+    state.set(robot, "y", before_move_y)
+    state.set(obj0, "pose_y", before_move_y)
     # Advance to a state where we are not holding anything
     x = state.get(obj0, "pose_x")
     y = state.get(obj0, "pose_y")
-    z = state.get(obj0, "pose_z")
+    z = state.get(obj0, "pose_z") - 1.0
     act = Place.ground([robot], np.array([x, y, z],
                                          dtype=np.float32)).policy(state)
     handempty_state = env.simulate(state, act)
     state = handempty_state
     assert Holding([obj0]) not in utils.abstract(state, env.predicates)
+    # Perform invalid pick with grasp = 1 (top grasp) too far away
+    # (state should remain the same)
+    act = Pick.ground([robot, obj1], np.array([0, 0, 0, 1],
+                                              dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
     # No object at this pose, pick fails
     act = Pick.ground([robot, obj0], np.array([0, -1, 0, 0],
                                               dtype=np.float32)).policy(state)
@@ -149,12 +165,12 @@ def test_painting_failure_cases():
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    # Perform valid move to obj and change the state
+    # Perform valid move to the same object (so state doesn't change)
     act = MoveToObj.ground([robot, obj0],
                            np.array([state.get(obj0, "pose_y")],
                                     dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert not state.allclose(next_state)
+    assert state.allclose(next_state)
     # Change the state
     state = next_state
     # Perform valid pick with grasp = 1 (top grasp)
@@ -216,6 +232,17 @@ def test_painting_failure_cases():
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
+    # Perform invalid place into box (box too far)
+    # state should not be changed
+    act = Place.ground([robot],
+                       np.array([
+                           RepeatedNextToPaintingEnv.obj_x,
+                           RepeatedNextToPaintingEnv.box_lb + 1e-3,
+                           RepeatedNextToPaintingEnv.obj_z
+                       ],
+                                dtype=np.float32)).policy(state)
+    next_state = env.simulate(state, act)
+    assert state.allclose(next_state)
     # Perform valid move to box and change the state
     act = MoveToBox.ground([robot, box],
                            np.array([state.get(box, "pose_y")],
@@ -236,12 +263,13 @@ def test_painting_failure_cases():
     assert not state.allclose(next_state)
     # Reset state
     state = handempty_state
-    # Perform valid move to obj and change the state
+    # Perform valid move to obj, but since we're already near
+    # it doesn't change state
     act = MoveToObj.ground([robot, obj0],
                            np.array([state.get(obj0, "pose_y")],
                                     dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
-    assert not state.allclose(next_state)
+    assert state.allclose(next_state)
     # Change the state
     state = next_state
     # Perform valid pick with grasp = 0 (side grasp)

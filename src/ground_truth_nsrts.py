@@ -4,7 +4,7 @@ from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
 from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
-    PlayroomEnv, BehaviorEnv
+    PlayroomEnv, BehaviorEnv, RepeatedNextToPaintingEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
@@ -900,7 +900,10 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(NextTo, [robot, obj])
     }
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
-    delete_effects = {LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(OnTable, [obj])
+    }
     side_predicates = {NextToNothing}
 
     def pickfromtop_sampler(state: State, goal: Set[GroundAtom],
@@ -926,7 +929,10 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(NextTo, [robot, obj])
     }
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingSide, [obj])}
-    delete_effects = {LiftedAtom(GripperOpen, [robot])}
+    delete_effects = {
+        LiftedAtom(GripperOpen, [robot]),
+        LiftedAtom(OnTable, [obj])
+    }
     side_predicates = {NextToNothing}
 
     def pickfromside_sampler(state: State, goal: Set[GroundAtom],
@@ -993,8 +999,7 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(Holding, [obj]),
         LiftedAtom(IsDry, [obj]),
-        LiftedAtom(IsClean, [obj]),
-        LiftedAtom(NextToBox, [robot, box])
+        LiftedAtom(IsClean, [obj])
     }
     add_effects = {LiftedAtom(IsBoxColor, [obj, box])}
     delete_effects = set()
@@ -1022,8 +1027,7 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     preconditions = {
         LiftedAtom(Holding, [obj]),
         LiftedAtom(IsDry, [obj]),
-        LiftedAtom(IsClean, [obj]),
-        LiftedAtom(NextToShelf, [robot, shelf])
+        LiftedAtom(IsClean, [obj])
     }
     add_effects = {LiftedAtom(IsShelfColor, [obj, shelf])}
     delete_effects = set()
@@ -1059,8 +1063,7 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {
         LiftedAtom(HoldingTop, [obj]),
-        LiftedAtom(Holding, [obj]),
-        LiftedAtom(OnTable, [obj])
+        LiftedAtom(Holding, [obj])
     }
     side_predicates = {NextTo, NextToNothing}
 
@@ -1069,8 +1072,9 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
                            objs: Sequence[Object]) -> Array:
         del goal  # unused
         x = state.get(objs[0], "pose_x")
-        y = rng.uniform(PaintingEnv.box_lb, PaintingEnv.box_ub)
-        z = state.get(objs[0], "pose_z")
+        y = rng.uniform(RepeatedNextToPaintingEnv.box_lb,
+                        RepeatedNextToPaintingEnv.box_ub)
+        z = RepeatedNextToPaintingEnv.obj_z
         return np.array([x, y, z], dtype=np.float32)
 
     placeinbox_nsrt = NSRT("PlaceInBox", parameters, preconditions,
@@ -1096,8 +1100,7 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
     }
     delete_effects = {
         LiftedAtom(HoldingSide, [obj]),
-        LiftedAtom(Holding, [obj]),
-        LiftedAtom(OnTable, [obj])
+        LiftedAtom(Holding, [obj])
     }
     side_predicates = {NextTo, NextToNothing}
 
@@ -1106,8 +1109,9 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
                              objs: Sequence[Object]) -> Array:
         del goal  # unused
         x = state.get(objs[0], "pose_x")
-        y = rng.uniform(PaintingEnv.shelf_lb, PaintingEnv.shelf_ub)
-        z = state.get(objs[0], "pose_z")
+        y = rng.uniform(RepeatedNextToPaintingEnv.shelf_lb,
+                        RepeatedNextToPaintingEnv.shelf_ub)
+        z = RepeatedNextToPaintingEnv.obj_z
         return np.array([x, y, z], dtype=np.float32)
 
     placeinshelf_nsrt = NSRT("PlaceInShelf", parameters, preconditions,
@@ -1130,7 +1134,7 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
                         set(), option, option_vars, null_sampler)
     nsrts.add(openlid_nsrt)
 
-    # PlaceOnTable (from somewhere else on the table)
+    # PlaceOnTable
     for holding_rot_pred in [HoldingSide, HoldingTop]:
         obj = Variable("?obj", obj_type)
         robot = Variable("?robot", robot_type)
@@ -1139,11 +1143,11 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
         option = Place
         preconditions = {
             LiftedAtom(Holding, [obj]),
-            LiftedAtom(holding_rot_pred, [obj]),
-            LiftedAtom(OnTable, [obj]),
+            LiftedAtom(holding_rot_pred, [obj])
         }
         add_effects = {
             LiftedAtom(GripperOpen, [robot]),
+            LiftedAtom(OnTable, [obj])
         }
         delete_effects = {
             LiftedAtom(Holding, [obj]),
@@ -1154,12 +1158,11 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
         def placeontable_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
-            # Always release the object where it is, to avoid the possibility
-            # of collisions with other objects.
-            del goal, rng  # unused
+            del goal  # unused
             x = state.get(objs[0], "pose_x")
-            y = state.get(objs[0], "pose_y")
-            z = state.get(objs[0], "pose_z")
+            y = rng.uniform(RepeatedNextToPaintingEnv.table_lb,
+                            RepeatedNextToPaintingEnv.table_ub)
+            z = RepeatedNextToPaintingEnv.obj_z
             return np.array([x, y, z], dtype=np.float32)
 
         placeontable_nsrt = NSRT(f"PlaceOnTable-{holding_rot_pred.name}",
@@ -1172,7 +1175,7 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
                        rng: np.random.Generator,
                        objs: Sequence[Object]) -> Array:
         del goal  # unused
-        y = state.get(objs[1], "pose_y") + rng.uniform() * 0.2
+        y = state.get(objs[1], "pose_y") # + rng.uniform() * 0.4
         return np.array([y], dtype=np.float32)
 
     # MoveToObj

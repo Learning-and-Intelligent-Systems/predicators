@@ -1,5 +1,10 @@
 """RepeatedNextToPainting domain, which is a merge of our Painting and
-RepeatedNextTo environments."""
+RepeatedNextTo environments.
+
+It is exactly the same as the Painting domain, but requires movement to
+navigate between objects in order to pick or place them. Also, the move
+option can turn on any number of NextTo predicates.
+"""
 
 from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
 import numpy as np
@@ -191,6 +196,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         dry_affinity = 0 if arr[6] > 0.5 else abs(arr[6] - 0.5)
         paint_affinity = min(abs(arr[7] - state.get(self._box, "color")),
                              abs(arr[7] - state.get(self._shelf, "color")))
+        # TODO (njk) added move_affinity
         move_affinity = sum(abs(val) for val in arr[2:])
         affinities = [
             (abs(1 - arr[4]), self._transition_pick_or_openlid),
@@ -200,8 +206,104 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             (abs(-1 - arr[4]), self._transition_place),
             (move_affinity, self._transition_move),
         ]
+        #
         _, transition_fn = min(affinities, key=lambda item: item[0])
         return transition_fn(state, action)
+
+    def _transition_pick_or_openlid(self, state: State,
+                                    action: Action) -> State:
+        x, y, z, grasp = action.arr[:4]
+        next_state = state.copy()
+        # Open lid
+        if self.box_lb < y < self.box_ub:
+            next_state.set(self._lid, "is_open", 1.0)
+            return next_state
+        held_obj = self._get_held_object(state)
+        # Cannot pick if already holding something
+        if held_obj is not None:
+            return next_state
+        # Cannot pick if object pose not on table
+        if not self.table_lb < y < self.table_ub:
+            return next_state
+        # Cannot pick if grasp is invalid
+        if self.side_grasp_thresh < grasp < self.top_grasp_thresh:
+            return next_state
+        # Check if some object is close enough to (x, y, z)
+        target_obj = self._get_object_at_xyz(state, x, y, z)
+        if target_obj is None:
+            return next_state
+
+        # TODO (njk) I added cannot pick if obj is too far
+        if abs(state.get(self._robot, "y") - state.get(target_obj, "pose_y")) \
+            >= self.nextto_thresh:
+            return next_state
+        #
+        # Execute pick
+        next_state.set(self._robot, "fingers", 0.0)
+        next_state.set(target_obj, "grasp", grasp)
+        next_state.set(target_obj, "held", 1.0)
+        # TODO (njk) I added is to assign picked obj position to
+        # robot y and z
+        next_state.set(target_obj, "pose_y", state.get(self._robot, "y"))
+        next_state.set(target_obj, "pose_z",
+                       state.get(target_obj, "pose_z") + 1.0)
+        #
+        return next_state
+
+    def _transition_place(self, state: State, action: Action) -> State:
+        # Action args are target pose for held obj
+        x, y, z = action.arr[:3]
+        next_state = state.copy()
+        # Can only place if holding obj
+        held_obj = self._get_held_object(state)
+        if held_obj is None:
+            return next_state
+        # Detect table vs shelf vs box place
+        if self.table_lb < y < self.table_ub:
+            receptacle = "table"
+        elif self.shelf_lb < y < self.shelf_ub:
+            receptacle = "shelf"
+        elif self.box_lb < y < self.box_ub:
+            receptacle = "box"
+        else:
+            # Cannot place outside of table, shelf, or box
+            return next_state
+        if receptacle == "box" and state.get(self._lid, "is_open") < 0.5:
+            # Cannot place in box if lid is not open
+            raise utils.EnvironmentFailure("Box lid is closed.",
+                                           {"offending_objects": {self._lid}})
+        # Detect top grasp vs side grasp
+        grasp = state.get(held_obj, "grasp")
+        if grasp > self.top_grasp_thresh:
+            top_or_side = "top"
+        elif grasp < self.side_grasp_thresh:
+            top_or_side = "side"
+        # Can only place in shelf if side grasping, box if top grasping. If the
+        # receptacle is table, we don't care what kind of grasp it is.
+        if receptacle == "shelf" and top_or_side != "side":
+            return next_state
+        if receptacle == "box" and top_or_side != "top":
+            return next_state
+        # Detect collisions
+        collider = self._get_object_at_xyz(state, x, y, z)
+        if receptacle == "table" and \
+           collider is not None and \
+           collider != held_obj:
+            raise utils.EnvironmentFailure("Collision during place on table.",
+                                           {"offending_objects": {collider}})
+        #  TODO (njk) I added cannot place if not close enough to location
+        if abs(state.get(self._robot, "y") - y) \
+            >= self.nextto_thresh:
+            return next_state
+        #
+        # Execute place
+        next_state.set(self._robot, "fingers", 1.0)
+        next_state.set(held_obj, "pose_x", x)
+        next_state.set(held_obj, "pose_y", y)
+        next_state.set(held_obj, "pose_z", z)
+        next_state.set(held_obj, "grasp", 0.5)
+        next_state.set(held_obj, "held", 0.0)
+        return next_state
 
     def _transition_move(self, state: State, action: Action) -> State:
         # Action args are target y for robot
@@ -209,6 +311,9 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         next_state = state.copy()
         # Execute move
         next_state.set(self._robot, "y", y)
+        held_obj = self._get_held_object(state)
+        if held_obj is not None:
+            next_state.set(held_obj, "pose_y", y)
         return next_state
 
     @property
@@ -286,6 +391,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         held_obj = self._get_held_object(state)
 
         # List of NextTo objects to render
+        # TODO (njk) I addeded this to display what objects we are nextto
+        # during video rendering
         nextto_objs = []
         for obj in state:
             if obj.is_instance(self._obj_type) or \
@@ -294,6 +401,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                 if abs(state.get(self._robot, "y") -
                        state.get(obj, "pose_y")) < self.nextto_thresh:
                     nextto_objs.append(obj)
+        #
 
         for obj in sorted(objs):
             x = state.get(obj, "pose_x")
@@ -339,10 +447,13 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             ax.add_patch(rect)
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
+        # TODO (njk) I addeded this to display what objects we are nextto
+        # during video rendering
         plt.suptitle("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
                      "yellow border = side grasp, orange border = top grasp\n"
                      "NextTo: " + str(nextto_objs),
                      fontsize=12)
+        #
         img = utils.fig2data(fig)
         plt.close()
         return [img]
@@ -353,10 +464,12 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
+            # TODO (njk) I added this to assign robot pos at initialization
             # Initialize robot pos with open fingers
             robot_init_y = rng.uniform(self.table_lb, self.table_ub)
             data[self._robot] = np.array([self.robot_x, robot_init_y, 1.0],
                                          dtype=np.float32)
+            #
             # Sample distinct colors for shelf and box
             color1 = rng.uniform(0.2, 0.4)
             color2 = rng.uniform(0.6, 1.0)
@@ -416,9 +529,20 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                assert self._OnTable_holds(state, [target_obj])
+                # TODO (njk) I added is to assign held_obj initial position to
+                # robot y and z
+                state.set(target_obj, "pose_y", state.get(self._robot, "y"))
+                state.set(target_obj, "pose_z",
+                          state.get(target_obj, "pose_z") + 1.0)
+                #
             tasks.append(Task(state, goal))
         return tasks
+
+    def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
+        obj, = objects
+        obj_y = state.get(obj, "pose_y")
+        return self.table_lb < obj_y < self.table_ub and \
+            np.allclose(state.get(obj, "pose_z"), self.table_height + self.obj_height / 2)
 
     @staticmethod
     def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],
@@ -442,6 +566,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         for typed_obj in state:
             if typed_obj.type in \
                 [self._obj_type, self._box_type, self._shelf_type] and \
-                self._NextTo_holds(state, [robot, typed_obj]):
+                self._NextTo_holds(state, [robot, typed_obj]) and \
+                typed_obj is not self._get_held_object(state):
                 return False
         return True
