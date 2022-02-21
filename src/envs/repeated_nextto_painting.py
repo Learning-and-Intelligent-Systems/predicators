@@ -502,12 +502,11 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                # NOTE:  I added is to assign held_obj initial position to
+                # NOTE: I added is to assign held_obj initial position to
                 # robot y and z
                 state.set(target_obj, "pose_y", state.get(self._robot, "y"))
                 state.set(target_obj, "pose_z",
                           state.get(target_obj, "pose_z") + 1.0)
-                #
             tasks.append(Task(state, goal))
         return tasks
 
