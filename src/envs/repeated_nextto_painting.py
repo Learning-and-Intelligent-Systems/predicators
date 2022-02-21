@@ -20,49 +20,22 @@ from predicators.src import utils
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
     """RepeatedNextToPainting domain."""
-    # Parameters that aren't important enough to need to clog up settings.py
-    table_lb = -10.1
-    table_ub = -1.0
-    table_height = 0.2
-    table_x = 1.65
-    shelf_l = 2.0  # shelf length
-    shelf_lb = 1.
-    shelf_ub = shelf_lb + shelf_l - 0.05
-    shelf_x = 1.65
-    shelf_y = (shelf_lb + shelf_ub) / 2.0
-    box_s = 0.8  # side length
-    box_y = 0.5  # y coordinate
-    box_lb = box_y - box_s / 10
-    box_ub = box_y + box_s / 10
-    box_x = 1.65
-    env_lb = min(table_lb, shelf_lb, box_lb)
-    env_ub = max(table_ub, shelf_ub, box_ub)
-    obj_height = 0.13
-    obj_radius = 0.03
-    obj_x = 1.65
-    obj_z = table_height + obj_height / 2
-    pick_tol = 1e-2
-    color_tol = 1e-2
-    wetness_tol = 0.5
-    dirtiness_tol = 0.5
-    open_fingers = 0.8
-    top_grasp_thresh = 0.5 + 1e-2
-    side_grasp_thresh = 0.5 - 1e-2
-    nextto_thresh = 1.0
-    robot_x = table_x - 0.5
 
     def __init__(self) -> None:
         super().__init__()
-        # Types
-        self._obj_type = Type("obj", [
-            "pose_x", "pose_y", "pose_z", "dirtiness", "wetness", "color",
-            "grasp", "held"
-        ])
+        # Additional class attributes
+        self.shelf_x = 1.65
+        self.shelf_y = (self.shelf_lb + self.shelf_ub) / 2.0
+        self.box_x = 1.65
+        self.table_x = 1.65
+        self.robot_x = self.table_x - 0.5
+        self.nextto_thresh = 1.0
+        # Overriden Types
         self._box_type = Type("box", ["pose_x", "pose_y", "color"])
-        self._lid_type = Type("lid", ["is_open"])
         self._shelf_type = Type("shelf", ["pose_x", "pose_y", "color"])
         self._robot_type = Type("robot", ["x", "y", "fingers"])
-        # Predicates
+        # Overriden Predicates. This contains some redundancy but is necessary
+        # because we're overriding some of the types above.
         self._InBox = Predicate("InBox", [self._obj_type, self._box_type],
                                 self._InBox_holds)
         self._InShelf = Predicate("InShelf",
@@ -100,7 +73,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                                       self._NextTo_holds)
         self._NextToNothing = Predicate("NextToNothing", [self._robot_type],
                                         self._NextToNothing_holds)
-        # Options
+        # Overriden Options. This contains some redundancy but is necessary
+        # because we're overriding some of the predicates above.
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
             # params: [delta x, delta y, delta z, grasp]
@@ -182,7 +156,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             _policy=self._Move_policy,
             _initiable=utils.always_initiable,
             _terminal=utils.onestep_terminal)
-        # Objects
+        # Overriden objects. This contains some redundancy but is necessary
+        # because we're overriding some of the types above.
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
         self._shelf = Object("receptacle_shelf", self._shelf_type)
@@ -196,7 +171,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         dry_affinity = 0 if arr[6] > 0.5 else abs(arr[6] - 0.5)
         paint_affinity = min(abs(arr[7] - state.get(self._box, "color")),
                              abs(arr[7] - state.get(self._shelf, "color")))
-        # TODO (njk) added move_affinity
+        # NOTE: added move_affinity
         move_affinity = sum(abs(val) for val in arr[2:])
         affinities = [
             (abs(1 - arr[4]), self._transition_pick_or_openlid),
@@ -206,7 +181,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             (abs(-1 - arr[4]), self._transition_place),
             (move_affinity, self._transition_move),
         ]
-        #
         _, transition_fn = min(affinities, key=lambda item: item[0])
         return transition_fn(state, action)
 
@@ -233,16 +207,15 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         if target_obj is None:
             return next_state
 
-        # TODO (njk) I added cannot pick if obj is too far
+        # NOTE: added cannot pick if obj is too far
         if abs(state.get(self._robot, "y") - state.get(target_obj, "pose_y")) \
             >= self.nextto_thresh:
             return next_state
-        #
         # Execute pick
         next_state.set(self._robot, "fingers", 0.0)
         next_state.set(target_obj, "grasp", grasp)
         next_state.set(target_obj, "held", 1.0)
-        # TODO (njk) I added is to assign picked obj position to
+        # NOTE: added this to assign picked obj position to
         # robot y and z
         next_state.set(target_obj, "pose_y", state.get(self._robot, "y"))
         next_state.set(target_obj, "pose_z",
@@ -291,7 +264,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
            collider != held_obj:
             raise utils.EnvironmentFailure("Collision during place on table.",
                                            {"offending_objects": {collider}})
-        #  TODO (njk) I added cannot place if not close enough to location
+        #  NOTE: added restriction on place if not close enough to location
         if abs(state.get(self._robot, "y") - y) \
             >= self.nextto_thresh:
             return next_state
@@ -391,7 +364,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         held_obj = self._get_held_object(state)
 
         # List of NextTo objects to render
-        # TODO (njk) I addeded this to display what objects we are nextto
+        # NOTE: added this to display what objects we are nextto
         # during video rendering
         nextto_objs = []
         for obj in state:
@@ -447,7 +420,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             ax.add_patch(rect)
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
-        # TODO (njk) I addeded this to display what objects we are nextto
+        # NOTE: added this to display what objects we are nextto
         # during video rendering
         plt.suptitle("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
                      "yellow border = side grasp, orange border = top grasp\n"
@@ -464,7 +437,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         for i in range(num_tasks):
             num_objs = num_objs_lst[i % len(num_objs_lst)]
             data = {}
-            # TODO (njk) I added this to assign robot pos at initialization
+            # NOTE: added this to assign robot pos at initialization
             # Initialize robot pos with open fingers
             robot_init_y = rng.uniform(self.table_lb, self.table_ub)
             data[self._robot] = np.array([self.robot_x, robot_init_y, 1.0],
@@ -529,7 +502,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                # TODO (njk) I added is to assign held_obj initial position to
+                # NOTE:  I added is to assign held_obj initial position to
                 # robot y and z
                 state.set(target_obj, "pose_y", state.get(self._robot, "y"))
                 state.set(target_obj, "pose_z",
@@ -542,7 +515,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         obj, = objects
         obj_y = state.get(obj, "pose_y")
         return self.table_lb < obj_y < self.table_ub and \
-            np.allclose(state.get(obj, "pose_z"), self.table_height + self.obj_height / 2)
+            np.allclose(state.get(obj, "pose_z"), self.table_height\
+                + self.obj_height / 2)
 
     @staticmethod
     def _Move_policy(state: State, memory: Dict, objects: Sequence[Object],

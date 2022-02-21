@@ -222,7 +222,6 @@ def _skeleton_generator(
         # for act in node.skeleton:
         #     print(act.name, act.objects)
         # print()
-        #
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1

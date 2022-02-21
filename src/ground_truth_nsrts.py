@@ -1172,10 +1172,10 @@ def _get_repeated_nextto_painting_gt_nsrts() -> Set[NSRT]:
         nsrts.add(placeontable_nsrt)
 
     def moveto_sampler(state: State, goal: Set[GroundAtom],
-                       rng: np.random.Generator,
+                       _rng: np.random.Generator,
                        objs: Sequence[Object]) -> Array:
         del goal  # unused
-        y = state.get(objs[1], "pose_y") # + rng.uniform() * 0.4
+        y = state.get(objs[1], "pose_y")  # + rng.uniform() * 0.4
         return np.array([y], dtype=np.float32)
 
     # MoveToObj
