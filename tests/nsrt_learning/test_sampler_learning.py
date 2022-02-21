@@ -18,6 +18,7 @@ def test_create_sampler_data():
         "env": "cover",
         "min_data_for_nsrt": 0,
         "num_train_tasks": 15,
+        "sampler_disable_classifier": False,
     })
     # Create two datastores
     cup_type = Type("cup_type", ["feat1"])
@@ -65,6 +66,24 @@ def test_create_sampler_data():
         param_option, datastore_idx)
     assert len(positive_examples) == 1
     assert len(negative_examples) == 1
+
+    utils.reset_config({
+        "env": "cover",
+        "min_data_for_nsrt": 0,
+        "num_train_tasks": 15,
+        "sampler_disable_classifier": True,
+    })
+    positive_examples, negative_examples = _create_sampler_data(
+        datastores, variables, preconditions, add_effects, delete_effects,
+        param_option, datastore_idx)
+    assert len(positive_examples) == 1
+    assert len(negative_examples) == 0  # classifier disabled, no negatives
+    utils.reset_config({
+        "env": "cover",
+        "min_data_for_nsrt": 0,
+        "num_train_tasks": 15,
+        "sampler_disable_classifier": False,
+    })
 
     # When building data for a datastore with effects X, if we
     # encounter a transition with effects Y, and if Y is a superset
