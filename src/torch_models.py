@@ -281,7 +281,7 @@ class NeuralGaussianRegressor(nn.Module):
 class MLPClassifier(nn.Module):
     """MLPClassifier definition."""
 
-    def __init__(self, in_size: int, max_itr: int, seed: int=None) -> None:
+    def __init__(self, in_size: int, max_itr: int, seed: int = None) -> None:
         super().__init__()  # type: ignore
         if seed is None:
             self._rng = np.random.default_rng(CFG.seed)
@@ -369,7 +369,7 @@ class MLPClassifier(nn.Module):
         scale = np.max(data - shift, axis=0)  # type: ignore
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
         return (data - shift) / scale, shift, scale
-    
+
     def _normalize(self, x: Array) -> Array:
         return (x - self._input_shift) / self._input_scale
 
@@ -426,13 +426,15 @@ class MLPClassifierEnsemble(MLPClassifier):
     """MLPClassifierEnsemble definition."""
 
     def __init__(self, in_size: int, max_itr: int, n: int) -> None:
-        self._members = [MLPClassifier(in_size, max_itr, CFG.seed+i) for i in range(n)]
-    
+        self._members = [
+            MLPClassifier(in_size, max_itr, CFG.seed + i) for i in range(n)
+        ]
+
     def fit(self, X: Array, y: Array) -> None:
         for i, member in enumerate(self._members):
             print(f"Fitting member {i} of ensemble...")
             member.fit(X, y)
-    
+
     def classify(self, x: Array) -> bool:
         member_vals = []
         for member in self._members:
