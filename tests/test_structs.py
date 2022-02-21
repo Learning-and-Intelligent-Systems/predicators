@@ -745,7 +745,7 @@ def test_segment():
     segment.set_option(option)
     assert segment.has_option()
     assert segment.get_option() == option
-    # Test adding and accessing goals to segments.
+    # Test adding goals to segments and accessing them.
     assert not segment.has_goal()
     with pytest.raises(AssertionError):
         segment.get_goal()

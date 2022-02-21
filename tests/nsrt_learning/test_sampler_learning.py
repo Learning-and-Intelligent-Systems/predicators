@@ -134,7 +134,7 @@ def test_learned_sampler_with_goal():
     objects = [goal_obj]
 
     input_size = 11
-    classifier = MLPClassifier(input_size, 10000)
+    classifier = MLPClassifier(input_size, 10)
 
     input_size = 11
     output_size = 2
