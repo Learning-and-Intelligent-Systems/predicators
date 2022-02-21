@@ -63,7 +63,7 @@ ROW_GROUPS = [
 # See ROW_GROUPS comment.
 OUTER_HEADER_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
-    ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+    ("Manual", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventnoexclude_200" in v)),
     ("Down Learn",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
@@ -71,20 +71,23 @@ OUTER_HEADER_GROUPS = [
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_200" in v)),
     ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventallexclude_200" in v)),
-    ("Prediction",
+    ("Bisimulation",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
     ("Branching",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
-    ("Energy",
+    ("Boltzmann",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
     ("Random", pd_create_equal_selector("APPROACH", "random_options")),
 ]
 
-DOUBLE_LINES_AFTER = ["Ours", "Handwritten", "No Invent"]
+DOUBLE_LINES_AFTER = ["Ours", "Manual", "No Invent"]
 
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
 DO_BOLDING = False
+
+# Report the standard deviations instead of the means.
+MEANS_OR_STDS = "means"
 
 # If less than this, entry will be red.
 RED_MIN_SIZE = 10
@@ -99,22 +102,16 @@ INNER_HEADER_GROUPS = [
     ("Time", "AVG_TEST_TIME", "lower"),
 ]
 
-CAPTION = "TODO"
-TABLE_LABEL = "tab:mainresults"
-
 # #### Timing results ###
 
-# See COLUMN_NAMES_AND_KEYS for all available metrics. The third entry is
-# whether higher or lower is better.
 # INNER_HEADER_GROUPS = [
-#     ("Learn", "LEARNING_TIME", "lower"),
-#     ("Plan", "AVG_TEST_TIME", "lower"),
+#     ("Learn Time", "LEARNING_TIME", "lower"),
+#     # ("Plan", "AVG_TEST_TIME", "lower"),
 # ]
 
-# CAPTION = "TODO"
-# TABLE_LABEL = "tab:timeresults"
+# MEANS_OR_STDS = "both"
 
-#### Heuristic results ###
+# #### Heuristic results ###
 
 # DOUBLE_LINES_AFTER = []
 
@@ -126,21 +123,18 @@ TABLE_LABEL = "tab:mainresults"
 #     ("Node", "AVG_NODES_CREATED", "lower"),
 # ]
 
-# CAPTION = "TODO"
-# TABLE_LABEL = "tab:haddresults"
-
 # OUTER_HEADER_GROUPS = [
 #     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(
 #         lambda v: "_main_200" in v or "mainhadd_200" in v)),
-#     ("Handwritten", lambda df: df["EXPERIMENT_ID"].apply(
+#     ("Manual", lambda df: df["EXPERIMENT_ID"].apply(
 #         lambda v: "_noinventnoexclude_200" in v or \
 #                   "_noinventnoexcludehadd_200" in v)),
 # ]
 
 # ROW_GROUPS = [
-#     ("lmcut", lambda df: df["EXPERIMENT_ID"].apply(
+#     ("LMCut", lambda df: df["EXPERIMENT_ID"].apply(
 #        lambda v: "blocks_main_" in v or "blocks_noinventnoexclude_" in v)),
-#     ("hadd", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "hadd" in v)),
+#     ("hAdd", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "hadd" in v)),
 # ]
 
 #################### Should not need to change below here #####################
@@ -162,13 +156,11 @@ def _main() -> None:
     ]
     inner_lines = ["|" for _ in range(num_inner_headers * len(outer_labels))]
     for i, outer_line in enumerate(outer_lines):
-        inner_lines[1 + num_inner_headers * i] = outer_line
+        inner_lines[(num_inner_headers - 1) +
+                    num_inner_headers * i] = outer_line
 
-    preamble = """\\begin{table*}
-\t\\centering
-\t\\scriptsize
-\t\\begin{tabular}{| l | """ + \
-    "".join("p{0.52cm} " + inner_lines[i] + " "
+    preamble = """\t\\begin{tabular}{| l | """ + \
+    "".join("p{0.49cm} " + inner_lines[i] + " "
             for i in range(num_inner_headers * num_outer_headers)) + \
     """}
 \t\\hline
@@ -220,8 +212,8 @@ def _main() -> None:
                 inner_label_to_comp[inner_label] = lt
         for (outer_label, inner_label), (mean, std,
                                          _) in entry_to_mean_std_size.items():
-            # Special case: exclude Handwritten
-            if outer_label == "Handwritten":
+            # Special case: exclude Manual
+            if outer_label == "Manual":
                 continue
             if inner_label not in inner_label_to_best_mean_std:
                 inner_label_to_best_mean_std[inner_label] = (mean, std)
@@ -231,8 +223,8 @@ def _main() -> None:
                     inner_label_to_best_mean_std[inner_label] = (mean, std)
         for (outer_label, inner_label), (mean, _,
                                          _) in entry_to_mean_std_size.items():
-            # Special case: exclude Handwritten
-            if outer_label == "Handwritten":
+            # Special case: exclude Manual
+            if outer_label == "Manual":
                 continue
             best_mean, best_std = inner_label_to_best_mean_std[inner_label]
             if abs(mean - best_mean) <= BOLD_NUM_STDS * best_std:
@@ -246,7 +238,6 @@ def _main() -> None:
         body += "\n\t" + row_label
         for (outer_label, _) in OUTER_HEADER_GROUPS:
             for (inner_label, _, _) in INNER_HEADER_GROUPS:
-                m, _, _ = entry_to_mean_std_size[(outer_label, inner_label)]
                 pre, end = "", ""
                 if (outer_label, inner_label) in red:
                     pre = "{\\textcolor{red}" + pre
@@ -254,22 +245,38 @@ def _main() -> None:
                 if DO_BOLDING and (outer_label, inner_label) in bolded:
                     pre = "\\bf{" + pre
                     end = end + "}"
-                # Special case random options / node expansions
-                if np.isnan(m) or (outer_label == "Random" and \
-                    inner_label == "Node"):
-                    formatted_m = "\\;\\;\\;--"
-                elif inner_label == "Time":
-                    formatted_m = f"{m:.3f}"
+
+                mean, std, _ = entry_to_mean_std_size[(outer_label,
+                                                       inner_label)]
+
+                if MEANS_OR_STDS in ["stds", "means"]:
+                    if MEANS_OR_STDS == "stds":
+                        entry = std
+                    elif MEANS_OR_STDS == "means":
+                        entry = mean
+                    # Special case random options / node expansions
+                    if np.isnan(entry) or (outer_label == "Random" and \
+                        inner_label == "Node"):
+                        formatted_entry = "\\;\\;\\;--"
+                    elif inner_label == "Node":
+                        if entry > 1000:  # type: ignore
+                            formatted_entry = f"{entry:.0f}"
+                        else:
+                            formatted_entry = f"{entry:.1f}"
+                    elif inner_label == "Time":
+                        formatted_entry = f"{entry:.3f}"
+                    else:
+                        formatted_entry = f"{entry:.1f}"
+
                 else:
-                    formatted_m = f"{m:.1f}"
-                body += " & " + pre + formatted_m + end
+                    assert MEANS_OR_STDS == "both"
+                    formatted_entry = f"{mean:.0f} ({std:.0f})"
+
+                body += " & " + pre + formatted_entry + end
         body += " \\\\"
 
     footer = """\\hline
 \t\\end{tabular}
-\t\\caption{""" + CAPTION + """}
-\t\\label{""" + TABLE_LABEL + """}
-\\end{table*}
 """
 
     final = preamble + body + footer

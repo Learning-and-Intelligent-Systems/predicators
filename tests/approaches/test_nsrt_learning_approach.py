@@ -158,6 +158,7 @@ def test_grammar_search_invention_approach():
         "grammar_search_predicate_cost_upper_bound": 6,
         "grammar_search_score_function": "prediction_error",
         "grammar_search_search_algorithm": "hill_climbing",
+        "pretty_print_when_loading": True,
     }
     _test_approach(env_name="cover",
                    approach_name="grammar_search_invention",

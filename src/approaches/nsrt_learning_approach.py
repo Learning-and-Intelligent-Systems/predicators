@@ -54,9 +54,21 @@ class NSRTLearningApproach(TAMPApproach):
         save_path = utils.get_approach_save_path_str()
         with open(f"{save_path}_{online_learning_cycle}.NSRTs", "rb") as f:
             self._nsrts = pkl.load(f)
+        if CFG.pretty_print_when_loading:
+            preds, _ = utils.extract_preds_and_types(self._nsrts)
+            name_map = {}
+            print("Invented predicates:")
+            for idx, pred in enumerate(
+                    sorted(set(preds.values()) - self._initial_predicates)):
+                vars_str, body_str = pred.pretty_str()
+                print("\t", f"P{idx+1}({vars_str}) ≜ {body_str}")
+                name_map[body_str] = f"P{idx+1}"
         print("\n\nLoaded NSRTs:")
         for nsrt in sorted(self._nsrts):
-            print(nsrt)
+            if CFG.pretty_print_when_loading:
+                print(nsrt.pretty_str(name_map))
+            else:
+                print(nsrt)
         print()
         # Seed the option parameter spaces after loading.
         for nsrt in self._nsrts:
