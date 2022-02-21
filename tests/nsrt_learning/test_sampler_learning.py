@@ -8,6 +8,8 @@ from predicators.src.nsrt_learning.sampler_learning import \
 from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
 from predicators.src import utils
+from predicators.src.torch_models import NeuralGaussianRegressor, MLPClassifier
+from predicators.src.envs import ClutteredTablePlaceEnv
 
 
 def test_create_sampler_data():
@@ -96,8 +98,40 @@ def test_learn_samplers_failure():
 
 def test_learned_sampler_with_goal():
     """Tests _LearnedSampler() when goals are used."""
-    # TODO
     utils.reset_config({
+        "env": "cluttered_table_place",
         "sampler_learning_use_goals": True,
+        "num_train_tasks": 15,
+        "neural_gaus_regressor_max_itr": 3
     })
-    raise NotImplementedError("TODO")
+    env = ClutteredTablePlaceEnv()
+    task = env.get_test_tasks()[0]
+    goal = task.goal
+
+    rng = np.random.default_rng(0)
+    state = task.init
+    goal = task.goal
+    goal_obj = next(iter(goal)).objects[0]
+    objects = [goal_obj]
+
+    input_size = 11
+    classifier = MLPClassifier(input_size, 10000)
+
+    input_size = 11
+    output_size = 2
+    num_samples = 5
+    regressor = NeuralGaussianRegressor()
+    X = np.ones((num_samples, input_size))
+    Y = np.zeros((num_samples, output_size))
+    regressor.fit(X, Y)
+
+    variables = [goal_obj]
+    parameterized_option = ParameterizedOption(
+        "Dummy", [], Box(0, 1,
+                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
+        utils.always_initiable, utils.onestep_terminal)
+
+    ls = _LearnedSampler(classifier, regressor, variables,
+                         parameterized_option).sampler
+    params = ls(state, goal, rng, objects)
+    assert not params is None
