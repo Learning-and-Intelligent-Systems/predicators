@@ -358,7 +358,7 @@ class MLPClassifier(nn.Module):
         if self._do_single_class_prediction:
             classification = self._predicted_single_class
         else:
-            x = (x - self._input_shift) / self._input_scale
+            x = self._normalize(x)
             classification = self._classify(x)
         assert classification in [False, True]
         return classification
@@ -369,6 +369,9 @@ class MLPClassifier(nn.Module):
         scale = np.max(data - shift, axis=0)  # type: ignore
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
         return (data - shift) / scale, shift, scale
+    
+    def _normalize(self, x: Array) -> Array:
+        return (x - self._input_shift) / self._input_scale
 
     def _classify(self, x: Array) -> bool:
         return self(x).item() > 0.5
@@ -433,7 +436,7 @@ class MLPClassifierEnsemble(MLPClassifier):
     def classify(self, x: Array) -> bool:
         member_vals = []
         for member in self._members:
-            x_normalized = (x - member._input_shift) / member._input_scale
+            x_normalized = member._normalize(x)
             member_vals.append(member(x_normalized).item())
         avg = np.mean(member_vals)
         classification = avg > 0.5
