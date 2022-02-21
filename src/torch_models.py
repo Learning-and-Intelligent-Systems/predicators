@@ -278,7 +278,32 @@ class NeuralGaussianRegressor(nn.Module):
         return (data - shift) / scale, shift, scale
 
 
-class MLPClassifier(nn.Module):
+class Classifier(nn.Module):
+    """ABC for classifier types."""
+
+    def __init__(self) -> None:
+        super().__init__()  # type: ignore
+
+    def fit(self, X: Array, y: Array) -> None:
+        """Train classifier on the given data.
+
+        X is multi-dimensional, y is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+    
+    def forward(self, inputs: Array) -> Tensor:
+        """Pytorch forward method."""
+        raise NotImplementedError("Override me")
+
+    def classify(self, x: Array) -> bool:
+        """Return a classification of the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+
+class MLPClassifier(Classifier):
     """MLPClassifier definition."""
 
     def __init__(self, in_size: int, max_itr: int) -> None:
@@ -420,7 +445,7 @@ class MLPClassifier(nn.Module):
 class LearnedPredicateClassifier:
     """A convenience class for holding the model underlying a learned
     predicate."""
-    _model: MLPClassifier
+    _model: Classifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:
         """The classifier corresponding to the given model.

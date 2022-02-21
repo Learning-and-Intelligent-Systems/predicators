@@ -7,7 +7,8 @@ from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
     NSRTSampler, NSRT, EntToEntSub, GroundAtom
 from predicators.src import utils
-from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
+from predicators.src.torch_models import Classifier, MLPClassifier, \
+    NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
@@ -224,7 +225,7 @@ def _create_sampler_data(
 class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
-    _classifier: MLPClassifier
+    _classifier: Classifier
     _regressor: NeuralGaussianRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
