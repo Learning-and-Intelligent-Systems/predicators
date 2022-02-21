@@ -1,11 +1,11 @@
 """Code for learning the samplers within NSRTs."""
 
 from dataclasses import dataclass
-from typing import Set, Tuple, List, Sequence, Dict, Any, Optional
+from typing import Set, Tuple, List, Sequence, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
-    NSRTSampler, NSRT, EntToEntSub, GroundAtom
+    Object, Array, State, Datastore, STRIPSOperator, OptionSpec, NSRTSampler, \
+    NSRT, EntToEntSub, GroundAtom, SamplerDatapoint
 from predicators.src import utils
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 from predicators.src.settings import CFG
@@ -163,7 +163,9 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         X_regressor.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
-        # See comment above.
+        # Above, we made the assumption that there is one goal atom with one
+        # goal object, which must also be used when assembling data for the
+        # regressor.
         if CFG.sampler_learning_use_goals:
             assert goal is not None
             assert len(goal) == 1
@@ -188,8 +190,7 @@ def _create_sampler_data(
     preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
     delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
     datastore_idx: int
-) -> Tuple[List[Tuple[State, Dict[Variable, Object], _Option,
-                      Optional[Set[GroundAtom]]]], ...]:
+) -> Tuple[List[SamplerDatapoint], List[SamplerDatapoint]]:
     """Generate positive and negative data for training a sampler."""
     positive_data = []
     negative_data = []
