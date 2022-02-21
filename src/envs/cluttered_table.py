@@ -327,7 +327,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
         # The action's starting x,y coordinates are always (0.2,0), and the
         # ending coordinates are in a more narrow region than in the original
         # task. Constraints make this version of the task more challenging.
-        return Box(np.array([0.2, 0, 0, 0]), np.array([0.2, 0, 0.4, 1]))
+        return Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1]))
 
     @staticmethod
     def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
