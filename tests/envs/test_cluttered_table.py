@@ -34,8 +34,8 @@ def test_cluttered_table(place_version=False):
     if not place_version:
         assert env.action_space == Box(0, 1, (4, ))
     else:
-        assert env.action_space == Box(np.array([0.2, 0, 0, 0]),
-                                       np.array([0.2, 0, 0.4, 1]))
+        assert env.action_space == Box(np.array([0., 0., 0., 0.]),
+                                       np.array([1., 1., 1., 1.]))
     HandEmpty = [pred for pred in env.predicates
                  if pred.name == "HandEmpty"][0]
     Untrashed = [pred for pred in env.predicates
