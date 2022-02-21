@@ -12,7 +12,7 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     Query
 from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPClassifier
+    MLPClassifierEnsemble
 from predicators.src.settings import CFG
 
 
@@ -93,8 +93,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             # Train MLP
             X = np.array(input_examples)
             Y = np.array(output_examples)
-            model = MLPClassifier(X.shape[1],
-                                  CFG.predicate_mlp_classifier_max_itr)
+            model = MLPClassifierEnsemble(X.shape[1],
+                                  CFG.predicate_mlp_classifier_max_itr,
+                                  CFG.interactive_num_ensemble_members
+                                  )
             model.fit(X, Y)
 
             # Construct classifier function, create new Predicate, and save it
