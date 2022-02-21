@@ -281,10 +281,14 @@ class NeuralGaussianRegressor(nn.Module):
 class MLPClassifier(nn.Module):
     """MLPClassifier definition."""
 
-    def __init__(self, in_size: int, max_itr: int) -> None:
+    def __init__(self, in_size: int, max_itr: int, seed: int=None) -> None:
         super().__init__()  # type: ignore
-        self._rng = np.random.default_rng(CFG.seed)
-        torch.manual_seed(CFG.seed)
+        if seed is None:
+            self._rng = np.random.default_rng(CFG.seed)
+            torch.manual_seed(CFG.seed)
+        else:
+            self._rng = np.random.default_rng(seed)
+            torch.manual_seed(seed)
         hid_sizes = CFG.mlp_classifier_hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
@@ -302,7 +306,6 @@ class MLPClassifier(nn.Module):
 
         X is multi-dimensional, y is single-dimensional.
         """
-        torch.manual_seed(CFG.seed)
         assert X.ndim == 2
         assert y.ndim == 1
         # If there is only one class in the data, then there's no point in
@@ -414,6 +417,28 @@ class MLPClassifier(nn.Module):
         yhat = self(X)
         loss = loss_fn(yhat, y)
         print(f"Loaded best model with loss: {loss:.5f}")
+
+
+class MLPClassifierEnsemble(MLPClassifier):
+    """MLPClassifierEnsemble definition."""
+
+    def __init__(self, in_size: int, max_itr: int, n: int) -> None:
+        self._members = [MLPClassifier(in_size, max_itr, CFG.seed+i) for i in range(n)]
+    
+    def fit(self, X: Array, y: Array) -> None:
+        for i, member in enumerate(self._members):
+            print(f"Fitting member {i} of ensemble...")
+            member.fit(X, y)
+    
+    def classify(self, x: Array) -> bool:
+        member_vals = []
+        for member in self._members:
+            x_normalized = (x - member._input_shift) / member._input_scale
+            member_vals.append(member(x_normalized).item())
+        avg = np.mean(member_vals)
+        classification = avg > 0.5
+        assert classification in [True, False]
+        return classification
 
 
 @dataclass(frozen=True, eq=False, repr=False)

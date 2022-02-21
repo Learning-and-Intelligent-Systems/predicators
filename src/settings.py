@@ -132,6 +132,7 @@ class GlobalSettings:
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
+    interactive_num_ensemble_members = 10
     interactive_action_strategy = "glib"
     interactive_query_policy = "strict_best_seen"
     interactive_score_function = "frequency"
