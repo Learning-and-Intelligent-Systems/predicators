@@ -451,7 +451,7 @@ class MLPClassifierEnsemble(Classifier):
     def classify(self, x: Array) -> bool:
         member_vals = []
         for member in self._members:
-            x_normalized = member._normalize(x)
+            x_normalized = member._normalize(x)  # pylint: disable=protected-access
             member_vals.append(member(x_normalized).item())
         avg = np.mean(member_vals)
         classification = avg > 0.5
