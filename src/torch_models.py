@@ -435,7 +435,7 @@ class MLPClassifier(Classifier, nn.Module):
         print(f"Loaded best model with loss: {loss:.5f}")
 
 
-class MLPClassifierEnsemble(MLPClassifier):
+class MLPClassifierEnsemble(Classifier):
     """MLPClassifierEnsemble definition."""
 
     def __init__(self, in_size: int, max_itr: int, n: int) -> None:
