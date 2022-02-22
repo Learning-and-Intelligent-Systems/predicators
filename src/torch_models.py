@@ -387,6 +387,7 @@ class MLPClassifier(Classifier, nn.Module):
         return (data - shift) / scale, shift, scale
 
     def normalize(self, x: Array) -> Array:
+        """Apply shift and scale to the input."""
         return (x - self._input_shift) / self._input_scale
 
     def _classify(self, x: Array) -> bool:
