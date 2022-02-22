@@ -4,7 +4,7 @@ import abc
 import os
 from dataclasses import dataclass
 import tempfile
-from typing import Sequence, List, Tuple
+from typing import Sequence, List, Tuple, Optional
 from scipy.stats import truncnorm
 import torch
 from torch import nn
@@ -302,7 +302,7 @@ class Classifier(abc.ABC):
 class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
 
-    def __init__(self, in_size: int, max_itr: int, seed: int = None) -> None:
+    def __init__(self, in_size: int, max_itr: int, seed: Optional[int] = None) -> None:
         super().__init__()  # type: ignore
         if seed is None:
             self._rng = np.random.default_rng(CFG.seed)
@@ -371,7 +371,7 @@ class MLPClassifier(Classifier, nn.Module):
         if self._do_single_class_prediction:
             classification = self._predicted_single_class
         else:
-            x = self._normalize(x)
+            x = self.normalize(x)
             classification = self._classify(x)
         assert classification in [False, True]
         return classification
@@ -383,7 +383,7 @@ class MLPClassifier(Classifier, nn.Module):
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
         return (data - shift) / scale, shift, scale
 
-    def _normalize(self, x: Array) -> Array:
+    def normalize(self, x: Array) -> Array:
         return (x - self._input_shift) / self._input_scale
 
     def _classify(self, x: Array) -> bool:
@@ -451,7 +451,7 @@ class MLPClassifierEnsemble(Classifier):
     def classify(self, x: Array) -> bool:
         member_vals = []
         for member in self._members:
-            x_normalized = member._normalize(x)  # pylint: disable=protected-access
+            x_normalized = member.normalize(x)
             member_vals.append(member(x_normalized).item())
         avg = np.mean(member_vals)
         classification = avg > 0.5
