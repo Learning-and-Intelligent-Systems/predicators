@@ -1,5 +1,6 @@
 """Models useful for classification/regression."""
 
+import abc
 import os
 from dataclasses import dataclass
 import tempfile
@@ -278,7 +279,27 @@ class NeuralGaussianRegressor(nn.Module):
         return (data - shift) / scale, shift, scale
 
 
-class MLPClassifier(nn.Module):
+class Classifier(abc.ABC):
+    """ABC for classifier types."""
+
+    @abc.abstractmethod
+    def fit(self, X: Array, y: Array) -> None:
+        """Train classifier on the given data.
+
+        X is multi-dimensional, y is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+    @abc.abstractmethod
+    def classify(self, x: Array) -> bool:
+        """Return a classification of the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+
+class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
 
     def __init__(self, in_size: int, max_itr: int, seed: int = None) -> None:
@@ -450,7 +471,7 @@ class MLPClassifierEnsemble(MLPClassifier):
 class LearnedPredicateClassifier:
     """A convenience class for holding the model underlying a learned
     predicate."""
-    _model: MLPClassifier
+    _model: Classifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:
         """The classifier corresponding to the given model.
