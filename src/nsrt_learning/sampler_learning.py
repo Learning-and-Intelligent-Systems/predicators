@@ -281,6 +281,14 @@ class _LearnedSampler:
             x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
         num_rejections = 0
+        if CFG.sampler_disable_classifier:
+            params = np.array(self._regressor.predict_sample(x, rng),
+                              dtype=self._param_option.params_space.dtype)
+            low = self._param_option.params_space.low
+            high = self._param_option.params_space.high
+            params = np.clip(params, low, high)
+            assert self._param_option.params_space.contains(params)
+            return params
         while num_rejections <= CFG.max_rejection_sampling_tries:
             params = np.array(self._regressor.predict_sample(x, rng),
                               dtype=self._param_option.params_space.dtype)
