@@ -2,8 +2,7 @@
 
 import time
 import numpy as np
-import pytest
-from predicators.src.torch_models import (NeuralGaussianRegressor, Classifier,
+from predicators.src.torch_models import (NeuralGaussianRegressor,
                                           MLPClassifier, MLPRegressor)
 from predicators.src import utils
 
