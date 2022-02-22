@@ -287,7 +287,6 @@ class _LearnedSampler:
             low = self._param_option.params_space.low
             high = self._param_option.params_space.high
             params = np.clip(params, low, high)
-            assert self._param_option.params_space.contains(params)
             return params
         while num_rejections <= CFG.max_rejection_sampling_tries:
             params = np.array(self._regressor.predict_sample(x, rng),
