@@ -83,6 +83,14 @@ class _ProgrammaticClassifier(abc.ABC):
     def __str__(self) -> str:
         raise NotImplementedError("Override me!")
 
+    @abc.abstractmethod
+    def pretty_str(self) -> Tuple[str, str]:
+        """Display the classifier in a nice human-readable format.
+
+        Returns a tuple of (variables string, body string).
+        """
+        raise NotImplementedError("Override me!")
+
 
 class _NullaryClassifier(_ProgrammaticClassifier):
     """A classifier on zero objects."""
@@ -129,6 +137,14 @@ class _SingleAttributeCompareClassifier(_UnaryClassifier):
             f"{self.attribute_name}{self.compare_str}[idx {self.constant_idx}]"
             f"{self.constant:.3})")
 
+    def pretty_str(self) -> Tuple[str, str]:
+        name = CFG.grammar_search_classifier_pretty_str_names[
+            self.object_index]
+        vars_str = f"{name}:{self.object_type.name}"
+        body_str = (f"({name}.{self.attribute_name} "
+                    f"{self.compare_str} {self.constant:.3})")
+        return vars_str, body_str
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _NegationClassifier(_ProgrammaticClassifier):
@@ -140,6 +156,10 @@ class _NegationClassifier(_ProgrammaticClassifier):
 
     def __str__(self) -> str:
         return f"NOT-{self.body}"
+
+    def pretty_str(self) -> Tuple[str, str]:
+        vars_str, body_str = self.body.pretty_str()
+        return vars_str, f"¬{body_str}"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -158,6 +178,15 @@ class _ForallClassifier(_NullaryClassifier):
         type_sig = ",".join(f"{i}:{t.name}" for i, t in enumerate(types))
         objs = ",".join(str(i) for i in range(len(types)))
         return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
+
+    def pretty_str(self) -> Tuple[str, str]:
+        types = self.body.types
+        _, body_str = self.body.pretty_str()
+        head = ", ".join(
+            f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}"
+            for i, t in enumerate(types))
+        vars_str = ""  # there are no variables
+        return vars_str, f"(∀ {head} . {body_str})"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -198,6 +227,17 @@ class _UnaryFreeForallClassifier(_UnaryClassifier):
                             if i != self.free_variable_idx)
         objs = ",".join(str(i) for i in range(len(types)))
         return f"Forall[{type_sig}].[{str(self.body)}({objs})]"
+
+    def pretty_str(self) -> Tuple[str, str]:
+        types = self.body.types
+        _, body_str = self.body.pretty_str()
+        head = ", ".join(
+            f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}"
+            for i, t in enumerate(types) if i != self.free_variable_idx)
+        name = CFG.grammar_search_classifier_pretty_str_names[
+            self.free_variable_idx]
+        vars_str = f"{name}:{types[self.free_variable_idx].name}"
+        return vars_str, f"(∀ {head} . {body_str})"
 
 
 ################################################################################

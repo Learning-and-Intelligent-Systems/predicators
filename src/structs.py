@@ -10,6 +10,7 @@ import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
+from predicators.src.settings import CFG
 
 
 @dataclass(frozen=True, order=True)
@@ -238,6 +239,25 @@ class Predicate:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pretty_str(self) -> Tuple[str, str]:
+        """Display the predicate in a nice human-readable format.
+
+        Returns a tuple of (variables string, body string).
+        """
+        if hasattr(self._classifier, "pretty_str"):
+            # This is an invented predicate, from the predicate grammar.
+            pretty_str_f = getattr(self._classifier, "pretty_str")
+            return pretty_str_f()
+        # This is a known predicate, not from the predicate grammar.
+        vars_str = ", ".join(
+            f"{CFG.grammar_search_classifier_pretty_str_names[i]}:{t.name}"
+            for i, t in enumerate(self.types))
+        vars_str_no_types = ", ".join(
+            f"{CFG.grammar_search_classifier_pretty_str_names[i]}"
+            for i in range(self.arity))
+        body_str = f"{self.name}({vars_str_no_types})"
+        return vars_str, body_str
 
     def pddl_str(self) -> str:
         """Get a string representation suitable for writing out to a PDDL
@@ -710,6 +730,25 @@ class NSRT:
                             self.side_predicates)
         return op.pddl_str()
 
+    def pretty_str(self, name_map: Dict[str, str]) -> str:
+        """Display the NSRT in a nice human-readable format, given a mapping to
+        new predicate names for any invented predicates."""
+        out = ""
+        out += f"{self.name}:\n\tParameters: {self.parameters}"
+        for name, atoms in [("Preconditions", self.preconditions),
+                            ("Add Effects", self.add_effects),
+                            ("Delete Effects", self.delete_effects)]:
+            out += f"\n\t{name}:"
+            for atom in atoms:
+                pretty_pred = atom.predicate.pretty_str()[1]
+                new_name = (name_map[pretty_pred] if pretty_pred in name_map
+                            else str(atom.predicate))
+                var_str = ", ".join(map(str, atom.variables))
+                out += f"\n\t\t{new_name}({var_str})"
+        option_var_strs = [str(v) for v in self.option_vars]
+        out += f"\n\tOption Spec: ({self.option.name}, {option_var_strs})"
+        return out
+
     def __hash__(self) -> int:
         return self._hash
 
@@ -990,6 +1029,7 @@ class Segment:
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DummyOption)
+    _goal: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -1032,6 +1072,19 @@ class Segment:
     def set_option(self, option: _Option) -> None:
         """Set the option that produced this segment."""
         self._option = option
+
+    def has_goal(self) -> bool:
+        """Whether this segment has a non-default goal attached."""
+        return self._goal is not None
+
+    def get_goal(self) -> Set[GroundAtom]:
+        """Get the goal associated with this segment."""
+        assert self._goal is not None
+        return self._goal
+
+    def set_goal(self, goal: Set[GroundAtom]) -> None:
+        """Set the goal associated with this segment."""
+        self._goal = goal
 
 
 @dataclass(eq=False, repr=False)
@@ -1202,3 +1255,5 @@ LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
+SamplerDatapoint = Tuple[State, Dict[Variable, Object], _Option,
+                         Optional[Set[GroundAtom]]]
