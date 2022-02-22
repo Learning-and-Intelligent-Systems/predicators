@@ -302,7 +302,10 @@ class Classifier(abc.ABC):
 class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
 
-    def __init__(self, in_size: int, max_itr: int, seed: Optional[int] = None) -> None:
+    def __init__(self,
+                 in_size: int,
+                 max_itr: int,
+                 seed: Optional[int] = None) -> None:
         super().__init__()  # type: ignore
         if seed is None:
             self._rng = np.random.default_rng(CFG.seed)
