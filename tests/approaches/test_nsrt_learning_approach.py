@@ -17,6 +17,7 @@ def _test_approach(env_name,
                    option_learner="no_learning",
                    learn_side_predicates=False,
                    num_train_tasks=1,
+                   offline_data_method="demo+replay",
                    additional_settings=None):
     """Integration test for the given approach."""
     if additional_settings is None:
@@ -31,7 +32,7 @@ def _test_approach(env_name,
         "mlp_regressor_max_itr": 50,
         "num_train_tasks": num_train_tasks,
         "num_test_tasks": 1,
-        "offline_data_method": "demo+replay",
+        "offline_data_method": offline_data_method,
         "sesame_allow_noops": False,
         "offline_data_num_replays": 50,
         "excluded_predicates": excluded_predicates,
@@ -190,3 +191,13 @@ def test_grammar_search_invention_approach():
                    try_solving=False,
                    sampler_learner="random",
                    additional_settings=additional_settings)
+
+
+def test_sampler_learning_with_goals():
+    """Tests for NSRT learning when samplers learn with goals."""
+    _test_approach(env_name="cluttered_table_place",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="neural",
+                   offline_data_method="demo",
+                   additional_settings={"sampler_learning_use_goals": True})
