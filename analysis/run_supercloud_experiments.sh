@@ -10,12 +10,19 @@ ALL_NUM_TRAIN_TASKS=(
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
     for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
-        COMMON_ARGS="--approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS --excluded_predicates all --grammar_search_learn_goal_predicates True --offline_data_method demo+goal_atoms"
+        COMMON_ARGS="--seed $SEED --num_train_tasks $NUM_TRAIN_TASKS --nsrt_learning_learn_goal_predicates True --offline_data_method demo+goal_atoms"
 
-        python $FILE --experiment_id cover_invent_allexclude_$NUM_TRAIN_TASKS --env cover $COMMON_ARGS
-        python $FILE --experiment_id blocks_invent_allexclude_$NUM_TRAIN_TASKS --env blocks $COMMON_ARGS
-        python $FILE --experiment_id painting_invent_allexclude_$NUM_TRAIN_TASKS --env painting $COMMON_ARGS
-        python $FILE --experiment_id tools_invent_allexclude_$NUM_TRAIN_TASKS --env tools $COMMON_ARGS
+        # NSRT learning
+        python $FILE --experiment_id cover_nsrt_learning_$NUM_TRAIN_TASKS --approach nsrt_learning --excluded_predicates goals --env cover $COMMON_ARGS
+        python $FILE --experiment_id blocks_nsrt_learning_$NUM_TRAIN_TASKS --approach nsrt_learning --excluded_predicates goals --env blocks $COMMON_ARGS
+        python $FILE --experiment_id painting_nsrt_learning_$NUM_TRAIN_TASKS --approach nsrt_learning --excluded_predicates goals --env painting $COMMON_ARGS
+        python $FILE --experiment_id tools_nsrt_learning_$NUM_TRAIN_TASKS  --approach nsrt_learning --excluded_predicates goals --env tools $COMMON_ARGS
+
+        # Grammar search
+        python $FILE --experiment_id cover_invent_allexclude_$NUM_TRAIN_TASKS --approach grammar_search_invention --excluded_predicates all --env cover $COMMON_ARGS
+        python $FILE --experiment_id blocks_invent_allexclude_$NUM_TRAIN_TASKS --approach grammar_search_invention --excluded_predicates all --env blocks $COMMON_ARGS
+        python $FILE --experiment_id painting_invent_allexclude_$NUM_TRAIN_TASKS --approach grammar_search_invention --excluded_predicates all --env painting $COMMON_ARGS
+        python $FILE --experiment_id tools_invent_allexclude_$NUM_TRAIN_TASKS  --approach grammar_search_invention --excluded_predicates all --env tools $COMMON_ARGS
 
     done
 done

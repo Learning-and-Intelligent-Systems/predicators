@@ -1430,7 +1430,7 @@ def parse_config_excluded_predicates(
     if CFG.excluded_predicates:
         allow_exclude_goal_predicates = (
             CFG.offline_data_method == "demo+ground_atoms" or \
-            CFG.grammar_search_learn_goal_predicates)
+            CFG.nsrt_learning_learn_goal_predicates)
         if CFG.excluded_predicates == "all":
             if allow_exclude_goal_predicates:
                 excluded_names = {pred.name for pred in env.predicates}
@@ -1443,6 +1443,11 @@ def parse_config_excluded_predicates(
                 }
                 print(f"All non-goal predicates excluded: {excluded_names}")
                 included = env.goal_predicates
+        elif CFG.excluded_predicates == "goals":
+            assert allow_exclude_goal_predicates
+            excluded_names = {pred.name for pred in env.goal_predicates}
+            print(f"All goal predicates excluded: {excluded_names}")
+            included = env.predicates - env.goal_predicates
         else:
             excluded_names = set(CFG.excluded_predicates.split(","))
             assert excluded_names.issubset(

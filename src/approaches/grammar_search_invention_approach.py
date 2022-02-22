@@ -18,7 +18,6 @@ from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Dataset, Object, GroundAtomTrajectory, Task
 from predicators.src.predicate_search_score_functions import \
     create_score_function, _PredicateSearchScoreFunction
-from predicators.src.torch_models import learn_predicate_from_annotated_data
 from predicators.src.settings import CFG
 
 ################################################################################
@@ -585,31 +584,18 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         initial_atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories, self._initial_predicates)
         # Learn excluded goal predicates.
-        if CFG.grammar_search_learn_goal_predicates:
-            # Extract all of the goal predicates to learn from the data.
-            # Also create a ground atom dataset based on the annotations.
-            goal_predicates_to_learn = set()
-            learned_goal_atom_dataset = []
-            for traj, annotation_traj in zip(dataset.trajectories,
-                                             dataset.annotations):
-                for state_annotation in annotation_traj:
-                    for atom_sets in state_annotation:
-                        for atom in atom_sets:
-                            goal_predicates_to_learn.add(atom.predicate)
-                # Read off the positive annotations.
-                goal_atom_traj = (traj, [s[1] for s in annotation_traj])
-                learned_goal_atom_dataset.append(goal_atom_traj)
-            assert not goal_predicates_to_learn & self._initial_predicates
-            # Run predicate classifier learning.
-            for pred in sorted(goal_predicates_to_learn):
-                new_pred = learn_predicate_from_annotated_data(pred, dataset)
-                # Update self._initial_predicates directly, since the rest of
-                # the code will just use self._initial_predicates, and we will
-                # never relearn these goal predicates after they're fixed.
-                self._initial_predicates.add(new_pred)
+        if CFG.nsrt_learning_learn_goal_predicates:
+            self._learn_goal_predicates(dataset)
             # Use the annotations to create an initial atoms for the excluded,
             # goal predicates, rather than the learned classifiers, because the
             # annotations are more reliable than the learned classifiers.
+            learned_goal_atom_dataset = []
+            for traj, annotation_traj in zip(dataset.trajectories,
+                                             dataset.annotations):
+                # Read off the positive annotations.
+                goal_atom_traj = (traj, [s[1] for s in annotation_traj])
+                learned_goal_atom_dataset.append(goal_atom_traj)
+            # Update the initial atom dataset with the goal atoms.
             initial_atom_dataset = utils.combine_atom_datasets(
                 initial_atom_dataset, learned_goal_atom_dataset)
         # Generate a candidate set of predicates.

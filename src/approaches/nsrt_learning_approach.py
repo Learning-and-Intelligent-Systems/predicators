@@ -12,6 +12,7 @@ from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
     Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
+from predicators.src.torch_models import learn_predicate_from_annotated_data
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -34,10 +35,31 @@ class NSRTLearningApproach(TAMPApproach):
         return self._nsrts
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
-        # The only thing we need to do here is learn NSRTs,
+        # If we're learning goal predicates, do that first.
+        if CFG.nsrt_learning_learn_goal_predicates:
+            self._learn_goal_predicates(dataset)
+        # The main thing we need to do here is learn NSRTs,
         # which we split off into a different function in case
         # subclasses want to make use of it.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
+
+    def _learn_goal_predicates(self, dataset: Dataset) -> None:
+        """Learn goal predicates with supervised learning."""
+        # Extract all of the goal predicates to learn from the data.
+        goal_predicates_to_learn = set()
+        for annotation_traj in dataset.annotations:
+            for state_annotation in annotation_traj:
+                for atom_sets in state_annotation:
+                    for atom in atom_sets:
+                        goal_predicates_to_learn.add(atom.predicate)
+        assert not goal_predicates_to_learn & self._initial_predicates
+        # Run predicate classifier learning.
+        for pred in sorted(goal_predicates_to_learn):
+            new_pred = learn_predicate_from_annotated_data(pred, dataset)
+            # Update self._initial_predicates directly, since the rest of
+            # the code will just use self._initial_predicates, and we will
+            # never relearn these goal predicates after they're fixed.
+            self._initial_predicates.add(new_pred)
 
     def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
