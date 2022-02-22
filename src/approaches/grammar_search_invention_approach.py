@@ -557,7 +557,7 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         # Create the score function that will be used to guide search.
         score_function = create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
-            atom_dataset, candidates, self._train_tasks)
+            atom_dataset, candidates, self._train_tasks, self._types)
         # Select a subset of the candidates to keep.
         print("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(

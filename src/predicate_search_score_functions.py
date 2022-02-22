@@ -12,7 +12,7 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
-from predicators.src.planning import task_plan, task_plan_grounding
+from predicators.src.planning import task_plan, task_plan_grounding, task_plan_topk
 from predicators.src.structs import Predicate, Object, GroundAtomTrajectory, \
     STRIPSOperator, OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, \
     DummyOption, Task
@@ -23,7 +23,7 @@ def create_score_function(
         score_function_name: str, initial_predicates: Set[Predicate],
         atom_dataset: List[GroundAtomTrajectory], candidates: Dict[Predicate,
                                                                    float],
-        train_tasks: List[Task]) -> _PredicateSearchScoreFunction:
+        train_tasks: List[Task], types) -> _PredicateSearchScoreFunction:
     """Public method for creating a score function object."""
     if score_function_name == "prediction_error":
         return _PredictionErrorScoreFunction(initial_predicates, atom_dataset,
@@ -87,7 +87,7 @@ def create_score_function(
         metric_name = f"num_nodes_{created_or_expanded}"
         return _ExpectedNodesScoreFunction(initial_predicates, atom_dataset,
                                            candidates, train_tasks,
-                                           metric_name)
+                                           types, metric_name)
     raise NotImplementedError(
         f"Unknown score function: {score_function_name}.")
 
@@ -99,6 +99,7 @@ class _PredicateSearchScoreFunction(abc.ABC):
     _atom_dataset: List[GroundAtomTrajectory]  # data with all candidates
     _candidates: Dict[Predicate, float]  # candidate predicates to costs
     _train_tasks: List[Task]  # all of the train tasks
+    _types: Set[Type]
 
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         """Get the score for the given set of candidate predicates.
@@ -295,21 +296,21 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                 break
             if not traj.is_demo:
                 continue
-            seen_demos += 1
-            init_atoms = atoms_sequence[0]
+            # seen_demos += 1
+            # init_atoms = atoms_sequence[0]
             goal = self._train_tasks[traj.train_task_idx].goal
-            # Ground everything once per demo.
-            objects = set(traj.states[0])
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms,
-                objects,
-                strips_ops,
-                option_specs,
-                allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
-            heuristic = utils.create_task_planning_heuristic(
-                CFG.sesame_task_planning_heuristic, init_atoms, goal,
-                ground_nsrts, candidate_predicates | self._initial_predicates,
-                objects)
+            # # Ground everything once per demo.
+            # objects = set(traj.states[0])
+            # ground_nsrts, reachable_atoms = task_plan_grounding(
+            #     init_atoms,
+            #     objects,
+            #     strips_ops,
+            #     option_specs,
+            #     allow_noops=CFG.grammar_search_expected_nodes_allow_noops)
+            # heuristic = utils.create_task_planning_heuristic(
+            #     CFG.sesame_task_planning_heuristic, init_atoms, goal,
+            #     ground_nsrts, candidate_predicates | self._initial_predicates,
+            #     objects)
             # The expected time needed before a low-level plan is found. We
             # approximate this using node creations and by adding a penalty
             # for every skeleton after the first to account for backtracking.
@@ -323,10 +324,14 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             else:
                 max_skeletons = CFG.grammar_search_expected_nodes_max_skeletons
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
-            generator = task_plan(init_atoms, goal, ground_nsrts,
-                                  reachable_atoms, heuristic, CFG.seed,
-                                  CFG.grammar_search_task_planning_timeout,
-                                  max_skeletons)
+            # generator = task_plan(init_atoms, goal, ground_nsrts,
+            #                       reachable_atoms, heuristic, CFG.seed,
+            #                       CFG.grammar_search_task_planning_timeout,
+            #                       max_skeletons)
+            generator = task_plan_topk(
+                self._train_tasks[traj.train_task_idx], set(strips_ops),
+                candidate_predicates | self._initial_predicates,
+                self._types, max_skeletons)
             try:
                 for idx, (_, plan_atoms_sequence,
                           metrics) in enumerate(generator):
@@ -337,6 +342,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                         demo_multistep_effects)
                     # Get the number of nodes that have been created or
                     # expanded so far.
+                    assert self.metric_name in metrics
                     num_nodes = metrics[self.metric_name]
                     # This contribution to the expected number of nodes is for
                     # the event that the current skeleton is refinable, but no

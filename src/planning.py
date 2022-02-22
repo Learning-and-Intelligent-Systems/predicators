@@ -4,6 +4,7 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
+import re
 import os
 from collections import defaultdict
 import subprocess
@@ -199,6 +200,21 @@ def task_plan(
         yield skeleton, atoms_sequence, metrics.copy()
 
 
+def task_plan_topk(
+        task: Task, operators: Set[STRIPSOperator],
+        initial_predicates: Set[Predicate], types: Set[Type],
+        max_skeletons_optimized: int) -> Iterator[
+            Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
+    metrics: Metrics = defaultdict(float)
+    generator = _skeleton_generator_topk(
+        task, operators, initial_predicates, types, metrics,
+        max_skeletons_optimized)
+    # Note that we use this pattern to avoid having to catch an ApproachFailure
+    # when _skeleton_generator runs out of skeletons to optimize.
+    for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
+        yield skeleton, atoms_sequence, metrics.copy()
+
+
 def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
     heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
@@ -265,16 +281,24 @@ def _skeleton_generator_topk(
     predicates = initial_predicates | set(op_preds.values())
     init_atoms = utils.abstract(task.init, predicates)
     objects = list(task.init)
-    dom_str = utils.create_pddl_domain(operators, predicates, types, "mydomain")
+    dom_str, name_map = utils.create_pddl_domain(operators, predicates, types, "mydomain")
     prob_str = utils.create_pddl_problem(objects, init_atoms, task.goal,
-                                         "mydomain", "myproblem")
+                                         "mydomain", "myproblem", name_map)
     with open("dom.pddl", "w", encoding="utf8") as f:
         f.write(dom_str)
     with open("prob.pddl", "w", encoding="utf8") as f:
         f.write(prob_str)
-    args = (f"--search 'symk-bd(plan_selection=top_k"
-            f"(num_plans={max_skeletons_optimized}))'")
-    subprocess.getoutput(f"../symk/fast-downward.py dom.pddl prob.pddl {args}")
+    args = (f"--search 'kstar({CFG.sesame_task_planning_heuristic}(),"
+            f"k={max_skeletons_optimized})'")
+    cmd_str = f"../kstar/fast-downward.py dom.pddl prob.pddl {args}"
+    output = subprocess.getoutput(cmd_str)
+    assert "returned non-zero exit status" not in output
+    nodes_created = []
+    for line in output.split("\n"):
+        if line.startswith("A* generated"):
+            match = re.match(r"A\* generated: (\d+).*?Dijkstra generated: (\d+)", line)
+            nodes_astar, nodes_dijk = match.groups()
+            nodes_created.append(int(nodes_astar) + int(nodes_dijk))
     cnt = 1
     op_name_to_op = {op.name.lower(): op for op in operators}
     obj_name_to_obj = {obj.name: obj for obj in objects}
@@ -288,10 +312,11 @@ def _skeleton_generator_topk(
             act_str_split = act_str[1:-1].split()
             op = op_name_to_op[act_str_split[0]]
             objs = [obj_name_to_obj[name] for name in act_str_split[1:]]
-            ground_op = op.ground(objs)
+            ground_op = op.ground(tuple(objs))
             skeleton.append(ground_op)
             atoms_sequence.append(utils.apply_operator(ground_op, atoms_sequence[-1]))
         metrics["num_skeletons_optimized"] += 1
+        metrics["num_nodes_created"] = nodes_created[cnt-1]
         yield skeleton, atoms_sequence
         cnt += 1
     raise _MaxSkeletonsFailure("Planning ran out of skeletons!")

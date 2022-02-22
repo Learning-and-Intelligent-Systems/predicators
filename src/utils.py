@@ -1194,7 +1194,7 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
     types_str = " ".join(t.name for t in types_lst)
     preds_str = "\n    ".join(pred.pddl_str() for pred in preds_lst)
     ops_strs = "\n\n  ".join(op.pddl_str() for op in ops_lst)
-    return f"""(define (domain {domain_name})
+    out_str = f"""(define (domain {domain_name})
   (:requirements :typing)
   (:types {types_str})
 
@@ -1203,12 +1203,19 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
 
   {ops_strs}
 )"""
+    name_map = {}
+    for i, pred in enumerate(preds_lst):
+        name_map[pred.name + ")"] = f"P{i})"
+        name_map[pred.name + " "] = f"P{i} "
+    for name in name_map:
+        out_str = out_str.replace(name, name_map[name])
+    return out_str, name_map
 
 
 def create_pddl_problem(objects: Collection[Object],
                         init_atoms: Collection[GroundAtom],
                         goal: Collection[GroundAtom], domain_name: str,
-                        problem_name: str) -> str:
+                        problem_name: str, name_map) -> str:
     """Create a PDDL problem str."""
     # Sort everything to ensure determinism.
     objects_lst = sorted(objects)
@@ -1218,7 +1225,7 @@ def create_pddl_problem(objects: Collection[Object],
                                 for o in objects_lst)
     init_str = "\n    ".join(atom.pddl_str() for atom in init_atoms_lst)
     goal_str = "\n    ".join(atom.pddl_str() for atom in goal_lst)
-    return f"""(define (problem {problem_name}) (:domain {domain_name})
+    out_str = f"""(define (problem {problem_name}) (:domain {domain_name})
   (:objects\n    {objects_str}
   )
   (:init\n    {init_str}
@@ -1226,6 +1233,9 @@ def create_pddl_problem(objects: Collection[Object],
   (:goal (and {goal_str}))
 )
 """
+    for name in name_map:
+        out_str = out_str.replace(name, name_map[name])
+    return out_str
 
 
 def create_video_from_partial_refinements(
