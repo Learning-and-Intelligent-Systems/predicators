@@ -323,10 +323,6 @@ class MLPClassifier(Classifier, nn.Module):
         self._predicted_single_class = False
 
     def fit(self, X: Array, y: Array) -> None:
-        """Train classifier on the given data.
-
-        X is multi-dimensional, y is single-dimensional.
-        """
         assert X.ndim == 2
         assert y.ndim == 1
         # If there is only one class in the data, then there's no point in
@@ -371,10 +367,6 @@ class MLPClassifier(Classifier, nn.Module):
         return torch.sigmoid(x.squeeze(dim=-1))
 
     def classify(self, x: Array) -> bool:
-        """Return a classification of the given datapoint.
-
-        x is single-dimensional.
-        """
         assert x.ndim == 1
         if self._do_single_class_prediction:
             classification = self._predicted_single_class
