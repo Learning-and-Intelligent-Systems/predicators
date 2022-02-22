@@ -281,16 +281,13 @@ class NeuralGaussianRegressor(nn.Module):
 class Classifier(nn.Module):
     """ABC for classifier types."""
 
-    def __init__(self) -> None:
-        super().__init__()  # type: ignore
-
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
 
         X is multi-dimensional, y is single-dimensional.
         """
         raise NotImplementedError("Override me")
-    
+
     def forward(self, inputs: Array) -> Tensor:
         """Pytorch forward method."""
         raise NotImplementedError("Override me")
