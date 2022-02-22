@@ -56,27 +56,6 @@ def test_neural_gaussian_regressor():
     assert sample.shape == expected_y.shape
 
 
-def test_classifier():
-    """Tests for Classifier."""
-    model = Classifier()
-    input_size = 3
-    num_class_samples = 5
-    X = np.concatenate([
-        np.zeros((num_class_samples, input_size)),
-        np.ones((num_class_samples, input_size))
-    ])
-    y = np.concatenate(
-        [np.zeros((num_class_samples)),
-         np.ones((num_class_samples))])
-    # Tests for coverage
-    with pytest.raises(NotImplementedError):
-        model.fit(X, y)
-    with pytest.raises(NotImplementedError):
-        model.forward(X)
-    with pytest.raises(NotImplementedError):
-        model.classify(np.zeros(input_size))
-
-
 def test_mlp_classifier():
     """Tests for MLPClassifier."""
     utils.reset_config()
