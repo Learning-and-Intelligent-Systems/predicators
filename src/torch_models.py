@@ -1,5 +1,6 @@
 """Models useful for classification/regression."""
 
+import abc
 import os
 from dataclasses import dataclass
 import tempfile
@@ -278,9 +279,10 @@ class NeuralGaussianRegressor(nn.Module):
         return (data - shift) / scale, shift, scale
 
 
-class Classifier(nn.Module):
+class Classifier(abc.ABC):
     """ABC for classifier types."""
 
+    @abc.abstractmethod
     def fit(self, X: Array, y: Array) -> None:
         """Train classifier on the given data.
 
@@ -288,10 +290,7 @@ class Classifier(nn.Module):
         """
         raise NotImplementedError("Override me")
 
-    def forward(self, inputs: Array) -> Tensor:
-        """Pytorch forward method."""
-        raise NotImplementedError("Override me")
-
+    @abc.abstractmethod
     def classify(self, x: Array) -> bool:
         """Return a classification of the given datapoint.
 
@@ -300,7 +299,7 @@ class Classifier(nn.Module):
         raise NotImplementedError("Override me")
 
 
-class MLPClassifier(Classifier):
+class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
 
     def __init__(self, in_size: int, max_itr: int) -> None:
