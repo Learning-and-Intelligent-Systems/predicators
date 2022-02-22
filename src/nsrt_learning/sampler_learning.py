@@ -1,11 +1,11 @@
 """Code for learning the samplers within NSRTs."""
 
 from dataclasses import dataclass
-from typing import Set, Tuple, List, Sequence, Dict, Any
+from typing import Set, Tuple, List, Sequence, Any
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, _Option, Datastore, STRIPSOperator, OptionSpec, \
-    NSRTSampler, NSRT, EntToEntSub, GroundAtom
+    Object, Array, State, Datastore, STRIPSOperator, OptionSpec, NSRTSampler, \
+    NSRT, EntToEntSub, GroundAtom, SamplerDatapoint
 from predicators.src import utils
 from predicators.src.torch_models import Classifier, MLPClassifier, \
     NeuralGaussianRegressor
@@ -130,12 +130,23 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     # Fit classifier to data
     print("Fitting classifier...")
     X_classifier: List[List[Array]] = []
-    for state, sub, option in positive_data + negative_data:
+    for state, sub, option, goal in positive_data + negative_data:
         # input is state features and option parameters
         X_classifier.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_classifier[-1].extend(state[sub[var]])
         X_classifier[-1].extend(option.params)
+        # For sampler learning, we currently make the extremely limiting
+        # assumption that there is one goal atom, with one goal object. This
+        # will not be true in most cases. This is a placeholder for better
+        # methods to come.
+        if CFG.sampler_learning_use_goals:
+            assert goal is not None
+            assert len(goal) == 1
+            goal_atom = next(iter(goal))
+            assert len(goal_atom.objects) == 1
+            goal_obj = goal_atom.objects[0]
+            X_classifier[-1].extend(state[goal_obj])
     X_arr_classifier = np.array(X_classifier)
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
@@ -148,11 +159,21 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     print("Fitting regressor...")
     X_regressor: List[List[Array]] = []
     Y_regressor = []
-    for state, sub, option in positive_data:  # don't use negative data!
+    for state, sub, option, goal in positive_data:  # don't use negative data!
         # input is state features
         X_regressor.append([np.array(1.0)])  # start with bias term
         for var in variables:
             X_regressor[-1].extend(state[sub[var]])
+        # Above, we made the assumption that there is one goal atom with one
+        # goal object, which must also be used when assembling data for the
+        # regressor.
+        if CFG.sampler_learning_use_goals:
+            assert goal is not None
+            assert len(goal) == 1
+            goal_atom = next(iter(goal))
+            assert len(goal_atom.objects) == 1
+            goal_obj = goal_atom.objects[0]
+            X_regressor[-1].extend(state[goal_obj])
         # output is option parameters
         Y_regressor.append(option.params)
     X_arr_regressor = np.array(X_regressor)
@@ -170,7 +191,7 @@ def _create_sampler_data(
     preconditions: Set[LiftedAtom], add_effects: Set[LiftedAtom],
     delete_effects: Set[LiftedAtom], param_option: ParameterizedOption,
     datastore_idx: int
-) -> Tuple[List[Tuple[State, Dict[Variable, Object], _Option]], ...]:
+) -> Tuple[List[SamplerDatapoint], List[SamplerDatapoint]]:
     """Generate positive and negative data for training a sampler."""
     positive_data = []
     negative_data = []
@@ -179,6 +200,14 @@ def _create_sampler_data(
             assert segment.has_option()
             option = segment.get_option()
             state = segment.states[0]
+            if CFG.sampler_learning_use_goals:
+                # Right now, we're making the assumption that all data is
+                # demonstration data when we're learning samplers with goals.
+                # In the future, we may weaken this assumption.
+                assert segment.has_goal()
+                goal = segment.get_goal()
+            else:
+                goal = None
             trans_add_effects = segment.add_effects
             trans_delete_effects = segment.delete_effects
             if option.parent != param_option:
@@ -196,7 +225,7 @@ def _create_sampler_data(
                             pre.predicate.holds(
                                 state, [var_to_obj[v] for v in pre.variables])
                             for pre in preconditions)
-                        positive_data.append((state, var_to_obj, option))
+                        positive_data.append((state, var_to_obj, option, goal))
                         continue
                 if CFG.sampler_disable_classifier:
                     # We disable the classifier by not providing it any
@@ -214,7 +243,7 @@ def _create_sampler_data(
                    ground_delete_effects.issubset(trans_delete_effects):
                     continue
                 # Add this datapoint to the negative data.
-                negative_data.append((state, sub, option))
+                negative_data.append((state, sub, option, goal))
     print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
           f"negative examples")
     assert len(positive_data) == len(datastores[datastore_idx])
@@ -236,11 +265,20 @@ class _LearnedSampler:
 
         May be used as the _sampler field in an NSRT.
         """
-        del goal  # unused
         x_lst: List[Any] = [1.0]  # start with bias term
         sub = dict(zip(self._variables, objects))
         for var in self._variables:
             x_lst.extend(state[sub[var]])
+        # For sampler learning, we currently make the extremely limiting
+        # assumption that there is one goal atom, with one goal object. This
+        # will not be true in most cases. This is a placeholder for better
+        # methods to come.
+        if CFG.sampler_learning_use_goals:
+            assert len(goal) == 1
+            goal_atom = next(iter(goal))
+            assert len(goal_atom.objects) == 1
+            goal_obj = goal_atom.objects[0]
+            x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
         num_rejections = 0
         while num_rejections <= CFG.max_rejection_sampling_tries:

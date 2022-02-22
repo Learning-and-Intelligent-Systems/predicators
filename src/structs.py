@@ -1029,6 +1029,7 @@ class Segment:
     init_atoms: Set[GroundAtom]
     final_atoms: Set[GroundAtom]
     _option: _Option = field(repr=False, default=DummyOption)
+    _goal: Optional[Set[GroundAtom]] = field(default=None)
 
     def __post_init__(self) -> None:
         assert len(self.states) == len(self.actions) + 1
@@ -1071,6 +1072,19 @@ class Segment:
     def set_option(self, option: _Option) -> None:
         """Set the option that produced this segment."""
         self._option = option
+
+    def has_goal(self) -> bool:
+        """Whether this segment has a non-default goal attached."""
+        return self._goal is not None
+
+    def get_goal(self) -> Set[GroundAtom]:
+        """Get the goal associated with this segment."""
+        assert self._goal is not None
+        return self._goal
+
+    def set_goal(self, goal: Set[GroundAtom]) -> None:
+        """Set the goal associated with this segment."""
+        self._goal = goal
 
 
 @dataclass(eq=False, repr=False)
@@ -1241,3 +1255,5 @@ LiftedOrGroundAtom = TypeVar("LiftedOrGroundAtom", LiftedAtom, GroundAtom)
 NSRTOrSTRIPSOperator = TypeVar("NSRTOrSTRIPSOperator", NSRT, STRIPSOperator)
 GroundNSRTOrSTRIPSOperator = TypeVar("GroundNSRTOrSTRIPSOperator", _GroundNSRT,
                                      _GroundSTRIPSOperator)
+SamplerDatapoint = Tuple[State, Dict[Variable, Object], _Option,
+                         Optional[Set[GroundAtom]]]
