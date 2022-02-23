@@ -150,7 +150,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return 0.0  # always return the same score
         if CFG.interactive_score_function == "entropy":
             return self._score_atom_set_entropy(atom_set, state)
-        if CFG.interactive_score_function == "bald":
+        if CFG.interactive_score_function == "BALD":
             return self._score_atom_set_bald(atom_set, state)
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
@@ -334,7 +334,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         for atom in atom_set:
             x = state.vec(atom.objects)
             logits = self._pred_to_ensemble[atom.predicate.name].logits(x)
-            entropy_sum += utils.entropy(np.mean(logits))[0]
+            entropy_sum += utils.entropy(np.mean(logits))
         return entropy_sum
 
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom], state: State) -> float:
@@ -344,5 +344,5 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             x = state.vec(atom.objects)
             logits = self._pred_to_ensemble[atom.predicate.name].logits(x)
             entropy = utils.entropy(np.mean(logits))
-            objective += entropy - np.mean(utils.entropy(logits))
+            objective += entropy - np.mean([utils.entropy(logit) for logit in logits])
         return objective

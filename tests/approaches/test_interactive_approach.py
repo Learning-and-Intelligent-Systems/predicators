@@ -102,6 +102,22 @@ def test_interactive_learning_approach():
         ground_atoms = utils.all_possible_ground_atoms(s, predicates_to_learn)
         expected_query_cost += len(ground_atoms)
     assert query_cost == expected_query_cost
+    # Test with entropy score function and score threshold.
+    utils.update_config({
+        "interactive_query_policy": "threshold",
+        "interactive_score_function": "entropy",
+        "interactive_score_threshold": 0.5,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env.simulate, teacher, train_tasks,
+                                  interaction_requests)
+    # Test with BALD score function and score threshold.
+    utils.update_config({
+        "interactive_score_function": "BALD",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env.simulate, teacher, train_tasks,
+                                  interaction_requests)
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",
