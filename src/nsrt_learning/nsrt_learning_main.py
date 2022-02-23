@@ -105,17 +105,14 @@ def _learn_pnad_side_predicates(
             pnad = s[i]
             _, option_vars = pnad.option_spec
             # ...consider changing each of its effects to a side predicate.
-            for effect_set, add_or_delete in [(pnad.op.add_effects, "add"),
-                                              (pnad.op.delete_effects,
-                                               "delete")]:
-                for effect in effect_set:
-                    new_pnad = PartialNSRTAndDatastore(
-                        pnad.op.effect_to_side_predicate(
-                            effect, option_vars, add_or_delete),
-                        pnad.datastore, pnad.option_spec)
-                    sprime = list(s)
-                    sprime[i] = new_pnad
-                    yield (None, tuple(sprime), 1.0)
+            for effect in pnad.op.add_effects:
+                new_pnad = PartialNSRTAndDatastore(
+                    pnad.op.effect_to_side_predicate(
+                        effect, option_vars, "add"),
+                    pnad.datastore, pnad.option_spec)
+                sprime = list(s)
+                sprime[i] = new_pnad
+                yield (None, tuple(sprime), 1.0)
             # ...consider removing it.
             sprime = list(s)
             del sprime[i]
