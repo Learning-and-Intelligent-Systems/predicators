@@ -13,7 +13,7 @@ from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.planning import task_plan, task_plan_grounding
-from predicators.src.structs import Predicate, Object, GroundAtomTrajectory, \
+from predicators.src.structs import LowLevelTrajectory, Predicate, Object, GroundAtomTrajectory, \
     STRIPSOperator, OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, \
     DummyOption, Task, _GroundNSRT
 from predicators.src.settings import CFG
@@ -222,6 +222,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
         del pruned_atom_data, segments  # unused
         score = 0.0
         node_expansion_upper_bound = 1e7
+
         for traj, _ in self._atom_dataset:
             if not traj.is_demo:
                 continue
@@ -276,10 +277,10 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                                 pruned_atom_data: List[GroundAtomTrajectory],
                                 segments: List[Segment],
                                 strips_ops: List[STRIPSOperator],
-                                option_specs: List[OptionSpec]) -> bool:
+                                option_specs: List[OptionSpec], ll_trajs: List[LowLevelTrajectory]) -> bool:
         del pruned_atom_data, segments  # unused
 
-        for traj, _ in self._atom_dataset:
+        for traj in ll_trajs:
             if not traj.is_demo:
                 continue
             init_atoms = utils.abstract(
@@ -300,15 +301,20 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
             idx_into_traj = 0
             def _get_successor_with_correct_option(state: Set[GroundAtom]) -> Iterator[Tuple[_GroundNSRT, Set[GroundAtom], float]]:
                 nonlocal idx_into_traj
-                assert traj.actions[idx_into_traj].has_option()
-                for applicable_nsrt in utils.get_applicable_operators(ground_nsrts, state):
-                    if applicable_nsrt.option == traj.actions[idx_into_traj].get_option():
-                        # The returned cost is uniform because we don't actually care about finding the shortest
-                        # path; just one that matches!
-                        yield (applicable_nsrt, utils.apply_operator(applicable_nsrt, state), 1.0)
-                idx_into_traj += 1
+                if idx_into_traj > len(traj.actions) - 1:
+                    yield ([], frozenset(state), 1.0)
+                else:
+                    assert traj.actions[idx_into_traj].has_option()
+                    gt_option = traj.actions[idx_into_traj].get_option()
+                    for applicable_nsrt in utils.get_applicable_operators(ground_nsrts, state):
+                        if applicable_nsrt.option.name == gt_option.name:
+                            if applicable_nsrt.option.types == [o.type for o in traj.actions[idx_into_traj].get_option().objects]:
+                                # The returned cost is uniform because we don't actually care about finding the shortest
+                                # path; just one that matches!
+                                yield (applicable_nsrt, frozenset(utils.apply_operator(applicable_nsrt, state)), 1.0)
+                    idx_into_traj += 1
             
-            state_seq, _ = utils.run_gbfs(init_atoms, _check_goal, _get_successor_with_correct_option, heuristic)
+            state_seq, _ = utils.run_gbfs(frozenset(init_atoms), _check_goal, _get_successor_with_correct_option, heuristic)
 
             if not _check_goal(state_seq[-1]):
                 # If the state sequence doesn't achieve the goal, then we haven't found a valid plan. Set the score to some

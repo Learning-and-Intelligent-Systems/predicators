@@ -68,7 +68,7 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
             "Can't learn options and side predicates together."
         pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
                                             train_tasks, predicates, segments,
-                                            segmented_trajs)
+                                            segmented_trajs, trajectories)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -90,7 +90,7 @@ def _learn_pnad_side_predicates(
         ground_atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task], predicates: Set[Predicate],
         segments: List[Segment],
-        segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
+        segmented_trajs: List[List[Segment]], ll_trajs: List[LowLevelTrajectory]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
         del s  # unused
@@ -141,7 +141,7 @@ def _learn_pnad_side_predicates(
             preserves_harmlessness = score_func.check_plan_preservation(frozenset(),
                                                         ground_atom_dataset,
                                                         segments, strips_ops,
-                                                        option_specs)
+                                                        option_specs, ll_trajs)
             score = 0
             if preserves_harmlessness:
                 # Count number of sidelined predicates; the more the better!
