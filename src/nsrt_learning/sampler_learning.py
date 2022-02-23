@@ -7,7 +7,8 @@ from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, Datastore, STRIPSOperator, OptionSpec, NSRTSampler, \
     NSRT, EntToEntSub, GroundAtom, SamplerDatapoint
 from predicators.src import utils
-from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
+from predicators.src.torch_models import Classifier, MLPClassifier, \
+    NeuralGaussianRegressor
 from predicators.src.settings import CFG
 from predicators.src.envs import create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
@@ -253,7 +254,7 @@ def _create_sampler_data(
 class _LearnedSampler:
     """A convenience class for holding the models underlying a learned
     sampler."""
-    _classifier: MLPClassifier
+    _classifier: Classifier
     _regressor: NeuralGaussianRegressor
     _variables: Sequence[Variable]
     _param_option: ParameterizedOption
@@ -280,6 +281,13 @@ class _LearnedSampler:
             x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
         num_rejections = 0
+        if CFG.sampler_disable_classifier:
+            params = np.array(self._regressor.predict_sample(x, rng),
+                              dtype=self._param_option.params_space.dtype)
+            low = self._param_option.params_space.low
+            high = self._param_option.params_space.high
+            params = np.clip(params, low, high)
+            return params
         while num_rejections <= CFG.max_rejection_sampling_tries:
             params = np.array(self._regressor.predict_sample(x, rng),
                               dtype=self._param_option.params_space.dtype)
