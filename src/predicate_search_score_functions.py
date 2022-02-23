@@ -246,6 +246,7 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                               CFG.seed,
                               CFG.grammar_search_task_planning_timeout,
                               max_skeletons_optimized=1))
+                assert "num_nodes_expanded" in metrics
                 node_expansions = metrics["num_nodes_expanded"]
                 assert node_expansions < node_expansion_upper_bound
                 score += node_expansions
@@ -337,6 +338,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                         demo_multistep_effects)
                     # Get the number of nodes that have been created or
                     # expanded so far.
+                    assert self.metric_name in metrics
                     num_nodes = metrics[self.metric_name]
                     # This contribution to the expected number of nodes is for
                     # the event that the current skeleton is refinable, but no

@@ -292,7 +292,7 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
     This version places grasped cans instead of dumping them, and has
     several additional constraints. There are two cans, a goal can and
     an obstructing can in front of it. The action space is restricted so
-    that actions can only begin from the point (0.2,0) and end in the
+    that actions can only begin from the point (0.2,1) and end in the
     [0,0.4] by [0,1.0] region. The goal behavior is to learn to pick up
     the colliding can and place it out of the way of the goal can.
     """
@@ -302,14 +302,14 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
         self._Place = ParameterizedOption("Place", [self._can_type],
                                           params_space=Box(
                                               np.array([0, 0, 0, 0]),
-                                              np.array([0.2, 0.2, 1, 1])),
+                                              np.array([1, 1, 1, 1])),
                                           _policy=self._Place_policy,
                                           _initiable=utils.always_initiable,
                                           _terminal=utils.onestep_terminal)
         self._Grasp = ParameterizedOption("Grasp", [self._can_type],
                                           params_space=Box(
                                               np.array([0, 0, 0, 0]),
-                                              np.array([0.2, 0.2, 1, 1])),
+                                              np.array([1, 1, 1, 1])),
                                           _policy=self._Grasp_policy,
                                           _initiable=utils.always_initiable,
                                           _terminal=utils.onestep_terminal)
@@ -324,10 +324,10 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
 
     @property
     def action_space(self) -> Box:
-        # The action's starting x,y coordinates are always (0.2,0), and the
+        # The action's starting x,y coordinates are always (0.2,1), and the
         # ending coordinates are in a more narrow region than in the original
         # task. Constraints make this version of the task more challenging.
-        return Box(np.array([0.2, 0, 0, 0]), np.array([0.2, 0, 0.4, 1]))
+        return Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1]))
 
     @staticmethod
     def _Place_policy(state: State, memory: Dict, objects: Sequence[Object],
@@ -381,6 +381,6 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
         # on the left or right. The obstructing can is in the middle of the
         # action space.
         goal_x = 0.3 if self._train_rng.uniform() < 0.5 else 0.1
-        data[self._cans[0]] = np.array([goal_x, 0.7, radius, 0.0, 0.0])
-        data[self._cans[1]] = np.array([0.2, 0.5, radius, 0.0, 0.0])
+        data[self._cans[0]] = np.array([goal_x, 0.8, radius, 0.0, 0.0])
+        data[self._cans[1]] = np.array([0.2, 0.6, radius, 0.0, 0.0])
         return State(data)

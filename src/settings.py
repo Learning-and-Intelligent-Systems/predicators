@@ -128,12 +128,15 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
+    sampler_learning_use_goals = False
+    sampler_disable_classifier = False
 
     # iterative invention parameters
     iterative_invention_accept_score = 1 - 1e-3
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
+    interactive_num_ensemble_members = 10
     interactive_action_strategy = "glib"
     interactive_query_policy = "strict_best_seen"
     interactive_score_function = "frequency"

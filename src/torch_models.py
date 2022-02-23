@@ -1,9 +1,10 @@
 """Models useful for classification/regression."""
 
+import abc
 import os
 from dataclasses import dataclass
 import tempfile
-from typing import Sequence, List, Tuple
+from typing import Sequence, List, Tuple, Optional
 from scipy.stats import truncnorm
 import torch
 from torch import nn
@@ -278,13 +279,40 @@ class NeuralGaussianRegressor(nn.Module):
         return (data - shift) / scale, shift, scale
 
 
-class MLPClassifier(nn.Module):
+class Classifier(abc.ABC):
+    """ABC for classifier types."""
+
+    @abc.abstractmethod
+    def fit(self, X: Array, y: Array) -> None:
+        """Train classifier on the given data.
+
+        X is multi-dimensional, y is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+    @abc.abstractmethod
+    def classify(self, x: Array) -> bool:
+        """Return a classification of the given datapoint.
+
+        x is single-dimensional.
+        """
+        raise NotImplementedError("Override me")
+
+
+class MLPClassifier(Classifier, nn.Module):
     """MLPClassifier definition."""
 
-    def __init__(self, in_size: int, max_itr: int) -> None:
+    def __init__(self,
+                 in_size: int,
+                 max_itr: int,
+                 seed: Optional[int] = None) -> None:
         super().__init__()  # type: ignore
-        self._rng = np.random.default_rng(CFG.seed)
-        torch.manual_seed(CFG.seed)
+        if seed is None:
+            self._rng = np.random.default_rng(CFG.seed)
+            torch.manual_seed(CFG.seed)
+        else:
+            self._rng = np.random.default_rng(seed)
+            torch.manual_seed(seed)
         hid_sizes = CFG.mlp_classifier_hid_sizes
         self._linears = nn.ModuleList()
         self._linears.append(nn.Linear(in_size, hid_sizes[0]))
@@ -298,11 +326,6 @@ class MLPClassifier(nn.Module):
         self._predicted_single_class = False
 
     def fit(self, X: Array, y: Array) -> None:
-        """Train classifier on the given data.
-
-        X is multi-dimensional, y is single-dimensional.
-        """
-        torch.manual_seed(CFG.seed)
         assert X.ndim == 2
         assert y.ndim == 1
         # If there is only one class in the data, then there's no point in
@@ -347,15 +370,11 @@ class MLPClassifier(nn.Module):
         return torch.sigmoid(x.squeeze(dim=-1))
 
     def classify(self, x: Array) -> bool:
-        """Return a classification of the given datapoint.
-
-        x is single-dimensional.
-        """
         assert x.ndim == 1
         if self._do_single_class_prediction:
             classification = self._predicted_single_class
         else:
-            x = (x - self._input_shift) / self._input_scale
+            x = self.normalize(x)
             classification = self._classify(x)
         assert classification in [False, True]
         return classification
@@ -366,6 +385,10 @@ class MLPClassifier(nn.Module):
         scale = np.max(data - shift, axis=0)  # type: ignore
         scale = np.clip(scale, CFG.normalization_scale_clip, None)
         return (data - shift) / scale, shift, scale
+
+    def normalize(self, x: Array) -> Array:
+        """Apply shift and scale to the input."""
+        return (x - self._input_shift) / self._input_scale
 
     def _classify(self, x: Array) -> bool:
         return self(x).item() > 0.5
@@ -416,11 +439,35 @@ class MLPClassifier(nn.Module):
         print(f"Loaded best model with loss: {loss:.5f}")
 
 
+class MLPClassifierEnsemble(Classifier):
+    """MLPClassifierEnsemble definition."""
+
+    def __init__(self, in_size: int, max_itr: int, n: int) -> None:
+        self._members = [
+            MLPClassifier(in_size, max_itr, CFG.seed + i) for i in range(n)
+        ]
+
+    def fit(self, X: Array, y: Array) -> None:
+        for i, member in enumerate(self._members):
+            print(f"Fitting member {i} of ensemble...")
+            member.fit(X, y)
+
+    def classify(self, x: Array) -> bool:
+        member_vals = []
+        for member in self._members:
+            x_normalized = member.normalize(x)
+            member_vals.append(member(x_normalized).item())
+        avg = np.mean(member_vals)
+        classification = avg > 0.5
+        assert classification in [True, False]
+        return classification
+
+
 @dataclass(frozen=True, eq=False, repr=False)
 class LearnedPredicateClassifier:
     """A convenience class for holding the model underlying a learned
     predicate."""
-    _model: MLPClassifier
+    _model: Classifier
 
     def classifier(self, state: State, objects: Sequence[Object]) -> bool:
         """The classifier corresponding to the given model.
