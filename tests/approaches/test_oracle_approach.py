@@ -520,22 +520,22 @@ def test_oracle_approach_repeated_nextto_painting():
     """Tests for OracleApproach class with RepeatedNextToPaintingEnv."""
     utils.reset_config({
         "env": "repeated_nextto_painting",
-        "num_train_tasks": 2,
-        "num_test_tasks": 2
+        "num_train_tasks": 5,
+        "num_test_tasks": 5,
+        "sesame_task_planning_heuristic": "hff"
     })
     env = RepeatedNextToPaintingEnv()
-    # env.seed(3210)  # This random seed necessary to get full coverage.
-    env.seed(123)
+    env.seed(3210)  # This random seed necessary to get full coverage.
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     approach.seed(123)
-    for train_task in train_tasks[:2]:
-        policy = approach.solve(train_task, timeout=1500)
+    for train_task in train_tasks:
+        policy = approach.solve(train_task, timeout=30)
         assert utils.policy_solves_task(policy, train_task, env.simulate)
-    for test_task in env.get_test_tasks()[:2]:
-        policy = approach.solve(test_task, timeout=1500)
+    for test_task in env.get_test_tasks():
+        policy = approach.solve(test_task, timeout=30)
         assert utils.policy_solves_task(policy, test_task, env.simulate)
 
 
