@@ -427,7 +427,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
                 # Place up w.r.t the goal, and to some distance left
                 # or right such that we're not going out of x bounds
                 # 0 to 0.4.
-                end_y = goal_y * 1.2
+                end_y = goal_y * 1.1
                 end_x = goal_x + 0.2
                 if end_x > 0.4:
                     end_x = goal_x - 0.2
