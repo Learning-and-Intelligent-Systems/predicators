@@ -271,14 +271,13 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
     # NOTE: This score function is only designed to be used to
     # evaluate_with_operators.
 
-    def evaluate_with_operators(self,
+    def check_plan_preservation(self,
                                 candidate_predicates: FrozenSet[Predicate],
                                 pruned_atom_data: List[GroundAtomTrajectory],
                                 segments: List[Segment],
                                 strips_ops: List[STRIPSOperator],
-                                option_specs: List[OptionSpec]) -> float:
+                                option_specs: List[OptionSpec]) -> bool:
         del pruned_atom_data, segments  # unused
-        score = 0.0
 
         for traj, _ in self._atom_dataset:
             if not traj.is_demo:
@@ -309,18 +308,14 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                         yield (applicable_nsrt, utils.apply_operator(applicable_nsrt, state), 1.0)
                 idx_into_traj += 1
             
-            state_seq, action_seq = utils.run_gbfs(init_atoms, _check_goal, _get_successor_with_correct_option, heuristic)
+            state_seq, _ = utils.run_gbfs(init_atoms, _check_goal, _get_successor_with_correct_option, heuristic)
 
             if not _check_goal(state_seq[-1]):
                 # If the state sequence doesn't achieve the goal, then we haven't found a valid plan. Set the score to some
                 # ridiculously high constant
-                score = 100000
-                break
+                return False
 
-        # TODO: create a score function that's lower when there are more side-predicates!
-        # Problem: we don't have access to the PNAD's here!!!
-
-        return score
+        return True
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):

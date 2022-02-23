@@ -11,7 +11,7 @@ from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.predicate_search_score_functions import \
-    _PredictionErrorScoreFunction
+    _PredictionErrorScoreFunction, _TaskPlanPreservationScoreFunction
 
 
 def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
@@ -118,17 +118,34 @@ def _learn_pnad_side_predicates(
             del sprime[i]
             yield (None, tuple(sprime), 1.0)
 
-    score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
+    if CFG.sidelining_approach == "naive":
+        score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
 
-    def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
-        # Score function for search. Lower is better.
-        strips_ops = [pnad.op for pnad in s]
-        option_specs = [pnad.option_spec for pnad in s]
-        score = score_func.evaluate_with_operators(frozenset(),
-                                                   ground_atom_dataset,
-                                                   segments, strips_ops,
-                                                   option_specs)
-        return score
+        def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+            # Score function for search. Lower is better.
+            strips_ops = [pnad.op for pnad in s]
+            option_specs = [pnad.option_spec for pnad in s]
+            score = score_func.evaluate_with_operators(frozenset(),
+                                                    ground_atom_dataset,
+                                                    segments, strips_ops,
+                                                    option_specs)
+            return score
+
+    elif CFG.sidelining_approach == "preserve_skeletons":
+        score_func = _TaskPlanPreservationScoreFunction(predicates, [], {}, train_tasks)
+
+        def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+            # Score function for search. Lower is better.
+            strips_ops = [pnad.op for pnad in s]
+            option_specs = [pnad.option_spec for pnad in s]
+            score = score_func.check_plan_preservation(frozenset(),
+                                                        ground_atom_dataset,
+                                                        segments, strips_ops,
+                                                        option_specs)
+            return score
+
+    else:
+        raise ValueError(f"sidelining_approach {CFG.sidelining_approach} not implemented")
 
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
