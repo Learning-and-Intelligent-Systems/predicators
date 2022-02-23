@@ -388,7 +388,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         if i == 0 and place_version:
             # This case checks for exception when placing collides.
             grasp_action = Action(
-                np.array([0.2, 0, 0.2, 0.5], dtype=np.float32))
+                np.array([0.2, 0.1, 0.2, 0.6], dtype=np.float32))
         else:
             grasp_option = grasp0_nsrt.sample_option(state, task.goal, rng)
             grasp_action = grasp_option.policy(state)
@@ -412,7 +412,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             if i == 0:
                 # This case checks for exception when placing collides.
                 place_action = Action(
-                    np.array([0.2, 0, 0.1, 0.75], dtype=np.float32))
+                    np.array([0.2, 0.1, 0.1, 0.85], dtype=np.float32))
                 assert env.action_space.contains(place_action.arr)
             else:
                 place_option = place1_nsrt.sample_option(state, task.goal, rng)
