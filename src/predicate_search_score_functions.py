@@ -271,7 +271,6 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
     # NOTE: This score function is only designed to be used to
     # evaluate_with_operators.
 
-
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
                                 pruned_atom_data: List[GroundAtomTrajectory],
@@ -280,7 +279,7 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                                 option_specs: List[OptionSpec]) -> float:
         del pruned_atom_data, segments  # unused
         score = 0.0
-        node_expansion_upper_bound = 1e7
+
         for traj, _ in self._atom_dataset:
             if not traj.is_demo:
                 continue
@@ -296,6 +295,9 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                 ground_nsrts, candidate_predicates | self._initial_predicates,
                 objects)
             
+            def _check_goal(state: Set[GroundAtom]) -> bool:
+                return traj_goal.issubset(state)
+
             idx_into_traj = 0
             def _get_successor_with_correct_option(state: Set[GroundAtom]) -> Iterator[Tuple[_GroundNSRT, Set[GroundAtom], float]]:
                 nonlocal idx_into_traj
@@ -307,24 +309,17 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                         yield (applicable_nsrt, utils.apply_operator(applicable_nsrt, state), 1.0)
                 idx_into_traj += 1
             
-            try:
-                # TODO: Call gbfs using the above-defined successor function, as well as
-                # some termination function that indicates whether we've reached the goal
-                _, _, metrics = next(
-                    task_plan(init_atoms,
-                              traj_goal,
-                              ground_nsrts,
-                              reachable_atoms,
-                              heuristic,
-                              CFG.seed,
-                              CFG.grammar_search_task_planning_timeout,
-                              max_skeletons_optimized=1))
-                assert "num_nodes_expanded" in metrics
-                node_expansions = metrics["num_nodes_expanded"]
-                assert node_expansions < node_expansion_upper_bound
-                score += node_expansions
-            except (ApproachFailure, ApproachTimeout):
-                score += node_expansion_upper_bound
+            state_seq, action_seq = utils.run_gbfs(init_atoms, _check_goal, _get_successor_with_correct_option, heuristic)
+
+            if not _check_goal(state_seq[-1]):
+                # If the state sequence doesn't achieve the goal, then we haven't found a valid plan. Set the score to some
+                # ridiculously high constant
+                score = 100000
+                break
+
+        # TODO: create a score function that's lower when there are more side-predicates!
+        # Problem: we don't have access to the PNAD's here!!!
+
         return score
 
 @dataclass(frozen=True, eq=False, repr=False)
