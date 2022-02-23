@@ -80,7 +80,8 @@ def entropy(p: float) -> float:
     assert 0.0 <= p <= 1.0
     if p == 0.0 or p == 1.0:
         return 0.0
-    return -(p * np.log(p) + (1-p) * np.log(1-p))
+    return -(p * np.log(p) + (1 - p) * np.log(1 - p))
+
 
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:

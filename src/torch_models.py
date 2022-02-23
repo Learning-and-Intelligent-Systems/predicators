@@ -457,7 +457,7 @@ class MLPClassifierEnsemble(Classifier):
         classification = avg > 0.5
         assert classification in [True, False]
         return classification
-    
+
     def logits(self, x: Array) -> Array:
         """Return logits calculated by each member."""
         assert x.ndim == 1

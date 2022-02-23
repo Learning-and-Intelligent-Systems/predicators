@@ -272,7 +272,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return _query_policy
 
-    def _create_threshold_query_policy(self) -> Callable[[State], Optional[Query]]:
+    def _create_threshold_query_policy(
+            self) -> Callable[[State], Optional[Query]]:
         """Only query if the atom has score above the set threshold."""
 
         def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
@@ -327,9 +328,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 _, pos_examples = ground_atom_sets
                 count += 1 if atom_set.issubset(pos_examples) else 0
         return 1.0 / count
-    
-    def _score_atom_set_entropy(self, atom_set: Set[GroundAtom], state: State) -> float:
-        """Score an atom set as the sum of the entropies of each atom's predicate."""
+
+    def _score_atom_set_entropy(self, atom_set: Set[GroundAtom],
+                                state: State) -> float:
+        """Score an atom set as the sum of the entropies of each atom's
+        predicate."""
         entropy_sum = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
@@ -337,12 +340,15 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             entropy_sum += utils.entropy(np.mean(logits))
         return entropy_sum
 
-    def _score_atom_set_bald(self, atom_set: Set[GroundAtom], state: State) -> float:
-        """Score an atom set as the sum of the BALD objectives of each atom's predicate."""
+    def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
+                             state: State) -> float:
+        """Score an atom set as the sum of the BALD objectives of each atom's
+        predicate."""
         objective = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
             logits = self._pred_to_ensemble[atom.predicate.name].logits(x)
             entropy = utils.entropy(np.mean(logits))
-            objective += entropy - np.mean([utils.entropy(logit) for logit in logits])
+            objective += entropy - np.mean(
+                [utils.entropy(logit) for logit in logits])
         return objective

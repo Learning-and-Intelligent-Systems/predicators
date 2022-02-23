@@ -69,6 +69,7 @@ def test_aabb_closest_point():
         hi1 = np.array([-10.0, -12.5, -10.0])
         utils.get_closest_point_on_aabb(xyz, lo1, hi1)
 
+
 def test_entropy():
     """Tests for entropy()."""
     assert np.allclose(utils.entropy(0.0), 0.0)
