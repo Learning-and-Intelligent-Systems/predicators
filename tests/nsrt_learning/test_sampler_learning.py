@@ -154,3 +154,8 @@ def test_learned_sampler_with_goal():
                          parameterized_option).sampler
     params = ls(state, goal, rng, objects)
     assert not params is None
+
+    # Should still work when the classifier is disabled.
+    utils.update_config({"sampler_disable_classifier": True})
+    params = ls(state, goal, rng, objects)
+    assert not params is None
