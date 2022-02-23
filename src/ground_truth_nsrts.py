@@ -367,7 +367,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         end_x = max(0.0, state.get(can, "pose_x"))
         end_y = max(0.0, state.get(can, "pose_y"))
         if with_place:
-            start_x, start_y = 0.2, 0
+            start_x, start_y = 0.2, 0.1
         else:
             start_x, start_y = rng.uniform(0.0, 1.0,
                                            size=2)  # start from anywhere
@@ -414,7 +414,7 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
         def place_sampler(state: State, goal: Set[GroundAtom],
                           rng: np.random.Generator,
                           objs: Sequence[Object]) -> Array:
-            start_x, start_y = 0.2, 0.0
+            start_x, start_y = 0.2, 0.1
             # Goal-conditioned sampling
             if CFG.cluttered_table_place_goal_conditioned_sampling:
                 # Get the pose of the goal object
