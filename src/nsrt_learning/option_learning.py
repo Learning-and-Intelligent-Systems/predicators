@@ -77,7 +77,10 @@ class _KnownOptionsOptionLearner(_OptionLearnerBase):
                 else:
                     assert param_option == option.parent
                     option_args = [var_to_obj[v] for v in option_vars]
-                    assert option_args == option.objects
+                    try:
+                        assert option_args == option.objects
+                    except AssertionError:
+                        import ipdb; ipdb.set_trace()
                 # Make sure the option is consistent within a trajectory.
                 for a in segment.actions:
                     option_a = a.get_option()

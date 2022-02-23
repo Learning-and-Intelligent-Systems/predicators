@@ -138,10 +138,16 @@ def _learn_pnad_side_predicates(
             # Score function for search. Lower is better.
             strips_ops = [pnad.op for pnad in s]
             option_specs = [pnad.option_spec for pnad in s]
-            score = score_func.check_plan_preservation(frozenset(),
+            preserves_harmlessness = score_func.check_plan_preservation(frozenset(),
                                                         ground_atom_dataset,
                                                         segments, strips_ops,
                                                         option_specs)
+            score = 0
+            if preserves_harmlessness:
+                # Count number of sidelined predicates; the more the better!
+                for op in strips_ops:
+                    score -= len(op.side_predicates)
+            
             return score
 
     else:
