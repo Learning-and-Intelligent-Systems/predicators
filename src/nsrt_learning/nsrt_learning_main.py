@@ -195,6 +195,9 @@ def _recompute_datastores_from_segments(
                     atoms = utils.apply_operator(ground_op, segment.init_atoms)
                     if not atoms.issubset(segment.final_atoms):
                         continue
+                    # Skip over segments that have multiple possible bindings.
+                    if len(set(ground_op.objects)) != len(ground_op.objects):
+                        continue
                     # This segment belongs in this datastore, so add it.
                     sub = dict(zip(pnad.op.parameters, ground_op.objects))
                     pnad.add_to_datastore((segment, sub),
