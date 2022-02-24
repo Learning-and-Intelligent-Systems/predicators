@@ -75,6 +75,14 @@ def get_closest_point_on_aabb(xyz: List, lo: Array, hi: Array) -> List[float]:
     return closest_point_on_aabb
 
 
+def entropy(p: float) -> float:
+    """Entropy of a Bernoulli variable with parameter p."""
+    assert 0.0 <= p <= 1.0
+    if p in {0.0, 1.0}:
+        return 0.0
+    return -(p * np.log(p) + (1 - p) * np.log(1 - p))
+
+
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""
