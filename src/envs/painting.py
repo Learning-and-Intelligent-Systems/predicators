@@ -441,7 +441,7 @@ class PaintingEnv(BaseEnv):
         # List of NextTo objects to render
         # Added this to display what objects we are nextto
         # during video rendering
-        if type(self) != PaintingEnv:
+        if isinstance(self, PaintingEnv):
             nextto_objs = []
             for obj in state:
                 if obj.is_instance(self._obj_type) or \
@@ -531,7 +531,7 @@ class PaintingEnv(BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                if type(self) != PaintingEnv:
+                if isinstance(self, PaintingEnv):
                     # Added is to assign held_obj initial position to
                     # robot y and z for RepeatedNextToPainting
                     state.set(target_obj, "pose_y",

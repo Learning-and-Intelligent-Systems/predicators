@@ -6,15 +6,12 @@ navigate between objects in order to pick or place them. Also, the move
 option can turn on any number of NextTo predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
+from typing import Set, Sequence, Dict
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import patches
 from gym.spaces import Box
 from predicators.src.envs.painting import PaintingEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+from predicators.src.structs import Predicate, State, \
+    ParameterizedOption, Object, Action, Array
 from predicators.src import utils
 
 
@@ -80,7 +77,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
 
     def _transition_nextto_pick_or_openlid(self, state: State,
                                            action: Action) -> State:
-        x, y, z, grasp = action.arr[:4]
+        x, y, z, _ = action.arr[:4]
         next_state = self._transition_pick_or_openlid(state, action)
         target_obj = self._get_object_at_xyz(state, x, y, z)
         # if PaintingEnv pick was sucessful check if the object was next to
@@ -88,14 +85,15 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                 target_obj, "held") == 0.0 and next_state.get(
                     target_obj, "held") == 1.0:
             # Added cannot pick if obj is too far
-            if abs(state.get(self._robot, "y") - state.get(target_obj, "pose_y")) \
+            if abs(state.get(self._robot, "y") \
+                - state.get(target_obj, "pose_y")) \
                 >= self.nextto_thresh:
                 return state
         return next_state
 
     def _transition_nextto_place(self, state: State, action: Action) -> State:
         # Action args are target pose for held obj
-        x, y, z = action.arr[:3]
+        _, y, _ = action.arr[:3]
         next_state = self._transition_place(state, action)
         #  Added restriction on place if not close enough to location
         if abs(state.get(self._robot, "y") - y) \
