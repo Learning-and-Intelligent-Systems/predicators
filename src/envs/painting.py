@@ -11,14 +11,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
+import predicators.src.envs as envs
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-class PaintingEnv(BaseEnv):
+class PaintingEnv(envs.BaseEnv):
     """Painting domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_lb = -10.1
@@ -441,7 +441,7 @@ class PaintingEnv(BaseEnv):
         # List of NextTo objects to render
         # Added this to display what objects we are nextto
         # during video rendering
-        if not isinstance(self, PaintingEnv):
+        if isinstance(self, envs.RepeatedNextToPaintingEnv):
             nextto_objs = []
             for obj in state:
                 if obj.is_instance(self._obj_type) or \
@@ -531,7 +531,7 @@ class PaintingEnv(BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                if not isinstance(self, PaintingEnv):
+                if isinstance(self, envs.RepeatedNextToPaintingEnv):
                     # Added is to assign held_obj initial position to
                     # robot y and z for RepeatedNextToPainting
                     state.set(target_obj, "pose_y",
