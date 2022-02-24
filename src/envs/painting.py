@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from gym.spaces import Box
-import predicators.src.envs as envs
+from predicators.src import envs
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
