@@ -335,7 +335,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         entropy_sum = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
-            ps = self._pred_to_ensemble[atom.predicate.name].predict_proba(x)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
             entropy_sum += utils.entropy(np.mean(ps))
         return entropy_sum
 
@@ -346,7 +347,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         objective = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
-            ps = self._pred_to_ensemble[atom.predicate.name].predict_proba(x)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
             entropy = utils.entropy(np.mean(ps))
             objective += entropy - np.mean([utils.entropy(p) for p in ps])
         return objective
