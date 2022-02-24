@@ -9,6 +9,7 @@ from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
 from predicators.src.structs import State, Action, Task
 from predicators.src import utils
 
+
 def test_cover():
     """Tests for CoverEnv class."""
     utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
@@ -250,10 +251,12 @@ def test_cover_multistep_options():
     state.data[block1] = np.array([1., 0., 0.07, 0.8334956, -1., 0.1, 0.1])
     state.data[target0] = np.array([0., 1., 0.05, 0.17778981])
     state.data[target1] = np.array([0., 1., 0.03, 0.63629464])
-    state.data[block0_hr] = np.array([-0.1/2, 0.1/2])
-    state.data[block1_hr] = np.array([-0.07/2, 0.07/2])
-    state.data[target0_hr] = np.array([0.17778981-0.05/2, 0.17778981+0.05/2])
-    state.data[target1_hr] = np.array([0.63629464-0.03/2, 0.63629464+0.03/2])
+    state.data[block0_hr] = np.array([-0.1 / 2, 0.1 / 2])
+    state.data[block1_hr] = np.array([-0.07 / 2, 0.07 / 2])
+    state.data[target0_hr] = np.array(
+        [0.17778981 - 0.05 / 2, 0.17778981 + 0.05 / 2])
+    state.data[target1_hr] = np.array(
+        [0.63629464 - 0.03 / 2, 0.63629464 + 0.03 / 2])
     task = Task(state, task.goal)
     action_arrs = [
         # Move to above block0
@@ -537,21 +540,22 @@ def test_cover_multistep_options():
     env = CoverMultistepOptions()
     env.seed(123)
     with pytest.raises(RuntimeError):
-        env.get_test_tasks()
+        tasks = env.get_test_tasks()
 
     # Check max placement failure for hand region placement
     utils.reset_config({
         "env": "cover_multistep_options",
         "num_train_tasks": 10,
         "num_test_tasks": 10,
-        "cover_multistep_max_placements": 2,
+        "cover_multistep_max_tb_placements": 100,
+        "cover_multistep_max_hr_placements": 2,
         "cover_multistep_thr_percent": 0.001,
         "cover_multistep_bhr_percent": 0.001
     })
     env = CoverMultistepOptions()
     env.seed(123)
     with pytest.raises(RuntimeError):
-        env.get_test_tasks()
+        tasks = env.get_test_tasks()
 
     # Test that new _create_initial_state is working
     utils.reset_config({
@@ -564,8 +568,6 @@ def test_cover_multistep_options():
     env = CoverMultistepOptions()
     env.seed(123)
     task = env.get_test_tasks()[0]
-    make_video = False  # Can toggle to true for debugging
-
     action_arrs = [
         np.array([0.88, 0., 0.], dtype=np.float32),
         np.array([0., -0.05, 0], dtype=np.float32),
@@ -587,11 +589,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0.1], dtype=np.float32),
         np.array([0., -0.01, -0.1], dtype=np.float32),
     ]
-
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    make_video = False  # Can toggle to true for debugging
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
@@ -603,6 +601,7 @@ def test_cover_multistep_options():
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
+
 
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
