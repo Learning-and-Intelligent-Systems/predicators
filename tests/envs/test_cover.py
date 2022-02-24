@@ -540,7 +540,7 @@ def test_cover_multistep_options():
     env = CoverMultistepOptions()
     env.seed(123)
     with pytest.raises(RuntimeError):
-        tasks = env.get_test_tasks()
+        env.get_test_tasks()
 
     # Check max placement failure for hand region placement
     utils.reset_config({
@@ -555,7 +555,7 @@ def test_cover_multistep_options():
     env = CoverMultistepOptions()
     env.seed(123)
     with pytest.raises(RuntimeError):
-        tasks = env.get_test_tasks()
+        env.get_test_tasks()
 
     # Test that new _create_initial_state is working
     utils.reset_config({
