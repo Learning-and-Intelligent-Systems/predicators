@@ -11,5 +11,5 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # ours
     python $FILE --env cover --approach interactive_learning --seed $SEED --excluded_predicates Covers --interactive_query_policy threshold --interactive_score_threshold 0.5 --interactive_score_function entropy --num_online_learning_cycles $CYCLES
     # silent kid
-    python $FILE --env cover --approach interactive_learning --seed $SEED --excluded_predicates Covers --interactive_query_policy strict_best_seen --interactive_score_function trivial --num_online_learning_cycles $CYCLES
+    python $FILE --env cover --approach interactive_learning --seed $SEED --excluded_predicates Covers --interactive_query_policy threshold --interactive_score_threshold 1.0 --interactive_score_function entropy --num_online_learning_cycles $CYCLES
 done

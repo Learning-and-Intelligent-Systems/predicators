@@ -453,19 +453,19 @@ class MLPClassifierEnsemble(Classifier):
             member.fit(X, y)
 
     def classify(self, x: Array) -> bool:
-        avg = np.mean(self.logits(x))
+        avg = np.mean(self.predict_proba(x))
         classification = avg > 0.5
         assert classification in [True, False]
         return classification
 
-    def logits(self, x: Array) -> Array:
+    def predict_proba(self, x: Array) -> Array:
         """Return logits calculated by each member."""
         assert x.ndim == 1
-        logits = []
+        ps = []
         for member in self._members:
             x_normalized = member.normalize(x)
-            logits.append(member(x_normalized).item())
-        return np.array(logits)
+            ps.append(member(x_normalized).item())
+        return np.array(ps)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
