@@ -284,7 +284,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 score = self._score_atom_set({atom}, s)
                 if score > CFG.interactive_score_threshold:
                     atoms_to_query.add(atom)
-                    self._best_score = score
             return GroundAtomsHoldQuery(atoms_to_query)
 
         return _query_policy
@@ -336,8 +335,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         entropy_sum = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
-            logits = self._pred_to_ensemble[atom.predicate.name].logits(x)
-            entropy_sum += utils.entropy(np.mean(logits))
+            ps = self._pred_to_ensemble[atom.predicate.name].predict_proba(x)
+            entropy_sum += utils.entropy(np.mean(ps))
         return entropy_sum
 
     def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
@@ -347,8 +346,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         objective = 0.0
         for atom in atom_set:
             x = state.vec(atom.objects)
-            logits = self._pred_to_ensemble[atom.predicate.name].logits(x)
-            entropy = utils.entropy(np.mean(logits))
-            objective += entropy - np.mean(
-                [utils.entropy(logit) for logit in logits])
+            ps = self._pred_to_ensemble[atom.predicate.name].predict_proba(x)
+            entropy = utils.entropy(np.mean(ps))
+            objective += entropy - np.mean([utils.entropy(p) for p in ps])
         return objective
