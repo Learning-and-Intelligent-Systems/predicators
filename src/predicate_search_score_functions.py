@@ -278,18 +278,18 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                                 segments: List[Segment],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec], ll_trajs: List[LowLevelTrajectory]) -> bool:
-        del pruned_atom_data, segments  # unused
+        #del pruned_atom_data, segments  # unused
 
-        for traj in ll_trajs:
-            if not traj.is_demo:
+        for ll_traj, hl_traj in pruned_atom_data:
+            if not ll_traj.is_demo:
                 continue
             init_atoms = utils.abstract(
-                traj.states[0],
+                ll_traj.states[0],
                 candidate_predicates | self._initial_predicates)
-            objects = set(traj.states[0])
+            objects = set(ll_traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
                 init_atoms, objects, strips_ops, option_specs)
-            traj_goal = self._train_tasks[traj.train_task_idx].goal
+            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
             heuristic = utils.create_task_planning_heuristic(
                 CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
                 ground_nsrts, candidate_predicates | self._initial_predicates,
@@ -301,20 +301,27 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
             idx_into_traj = 0
             def _get_successor_with_correct_option(state: Set[GroundAtom]) -> Iterator[Tuple[_GroundNSRT, Set[GroundAtom], float]]:
                 nonlocal idx_into_traj
-                if idx_into_traj > len(traj.actions) - 1:
+                if idx_into_traj > len(ll_traj.actions) - 1:
                     yield ([], frozenset(state), 1.0)
                 else:
-                    assert traj.actions[idx_into_traj].has_option()
-                    gt_option = traj.actions[idx_into_traj].get_option()
+                    assert ll_traj.actions[idx_into_traj].has_option()
+                    gt_option = ll_traj.actions[idx_into_traj].get_option()
                     for applicable_nsrt in utils.get_applicable_operators(ground_nsrts, state):
                         if applicable_nsrt.option.name == gt_option.name:
-                            if applicable_nsrt.option.types == [o.type for o in traj.actions[idx_into_traj].get_option().objects]:
-                                # The returned cost is uniform because we don't actually care about finding the shortest
-                                # path; just one that matches!
-                                yield (applicable_nsrt, frozenset(utils.apply_operator(applicable_nsrt, state)), 1.0)
+                            if applicable_nsrt.option.types == [o.type for o in ll_traj.actions[idx_into_traj].get_option().objects]:
+                                next_hl_state = utils.apply_operator(applicable_nsrt, state)
+                                if len(applicable_nsrt.side_predicates) != 0:
+                                    import ipdb; ipdb.set_trace()
+                                    # We need do not need to check sidelined predicates not in add effects, only the predicates in
+                                    # add effects and all other not sidelined predicates. Important note, this might also be a problem
+                                    # in how we check side predicates in TAMP TODO (wbm3)(njk) 
+                                if hl_traj[idx_into_traj+1] == next_hl_state:
+                                    # The returned cost is uniform because we don't actually care about finding the shortest
+                                    # path; just one that matches!
+                                    yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
                     idx_into_traj += 1
             
-            state_seq, _ = utils.run_gbfs(frozenset(init_atoms), _check_goal, _get_successor_with_correct_option, heuristic)
+            state_seq, action_seq = utils.run_gbfs(frozenset(init_atoms), _check_goal, _get_successor_with_correct_option, heuristic)
 
             if not _check_goal(state_seq[-1]):
                 # If the state sequence doesn't achieve the goal, then we haven't found a valid plan. Set the score to some

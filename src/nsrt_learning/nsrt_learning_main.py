@@ -144,14 +144,14 @@ def _learn_pnad_side_predicates(
                                                         option_specs, ll_trajs)
             score = 10000000
             if preserves_harmlessness:
-                pred_score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
-                score = pred_score_func.evaluate_with_operators(frozenset(),
-                                                    ground_atom_dataset,
-                                                    segments, strips_ops,
-                                                    option_specs)
+                # pred_score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
+                # score = pred_score_func.evaluate_with_operators(frozenset(),
+                #                                     ground_atom_dataset,
+                #                                     segments, strips_ops,
+                #                                     option_specs)
                 # Count number of sidelined predicates; the more the better!
-                # for op in strips_ops:
-                #     score -= len(op.side_predicates)
+                for op in strips_ops:
+                    score -= len(op.side_predicates)
             
             return score
 

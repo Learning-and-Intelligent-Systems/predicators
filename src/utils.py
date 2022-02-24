@@ -419,7 +419,8 @@ def get_object_combinations(objects: Collection[Object],
                 this_choices.append(obj)
         choices.append(this_choices)
     for choice in itertools.product(*choices):
-        yield list(choice)
+        if len(choice) == len(set(choice)):
+            yield list(choice)
 
 
 @functools.lru_cache(maxsize=None)
@@ -1026,6 +1027,9 @@ def ops_and_specs_to_dummy_nsrts(
             option_vars,  # dummy sampler
             lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
+
+    # if True in [len(sop.side_predicates) != 0 for sop in strips_ops]:
+    #     import ipdb; ipdb.set_trace()
     return nsrts
 
 
