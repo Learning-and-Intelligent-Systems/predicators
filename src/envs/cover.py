@@ -806,8 +806,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             overlap = False
             counter += 1
             if counter > CFG.cover_multistep_max_tb_placements:
-                print("Reached maximum number of " \
-                "placements of targets and blocks.")
                 raise RuntimeError("Reached maximum number of " \
                 "placements of targets and blocks.")
             block_placements = []
@@ -897,8 +895,6 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             while True:
                 counter += 1
                 if counter > CFG.cover_multistep_max_hr_placements:
-                    print("Reached maximum number of " \
-                    "placements of hand regions.")
                     raise RuntimeError("Reached maximum number of " \
                     "placements of hand regions.")
                 # Sample hand region
