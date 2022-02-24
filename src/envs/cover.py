@@ -795,10 +795,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         locations such that each target has enough space on either side to
         ensure no covering placement will cause a collision (note that this is
         not necessary to make the task solvable; but we can do this and instead
-        sufficiently tune the difficulty through hand region specification), and
-        (2) choosing hand region intervals on the targets and blocks such that
-        the problem is solvable.
-        """
+        sufficiently tune the difficulty through hand region specification),
+        and (2) choosing hand region intervals on the targets and blocks such
+        that the problem is solvable."""
         data: Dict[Object, Array] = {}
 
         # Place targets and blocks
@@ -806,28 +805,30 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         while True:
             overlap = False
             counter += 1
-            if counter > CFG.cover_multistep_max_placements:
+            if counter > CFG.cover_multistep_max_tb_placements:
+                print("Reached maximum number of " \
+                "placements of targets and blocks.")
                 raise RuntimeError("Reached maximum number of " \
                 "placements of targets and blocks.")
             block_placements = []
             for block, bw in zip(self._blocks, CFG.cover_block_widths):
-                xb = rng.uniform(bw/2, 1-bw/2)
-                left_pt = xb - bw/2
-                right_pt = xb + bw/2
+                xb = rng.uniform(bw / 2, 1 - bw / 2)
+                left_pt = xb - bw / 2
+                right_pt = xb + bw / 2
                 block_placements.append((left_pt, xb, right_pt))
             target_placements = []
             for target, tw, bw in zip(self._targets, CFG.cover_target_widths, \
                 CFG.cover_block_widths):
-                xt = rng.uniform(bw-tw/2, 1-bw+tw/2)
-                left_pt = xt + tw/2 - bw
-                right_pt = xt - tw/2 + bw
+                xt = rng.uniform(bw - tw / 2, 1 - bw + tw / 2)
+                left_pt = xt + tw / 2 - bw
+                right_pt = xt - tw / 2 + bw
                 target_placements.append((left_pt, xt, right_pt))
             # check for overlap
             all_placements = target_placements + block_placements
             all_placements.sort(key=lambda x: x[0])
             for i in range(1, len(all_placements)):
                 curr = all_placements[i]
-                prev = all_placements[i-1]
+                prev = all_placements[i - 1]
                 if curr[0] < prev[2]:
                     overlap = True
             if not overlap:
@@ -858,7 +859,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             tw = CFG.cover_target_widths[i]
             _, x, _ = target_placements[i]
             region_length = tw * CFG.cover_multistep_thr_percent
-            left_pt = rng.uniform(x - tw/2, x + tw/2 - region_length)
+            left_pt = rng.uniform(x - tw / 2, x + tw / 2 - region_length)
             region = [left_pt, left_pt + region_length]
             data[target_hr] = np.array(region)
             target_hand_regions.append(region)
@@ -895,19 +896,21 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             counter = 0
             while True:
                 counter += 1
-                if counter > CFG.cover_multistep_max_placements:
+                if counter > CFG.cover_multistep_max_hr_placements:
+                    print("Reached maximum number of " \
+                    "placements of hand regions.")
                     raise RuntimeError("Reached maximum number of " \
                     "placements of hand regions.")
                 # Sample hand region
-                left_pt = rng.uniform(bx - bw/2, bx + bw/2 - region_length)
+                left_pt = rng.uniform(bx - bw / 2, bx + bw / 2 - region_length)
                 region = [left_pt, left_pt + region_length]
                 # Need to make hand region relative to center of block for
                 # the hand region to move with the block for use by
                 # _get_hand_regions()
-                relative_region = [region[0]-bx, region[1]-bx]
+                relative_region = [region[0] - bx, region[1] - bx]
                 # Perform the valid interval check
-                relative_r = region[1] - (bx - bw/2)  # for (1)
-                relative_l = bx + bw/2 - region[0]  # for (2)
+                relative_r = region[1] - (bx - bw / 2)  # for (1)
+                relative_l = bx + bw / 2 - region[0]  # for (2)
                 if relative_l >= (tx + tw/2 - thr_right) and \
                     relative_r >= (thr_left-(tx - tw/2)):
                     break
@@ -928,9 +931,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         -> List[Tuple[float, float]]:
         hand_regions = []
         for target_hr in self._target_hand_regions:
-            hand_regions.append(
-                (state.get(target_hr, "lb"),
-                 state.get(target_hr, "ub")))
+            hand_regions.append((state.get(target_hr,
+                                           "lb"), state.get(target_hr, "ub")))
         return hand_regions
 
     def _Pick_initiable(self, s: State, m: Dict, o: Sequence[Object],
