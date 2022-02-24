@@ -453,13 +453,13 @@ class MLPClassifierEnsemble(Classifier):
             member.fit(X, y)
 
     def classify(self, x: Array) -> bool:
-        avg = np.mean(self.predict_proba(x))
+        avg = np.mean(self.predict_member_probas(x))
         classification = avg > 0.5
         assert classification in [True, False]
         return classification
 
-    def predict_proba(self, x: Array) -> Array:
-        """Return logits calculated by each member."""
+    def predict_member_probas(self, x: Array) -> Array:
+        """Return class probabilities predicted by each member."""
         assert x.ndim == 1
         ps = []
         for member in self._members:
