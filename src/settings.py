@@ -140,6 +140,7 @@ class GlobalSettings:
     interactive_action_strategy = "glib"
     interactive_query_policy = "strict_best_seen"
     interactive_score_function = "frequency"
+    interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
 
