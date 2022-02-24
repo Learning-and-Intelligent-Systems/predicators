@@ -40,8 +40,8 @@ class GlobalSettings:
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
-    cover_multistep_max_tb_placements = 100 # max placements of targets/blocks
-    cover_multistep_max_hr_placements = 100 # max placements of hand regions
+    cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
+    cover_multistep_max_hr_placements = 100  # max placements of hand regions
     cover_multistep_thr_percent = 0.5  # target hand region percent of width
     cover_multistep_bhr_percent = 0.5  # block hand region percent of width
 
