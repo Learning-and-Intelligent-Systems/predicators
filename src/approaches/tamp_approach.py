@@ -25,14 +25,18 @@ class TAMPApproach(BaseApproach):
                  types: Set[Type],
                  action_space: Box,
                  train_tasks: List[Task],
+                 task_planner: str = "default",
                  task_planning_heuristic: str = "default",
                  max_skeletons_optimized: int = -1) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
+        if task_planner == "default":
+            task_planner = CFG.sesame_task_planner
         if task_planning_heuristic == "default":
             task_planning_heuristic = CFG.sesame_task_planning_heuristic
         if max_skeletons_optimized == -1:
             max_skeletons_optimized = CFG.sesame_max_skeletons_optimized
+        self._task_planner = task_planner
         self._task_planning_heuristic = task_planning_heuristic
         self._max_skeletons_optimized = max_skeletons_optimized
         self._option_model = create_option_model(CFG.option_model_name)
@@ -50,6 +54,7 @@ class TAMPApproach(BaseApproach):
                                     preds,
                                     timeout,
                                     seed,
+                                    self._task_planner,
                                     self._task_planning_heuristic,
                                     self._max_skeletons_optimized,
                                     allow_noops=CFG.sesame_allow_noops)
