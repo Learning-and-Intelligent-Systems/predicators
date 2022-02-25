@@ -10,7 +10,7 @@ from predicators.src.approaches import NSRTLearningApproach, \
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
     InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    Query
+    Query, DemonstrationQuery
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifier
 from predicators.src.settings import CFG
@@ -33,63 +33,50 @@ class DaggerLearningApproach(NSRTLearningApproach):
                  action_space: Box, train_tasks: List[Task]) -> None:
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
-        # self.task_info_to_policy = {}
+        self.online_learning_cycle = 0
 
-    # def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
-    #     policy = super()._solve(task, timeout)
-    #     task_initial_state = frozenset({k: tuple(v) for k, v in task.init.data.items()})
-    #     task_goal = frozenset(task.goal)
-    #     self.task_info_to_policy[(task_initial_state, task_goal)] = policy
-    #     return policy
+    def learn_from_offline_dataset(self, dataset: Dataset) -> None:
+        # save trajectories so that we can add more through DAgger
+        self.dataset = dataset
+        self._learn_nsrts(self.dataset.trajectories, online_learning_cycle=None)
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        # def _dummy_query_fn(s: State) -> None:
-        #     del s
-        #     return None
-        # def make_termination_fn(policy: Callable[[State], Action]):
-        #     def _termination_fn(s: State) -> bool:
-        #         try:
-        #             a = policy(s)
-        #             return False
-        #         except utils.OptionPlanExhausted:
-        #             return True
-        #     return _termination_fn
-
-        # random_options_approach = RandomOptionsApproach(
-        #     self._get_current_predicates(), self._initial_options, self._types,
-        #     self._action_space, self._train_tasks)
-        # def _termination_fn(s: State) -> bool:
-        #     # Termination is left to the environment, as in
-        #     # CFG.max_num_steps_interaction_request.
-        #     del s  # not used
-        #     return False
         requests = []
-        def _query_fn(s: State) -> Optional[DemonstrationQuery]:
-            del s  # not used
-            return DemonstrationQuery()
+
+        def make_query_policy(train_task_idx: int) -> Callable[[State], Query]:
+            def _query_policy(s: State) -> DemonstrationQuery:
+                del s  # not used
+                return DemonstrationQuery(train_task_idx)
+            return _query_policy
         def make_termination_fn(goal: Set[GroundAtom]) -> Callable[[State], bool]:
             def _termination_fn(s: State) -> bool:
-                return all(goal_atom.holds(s) for goal_atom in task.goal)
+                return all(goal_atom.holds(s) for goal_atom in goal)
             return _termination_fn
+
         for i in range(len(self._train_tasks)):
             task = self._train_tasks[i]
-            # task_initial_state = frozenset({k: tuple(v) for k, v in task.init.data.items()})
-            # task_goal = frozenset(task.goal)
-            # act_policy = self.task_info_to_policy[(task_initial_state, task_goal)]
-            act_policy = self.solve(task, CFG.timeout)
-            # act_policy = random_options_approach.solve(task, CFG.timeout)
-            query_policy = _dummy_query_fn
-            _termination_fn = make_termination_fn(task.goal)
-            # _termination_fn = make_termination_fn(act_policy)
+            try:
+                _act_policy = self.solve(task, CFG.timeout)
+            except (ApproachTimeout, ApproachFailure) as e:
+                partial_refinements = e.info.get("partial_refinements")
+                _, plan = max(partial_refinements, key=lambda x: len(x[1]))
+                _act_policy = utils.option_plan_to_policy(plan)
             request = InteractionRequest(
-                i,
-                act_policy,
-                query_policy,
-                _termination_fn
+                train_task_idx = i,
+                act_policy = _act_policy,
+                query_policy = make_query_policy(i),
+                termination_function = make_termination_fn(task.goal)
             )
             requests.append(request)
-            break
         return requests
 
     def learn_from_interaction_results(self, results: Sequence[InteractionResult]) -> None:
-        pass
+        for result in results:
+            actions = [a.unset_option() for a in result.teacher_traj.actions]
+            traj = LowLevelTrajectory(result.teacher_traj.states,
+                                      actions,
+                                      is_demo=True,
+                                      _train_task_idx=result.teacher_traj.train_task_idx)
+            self.dataset.append(traj)
+        self._learn_nsrts(self.dataset.trajectories, online_learning_cycle=self.online_learning_cycle)
+        self.online_learning_cycle += 1

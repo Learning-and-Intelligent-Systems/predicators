@@ -104,6 +104,7 @@ def _run_pipeline(env: BaseEnv,
                   approach: BaseApproach,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
+    print("TRAINING TASK 1: ", train_tasks[0].init)
     # If agent is learning-based, generate an offline dataset, allow the agent
     # to learn from it, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
@@ -143,6 +144,7 @@ def _run_pipeline(env: BaseEnv,
                 approach.learn_from_interaction_results(interaction_results)
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
+            # results = _run_testing2(train_tasks, env, approach)
             results["num_transitions"] = total_num_transitions
             results["cumulative_query_cost"] = total_query_cost
             results["learning_time"] = time.time() - learning_start
@@ -211,9 +213,81 @@ def _generate_interaction_results(
         results.append(result)
     return results, query_cost
 
+def _run_testing2(tasks: List[Task], env: BaseEnv, approach: BaseApproach) -> Metrics:
+    test_tasks = tasks
+    num_found_policy = 0
+    num_solved = 0
+    approach.reset_metrics()
+    total_suc_time = 0.0
+    total_num_execution_failures = 0
+    video_prefix = utils.get_config_path_str()
+    for i, task in enumerate(test_tasks):
+        start = time.time()
+        print(end="", flush=True)
+        try:
+            policy = approach.solve(task, timeout=CFG.timeout)
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
+                  f"solve with error: {e}")
+            if CFG.make_failure_videos and e.info.get("partial_refinements"):
+                video = utils.create_video_from_partial_refinements(
+                    task, env.simulate, env.render,
+                    e.info["partial_refinements"])
+                outfile = f"{video_prefix}__task{i+1}_failure.mp4"
+                utils.save_video(outfile, video)
+            continue
+        num_found_policy += 1
+        try:
+            _, video, solved = utils.run_policy_on_task(
+                policy, task, env.simulate, CFG.max_num_steps_check_policy,
+                env.render if CFG.make_videos else None)
+        except utils.EnvironmentFailure as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
+                  f"with error: {e}")
+            continue
+        except (ApproachTimeout, ApproachFailure) as e:
+            print(f"Task {i+1} / {len(test_tasks)}: Approach failed at policy "
+                  f"execution time with error: {e}")
+            total_num_execution_failures += 1
+            continue
+        if solved:
+            print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
+            num_solved += 1
+            total_suc_time += (time.time() - start)
+        else:
+            print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
+        if CFG.make_videos:
+            outfile = f"{video_prefix}__task{i+1}.mp4"
+            utils.save_video(outfile, video)
+    metrics: Metrics = defaultdict(float)
+    metrics["num_solved"] = num_solved
+    metrics["num_total"] = len(test_tasks)
+    metrics["avg_suc_time"] = (total_suc_time /
+                               num_solved if num_solved > 0 else float("inf"))
+    metrics["min_skeletons_optimized"] = approach.metrics[
+        "min_num_skeletons_optimized"]
+    metrics["max_skeletons_optimized"] = approach.metrics[
+        "max_num_skeletons_optimized"]
+    metrics["avg_execution_failures"] = (
+        total_num_execution_failures /
+        num_found_policy if num_found_policy > 0 else float("inf"))
+    # Handle computing averages of total approach metrics wrt the
+    # number of found policies. Note: this is different from computing
+    # an average wrt the number of solved tasks, which might be more
+    # appropriate for some metrics, e.g. avg_suc_time above.
+    for metric_name in [
+            "num_skeletons_optimized", "num_nodes_expanded",
+            "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
+            "num_failures_discovered"
+    ]:
+        total = approach.metrics[f"total_{metric_name}"]
+        metrics[f"avg_{metric_name}"] = (
+            total / num_found_policy if num_found_policy > 0 else float("inf"))
+    return metrics
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     test_tasks = env.get_test_tasks()
+    print("TESTING TASK 1: ", test_tasks[0].init)
     num_found_policy = 0
     num_solved = 0
     approach.reset_metrics()
