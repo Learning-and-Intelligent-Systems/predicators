@@ -752,7 +752,6 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                               reachable_atoms,
                               heuristic,
                               CFG.seed,
-                              CFG.sesame_task_planner,
                               CFG.grammar_search_task_planning_timeout,
                               max_skeletons_optimized=1))
                 node_expansions = metrics["num_nodes_expanded"]
@@ -834,7 +833,6 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
             assert max_skeletons <= CFG.sesame_max_skeletons_optimized
             generator = task_plan(init_atoms, goal, ground_nsrts,
                                   reachable_atoms, heuristic, CFG.seed,
-                                  CFG.sesame_task_planner,
                                   CFG.grammar_search_task_planning_timeout,
                                   max_skeletons)
             try:
@@ -1245,7 +1243,6 @@ class _ExactHeuristicBasedScoreFunction(_HeuristicBasedScoreFunction):
                               reachable_atoms,
                               heuristic,
                               CFG.seed,
-                              CFG.sesame_task_planner,
                               CFG.grammar_search_task_planning_timeout,
                               max_skeletons_optimized=1))
             except (ApproachFailure, ApproachTimeout):

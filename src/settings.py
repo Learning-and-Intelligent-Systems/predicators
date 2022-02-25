@@ -78,7 +78,6 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # SeSamE parameters
-    sesame_task_planner = "astar"  # astar or gbfs
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
 
@@ -93,8 +92,6 @@ class GlobalSettings:
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
     offline_data_planning_timeout = 3
-    # If "default", defaults to CFG.sesame_task_planner.
-    offline_data_task_planner = "default"
     # If "default", defaults to CFG.task_planning_heuristic.
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.

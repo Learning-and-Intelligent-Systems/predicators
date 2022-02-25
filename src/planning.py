@@ -40,7 +40,6 @@ def sesame_plan(
     initial_predicates: Set[Predicate],
     timeout: float,
     seed: int,
-    task_planner: str,
     task_planning_heuristic: str,
     max_skeletons_optimized: int,
     check_dr_reachable: bool = True,
@@ -94,7 +93,7 @@ def sesame_plan(
             for skeleton, atoms_sequence in _skeleton_generator(
                     task, reachable_nsrts, init_atoms, heuristic, new_seed,
                     timeout - (time.time() - start_time), metrics,
-                    max_skeletons_optimized, task_planner):
+                    max_skeletons_optimized):
                 plan, suc = _run_low_level_search(
                     task, option_model, skeleton, atoms_sequence, new_seed,
                     timeout - (time.time() - start_time))
@@ -162,7 +161,6 @@ def task_plan(
     reachable_atoms: Set[GroundAtom],
     heuristic: _TaskPlanningHeuristic,
     seed: int,
-    task_planner: str,
     timeout: float,
     max_skeletons_optimized: int,
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]], Metrics]]:
@@ -188,7 +186,7 @@ def task_plan(
     metrics: Metrics = defaultdict(float)
     generator = _skeleton_generator(dummy_task, ground_nsrts, init_atoms,
                                     heuristic, seed, timeout, metrics,
-                                    max_skeletons_optimized, task_planner)
+                                    max_skeletons_optimized)
     # Note that we use this pattern to avoid having to catch an ApproachFailure
     # when _skeleton_generator runs out of skeletons to optimize.
     for skeleton, atoms_sequence in islice(generator, max_skeletons_optimized):
@@ -198,7 +196,7 @@ def task_plan(
 def _skeleton_generator(
     task: Task, ground_nsrts: List[_GroundNSRT], init_atoms: Set[GroundAtom],
     heuristic: _TaskPlanningHeuristic, seed: int, timeout: float,
-    metrics: Metrics, max_skeletons_optimized: int, task_planner: str,
+    metrics: Metrics, max_skeletons_optimized: int
 ) -> Iterator[Tuple[List[_GroundNSRT], List[Set[GroundAtom]]]]:
     """A* search over skeletons (sequences of ground NSRTs).
     Iterates over pairs of (skeleton, atoms sequence).
@@ -240,14 +238,9 @@ def _skeleton_generator(
                                    [child_atoms],
                                    parent=node)
                 metrics["num_nodes_created"] += 1
-                assert task_planner in ("astar", "gbfs")
-                if task_planner == "astar":
-                    # priority is g [plan length] plus h [heuristic]
-                    priority = (len(child_node.skeleton) +
-                                heuristic(child_node.atoms))
-                elif task_planner == "gbfs":
-                    # priority is h [heuristic]
-                    priority = heuristic(child_node.atoms)
+                # priority is g [plan length] plus h [heuristic]
+                priority = (len(child_node.skeleton) +
+                            heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")

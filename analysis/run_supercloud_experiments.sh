@@ -36,10 +36,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
             # Blocks-specific experiments.
             if [ $ENV = "blocks" ]; then
-                python $FILE --experiment_id ${ENV}_mainhaddastar_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --sesame_task_planning_heuristic hadd --offline_data_task_planning_heuristic lmcut --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
-                python $FILE --experiment_id ${ENV}_noinventnoexcludehaddastar_${NUM_TRAIN_TASKS}demo --env $ENV --approach nsrt_learning --sesame_task_planning_heuristic hadd --offline_data_task_planning_heuristic lmcut --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
-                python $FILE --experiment_id ${ENV}_mainhaddgbfs_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --sesame_task_planner gbfs --offline_data_task_planner astar --sesame_task_planning_heuristic hadd --offline_data_task_planning_heuristic lmcut --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
-                python $FILE --experiment_id ${ENV}_noinventnoexcludehaddgbfs_${NUM_TRAIN_TASKS}demo --env $ENV --approach nsrt_learning --sesame_task_planner gbfs --offline_data_task_planner astar --sesame_task_planning_heuristic hadd --offline_data_task_planning_heuristic lmcut --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
+                python $FILE --experiment_id ${ENV}_mainhadd_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --sesame_task_planning_heuristic hadd --offline_data_task_planning_heuristic lmcut --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
+                python $FILE --experiment_id ${ENV}_noinventnoexcludehadd_${NUM_TRAIN_TASKS}demo --env $ENV --approach nsrt_learning --sesame_task_planning_heuristic hadd --offline_data_task_planning_heuristic lmcut --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
             fi
         done
     done

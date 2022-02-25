@@ -18,7 +18,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         env.types,
         env.action_space,
         train_tasks,
-        task_planner=CFG.offline_data_task_planner,
         task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
         max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
     trajectories = []
