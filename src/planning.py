@@ -99,12 +99,12 @@ def sesame_plan(
                     timeout - (time.time() - start_time))
                 if suc:
                     # Success! It's a complete plan.
-                    print(
-                        f"Planning succeeded! Found plan of length "
-                        f"{len(plan)} after "
-                        f"{int(metrics['num_skeletons_optimized'])} "
-                        f"skeletons, discovering "
-                        f"{int(metrics['num_failures_discovered'])} failures")
+                    # print(
+                    #     f"Planning succeeded! Found plan of length "
+                    #     f"{len(plan)} after "
+                    #     f"{int(metrics['num_skeletons_optimized'])} "
+                    #     f"skeletons, discovering "
+                    #     f"{int(metrics['num_failures_discovered'])} failures")
                     metrics["plan_length"] = len(plan)
                     return plan, metrics
                 partial_refinements.append((skeleton, plan))

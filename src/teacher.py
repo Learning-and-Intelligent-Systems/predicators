@@ -63,6 +63,8 @@ class Teacher:
         traj, _, goal_reached = utils.run_policy_on_task(
             policy, task, self._simulator, CFG.max_num_steps_option_rollout)
         assert goal_reached
+        # print("Answering demonstration query... goal reached: ", goal_reached)
+        # print("Trajectory found: ", traj.states)
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,

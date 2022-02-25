@@ -286,6 +286,37 @@ def run_policy_until(policy: Callable[[State], Action],
     traj = LowLevelTrajectory(states, actions)
     return traj
 
+def run_policy_until2(policy: Callable[[State], Action],
+                     simulator: Callable[[State, Action], State],
+                     init_state: State, termination_function: Callable[[State],
+                                                                       bool],
+                     max_num_steps: int) -> LowLevelTrajectory:
+    """Execute a policy from an initial state, using a simulator.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True,
+    (2) max_num_steps is reached,
+
+    Returns a LowLevelTrajectory object.
+    """
+    state = init_state
+    states = [state]
+    actions: List[Action] = []
+    if not termination_function(state):
+        for _ in range(max_num_steps):
+            try:
+                act = policy(state)
+            except OptionPlanExhausted:
+                traj = LowLevelTrajectory(states, actions)
+                return traj
+            state = simulator(state, act)
+            actions.append(act)
+            states.append(state)
+            if termination_function(state):
+                break
+    traj = LowLevelTrajectory(states, actions)
+    return traj
+
 
 def run_policy_on_task(
     policy: Callable[[State], Action],
@@ -374,6 +405,10 @@ def option_plan_to_policy(
 
     def _policy(state: State) -> Action:
         nonlocal cur_option
+        # print("current option: ", cur_option)
+        # print("state: ", state)
+        # print("terminal? ", cur_option.terminal(state))
+        # print("initiable? ", cur_option.initiable(state))
         if cur_option.terminal(state):
             if not queue:
                 raise OptionPlanExhausted()

@@ -79,4 +79,4 @@ class BaseEnv(abc.ABC):
         # The train/test rng should be used when generating
         # train/test tasks respectively.
         self._train_rng = np.random.default_rng(self._seed)
-        self._test_rng = np.random.default_rng(self._seed)
+        self._test_rng = np.random.default_rng(self._seed + 200)

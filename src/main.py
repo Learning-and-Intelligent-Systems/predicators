@@ -104,7 +104,6 @@ def _run_pipeline(env: BaseEnv,
                   approach: BaseApproach,
                   train_tasks: List[Task],
                   offline_dataset: Optional[Dataset] = None) -> None:
-    print("TRAINING TASK 1: ", train_tasks[0].init)
     # If agent is learning-based, generate an offline dataset, allow the agent
     # to learn from it, and then proceed with the online learning loop. Test
     # after each learning call. If agent is not learning-based, just test once.
@@ -287,7 +286,6 @@ def _run_testing2(tasks: List[Task], env: BaseEnv, approach: BaseApproach) -> Me
 
 def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     test_tasks = env.get_test_tasks()
-    print("TESTING TASK 1: ", test_tasks[0].init)
     num_found_policy = 0
     num_solved = 0
     approach.reset_metrics()
