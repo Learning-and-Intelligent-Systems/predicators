@@ -28,6 +28,8 @@ class GlobalSettings:
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
     pretty_print_when_loading = False
+    # Used for random seeding in test environment.
+    test_env_seed_offset = 10000
 
     # cover env parameters
     cover_num_blocks = 2
