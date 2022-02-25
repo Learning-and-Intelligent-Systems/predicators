@@ -485,6 +485,11 @@ class _Option:
     # The memory dictionary for this option.
     memory: Dict = field(repr=False)
 
+    # TODO: (njk) unclear if this is correct, but is certainly useful!
+    def __eq__(self, other: _Option) -> bool:
+        assert isinstance(other, _Option)
+        return self.parent == other.parent and self.objects == other.objects
+
     def policy(self, state: State) -> Action:
         """Call the policy and set the action's option."""
         action = self._policy(state)

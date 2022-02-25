@@ -306,26 +306,30 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                 else:
                     assert ll_traj.actions[idx_into_traj].has_option()
                     gt_option = ll_traj.actions[idx_into_traj].get_option()
+                    expected_next_hl_state = hl_traj[idx_into_traj+1]
                     for applicable_nsrt in utils.get_applicable_operators(ground_nsrts, state):
-                        if applicable_nsrt.option.name == gt_option.name:
-                            if applicable_nsrt.option.types == [o.type for o in ll_traj.actions[idx_into_traj].get_option().objects]:
-                                next_hl_state = utils.apply_operator(applicable_nsrt, state)
-                                if len(applicable_nsrt.side_predicates) != 0:
-                                    import ipdb; ipdb.set_trace()
-                                    # We need do not need to check sidelined predicates not in add effects, only the predicates in
-                                    # add effects and all other not sidelined predicates. Important note, this might also be a problem
-                                    # in how we check side predicates in TAMP TODO (wbm3)(njk) 
-                                if hl_traj[idx_into_traj+1] == next_hl_state:
-                                    # The returned cost is uniform because we don't actually care about finding the shortest
-                                    # path; just one that matches!
-                                    yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
+                        if applicable_nsrt.option.ground(applicable_nsrt.option_objs, ll_traj.actions[idx_into_traj].get_option().params) == applicable_nsrt.option.ground(applicable_nsrt.option_objs, ll_traj.actions[idx_into_traj].get_option().params):
+                            next_hl_state = utils.apply_operator(applicable_nsrt, state)
+                            # Here, we check whether all atoms that differ between next_hl_state and state are part of the operator's
+                            # side predicates. If so, this nsrt can be applied from this state!
+                            
+                            # exp_state_matches = all([ground_atom.predicate in applicable_nsrt.side_predicates for ground_atom in next_hl_state - expected_next_hl_state] + \
+                            #     [ground_atom.predicate in applicable_nsrt.side_predicates for ground_atom in expected_next_hl_state - next_hl_state])
+
+                            exp_state_matches = next_hl_state.issubset(expected_next_hl_state)
+
+                            if exp_state_matches:
+                                # The returned cost is uniform because we don't actually care about finding the shortest
+                                # path; just one that matches!
+                                yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
                     idx_into_traj += 1
             
             state_seq, action_seq = utils.run_gbfs(frozenset(init_atoms), _check_goal, _get_successor_with_correct_option, heuristic)
 
             if not _check_goal(state_seq[-1]):
-                # If the state sequence doesn't achieve the goal, then we haven't found a valid plan. Set the score to some
-                # ridiculously high constant
+                # If the state sequence doesn't achieve the goal, then we haven't found a valid plan.
+                # if len(strips_ops[2].side_predicates) > 0:
+                #     import ipdb; ipdb.set_trace()
                 return False
 
         return True
