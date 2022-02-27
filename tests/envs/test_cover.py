@@ -564,7 +564,8 @@ def test_cover_multistep_options():
         "num_train_tasks": 10,
         "num_test_tasks": 10,
         "cover_multistep_thr_percent": 0.2,
-        "cover_multistep_bhr_percent": 0.2
+        "cover_multistep_bhr_percent": 0.2,
+        "test_env_seed_offset": 0
     })
     env = CoverMultistepOptions()
     env.seed(123)
