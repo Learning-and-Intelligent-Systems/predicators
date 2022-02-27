@@ -1,6 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
-from typing import Set, List, Optional, Tuple, Callable, Sequence
+from typing import Set, List, Optional, Tuple, Callable, Sequence, Dict
 import dill as pkl
 import numpy as np
 from gym.spaces import Box
@@ -30,6 +30,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset = Dataset([], [])
         self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
+        self._pred_to_ensemble: Dict[str, MLPClassifierEnsemble] = {}
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._predicates_to_learn
@@ -98,6 +99,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                                           CFG.interactive_num_ensemble_members)
             model.fit(X, Y)
 
+            # Save the ensemble
+            self._pred_to_ensemble[pred.name] = model
             # Construct classifier function, create new Predicate, and save it
             classifier = LearnedPredicateClassifier(model).classifier
             new_pred = Predicate(pred.name, pred.types, classifier)
@@ -141,11 +144,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         Higher scores are better.
         """
-        del state  # not currently used, but will be by future score functions
         if CFG.interactive_score_function == "frequency":
             return self._score_atom_set_frequency(atom_set)
         if CFG.interactive_score_function == "trivial":
             return 0.0  # always return the same score
+        if CFG.interactive_score_function == "entropy":
+            return self._score_atom_set_entropy(atom_set, state)
+        if CFG.interactive_score_function == "BALD":
+            return self._score_atom_set_bald(atom_set, state)
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
@@ -176,6 +182,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._create_best_seen_query_policy(strict=True)
         if CFG.interactive_query_policy == "nonstrict_best_seen":
             return self._create_best_seen_query_policy(strict=False)
+        if CFG.interactive_query_policy == "threshold":
+            return self._create_threshold_query_policy()
         raise NotImplementedError("Unrecognized interactive_query_policy:"
                                   f" {CFG.interactive_query_policy}")
 
@@ -264,6 +272,22 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
         return _query_policy
 
+    def _create_threshold_query_policy(
+            self) -> Callable[[State], Optional[Query]]:
+        """Only query if the atom has score above the set threshold."""
+
+        def _query_policy(s: State) -> Optional[GroundAtomsHoldQuery]:
+            ground_atoms = utils.all_possible_ground_atoms(
+                s, self._predicates_to_learn)
+            atoms_to_query = set()
+            for atom in ground_atoms:
+                score = self._score_atom_set({atom}, s)
+                if score > CFG.interactive_score_threshold:
+                    atoms_to_query.add(atom)
+            return GroundAtomsHoldQuery(atoms_to_query)
+
+        return _query_policy
+
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
         assert len(results) == 1
@@ -303,3 +327,28 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 _, pos_examples = ground_atom_sets
                 count += 1 if atom_set.issubset(pos_examples) else 0
         return 1.0 / count
+
+    def _score_atom_set_entropy(self, atom_set: Set[GroundAtom],
+                                state: State) -> float:
+        """Score an atom set as the sum of the entropies of each atom's
+        predicate."""
+        entropy_sum = 0.0
+        for atom in atom_set:
+            x = state.vec(atom.objects)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
+            entropy_sum += utils.entropy(np.mean(ps))
+        return entropy_sum
+
+    def _score_atom_set_bald(self, atom_set: Set[GroundAtom],
+                             state: State) -> float:
+        """Score an atom set as the sum of the BALD objectives of each atom's
+        predicate."""
+        objective = 0.0
+        for atom in atom_set:
+            x = state.vec(atom.objects)
+            ps = self._pred_to_ensemble[
+                atom.predicate.name].predict_member_probas(x)
+            entropy = utils.entropy(np.mean(ps))
+            objective += entropy - np.mean([utils.entropy(p) for p in ps])
+        return objective

@@ -217,7 +217,8 @@ def test_cover_multistep_options():
     utils.reset_config({
         "env": "cover_multistep_options",
         "num_train_tasks": 10,
-        "num_test_tasks": 10
+        "num_test_tasks": 10,
+        "test_env_seed_offset": 0,
     })
     env = CoverMultistepOptions()
     env.seed(123)
