@@ -28,6 +28,8 @@ class GlobalSettings:
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
     pretty_print_when_loading = False
+    # Used for random seeding in test environment.
+    test_env_seed_offset = 10000
 
     # cover env parameters
     cover_num_blocks = 2
@@ -144,6 +146,7 @@ class GlobalSettings:
     interactive_action_strategy = "glib"
     interactive_query_policy = "strict_best_seen"
     interactive_score_function = "frequency"
+    interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
 
