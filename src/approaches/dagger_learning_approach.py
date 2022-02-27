@@ -76,22 +76,22 @@ class DaggerLearningApproach(NSRTLearningApproach):
         return requests
 
     def learn_from_interaction_results(self, results: Sequence[InteractionResult]) -> None:
-        # # make videos of expert trajectories for debugging
-        # for result in results:  # one result per training task
-        #     responses = result.responses  # one response per state in trajectory
-        #     for res in responses:
-        #         teacher_traj = res.teacher_traj
-        #         if teacher_traj is not None:
-        #             print("TEACHER TRAJ STATES: ", teacher_traj.states)
-        #         video: Video = []
-        #         env = create_env(CFG.env)
-        #         for s in teacher_traj.states:
-        #             dummy_task = Task(s, set())
-        #             video.extend(env.render(s, dummy_task))
-        #         video_prefix = utils.get_config_path_str()
-        #         n = np.random.randint(0, 1000)
-        #         outfile = f"{video_prefix}_teacher_{n}.mp4"
-        #         utils.save_video(outfile, video)
+        # make videos of expert trajectories for debugging
+        for result in results:  # one result per training task
+            responses = result.responses  # one response per state in trajectory
+            for res in responses:
+                teacher_traj = res.teacher_traj
+                if teacher_traj is not None:
+                    print("TEACHER TRAJ STATES: ", teacher_traj.states)
+                video: Video = []
+                env = create_env(CFG.env)
+                for s in teacher_traj.states:
+                    dummy_task = Task(s, set())
+                    video.extend(env.render(s, dummy_task))
+                video_prefix = utils.get_config_path_str()
+                n = np.random.randint(0, 1000)
+                outfile = f"{video_prefix}_teacher_{n}.mp4"
+                utils.save_video(outfile, video)
 
         for result in results:  # one result per training task
             responses = result.responses  # one response per state in trajectory

@@ -118,11 +118,11 @@ def _run_pipeline(env: BaseEnv,
         else:
             approach.learn_from_offline_dataset(offline_dataset)
         # Run evaluation once before online learning starts.
-        results = _run_testing(env, approach)
-        results["num_transitions"] = total_num_transitions
-        results["cumulative_query_cost"] = total_query_cost
-        results["learning_time"] = time.time() - learning_start
-        _save_test_results(results, online_learning_cycle=None)
+        # results = _run_testing(env, approach)
+        # results["num_transitions"] = total_num_transitions
+        # results["cumulative_query_cost"] = total_query_cost
+        # results["learning_time"] = time.time() - learning_start
+        # _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
@@ -144,10 +144,10 @@ def _run_pipeline(env: BaseEnv,
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             # results = _run_testing2(train_tasks, env, approach)
-            results["num_transitions"] = total_num_transitions
-            results["cumulative_query_cost"] = total_query_cost
-            results["learning_time"] = time.time() - learning_start
-            _save_test_results(results, online_learning_cycle=i)
+            # results["num_transitions"] = total_num_transitions
+            # results["cumulative_query_cost"] = total_query_cost
+            # results["learning_time"] = time.time() - learning_start
+            # _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
@@ -188,7 +188,7 @@ def _generate_interaction_results(
     for request in requests:
         # First, roll out the acting policy.
         task = train_tasks[request.train_task_idx]
-        traj = utils.run_policy_until(
+        traj = utils.run_policy_until2(
             request.act_policy,
             simulator,
             task.init,
