@@ -1028,8 +1028,6 @@ def ops_and_specs_to_dummy_nsrts(
             lambda s, g, rng, o: np.zeros(1, dtype=np.float32))
         nsrts.add(nsrt)
 
-    # if True in [len(sop.side_predicates) != 0 for sop in strips_ops]:
-    #     import ipdb; ipdb.set_trace()
     return nsrts
 
 

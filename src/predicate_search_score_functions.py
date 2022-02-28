@@ -308,14 +308,10 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                     gt_option = ll_traj.actions[idx_into_traj].get_option()
                     expected_next_hl_state = hl_traj[idx_into_traj+1]
                     for applicable_nsrt in utils.get_applicable_operators(ground_nsrts, state):
-                        if applicable_nsrt.option.ground(applicable_nsrt.option_objs, ll_traj.actions[idx_into_traj].get_option().params) == applicable_nsrt.option.ground(applicable_nsrt.option_objs, ll_traj.actions[idx_into_traj].get_option().params):
+                        if applicable_nsrt.option.ground(applicable_nsrt.option_objs, gt_option.params) == gt_option:
                             next_hl_state = utils.apply_operator(applicable_nsrt, state)
                             # Here, we check whether all atoms that differ between next_hl_state and state are part of the operator's
                             # side predicates. If so, this nsrt can be applied from this state!
-                            
-                            # exp_state_matches = all([ground_atom.predicate in applicable_nsrt.side_predicates for ground_atom in next_hl_state - expected_next_hl_state] + \
-                            #     [ground_atom.predicate in applicable_nsrt.side_predicates for ground_atom in expected_next_hl_state - next_hl_state])
-
                             exp_state_matches = next_hl_state.issubset(expected_next_hl_state)
 
                             if exp_state_matches:
@@ -323,13 +319,11 @@ class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
                                 # path; just one that matches!
                                 yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
                     idx_into_traj += 1
-            
+
             state_seq, action_seq = utils.run_gbfs(frozenset(init_atoms), _check_goal, _get_successor_with_correct_option, heuristic)
 
             if not _check_goal(state_seq[-1]):
                 # If the state sequence doesn't achieve the goal, then we haven't found a valid plan.
-                # if len(strips_ops[2].side_predicates) > 0:
-                #     import ipdb; ipdb.set_trace()
                 return False
 
         return True

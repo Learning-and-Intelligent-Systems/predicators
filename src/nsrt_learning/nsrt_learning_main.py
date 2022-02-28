@@ -106,21 +106,21 @@ def _learn_pnad_side_predicates(
             _, option_vars = pnad.option_spec
             # ...consider changing each of its effects to a side predicate.
             for effect in pnad.op.add_effects:
-                if len(pnad.op.add_effects) > 1:
-                    new_pnad = PartialNSRTAndDatastore(
-                        pnad.op.effect_to_side_predicate(
-                            effect, option_vars, "add"),
-                        pnad.datastore, pnad.option_spec)
-                else:
-                    # We don't want sidelining to result in a no-op
-                    continue
+                # if len(pnad.op.add_effects) > 1:
+                new_pnad = PartialNSRTAndDatastore(
+                    pnad.op.effect_to_side_predicate(
+                        effect, option_vars, "add"),
+                    pnad.datastore, pnad.option_spec)
+                # else:
+                #     # We don't want sidelining to result in a no-op
+                #     continue
                 sprime = list(s)
                 sprime[i] = new_pnad
                 yield (None, tuple(sprime), 1.0)
-            # # ...consider removing it.
-            # sprime = list(s)
-            # del sprime[i]
-            # yield (None, tuple(sprime), 1.0)
+            # ...consider removing it.
+            sprime = list(s)
+            del sprime[i]
+            yield (None, tuple(sprime), 1.0)
 
     if CFG.sidelining_approach == "naive":
         score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
@@ -146,7 +146,7 @@ def _learn_pnad_side_predicates(
                                                         ground_atom_dataset,
                                                         segments, strips_ops,
                                                         option_specs, ll_trajs)
-            score = 10000000
+            score = 10000 # Arbitrary large number bigger than total number of operators
             if preserves_harmlessness:
                 # pred_score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
                 # score = pred_score_func.evaluate_with_operators(frozenset(),
@@ -154,9 +154,9 @@ def _learn_pnad_side_predicates(
                 #                                     segments, strips_ops,
                 #                                     option_specs)
                 # Count number of sidelined predicates; the more the better!
+                score = 2 * len(strips_ops)
                 for op in strips_ops:
                     score -= len(op.side_predicates)
-            
             return score
 
     else:
