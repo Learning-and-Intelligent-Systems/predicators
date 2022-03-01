@@ -350,10 +350,7 @@ class PaintingEnv(envs.BaseEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def _render_matplotlib(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def _render_matplotlib(self, state: State) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)
@@ -438,34 +435,13 @@ class PaintingEnv(envs.BaseEnv):
             "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
             "yellow border = side grasp, orange border = top grasp",
             fontsize=12)
-        # List of NextTo objects to render
-        # Added this to display what objects we are nextto
-        # during video rendering
-        if isinstance(self, envs.RepeatedNextToPaintingEnv):
-            nextto_objs = []
-            for obj in state:
-                if obj.is_instance(self._obj_type) or \
-                    obj.is_instance(self._box_type) or \
-                    obj.is_instance(self._shelf_type):
-                    if abs(
-                            state.get(self._robot, "pose_y") -
-                            state.get(obj, "pose_y")) < self.nextto_thresh:
-                        nextto_objs.append(obj)
-            # Added this to display what objects we are nextto
-            # during video rendering
-            plt.suptitle(
-                "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-                "yellow border = side grasp, orange border = top grasp\n"
-                "NextTo: " + str(nextto_objs),
-                fontsize=12)
         return fig
-        
 
     def render(self,
                state: State,
                task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        fig = self._render_matplotlib(state, task, action)
+        fig = self._render_matplotlib(state)
         img = utils.fig2data(fig)
         plt.close()
         return [img]
@@ -541,9 +517,9 @@ class PaintingEnv(envs.BaseEnv):
                 state.set(target_obj, "held", 1.0)
                 if isinstance(self, envs.RepeatedNextToPaintingEnv):
                     state.set(target_obj, "pose_y",
-                                state.get(self._robot, "pose_y"))
+                              state.get(self._robot, "pose_y"))
                     state.set(target_obj, "pose_z",
-                                state.get(target_obj, "pose_z") + 1.0)
+                              state.get(target_obj, "pose_z") + 1.0)
             tasks.append(Task(state, goal))
         return tasks
 

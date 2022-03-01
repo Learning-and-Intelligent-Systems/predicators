@@ -32,7 +32,9 @@ def test_repeated_nextto_painting():
     assert env.action_space.shape == (8, )
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
-        assert {box_type, shelf_type, obj_type, robot_type, lid_type} == {item.type for item in state}
+        assert {box_type, shelf_type, obj_type, robot_type,
+                lid_type} == {item.type
+                              for item in state}
         if i < 3:
             # Test rendering
             env.render(state, task)

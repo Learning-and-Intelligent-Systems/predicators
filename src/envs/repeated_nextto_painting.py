@@ -6,13 +6,13 @@ navigate between objects in order to pick or place them. Also, the move
 option can turn on any number of NextTo predicates.
 """
 
-from typing import Set, Sequence, Dict, Optional, List
+from typing import Set, Sequence, Dict, List, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 from gym.spaces import Box
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.structs import Predicate, State, \
-    ParameterizedOption, Object, Action, Array, Task, Image
+    ParameterizedOption, Object, Action, Array, Image, Task
 from predicators.src import utils
 
 
@@ -65,7 +65,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         return super().simulate(state, action)
 
     def _transition_pick_or_openlid(self, state: State,
-                                           action: Action) -> State:
+                                    action: Action) -> State:
         x, y, z, _ = action.arr[:4]
         next_state = super()._transition_pick_or_openlid(state, action)
         target_obj = self._get_object_at_xyz(state, x, y, z)
@@ -102,18 +102,22 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
 
     @property
     def predicates(self) -> Set[Predicate]:
-        return super().predicates | {self._NextTo, self._NextToBox,
-            self._NextToShelf, self._NextToNothing}
+        return super().predicates | {
+            self._NextTo, self._NextToBox, self._NextToShelf,
+            self._NextToNothing
+        }
 
     @property
     def options(self) -> Set[ParameterizedOption]:
-        return super().options | {self._MoveToObj, self._MoveToBox, self._MoveToShelf}
+        return super().options | {
+            self._MoveToObj, self._MoveToBox, self._MoveToShelf
+        }
 
     def render(self,
                state: State,
                task: Task,
                action: Optional[Action] = None) -> List[Image]:
-        fig = self._render_matplotlib(state, task, action)
+        fig = self._render_matplotlib(state)
         # List of NextTo objects to render
         # Added this to display what objects we are nextto
         # during video rendering
@@ -128,11 +132,10 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                     nextto_objs.append(obj)
         # Added this to display what objects we are nextto
         # during video rendering
-        plt.suptitle(
-            "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-            "yellow border = side grasp, orange border = top grasp\n"
-            "NextTo: " + str(nextto_objs),
-            fontsize=12)
+        plt.suptitle("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
+                     "yellow border = side grasp, orange border = top grasp\n"
+                     "NextTo: " + str(nextto_objs),
+                     fontsize=12)
         img = utils.fig2data(fig)
         plt.close()
         return [img]
