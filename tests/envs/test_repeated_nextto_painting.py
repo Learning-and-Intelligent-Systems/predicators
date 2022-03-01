@@ -1,4 +1,4 @@
-"""Test cases for the painting environment."""
+"""Test cases for the repeated_nextto_painting environment."""
 
 import pytest
 import numpy as np
@@ -6,7 +6,7 @@ from predicators.src.envs import RepeatedNextToPaintingEnv
 from predicators.src import utils
 
 
-def test_painting():
+def test_repeated_nextto_painting():
     """Tests for RepeatedNextToPaintingEnv class."""
     utils.reset_config({
         "env": "repeated_nextto_painting",
@@ -32,34 +32,13 @@ def test_painting():
     assert env.action_space.shape == (8, )
     for i, task in enumerate(env.get_test_tasks()):
         state = task.init
-        robot = None
-        box = None
-        shelf = None
-        lid = None
-        for item in state:
-            if item.type == robot_type:
-                robot = item
-                continue
-            if item.type == box_type:
-                box = item
-                continue
-            if item.type == shelf_type:
-                shelf = item
-                continue
-            if item.type == lid_type:
-                lid = item
-                continue
-            assert item.type == obj_type
-        assert robot is not None
-        assert box is not None
-        assert shelf is not None
-        assert lid is not None
+        assert {box_type, shelf_type, obj_type, robot_type, lid_type} == {item.type for item in state}
         if i < 3:
             # Test rendering
             env.render(state, task)
 
 
-def test_painting_failure_cases():
+def test_repeated_nextto_painting_failure_cases():
     """Tests for the cases where simulate() is a no-op or
     EnvironmentFailure."""
     utils.reset_config({
@@ -116,7 +95,7 @@ def test_painting_failure_cases():
                                              dtype=np.float32)).policy(state)
         env.simulate(state, act)
     # Change the y back to initial y
-    state.set(robot, "y", before_move_y)
+    state.set(robot, "pose_y", before_move_y)
     state.set(obj0, "pose_y", before_move_y)
     # Advance to a state where we are not holding anything
     x = state.get(obj0, "pose_x")

@@ -61,7 +61,7 @@ class PaintingEnv(envs.BaseEnv):
         self._box_type = Type("box", ["pose_x", "pose_y", "color"])
         self._lid_type = Type("lid", ["is_open"])
         self._shelf_type = Type("shelf", ["pose_x", "pose_y", "color"])
-        self._robot_type = Type("robot", ["x", "y", "fingers"])
+        self._robot_type = Type("robot", ["pose_x", "pose_y", "fingers"])
         # Predicates
         self._InBox = Predicate("InBox", [self._obj_type, self._box_type],
                                 self._InBox_holds)
@@ -338,11 +338,11 @@ class PaintingEnv(envs.BaseEnv):
         # [x, y, z, grasp, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
         # while grasp, water level, heat level, and color are in [0, 1].
-        lowers = np.array([
-            self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2, 0.0, -1.0, 0.0,
-            0.0, 0.0
-        ],
-                          dtype=np.float32)
+        # Changed lower bound for z to 0.0 for RepeatedNextToPainting
+        # This is needed to check affinity of the move action
+        lowers = np.array(
+            [self.obj_x - 1e-2, self.env_lb, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
+            dtype=np.float32)
         uppers = np.array([
             self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2, 1.0, 1.0, 1.0,
             1.0, 1.0
@@ -350,7 +350,7 @@ class PaintingEnv(envs.BaseEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self,
+    def _render_matplotlib(self,
                state: State,
                task: Task,
                action: Optional[Action] = None) -> List[Image]:
@@ -448,7 +448,7 @@ class PaintingEnv(envs.BaseEnv):
                     obj.is_instance(self._box_type) or \
                     obj.is_instance(self._shelf_type):
                     if abs(
-                            state.get(self._robot, "y") -
+                            state.get(self._robot, "pose_y") -
                             state.get(obj, "pose_y")) < self.nextto_thresh:
                         nextto_objs.append(obj)
             # Added this to display what objects we are nextto
@@ -458,6 +458,14 @@ class PaintingEnv(envs.BaseEnv):
                 "yellow border = side grasp, orange border = top grasp\n"
                 "NextTo: " + str(nextto_objs),
                 fontsize=12)
+        return fig
+        
+
+    def render(self,
+               state: State,
+               task: Task,
+               action: Optional[Action] = None) -> List[Image]:
+        fig = self._render_matplotlib(state, task, action)
         img = utils.fig2data(fig)
         plt.close()
         return [img]
@@ -532,14 +540,10 @@ class PaintingEnv(envs.BaseEnv):
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
                 if isinstance(self, envs.RepeatedNextToPaintingEnv):
-                    # Added is to assign held_obj initial position to
-                    # robot y and z for RepeatedNextToPainting
                     state.set(target_obj, "pose_y",
-                              state.get(self._robot, "y"))
+                                state.get(self._robot, "pose_y"))
                     state.set(target_obj, "pose_z",
-                              state.get(target_obj, "pose_z") + 1.0)
-                else:
-                    assert self._OnTable_holds(state, [target_obj])
+                                state.get(target_obj, "pose_z") + 1.0)
             tasks.append(Task(state, goal))
         return tasks
 
