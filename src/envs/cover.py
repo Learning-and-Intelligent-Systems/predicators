@@ -692,15 +692,20 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Note: unlike parent env, we also need to check the grip.
         if held_block is not None and above_block is None and \
             grip < self.grasp_thresh and (hy-hh) < self.placing_height:
-            if any(state.get(targ, "x")-state.get(targ, "width")/2 <= x <=
-                state.get(targ, "x")+state.get(targ, "width")/2 for targ in \
-                self._targets) and not any(hand_lb <= x <= hand_rb for \
-                hand_lb, hand_rb in self._get_hand_regions_target(state)):
-                return state.copy()
+            # Tentatively set the next state and check whether the placement
+            # would cover some target.
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
             next_state.set(self._robot, "holding", -1)
-
+            place_would_cover = any(
+                self._Covers_holds(next_state, [held_block, targ])
+                for targ in self._targets)
+            # If the place would cover, but we were outside of an allowed
+            # hand region, then disallow the place. Otherwise, keep the new
+            # next state (place succeeded).
+            if place_would_cover and not any(hand_lb <= x <= hand_rb for \
+                hand_lb, hand_rb in self._get_hand_regions_target(state)):
+                return state.copy()
         return next_state
 
     def render(self,

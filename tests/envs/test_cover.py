@@ -530,6 +530,49 @@ def test_cover_multistep_options():
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
+    # Cover the case where a place is attempted outside of a hand region
+    # Check collision of held block with the floor.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., 0., -0.1], dtype=np.float32),
+        np.array([0., 0.1, 0.], dtype=np.float32),
+    ]
+    make_video = False  # Can toggle to true for debugging
+    traj, video, _ = utils.run_policy_on_task(
+        policy, task, env.simulate, len(action_arrs),
+        env.render if make_video else None)
+    if make_video:
+        outfile = "place_fail_multistep_cover.mp4"  # pragma: no cover
+        utils.save_video(outfile, video)  # pragma: no cover
+    robot = [r for r in traj.states[0] if r.name == "robby"][0]
+    assert traj.states[-1].get(robot, "holding") > -1
+
     # Check max placement failure for target and block placement
     utils.reset_config({
         "env": "cover_multistep_options",
