@@ -564,7 +564,7 @@ def test_cover_multistep_options():
         np.array([0., 0.1, 0.], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
