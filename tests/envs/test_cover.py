@@ -312,7 +312,7 @@ def test_cover_multistep_options():
         del s  # unused
         return Action(action_arrs.pop(0))
 
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -339,7 +339,7 @@ def test_cover_multistep_options():
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate, 100,
         env.render if make_video else None)
     if make_video:
@@ -373,7 +373,7 @@ def test_cover_multistep_options():
         np.array([0., -0.06, 0.0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -397,7 +397,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -439,7 +439,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -480,7 +480,7 @@ def test_cover_multistep_options():
         np.array([0.1, 0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -521,7 +521,7 @@ def test_cover_multistep_options():
         np.array([0., -0.07, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -592,7 +592,7 @@ def test_cover_multistep_options():
         np.array([0., -0.01, -0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:

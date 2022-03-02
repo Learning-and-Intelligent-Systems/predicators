@@ -174,8 +174,8 @@ def test_get_static_atoms():
     assert [obj.name for obj in added_atom.objects] == ["block0", "target0"]
 
 
-def test_run_policy_until():
-    """Tests for run_policy_until()."""
+def test_simulate_policy_until():
+    """Tests for simulate_policy_until()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -191,30 +191,30 @@ def test_run_policy_until():
     def _policy(_):
         return Action(np.array([4]))
 
-    traj = utils.run_policy_until(_policy,
-                                  _simulator,
-                                  state,
-                                  lambda s: True,
-                                  max_num_steps=5)
+    traj = utils.simulate_policy_until(_policy,
+                                       _simulator,
+                                       state,
+                                       lambda s: True,
+                                       max_num_steps=5)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
 
-    traj = utils.run_policy_until(_policy,
-                                  _simulator,
-                                  state,
-                                  lambda s: False,
-                                  max_num_steps=5)
+    traj = utils.simulate_policy_until(_policy,
+                                       _simulator,
+                                       state,
+                                       lambda s: False,
+                                       max_num_steps=5)
     assert len(traj.states) == 6
     assert len(traj.actions) == 5
 
     def _terminal(s):
         return s[cup][0] > 9.9
 
-    traj = utils.run_policy_until(_policy,
-                                  _simulator,
-                                  state,
-                                  _terminal,
-                                  max_num_steps=5)
+    traj = utils.simulate_policy_until(_policy,
+                                       _simulator,
+                                       state,
+                                       _terminal,
+                                       max_num_steps=5)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
 
@@ -1853,12 +1853,17 @@ def test_create_video_from_partial_refinements():
     partial_refinements = [([], [option])]
     utils.reset_config({"failure_video_mode": "not a real video mode"})
     with pytest.raises(NotImplementedError):
-        utils.create_video_from_partial_refinements(task, env.simulate,
-                                                    env.render,
-                                                    partial_refinements)
+        utils.create_video_from_partial_refinements(partial_refinements,
+                                                    env,
+                                                    "train",
+                                                    task_idx=0,
+                                                    max_num_steps=10)
     utils.reset_config({"env": "cover", "failure_video_mode": "longest_only"})
-    video = utils.create_video_from_partial_refinements(
-        task, env.simulate, env.render, partial_refinements)
+    video = utils.create_video_from_partial_refinements(partial_refinements,
+                                                        env,
+                                                        "train",
+                                                        task_idx=0,
+                                                        max_num_steps=10)
     assert len(video) == 2
 
 
