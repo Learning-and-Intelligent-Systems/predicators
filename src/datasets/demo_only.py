@@ -35,10 +35,15 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
             continue
-        traj, _, solved = utils.run_policy_on_task(
-            policy, task, env.simulate, CFG.max_num_steps_check_policy)
-        assert solved, "Oracle failed on training task."
-        # Add is_demo flag and train task idx into the trajectory.
+        traj = utils.run_policy(policy,
+                                env,
+                                "train",
+                                idx,
+                                task.goal_holds,
+                                max_num_steps=CFG.max_num_steps_check_policy)
+        assert task.goal_holds(traj.states[-1]), \
+            "Oracle failed on training task."
+        # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
                                   traj.actions,
                                   _is_demo=True,

@@ -12,6 +12,7 @@ from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
 from predicators.src.settings import CFG
 from predicators.src.option_model import create_option_model
+from predicators.tests import utils as test_utils
 
 
 def test_sesame_plan():
@@ -106,7 +107,7 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    assert utils.policy_solves_task(policy, trivial_task, env.simulate)
+    assert test_utils.policy_solves_task(policy, trivial_task, env.simulate)
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]

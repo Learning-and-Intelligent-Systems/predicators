@@ -287,12 +287,12 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                num_objs_lst=CFG.painting_num_objs_train,
                                rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._test_rng)
