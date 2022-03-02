@@ -1050,6 +1050,8 @@ def create_task_planning_heuristic(
     if heuristic_name in _PYPERPLAN_HEURISTICS:
         return _create_pyperplan_heuristic(heuristic_name, init_atoms, goal,
                                            ground_ops, predicates, objects)
+    if heuristic_name == GoalCountHeuristic.HEURISTIC_NAME:
+        return GoalCountHeuristic(heuristic_name, init_atoms, goal, ground_ops)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -1063,6 +1065,19 @@ class _TaskPlanningHeuristic:
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         raise NotImplementedError("Override me!")
+
+
+class GoalCountHeuristic(_TaskPlanningHeuristic):
+    """The number of goal atoms that are not in the current state."""
+    HEURISTIC_NAME: str = "goal_count"
+
+    @functools.cached_property
+    def _goal_set(self) -> Set[GroundAtom]:
+        """Convert the goal atom Collection into an explicit Set."""
+        return set(self.goal)
+
+    def __call__(self, atoms: Collection[GroundAtom]) -> float:
+        return len(self._goal_set.difference(atoms))
 
 
 ############################### Pyperplan Glue ###############################
