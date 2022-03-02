@@ -26,5 +26,17 @@ def test_create_env():
         assert isinstance(env, BaseEnv)
         other_env = get_cached_env_instance(name)
         assert env is other_env
+        train_tasks = env.get_train_tasks()
+        for idx, train_task in enumerate(train_tasks):
+            task = env.get_task("train", idx)
+            assert train_task.init.allclose(task.init)
+            task = env.get_task("train", idx)
+            assert train_task.goal == task.goal
+        test_tasks = env.get_test_tasks()
+        for idx, test_task in enumerate(test_tasks):
+            task = env.get_task("test", idx)
+            assert test_task.init.allclose(task.init)
+            task = env.get_task("test", idx)
+            assert test_task.goal == task.goal
     with pytest.raises(NotImplementedError):
         create_env("Not a real env")
