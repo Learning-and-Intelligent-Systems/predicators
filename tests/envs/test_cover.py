@@ -8,7 +8,31 @@ from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvRegrasp
 from predicators.src.structs import State, Action, Task
 from predicators.src import utils
-from predicators.tests import utils as test_utils
+
+
+def run_policy_with_simulator_on_task(policy,
+                                      task,
+                                      simulator,
+                                      max_num_steps,
+                                      render=None):
+    """Helper method used throughout this file. A light wrapper around
+    run_policy_with_simulator that takes in a task and uses achieving the
+    task's goal as the termination_function.
+
+    Returns the trajectory and whether it achieves the task goal. Also
+    optionally returns a video, if a render function is provided.
+    """
+    traj = utils.run_policy_with_simulator(policy, simulator, task.init,
+                                           task.goal_holds, max_num_steps)
+    goal_reached = task.goal_holds(traj.states[-1])
+    video = []
+    # Video rendering can be toggled on inline in tests, but by default it's
+    # turned off for efficiency, hence the pragma.
+    if render is not None:  # pragma: no cover
+        for i, state in enumerate(traj.states):
+            act = traj.actions[i] if i < len(traj.states) - 1 else None
+            video.extend(render(state, task, act))
+    return traj, video, goal_reached
 
 
 def test_cover():
@@ -68,9 +92,11 @@ def test_cover():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = test_utils.option_to_trajectory(state,
+        assert option.initiable(state)
+        traj = utils.run_policy_with_simulator(option.policy,
                                                env.simulate,
-                                               option,
+                                               state,
+                                               option.terminal,
                                                max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
@@ -83,10 +109,12 @@ def test_cover():
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
-    option = next(iter(env.options))
-    traj = test_utils.option_to_trajectory(task.init,
+    option = next(iter(env.options)).ground([], [0])
+    assert option.initiable(task.init)
+    traj = utils.run_policy_with_simulator(option.policy,
                                            env.simulate,
-                                           option.ground([], [0]),
+                                           task.init,
+                                           option.terminal,
                                            max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
@@ -158,9 +186,11 @@ def test_cover_typed_options():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = test_utils.option_to_trajectory(state,
+        assert option.initiable(state)
+        traj = utils.run_policy_with_simulator(option.policy,
                                                env.simulate,
-                                               option,
+                                               state,
+                                               option.terminal,
                                                max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
@@ -173,10 +203,12 @@ def test_cover_typed_options():
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
-    option = next(iter(env.options))
-    traj = test_utils.option_to_trajectory(task.init,
+    option = place_option.ground([target0], [0])
+    assert option.initiable(task.init)
+    traj = utils.run_policy_with_simulator(option.policy,
                                            env.simulate,
-                                           place_option.ground([target0], [0]),
+                                           task.init,
+                                           option.terminal,
                                            max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
@@ -313,7 +345,7 @@ def test_cover_multistep_options():
         del s  # unused
         return Action(action_arrs.pop(0))
 
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -340,7 +372,7 @@ def test_cover_multistep_options():
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate, 100,
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -374,7 +406,7 @@ def test_cover_multistep_options():
         np.array([0., -0.06, 0.0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -398,7 +430,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -440,7 +472,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -481,7 +513,7 @@ def test_cover_multistep_options():
         np.array([0.1, 0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -522,7 +554,7 @@ def test_cover_multistep_options():
         np.array([0., -0.07, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -564,7 +596,7 @@ def test_cover_multistep_options():
         np.array([0., 0.1, 0.], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
@@ -635,7 +667,7 @@ def test_cover_multistep_options():
         np.array([0., -0.01, -0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:  # pragma: no cover
