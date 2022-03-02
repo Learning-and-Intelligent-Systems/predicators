@@ -1453,6 +1453,14 @@ def string_to_python_object(value: str) -> Any:
         return float(value)
     except ValueError:
         pass
+    if value.startswith("["):
+        assert value.endswith("]")
+        inner_strs = value[1:-1].split(",")
+        return [string_to_python_object(s) for s in inner_strs]
+    if value.startswith("("):
+        assert value.endswith(")")
+        inner_strs = value[1:-1].split(",")
+        return tuple(string_to_python_object(s) for s in inner_strs)
     return value
 
 

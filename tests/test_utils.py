@@ -1840,6 +1840,11 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
     assert utils.string_to_python_object("None") is None
+    assert utils.string_to_python_object("[3.2]") == [3.2]
+    assert utils.string_to_python_object("[3.2,4.3]") == [3.2, 4.3]
+    assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
+    assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
+    assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
 
 
 def test_create_video_from_partial_refinements():
