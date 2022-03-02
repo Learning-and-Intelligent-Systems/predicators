@@ -15,8 +15,12 @@ class BaseEnv(abc.ABC):
     def __init__(self) -> None:
         self._current_state = State({})  # set in reset
         self.seed(CFG.seed)
-        self._train_tasks = self._generate_train_tasks()
-        self._test_tasks = self._generate_test_tasks()
+        # These are generated lazily when get_train_tasks or get_test_tasks is
+        # called. This is necessary because environment attributes are often
+        # initialized in __init__ in subclasses, and super().__init__ needs
+        # to be called in those subclasses first, to set the env seed.
+        self._train_tasks: List[Task] = []
+        self._test_tasks: List[Task] = []
 
     @abc.abstractmethod
     def simulate(self, state: State, action: Action) -> State:
@@ -82,10 +86,14 @@ class BaseEnv(abc.ABC):
 
     def get_train_tasks(self) -> List[Task]:
         """Return the ordered list of tasks for training."""
+        if not self._train_tasks:
+            self._train_tasks = self._generate_train_tasks()
         return self._train_tasks
 
     def get_test_tasks(self) -> List[Task]:
         """Return the ordered list of tasks for testing / evaluation."""
+        if not self._test_tasks:
+            self._test_tasks = self._generate_test_tasks()
         return self._test_tasks
 
     def seed(self, seed: int) -> None:
@@ -107,8 +115,6 @@ class BaseEnv(abc.ABC):
             raise ValueError(f"Reset called with invalid train_or_test:"
                              f"{train_or_test}.")
         self._current_state = tasks[test_task_idx].init
-        # Copy to prevent external changes to the environment's state.
-        return self._current_state.copy()
 
     def step(self, action: Action) -> State:
         """Apply the action, and update and return the current state.
