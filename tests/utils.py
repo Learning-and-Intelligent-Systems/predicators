@@ -1,12 +1,24 @@
-"""Utility functions that should only be used in tests."""
+"""Utility functions that are used in testing."""
+
 from typing import Callable, Optional, List, Tuple
 from predicators.src.structs import State, Action, Task, Image, Video, \
-    LowLevelTrajectory
-from predicators.src.utils import simulate_policy_until
+    LowLevelTrajectory, _Option
+from predicators.src.utils import run_policy_with_simulator
 from predicators.src.settings import CFG
 
 
-def simulate_policy_on_task(
+def option_to_trajectory(init_state: State,
+                         simulator: Callable[[State, Action],
+                                             State], option: _Option,
+                         max_num_steps: int) -> LowLevelTrajectory:
+    """A light wrapper around run_policy_with_simulator that takes in an option
+    and uses achieving its terminal() condition as the termination_function."""
+    assert option.initiable(init_state)
+    return run_policy_with_simulator(option.policy, simulator, init_state,
+                                     option.terminal, max_num_steps)
+
+
+def run_policy_with_simulator_on_task(
     policy: Callable[[State], Action],
     task: Task,
     simulator: Callable[[State, Action], State],
@@ -14,19 +26,15 @@ def simulate_policy_on_task(
     render: Optional[Callable[[State, Task, Optional[Action]],
                               List[Image]]] = None,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
-    """A light wrapper around run_policy_until that takes in a task and uses
-    achieving the task's goal as the termination_function.
+    """A light wrapper around run_policy_with_simulator that takes in a task
+    and uses achieving the task's goal as the termination_function.
 
     Returns the trajectory and whether it achieves the task goal. Also
     optionally returns a video, if a render function is provided.
     """
-
-    def _goal_check(state: State) -> bool:
-        return all(goal_atom.holds(state) for goal_atom in task.goal)
-
-    traj = simulate_policy_until(policy, simulator, task.init, _goal_check,
-                                 max_num_steps)
-    goal_reached = _goal_check(traj.states[-1])
+    traj = run_policy_with_simulator(policy, simulator, task.init,
+                                     task.goal_holds, max_num_steps)
+    goal_reached = task.goal_holds(traj.states[-1])
     video: Video = []
     # Video rendering can be toggled on inline in tests, but by default it's
     # turned off for efficiency, hence the pragma.
@@ -39,12 +47,8 @@ def simulate_policy_on_task(
 
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State]) -> bool:
-    """A light wrapper around run_policy_on_task that returns whether the given
-    policy solves the given task."""
-
-    def _goal_check(state: State) -> bool:
-        return all(goal_atom.holds(state) for goal_atom in task.goal)
-
-    traj = simulate_policy_until(policy, simulator, task.init, _goal_check,
-                                 CFG.max_num_steps_check_policy)
-    return _goal_check(traj.states[-1])
+    """A light wrapper around run_policy_with_simulator_on_task that returns
+    whether the given policy solves the given task."""
+    _, _, goal_reached = run_policy_with_simulator_on_task(
+        policy, task, simulator, CFG.max_num_steps_check_policy)
+    return goal_reached

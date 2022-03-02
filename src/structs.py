@@ -390,6 +390,10 @@ class Task:
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
+    def goal_holds(self, state: State) -> bool:
+        """Return whether the goal of this task holds in the given state."""
+        return all(goal_atom.holds(state) for goal_atom in self.goal)
+
 
 @dataclass(frozen=True, eq=False)
 class ParameterizedOption:

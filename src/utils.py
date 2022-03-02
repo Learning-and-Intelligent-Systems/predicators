@@ -267,19 +267,18 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy_until(policy: Callable[[State], Action], env: BaseEnv,
-                     train_or_test: str, task_idx: int,
-                     termination_function: Callable[[State], bool],
-                     max_num_steps: int) -> LowLevelTrajectory:
-    """Execute a policy on a train or test task in the environment.
+def run_policy(policy: Callable[[State],
+                                Action], env: BaseEnv, train_or_test: str,
+               task_idx: int, termination_function: Callable[[State], bool],
+               max_num_steps: int) -> LowLevelTrajectory:
+    """Execute a policy starting from the initial state of a train or test task
+    in the environment. The task's goal is not used.
 
     Note that the environment internal state is updated.
 
     Terminates when any of these conditions hold:
-    (1) the termination_function returns True,
-    (2) max_num_steps is reached,
-
-    Returns a LowLevelTrajectory object.
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
@@ -296,23 +295,26 @@ def run_policy_until(policy: Callable[[State], Action], env: BaseEnv,
     return traj
 
 
-def simulate_policy_until(policy: Callable[[State], Action],
-                          simulator: Callable[[State, Action],
-                                              State], init_state: State,
-                          termination_function: Callable[[State], bool],
-                          max_num_steps: int) -> LowLevelTrajectory:
-    """Execute a policy from an initial state, using a simulator.
+def run_policy_with_simulator(policy: Callable[[State], Action],
+                              simulator: Callable[[State, Action],
+                                                  State], init_state: State,
+                              termination_function: Callable[[State], bool],
+                              max_num_steps: int) -> LowLevelTrajectory:
+    """Execute a policy from a given initial state, using a simulator.
 
-    This is very similar to run_policy_until, with the difference that a
-    simulator (function that takes state as input) is assumed. This function
-    should not be used with any core code, because it violates the environment
-    API (which does not assume that a simulator is available).
+    *** This function should not be used with any core code, because we want
+    to avoid the assumption of a simulator when possible. ***
+
+    This is similar to run_policy, with two major differences:
+    (1) The initial state `init_state` can be any state, not just the initial
+    state of a train or test task. (2) A simulator (function that takes state
+    as input) is assumed.
+
+    Note that the environment internal state is NOT updated.
 
     Terminates when any of these conditions hold:
-    (1) the termination_function returns True,
-    (2) max_num_steps is reached,
-
-    Returns a LowLevelTrajectory object.
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
     """
     state = init_state
     states = [state]
@@ -327,51 +329,6 @@ def simulate_policy_until(policy: Callable[[State], Action],
                 break
     traj = LowLevelTrajectory(states, actions)
     return traj
-
-
-def run_policy_on_task(
-    policy: Callable[[State], Action],
-    env: BaseEnv,
-    train_or_test: str,
-    task_idx: int,
-    max_num_steps: int,
-    make_video: bool = False,
-) -> Tuple[LowLevelTrajectory, Video, bool]:
-    """A light wrapper around run_policy_until that takes in a task and uses
-    achieving the task's goal as the termination_function.
-
-    Returns the trajectory and whether it achieves the task goal. Also
-    optionally returns a video, if a render function is provided.
-    """
-    task = env.get_task(train_or_test, task_idx)
-
-    def _goal_check(state: State) -> bool:
-        return all(goal_atom.holds(state) for goal_atom in task.goal)
-
-    traj = run_policy_until(policy, env, train_or_test, task_idx, _goal_check,
-                            max_num_steps)
-    goal_reached = _goal_check(traj.states[-1])
-    video: Video = []
-    if make_video:  # step through the traj again, making the video
-        for i, state in enumerate(traj.states):
-            act = traj.actions[i] if i < len(traj.states) - 1 else None
-            video.extend(env.render(state, task, act))
-    return traj, video, goal_reached
-
-
-def option_to_trajectory(init_state: State,
-                         simulator: Callable[[State, Action],
-                                             State], option: _Option,
-                         max_num_steps: int) -> LowLevelTrajectory:
-    """A light wrapper around run_policy_until that takes in an option and uses
-    achieving its terminal() condition as the termination_function.
-
-    This function should not be used in any of the core code. See the
-    docstring for simulate_policy_until for more information.
-    """
-    assert option.initiable(init_state)
-    return simulate_policy_until(option.policy, simulator, init_state,
-                                 option.terminal, max_num_steps)
 
 
 def policy_with_callback(

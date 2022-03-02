@@ -16,6 +16,7 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper, GoalCountHeuristic
+from predicators.tests import utils as test_utils
 
 
 def test_num_options_in_action_sequence():
@@ -174,8 +175,51 @@ def test_get_static_atoms():
     assert [obj.name for obj in added_atom.objects] == ["block0", "target0"]
 
 
-def test_simulate_policy_until():
-    """Tests for simulate_policy_until()."""
+def test_run_policy():
+    """Tests for run_policy()."""
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
+    policy = lambda _: Action(env.action_space.sample())
+    task = env.get_task("test", 0)
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=5)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 6
+    assert len(traj.actions) == 5
+    traj2 = utils.run_policy(policy,
+                             env,
+                             "test",
+                             0,
+                             lambda s: True,
+                             max_num_steps=5)
+    assert not task.goal_holds(traj2.states[-1])
+    assert len(traj2.states) == 1
+    assert len(traj2.actions) == 0
+    executed = False
+
+    def _onestep_terminal(_):
+        nonlocal executed
+        terminate = executed
+        executed = True
+        return terminate
+
+    traj3 = utils.run_policy(policy,
+                             env,
+                             "test",
+                             0,
+                             _onestep_terminal,
+                             max_num_steps=5)
+    assert not task.goal_holds(traj3.states[-1])
+    assert len(traj3.states) == 2
+    assert len(traj3.actions) == 1
+
+
+def test_run_policy_with_simulator():
+    """Tests for run_policy_with_simulator()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -191,78 +235,32 @@ def test_simulate_policy_until():
     def _policy(_):
         return Action(np.array([4]))
 
-    traj = utils.simulate_policy_until(_policy,
-                                       _simulator,
-                                       state,
-                                       lambda s: True,
-                                       max_num_steps=5)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           lambda s: True,
+                                           max_num_steps=5)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
 
-    traj = utils.simulate_policy_until(_policy,
-                                       _simulator,
-                                       state,
-                                       lambda s: False,
-                                       max_num_steps=5)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           lambda s: False,
+                                           max_num_steps=5)
     assert len(traj.states) == 6
     assert len(traj.actions) == 5
 
     def _terminal(s):
         return s[cup][0] > 9.9
 
-    traj = utils.simulate_policy_until(_policy,
-                                       _simulator,
-                                       state,
-                                       _terminal,
-                                       max_num_steps=5)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
-
-
-def test_option_to_trajectory():
-    """Tests for option_to_trajectory()."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = State({cup: [0.5], plate: [1.0, 1.2]})
-
-    def _simulator(s, a):
-        ns = s.copy()
-        assert a.arr.shape == (1, )
-        ns[cup][0] += a.arr.item()
-        return ns
-
-    params_space = Box(0, 1, (1, ))
-
-    def _policy(_1, _2, _3, p):
-        return Action(p)
-
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
-
-    def _terminal(s, _1, _2, _3):
-        return s[cup][0] > 9.9
-
-    parameterized_option = ParameterizedOption("Move", [], params_space,
-                                               _policy, _initiable, _terminal)
-    params = [0.1]
-    option = parameterized_option.ground([], params)
-    with pytest.raises(AssertionError):
-        # option is not initiable from start state
-        utils.option_to_trajectory(state, _simulator, option, max_num_steps=5)
-    params = [0.5]
-    option = parameterized_option.ground([], params)
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=100)
-    assert len(traj.actions) == len(traj.states) - 1 == 19
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=10)
-    assert len(traj.actions) == len(traj.states) - 1 == 10
 
 
 def test_option_plan_to_policy():
@@ -303,10 +301,10 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=100)
+    traj = test_utils.option_to_trajectory(state,
+                                           _simulator,
+                                           option,
+                                           max_num_steps=100)
     assert len(traj.actions) == len(traj.states) - 1 == 19
     for t in range(19):
         assert not option.terminal(state)

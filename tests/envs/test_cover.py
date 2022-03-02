@@ -68,10 +68,10 @@ def test_cover():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = utils.option_to_trajectory(state,
-                                          env.simulate,
-                                          option,
-                                          max_num_steps=100)
+        traj = test_utils.option_to_trajectory(state,
+                                               env.simulate,
+                                               option,
+                                               max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
         assert len(traj.states) == 2
@@ -84,10 +84,10 @@ def test_cover():
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
     option = next(iter(env.options))
-    traj = utils.option_to_trajectory(task.init,
-                                      env.simulate,
-                                      option.ground([], [0]),
-                                      max_num_steps=100)
+    traj = test_utils.option_to_trajectory(task.init,
+                                           env.simulate,
+                                           option.ground([], [0]),
+                                           max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
     # Test cover_initial_holding_prob.
@@ -158,10 +158,10 @@ def test_cover_typed_options():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = utils.option_to_trajectory(state,
-                                          env.simulate,
-                                          option,
-                                          max_num_steps=100)
+        traj = test_utils.option_to_trajectory(state,
+                                               env.simulate,
+                                               option,
+                                               max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
         assert len(traj.states) == 2
@@ -174,10 +174,10 @@ def test_cover_typed_options():
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
     option = next(iter(env.options))
-    traj = utils.option_to_trajectory(task.init,
-                                      env.simulate,
-                                      place_option.ground([target0], [0]),
-                                      max_num_steps=100)
+    traj = test_utils.option_to_trajectory(task.init,
+                                           env.simulate,
+                                           place_option.ground([target0], [0]),
+                                           max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
 
@@ -313,7 +313,7 @@ def test_cover_multistep_options():
         del s  # unused
         return Action(action_arrs.pop(0))
 
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -340,7 +340,7 @@ def test_cover_multistep_options():
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate, 100,
         env.render if make_video else None)
     if make_video:
@@ -374,7 +374,7 @@ def test_cover_multistep_options():
         np.array([0., -0.06, 0.0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -398,7 +398,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -440,7 +440,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -481,7 +481,7 @@ def test_cover_multistep_options():
         np.array([0.1, 0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -522,7 +522,7 @@ def test_cover_multistep_options():
         np.array([0., -0.07, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:
@@ -593,7 +593,7 @@ def test_cover_multistep_options():
         np.array([0., -0.01, -0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = test_utils.simulate_policy_on_task(
+    traj, video, _ = test_utils.run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:

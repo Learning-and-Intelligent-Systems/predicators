@@ -207,7 +207,7 @@ def _generate_interaction_results(
                                      request_responses)
         policy = utils.policy_with_callback(request.act_policy, callback)
 
-        traj = utils.run_policy_until(
+        traj = utils.run_policy(
             policy,
             env,
             "train",
@@ -234,47 +234,53 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_suc_time = 0.0
     total_num_execution_failures = 0
     video_prefix = utils.get_config_path_str()
-    for i, task in enumerate(test_tasks):
+    for test_task_idx, task in enumerate(test_tasks):
         start = time.time()
         print(end="", flush=True)
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
-            print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
-                  f"solve with error: {e}")
+            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Approach "
+                  f"failed to solve with error: {e}")
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
-                    e.info["partial_refinements"], env, "test", i,
+                    e.info["partial_refinements"], env, "test", test_task_idx,
                     CFG.max_num_steps_check_policy)
-                outfile = f"{video_prefix}__task{i+1}_failure.mp4"
+                outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
         num_found_policy += 1
         try:
-            _, video, solved = utils.run_policy_on_task(
+            traj = utils.run_policy(
                 policy,
                 env,
                 "test",
-                i,
-                CFG.max_num_steps_check_policy,
-                make_video=CFG.make_videos)
+                test_task_idx,
+                task.goal_holds,
+                max_num_steps=CFG.max_num_steps_check_policy)
+            solved = task.goal_holds(traj.states[-1])
+            if CFG.make_videos:
+                video = []
+                for i, state in enumerate(traj.states):
+                    act = traj.actions[i] if i < len(traj.states) - 1 else None
+                    video.extend(env.render(state, task, act))
         except utils.EnvironmentFailure as e:
-            print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
-                  f"with error: {e}")
+            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Environment "
+                  f"failed with error: {e}")
             continue
         except (ApproachTimeout, ApproachFailure) as e:
-            print(f"Task {i+1} / {len(test_tasks)}: Approach failed at policy "
-                  f"execution time with error: {e}")
+            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Approach "
+                  f"failed at policy execution time with error: {e}")
             total_num_execution_failures += 1
             continue
         if solved:
-            print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
+            print(f"Task {test_task_idx+1} / {len(test_tasks)}: SOLVED")
             num_solved += 1
             total_suc_time += (time.time() - start)
         else:
-            print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
+            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
-            outfile = f"{video_prefix}__task{i+1}.mp4"
+            outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
             utils.save_video(outfile, video)
     metrics: Metrics = defaultdict(float)
     metrics["num_solved"] = num_solved

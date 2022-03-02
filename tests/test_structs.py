@@ -9,6 +9,7 @@ from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     PartialNSRTAndDatastore, _GroundSTRIPSOperator, InteractionRequest, \
     InteractionResult, DefaultState, Query, DemonstrationQuery
 from predicators.src import utils
+from predicators.tests import utils as test_utils
 
 
 def test_object_type():
@@ -264,6 +265,7 @@ def test_task():
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("On", [cup_type, plate_type], lambda s, o: False)
     cup = cup_type("cup")
     cup_var = cup_type("?cup")
     plate = plate_type("plate")
@@ -275,6 +277,12 @@ def test_task():
     task = Task(state, goal)
     assert task.init.allclose(state)
     assert task.goal == goal
+    assert task.goal_holds(task.init)
+    goal2 = {pred2([cup, plate])}
+    task2 = Task(state, goal2)
+    assert task2.init.allclose(state)
+    assert task2.goal == goal2
+    assert not task2.goal_holds(task.init)
 
 
 def test_option():
@@ -656,10 +664,10 @@ def test_action():
                                                _policy, _initiable, _terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=5)
+    traj = test_utils.option_to_trajectory(state,
+                                           _simulator,
+                                           option,
+                                           max_num_steps=5)
     assert len(traj.actions) == len(traj.states) - 1 == 5
     for act in traj.actions:
         assert act.has_option()

@@ -59,13 +59,15 @@ def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             if option.initiable(state):
                 break
         # Execute the option
+        assert option.initiable(state)
         try:
-            replay_traj = utils.option_to_trajectory(
-                state,
+            replay_traj = utils.run_policy_with_simulator(
+                option.policy,
                 env.simulate,
-                option,
+                state,
+                option.terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
-            # Add task goal into the trajectory.
+            # Add task index information into the trajectory.
             replay_traj = LowLevelTrajectory(
                 replay_traj.states,
                 replay_traj.actions,

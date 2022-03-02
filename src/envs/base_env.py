@@ -5,7 +5,7 @@ from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image
+    ParameterizedOption, Type, Action, Image, DefaultState
 from predicators.src.settings import CFG
 
 
@@ -13,7 +13,7 @@ class BaseEnv(abc.ABC):
     """Base environment."""
 
     def __init__(self) -> None:
-        self._current_state = State({})  # set in reset
+        self._current_state = DefaultState  # set in reset
         self.seed(CFG.seed)
         # These are generated lazily when get_train_tasks or get_test_tasks is
         # called. This is necessary because environment attributes are often
@@ -97,13 +97,13 @@ class BaseEnv(abc.ABC):
         return self._test_tasks
 
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
-        """Return the train or test task for the given index."""
+        """Return the train or test task at the given index."""
         if train_or_test == "train":
             tasks = self.get_train_tasks()
         elif train_or_test == "test":
             tasks = self.get_test_tasks()
         else:
-            raise ValueError(f"Get_task called with invalid train_or_test:"
+            raise ValueError(f"get_task called with invalid train_or_test: "
                              f"{train_or_test}.")
         return tasks[task_idx]
 
@@ -126,12 +126,12 @@ class BaseEnv(abc.ABC):
     def step(self, action: Action) -> State:
         """Apply the action, and update and return the current state.
 
-        Note that this action is a low-level action (i.e., its array
-        representation is a member of self.action_space), NOT an option.
+        Note that this action is a low-level action (i.e., action.arr
+        is a member of self.action_space), NOT an option.
 
         By default, this function just calls self.simulate. However,
-        environments that maintain a more complicated internal state may
-        override this method.
+        environments that maintain a more complicated internal state,
+        or that don't implement simulate(), may override this method.
         """
         self._current_state = self.simulate(self._current_state, action)
         # Copy to prevent external changes to the environment's state.

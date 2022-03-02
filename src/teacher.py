@@ -60,13 +60,13 @@ class Teacher:
         except (ApproachTimeout, ApproachFailure):
             return DemonstrationResponse(query, teacher_traj=None)
 
-        def _goal_check(s: State) -> bool:
-            return all(goal_atom.holds(s) for goal_atom in task.goal)
-
-        traj = utils.simulate_policy_until(policy, self._simulator, task.init,
-                                           _goal_check,
-                                           CFG.max_num_steps_option_rollout)
-        assert _goal_check(traj.states[-1])
+        traj = utils.run_policy_with_simulator(
+            policy,
+            self._simulator,
+            task.init,
+            task.goal_holds,
+            max_num_steps=CFG.max_num_steps_option_rollout)
+        assert task.goal_holds(traj.states[-1])
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,
