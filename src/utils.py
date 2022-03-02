@@ -344,6 +344,19 @@ def option_to_trajectory(init_state: State,
                             option.terminal, max_num_steps)
 
 
+def policy_with_callback(
+        policy: Callable[[State], Action],
+        callback: Callable[[State], None]) -> Callable[[State], Action]:
+    """Create a policy that first calls callback on the state, and then calls
+    the given policy."""
+
+    def _wrapped_policy(s: State) -> Action:
+        callback(s)
+        return policy(s)
+
+    return _wrapped_policy
+
+
 class ExceptionWithInfo(Exception):
     """An exception with an optional info dictionary that is initially
     empty."""

@@ -33,6 +33,7 @@ To run grammar search predicate invention (example):
 
 from collections import defaultdict
 from typing import List, Sequence, Callable, Optional, Tuple
+import functools
 import os
 import sys
 import subprocess
@@ -44,7 +45,7 @@ from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, State, Action, \
-    InteractionRequest, InteractionResult, Response
+    InteractionRequest, InteractionResult, Response, Query
 from predicators.src import utils
 from predicators.src.teacher import Teacher
 
@@ -190,25 +191,26 @@ def _generate_interaction_results(
         # encountered, query the teacher and record the response.
         responses: List[Optional[Response]] = []
 
-        def _process_state(s: State) -> None:
-            """A callback that queries the teacher and updates responses and
-            query_cost based on the teacher's response."""
+        # Note that query_policy and responses need to be arguments because
+        # request and responses are changing in the loop.
+        def _process_state(query_policy: Callable[[State], Optional[Query]],
+                           responses: List[Optional[Response]],
+                           s: State) -> None:
+            """Query the teacher and updates responses and query_cost."""
             nonlocal query_cost
-            query = request.query_policy(s)
+            query = query_policy(s)
             if query is None:
                 responses.append(None)
             else:
                 responses.append(teacher.answer_query(s, query))
                 query_cost += query.cost
 
-        def _policy(s: State) -> Action:
-            # Interact with the teacher in this state.
-            _process_state(s)
-            # Get the next action from act_policy.
-            return request.act_policy(s)
+        callback = functools.partial(_process_state, request.query_policy,
+                                     responses)
+        policy = utils.policy_with_callback(request.act_policy, callback)
 
         traj = utils.run_policy_until(
-            _policy,
+            policy,
             simulator,
             task.init,
             request.termination_function,
@@ -216,7 +218,7 @@ def _generate_interaction_results(
 
         # The environment is now in the last state, but _policy was not called
         # yet, so we need to process the query once more.
-        _process_state(traj.states[-1])
+        callback(traj.states[-1])
 
         # Finally, assemble the InteractionResult object.
         result = InteractionResult(traj.states, traj.actions, responses)
