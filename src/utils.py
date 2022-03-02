@@ -359,24 +359,6 @@ def run_policy_on_task(
     return traj, video, goal_reached
 
 
-def policy_solves_task(policy: Callable[[State], Action], task: Task,
-                       simulator: Callable[[State, Action], State]) -> bool:
-    """A light wrapper around run_policy_on_task that returns whether the given
-    policy solves the given task.
-
-    This function should not be used in any core code (at the time of
-    writing, it's used only in tests.) See the docstring for
-    simulate_policy_until for more information.
-    """
-
-    def _goal_check(state: State) -> bool:
-        return all(goal_atom.holds(state) for goal_atom in task.goal)
-
-    traj = simulate_policy_until(policy, simulator, task.init, _goal_check,
-                                 CFG.max_num_steps_check_policy)
-    return _goal_check(traj.states[-1])
-
-
 def option_to_trajectory(init_state: State,
                          simulator: Callable[[State, Action],
                                              State], option: _Option,

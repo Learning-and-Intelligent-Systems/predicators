@@ -99,9 +99,9 @@ class BaseEnv(abc.ABC):
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
         """Return the train or test task for the given index."""
         if train_or_test == "train":
-            tasks = self._train_tasks
+            tasks = self.get_train_tasks()
         elif train_or_test == "test":
-            tasks = self._test_tasks
+            tasks = self.get_test_tasks()
         else:
             raise ValueError(f"Get_task called with invalid train_or_test:"
                              f"{train_or_test}.")

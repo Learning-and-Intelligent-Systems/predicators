@@ -5,6 +5,7 @@ import numpy as np
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
 from predicators.src.structs import Action, State
+from predicators.tests import utils as test_utils
 
 
 def test_playroom():
@@ -374,7 +375,7 @@ def test_playroom_options():
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = test_utils.simulate_policy_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate, len(plan),
         env.render if make_video else None)
     if make_video:
@@ -430,7 +431,7 @@ def test_playroom_action_sequence_video():
         del s  # unused
         return Action(action_arrs.pop(0))
 
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = test_utils.simulate_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
     if make_video:

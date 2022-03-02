@@ -1845,7 +1845,6 @@ def test_string_to_python_object():
 def test_create_video_from_partial_refinements():
     """Tests for create_video_from_partial_refinements()."""
     env = CoverEnv()
-    task = env.get_train_tasks()[0]
     PickPlace = list(env.options)[0]
     option = PickPlace.ground([],
                               np.zeros(PickPlace.params_space.shape,
