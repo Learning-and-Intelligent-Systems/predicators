@@ -13,7 +13,10 @@ class BaseEnv(abc.ABC):
     """Base environment."""
 
     def __init__(self) -> None:
+        self._current_state = State({})  # set in reset
         self.seed(CFG.seed)
+        self._train_tasks = self._generate_train_tasks()
+        self._test_tasks = self._generate_test_tasks()
 
     @abc.abstractmethod
     def simulate(self, state: State, action: Action) -> State:
@@ -21,17 +24,21 @@ class BaseEnv(abc.ABC):
 
         Note that this action is a low-level action (i.e., its array
         representation is a member of self.action_space), NOT an option.
+
+        This function is primarily used in the default option model, and
+        for implementing the default self.step(action). It is not meant to
+        be part of the "final system", where the environment is the real world.
         """
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_train_tasks(self) -> List[Task]:
-        """Get an ordered list of tasks for training."""
+    def _generate_train_tasks(self) -> List[Task]:
+        """Create an ordered list of tasks for training."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def get_test_tasks(self) -> List[Task]:
-        """Get an ordered list of tasks for testing / evaluation."""
+    def _generate_test_tasks(self) -> List[Task]:
+        """Create an ordered list of tasks for testing / evaluation."""
         raise NotImplementedError("Override me!")
 
     @property
@@ -73,6 +80,14 @@ class BaseEnv(abc.ABC):
         """Render a state and action into a list of images."""
         raise NotImplementedError("Override me!")
 
+    def get_train_tasks(self) -> List[Task]:
+        """Return the ordered list of tasks for training."""
+        return self._train_tasks
+
+    def get_test_tasks(self) -> List[Task]:
+        """Return the ordered list of tasks for testing / evaluation."""
+        return self._test_tasks
+
     def seed(self, seed: int) -> None:
         """Reset seed and rngs."""
         self._seed = seed
@@ -81,3 +96,30 @@ class BaseEnv(abc.ABC):
         self._train_rng = np.random.default_rng(self._seed)
         self._test_rng = np.random.default_rng(self._seed +
                                                CFG.test_env_seed_offset)
+
+    def reset(self, train_or_test: str, test_task_idx: int) -> None:
+        """Resets the current state to the train or test task initial state."""
+        if train_or_test == "train":
+            tasks = self._train_tasks
+        elif train_or_test == "test":
+            tasks = self._test_tasks
+        else:
+            raise ValueError(f"Reset called with invalid train_or_test:"
+                             f"{train_or_test}.")
+        self._current_state = tasks[test_task_idx].init
+        # Copy to prevent external changes to the environment's state.
+        return self._current_state.copy()
+
+    def step(self, action: Action) -> State:
+        """Apply the action, and update and return the current state.
+
+        Note that this action is a low-level action (i.e., its array
+        representation is a member of self.action_space), NOT an option.
+
+        By default, this funciton just calls self.simulate. However,
+        environments that maintain a more complicated internal state may
+        override this method.
+        """
+        self._current_state = self.simulate(self._current_state, action)
+        # Copy to prevent external changes to the environment's state.
+        return self._current_state.copy()
