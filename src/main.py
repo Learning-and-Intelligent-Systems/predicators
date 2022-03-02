@@ -185,27 +185,39 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        # First, roll out the acting policy.
         task = train_tasks[request.train_task_idx]
+        # While transitioning through the environment, when each state is
+        # encountered, query the teacher and record the response.
+        responses: List[Optional[Response]] = []
+
+        def _process_state(s: State) -> None:
+            """A callback that queries the teacher and updates responses and
+            query_cost based on the teacher's response."""
+            nonlocal query_cost
+            query = request.query_policy(s)
+            if query is None:
+                responses.append(None)
+            else:
+                responses.append(teacher.answer_query(s, query))
+                query_cost += query.cost
+
+        def _policy(s: State) -> Action:
+            # Interact with the teacher in this state.
+            _process_state(s)
+            # Get the next action from act_policy.
+            return request.act_policy(s)
+
         traj = utils.run_policy_until(
-            request.act_policy,
+            _policy,
             simulator,
             task.init,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request)
-        # Now, go through the trajectory and handle queries.
-        # Note: we do this in a second pass so that we can use
-        # the utils.run_policy_until() function called above.
-        # In reality, the agent would query the teacher about
-        # the state only when the environment is in that state.
-        responses: List[Optional[Response]] = []
-        for state in traj.states:
-            query = request.query_policy(state)
-            if query is None:
-                responses.append(None)
-            else:
-                responses.append(teacher.answer_query(state, query))
-                query_cost += query.cost
+
+        # The environment is now in the last state, but _policy was not called
+        # yet, so we need to process the query once more.
+        _process_state(traj.states[-1])
+
         # Finally, assemble the InteractionResult object.
         result = InteractionResult(traj.states, traj.actions, responses)
         results.append(result)
