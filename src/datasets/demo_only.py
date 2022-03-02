@@ -36,8 +36,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 raise e
             continue
         traj, _, solved = utils.run_policy_on_task(
-            policy, env, "train", idx,
-            CFG.max_num_steps_check_policy)
+            policy, env, "train", idx, CFG.max_num_steps_check_policy)
         assert solved, "Oracle failed on training task."
         # Add is_demo flag and train task idx into the trajectory.
         traj = LowLevelTrajectory(traj.states,

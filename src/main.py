@@ -187,7 +187,6 @@ def _generate_interaction_results(
     for request in requests:
         # First, roll out the acting policy.
         env.reset("train", request.train_task_idx)
-        task = train_tasks[request.train_task_idx]
         traj = utils.run_policy_until(
             request.act_policy,
             env,
@@ -232,15 +231,18 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                   f"solve with error: {e}")
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
-                    task, TODO, env.render,
-                    e.info["partial_refinements"])
+                    e.info["partial_refinements"], env, "test", i,
+                    CFG.max_num_steps_check_policy)
                 outfile = f"{video_prefix}__task{i+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(
-                policy, env, "test", i,
+                policy,
+                env,
+                "test",
+                i,
                 CFG.max_num_steps_check_policy,
                 make_video=CFG.make_videos)
         except utils.EnvironmentFailure as e:

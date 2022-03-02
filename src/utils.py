@@ -267,13 +267,13 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy_until(policy: Callable[[State], Action],
-                     env: BaseEnv,
-                     train_or_test: str,
-                     task_idx: int,
+def run_policy_until(policy: Callable[[State], Action], env: BaseEnv,
+                     train_or_test: str, task_idx: int,
                      termination_function: Callable[[State], bool],
                      max_num_steps: int) -> LowLevelTrajectory:
-    """Execute a policy on a train or test task.
+    """Execute a policy on a train or test task in the environment.
+
+    Note that the environment internal state is updated.
 
     Terminates when any of these conditions hold:
     (1) the termination_function returns True,
@@ -288,6 +288,39 @@ def run_policy_until(policy: Callable[[State], Action],
         for _ in range(max_num_steps):
             act = policy(state)
             state = env.step(act)
+            actions.append(act)
+            states.append(state)
+            if termination_function(state):
+                break
+    traj = LowLevelTrajectory(states, actions)
+    return traj
+
+
+def simulate_policy_until(policy: Callable[[State], Action],
+                          simulator: Callable[[State, Action],
+                                              State], init_state: State,
+                          termination_function: Callable[[State], bool],
+                          max_num_steps: int) -> LowLevelTrajectory:
+    """Execute a policy from an initial state, using a simulator.
+
+    This is very similar to run_policy_until, with the difference that a
+    simulator (function that takes state as input) is assumed. This function
+    should not be used with any core code, because it violates the environment
+    API (which does not assume that a simulator is available).
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True,
+    (2) max_num_steps is reached,
+
+    Returns a LowLevelTrajectory object.
+    """
+    state = init_state
+    states = [state]
+    actions: List[Action] = []
+    if not termination_function(state):
+        for _ in range(max_num_steps):
+            act = policy(state)
+            state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
@@ -329,10 +362,19 @@ def run_policy_on_task(
 def policy_solves_task(policy: Callable[[State], Action], task: Task,
                        simulator: Callable[[State, Action], State]) -> bool:
     """A light wrapper around run_policy_on_task that returns whether the given
-    policy solves the given task."""
-    _, _, solved = run_policy_on_task(policy, task, simulator,
-                                      CFG.max_num_steps_check_policy)
-    return solved
+    policy solves the given task.
+
+    This function should not be used in any core code (at the time of
+    writing, it's used only in tests.) See the docstring for
+    simulate_policy_until for more information.
+    """
+
+    def _goal_check(state: State) -> bool:
+        return all(goal_atom.holds(state) for goal_atom in task.goal)
+
+    traj = simulate_policy_until(policy, simulator, task.init, _goal_check,
+                                 CFG.max_num_steps_check_policy)
+    return _goal_check(traj.states[-1])
 
 
 def option_to_trajectory(init_state: State,
@@ -340,10 +382,14 @@ def option_to_trajectory(init_state: State,
                                              State], option: _Option,
                          max_num_steps: int) -> LowLevelTrajectory:
     """A light wrapper around run_policy_until that takes in an option and uses
-    achieving its terminal() condition as the termination_function."""
+    achieving its terminal() condition as the termination_function.
+
+    This function should not be used in any of the core code. See the
+    docstring for simulate_policy_until for more information.
+    """
     assert option.initiable(init_state)
-    return run_policy_until(option.policy, simulator, init_state,
-                            option.terminal, max_num_steps)
+    return simulate_policy_until(option.policy, simulator, init_state,
+                                 option.terminal, max_num_steps)
 
 
 class ExceptionWithInfo(Exception):
@@ -1239,12 +1285,17 @@ def create_pddl_problem(objects: Collection[Object],
 
 
 def create_video_from_partial_refinements(
-    task: Task, simulator: Callable[[State, Action], State],
-    render: Callable[[State, Task, Optional[Action]], List[Image]],
     partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
-                                        Sequence[_Option]]]
+                                        Sequence[_Option]]],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    max_num_steps: int,
 ) -> Video:
-    """Create a video from a list of skeletons and partial refinements."""
+    """Create a video from a list of skeletons and partial refinements.
+
+    Note that the environment internal state is updated.
+    """
     # Right now, the video is created by finding the longest partial
     # refinement. One could also implement an "all_skeletons" mode
     # that would create one video per skeleton.
@@ -1253,16 +1304,17 @@ def create_video_from_partial_refinements(
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
-        state = task.init
-        while True:
+        task = env.get_task(train_or_test, task_idx)
+        state = env.reset(train_or_test, task_idx)
+        for _ in range(max_num_steps):
             try:
                 act = policy(state)
             except OptionPlanExhausted:
-                video.extend(render(state, task, None))
+                video.extend(env.render(state, task, None))
                 break
-            video.extend(render(state, task, act))
+            video.extend(env.render(state, task, act))
             try:
-                state = simulator(state, act)
+                state = env.step(act)
             except EnvironmentFailure:
                 break
         return video
