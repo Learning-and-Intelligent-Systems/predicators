@@ -30,13 +30,11 @@ def test_create_env():
         for idx, train_task in enumerate(train_tasks):
             task = env.get_task("train", idx)
             assert train_task.init.allclose(task.init)
-            task = env.get_task("train", idx)
             assert train_task.goal == task.goal
         test_tasks = env.get_test_tasks()
         for idx, test_task in enumerate(test_tasks):
             task = env.get_task("test", idx)
             assert test_task.init.allclose(task.init)
-            task = env.get_task("test", idx)
             assert test_task.goal == task.goal
         with pytest.raises(ValueError):
             env.get_task("not a real task category", 0)
