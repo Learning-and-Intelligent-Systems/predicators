@@ -28,7 +28,9 @@ def simulate_policy_on_task(
                                  max_num_steps)
     goal_reached = _goal_check(traj.states[-1])
     video: Video = []
-    if render is not None:  # step through the traj again, making the video
+    # Video rendering can be toggled on inline in tests, but by default it's
+    # turned off for efficiency, hence the pragma.
+    if render is not None:  # pragma: no cover
         for i, state in enumerate(traj.states):
             act = traj.actions[i] if i < len(traj.states) - 1 else None
             video.extend(render(state, task, act))

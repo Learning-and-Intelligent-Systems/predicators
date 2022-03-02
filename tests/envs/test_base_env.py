@@ -38,5 +38,7 @@ def test_create_env():
             assert test_task.init.allclose(task.init)
             task = env.get_task("test", idx)
             assert test_task.goal == task.goal
+        with pytest.raises(ValueError):
+            env.get_task("not a real task category", 0)
     with pytest.raises(NotImplementedError):
         create_env("Not a real env")
