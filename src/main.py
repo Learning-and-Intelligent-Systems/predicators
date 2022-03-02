@@ -192,7 +192,7 @@ def _generate_interaction_results(
         request_responses: List[Optional[Response]] = []
 
         # Note that query_policy and responses need to be arguments because
-        # request and responses are changing in the loop.
+        # request and request_responses are changing in the loop.
         def _process_state(query_policy: Callable[[State], Optional[Query]],
                            responses: List[Optional[Response]],
                            s: State) -> None:
