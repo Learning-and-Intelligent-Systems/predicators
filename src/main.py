@@ -33,6 +33,7 @@ To run grammar search predicate invention (example):
 
 from collections import defaultdict
 from typing import List, Sequence, Callable, Optional, Tuple
+import functools
 import os
 import sys
 import subprocess
@@ -44,7 +45,7 @@ from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, State, Action, \
-    InteractionRequest, InteractionResult, Response
+    InteractionRequest, InteractionResult, Response, Query
 from predicators.src import utils
 from predicators.src.teacher import Teacher
 
@@ -185,28 +186,40 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        # First, roll out the acting policy.
-        env.reset("train", request.train_task_idx)
-        traj = utils.run_policy_until(
-            request.act_policy,
-            env,
-            "train",
-            request.train_task_idx,
-            request.termination_function,
-            max_num_steps=CFG.max_num_steps_interaction_request)
-        # Now, go through the trajectory and handle queries.
-        # Note: we do this in a second pass so that we can use
-        # the utils.run_policy_until() function called above.
-        # In reality, the agent would query the teacher about
-        # the state only when the environment is in that state.
-        responses: List[Optional[Response]] = []
-        for state in traj.states:
-            query = request.query_policy(state)
+        task = train_tasks[request.train_task_idx]
+        # While transitioning through the environment, when each state is
+        # encountered, query the teacher and record the response.
+        request_responses: List[Optional[Response]] = []
+
+        # Note that query_policy and responses need to be arguments because
+        # request and responses are changing in the loop.
+        def _process_state(query_policy: Callable[[State], Optional[Query]],
+                           responses: List[Optional[Response]],
+                           s: State) -> None:
+            """Query the teacher and update responses and query_cost."""
+            nonlocal query_cost
+            query = query_policy(s)
             if query is None:
                 responses.append(None)
             else:
-                responses.append(teacher.answer_query(state, query))
+                responses.append(teacher.answer_query(s, query))
                 query_cost += query.cost
+
+        callback = functools.partial(_process_state, request.query_policy,
+                                     request_responses)
+        policy = utils.policy_with_callback(request.act_policy, callback)
+
+        traj = utils.run_policy_until(
+            policy,
+            simulator,
+            task.init,
+            request.termination_function,
+            max_num_steps=CFG.max_num_steps_interaction_request)
+
+        # The environment is now in the last state, but _policy was not called
+        # yet, so we need to process the query once more.
+        callback(traj.states[-1])
+
         # Finally, assemble the InteractionResult object.
         result = InteractionResult(traj.states, traj.actions, responses)
         results.append(result)
