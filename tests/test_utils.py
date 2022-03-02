@@ -2,7 +2,7 @@
 
 import os
 import time
-from typing import Iterator, Tuple
+from typing import Iterator, Tuple, Type as TypingType
 import pytest
 import numpy as np
 from gym.spaces import Box
@@ -15,7 +15,7 @@ from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, \
-    _PyperplanHeuristicWrapper
+    _PyperplanHeuristicWrapper, GoalCountHeuristic
 
 
 def test_num_options_in_action_sequence():
@@ -1339,35 +1339,84 @@ def test_operator_application():
     assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
-def test_create_task_planning_heuristic():
+@pytest.mark.parametrize("heuristic_name, expected_heuristic_cls", [
+    ("hadd", _PyperplanHeuristicWrapper),
+    ("hmax", _PyperplanHeuristicWrapper),
+    ("hff", _PyperplanHeuristicWrapper),
+    ("hsa", _PyperplanHeuristicWrapper),
+    ("lmcut", _PyperplanHeuristicWrapper),
+    ("goal_count", GoalCountHeuristic),
+])
+def test_create_task_planning_heuristic(
+        heuristic_name: str,
+        expected_heuristic_cls: TypingType[_TaskPlanningHeuristic]):
     """Tests for create_task_planning_heuristic()."""
-    hadd_heuristic = utils.create_task_planning_heuristic(
-        "hadd", set(), set(), set(), set(), set())
-    assert isinstance(hadd_heuristic, _PyperplanHeuristicWrapper)
-    assert hadd_heuristic.name == "hadd"
-    hmax_heuristic = utils.create_task_planning_heuristic(
-        "hmax", set(), set(), set(), set(), set())
-    assert hmax_heuristic.name == "hmax"
-    assert isinstance(hmax_heuristic, _PyperplanHeuristicWrapper)
-    hff_heuristic = utils.create_task_planning_heuristic(
-        "hff", set(), set(), set(), set(), set())
-    assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
-    assert hff_heuristic.name == "hff"
-    hsa_heuristic = utils.create_task_planning_heuristic(
-        "hsa", set(), set(), set(), set(), set())
-    assert hsa_heuristic.name == "hsa"
-    assert isinstance(hsa_heuristic, _PyperplanHeuristicWrapper)
-    lmcut_heuristic = utils.create_task_planning_heuristic(
-        "lmcut", set(), set(), set(), set(), set())
-    assert isinstance(lmcut_heuristic, _PyperplanHeuristicWrapper)
-    assert lmcut_heuristic.name == "lmcut"
+    heuristic = utils.create_task_planning_heuristic(heuristic_name, set(),
+                                                     set(), set(), set(),
+                                                     set())
+    assert isinstance(heuristic, expected_heuristic_cls)
+
+
+def test_create_task_planning_heuristic_raises_error_for_unknown_heuristic():
+    """Test creating unknown heuristic raises a ValueError."""
     with pytest.raises(ValueError):
         utils.create_task_planning_heuristic("not a real heuristic", set(),
                                              set(), set(), set(), set())
-    # Cover _TaskPlanningHeuristic base class.
+
+
+def test_create_task_planning_heuristic_base_class():
+    """Test to cover _TaskPlanningHeuristic base class."""
     base_heuristic = _TaskPlanningHeuristic("base", set(), set(), set())
     with pytest.raises(NotImplementedError):
         base_heuristic(set())
+
+
+def test_goal_count_heuristic():
+    """Test the goal count heuristic."""
+    # Create predicate and objects
+    block_type = Type("block_type", ["feat1"])
+    table_type = Type("plate_type", ["feat1"])
+
+    on = Predicate("On", [block_type, table_type], lambda s, o: False)
+    block1 = block_type("block1")
+    block2 = block_type("block2")
+    block3 = block_type("block3")
+    table1 = table_type("table1")
+    table2 = table_type("table2")
+
+    # Create goal and heuristic instance
+    goal_atoms = {
+        GroundAtom(on, [block1, table1]),
+        GroundAtom(on, [block2, table1]),
+        GroundAtom(on, [block3, table2]),
+    }
+    heuristic = GoalCountHeuristic("goal_count",
+                                   init_atoms=set(),
+                                   goal=goal_atoms,
+                                   ground_ops=set())
+
+    assert heuristic(goal_atoms) == 0
+    assert heuristic({
+        GroundAtom(on, [block1, table1]),
+        GroundAtom(on, [block2, table1]),
+        GroundAtom(on, [block3, table1]),
+    }) == 1
+    assert heuristic({
+        GroundAtom(on, [block1, table2]),
+        GroundAtom(on, [block2, table2]),
+        GroundAtom(on, [block3, table2]),
+    }) == 2
+    assert heuristic({
+        GroundAtom(on, [block1, table2]),
+        GroundAtom(on, [block2, table2]),
+        GroundAtom(on, [block3, table1]),
+    }) == 3
+
+    # Some edge cases
+    assert heuristic(set()) == 3
+    assert heuristic(
+        {GroundAtom(on, [block_type("block99"),
+                         table_type("table99")])}) == 3
 
 
 def test_create_pddl():
@@ -1791,6 +1840,11 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
     assert utils.string_to_python_object("None") is None
+    assert utils.string_to_python_object("[3.2]") == [3.2]
+    assert utils.string_to_python_object("[3.2,4.3]") == [3.2, 4.3]
+    assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
+    assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
+    assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
 
 
 def test_create_video_from_partial_refinements():
