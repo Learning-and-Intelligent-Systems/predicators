@@ -60,9 +60,13 @@ class Teacher:
         except (ApproachTimeout, ApproachFailure):
             return DemonstrationResponse(query, teacher_traj=None)
 
-        traj, _, goal_reached = utils.run_policy_on_task(
-            policy, task, self._simulator, CFG.max_num_steps_option_rollout)
-        assert goal_reached
+        traj = utils.run_policy_with_simulator(
+            policy,
+            self._simulator,
+            task.init,
+            task.goal_holds,
+            max_num_steps=CFG.max_num_steps_option_rollout)
+        assert task.goal_holds(traj.states[-1])
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,
