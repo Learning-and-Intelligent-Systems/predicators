@@ -189,7 +189,7 @@ def _generate_interaction_results(
         task = train_tasks[request.train_task_idx]
         # While transitioning through the environment, when each state is
         # encountered, query the teacher and record the response.
-        responses: List[Optional[Response]] = []
+        request_responses: List[Optional[Response]] = []
 
         # Note that query_policy and responses need to be arguments because
         # request and responses are changing in the loop.
@@ -206,7 +206,7 @@ def _generate_interaction_results(
                 query_cost += query.cost
 
         callback = functools.partial(_process_state, request.query_policy,
-                                     responses)
+                                     request_responsese)
         policy = utils.policy_with_callback(request.act_policy, callback)
 
         traj = utils.run_policy_until(
