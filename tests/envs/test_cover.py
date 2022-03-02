@@ -315,9 +315,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_com.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_com.mp4"
+        utils.save_video(outfile, video)
     state = traj.states[0]
     env.render(state, task)
     # Render a state where we're grasping
@@ -342,9 +342,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate, 100,
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_options_com.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_options_com.mp4"
+        utils.save_video(outfile, video)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
     assert Covers([block0, target0]) in final_atoms
     assert Covers([block1, target1]) in final_atoms
@@ -376,9 +376,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_robot_collision1.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_robot_collision1.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -400,9 +400,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_robot_collision2.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_robot_collision2.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -442,9 +442,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_block_collision1.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_block_collision1.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -483,9 +483,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_block_collision2.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_block_collision2.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -524,9 +524,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_block_collision3.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_block_collision3.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -566,9 +566,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "place_fail_multistep_cover.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "place_fail_multistep_cover.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert traj.states[-1].get(robot, "holding") > -1
 
@@ -637,9 +637,9 @@ def test_cover_multistep_options():
     traj, video, _ = utils.run_policy_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_com_2.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_com_2.mp4"
+        utils.save_video(outfile, video)
     Covers = [p for p in env.predicates if p.name == "Covers"][0]
     init_atoms = utils.abstract(state, env.predicates)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
