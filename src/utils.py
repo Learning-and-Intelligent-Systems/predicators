@@ -1037,6 +1037,10 @@ def ops_and_specs_to_dummy_nsrts(
     return nsrts
 
 
+# Note: create separate `heuristics.py` module if we need to add new
+#  heuristics in the future.
+
+
 def create_task_planning_heuristic(
     heuristic_name: str,
     init_atoms: Set[GroundAtom],
@@ -1060,7 +1064,7 @@ class _TaskPlanningHeuristic:
     """A task planning heuristic."""
     name: str
     init_atoms: Collection[GroundAtom]
-    goal: Collection[GroundAtom]
+    goal: Set[GroundAtom]
     ground_ops: Collection[Union[_GroundNSRT, _GroundSTRIPSOperator]]
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
@@ -1071,13 +1075,8 @@ class GoalCountHeuristic(_TaskPlanningHeuristic):
     """The number of goal atoms that are not in the current state."""
     HEURISTIC_NAME: str = "goal_count"
 
-    @functools.cached_property
-    def _goal_set(self) -> Set[GroundAtom]:
-        """Convert the goal atom Collection into an explicit Set."""
-        return set(self.goal)
-
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
-        return len(self._goal_set.difference(atoms))
+        return len(self.goal.difference(atoms))
 
 
 ############################### Pyperplan Glue ###############################
@@ -1230,7 +1229,7 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
 
 def create_pddl_problem(objects: Collection[Object],
                         init_atoms: Collection[GroundAtom],
-                        goal: Collection[GroundAtom], domain_name: str,
+                        goal: Set[GroundAtom], domain_name: str,
                         problem_name: str) -> str:
     """Create a PDDL problem str."""
     # Sort everything to ensure determinism.

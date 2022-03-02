@@ -1413,7 +1413,7 @@ def test_goal_count_heuristic():
     }) == 3
 
     # Some edge cases
-    assert heuristic({}) == 3
+    assert heuristic(set()) == 3
     assert heuristic(
         {GroundAtom(on, [block_type("block99"),
                          table_type("table99")])}) == 3
