@@ -196,7 +196,7 @@ def _generate_interaction_results(
         def _process_state(query_policy: Callable[[State], Optional[Query]],
                            responses: List[Optional[Response]],
                            s: State) -> None:
-            """Query the teacher and updates responses and query_cost."""
+            """Query the teacher and update responses and query_cost."""
             nonlocal query_cost
             query = query_policy(s)
             if query is None:
