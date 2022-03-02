@@ -206,7 +206,7 @@ def _generate_interaction_results(
                 query_cost += query.cost
 
         callback = functools.partial(_process_state, request.query_policy,
-                                     request_responsese)
+                                     request_responses)
         policy = utils.policy_with_callback(request.act_policy, callback)
 
         traj = utils.run_policy_until(
