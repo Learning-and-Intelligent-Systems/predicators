@@ -9,9 +9,13 @@ from predicators.analysis.analyze_results_directory import create_dataframes, \
     get_df_for_entry
 
 pd.options.mode.chained_assignment = None  # default='warn'
-plt.rcParams["font.family"] = "CMU Serif"
+# plt.rcParams["font.family"] = "CMU Serif"
 
 ############################ Change below here ################################
+
+# Details about the plt figure.
+DPI = 500
+FONT_SIZE = 18
 
 # Groups over which to take mean/std.
 GROUPS = [
@@ -68,7 +72,7 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Ours: Learning from Few Demonstrations": [
+    "Learning from Few Demonstrations": [
         ("PickPlace1D", "o",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "cover_main_" in v)),
         ("Blocks", ".",
@@ -91,7 +95,7 @@ def _main() -> None:
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results")
     os.makedirs(outdir, exist_ok=True)
-    matplotlib.rcParams.update({'font.size': 16})
+    matplotlib.rcParams.update({'font.size': FONT_SIZE})
     grouped_means, grouped_stds, _ = create_dataframes(COLUMN_NAMES_AND_KEYS,
                                                        GROUPS, DERIVED_KEYS)
     means = grouped_means.reset_index()
@@ -128,7 +132,7 @@ def _main() -> None:
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
                 filename = filename.replace(" ", "_").lower()
                 outfile = os.path.join(outdir, filename)
-                plt.savefig(outfile, dpi=300)
+                plt.savefig(outfile, dpi=DPI)
                 print(f"Wrote out to {outfile}.")
 
 

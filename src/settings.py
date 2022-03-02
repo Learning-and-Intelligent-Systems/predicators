@@ -26,6 +26,10 @@ class GlobalSettings:
     max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
+    # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
+    pretty_print_when_loading = False
+    # Used for random seeding in test environment.
+    test_env_seed_offset = 10000
 
     # cover env parameters
     cover_num_blocks = 2
@@ -38,6 +42,10 @@ class GlobalSettings:
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
+    cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
+    cover_multistep_max_hr_placements = 100  # max placements of hand regions
+    cover_multistep_thr_percent = 0.5  # target hand region percent of width
+    cover_multistep_bhr_percent = 0.5  # block hand region percent of width
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
@@ -126,15 +134,19 @@ class GlobalSettings:
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
+    sampler_learning_use_goals = False
+    sampler_disable_classifier = False
 
     # iterative invention parameters
     iterative_invention_accept_score = 1 - 1e-3
     predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
+    interactive_num_ensemble_members = 10
     interactive_action_strategy = "glib"
     interactive_query_policy = "strict_best_seen"
     interactive_score_function = "frequency"
+    interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
 
@@ -167,6 +179,7 @@ class GlobalSettings:
     grammar_search_expected_nodes_backtracking_cost = 1e3
     grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
+    grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
     @staticmethod
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
