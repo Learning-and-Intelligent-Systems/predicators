@@ -96,6 +96,16 @@ class BaseEnv(abc.ABC):
             self._test_tasks = self._generate_test_tasks()
         return self._test_tasks
 
+    def get_task(self, train_or_test: str, task_idx: int) -> Task:
+        if train_or_test == "train":
+            tasks = self._train_tasks
+        elif train_or_test == "test":
+            tasks = self._test_tasks
+        else:
+            raise ValueError(f"Get_task called with invalid train_or_test:"
+                             f"{train_or_test}.")
+        return tasks[task_idx]
+
     def seed(self, seed: int) -> None:
         """Reset seed and rngs."""
         self._seed = seed
@@ -105,16 +115,12 @@ class BaseEnv(abc.ABC):
         self._test_rng = np.random.default_rng(self._seed +
                                                CFG.test_env_seed_offset)
 
-    def reset(self, train_or_test: str, test_task_idx: int) -> None:
+    def reset(self, train_or_test: str, task_idx: int) -> State:
         """Resets the current state to the train or test task initial state."""
-        if train_or_test == "train":
-            tasks = self._train_tasks
-        elif train_or_test == "test":
-            tasks = self._test_tasks
-        else:
-            raise ValueError(f"Reset called with invalid train_or_test:"
-                             f"{train_or_test}.")
-        self._current_state = tasks[test_task_idx].init
+        task = self.get_task(train_or_test, task_idx)
+        self._current_state = task.init
+        # Copy to prevent external changes to the environment's state.
+        return self._current_state.copy()
 
     def step(self, action: Action) -> State:
         """Apply the action, and update and return the current state.
@@ -122,7 +128,7 @@ class BaseEnv(abc.ABC):
         Note that this action is a low-level action (i.e., its array
         representation is a member of self.action_space), NOT an option.
 
-        By default, this funciton just calls self.simulate. However,
+        By default, this function just calls self.simulate. However,
         environments that maintain a more complicated internal state may
         override this method.
         """

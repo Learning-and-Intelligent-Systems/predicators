@@ -268,11 +268,12 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
 
 
 def run_policy_until(policy: Callable[[State], Action],
-                     simulator: Callable[[State, Action], State],
-                     init_state: State, termination_function: Callable[[State],
-                                                                       bool],
+                     env: BaseEnv,
+                     train_or_test: str,
+                     task_idx: int,
+                     termination_function: Callable[[State], bool],
                      max_num_steps: int) -> LowLevelTrajectory:
-    """Execute a policy from an initial state, using a simulator.
+    """Execute a policy on a train or test task.
 
     Terminates when any of these conditions hold:
     (1) the termination_function returns True,
@@ -280,13 +281,13 @@ def run_policy_until(policy: Callable[[State], Action],
 
     Returns a LowLevelTrajectory object.
     """
-    state = init_state
+    state = env.reset(train_or_test, task_idx)
     states = [state]
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
             act = policy(state)
-            state = simulator(state, act)
+            state = env.step(act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
@@ -297,11 +298,11 @@ def run_policy_until(policy: Callable[[State], Action],
 
 def run_policy_on_task(
     policy: Callable[[State], Action],
-    task: Task,
-    simulator: Callable[[State, Action], State],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
     max_num_steps: int,
-    render: Optional[Callable[[State, Task, Optional[Action]],
-                              List[Image]]] = None,
+    make_video: bool = False,
 ) -> Tuple[LowLevelTrajectory, Video, bool]:
     """A light wrapper around run_policy_until that takes in a task and uses
     achieving the task's goal as the termination_function.
@@ -313,14 +314,15 @@ def run_policy_on_task(
     def _goal_check(state: State) -> bool:
         return all(goal_atom.holds(state) for goal_atom in task.goal)
 
-    traj = run_policy_until(policy, simulator, task.init, _goal_check,
+    traj = run_policy_until(policy, env, train_or_test, task_idx, _goal_check,
                             max_num_steps)
     goal_reached = _goal_check(traj.states[-1])
     video: Video = []
-    if render is not None:  # step through the traj again, making the video
+    if make_video:  # step through the traj again, making the video
+        task = env.get_task(train_or_test, task_idx)
         for i, state in enumerate(traj.states):
             act = traj.actions[i] if i < len(traj.states) - 1 else None
-            video.extend(render(state, task, act))
+            video.extend(env.render(state, task, act))
     return traj, video, goal_reached
 
 

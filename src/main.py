@@ -132,7 +132,7 @@ def _run_pipeline(env: BaseEnv,
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env.simulate, teacher, train_tasks, interaction_requests)
+                env, teacher, train_tasks, interaction_requests)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
@@ -176,8 +176,8 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-    simulator: Callable[[State, Action], State], teacher: Teacher,
-    train_tasks: List[Task], requests: Sequence[InteractionRequest]
+    env: BaseEnv, teacher: Teacher, train_tasks: List[Task],
+    requests: Sequence[InteractionRequest]
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
@@ -186,11 +186,13 @@ def _generate_interaction_results(
     query_cost = 0.0
     for request in requests:
         # First, roll out the acting policy.
+        env.reset("train", request.train_task_idx)
         task = train_tasks[request.train_task_idx]
         traj = utils.run_policy_until(
             request.act_policy,
-            simulator,
-            task.init,
+            env,
+            "train",
+            request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request)
         # Now, go through the trajectory and handle queries.
@@ -230,7 +232,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                   f"solve with error: {e}")
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
-                    task, env.simulate, env.render,
+                    task, TODO, env.render,
                     e.info["partial_refinements"])
                 outfile = f"{video_prefix}__task{i+1}_failure.mp4"
                 utils.save_video(outfile, video)
@@ -238,8 +240,9 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         num_found_policy += 1
         try:
             _, video, solved = utils.run_policy_on_task(
-                policy, task, env.simulate, CFG.max_num_steps_check_policy,
-                env.render if CFG.make_videos else None)
+                policy, env, "test", i,
+                CFG.max_num_steps_check_policy,
+                make_video=CFG.make_videos)
         except utils.EnvironmentFailure as e:
             print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
                   f"with error: {e}")
