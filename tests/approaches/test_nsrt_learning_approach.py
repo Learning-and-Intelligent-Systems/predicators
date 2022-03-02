@@ -96,7 +96,11 @@ def test_neural_option_learning():
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="neural",
-                   check_solution=False)
+                   check_solution=False,
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                   })
 
 
 def test_oracle_samplers():

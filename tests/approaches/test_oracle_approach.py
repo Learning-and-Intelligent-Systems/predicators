@@ -231,6 +231,8 @@ def test_oracle_approach_cover_multistep_options():
         "cover_multistep_degenerate_oracle_samplers": False,
         "num_train_tasks": 2,
         "num_test_tasks": 2,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -259,6 +261,8 @@ def test_oracle_approach_cover_multistep_options():
         "sampler_learner": "neural",
         "num_train_tasks": 2,
         "num_test_tasks": 2,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -281,6 +285,8 @@ def test_oracle_approach_cover_multistep_options():
         "cover_multistep_degenerate_oracle_samplers": True,
         "num_train_tasks": 2,
         "num_test_tasks": 2,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -310,7 +316,9 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
         "env": "cover_multistep_options_fixed_tasks",
         "cover_multistep_use_learned_equivalents": True,
         "num_train_tasks": 2,
-        "num_test_tasks": 2
+        "num_test_tasks": 2,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptionsFixedTasks()
     env.seed(123)
