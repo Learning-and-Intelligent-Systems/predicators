@@ -530,8 +530,7 @@ def test_cover_multistep_options():
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
-    # Cover the case where a place is attempted outside of a hand region
-    # Check collision of held block with the floor.
+    # Cover the case where a place is attempted outside of a hand region.
     action_arrs = [
         np.array([0.05, 0., 0.], dtype=np.float32),
         np.array([0.05, 0., 0.], dtype=np.float32),
