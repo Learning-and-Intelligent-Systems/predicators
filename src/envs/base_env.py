@@ -97,6 +97,7 @@ class BaseEnv(abc.ABC):
         return self._test_tasks
 
     def get_task(self, train_or_test: str, task_idx: int) -> Task:
+        """Return the train or test task for the given index."""
         if train_or_test == "train":
             tasks = self._train_tasks
         elif train_or_test == "test":

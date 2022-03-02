@@ -343,6 +343,7 @@ def run_policy_on_task(
     Returns the trajectory and whether it achieves the task goal. Also
     optionally returns a video, if a render function is provided.
     """
+    task = env.get_task(train_or_test, task_idx)
 
     def _goal_check(state: State) -> bool:
         return all(goal_atom.holds(state) for goal_atom in task.goal)
@@ -352,7 +353,6 @@ def run_policy_on_task(
     goal_reached = _goal_check(traj.states[-1])
     video: Video = []
     if make_video:  # step through the traj again, making the video
-        task = env.get_task(train_or_test, task_idx)
         for i, state in enumerate(traj.states):
             act = traj.actions[i] if i < len(traj.states) - 1 else None
             video.extend(env.render(state, task, act))

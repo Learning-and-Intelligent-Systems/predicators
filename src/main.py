@@ -44,8 +44,8 @@ from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Metrics, Task, Dataset, State, Action, \
-    InteractionRequest, InteractionResult, Response, Query
+from predicators.src.structs import Metrics, Task, Dataset, State, Query, \
+    InteractionRequest, InteractionResult, Response
 from predicators.src import utils
 from predicators.src.teacher import Teacher
 
@@ -133,7 +133,7 @@ def _run_pipeline(env: BaseEnv,
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, train_tasks, interaction_requests)
+                env, teacher, interaction_requests)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
@@ -177,8 +177,7 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-    env: BaseEnv, teacher: Teacher, train_tasks: List[Task],
-    requests: Sequence[InteractionRequest]
+    env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest]
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
@@ -186,7 +185,6 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        task = train_tasks[request.train_task_idx]
         # While transitioning through the environment, when each state is
         # encountered, query the teacher and record the response.
         request_responses: List[Optional[Response]] = []
