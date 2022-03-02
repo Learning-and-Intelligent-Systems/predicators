@@ -18,8 +18,6 @@ def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         return create_demo_data(env, train_tasks)
     if CFG.offline_data_method == "demo+replay":
         return create_demo_replay_data(env, train_tasks)
-    if CFG.offline_data_method == "demo+nonoptimalreplay":
-        return create_demo_replay_data(env, train_tasks, nonoptimal_only=True)
     if CFG.offline_data_method == "demo+ground_atoms":
         base_dataset = create_demo_data(env, train_tasks)
         _, excluded_preds = utils.parse_config_excluded_predicates(env)
