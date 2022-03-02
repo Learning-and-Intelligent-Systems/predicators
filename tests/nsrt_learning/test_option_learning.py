@@ -150,6 +150,8 @@ def test_learned_neural_parameterized_option():
         "env": "cover_multistep_options",
         "option_learner": "neural",
         "mlp_regressor_max_itr": 10,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
     env = create_env("cover_multistep_options")
     nsrts = get_gt_nsrts(env.predicates, env.options)
