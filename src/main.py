@@ -211,8 +211,9 @@ def _generate_interaction_results(
 
         traj = utils.run_policy_until(
             policy,
-            simulator,
-            task.init,
+            env,
+            "train",
+            request.train_task_idx,
             request.termination_function,
             max_num_steps=CFG.max_num_steps_interaction_request)
 
@@ -221,7 +222,8 @@ def _generate_interaction_results(
         callback(traj.states[-1])
 
         # Finally, assemble the InteractionResult object.
-        result = InteractionResult(traj.states, traj.actions, responses)
+        result = InteractionResult(traj.states, traj.actions,
+                                   request_responses)
         results.append(result)
     return results, query_cost
 
