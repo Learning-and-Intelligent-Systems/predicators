@@ -221,7 +221,8 @@ def _generate_interaction_results(
         callback(traj.states[-1])
 
         # Finally, assemble the InteractionResult object.
-        result = InteractionResult(traj.states, traj.actions, responses)
+        result = InteractionResult(traj.states, traj.actions,
+                                   request_responses)
         results.append(result)
     return results, query_cost
 
