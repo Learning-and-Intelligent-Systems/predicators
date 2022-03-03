@@ -287,31 +287,31 @@ class LinearChainParameterizedOption(ParameterizedOption):
                          _initiable=self._initiable,
                          _terminal=self._terminal)
 
-    def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
+    def initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
         memory["current_child_index"] = 0
         current_child = self._children[0]
-        return current_child._initiable(state, memory, objects, params)  # TODO
+        return current_child.initiable(state, memory, objects, params)
 
-    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
+    def policy(self, state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         current_index = memory["current_child_index"]
         current_child = self._children[current_index]
-        if current_child._terminal(state, memory, objects, params):  # TODO
+        if current_child.terminal(state, memory, objects, params):
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child._initiable(state, memory, objects,
-                                            params)  # TODO
-        return current_child._initiable(state, memory, objects, params)  # TODO
+            assert current_child.initiable(state, memory, objects,
+                                            params)
+        return current_child.initiable(state, memory, objects, params)
 
-    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
+    def terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
         current_index = memory["current_child_index"]
         if current_index < len(self._children) - 1:
             return False
         current_child = self._children[current_index]
-        return current_child._terminal(state, memory, objects, params)  # TODO
+        return current_child.terminal(state, memory, objects, params)
 
 
 class Monitor(abc.ABC):

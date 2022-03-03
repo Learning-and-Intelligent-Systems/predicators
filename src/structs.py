@@ -414,19 +414,19 @@ class ParameterizedOption:
     # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    _policy: Callable[[State, Dict, Sequence[Object], Array],
+    policy: Callable[[State, Dict, Sequence[Object], Array],
                       Action] = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
     # parameters will be contained in params_space.
-    _initiable: Callable[[State, Dict, Sequence[Object], Array],
+    initiable: Callable[[State, Dict, Sequence[Object], Array],
                          bool] = field(repr=False)
     # A termination condition maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option should
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
-    _terminal: Callable[[State, Dict, Sequence[Object], Array],
+    terminal: Callable[[State, Dict, Sequence[Object], Array],
                         bool] = field(repr=False)
 
     @cached_property
@@ -458,9 +458,9 @@ class ParameterizedOption:
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name,
-            lambda s: self._policy(s, memory, objects, params),
-            initiable=lambda s: self._initiable(s, memory, objects, params),
-            terminal=lambda s: self._terminal(s, memory, objects, params),
+            lambda s: self.policy(s, memory, objects, params),
+            initiable=lambda s: self.initiable(s, memory, objects, params),
+            terminal=lambda s: self.terminal(s, memory, objects, params),
             parent=self,
             objects=objects,
             params=params,
