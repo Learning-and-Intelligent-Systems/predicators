@@ -1,6 +1,7 @@
 """A PyBullet version of Blocks."""
 
 from typing import Sequence, Dict
+from gym.spaces import Box
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.structs import Object
@@ -107,3 +108,11 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # Blocks are created at reset.
         self._block_ids: Dict[Object, int] = {}
+
+        # When a block is held, a constraint is created to prevent slippage.
+        self._held_constraint_id: Optional[int] = None
+
+    @property
+    def action_space(self) -> Box:
+        # dimensions: [dx, dy, dz, fingers]
+        return Box(low=-1, high=1, shape=(4,), dtype=np.float32)
