@@ -1,12 +1,12 @@
 """Test cases for the base environment class."""
 
 import pytest
-from predicators.src.envs import BaseEnv, create_env, get_cached_env_instance
+from predicators.src.envs import BaseEnv, create_env, get_or_create_env
 from predicators.src import utils
 
 
 def test_create_env():
-    """Tests for create_env() and get_cached_env_instance()."""
+    """Tests for create_env() and get_or_create_env()."""
     utils.reset_config()
     for name in [
             "cover",
@@ -24,7 +24,7 @@ def test_create_env():
     ]:
         env = create_env(name)
         assert isinstance(env, BaseEnv)
-        other_env = get_cached_env_instance(name)
+        other_env = get_or_create_env(name)
         assert env is other_env
         train_tasks = env.get_train_tasks()
         for idx, train_task in enumerate(train_tasks):

@@ -76,8 +76,9 @@ def create_env(name: str) -> BaseEnv:
     return env
 
 
-def get_cached_env_instance(name: str) -> BaseEnv:
-    """Get the most recent cached env instance (env must have been previously
-    created with create_env() to exist in the cache)."""
-    assert name in _MOST_RECENT_ENV_INSTANCE
+def get_or_create_env(name: str) -> BaseEnv:
+    """Get the most recent cached env instance, or create one with
+    create_env() if it doesn't already exist."""
+    if name not in _MOST_RECENT_ENV_INSTANCE:
+        _MOST_RECENT_ENV_INSTANCE[name] = create_env(name)
     return _MOST_RECENT_ENV_INSTANCE[name]
