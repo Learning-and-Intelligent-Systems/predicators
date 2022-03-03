@@ -41,6 +41,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         (0.95, 0.05, 0.95, 1.),
         (0.05, 0.95, 0.95, 1.),
     ]
+    _out_of_view_xy: Sequence[float] = [10.0, 10.0]
 
     # Camera parameters.
     _camera_distance: float = 1.5
@@ -165,9 +166,29 @@ class PyBulletBlocksEnv(BlocksEnv):
         for _ in range(10):
             self.step(up_action)
 
-        # Reset blocks.
-        import ipdb
-        ipdb.set_trace()
+        # Reset block positions based on the state.
+        block_objs = list(o for o in state if o.type == self._block_type)
+        for i, block_obj in enumerate(block_objs):
+            block_id = self._block_ids[i]
+            x, y, z, held = state[block_obj]
+            assert held < 1.0  # not holding in the initial state
+            p.resetBasePositionAndOrientation(
+                block_id, [x, y, z],
+                self._block_orientation,
+                physicsClientId=self._physics_client_id)
+
+        # For any blocks not involved, put them out of view.
+        h = 2 * self._block_half_extents[2]
+        oov_x, oov_y = self._out_of_view_xy
+        for i in range(len(block_objs), len(self._block_ids)):
+            block_id = self._block_ids[i]
+            p.resetBasePositionAndOrientation(
+                block_id, [oov_x, oov_y, i * h],
+                self._block_orientation,
+                physicsClientId=self._physics_client_id)
+
+        while True:
+            p.stepSimulation(physicsClientId=self._physics_client_id)
 
         return state
 
