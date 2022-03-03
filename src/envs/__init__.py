@@ -72,7 +72,7 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
     else:
         raise NotImplementedError(f"Unknown env: {name}")
     if do_cache:
-        assert CFG.allow_env_caching, "CFG.do_env_caching is off!"
+        assert CFG.allow_env_caching, "CFG.allow_env_caching is off!"
         _MOST_RECENT_ENV_INSTANCE[name] = env
     return env
 
@@ -87,5 +87,7 @@ def get_cached_env(name: str) -> BaseEnv:
     """
     if not CFG.allow_env_caching:
         return create_new_env(name)
-    assert name in _MOST_RECENT_ENV_INSTANCE, f"env {name} not created"
+    assert name in _MOST_RECENT_ENV_INSTANCE, \
+        (f"CFG.allow_env_caching is on, but {name} is not in the cache. "
+         "If you're doing unit testing, you should turn this setting off.")
     return _MOST_RECENT_ENV_INSTANCE[name]
