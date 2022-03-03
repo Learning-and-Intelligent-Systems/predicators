@@ -23,7 +23,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _ee_initial_position: Sequence[float] = [1., 0.7, 0.5]
 
     # Table parameters.
-    _table_position: Sequence[float] = [1.65, 0.75, 0.0]
+    _table_position: Sequence[float] = [1.35, 0.75, 0.0]
     _table_orientation: Sequence[float] = [0., 0., 0., 1.]
 
     # Block parameters.
@@ -117,19 +117,21 @@ class PyBulletBlocksEnv(BlocksEnv):
         p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                            [self.x_ub, self.y_lb, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=1.0)
+                           lineWidth=2.0)
         p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
                            [self.x_ub, self.y_ub, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=1.0)
+                           lineWidth=2.0)
         p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                            [self.x_lb, self.y_ub, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=1.0)
+                           lineWidth=2.0)
         p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
                            [self.x_ub, self.y_ub, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=1.0)
+                           lineWidth=2.0)
+
+        # TODO draw a coordinate frame for reference.
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
@@ -145,8 +147,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # Create blocks. Note that we create the maximum number once, and then
         # remove blocks from view based on the number involved in the state.
-        num_blocks = max(max(self.num_blocks_train),
-                         max(self.num_blocks_test))
+        num_blocks = max(max(self.num_blocks_train), max(self.num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
 
         # When a block is held, a constraint is created to prevent slippage.

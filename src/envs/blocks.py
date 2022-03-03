@@ -24,9 +24,9 @@ class BlocksEnv(BaseEnv):
     # Parameters that aren't important enough to need to clog up settings.py
     table_height = 0.2
     block_size = 0.075
-    # The table x bounds are (1.15, 2.15), but the workspace is smaller.
-    x_lb = 1.3
-    x_ub = 2.0
+    # The table x bounds are (1.1, 1.6), but the workspace is smaller.
+    x_lb = 1.15
+    x_ub = 1.55
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb = 0.4
     y_ub = 1.1
