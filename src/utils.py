@@ -275,7 +275,7 @@ class Monitor(abc.ABC):
     def observe(self, state: State, action: Optional[Action]) -> None:
         """Record a state and the action that is about to be taken.
 
-        On the last time step of a trajectory, no action is taken, so
+        On the last timestep of a trajectory, no action is taken, so
         action is None.
         """
         raise NotImplementedError("Override me!")
