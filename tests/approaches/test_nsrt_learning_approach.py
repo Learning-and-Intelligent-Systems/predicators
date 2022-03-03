@@ -135,20 +135,6 @@ def test_oracle_samplers():
     assert "no match for ground truth NSRT" in str(e)
 
 
-def test_iterative_invention_approach():
-    """Tests for IterativeInventionApproach class."""
-    _test_approach(env_name="cover",
-                   approach_name="iterative_invention",
-                   excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
-    _test_approach(env_name="blocks",
-                   approach_name="iterative_invention",
-                   excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
-
-
 def test_grammar_search_invention_approach():
     """Tests for GrammarSearchInventionApproach class.
 
