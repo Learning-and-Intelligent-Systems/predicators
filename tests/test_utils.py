@@ -335,7 +335,7 @@ def test_option_plan_to_policy():
         policy(state)
 
 
-def action_arrs_to_policy():
+def test_action_arrs_to_policy():
     """Tests for action_arrs_to_policy()."""
     action_arrs = [
         np.zeros(2, dtype=np.float32),
