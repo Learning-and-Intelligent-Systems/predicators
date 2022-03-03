@@ -117,21 +117,24 @@ class PyBulletBlocksEnv(BlocksEnv):
         p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                            [self.x_ub, self.y_lb, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=2.0)
+                           lineWidth=5.0)
         p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
                            [self.x_ub, self.y_ub, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=2.0)
+                           lineWidth=5.0)
         p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                            [self.x_lb, self.y_ub, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=2.0)
+                           lineWidth=5.0)
         p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
                            [self.x_ub, self.y_ub, self.table_height],
                            [1.0, 0.0, 0.0],
-                           lineWidth=2.0)
+                           lineWidth=5.0)
 
-        # TODO draw a coordinate frame for reference.
+        # Draw coordinate frame labels for reference.
+        p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0])
+        p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0])
+        p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0])
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
