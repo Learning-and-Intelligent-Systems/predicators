@@ -6,7 +6,7 @@ from typing import cast
 from predicators.src import utils
 from predicators.src.structs import State, _Option
 from predicators.src.settings import CFG
-from predicators.src.envs import create_env, get_cached_env_instance
+from predicators.src.envs import get_cached_env
 from predicators.src.envs.behavior import BehaviorEnv
 
 
@@ -40,7 +40,7 @@ class _OracleOptionModel(_OptionModelBase):
 
     def __init__(self, env_name: str) -> None:
         super().__init__()
-        env = create_env(env_name)
+        env = get_cached_env(env_name)
         self._simulator = env.simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:
@@ -60,7 +60,7 @@ class _BehaviorOptionModel(_OptionModelBase):
 
     def get_next_state(self, state: State,
                        option: _Option) -> State:  # pragma: no cover
-        env_base = get_cached_env_instance("behavior")
+        env_base = get_cached_env("behavior")
         env = cast(BehaviorEnv, env_base)
         assert option.memory.get("model_controller") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)
