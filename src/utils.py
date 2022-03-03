@@ -305,29 +305,29 @@ class LinearChainParameterizedOption(ParameterizedOption):
         super().__init__(name,
                          types,
                          params_space,
-                         _policy=self._policy,
-                         _initiable=self._initiable,
-                         _terminal=self._terminal)
+                         policy=self._policy,
+                         initiable=self._initiable,
+                         terminal=self._terminal)
 
     def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
         # Reset the current child to the first one.
         memory["current_child_index"] = 0
         current_child = self._children[0]
-        return current_child._initiable(state, memory, objects, params)
+        return current_child.initiable(state, memory, objects, params)
 
     def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         # Check if the current child has terminated.
         current_index = memory["current_child_index"]
         current_child = self._children[current_index]
-        if current_child._terminal(state, memory, objects, params):
+        if current_child.terminal(state, memory, objects, params):
             # Move on to the next child.
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child._initiable(state, memory, objects, params)
-        return current_child._policy(state, memory, objects, params)
+            assert current_child.initiable(state, memory, objects, params)
+        return current_child.policy(state, memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
@@ -336,7 +336,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
         if current_index < len(self._children) - 1:
             return False
         current_child = self._children[current_index]
-        return current_child._terminal(state, memory, objects, params)
+        return current_child.terminal(state, memory, objects, params)
 
 
 class Monitor(abc.ABC):
