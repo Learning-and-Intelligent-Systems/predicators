@@ -392,6 +392,19 @@ def option_plan_to_policy(
     return _policy
 
 
+def action_arrs_to_policy(
+        action_arrs: Sequence[Array]) -> Callable[[State], Action]:
+    """Create a policy that executes action arrays in sequence."""
+
+    queue = list(action_arrs)  # don't modify original, just in case
+
+    def _policy(s: State) -> Action:
+        del s  # unused
+        return Action(queue.pop(0))
+
+    return _policy
+
+
 @functools.lru_cache(maxsize=None)
 def get_all_groundings(
     atoms: FrozenSet[LiftedAtom], objects: FrozenSet[Object]
@@ -1282,6 +1295,7 @@ def create_video_from_partial_refinements(
     max_num_steps: int,
 ) -> Video:
     """Create a video from a list of skeletons and partial refinements.
+
     Note that the environment internal state is updated.
     """
     # Right now, the video is created by finding the longest partial

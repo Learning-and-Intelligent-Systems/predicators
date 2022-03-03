@@ -300,10 +300,10 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.igibson_behavior_env.action_space.high == 1)
         return self.igibson_behavior_env.action_space
 
-    def _render_state(self,
-                      state: State,
-                      task: Task,
-                      action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 

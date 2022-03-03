@@ -56,7 +56,7 @@ def test_painting():
         assert lid is not None
         if i < 3:
             # Test rendering
-            env.render(state, task)
+            env.render_state(state, task)
 
 
 def test_painting_failure_cases():
@@ -147,7 +147,7 @@ def test_painting_failure_cases():
     # Change the state
     state = next_state
     # Render with holding
-    env.render(state, task)
+    env.render_state(state, task)
     # Cannot pick twice in a row
     act = Pick.ground([robot, obj1], np.array([0, 0, 0, 0],
                                               dtype=np.float32)).policy(state)
@@ -176,7 +176,7 @@ def test_painting_failure_cases():
     assert state.allclose(next_state)
     # Render with a forced color of an object
     state.set(obj0, "color", 0.6)
-    env.render(state, task)
+    env.render_state(state, task)
     # Cannot place in box because lid is closed
     assert state[lid].item() == 0.0
     act = Place.ground(

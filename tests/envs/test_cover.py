@@ -6,7 +6,7 @@ from gym.spaces import Box
 from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
     CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
     CoverEnvRegrasp
-from predicators.src.structs import State, Action, Task
+from predicators.src.structs import Action, Task
 from predicators.src import utils
 
 
@@ -57,7 +57,7 @@ def test_cover():
     ]
     plan = []
     state = task.init
-    env._render_state(state, task)  # pylint:disable=protected-access
+    env.render_state(state, task)
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [
         state[block0][3], state[target0][3], state[block1][3],
@@ -151,7 +151,7 @@ def test_cover_typed_options():
     ]
     plan = []
     state = task.init
-    env._render_state(state, task)  # pylint:disable=protected-access
+    env.render_state(state, task)
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [
         state[block0][3], state[target0][3], state[block1][3],
@@ -315,9 +315,7 @@ def test_cover_multistep_options():
         np.array([0., 0., -0.1], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
+    policy = utils.action_arrs_to_policy(action_arrs)
 
     # Here's an example of how to make a video within this test.
     # env.reset("train", 0)
@@ -339,9 +337,9 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     state = traj.states[0]
-    env._render_state(state, task)  # pylint:disable=protected-access
+    env.render_state(state, task)
     # Render a state where we're grasping
-    env._render_state(traj.states[20], task)  # pylint:disable=protected-access
+    env.render_state(traj.states[20], task)
     Covers = [p for p in env.predicates if p.name == "Covers"][0]
     init_atoms = utils.abstract(state, env.predicates)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
@@ -392,10 +390,7 @@ def test_cover_multistep_options():
         np.array([0., -0.06, 0.0], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
@@ -419,10 +414,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
@@ -464,10 +456,7 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0.1], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
@@ -508,10 +497,7 @@ def test_cover_multistep_options():
         np.array([0.1, 0.1, 0.1], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
@@ -552,10 +538,7 @@ def test_cover_multistep_options():
         np.array([0., -0.07, 0.1], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
@@ -597,10 +580,7 @@ def test_cover_multistep_options():
         np.array([0., 0.1, 0.], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
@@ -671,10 +651,7 @@ def test_cover_multistep_options():
         np.array([0., -0.01, -0.1], dtype=np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,

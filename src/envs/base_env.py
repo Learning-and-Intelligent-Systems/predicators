@@ -78,17 +78,25 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def _render_state(self,
-                      state: State,
-                      task: Task,
-                      action: Optional[Action] = None) -> List[Image]:
-        """Render a state and action into a list of images."""
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
+        """Render a state and action into a list of images.
+
+        Like simulate, this function is not meant to be part of the
+        "final system", where the environment is the real world. It is
+        just for convenience, e.g., in test coverage.
+        """
         raise NotImplementedError("Override me!")
 
     def render(self, action: Optional[Action] = None) -> List[Image]:
-        """Render the current state and action into a list of images."""
-        return self._render_state(self._current_state, self._current_task,
-                                  action)
+        """Render the current state and action into a list of images.
+
+        By default, calls render_state, but subclasses may override.
+        """
+        return self.render_state(self._current_state, self._current_task,
+                                 action)
 
     def get_train_tasks(self) -> List[Task]:
         """Return the ordered list of tasks for training."""

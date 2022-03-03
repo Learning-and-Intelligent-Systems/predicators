@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
-from predicators.src.structs import Action, State
+from predicators.src.structs import Action
 
 
 def test_playroom():
@@ -375,6 +375,7 @@ def test_playroom_options():
     assert plan[0].initiable(state)
     # Here's an example of how to make a video within this test.
     # monitor = utils.VideoMonitor(env.render)
+    # env.reset("train", 0)
     # traj = utils.run_policy_with_simulator(policy,
     #                                        env.simulate,
     #                                        task.init,
@@ -437,17 +438,14 @@ def test_playroom_action_sequence_video():
         np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32),
     ]
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
-
+    policy = utils.action_arrs_to_policy(action_arrs)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
                                            task.goal_holds,
-                                           max_num_steps=len(plan))
+                                           max_num_steps=len(action_arrs))
 
     # Render a state where we're grasping
-    env.render(traj.states[1], task)
+    env.render_state(traj.states[1], task)
     # Render end state with open and closed doors
-    env.render(traj.states[-1], task)
+    env.render_state(traj.states[-1], task)
