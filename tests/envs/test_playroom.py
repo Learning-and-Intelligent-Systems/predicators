@@ -373,7 +373,7 @@ def test_playroom_options():
         TurnOnDial.ground([robot, dial], [-0.2, 0.0, 0.0, 0.0])
     ]
     assert plan[0].initiable(state)
-    
+
     policy = utils.option_plan_to_policy(plan)
 
     # Here's an example of how to make a video within this test.

@@ -317,7 +317,7 @@ def test_cover_multistep_options():
 
     policy = utils.action_arrs_to_policy(action_arrs)
 
-    # # Here's an example of how to make a video within this test.
+    # Here's an example of how to make a video within this test.
     # monitor = utils.SimulateVideoMonitor(task, env.render_state)
     # traj = utils.run_policy_with_simulator(policy,
     #                                        env.simulate,
