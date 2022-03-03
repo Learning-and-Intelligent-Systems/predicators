@@ -14,7 +14,7 @@ GROUPS = [
     # "EXCLUDED_PREDICATES",
     "EXPERIMENT_ID",
     # "NUM_TRAIN_TASKS",
-    # "CYCLE"
+    "CYCLE"
 ]
 
 COLUMN_NAMES_AND_KEYS = [
@@ -26,9 +26,11 @@ COLUMN_NAMES_AND_KEYS = [
     ("NUM_TRAIN_TASKS", "num_train_tasks"),
     ("CYCLE", "cycle"),
     ("NUM_SOLVED", "num_solved"),
+    ("NUM_TRANSITIONS", "num_transitions"),
+    ("CUM_QUERY_COST", "cumulative_query_cost"),
     ("AVG_NUM_PREDS", "avg_num_preds"),
     ("AVG_TEST_TIME", "avg_suc_time"),
-    ("AVG_NODES_CREATED", "avg_num_nodes_created"),
+    # ("AVG_NODES_CREATED", "avg_num_nodes_created"),
     ("LEARNING_TIME", "learning_time"),
     # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
     # ("MIN_SKELETONS", "min_skeletons_optimized"),
@@ -38,8 +40,6 @@ COLUMN_NAMES_AND_KEYS = [
     # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
     # ("AVG_PLAN_LEN", "avg_plan_length"),
     # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
-    # ("NUM_TRANSITIONS", "num_transitions"),
-    # ("CUM_QUERY_COST", "cumulative_query_cost"),
 ]
 
 
@@ -150,7 +150,7 @@ def _main() -> None:
     pd.set_option("expand_frame_repr", False)
     print("\n\nAGGREGATED DATA OVER SEEDS:")
     print(means)
-    means.to_csv("supercloud_analysis.csv")
+    means.to_csv("analysis/results/supercloud_analysis.csv")
     print("\n\nWrote out table to supercloud_analysis.csv")
 
 

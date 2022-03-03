@@ -15,28 +15,31 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 # Details about the plt figure.
 DPI = 500
-FONT_SIZE = 18
+FONT_SIZE = 12
 
 # Groups over which to take mean/std.
 GROUPS = [
-    "ENV", "APPROACH", "EXCLUDED_PREDICATES", "EXPERIMENT_ID",
-    "NUM_TRAIN_TASKS", "CYCLE"
+    # "ENV", "APPROACH", "EXCLUDED_PREDICATES",
+    "EXPERIMENT_ID",
+    # "NUM_TRAIN_TASKS",
+    # "CYCLE",
+    "NUM_TRANSITIONS",
 ]
 
 # All column names and keys to load into the pandas tables before plotting.
 COLUMN_NAMES_AND_KEYS = [
-    ("ENV", "env"),
-    ("APPROACH", "approach"),
-    ("EXCLUDED_PREDICATES", "excluded_predicates"),
+    # ("ENV", "env"),
+    # ("APPROACH", "approach"),
+    # ("EXCLUDED_PREDICATES", "excluded_predicates"),
     ("EXPERIMENT_ID", "experiment_id"),
     ("SEED", "seed"),
-    ("NUM_TRAIN_TASKS", "num_train_tasks"),
-    ("CYCLE", "cycle"),
+    # ("NUM_TRAIN_TASKS", "num_train_tasks"),
+    # ("CYCLE", "cycle"),
     ("NUM_SOLVED", "num_solved"),
-    ("AVG_NUM_PREDS", "avg_num_preds"),
-    ("AVG_TEST_TIME", "avg_suc_time"),
-    ("AVG_NODES_CREATED", "avg_num_nodes_created"),
-    ("LEARNING_TIME", "learning_time"),
+    # ("AVG_NUM_PREDS", "avg_num_preds"),
+    # ("AVG_TEST_TIME", "avg_suc_time"),
+    # ("AVG_NODES_CREATED", "avg_num_nodes_created"),
+    # ("LEARNING_TIME", "learning_time"),
     ("PERC_SOLVED", "perc_solved"),
     # ("AVG_SKELETONS", "avg_num_skeletons_optimized"),
     # ("MIN_SKELETONS", "min_skeletons_optimized"),
@@ -46,7 +49,8 @@ COLUMN_NAMES_AND_KEYS = [
     # ("AVG_DISCOVERED_FAILURES", "avg_num_failures_discovered"),
     # ("AVG_PLAN_LEN", "avg_plan_length"),
     # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
-    # ("NUM_TRANSITIONS", "num_transitions"),
+    ("NUM_TRANSITIONS", "num_transitions"),
+    ("CUM_QUERY_COST", "cumulative_query_cost"),
 ]
 
 DERIVED_KEYS = [("perc_solved",
@@ -56,14 +60,15 @@ DERIVED_KEYS = [("perc_solved",
 # x axis. See COLUMN_NAMES_AND_KEYS for all available metrics. The second
 # element is used to label the x axis.
 X_KEY_AND_LABEL = [
-    ("NUM_TRAIN_TASKS", "Number of Training Tasks"),
-    # ("NUM_TRANSITIONS", "Num transitions"),
+    # ("NUM_TRAIN_TASKS", "Number of Training Tasks"),
+    ("NUM_TRANSITIONS", "Number of Transitions"),
     # ("LEARNING_TIME", "Learning time in seconds"),
 ]
 
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
+    ("CUM_QUERY_COST", "Cumulative Query Cost"),
     # ("AVG_NODES_CREATED", "Averaged nodes created"),
 ]
 
@@ -72,21 +77,66 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "Learning from Few Demonstrations": [
-        ("PickPlace1D", "o",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "cover_main_" in v)),
-        ("Blocks", ".",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "blocks_main_" in v)),
-        ("Painting", "*",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "painting_main_" in v)
-         ),
-        ("Tools", "s",
-         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "tools_main_" in v)),
+    "CoverEnv (Excluding Covers,Holding)": [
+        ("Section Kid", "o",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_section_kid" in v)),
+        ("Entropy 0.1", ".",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_entropy_0.1" in v)),
+        ("Entropy 0.2", ".",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_entropy_0.2" in v)),
+        ("Entropy 0.3", ".",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_entropy_0.3" in v)),
+        ("BALD 0.01", "*",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_BALD_0.01" in v)),
+        ("BALD 0.02", "*",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_BALD_0.02" in v)),
+        ("BALD 0.03", "*",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_BALD_0.03" in v)),
+        ("BALD 0.04", "*",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_BALD_0.04" in v)),
+        ("BALD 0.05", "*",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_BALD_0.05" in v)),
+        ("Silent Kid", "s",
+         lambda df: df["EXPERIMENT_ID"].apply(lambda v: "excludeall_silent_kid" in v)),
     ],
+    # "BALD experiments": [
+    #     ("Section Kid", "o",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "entropy_0.0" in v)),
+    #     ("BALD 0.01", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.01" in v)),
+    #     ("BALD 0.02", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.02" in v)),
+    #     ("BALD 0.03", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.03" in v)),
+    #     ("BALD 0.04", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.04" in v)),
+    #     ("BALD 0.05", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.05" in v)),
+    #     ("BALD 0.06", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.06" in v)),
+    #     ("BALD 0.07", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.07" in v)),
+    #     ("BALD 0.08", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.08" in v)),
+    #     ("BALD 0.09", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.09" in v)),
+    #     ("BALD 0.10", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.10" in v)),
+    # ],
+    # "Score Function Comparison": [
+    #     ("Section Kid", "o",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "entropy_0.0" in v)),
+    #     ("Entropy 0.1", ".",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "entropy_0.1" in v)),
+    #     ("BALD 0.01", "*",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "BALD_0.01" in v)),
+    #     ("Silent Kid", "s",
+    #      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "silent_kid" in v)),
+    # ]
 }
 
 # If True, add (0, 0) to every plot
-ADD_ZERO_POINT = True
+ADD_ZERO_POINT = False
 
 #################### Should not need to change below here #####################
 
