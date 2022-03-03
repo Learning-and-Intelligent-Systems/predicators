@@ -317,16 +317,14 @@ def test_cover_multistep_options():
 
     policy = utils.action_arrs_to_policy(action_arrs)
 
-    # Here's an example of how to make a video within this test.
-    # env.reset("train", 0)
-    # monitor = utils.VideoMonitor(env.render)
+    # # Here's an example of how to make a video within this test.
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
     # traj = utils.run_policy_with_simulator(policy,
     #                                        env.simulate,
     #                                        task.init,
     #                                        lambda _: False,
     #                                        max_num_steps=len(action_arrs),
     #                                        monitor=monitor)
-    # Uncomment to save the video.
     # video = monitor.get_video()
     # outfile = "hardcoded_actions_com.mp4"
     # utils.save_video(outfile, video)

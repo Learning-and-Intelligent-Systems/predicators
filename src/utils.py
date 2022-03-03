@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+import abc
 import argparse
 import functools
 import gc
@@ -25,7 +26,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
     GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
     Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
-    GroundNSRTOrSTRIPSOperator, ParameterizedOption, Monitor
+    GroundNSRTOrSTRIPSOperator, ParameterizedOption
 from predicators.src.settings import CFG, GlobalSettings
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -265,6 +266,19 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
                                   _classifier=lambda s, o: False)  # dummy
         new_atoms.add(atom.__class__(new_predicate, atom.entities))
     return new_atoms
+
+
+class Monitor(abc.ABC):
+    """Observes states and actions during environment interaction."""
+
+    @abc.abstractmethod
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        """Record a state and the action that is about to be taken.
+
+        On the last time step of a trajectory, no action is taken, so
+        action is None.
+        """
+        raise NotImplementedError("Override me!")
 
 
 def run_policy(policy: Callable[[State], Action],
@@ -1272,14 +1286,30 @@ class VideoMonitor(Monitor):
     render.
     """
     _render_fn: Callable[[Optional[Action]], List[Image]]
-    _video: Video = field(init=False)
-
-    def __post_init__(self) -> None:
-        self._video = []
+    _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         del state  # unused
         self._video.extend(self._render_fn(action))
+
+    def get_video(self) -> Video:
+        """Return the video."""
+        return self._video
+
+
+@dataclass
+class SimulateVideoMonitor(Monitor):
+    """A monitor that calls render_state on each state and action seen.
+
+    This monitor is meant for use with run_policy_with_simulator, as
+    opposed to VideoMonitor, which is meant for use with run_policy.
+    """
+    _task: Task
+    _render_state_fn: Callable[[State, Task, Optional[Action]], List[Image]]
+    _video: Video = field(init=False, default_factory=list)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        self._video.extend(self._render_state_fn(state, self._task, action))
 
     def get_video(self) -> Video:
         """Return the video."""

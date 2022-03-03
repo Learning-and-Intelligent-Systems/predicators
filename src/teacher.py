@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Sequence, List, Optional
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
-    DemonstrationResponse, LowLevelTrajectory, Monitor, InteractionRequest, \
+    DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
     Action
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import create_env
@@ -77,15 +77,14 @@ class Teacher:
 
 
 @dataclass
-class TeacherInteractionMonitor(Monitor):
-    """Wraps the interaction between agent and teacher."""
+class TeacherInteractionMonitor(utils.Monitor):
+    """Wraps the interaction between agent and teacher to include generating
+    and answering queries."""
     _request: InteractionRequest
     _teacher: Teacher
-    _responses: List[Optional[Response]] = field(init=False)
+    _responses: List[Optional[Response]] = field(init=False,
+                                                 default_factory=list)
     _query_cost: float = field(init=False, default=0.0)
-
-    def __post_init__(self) -> None:
-        self._responses = []
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         del action  # unused
