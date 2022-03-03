@@ -2,13 +2,13 @@
 
 import os
 import time
-from typing import Iterator, Tuple, Type as TypingType
+from typing import Iterator, Tuple, Optional, Type as TypingType
 import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory
+    LowLevelTrajectory, Monitor
 from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
     _get_predicates_by_names
 from predicators.src.envs import CoverEnv
@@ -258,6 +258,22 @@ def test_run_policy_with_simulator():
                                            state,
                                            _terminal,
                                            max_num_steps=5)
+    assert len(traj.states) == 4
+    assert len(traj.actions) == 3
+
+    # Test with monitor.
+    class _NullMonitor(Monitor):
+
+        def observe(self, state: State, action: Optional[Action]) -> None:
+            pass
+
+    monitor = _NullMonitor()
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           monitor=monitor)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
 
