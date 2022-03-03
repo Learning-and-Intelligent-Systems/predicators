@@ -20,7 +20,6 @@ def test_demo_dataset():
         "offline_data_planning_timeout": 500,
         "option_learner": "arbitrary_dummy",
         "num_train_tasks": 7,
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -40,7 +39,6 @@ def test_demo_dataset():
         "offline_data_planning_timeout": 500,
         "option_learner": "no_learning",
         "num_train_tasks": 7,
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -60,7 +58,6 @@ def test_demo_dataset():
         "offline_data_method": "demo",
         "num_train_tasks": 7,
         "max_initial_demos": 3,
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -94,7 +91,6 @@ def test_demo_replay_dataset():
         "offline_data_num_replays": 3,
         "option_learner": "no_learning",
         "num_train_tasks": 5,
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -118,7 +114,6 @@ def test_demo_replay_dataset():
         "offline_data_num_replays": 3,
         "option_learner": "arbitrary_dummy",
         "num_train_tasks": 5,
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -140,7 +135,6 @@ def test_demo_replay_dataset():
         "offline_data_planning_timeout": 500,
         "offline_data_num_replays": 10,
         "num_train_tasks": 5,
-        "allow_env_caching": False,
     })
     env = ClutteredTableEnv()
     train_tasks = env.get_train_tasks()
@@ -159,7 +153,6 @@ def test_dataset_with_annotations():
         "offline_data_num_replays": 3,
         "option_learner": "no_learning",
         "num_train_tasks": 5,
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -187,7 +180,6 @@ def test_ground_atom_dataset():
         "offline_data_method": "demo+ground_atoms",
         "teacher_dataset_num_examples": 1,
         "excluded_predicates": "Holding,Covers",
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -237,7 +229,6 @@ def test_ground_atom_dataset():
         "offline_data_method": "demo+ground_atoms",
         "teacher_dataset_num_examples": 100,
         "excluded_predicates": "Holding,Covers",
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -250,7 +241,6 @@ def test_empty_dataset():
     utils.reset_config({
         "env": "cover",
         "offline_data_method": "empty",
-        "allow_env_caching": False,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()

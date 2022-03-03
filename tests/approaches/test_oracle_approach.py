@@ -30,8 +30,7 @@ def test_cover_get_gt_nsrts():
     utils.reset_config({
         "env": "cover",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     # All predicates and options
     env = CoverEnv()
@@ -111,10 +110,10 @@ def test_check_nsrt_parameters():
         "tools": ToolsEnv(),
         "playroom": PlayroomEnv(),
         "cover_multistep_options": CoverMultistepOptions(),
-        "repeated_nextto": RepeatedNextToEnv(),
+        "repeated_nextto": RepeatedNextToEnv()
     }
     for name, env in envs.items():
-        utils.reset_config({"env": name, "allow_env_caching": False})
+        utils.reset_config({"env": name})
         nsrts = get_gt_nsrts(env.predicates, env.options)
         _check_nsrt_parameters(nsrts)
 
@@ -124,8 +123,7 @@ def test_oracle_approach_cover():
     utils.reset_config({
         "env": "cover",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = CoverEnv()
     env.seed(123)
@@ -154,8 +152,7 @@ def test_oracle_approach_cover_typed_options():
     utils.reset_config({
         "env": "cover_typed_options",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = CoverEnvTypedOptions()
     env.seed(123)
@@ -184,8 +181,7 @@ def test_oracle_approach_cover_hierarchical_types():
     utils.reset_config({
         "env": "cover_hierarchical_types",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = CoverEnvHierarchicalTypes()
     env.seed(123)
@@ -215,7 +211,6 @@ def test_oracle_approach_cover_regrasp():
         "env": "cover_regrasp",
         "num_train_tasks": 2,
         "num_test_tasks": 2,
-        "allow_env_caching": False,
     })
     env = CoverEnvRegrasp()
     env.seed(123)
@@ -249,7 +244,6 @@ def test_oracle_approach_cover_multistep_options():
         "num_test_tasks": 2,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
-        "allow_env_caching": False,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -280,7 +274,6 @@ def test_oracle_approach_cover_multistep_options():
         "num_test_tasks": 2,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
-        "allow_env_caching": False,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -305,7 +298,6 @@ def test_oracle_approach_cover_multistep_options():
         "num_test_tasks": 2,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
-        "allow_env_caching": False,
     })
     env = CoverMultistepOptions()
     env.seed(123)
@@ -338,7 +330,6 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
         "num_test_tasks": 2,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
-        "allow_env_caching": False,
     })
     env = CoverMultistepOptionsFixedTasks()
     env.seed(123)
@@ -370,8 +361,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             # Keep num_train_tasks high enough to ensure hitting the
             # EnvironmentFailure check below at least once
             "num_train_tasks": 5,
-            "num_test_tasks": 2,
-            "allow_env_caching": False,
+            "num_test_tasks": 2
         })
         # All predicates and options
         env = ClutteredTableEnv()
@@ -380,8 +370,7 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
             "env": "cluttered_table_place",
             # Higher num of train tasks needed for full coverage.
             "num_train_tasks": 5,
-            "num_test_tasks": 2,
-            "allow_env_caching": False,
+            "num_test_tasks": 2
         })
         env = ClutteredTablePlaceEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
@@ -469,7 +458,6 @@ def test_oracle_approach_cluttered_table(place_version=False):
             "cluttered_table_num_cans_test": 3,
             "num_train_tasks": 2,
             "num_test_tasks": 2,
-            "allow_env_caching": False,
         })
         env = ClutteredTableEnv()
     else:
@@ -479,7 +467,6 @@ def test_oracle_approach_cluttered_table(place_version=False):
             "cluttered_table_num_cans_test": 3,
             "num_train_tasks": 2,
             "num_test_tasks": 2,
-            "allow_env_caching": False,
         })
         env = ClutteredTablePlaceEnv()
     env.seed(123)
@@ -506,8 +493,7 @@ def test_oracle_approach_blocks():
     utils.reset_config({
         "env": "blocks",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = BlocksEnv()
     env.seed(123)
@@ -531,8 +517,7 @@ def test_oracle_approach_painting():
     utils.reset_config({
         "env": "painting",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = PaintingEnv()
     env.seed(123)
@@ -556,8 +541,7 @@ def test_oracle_approach_tools():
         "tools_num_items_train": [2],
         "tools_num_items_test": [2],
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = ToolsEnv()
     env.seed(123)
@@ -579,8 +563,7 @@ def test_oracle_approach_playroom():
     utils.reset_config({
         "env": "playroom",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = PlayroomEnv()
     env.seed(123)
@@ -653,8 +636,7 @@ def test_oracle_approach_repeated_nextto():
     utils.reset_config({
         "env": "repeated_nextto",
         "num_train_tasks": 2,
-        "num_test_tasks": 2,
-        "allow_env_caching": False,
+        "num_test_tasks": 2
     })
     env = RepeatedNextToEnv()
     env.seed(123)
