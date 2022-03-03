@@ -395,6 +395,9 @@ class Task:
         return all(goal_atom.holds(state) for goal_atom in self.goal)
 
 
+DefaultTask = Task(DefaultState, set())
+
+
 @dataclass(frozen=True, eq=False)
 class ParameterizedOption:
     """Struct defining a parameterized option, which has a parameter space and

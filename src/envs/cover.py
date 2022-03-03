@@ -137,10 +137,10 @@ class CoverEnv(BaseEnv):
     def action_space(self) -> Box:
         return Box(0, 1, (1, ))  # same as option param space
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
@@ -708,10 +708,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 return state.copy()
         return next_state
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
         # Draw main line
