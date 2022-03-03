@@ -25,7 +25,7 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
     GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
     Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
-    GroundNSRTOrSTRIPSOperator, ParameterizedOption
+    GroundNSRTOrSTRIPSOperator, ParameterizedOption, Monitor
 from predicators.src.settings import CFG, GlobalSettings
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
@@ -267,10 +267,11 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy(policy: Callable[[State],
-                                Action], env: BaseEnv, train_or_test: str,
+def run_policy(policy: Callable[[State], Action],
+               env: BaseEnv, train_or_test: str,
                task_idx: int, termination_function: Callable[[State], bool],
-               max_num_steps: int) -> LowLevelTrajectory:
+               max_num_steps: int,
+               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 
@@ -286,11 +287,15 @@ def run_policy(policy: Callable[[State],
     if not termination_function(state):
         for _ in range(max_num_steps):
             act = policy(state)
+            if monitor is not None:
+                monitor.observe(state, act)
             state = env.step(act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
+    if monitor is not None:
+        monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
 
@@ -329,19 +334,6 @@ def run_policy_with_simulator(policy: Callable[[State], Action],
                 break
     traj = LowLevelTrajectory(states, actions)
     return traj
-
-
-def policy_with_callback(
-        policy: Callable[[State], Action],
-        callback: Callable[[State], None]) -> Callable[[State], Action]:
-    """Create a policy that first calls callback on the state, and then calls
-    the given policy."""
-
-    def _wrapped_policy(s: State) -> Action:
-        callback(s)
-        return policy(s)
-
-    return _wrapped_policy
 
 
 class ExceptionWithInfo(Exception):
