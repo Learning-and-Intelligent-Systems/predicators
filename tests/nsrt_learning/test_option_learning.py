@@ -22,7 +22,6 @@ def test_known_options_option_learner():
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
         "option_learner": "no_learning",
-        "allow_env_caching": False,
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
@@ -62,7 +61,6 @@ def test_oracle_option_learner_cover():
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
         "option_learner": "oracle",
-        "allow_env_caching": False,
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
@@ -105,7 +103,6 @@ def test_oracle_option_learner_blocks():
         "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "oracle",
-        "allow_env_caching": False,
     })
     env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
@@ -155,7 +152,6 @@ def test_learned_neural_parameterized_option():
         "mlp_regressor_max_itr": 10,
         "cover_multistep_thr_percent": 0.99,
         "cover_multistep_bhr_percent": 0.99,
-        "allow_env_caching": False,
     })
     env = create_new_env("cover_multistep_options")
     nsrts = get_gt_nsrts(env.predicates, env.options)

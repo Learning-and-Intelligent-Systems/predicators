@@ -6,7 +6,7 @@ from typing import cast
 from predicators.src import utils
 from predicators.src.structs import State, _Option
 from predicators.src.settings import CFG
-from predicators.src.envs import get_cached_env, create_new_env
+from predicators.src.envs import get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
 
 
@@ -18,9 +18,6 @@ def create_option_model(name: str) -> _OptionModelBase:
         return _BehaviorOptionModel()  # pragma: no cover
     if name.startswith("oracle"):
         _, env_name = name.split("_")
-        # Create a new env instance, because _OracleOptionModel uses
-        # get_cached_env, which assumes that an env has already been created.
-        create_new_env(env_name, do_cache=True)
         return _OracleOptionModel(env_name)
     raise NotImplementedError(f"Unknown option model: {name}")
 
@@ -46,7 +43,7 @@ class _OracleOptionModel(_OptionModelBase):
 
     def __init__(self, env_name: str) -> None:
         super().__init__()
-        env = get_cached_env(env_name)
+        env = get_or_create_env(env_name)
         self._simulator = env.simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:
@@ -66,7 +63,7 @@ class _BehaviorOptionModel(_OptionModelBase):
 
     def get_next_state(self, state: State,
                        option: _Option) -> State:  # pragma: no cover
-        env_base = get_cached_env("behavior")
+        env_base = get_or_create_env("behavior")
         env = cast(BehaviorEnv, env_base)
         assert option.memory.get("model_controller") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)

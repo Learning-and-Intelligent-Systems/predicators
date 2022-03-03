@@ -1,6 +1,5 @@
 """Default imports for envs folder."""
 
-import sys
 from predicators.src.envs.base_env import BaseEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, CoverMultistepOptions, \
@@ -41,7 +40,7 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
     """Create a new instance of an environment from its name.
 
     If do_cache is True, then cache this env instance so that it can
-    later be loaded using get_cached_env().
+    later be loaded using get_or_create_env().
     """
     if name == "cover":
         env: BaseEnv = CoverEnv()
@@ -76,25 +75,20 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
     else:
         raise NotImplementedError(f"Unknown env: {name}")
     if do_cache:
-        assert CFG.allow_env_caching, "CFG.allow_env_caching is off!"
         _MOST_RECENT_ENV_INSTANCE[name] = env
     return env
 
 
-def get_cached_env(name: str) -> BaseEnv:
-    """Get the most recent cached env instance.
+def get_or_create_env(name: str) -> BaseEnv:
+    """Get the most recent cached env instance. If one does not exist in the
+    cache, create it using create_new_env().
 
-    If you use this function, you should NOT be doing anything that relies on
-    the environment's internal state (i.e., you should not call reset() or
-    step()).
-
-    Note: if CFG.allow_env_caching is False, always makes a new env instance.
-    We do this because unit testing relies on this method working, e.g., when
-    a unit test calls get_gt_nsrts(), which in turn calls this method.
+    If you use this function, you should NOT be doing anything that
+    relies on the environment's internal state (i.e., you should not
+    call reset() or step()).
     """
-    if not CFG.allow_env_caching:
-        return create_new_env(name)
-    assert name in _MOST_RECENT_ENV_INSTANCE, \
-        (f"CFG.allow_env_caching is on, but {name} is not in the cache. "
-         "If you're doing unit testing, you should turn this setting off.")
+    if name not in _MOST_RECENT_ENV_INSTANCE:
+        print("WARNING: you called get_or_create_env, but I couldn't find "
+              f"{name} in the cache. Making a new environment instance.")
+        create_new_env(name, do_cache=True)
     return _MOST_RECENT_ENV_INSTANCE[name]

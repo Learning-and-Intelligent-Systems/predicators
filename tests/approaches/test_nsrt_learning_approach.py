@@ -40,7 +40,6 @@ def _test_approach(env_name,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
-        "allow_env_caching": False,
         **additional_settings,
     })
     env = create_new_env(env_name)

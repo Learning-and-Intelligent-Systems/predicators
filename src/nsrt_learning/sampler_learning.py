@@ -10,7 +10,7 @@ from predicators.src import utils
 from predicators.src.torch_models import Classifier, MLPClassifier, \
     NeuralGaussianRegressor
 from predicators.src.settings import CFG
-from predicators.src.envs import get_cached_env
+from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 
 
@@ -48,7 +48,7 @@ def _extract_oracle_samplers(
     operators, but some of the given operators can match no ground truth
     operator, in which case such an operator is given a random sampler.
     """
-    env = get_cached_env(CFG.env)
+    env = get_or_create_env(CFG.env)
     # We don't need to match ground truth NSRTs with no continuous
     # parameters, so we filter them out.
     gt_nsrts = {

@@ -30,9 +30,6 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
-    # This should always be True for the main code path, but unit tests will
-    # often disable this because in tests, we typically don't want caching.
-    allow_env_caching = True
 
     # cover env parameters
     cover_num_blocks = 2
