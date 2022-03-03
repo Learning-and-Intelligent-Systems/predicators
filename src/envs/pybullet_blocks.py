@@ -1,9 +1,12 @@
 """A PyBullet version of Blocks."""
 
-from typing import Sequence
+from typing import Sequence, Dict
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.structs import Object
 from predicators.src import utils
+from predicators.src.pybullet_utils import get_kinematic_chain, \
+    inverse_kinematics
 from predicators.src.settings import CFG
 
 
@@ -13,6 +16,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     # Fetch robot parameters.
     _base_position: Sequence[float] = [0.75, 0.7441, 0.0]
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
+    _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
+    _ee_initial_position: Sequence[float] = [1., 0.7, 0.5]
 
     # Table parameters.
     _table_position: Sequence[float] = [1.65, 0.75, 0.0]
@@ -58,6 +63,25 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._base_orientation,
             physicsClientId=self._physics_client_id)
 
+        # Extract IDs for individual robot links and joints.
+        joint_names = [
+            p.getJointInfo(
+                self._fetch_id, i,
+                physicsClientId=self._physics_client_id)[1].decode("utf-8")
+            for i in range(
+                p.getNumJoints(self._fetch_id,
+                               physicsClientId=self._physics_client_id))
+        ]
+        self._ee_id = joint_names.index('gripper_axis')
+        self._arm_joints = get_kinematic_chain(
+            self._fetch_id,
+            self._ee_id,
+            physics_client_id=self._physics_client_id)
+        self._left_finger_id = joint_names.index("l_gripper_finger_joint")
+        self._right_finger_id = joint_names.index("r_gripper_finger_joint")
+        self._arm_joints.append(self._left_finger_id)
+        self._arm_joints.append(self._right_finger_id)
+
         # Load table.
         self._table_id = p.loadURDF(
             utils.get_env_asset_path("urdf/table.urdf"),
@@ -69,5 +93,17 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
-        import ipdb
-        ipdb.set_trace()
+        # Set gravity.
+        p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
+
+        # Determine good initial joint values.
+        self._initial_joint_values = inverse_kinematics(
+            self._fetch_id,
+            self._ee_id,
+            self._ee_initial_position,
+            self._ee_orientation,
+            self._arm_joints,
+            physics_client_id=self._physics_client_id)
+
+        # Blocks are created at reset.
+        self._block_ids: Dict[Object, int] = {}
