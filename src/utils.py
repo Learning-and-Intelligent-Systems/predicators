@@ -14,6 +14,7 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     TYPE_CHECKING
 import heapq as hq
 import pathos.multiprocessing as mp
+from gym import Box
 import imageio
 import matplotlib
 import numpy as np
@@ -266,6 +267,51 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
                                   _classifier=lambda s, o: False)  # dummy
         new_atoms.add(atom.__class__(new_predicate, atom.entities))
     return new_atoms
+
+
+class LinearChainParameterizedOption(ParameterizedOption):
+    """A parameterized option implemented via a sequence of "child"
+    parameterized options.
+
+    The options have memory, which stores the current child index.
+    """
+
+    def __init__(self, name: str, types: Sequence[Type], params_space: Box,
+                 children: Sequence[ParameterizedOption]) -> None:
+        assert len(children) > 0
+        self._children = children
+        super().__init__(name,
+                         types,
+                         params_space,
+                         _policy=self._policy,
+                         _initiable=self._initiable,
+                         _terminal=self._terminal)
+
+    def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> bool:
+        memory["current_child_index"] = 0
+        current_child = self._children[0]
+        return current_child._initiable(state, memory, objects, params)  # TODO
+
+    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        current_index = memory["current_child_index"]
+        current_child = self._children[current_index]
+        if current_child._terminal(state, memory, objects, params):  # TODO
+            current_index += 1
+            memory["current_child_index"] = current_index
+            current_child = self._children[current_index]
+            assert current_child._initiable(state, memory, objects,
+                                            params)  # TODO
+        return current_child._initiable(state, memory, objects, params)  # TODO
+
+    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        current_index = memory["current_child_index"]
+        if current_index < len(self._children) - 1:
+            return False
+        current_child = self._children[current_index]
+        return current_child._terminal(state, memory, objects, params)  # TODO
 
 
 class Monitor(abc.ABC):
