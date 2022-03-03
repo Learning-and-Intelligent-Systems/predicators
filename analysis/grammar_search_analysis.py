@@ -8,7 +8,7 @@ import os
 from typing import Dict, DefaultDict, Set, List, Tuple, Sequence, Any
 import pandas as pd
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env, BaseEnv, CoverEnv
+from predicators.src.envs import create_env, BaseEnv, CoverEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _ForallClassifier, _SingleAttributeCompareClassifier
@@ -173,7 +173,7 @@ def _run_proxy_analysis_for_env(args: Dict[str, Any], env_name: str,
         "env": env_name,
         **args,
     })
-    env = create_new_env(env_name)
+    env = create_env(env_name)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
     start_time = time.time()

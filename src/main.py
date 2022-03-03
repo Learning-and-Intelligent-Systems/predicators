@@ -39,7 +39,7 @@ import subprocess
 import time
 import dill as pkl
 from predicators.src.settings import CFG
-from predicators.src.envs import create_new_env, BaseEnv
+from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
@@ -69,7 +69,7 @@ def main() -> None:
                                  "HEAD"]).decode("ascii").strip())
     os.makedirs(CFG.results_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
-    env = create_new_env(CFG.env, do_cache=True)
+    env = create_env(CFG.env)
     # The action space and options need to be seeded externally, because
     # env.action_space and env.options are often created during env __init__().
     env.action_space.seed(CFG.seed)
