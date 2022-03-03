@@ -394,7 +394,7 @@ def option_plan_to_policy(
     queue = list(plan)  # don't modify plan, just in case
     cur_option = DummyOption
 
-    def _policy(state: State) -> Action:
+    def policy(state: State) -> Action:
         nonlocal cur_option
         if cur_option.terminal(state):
             if not queue:
@@ -403,7 +403,7 @@ def option_plan_to_policy(
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
 
-    return _policy
+    return policy
 
 
 def action_arrs_to_policy(
@@ -412,11 +412,11 @@ def action_arrs_to_policy(
 
     queue = list(action_arrs)  # don't modify original, just in case
 
-    def _policy(s: State) -> Action:
+    def policy(s: State) -> Action:
         del s  # unused
         return Action(queue.pop(0))
 
-    return _policy
+    return policy
 
 
 @functools.lru_cache(maxsize=None)

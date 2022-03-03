@@ -68,13 +68,13 @@ class TAMPApproach(BaseApproach):
             self._metrics["max_num_skeletons_optimized"])
         option_policy = utils.option_plan_to_policy(plan)
 
-        def _policy(s: State) -> Action:
+        def policy(s: State) -> Action:
             try:
                 return option_policy(s)
             except utils.OptionPlanExhausted:
                 raise ApproachFailure("Option plan exhausted.")
 
-        return _policy
+        return policy
 
     def reset_metrics(self) -> None:
         super().reset_metrics()

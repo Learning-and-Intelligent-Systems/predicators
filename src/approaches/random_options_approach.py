@@ -19,7 +19,7 @@ class RandomOptionsApproach(BaseApproach):
         cur_option = DummyOption
         cur_option_ind = 0
 
-        def _policy(state: State) -> Action:
+        def policy(state: State) -> Action:
             nonlocal cur_option, cur_option_ind
             if cur_option is DummyOption or cur_option.terminal(state):
                 for _ in range(CFG.random_options_max_tries):
@@ -40,4 +40,4 @@ class RandomOptionsApproach(BaseApproach):
             cur_option_ind += 1
             return act
 
-        return _policy
+        return policy
