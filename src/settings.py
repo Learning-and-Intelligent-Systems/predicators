@@ -82,6 +82,9 @@ class GlobalSettings:
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = False
 
+    # general pybullet parameters
+    pybullet_use_gui = False
+
     # parameters for approaches
     random_options_max_tries = 100
 
