@@ -868,6 +868,60 @@ def test_find_substitution():
     assert assignment == {var3: plate0, var0: cup0}
 
 
+def test_LinearChainParameterizedOption():
+    """Tests for LinearChainParameterizedOption()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = State({cup: [0.0], plate: [1.0, 1.2]})
+
+    def _simulator(s, a):
+        ns = s.copy()
+        assert a.arr.shape == (1, )
+        ns[cup][0] += a.arr.item()
+        return ns
+
+    # This parameterized option takes the action [-4] twice and terminates.
+    def _initiable(_1, m, _3, _4):
+        m["num_steps"] = 0
+        return True
+
+    def _policy(_1, _2, _3 ,_4):
+        m["num_steps"] += 1
+        return Action(np.array([-4]))
+
+    def _terminal(_1, m, _3, _4):
+        return m["num_steps"] >= 2
+
+    param_option0 = ParameterizedOption("dummy0", [cup_type],
+                                        Box(0.1, 1, (1, )),
+                                        lambda s, m, o, p: Action(p),
+                                        lambda s, m, o, p: False,
+                                        lambda s, m, o, p: False)
+
+    # This parameterized option takes the action [2] four times and terminates.
+    def _policy(_1, _2, _3 ,_4):
+        m["num_steps"] += 1
+        return Action(np.array([2]))
+
+    def _terminal(_1, m, _3, _4):
+        return m["num_steps"] >= 4
+
+    param_option1 = ParameterizedOption("dummy1", [cup_type],
+                                        Box(0.1, 1, (1, )),
+                                        lambda s, m, o, p: Action(p),
+                                        lambda s, m, o, p: False,
+                                        lambda s, m, o, p: False)
+
+    children = [param_option0, param_option1]
+    chain_param_option = utils.LinearChainParameterizedOption("chain",
+        types, params_space, children)
+
+    import ipdb; ipdb.set_trace()
+
+
+
 def test_nsrt_methods():
     """Tests for all_ground_nsrts(), extract_preds_and_types()."""
     cup_type = Type("cup_type", ["feat1"])

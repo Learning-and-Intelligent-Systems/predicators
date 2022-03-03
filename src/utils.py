@@ -14,7 +14,7 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     TYPE_CHECKING
 import heapq as hq
 import pathos.multiprocessing as mp
-from gym import Box
+from gym.spaces import Box
 import imageio
 import matplotlib
 import numpy as np
@@ -273,13 +273,35 @@ class LinearChainParameterizedOption(ParameterizedOption):
     """A parameterized option implemented via a sequence of "child"
     parameterized options.
 
+    This class is meant to help ParameterizedOption manual design.
+
+    The children are executed in order starting with the first in the sequence
+    and transitioning when the terminal function of the respect child is hit.
+
+    The children are assumed to chain together, so the initiable of the next
+    child should always be True when the previous child terminates. If this
+    is not the case, then an AssertionError is raised.
+
+    The children must all have the same types and params_space, which in turn
+    because the types and params_space for this ParameterizedOption.
+
     The options have memory, which stores the current child index.
     """
 
-    def __init__(self, name: str, types: Sequence[Type], params_space: Box,
-                 children: Sequence[ParameterizedOption]) -> None:
+    def __init__(self, name: str, children: Sequence[ParameterizedOption]
+                 ) -> None:
         assert len(children) > 0
         self._children = children
+
+        # Make sure that the types and params spaces are consistent.
+        types = children[0].types
+        params_space = children[0].params_space
+        for i in range(1, len(self._children)):
+            child = self._children[i]
+            assert types == child.types
+            assert np.allclose(params_space.low == child.params_space.low)
+            assert np.allclose(params_space.high == child.params_space.high)
+
         super().__init__(name,
                          types,
                          params_space,
@@ -287,31 +309,35 @@ class LinearChainParameterizedOption(ParameterizedOption):
                          _initiable=self._initiable,
                          _terminal=self._terminal)
 
-    def initiable(self, state: State, memory: Dict, objects: Sequence[Object],
+    def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
+        # Reset the current child to the first one.
         memory["current_child_index"] = 0
         current_child = self._children[0]
-        return current_child.initiable(state, memory, objects, params)
+        return current_child._initiable(state, memory, objects, params)
 
-    def policy(self, state: State, memory: Dict, objects: Sequence[Object],
+    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
+        # Check if the current child has terminated.
         current_index = memory["current_child_index"]
         current_child = self._children[current_index]
-        if current_child.terminal(state, memory, objects, params):
+        if current_child._terminal(state, memory, objects, params):
+            # Move on to the next child.
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child.initiable(state, memory, objects,
+            assert current_child._initiable(state, memory, objects,
                                             params)
-        return current_child.initiable(state, memory, objects, params)
+        return current_child._policy(state, memory, objects, params)
 
-    def terminal(self, state: State, memory: Dict, objects: Sequence[Object],
+    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
+        # Check if the last child has terminated.
         current_index = memory["current_child_index"]
         if current_index < len(self._children) - 1:
             return False
         current_child = self._children[current_index]
-        return current_child.terminal(state, memory, objects, params)
+        return current_child._terminal(state, memory, objects, params)
 
 
 class Monitor(abc.ABC):
