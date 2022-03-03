@@ -627,3 +627,10 @@ def test_cover_multistep_options_fixed_tasks():
     for task in env.get_test_tasks():
         assert state.allclose(task.init)
         assert frozenset(task.goal) in all_goals
+
+# def test_cover_multistep_options_bimodal_goal(): 
+
+# def test_cover_multistep_options_goal_conditioned():
+    
+
+

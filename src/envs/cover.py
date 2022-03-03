@@ -228,13 +228,17 @@ class CoverEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
-        goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
-        goal3 = {
-            GroundAtom(self._Covers, [self._blocks[0], self._targets[0]]),
-            GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])
-        }
-        goals = [goal1, goal2, goal3]
+        if len(self._blocks) > 1:  
+            goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
+            goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
+            goal3 = {
+                GroundAtom(self._Covers, [self._blocks[0], self._targets[0]]),
+                GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])
+            }
+            goals = [goal1, goal2, goal3]
+        else: 
+            goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
+            goals = [goal1] 
         for i in range(num):
             tasks.append(
                 Task(self._create_initial_state(rng), goals[i % len(goals)]))
@@ -857,8 +861,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             tw = CFG.cover_target_widths[i]
             _, x, _ = target_placements[i]
             region_length = tw * CFG.cover_multistep_thr_percent
-            left_pt = rng.uniform(x - tw / 2, x + tw / 2 - region_length)
-            region = [left_pt, left_pt + region_length]
+            if CFG.cover_multistep_bimodel_goal: 
+                if rng.uniform(0,1) < 0.5: 
+                    left_pt = x - tw/2
+                    region = [left_pt, left_pt + region_length]
+                else: 
+                    right_pt = x + tw/2
+                    region = [right_pt - region_length, right_pt]
+            else: 
+                left_pt = rng.uniform(x - tw / 2, x + tw / 2 - region_length)
+                region = [left_pt, left_pt + region_length]
             data[target_hr] = np.array(region)
             target_hand_regions.append(region)
 

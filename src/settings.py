@@ -46,7 +46,9 @@ class GlobalSettings:
     cover_multistep_max_hr_placements = 100  # max placements of hand regions
     cover_multistep_thr_percent = 0.5  # target hand region percent of width
     cover_multistep_bhr_percent = 0.5  # block hand region percent of width
-
+    cover_multistep_bimodel_goal = False    
+    cover_multistep_goal_conditioned_sampling = False
+    
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
@@ -229,7 +231,7 @@ class GlobalSettings:
             # In SeSamE, the maximum number of skeletons optimized before
             # giving up. If 1, can only solve downward refinable tasks.
             sesame_max_skeletons_optimized=defaultdict(
-                lambda: 8,
+                lambda: 1, #8,
                 {
                     # For the tools environment, allow many more skeletons.
                     "tools": 1000,
@@ -239,7 +241,7 @@ class GlobalSettings:
             # Concretely, this effort refers to the maximum number of calls to
             # the sampler on each step before backtracking.
             sesame_max_samples_per_step=defaultdict(
-                lambda: 10,
+                lambda: 1, #10,
                 {
                     # For the tools environment, don't do any backtracking.
                     "tools": 1,
