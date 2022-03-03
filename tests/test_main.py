@@ -22,10 +22,10 @@ class _DummyApproach(BaseApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
 
-        def policy(s: State) -> Action:
+        def _policy(s: State) -> Action:
             raise ApproachFailure("Option plan exhausted.")
 
-        return policy
+        return _policy
 
 
 class _DummyCoverEnv(CoverEnv):

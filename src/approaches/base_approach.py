@@ -50,13 +50,13 @@ class BaseApproach(abc.ABC):
         """
         pi = self._solve(task, timeout)
 
-        def policy(state: State) -> Action:
+        def _policy(state: State) -> Action:
             assert isinstance(state, State)
             act = pi(state)
             assert self._action_space.contains(act.arr)
             return act
 
-        return policy
+        return _policy
 
     def seed(self, seed: int) -> None:
         """Reset seed and rng."""
