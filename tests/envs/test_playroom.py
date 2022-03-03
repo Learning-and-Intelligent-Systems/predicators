@@ -373,6 +373,9 @@ def test_playroom_options():
         TurnOnDial.ground([robot, dial], [-0.2, 0.0, 0.0, 0.0])
     ]
     assert plan[0].initiable(state)
+    
+    policy = utils.option_plan_to_policy(plan)
+
     # Here's an example of how to make a video within this test.
     # monitor = utils.SimulateVideoMonitor(task, env.render_state)
     # traj = utils.run_policy_with_simulator(policy,
@@ -386,7 +389,6 @@ def test_playroom_options():
     # outfile = "hardcoded_options_playroom.mp4"
     # utils.save_video(outfile, video)
 
-    policy = utils.option_plan_to_policy(plan)
     traj = utils.run_policy_with_simulator(policy,
                                            env.simulate,
                                            task.init,
