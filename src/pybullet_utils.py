@@ -1,7 +1,6 @@
 """Generic utilities for Pybullet."""
 
 from typing import List, Sequence, Tuple
-import numpy as np
 import pybullet as p
 
 
