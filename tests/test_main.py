@@ -89,8 +89,8 @@ def test_main():
     # Try remaking data (this is the default).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--cover_initial_holding_prob", "0.0",
-        "--num_train_tasks", "3", "--num_test_tasks", "3"
+        "123", "--cover_initial_holding_prob", "0.0", "--num_train_tasks", "3",
+        "--num_test_tasks", "3"
     ]
     main()
     # Try loading the data.
@@ -106,9 +106,8 @@ def test_main():
         "dummy", "--env", "cover", "--approach", "interactive_learning",
         "--seed", "123", "--num_online_learning_cycles", "0",
         "--excluded_predicates", "Covers",
-        "--interactive_num_ensemble_members", "1",
-        "--num_train_tasks", "3", "--num_test_tasks", "3",
-        "--predicate_mlp_classifier_max_itr", "100"
+        "--interactive_num_ensemble_members", "1", "--num_train_tasks", "3",
+        "--num_test_tasks", "3", "--predicate_mlp_classifier_max_itr", "100"
     ]
     main()
 
