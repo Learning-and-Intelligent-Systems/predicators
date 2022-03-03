@@ -1,7 +1,7 @@
 """General utility methods."""
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import argparse
 import functools
 import gc
@@ -268,8 +268,10 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
 
 
 def run_policy(policy: Callable[[State], Action],
-               env: BaseEnv, train_or_test: str,
-               task_idx: int, termination_function: Callable[[State], bool],
+               env: BaseEnv,
+               train_or_test: str,
+               task_idx: int,
+               termination_function: Callable[[State], bool],
                max_num_steps: int,
                monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy starting from the initial state of a train or test task
@@ -300,11 +302,13 @@ def run_policy(policy: Callable[[State], Action],
     return traj
 
 
-def run_policy_with_simulator(policy: Callable[[State], Action],
-                              simulator: Callable[[State, Action],
-                                                  State], init_state: State,
-                              termination_function: Callable[[State], bool],
-                              max_num_steps: int) -> LowLevelTrajectory:
+def run_policy_with_simulator(
+        policy: Callable[[State], Action],
+        simulator: Callable[[State, Action], State],
+        init_state: State,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
     *** This function should not be used with any core code, because we want
@@ -327,11 +331,15 @@ def run_policy_with_simulator(policy: Callable[[State], Action],
     if not termination_function(state):
         for _ in range(max_num_steps):
             act = policy(state)
+            if monitor is not None:
+                monitor.observe(state, act)
             state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
+    if monitor is not None:
+        monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
 
@@ -1242,6 +1250,29 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
+@dataclass
+class VideoMonitor(Monitor):
+    """A monitor that renders each state and action encountered.
+
+    The render_fn is generally env.render. Note that the state is unused
+    because the environment should use its current internal state to
+    render.
+    """
+    _render_fn: Callable[[Optional[Action]], List[Image]]
+    _video: Video = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._video = []
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        del state  # unused
+        self._video.extend(self._render_fn(action))
+
+    def get_video(self) -> Video:
+        """Return the video."""
+        return self._video
+
+
 def create_video_from_partial_refinements(
     partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
                                         Sequence[_Option]]],
@@ -1251,7 +1282,6 @@ def create_video_from_partial_refinements(
     max_num_steps: int,
 ) -> Video:
     """Create a video from a list of skeletons and partial refinements.
-
     Note that the environment internal state is updated.
     """
     # Right now, the video is created by finding the longest partial
@@ -1262,15 +1292,14 @@ def create_video_from_partial_refinements(
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
-        task = env.get_task(train_or_test, task_idx)
         state = env.reset(train_or_test, task_idx)
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
             except OptionPlanExhausted:
-                video.extend(env.render(state, task, None))
+                video.extend(env.render())
                 break
-            video.extend(env.render(state, task, act))
+            video.extend(env.render(act))
             try:
                 state = env.step(act)
             except EnvironmentFailure:

@@ -79,22 +79,21 @@ class Teacher:
 @dataclass
 class TeacherInteractionMonitor(Monitor):
     """Wraps the interaction between agent and teacher."""
-
-    request: InteractionRequest
-    teacher: Teacher
+    _request: InteractionRequest
+    _teacher: Teacher
     _responses: List[Optional[Response]] = field(init=False)
     _query_cost: float = field(init=False, default=0.0)
 
     def __post_init__(self) -> None:
-        self._responses: List[Optional[Response]] = []
+        self._responses = []
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         del action  # unused
-        query = self.request.query_policy(state)
+        query = self._request.query_policy(state)
         if query is None:
             self._responses.append(None)
         else:
-            self._responses.append(self.teacher.answer_query(state, query))
+            self._responses.append(self._teacher.answer_query(state, query))
             self._query_cost += query.cost
 
     def get_responses(self) -> List[Optional[Response]]:

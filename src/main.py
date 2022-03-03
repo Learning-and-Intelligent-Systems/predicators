@@ -226,19 +226,19 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             continue
         num_found_policy += 1
         try:
+            if CFG.make_videos:
+                monitor = utils.VideoMonitor(env.render)
+            else:
+                monitor = None
             traj = utils.run_policy(
                 policy,
                 env,
                 "test",
                 test_task_idx,
                 task.goal_holds,
-                max_num_steps=CFG.max_num_steps_check_policy)
+                max_num_steps=CFG.max_num_steps_check_policy,
+                monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-            if CFG.make_videos:
-                video = []
-                for i, state in enumerate(traj.states):
-                    act = traj.actions[i] if i < len(traj.states) - 1 else None
-                    video.extend(env.render(state, task, act))
         except utils.EnvironmentFailure as e:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Environment "
                   f"failed with error: {e}")
@@ -255,6 +255,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
+            assert monitor is not None
+            video = monitor.get_video()
             outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
             utils.save_video(outfile, video)
     metrics: Metrics = defaultdict(float)

@@ -59,7 +59,7 @@ def test_cluttered_table(place_version=False):
         can = list(state)[0]
         act = Action(env.action_space.sample())
         if i == 0:
-            env.render(state, task, act)
+            env._render_state(state, task, act) # pylint:disable=protected-access
         try:
             env.simulate(state, act)
         except utils.EnvironmentFailure:  # pragma: no cover
@@ -87,7 +87,7 @@ def test_cluttered_table(place_version=False):
             next_state = env.simulate(state, act)
             assert state.allclose(next_state)
         if i == 0:
-            env.render(state, task, act)
+            env._render_state(state, task, act)  # pylint:disable=protected-access
 
 
 def test_cluttered_table_place():

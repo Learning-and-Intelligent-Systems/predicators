@@ -335,10 +335,10 @@ class PlayroomEnv(BlocksEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def _render_state(self,
+                      state: State,
+                      task: Task,
+                      action: Optional[Action] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
         fig = plt.figure(figsize=(20, 16))

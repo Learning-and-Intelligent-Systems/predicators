@@ -119,10 +119,10 @@ class ClutteredTableEnv(BaseEnv):
         # where all 4 dimensions are 0.
         return Box(0, 1, (4, ))
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def _render_state(self,
+                      state: State,
+                      task: Task,
+                      action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
         assert len(task.goal) == 1

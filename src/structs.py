@@ -395,6 +395,9 @@ class Task:
         return all(goal_atom.holds(state) for goal_atom in self.goal)
 
 
+DefaultTask = Task(DefaultState, set())
+
+
 @dataclass(frozen=True, eq=False)
 class ParameterizedOption:
     """Struct defining a parameterized option, which has a parameter space and
@@ -1248,7 +1251,8 @@ class Monitor(abc.ABC):
         """Record a state and the action that is about to be taken.
 
         On the last time step of a trajectory, no action is taken, so
-        action is None."""
+        action is None.
+        """
         raise NotImplementedError("Override me!")
 
 
