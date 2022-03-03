@@ -9,7 +9,7 @@ from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
 from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
 from predicators.src.torch_models import MLPRegressor
-from predicators.src.envs import create_env, BlocksEnv
+from predicators.src.envs import get_or_create_env, BlocksEnv
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -105,7 +105,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
-        env = create_env(CFG.env)
+        env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
             assert len(strips_ops) == 3

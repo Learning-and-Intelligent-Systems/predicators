@@ -1,6 +1,6 @@
 """Test cases for teacher."""
 
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitor
@@ -12,7 +12,7 @@ from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
 def test_GroundAtomsHold():
     """Tests for answering queries of type GroundAtomsHoldQuery."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
     state = env.get_train_tasks()[0].init
@@ -55,7 +55,7 @@ def test_GroundAtomsHold():
 def test_DemonstrationQuery():
     """Tests for answering queries of type DemonstrationQuery."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
     train_task_idx = 0
@@ -106,7 +106,7 @@ def test_TeacherInteractionMonitor():
         "num_test_tasks": 1,
         "num_online_learning_cycles": 1
     })
-    env = create_env("cover")
+    env = create_new_env("cover")
     HandEmpty = [p for p in env.predicates if p.name == "HandEmpty"][0]
     hand_empty_atom = GroundAtom(HandEmpty, [])
     query_policy = lambda s: GroundAtomsHoldQuery({hand_empty_atom})
