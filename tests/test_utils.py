@@ -1501,7 +1501,7 @@ def test_create_pddl():
 """
 
 
-def test_video_monitor():
+def test_VideoMonitor():
     """Tests for VideoMonitor()."""
     env = CoverEnv()
     monitor = utils.VideoMonitor(env.render)
