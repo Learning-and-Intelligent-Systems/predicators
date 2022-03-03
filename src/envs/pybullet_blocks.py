@@ -10,6 +10,14 @@ from predicators.src.settings import CFG
 class PyBulletBlocksEnv(BlocksEnv):
     """PyBullet Blocks domain."""
 
+    # Fetch robot parameters.
+    _base_position: Sequence[float] = [0.75, 0.7441, 0.0]
+    _base_orientation: Sequence[float] = [0., 0., 0., 1.]
+
+    # Table parameters.
+    _table_position: Sequence[float] = [1.65, 0.75, 0.0]
+    _table_orientation: Sequence[float] = [0., 0., 0., 1.]
+
     # Camera parameters.
     _camera_distance: float = 1.5
     _yaw: float = 90.0
@@ -38,6 +46,28 @@ class PyBulletBlocksEnv(BlocksEnv):
         p.loadURDF(utils.get_env_asset_path("urdf/plane.urdf"), [0, 0, -1],
                    useFixedBase=True,
                    physicsClientId=self._physics_client_id)
+
+        # Load Fetch robot.
+        self._fetch_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/robots/fetch.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(
+            self._fetch_id,
+            self._base_position,
+            self._base_orientation,
+            physicsClientId=self._physics_client_id)
+
+        # Load table.
+        self._table_id = p.loadURDF(
+            utils.get_env_asset_path("urdf/table.urdf"),
+            useFixedBase=True,
+            physicsClientId=self._physics_client_id)
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self._table_position,
+            self._table_orientation,
+            physicsClientId=self._physics_client_id)
 
         import ipdb
         ipdb.set_trace()
