@@ -13,9 +13,12 @@ from predicators.src.envs.behavior import BehaviorEnv
 def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "oracle":
-        return _OracleOptionModel()
+        return _OracleOptionModel(CFG.env)
     if name == "behavior_oracle":
         return _BehaviorOptionModel()  # pragma: no cover
+    if name.startswith("oracle"):
+        _, env_name = name.split("_")
+        return _OracleOptionModel(env_name)
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
@@ -38,9 +41,9 @@ class _OracleOptionModel(_OptionModelBase):
     Runs options through this simulator to figure out the next state.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, env_name: str) -> None:
         super().__init__()
-        env = create_env(CFG.env)
+        env = create_env(env_name)
         self._simulator = env.simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:

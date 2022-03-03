@@ -25,7 +25,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "cluttered_table_place":
         nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
-    elif CFG.env == "blocks":
+    elif CFG.env in ["blocks", "pybullet_blocks"]:
         nsrts = _get_blocks_gt_nsrts()
     elif CFG.env == "behavior":
         nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
