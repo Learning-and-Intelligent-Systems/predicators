@@ -2,13 +2,13 @@
 
 import os
 import time
-from typing import Iterator, Tuple, Type as TypingType
+from typing import Iterator, Tuple, Optional, Type as TypingType
 import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory
+    LowLevelTrajectory, DefaultState
 from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
     _get_predicates_by_names
 from predicators.src.envs import CoverEnv
@@ -261,6 +261,22 @@ def test_run_policy_with_simulator():
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
 
+    # Test with monitor.
+    class _NullMonitor(utils.Monitor):
+
+        def observe(self, state: State, action: Optional[Action]) -> None:
+            pass
+
+    monitor = _NullMonitor()
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           monitor=monitor)
+    assert len(traj.states) == 4
+    assert len(traj.actions) == 3
+
 
 def test_option_plan_to_policy():
     """Tests for option_plan_to_policy()."""
@@ -317,6 +333,30 @@ def test_option_plan_to_policy():
     with pytest.raises(utils.OptionPlanExhausted):
         # Ran out of options
         policy(state)
+
+
+def test_action_arrs_to_policy():
+    """Tests for action_arrs_to_policy()."""
+    action_arrs = [
+        np.zeros(2, dtype=np.float32),
+        np.ones(2, dtype=np.float32),
+        np.zeros(2, dtype=np.float32),
+    ]
+
+    state = DefaultState
+    policy = utils.action_arrs_to_policy(action_arrs)
+    action = policy(state)
+    assert isinstance(action, Action)
+    assert np.allclose(action.arr, action_arrs[0])
+    action = policy(state)
+    assert np.allclose(action.arr, action_arrs[1])
+    action = policy(state)
+    assert np.allclose(action.arr, action_arrs[2])
+    with pytest.raises(IndexError):
+        # Ran out of actions.
+        policy(state)
+    # Original list should not be modified.
+    assert len(action_arrs) == 3
 
 
 def test_strip_predicate():
@@ -1483,6 +1523,46 @@ def test_create_pddl():
   (:goal (and (Covers block0 target0)))
 )
 """
+
+
+def test_VideoMonitor():
+    """Tests for VideoMonitor()."""
+    env = CoverEnv()
+    monitor = utils.VideoMonitor(env.render)
+    policy = lambda _: Action(env.action_space.sample())
+    task = env.get_task("test", 0)
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=2,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 3
+    assert len(traj.actions) == 2
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
+
+
+def test_SimulateVideoMonitor():
+    """Tests for SimulateVideoMonitor()."""
+    env = CoverEnv()
+    task = env.get_task("test", 0)
+    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    policy = lambda _: Action(env.action_space.sample())
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=2,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 3
+    assert len(traj.actions) == 2
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
 
 
 def test_save_video():

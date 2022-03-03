@@ -32,8 +32,7 @@ To run grammar search predicate invention (example):
 """
 
 from collections import defaultdict
-from typing import List, Sequence, Callable, Optional, Tuple
-import functools
+from typing import List, Sequence, Optional, Tuple
 import os
 import sys
 import subprocess
@@ -44,10 +43,10 @@ from predicators.src.envs import create_env, BaseEnv
 from predicators.src.approaches import create_approach, ApproachTimeout, \
     ApproachFailure, BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Metrics, Task, Dataset, State, Query, \
-    InteractionRequest, InteractionResult, Response
+from predicators.src.structs import Metrics, Task, Dataset, \
+    InteractionRequest, InteractionResult
 from predicators.src import utils
-from predicators.src.teacher import Teacher
+from predicators.src.teacher import Teacher, TeacherInteractionMonitor
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -185,41 +184,17 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        # While transitioning through the environment, when each state is
-        # encountered, query the teacher and record the response.
-        request_responses: List[Optional[Response]] = []
-
-        # Note that query_policy and responses need to be arguments because
-        # request and request_responses are changing in the loop.
-        def _process_state(query_policy: Callable[[State], Optional[Query]],
-                           responses: List[Optional[Response]],
-                           s: State) -> None:
-            """Query the teacher and update responses and query_cost."""
-            nonlocal query_cost
-            query = query_policy(s)
-            if query is None:
-                responses.append(None)
-            else:
-                responses.append(teacher.answer_query(s, query))
-                query_cost += query.cost
-
-        callback = functools.partial(_process_state, request.query_policy,
-                                     request_responses)
-        policy = utils.policy_with_callback(request.act_policy, callback)
-
+        monitor = TeacherInteractionMonitor(request, teacher)
         traj = utils.run_policy(
-            policy,
+            request.act_policy,
             env,
             "train",
             request.train_task_idx,
             request.termination_function,
-            max_num_steps=CFG.max_num_steps_interaction_request)
-
-        # The environment is now in the last state, but _policy was not called
-        # yet, so we need to process the query once more.
-        callback(traj.states[-1])
-
-        # Finally, assemble the InteractionResult object.
+            max_num_steps=CFG.max_num_steps_interaction_request,
+            monitor=monitor)
+        request_responses = monitor.get_responses()
+        query_cost += monitor.get_query_cost()
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
@@ -251,19 +226,19 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             continue
         num_found_policy += 1
         try:
+            if CFG.make_videos:
+                monitor = utils.VideoMonitor(env.render)
+            else:
+                monitor = None
             traj = utils.run_policy(
                 policy,
                 env,
                 "test",
                 test_task_idx,
                 task.goal_holds,
-                max_num_steps=CFG.max_num_steps_check_policy)
+                max_num_steps=CFG.max_num_steps_check_policy,
+                monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
-            if CFG.make_videos:
-                video = []
-                for i, state in enumerate(traj.states):
-                    act = traj.actions[i] if i < len(traj.states) - 1 else None
-                    video.extend(env.render(state, task, act))
         except utils.EnvironmentFailure as e:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Environment "
                   f"failed with error: {e}")
@@ -280,6 +255,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed")
         if CFG.make_videos:
+            assert monitor is not None
+            video = monitor.get_video()
             outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
             utils.save_video(outfile, video)
     metrics: Metrics = defaultdict(float)

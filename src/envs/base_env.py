@@ -5,7 +5,7 @@ from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image, DefaultState
+    ParameterizedOption, Type, Action, Image, DefaultState, DefaultTask
 from predicators.src.settings import CFG
 
 
@@ -14,6 +14,7 @@ class BaseEnv(abc.ABC):
 
     def __init__(self) -> None:
         self._current_state = DefaultState  # set in reset
+        self._current_task = DefaultTask  # set in reset
         self.seed(CFG.seed)
         # These are generated lazily when get_train_tasks or get_test_tasks is
         # called. This is necessary because environment attributes are often
@@ -77,12 +78,25 @@ class BaseEnv(abc.ABC):
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
-        """Render a state and action into a list of images."""
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
+        """Render a state and action into a list of images.
+
+        Like simulate, this function is not meant to be part of the
+        "final system", where the environment is the real world. It is
+        just for convenience, e.g., in test coverage.
+        """
         raise NotImplementedError("Override me!")
+
+    def render(self, action: Optional[Action] = None) -> List[Image]:
+        """Render the current state and action into a list of images.
+
+        By default, calls render_state, but subclasses may override.
+        """
+        return self.render_state(self._current_state, self._current_task,
+                                 action)
 
     def get_train_tasks(self) -> List[Task]:
         """Return the ordered list of tasks for training."""
@@ -118,8 +132,8 @@ class BaseEnv(abc.ABC):
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
         """Resets the current state to the train or test task initial state."""
-        task = self.get_task(train_or_test, task_idx)
-        self._current_state = task.init
+        self._current_task = self.get_task(train_or_test, task_idx)
+        self._current_state = self._current_task.init
         # Copy to prevent external changes to the environment's state.
         return self._current_state.copy()
 
