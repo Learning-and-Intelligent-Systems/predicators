@@ -287,12 +287,12 @@ class PaintingEnv(BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                num_objs_lst=CFG.painting_num_objs_train,
                                rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._test_rng)
@@ -344,10 +344,10 @@ class PaintingEnv(BaseEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)

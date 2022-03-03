@@ -156,10 +156,10 @@ class BehaviorEnv(BaseEnv):
         next_state = self.current_ig_state_to_state()
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
@@ -300,10 +300,10 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.igibson_behavior_env.action_space.high == 1)
         return self.igibson_behavior_env.action_space
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 

@@ -106,7 +106,13 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    assert utils.policy_solves_task(policy, trivial_task, env.simulate)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        trivial_task.init,
+        trivial_task.goal_holds,
+        max_num_steps=CFG.max_num_steps_check_policy)
+    assert trivial_task.goal_holds(traj.states[-1])
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]

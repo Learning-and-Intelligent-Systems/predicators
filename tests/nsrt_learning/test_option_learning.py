@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from predicators.src.approaches import ApproachFailure
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.datasets.demo_replay import create_demo_replay_data
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
@@ -21,9 +21,9 @@ def test_known_options_option_learner():
         "env": "cover",
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
-        "option_learner": "no_learning"
+        "option_learner": "no_learning",
     })
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -60,9 +60,9 @@ def test_oracle_option_learner_cover():
         "env": "cover",
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
-        "option_learner": "oracle"
+        "option_learner": "oracle",
     })
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -102,9 +102,9 @@ def test_oracle_option_learner_blocks():
         "approach": "nsrt_learning",
         "seed": 123,
         "num_train_tasks": 3,
-        "option_learner": "oracle"
+        "option_learner": "oracle",
     })
-    env = create_env("blocks")
+    env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -150,8 +150,10 @@ def test_learned_neural_parameterized_option():
         "env": "cover_multistep_options",
         "option_learner": "neural",
         "mlp_regressor_max_itr": 10,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
-    env = create_env("cover_multistep_options")
+    env = create_new_env("cover_multistep_options")
     nsrts = get_gt_nsrts(env.predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt = min(nsrts, key=lambda o: o.name)

@@ -39,13 +39,13 @@ def test_main():
     """Tests for main.py."""
     sys.argv = [
         "dummy", "--env", "my_env", "--approach", "my_approach", "--seed",
-        "123", "--num_test_tasks", "5"
+        "123", "--num_test_tasks", "3"
     ]
     with pytest.raises(NotImplementedError):
         main()  # invalid env
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "my_approach", "--seed",
-        "123", "--num_test_tasks", "5"
+        "123", "--num_test_tasks", "3"
     ]
     with pytest.raises(NotImplementedError):
         main()  # invalid approach
@@ -77,7 +77,7 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
-        "0.0"
+        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3"
     ]
     main()
     # Try loading approaches.
@@ -89,7 +89,8 @@ def test_main():
     # Try remaking data (this is the default).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--cover_initial_holding_prob", "0.0"
+        "123", "--cover_initial_holding_prob", "0.0", "--num_train_tasks", "3",
+        "--num_test_tasks", "3"
     ]
     main()
     # Try loading the data.
@@ -104,7 +105,9 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "interactive_learning",
         "--seed", "123", "--num_online_learning_cycles", "0",
-        "--excluded_predicates", "Covers"
+        "--excluded_predicates", "Covers",
+        "--interactive_num_ensemble_members", "1", "--num_train_tasks", "3",
+        "--num_test_tasks", "3", "--predicate_mlp_classifier_max_itr", "100"
     ]
     main()
 
@@ -116,6 +119,7 @@ def test_tamp_approach_failure():
         "approach": "nsrt_learning",
         "timeout": 10,
         "make_videos": False,
+        "num_test_tasks": 1,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -135,6 +139,7 @@ def test_env_failure():
         "timeout": 10,
         "make_videos": False,
         "cover_initial_holding_prob": 0.0,
+        "num_test_tasks": 1,
     })
     env = _DummyCoverEnv()
     train_tasks = env.get_train_tasks()

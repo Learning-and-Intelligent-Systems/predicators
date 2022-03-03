@@ -227,11 +227,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
 
-        def _termination_function(s: State) -> bool:
-            # Stop the episode if we reach the goal that we babbled.
-            return all(goal_atom.holds(s) for goal_atom in task.goal)
-
-        return act_policy, _termination_function
+        # Stop the episode if we reach the goal that we babbled.
+        termination_function = task.goal_holds
+        return act_policy, termination_function
 
     def _create_random_interaction_strategy(
         self, train_task_idx: int
@@ -244,13 +242,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         task = self._train_tasks[train_task_idx]
         act_policy = random_options_approach.solve(task, CFG.timeout)
 
-        def _termination_function(s: State) -> bool:
-            # Termination is left to the environment, as in
-            # CFG.max_num_steps_interaction_request.
-            del s  # not used
-            return False
-
-        return act_policy, _termination_function
+        # Termination is left to the environment, as in
+        # CFG.max_num_steps_interaction_request.
+        termination_function = lambda _: False
+        return act_policy, termination_function
 
     def _create_best_seen_query_policy(
             self, strict: bool) -> Callable[[State], Optional[Query]]:

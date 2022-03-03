@@ -1,7 +1,8 @@
 """General utility methods."""
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import abc
 import argparse
 import functools
 import gc
@@ -267,18 +268,76 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy_until(policy: Callable[[State], Action],
-                     simulator: Callable[[State, Action], State],
-                     init_state: State, termination_function: Callable[[State],
-                                                                       bool],
-                     max_num_steps: int) -> LowLevelTrajectory:
-    """Execute a policy from an initial state, using a simulator.
+class Monitor(abc.ABC):
+    """Observes states and actions during environment interaction."""
+
+    @abc.abstractmethod
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        """Record a state and the action that is about to be taken.
+
+        On the last timestep of a trajectory, no action is taken, so
+        action is None.
+        """
+        raise NotImplementedError("Override me!")
+
+
+def run_policy(policy: Callable[[State], Action],
+               env: BaseEnv,
+               train_or_test: str,
+               task_idx: int,
+               termination_function: Callable[[State], bool],
+               max_num_steps: int,
+               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+    """Execute a policy starting from the initial state of a train or test task
+    in the environment. The task's goal is not used.
+
+    Note that the environment internal state is updated.
 
     Terminates when any of these conditions hold:
-    (1) the termination_function returns True,
-    (2) max_num_steps is reached,
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
+    """
+    state = env.reset(train_or_test, task_idx)
+    states = [state]
+    actions: List[Action] = []
+    if not termination_function(state):
+        for _ in range(max_num_steps):
+            act = policy(state)
+            if monitor is not None:
+                monitor.observe(state, act)
+            state = env.step(act)
+            actions.append(act)
+            states.append(state)
+            if termination_function(state):
+                break
+    if monitor is not None:
+        monitor.observe(state, None)
+    traj = LowLevelTrajectory(states, actions)
+    return traj
 
-    Returns a LowLevelTrajectory object.
+
+def run_policy_with_simulator(
+        policy: Callable[[State], Action],
+        simulator: Callable[[State, Action], State],
+        init_state: State,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+    """Execute a policy from a given initial state, using a simulator.
+
+    *** This function should not be used with any core code, because we want
+    to avoid the assumption of a simulator when possible. ***
+
+    This is similar to run_policy, with two major differences:
+    (1) The initial state `init_state` can be any state, not just the initial
+    state of a train or test task. (2) A simulator (function that takes state
+    as input) is assumed.
+
+    Note that the environment internal state is NOT updated.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
     """
     state = init_state
     states = [state]
@@ -286,62 +345,17 @@ def run_policy_until(policy: Callable[[State], Action],
     if not termination_function(state):
         for _ in range(max_num_steps):
             act = policy(state)
+            if monitor is not None:
+                monitor.observe(state, act)
             state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
+    if monitor is not None:
+        monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
-
-
-def run_policy_on_task(
-    policy: Callable[[State], Action],
-    task: Task,
-    simulator: Callable[[State, Action], State],
-    max_num_steps: int,
-    render: Optional[Callable[[State, Task, Optional[Action]],
-                              List[Image]]] = None,
-) -> Tuple[LowLevelTrajectory, Video, bool]:
-    """A light wrapper around run_policy_until that takes in a task and uses
-    achieving the task's goal as the termination_function.
-
-    Returns the trajectory and whether it achieves the task goal. Also
-    optionally returns a video, if a render function is provided.
-    """
-
-    def _goal_check(state: State) -> bool:
-        return all(goal_atom.holds(state) for goal_atom in task.goal)
-
-    traj = run_policy_until(policy, simulator, task.init, _goal_check,
-                            max_num_steps)
-    goal_reached = _goal_check(traj.states[-1])
-    video: Video = []
-    if render is not None:  # step through the traj again, making the video
-        for i, state in enumerate(traj.states):
-            act = traj.actions[i] if i < len(traj.states) - 1 else None
-            video.extend(render(state, task, act))
-    return traj, video, goal_reached
-
-
-def policy_solves_task(policy: Callable[[State], Action], task: Task,
-                       simulator: Callable[[State, Action], State]) -> bool:
-    """A light wrapper around run_policy_on_task that returns whether the given
-    policy solves the given task."""
-    _, _, solved = run_policy_on_task(policy, task, simulator,
-                                      CFG.max_num_steps_check_policy)
-    return solved
-
-
-def option_to_trajectory(init_state: State,
-                         simulator: Callable[[State, Action],
-                                             State], option: _Option,
-                         max_num_steps: int) -> LowLevelTrajectory:
-    """A light wrapper around run_policy_until that takes in an option and uses
-    achieving its terminal() condition as the termination_function."""
-    assert option.initiable(init_state)
-    return run_policy_until(option.policy, simulator, init_state,
-                            option.terminal, max_num_steps)
 
 
 class ExceptionWithInfo(Exception):
@@ -388,6 +402,19 @@ def option_plan_to_policy(
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
+
+    return _policy
+
+
+def action_arrs_to_policy(
+        action_arrs: Sequence[Array]) -> Callable[[State], Action]:
+    """Create a policy that executes action arrays in sequence."""
+
+    queue = list(action_arrs)  # don't modify original, just in case
+
+    def _policy(s: State) -> Action:
+        del s  # unused
+        return Action(queue.pop(0))
 
     return _policy
 
@@ -1037,6 +1064,10 @@ def ops_and_specs_to_dummy_nsrts(
     return nsrts
 
 
+# Note: create separate `heuristics.py` module if we need to add new
+#  heuristics in the future.
+
+
 def create_task_planning_heuristic(
     heuristic_name: str,
     init_atoms: Set[GroundAtom],
@@ -1050,6 +1081,8 @@ def create_task_planning_heuristic(
     if heuristic_name in _PYPERPLAN_HEURISTICS:
         return _create_pyperplan_heuristic(heuristic_name, init_atoms, goal,
                                            ground_ops, predicates, objects)
+    if heuristic_name == GoalCountHeuristic.HEURISTIC_NAME:
+        return GoalCountHeuristic(heuristic_name, init_atoms, goal, ground_ops)
     raise ValueError(f"Unrecognized heuristic name: {heuristic_name}.")
 
 
@@ -1058,11 +1091,19 @@ class _TaskPlanningHeuristic:
     """A task planning heuristic."""
     name: str
     init_atoms: Collection[GroundAtom]
-    goal: Collection[GroundAtom]
+    goal: Set[GroundAtom]
     ground_ops: Collection[Union[_GroundNSRT, _GroundSTRIPSOperator]]
 
     def __call__(self, atoms: Collection[GroundAtom]) -> float:
         raise NotImplementedError("Override me!")
+
+
+class GoalCountHeuristic(_TaskPlanningHeuristic):
+    """The number of goal atoms that are not in the current state."""
+    HEURISTIC_NAME: str = "goal_count"
+
+    def __call__(self, atoms: Collection[GroundAtom]) -> float:
+        return len(self.goal.difference(atoms))
 
 
 ############################### Pyperplan Glue ###############################
@@ -1215,7 +1256,7 @@ def create_pddl_domain(operators: Collection[NSRTOrSTRIPSOperator],
 
 def create_pddl_problem(objects: Collection[Object],
                         init_atoms: Collection[GroundAtom],
-                        goal: Collection[GroundAtom], domain_name: str,
+                        goal: Set[GroundAtom], domain_name: str,
                         problem_name: str) -> str:
     """Create a PDDL problem str."""
     # Sort everything to ensure determinism.
@@ -1236,13 +1277,57 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
+@dataclass
+class VideoMonitor(Monitor):
+    """A monitor that renders each state and action encountered.
+
+    The render_fn is generally env.render. Note that the state is unused
+    because the environment should use its current internal state to
+    render.
+    """
+    _render_fn: Callable[[Optional[Action]], List[Image]]
+    _video: Video = field(init=False, default_factory=list)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        del state  # unused
+        self._video.extend(self._render_fn(action))
+
+    def get_video(self) -> Video:
+        """Return the video."""
+        return self._video
+
+
+@dataclass
+class SimulateVideoMonitor(Monitor):
+    """A monitor that calls render_state on each state and action seen.
+
+    This monitor is meant for use with run_policy_with_simulator, as
+    opposed to VideoMonitor, which is meant for use with run_policy.
+    """
+    _task: Task
+    _render_state_fn: Callable[[State, Task, Optional[Action]], List[Image]]
+    _video: Video = field(init=False, default_factory=list)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        self._video.extend(self._render_state_fn(state, self._task, action))
+
+    def get_video(self) -> Video:
+        """Return the video."""
+        return self._video
+
+
 def create_video_from_partial_refinements(
-    task: Task, simulator: Callable[[State, Action], State],
-    render: Callable[[State, Task, Optional[Action]], List[Image]],
     partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
-                                        Sequence[_Option]]]
+                                        Sequence[_Option]]],
+    env: BaseEnv,
+    train_or_test: str,
+    task_idx: int,
+    max_num_steps: int,
 ) -> Video:
-    """Create a video from a list of skeletons and partial refinements."""
+    """Create a video from a list of skeletons and partial refinements.
+
+    Note that the environment internal state is updated.
+    """
     # Right now, the video is created by finding the longest partial
     # refinement. One could also implement an "all_skeletons" mode
     # that would create one video per skeleton.
@@ -1251,16 +1336,16 @@ def create_video_from_partial_refinements(
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
-        state = task.init
-        while True:
+        state = env.reset(train_or_test, task_idx)
+        for _ in range(max_num_steps):
             try:
                 act = policy(state)
             except OptionPlanExhausted:
-                video.extend(render(state, task, None))
+                video.extend(env.render())
                 break
-            video.extend(render(state, task, act))
+            video.extend(env.render(act))
             try:
-                state = simulator(state, act)
+                state = env.step(act)
             except EnvironmentFailure:
                 break
         return video
@@ -1390,6 +1475,14 @@ def string_to_python_object(value: str) -> Any:
         return float(value)
     except ValueError:
         pass
+    if value.startswith("["):
+        assert value.endswith("]")
+        inner_strs = value[1:-1].split(",")
+        return [string_to_python_object(s) for s in inner_strs]
+    if value.startswith("("):
+        assert value.endswith(")")
+        inner_strs = value[1:-1].split(",")
+        return tuple(string_to_python_object(s) for s in inner_strs)
     return value
 
 

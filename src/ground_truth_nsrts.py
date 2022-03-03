@@ -3,14 +3,13 @@
 from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
-from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
-    PlayroomEnv, BehaviorEnv
+from predicators.src.envs import get_or_create_env, BlocksEnv, \
+    PaintingEnv, PlayroomEnv, BehaviorEnv, ToolsEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
 from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
     grasp_obj_param_sampler, place_ontop_obj_pos_sampler
-from predicators.src.envs import get_cached_env_instance, ToolsEnv
 from predicators.src.utils import null_sampler
 
 
@@ -53,7 +52,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
 def _get_from_env_by_names(env_name: str, names: Sequence[str],
                            env_attr: str) -> List:
     """Helper for loading types, predicates, and options by name."""
-    env = create_env(env_name)
+    env = get_or_create_env(env_name)
     name_to_env_obj = {}
     for o in getattr(env, env_attr):
         name_to_env_obj[o.name] = o
@@ -1747,7 +1746,7 @@ def _get_repeated_nextto_gt_nsrts() -> Set[NSRT]:
 
 def _get_behavior_gt_nsrts() -> Set[NSRT]:  # pragma: no cover
     """Create ground truth nsrts for BehaviorEnv."""
-    env_base = get_cached_env_instance("behavior")
+    env_base = get_or_create_env("behavior")
     env = cast(BehaviorEnv, env_base)
 
     # NOTE: These two methods below are necessary to help instantiate

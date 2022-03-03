@@ -2,20 +2,20 @@
 
 import os
 import time
-from typing import Iterator, Tuple
+from typing import Iterator, Tuple, Optional, Type as TypingType
 import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory
+    LowLevelTrajectory, DefaultState
 from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
     _get_predicates_by_names
 from predicators.src.envs import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, \
-    _PyperplanHeuristicWrapper
+    _PyperplanHeuristicWrapper, GoalCountHeuristic
 
 
 def test_num_options_in_action_sequence():
@@ -174,8 +174,51 @@ def test_get_static_atoms():
     assert [obj.name for obj in added_atom.objects] == ["block0", "target0"]
 
 
-def test_run_policy_until():
-    """Tests for run_policy_until()."""
+def test_run_policy():
+    """Tests for run_policy()."""
+    utils.reset_config({"env": "cover"})
+    env = CoverEnv()
+    policy = lambda _: Action(env.action_space.sample())
+    task = env.get_task("test", 0)
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=5)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 6
+    assert len(traj.actions) == 5
+    traj2 = utils.run_policy(policy,
+                             env,
+                             "test",
+                             0,
+                             lambda s: True,
+                             max_num_steps=5)
+    assert not task.goal_holds(traj2.states[-1])
+    assert len(traj2.states) == 1
+    assert len(traj2.actions) == 0
+    executed = False
+
+    def _onestep_terminal(_):
+        nonlocal executed
+        terminate = executed
+        executed = True
+        return terminate
+
+    traj3 = utils.run_policy(policy,
+                             env,
+                             "test",
+                             0,
+                             _onestep_terminal,
+                             max_num_steps=5)
+    assert not task.goal_holds(traj3.states[-1])
+    assert len(traj3.states) == 2
+    assert len(traj3.actions) == 1
+
+
+def test_run_policy_with_simulator():
+    """Tests for run_policy_with_simulator()."""
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
@@ -191,78 +234,48 @@ def test_run_policy_until():
     def _policy(_):
         return Action(np.array([4]))
 
-    traj = utils.run_policy_until(_policy,
-                                  _simulator,
-                                  state,
-                                  lambda s: True,
-                                  max_num_steps=5)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           lambda s: True,
+                                           max_num_steps=5)
     assert len(traj.states) == 1
     assert len(traj.actions) == 0
 
-    traj = utils.run_policy_until(_policy,
-                                  _simulator,
-                                  state,
-                                  lambda s: False,
-                                  max_num_steps=5)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           lambda s: False,
+                                           max_num_steps=5)
     assert len(traj.states) == 6
     assert len(traj.actions) == 5
 
     def _terminal(s):
         return s[cup][0] > 9.9
 
-    traj = utils.run_policy_until(_policy,
-                                  _simulator,
-                                  state,
-                                  _terminal,
-                                  max_num_steps=5)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
 
+    # Test with monitor.
+    class _NullMonitor(utils.Monitor):
 
-def test_option_to_trajectory():
-    """Tests for option_to_trajectory()."""
-    cup_type = Type("cup_type", ["feat1"])
-    plate_type = Type("plate_type", ["feat1", "feat2"])
-    cup = cup_type("cup")
-    plate = plate_type("plate")
-    state = State({cup: [0.5], plate: [1.0, 1.2]})
+        def observe(self, state: State, action: Optional[Action]) -> None:
+            pass
 
-    def _simulator(s, a):
-        ns = s.copy()
-        assert a.arr.shape == (1, )
-        ns[cup][0] += a.arr.item()
-        return ns
-
-    params_space = Box(0, 1, (1, ))
-
-    def _policy(_1, _2, _3, p):
-        return Action(p)
-
-    def _initiable(_1, _2, _3, p):
-        return p > 0.25
-
-    def _terminal(s, _1, _2, _3):
-        return s[cup][0] > 9.9
-
-    parameterized_option = ParameterizedOption("Move", [], params_space,
-                                               _policy, _initiable, _terminal)
-    params = [0.1]
-    option = parameterized_option.ground([], params)
-    with pytest.raises(AssertionError):
-        # option is not initiable from start state
-        utils.option_to_trajectory(state, _simulator, option, max_num_steps=5)
-    params = [0.5]
-    option = parameterized_option.ground([], params)
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=100)
-    assert len(traj.actions) == len(traj.states) - 1 == 19
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=10)
-    assert len(traj.actions) == len(traj.states) - 1 == 10
+    monitor = _NullMonitor()
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           monitor=monitor)
+    assert len(traj.states) == 4
+    assert len(traj.actions) == 3
 
 
 def test_option_plan_to_policy():
@@ -303,10 +316,12 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=100)
+    assert option.initiable(state)
+    traj = utils.run_policy_with_simulator(option.policy,
+                                           _simulator,
+                                           state,
+                                           option.terminal,
+                                           max_num_steps=100)
     assert len(traj.actions) == len(traj.states) - 1 == 19
     for t in range(19):
         assert not option.terminal(state)
@@ -318,6 +333,30 @@ def test_option_plan_to_policy():
     with pytest.raises(utils.OptionPlanExhausted):
         # Ran out of options
         policy(state)
+
+
+def test_action_arrs_to_policy():
+    """Tests for action_arrs_to_policy()."""
+    action_arrs = [
+        np.zeros(2, dtype=np.float32),
+        np.ones(2, dtype=np.float32),
+        np.zeros(2, dtype=np.float32),
+    ]
+
+    state = DefaultState
+    policy = utils.action_arrs_to_policy(action_arrs)
+    action = policy(state)
+    assert isinstance(action, Action)
+    assert np.allclose(action.arr, action_arrs[0])
+    action = policy(state)
+    assert np.allclose(action.arr, action_arrs[1])
+    action = policy(state)
+    assert np.allclose(action.arr, action_arrs[2])
+    with pytest.raises(IndexError):
+        # Ran out of actions.
+        policy(state)
+    # Original list should not be modified.
+    assert len(action_arrs) == 3
 
 
 def test_strip_predicate():
@@ -1339,35 +1378,84 @@ def test_operator_application():
     assert next_atoms == {pred1([cup1, plate1]), pred2([cup1, plate1])}
 
 
-def test_create_task_planning_heuristic():
+@pytest.mark.parametrize("heuristic_name, expected_heuristic_cls", [
+    ("hadd", _PyperplanHeuristicWrapper),
+    ("hmax", _PyperplanHeuristicWrapper),
+    ("hff", _PyperplanHeuristicWrapper),
+    ("hsa", _PyperplanHeuristicWrapper),
+    ("lmcut", _PyperplanHeuristicWrapper),
+    ("goal_count", GoalCountHeuristic),
+])
+def test_create_task_planning_heuristic(
+        heuristic_name: str,
+        expected_heuristic_cls: TypingType[_TaskPlanningHeuristic]):
     """Tests for create_task_planning_heuristic()."""
-    hadd_heuristic = utils.create_task_planning_heuristic(
-        "hadd", set(), set(), set(), set(), set())
-    assert isinstance(hadd_heuristic, _PyperplanHeuristicWrapper)
-    assert hadd_heuristic.name == "hadd"
-    hmax_heuristic = utils.create_task_planning_heuristic(
-        "hmax", set(), set(), set(), set(), set())
-    assert hmax_heuristic.name == "hmax"
-    assert isinstance(hmax_heuristic, _PyperplanHeuristicWrapper)
-    hff_heuristic = utils.create_task_planning_heuristic(
-        "hff", set(), set(), set(), set(), set())
-    assert isinstance(hff_heuristic, _PyperplanHeuristicWrapper)
-    assert hff_heuristic.name == "hff"
-    hsa_heuristic = utils.create_task_planning_heuristic(
-        "hsa", set(), set(), set(), set(), set())
-    assert hsa_heuristic.name == "hsa"
-    assert isinstance(hsa_heuristic, _PyperplanHeuristicWrapper)
-    lmcut_heuristic = utils.create_task_planning_heuristic(
-        "lmcut", set(), set(), set(), set(), set())
-    assert isinstance(lmcut_heuristic, _PyperplanHeuristicWrapper)
-    assert lmcut_heuristic.name == "lmcut"
+    heuristic = utils.create_task_planning_heuristic(heuristic_name, set(),
+                                                     set(), set(), set(),
+                                                     set())
+    assert isinstance(heuristic, expected_heuristic_cls)
+
+
+def test_create_task_planning_heuristic_raises_error_for_unknown_heuristic():
+    """Test creating unknown heuristic raises a ValueError."""
     with pytest.raises(ValueError):
         utils.create_task_planning_heuristic("not a real heuristic", set(),
                                              set(), set(), set(), set())
-    # Cover _TaskPlanningHeuristic base class.
+
+
+def test_create_task_planning_heuristic_base_class():
+    """Test to cover _TaskPlanningHeuristic base class."""
     base_heuristic = _TaskPlanningHeuristic("base", set(), set(), set())
     with pytest.raises(NotImplementedError):
         base_heuristic(set())
+
+
+def test_goal_count_heuristic():
+    """Test the goal count heuristic."""
+    # Create predicate and objects
+    block_type = Type("block_type", ["feat1"])
+    table_type = Type("plate_type", ["feat1"])
+
+    on = Predicate("On", [block_type, table_type], lambda s, o: False)
+    block1 = block_type("block1")
+    block2 = block_type("block2")
+    block3 = block_type("block3")
+    table1 = table_type("table1")
+    table2 = table_type("table2")
+
+    # Create goal and heuristic instance
+    goal_atoms = {
+        GroundAtom(on, [block1, table1]),
+        GroundAtom(on, [block2, table1]),
+        GroundAtom(on, [block3, table2]),
+    }
+    heuristic = GoalCountHeuristic("goal_count",
+                                   init_atoms=set(),
+                                   goal=goal_atoms,
+                                   ground_ops=set())
+
+    assert heuristic(goal_atoms) == 0
+    assert heuristic({
+        GroundAtom(on, [block1, table1]),
+        GroundAtom(on, [block2, table1]),
+        GroundAtom(on, [block3, table1]),
+    }) == 1
+    assert heuristic({
+        GroundAtom(on, [block1, table2]),
+        GroundAtom(on, [block2, table2]),
+        GroundAtom(on, [block3, table2]),
+    }) == 2
+    assert heuristic({
+        GroundAtom(on, [block1, table2]),
+        GroundAtom(on, [block2, table2]),
+        GroundAtom(on, [block3, table1]),
+    }) == 3
+
+    # Some edge cases
+    assert heuristic(set()) == 3
+    assert heuristic(
+        {GroundAtom(on, [block_type("block99"),
+                         table_type("table99")])}) == 3
 
 
 def test_create_pddl():
@@ -1435,6 +1523,46 @@ def test_create_pddl():
   (:goal (and (Covers block0 target0)))
 )
 """
+
+
+def test_VideoMonitor():
+    """Tests for VideoMonitor()."""
+    env = CoverEnv()
+    monitor = utils.VideoMonitor(env.render)
+    policy = lambda _: Action(env.action_space.sample())
+    task = env.get_task("test", 0)
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=2,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 3
+    assert len(traj.actions) == 2
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
+
+
+def test_SimulateVideoMonitor():
+    """Tests for SimulateVideoMonitor()."""
+    env = CoverEnv()
+    task = env.get_task("test", 0)
+    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    policy = lambda _: Action(env.action_space.sample())
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=2,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 3
+    assert len(traj.actions) == 2
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
 
 
 def test_save_video():
@@ -1791,12 +1919,16 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("True") is True
     assert utils.string_to_python_object("False") is False
     assert utils.string_to_python_object("None") is None
+    assert utils.string_to_python_object("[3.2]") == [3.2]
+    assert utils.string_to_python_object("[3.2,4.3]") == [3.2, 4.3]
+    assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
+    assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
+    assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
 
 
 def test_create_video_from_partial_refinements():
     """Tests for create_video_from_partial_refinements()."""
     env = CoverEnv()
-    task = env.get_train_tasks()[0]
     PickPlace = list(env.options)[0]
     option = PickPlace.ground([],
                               np.zeros(PickPlace.params_space.shape,
@@ -1804,12 +1936,17 @@ def test_create_video_from_partial_refinements():
     partial_refinements = [([], [option])]
     utils.reset_config({"failure_video_mode": "not a real video mode"})
     with pytest.raises(NotImplementedError):
-        utils.create_video_from_partial_refinements(task, env.simulate,
-                                                    env.render,
-                                                    partial_refinements)
+        utils.create_video_from_partial_refinements(partial_refinements,
+                                                    env,
+                                                    "train",
+                                                    task_idx=0,
+                                                    max_num_steps=10)
     utils.reset_config({"env": "cover", "failure_video_mode": "longest_only"})
-    video = utils.create_video_from_partial_refinements(
-        task, env.simulate, env.render, partial_refinements)
+    video = utils.create_video_from_partial_refinements(partial_refinements,
+                                                        env,
+                                                        "train",
+                                                        task_idx=0,
+                                                        max_num_steps=10)
     assert len(video) == 2
 
 

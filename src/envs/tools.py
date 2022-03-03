@@ -279,14 +279,14 @@ class ToolsEnv(BaseEnv):
         next_state.set(self._robot, "fingers", 0.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(
             num_tasks=CFG.num_train_tasks,
             num_items_lst=CFG.tools_num_items_train,
             num_contraptions_lst=CFG.tools_num_contraptions_train,
             rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(
             num_tasks=CFG.num_test_tasks,
             num_items_lst=CFG.tools_num_items_test,
@@ -335,10 +335,10 @@ class ToolsEnv(BaseEnv):
             np.array([self.table_lx, self.table_ly, 0, 0], dtype=np.float32),
             np.array([self.table_ux, self.table_uy, 1, 1], dtype=np.float32))
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_items_lst: List[int],
