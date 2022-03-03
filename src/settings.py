@@ -137,10 +137,6 @@ class GlobalSettings:
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
 
-    # iterative invention parameters
-    iterative_invention_accept_score = 1 - 1e-3
-    predicate_mlp_classifier_max_itr = 1000
-
     # interactive learning parameters
     interactive_num_ensemble_members = 10
     interactive_action_strategy = "glib"
@@ -149,6 +145,7 @@ class GlobalSettings:
     interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+    predicate_mlp_classifier_max_itr = 1000
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

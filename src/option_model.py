@@ -44,10 +44,12 @@ class _OracleOptionModel(_OptionModelBase):
         self._simulator = env.simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:
-        traj = utils.option_to_trajectory(
-            state,
+        assert option.initiable(state)
+        traj = utils.run_policy_with_simulator(
+            option.policy,
             self._simulator,
-            option,
+            state,
+            option.terminal,
             max_num_steps=CFG.max_num_steps_option_rollout)
         return traj.states[-1]
 

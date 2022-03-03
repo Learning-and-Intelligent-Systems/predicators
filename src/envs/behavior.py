@@ -156,10 +156,10 @@ class BehaviorEnv(BaseEnv):
         next_state = self.current_ig_state_to_state()
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:

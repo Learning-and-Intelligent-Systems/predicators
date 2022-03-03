@@ -10,6 +10,31 @@ from predicators.src.structs import State, Action, Task
 from predicators.src import utils
 
 
+def run_policy_with_simulator_on_task(policy,
+                                      task,
+                                      simulator,
+                                      max_num_steps,
+                                      render=None):
+    """Helper method used throughout this file. A light wrapper around
+    run_policy_with_simulator that takes in a task and uses achieving the
+    task's goal as the termination_function.
+
+    Returns the trajectory and whether it achieves the task goal. Also
+    optionally returns a video, if a render function is provided.
+    """
+    traj = utils.run_policy_with_simulator(policy, simulator, task.init,
+                                           task.goal_holds, max_num_steps)
+    goal_reached = task.goal_holds(traj.states[-1])
+    video = []
+    # Video rendering can be toggled on inline in tests, but by default it's
+    # turned off for efficiency, hence the pragma.
+    if render is not None:  # pragma: no cover
+        for i, state in enumerate(traj.states):
+            act = traj.actions[i] if i < len(traj.states) - 1 else None
+            video.extend(render(state, task, act))
+    return traj, video, goal_reached
+
+
 def test_cover():
     """Tests for CoverEnv class."""
     utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
@@ -67,10 +92,12 @@ def test_cover():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = utils.option_to_trajectory(state,
-                                          env.simulate,
-                                          option,
-                                          max_num_steps=100)
+        assert option.initiable(state)
+        traj = utils.run_policy_with_simulator(option.policy,
+                                               env.simulate,
+                                               state,
+                                               option.terminal,
+                                               max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
         assert len(traj.states) == 2
@@ -82,11 +109,13 @@ def test_cover():
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
-    option = next(iter(env.options))
-    traj = utils.option_to_trajectory(task.init,
-                                      env.simulate,
-                                      option.ground([], [0]),
-                                      max_num_steps=100)
+    option = next(iter(env.options)).ground([], [0])
+    assert option.initiable(task.init)
+    traj = utils.run_policy_with_simulator(option.policy,
+                                           env.simulate,
+                                           task.init,
+                                           option.terminal,
+                                           max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
     # Test cover_initial_holding_prob.
@@ -157,10 +186,12 @@ def test_cover_typed_options():
         atoms = utils.abstract(state, env.predicates)
         assert not task.goal.issubset(atoms)
         assert len(atoms) == expected_lengths.pop(0)
-        traj = utils.option_to_trajectory(state,
-                                          env.simulate,
-                                          option,
-                                          max_num_steps=100)
+        assert option.initiable(state)
+        traj = utils.run_policy_with_simulator(option.policy,
+                                               env.simulate,
+                                               state,
+                                               option.terminal,
+                                               max_num_steps=100)
         plan.extend(traj.actions)
         assert len(traj.actions) == 1
         assert len(traj.states) == 2
@@ -172,11 +203,13 @@ def test_cover_typed_options():
     assert not expected_lengths
     assert task.goal.issubset(atoms)  # goal achieved
     # Test being outside of a hand region. Should be a no-op.
-    option = next(iter(env.options))
-    traj = utils.option_to_trajectory(task.init,
-                                      env.simulate,
-                                      place_option.ground([target0], [0]),
-                                      max_num_steps=100)
+    option = place_option.ground([target0], [0])
+    assert option.initiable(task.init)
+    traj = utils.run_policy_with_simulator(option.policy,
+                                           env.simulate,
+                                           task.init,
+                                           option.terminal,
+                                           max_num_steps=100)
     assert len(traj.states) == 2
     assert traj.states[0].allclose(traj.states[1])
 
@@ -312,12 +345,12 @@ def test_cover_multistep_options():
         del s  # unused
         return Action(action_arrs.pop(0))
 
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_com.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_com.mp4"
+        utils.save_video(outfile, video)
     state = traj.states[0]
     env.render(state, task)
     # Render a state where we're grasping
@@ -339,12 +372,12 @@ def test_cover_multistep_options():
     ]
     assert plan[0].initiable(state)
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         utils.option_plan_to_policy(plan), task, env.simulate, 100,
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_options_com.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_options_com.mp4"
+        utils.save_video(outfile, video)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
     assert Covers([block0, target0]) in final_atoms
     assert Covers([block1, target1]) in final_atoms
@@ -373,12 +406,12 @@ def test_cover_multistep_options():
         np.array([0., -0.06, 0.0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_robot_collision1.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_robot_collision1.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -397,12 +430,12 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_robot_collision2.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_robot_collision2.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -439,12 +472,12 @@ def test_cover_multistep_options():
         np.array([0., -0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_block_collision1.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_block_collision1.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -480,12 +513,12 @@ def test_cover_multistep_options():
         np.array([0.1, 0.1, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_block_collision2.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_block_collision2.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
 
@@ -521,14 +554,56 @@ def test_cover_multistep_options():
         np.array([0., -0.07, 0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_block_collision3.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_block_collision3.mp4"
+        utils.save_video(outfile, video)
     robot = [r for r in traj.states[0] if r.name == "robby"][0]
     assert np.array_equal(traj.states[-1][robot], traj.states[-2][robot])
+
+    # Cover the case where a place is attempted outside of a hand region.
+    action_arrs = [
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0.05, 0., 0.], dtype=np.float32),
+        np.array([0., -0.05, 0], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.05, 0.], dtype=np.float32),
+        np.array([0., -0.045, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0., 0.05, 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0.05, 0., 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., -0.1, 0.1], dtype=np.float32),
+        np.array([0., 0., -0.1], dtype=np.float32),
+        np.array([0., 0.1, 0.], dtype=np.float32),
+    ]
+    make_video = False  # Can toggle to true for debugging
+    traj, video, _ = run_policy_with_simulator_on_task(
+        policy, task, env.simulate, len(action_arrs),
+        env.render if make_video else None)
+    if make_video:  # pragma: no cover
+        outfile = "place_fail_multistep_cover.mp4"
+        utils.save_video(outfile, video)
+    robot = [r for r in traj.states[0] if r.name == "robby"][0]
+    assert traj.states[-1].get(robot, "holding") > -1
 
     # Check max placement failure for target and block placement
     utils.reset_config({
@@ -592,12 +667,12 @@ def test_cover_multistep_options():
         np.array([0., -0.01, -0.1], dtype=np.float32),
     ]
     make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
+    traj, video, _ = run_policy_with_simulator_on_task(
         policy, task, env.simulate, len(action_arrs),
         env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_com_2.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+    if make_video:  # pragma: no cover
+        outfile = "hardcoded_actions_com_2.mp4"
+        utils.save_video(outfile, video)
     Covers = [p for p in env.predicates if p.name == "Covers"][0]
     init_atoms = utils.abstract(state, env.predicates)
     final_atoms = utils.abstract(traj.states[-1], env.predicates)

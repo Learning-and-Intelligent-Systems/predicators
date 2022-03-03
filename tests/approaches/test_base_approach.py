@@ -81,7 +81,7 @@ def test_create_approach():
     train_tasks = env.get_train_tasks()
     for name in [
             "random_actions", "random_options", "oracle", "nsrt_learning",
-            "interactive_learning", "iterative_invention"
+            "interactive_learning"
     ]:
         utils.reset_config({
             "env": "cover",

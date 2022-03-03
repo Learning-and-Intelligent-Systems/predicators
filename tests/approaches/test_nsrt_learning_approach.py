@@ -63,7 +63,13 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(policy, task, env.simulate)
+            traj = utils.run_policy_with_simulator(
+                policy,
+                env.simulate,
+                task.init,
+                task.goal_holds,
+                max_num_steps=CFG.max_num_steps_check_policy)
+            assert task.goal_holds(traj.states[-1])
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -73,7 +79,13 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(policy, task, env.simulate)
+            traj = utils.run_policy_with_simulator(
+                policy,
+                env.simulate,
+                task.init,
+                task.goal_holds,
+                max_num_steps=CFG.max_num_steps_check_policy)
+            assert task.goal_holds(traj.states[-1])
 
 
 def test_nsrt_learning_approach():
@@ -95,7 +107,11 @@ def test_neural_option_learning():
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="neural",
-                   check_solution=False)
+                   check_solution=False,
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                   })
 
 
 def test_oracle_samplers():
@@ -128,20 +144,6 @@ def test_oracle_samplers():
                        check_solution=True,
                        num_train_tasks=3)
     assert "no match for ground truth NSRT" in str(e)
-
-
-def test_iterative_invention_approach():
-    """Tests for IterativeInventionApproach class."""
-    _test_approach(env_name="cover",
-                   approach_name="iterative_invention",
-                   excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
-    _test_approach(env_name="blocks",
-                   approach_name="iterative_invention",
-                   excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
 
 
 def test_grammar_search_invention_approach():

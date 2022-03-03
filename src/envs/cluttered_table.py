@@ -89,10 +89,10 @@ class ClutteredTableEnv(BaseEnv):
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, train_or_test="train")
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, train_or_test="test")
 
     @property
