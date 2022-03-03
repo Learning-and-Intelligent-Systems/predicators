@@ -280,9 +280,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         super().__init__(name,
                          types,
                          params_space,
-                         _policy=self._regressor_based_policy,
-                         _initiable=self._precondition_based_initiable,
-                         _terminal=self._effect_based_terminal)
+                         policy=self._regressor_based_policy,
+                         initiable=self._precondition_based_initiable,
+                         terminal=self._effect_based_terminal)
 
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],

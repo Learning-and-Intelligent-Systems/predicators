@@ -180,8 +180,8 @@ def test_sesame_plan_uninitiable_option():
     old_option = next(iter(env.options))
     new_option = ParameterizedOption(old_option.name, old_option.types,
                                      old_option.params_space,
-                                     old_option._policy, initiable,
-                                     old_option._terminal)
+                                     old_option.policy, initiable,
+                                     old_option.terminal)
     new_nsrts = set()
     for nsrt in nsrts:
         new_nsrts.add(

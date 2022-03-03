@@ -93,36 +93,36 @@ class PaintingEnv(BaseEnv):
             params_space=Box(
                 np.array([-1.0, -1.0, -1.0, -0.01], dtype=np.float32),
                 np.array([1.0, 1.0, 1.0, 1.01], dtype=np.float32)),
-            _policy=self._Pick_policy,
-            _initiable=self._handempty_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=self._handempty_initiable,
+            terminal=utils.onestep_terminal)
         self._Wash = ParameterizedOption(
             # variables: [robot]
             # params: [water level]
             "Wash",
             types=[self._robot_type],
             params_space=Box(-0.01, 1.01, (1, )),
-            _policy=self._Wash_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Wash_policy,
+            initiable=self._holding_initiable,
+            terminal=utils.onestep_terminal)
         self._Dry = ParameterizedOption(
             # variables: [robot]
             # params: [heat level]
             "Dry",
             types=[self._robot_type],
             params_space=Box(-0.01, 1.01, (1, )),
-            _policy=self._Dry_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Dry_policy,
+            initiable=self._holding_initiable,
+            terminal=utils.onestep_terminal)
         self._Paint = ParameterizedOption(
             # variables: [robot]
             # params: [new color]
             "Paint",
             types=[self._robot_type],
             params_space=Box(-0.01, 1.01, (1, )),
-            _policy=self._Paint_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Paint_policy,
+            initiable=self._holding_initiable,
+            terminal=utils.onestep_terminal)
         self._Place = ParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
@@ -133,18 +133,18 @@ class PaintingEnv(BaseEnv):
                          dtype=np.float32),
                 np.array([self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2],
                          dtype=np.float32)),
-            _policy=self._Place_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Place_policy,
+            initiable=self._holding_initiable,
+            terminal=utils.onestep_terminal)
         self._OpenLid = ParameterizedOption(
             # variables: [robot, lid]
             # params: []
             "OpenLid",
             types=[self._robot_type, self._lid_type],
             params_space=Box(-0.01, 1.01, (0, )),  # no parameters
-            _policy=self._OpenLid_policy,
-            _initiable=self._handempty_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._OpenLid_policy,
+            initiable=self._handempty_initiable,
+            terminal=utils.onestep_terminal)
         # Objects
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
