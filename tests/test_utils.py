@@ -294,17 +294,17 @@ def test_option_plan_to_policy():
 
     params_space = Box(0, 1, (1, ))
 
-    def _policy(_1, _2, _3, p):
+    def policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(s, _2, _3, p):
+    def initiable(s, _2, _3, p):
         return p > 0.25 and s[cup][0] < 1
 
-    def _terminal(s, _1, _2, _3):
+    def terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
 
     parameterized_option = ParameterizedOption("Move", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     params = [0.1]
     option = parameterized_option.ground([], params)
     plan = [option]

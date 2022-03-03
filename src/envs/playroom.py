@@ -101,18 +101,18 @@ class PlayroomEnv(BlocksEnv):
             "Pick",
             types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4, )),
-            _policy=self._Pick_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=self._NextToTable_initiable,
+            terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: [delta x, delta y, delta z, rotation]
             "Stack",
             types=[self._robot_type, self._block_type],
             params_space=Box(-1, 1, (4, )),
-            _policy=self._Stack_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Stack_policy,
+            initiable=self._NextToTable_initiable,
+            terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
             # params: [x, y, rotation] (normalized coords on table surface)
@@ -120,27 +120,27 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type],
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
-            _policy=self._PutOnTable_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._PutOnTable_policy,
+            initiable=self._NextToTable_initiable,
+            terminal=utils.onestep_terminal)
         self._MoveToDoor = ParameterizedOption(
             # variables: [robot, region, door]
             # params: [dx, dy, rotation]
             "MoveToDoor",
             types=[self._robot_type, self._region_type, self._door_type],
             params_space=Box(-1, 1, (3, )),
-            _policy=self._MoveToDoor_policy,  # uses robot, door
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
+            policy=self._MoveToDoor_policy,  # uses robot, door
+            initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            terminal=utils.onestep_terminal)
         self._MoveDoorToTable = ParameterizedOption(
             # variables: [robot, region]
             # params: [x, y, rotation] (x, y normalized)
             "MoveDoorToTable",
             types=[self._robot_type, self._region_type],
             params_space=Box(-1, 1, (3, )),
-            _policy=self._MoveToTable_policy,  # uses robot
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
+            policy=self._MoveToTable_policy,  # uses robot
+            initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            terminal=utils.onestep_terminal)
         self._MoveDoorToDial = ParameterizedOption(
             # variables: [robot, region, dial]
             # params: [dx, dy, rotation]
@@ -148,9 +148,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._region_type, self._dial_type],
             params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
                              high=np.array([4.0, 4.0, 1.0])),
-            _policy=self._MoveToDial_policy,  # uses robot, dial
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
+            policy=self._MoveToDial_policy,  # uses robot, dial
+            initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            terminal=utils.onestep_terminal)
         self._OpenDoor = ParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
@@ -158,9 +158,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDoor_policy,
-            _initiable=self._ToggleDoor_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDoor_policy,
+            initiable=self._ToggleDoor_initiable,
+            terminal=utils.onestep_terminal)
         self._CloseDoor = ParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
@@ -168,9 +168,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDoor_policy,
-            _initiable=self._ToggleDoor_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDoor_policy,
+            initiable=self._ToggleDoor_initiable,
+            terminal=utils.onestep_terminal)
         self._TurnOnDial = ParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
@@ -178,9 +178,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDial_policy,
-            _initiable=self._ToggleDial_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDial_policy,
+            initiable=self._ToggleDial_initiable,
+            terminal=utils.onestep_terminal)
         self._TurnOffDial = ParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
@@ -188,9 +188,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDial_policy,
-            _initiable=self._ToggleDial_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDial_policy,
+            initiable=self._ToggleDial_initiable,
+            terminal=utils.onestep_terminal)
         # Objects
         self._robot = Object("robby", self._robot_type)
         self._door1 = Object("door1", self._door_type)
