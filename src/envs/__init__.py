@@ -80,10 +80,13 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
 def get_cached_env(name: str) -> BaseEnv:
     """Get the most recent cached env instance.
 
-    If you use this function,
-    you should NOT be doing anything that relies on the environment's
-    internal state (i.e., you should not call reset() or step()).
+    If you use this function, you should NOT be doing anything that relies on
+    the environment's internal state (i.e., you should not call reset() or
+    step()).
+
     Note: if CFG.allow_env_caching is False, always makes a new env instance.
+    We do this because unit testing relies on this method working, e.g., when
+    a unit test calls get_gt_nsrts(), which in turn calls this method.
     """
     if not CFG.allow_env_caching:
         return create_new_env(name)
