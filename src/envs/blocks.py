@@ -23,14 +23,16 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height = 0.2
-    block_size = 0.1
+    block_size = 0.075
+    # The table x bounds are (1.15, 2.15), but the workspace is smaller.
     x_lb = 1.3
-    x_ub = 1.4
-    y_lb = 0.15
-    y_ub = 20.85
+    x_ub = 2.0
+    # The table y bounds are (0.3, 1.2), but the workspace is smaller.
+    y_lb = 0.4
+    y_ub = 1.1
     held_tol = 0.5
     open_fingers = 0.8
-    pick_tol = 0.08
+    pick_tol = 0.0001
     assert pick_tol < block_size
     pick_z = 1.5
     num_blocks_train = [3, 4]
@@ -341,9 +343,10 @@ class BlocksEnv(BaseEnv):
     def _sample_initial_pile_xy(
             self, rng: np.random.Generator,
             existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
+        half_size = self.block_size / 2
         while True:
-            x = rng.uniform(self.x_lb, self.x_ub)
-            y = rng.uniform(self.y_lb, self.y_ub)
+            x = rng.uniform(self.x_lb + half_size, self.x_ub - half_size)
+            y = rng.uniform(self.y_lb + half_size, self.y_ub - half_size)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 

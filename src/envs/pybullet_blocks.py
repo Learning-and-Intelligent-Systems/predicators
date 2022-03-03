@@ -14,6 +14,7 @@ from predicators.src.settings import CFG
 
 class PyBulletBlocksEnv(BlocksEnv):
     """PyBullet Blocks domain."""
+    # Parameters that aren't important enough to need to clog up settings.py
 
     # Fetch robot parameters.
     _base_position: Sequence[float] = [0.75, 0.7441, 0.0]
@@ -27,7 +28,6 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     # Block parameters.
     _block_orientation: Sequence[float] = [0., 0., 0., 1.]
-    _block_half_extents: Sequence[float] = [0.0375, 0.0375, 0.0375]
     _block_mass = 0.04
     _block_friction = 1.2
     _block_colors: Sequence[Tuple[float, float, float, float]] = [
@@ -113,6 +113,24 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
+        # Draw the workspace on the table for clarity.
+        p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
+                           [self.x_ub, self.y_lb, self.table_height],
+                           [1.0, 0.0, 0.0],
+                           lineWidth=1.0)
+        p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
+                           [self.x_ub, self.y_ub, self.table_height],
+                           [1.0, 0.0, 0.0],
+                           lineWidth=1.0)
+        p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
+                           [self.x_lb, self.y_ub, self.table_height],
+                           [1.0, 0.0, 0.0],
+                           lineWidth=1.0)
+        p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
+                           [self.x_ub, self.y_ub, self.table_height],
+                           [1.0, 0.0, 0.0],
+                           lineWidth=1.0)
+
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
 
@@ -127,7 +145,8 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # Create blocks. Note that we create the maximum number once, and then
         # remove blocks from view based on the number involved in the state.
-        num_blocks = max(max(self.num_blocks_train), max(self.num_blocks_test))
+        num_blocks = max(max(self.num_blocks_train),
+                         max(self.num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
 
         # When a block is held, a constraint is created to prevent slippage.
@@ -178,7 +197,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 physicsClientId=self._physics_client_id)
 
         # For any blocks not involved, put them out of view.
-        h = 2 * self._block_half_extents[2]
+        h = self.block_size
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
@@ -199,23 +218,23 @@ class PyBulletBlocksEnv(BlocksEnv):
         # The positions here are not important because they are overwritten by
         # the state values when a task is reset. By default, we just stack all
         # the blocks into one pile at the center of the table so we can see.
-        h = 2 * self._block_half_extents[2]
-        ((min_x, min_y, _), (max_x, max_y, max_z)) = p.getAABB(self._table_id)
-        x = (max_x + min_x) / 2
-        y = (max_y + min_y) / 2
-        z = max_z + (0.5 * h) + (h * block_num)
+        h = self.block_size
+        x = (self.x_lb + self.x_ub) / 2
+        y = (self.y_lb + self.y_ub) / 2
+        z = self.table_height + (0.5 * h) + (h * block_num)
         position = [x, y, z]
 
         # Create the collision shape.
+        half_extents = [self.block_size / 2.] * 3
         collision_id = p.createCollisionShape(
             p.GEOM_BOX,
-            halfExtents=self._block_half_extents,
+            halfExtents=half_extents,
             physicsClientId=self._physics_client_id)
 
         # Create the visual_shape.
         visual_id = p.createVisualShape(
             p.GEOM_BOX,
-            halfExtents=self._block_half_extents,
+            halfExtents=half_extents,
             rgbaColor=color,
             physicsClientId=self._physics_client_id)
 
