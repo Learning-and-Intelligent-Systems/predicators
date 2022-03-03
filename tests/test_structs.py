@@ -293,31 +293,28 @@ def test_option():
     state = test_state()
     params_space = Box(-10, 10, (2, ))
 
-    def _policy(s, m, o, p):
+    def policy(s, m, o, p):
         del s, m, o  # unused
         return Action(p * 2)
 
-    def _initiable(s, m, o, p):
+    def initiable(s, m, o, p):
         del o  # unused
         m["test_key"] = "test_string"
         obj = list(s)[0]
         return p[0] < s[obj][0]
 
-    def _terminal(s, m, o, p):
+    def terminal(s, m, o, p):
         del m, o  # unused
         obj = list(s)[0]
         return p[1] > s[obj][2]
 
     parameterized_option = ParameterizedOption("Pick", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
             "ParameterizedOption(name='Pick', types=[])")
     params = [-15, 5]
     with pytest.raises(AssertionError):
         parameterized_option.ground([], params)  # params not in params_space
-    assert not hasattr(parameterized_option, "policy")
-    assert not hasattr(parameterized_option, "initiable")
-    assert not hasattr(parameterized_option, "terminal")
     params = [-5, 5]
     option = parameterized_option.ground([], params)
     assert isinstance(option, _Option)
@@ -347,11 +344,11 @@ def test_option():
     assert not option.terminal(state)
     assert option.params[0] == 5 and option.params[1] == -5
     parameterized_option = ParameterizedOption("Pick", [type1], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
             "ParameterizedOption(name='Pick', types=[Type(name='type1')])")
     parameterized_option2 = ParameterizedOption("Pick2", [type1], params_space,
-                                                _policy, _initiable, _terminal)
+                                                policy, initiable, terminal)
     assert parameterized_option2 > parameterized_option
     assert parameterized_option < parameterized_option2
     with pytest.raises(AssertionError):
@@ -364,7 +361,7 @@ def test_option():
         "_Option(name='Pick', objects=[obj7:type1], "
         "params=array([ 5., -5.], dtype=float32))")
     parameterized_option = ParameterizedOption("Pick", [type1], params_space,
-                                               _policy, utils.always_initiable,
+                                               policy, utils.always_initiable,
                                                utils.onestep_terminal)
     option = parameterized_option.ground([obj7], params)
     with pytest.raises(AssertionError):
@@ -385,7 +382,7 @@ def test_option_memory_incorrect():
     def _make_option():
         value = 0.0
 
-        def _policy(s, m, o, p):
+        def policy(s, m, o, p):
             del s, o  # unused
             del m  # the correct way of doing memory is unused here
             nonlocal value
@@ -393,7 +390,7 @@ def test_option_memory_incorrect():
             return Action(p)
 
         return ParameterizedOption(
-            "Dummy", [], Box(0, 1, (1, )), _policy, lambda s, m, o, p: True,
+            "Dummy", [], Box(0, 1, (1, )), policy, lambda s, m, o, p: True,
             lambda s, m, o, p: value > 1.0)  # terminate when value > 1.0
 
     param_opt = _make_option()
@@ -417,19 +414,19 @@ def test_option_memory_correct():
 
     def _make_option():
 
-        def _initiable(s, m, o, p):
+        def initiable(s, m, o, p):
             del s, o, p  # unused
             m["value"] = 0.0  # initialize value
             return True
 
-        def _policy(s, m, o, p):
+        def policy(s, m, o, p):
             del s, o  # unused
             assert "value" in m, "Call initiable() first!"
             m["value"] += p[0]  # add the param to value
             return Action(p)
 
         return ParameterizedOption(
-            "Dummy", [], Box(0, 1, (1, )), _policy, _initiable,
+            "Dummy", [], Box(0, 1, (1, )), policy, initiable,
             lambda s, m, o, p: m["value"] > 1.0)  # terminate when value > 1.0
 
     param_opt = _make_option()
@@ -650,17 +647,17 @@ def test_action():
 
     params_space = Box(0, 1, (1, ))
 
-    def _policy(_1, _2, _3, p):
+    def policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(_1, _2, _3, p):
+    def initiable(_1, _2, _3, p):
         return p > 0.25
 
-    def _terminal(s, _1, _2, _3):
+    def terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
 
     parameterized_option = ParameterizedOption("Move", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
     assert option.initiable(state)

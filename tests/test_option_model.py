@@ -27,23 +27,23 @@ def test_default_option_model():
 
     params_space = Box(-10, 10, (2, ))
 
-    def _policy(s, m, o, p):
+    def policy(s, m, o, p):
         del s, m, o  # unused
         return Action(p * 2)
 
-    def _initiable(s, m, o, p):
+    def initiable(s, m, o, p):
         del o, p  # unused
         obj = list(s)[0]
         m["start_state"] = s
         return s[obj][0] < 10 or s[obj][0] > 60
 
-    def _terminal(s, m, o, p):
+    def terminal(s, m, o, p):
         del o, p  # unused
         obj = list(s)[0]
         return s[obj][0] > 50 and not s.allclose(m["start_state"])
 
     parameterized_option = ParameterizedOption("Pick", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     params = [-5, 5]
     option1 = parameterized_option.ground([], params)
     params = [-7, 7]

@@ -9,7 +9,7 @@ from predicators.src.structs import State, Task, Query, Response, \
     DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
     Action
 from predicators.src.settings import CFG, get_allowed_query_type_names
-from predicators.src.envs import create_env
+from predicators.src.envs import get_or_create_env
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
     ApproachFailure
 from predicators.src import utils
@@ -20,7 +20,7 @@ class Teacher:
 
     def __init__(self, train_tasks: Sequence[Task]) -> None:
         self._train_tasks = train_tasks
-        env = create_env(CFG.env)
+        env = get_or_create_env(CFG.env)
         self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
         self._allowed_query_type_names = get_allowed_query_type_names()
         self._oracle_approach = OracleApproach(
