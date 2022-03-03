@@ -114,10 +114,10 @@ class RepeatedNextToEnv(BaseEnv):
         # dim is grasp). Normalization is [self.env_lb, self.env_ub] -> [0, 1].
         return Box(0, 1, (3, ))
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         robot_x = state.get(self._robot, "x")
         for dot in self._dots:

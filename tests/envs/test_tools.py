@@ -35,7 +35,7 @@ def test_tools():
     assert env.action_space.shape == (4, )
     task = env.get_train_tasks()[0]
     with pytest.raises(NotImplementedError):
-        env.render(task.init, task)
+        env.render_state(task.init, task)
 
 
 def test_tools_failure_cases():
