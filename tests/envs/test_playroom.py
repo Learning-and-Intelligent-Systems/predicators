@@ -379,7 +379,7 @@ def test_playroom_options():
     #                                        env.simulate,
     #                                        task.init,
     #                                        lambda _: False,
-    #                                        max_num_steps=len(action_arrs),
+    #                                        max_num_steps=len(plan),
     #                                        monitor=monitor)
     # Uncomment to save the video.
     # video = monitor.get_video()
