@@ -72,7 +72,7 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
     elif name == "repeated_nextto":
         env = RepeatedNextToEnv()
     elif name == "pybullet_blocks":
-        return PyBulletBlocksEnv()
+        env = PyBulletBlocksEnv()
     else:
         raise NotImplementedError(f"Unknown env: {name}")
     if do_cache:
