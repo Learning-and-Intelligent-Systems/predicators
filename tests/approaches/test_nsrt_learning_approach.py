@@ -1,7 +1,7 @@
 """Test cases for the NSRT learning approach."""
 
 import pytest
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
 from predicators.src.settings import CFG
@@ -40,9 +40,10 @@ def _test_approach(env_name,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
+        "allow_env_caching": False,
         **additional_settings,
     })
-    env = create_env(env_name)
+    env = create_new_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
         excludeds = set(CFG.excluded_predicates.split(","))
