@@ -1501,6 +1501,26 @@ def test_create_pddl():
 """
 
 
+def test_video_monitor():
+    """Tests for VideoMonitor()."""
+    env = CoverEnv()
+    monitor = utils.VideoMonitor(env.render)
+    policy = lambda _: Action(env.action_space.sample())
+    task = env.get_task("test", 0)
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=5,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 6
+    assert len(traj.actions) == 5
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
+
+
 def test_save_video():
     """Tests for save_video()."""
     dirname = "_fake_tmp_video_dir"
