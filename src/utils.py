@@ -280,16 +280,16 @@ class LinearChainParameterizedOption(ParameterizedOption):
 
     The children are assumed to chain together, so the initiable of the next
     child should always be True when the previous child terminates. If this
-    is not the case, then an AssertionError is raised.
+    is not the case, an AssertionError is raised.
 
     The children must all have the same types and params_space, which in turn
-    because the types and params_space for this ParameterizedOption.
+    become the types and params_space for this ParameterizedOption.
 
     The options have memory, which stores the current child index.
     """
 
-    def __init__(self, name: str, children: Sequence[ParameterizedOption]
-                 ) -> None:
+    def __init__(self, name: str,
+                 children: Sequence[ParameterizedOption]) -> None:
         assert len(children) > 0
         self._children = children
 
@@ -326,8 +326,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child._initiable(state, memory, objects,
-                                            params)
+            assert current_child._initiable(state, memory, objects, params)
         return current_child._policy(state, memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],

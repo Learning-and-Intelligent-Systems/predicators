@@ -876,18 +876,12 @@ def test_LinearChainParameterizedOption():
     plate = plate_type("plate")
     state = State({cup: [0.0], plate: [1.0, 1.2]})
 
-    def _simulator(s, a):
-        ns = s.copy()
-        assert a.arr.shape == (1, )
-        ns[cup][0] += a.arr.item()
-        return ns
-
     # This parameterized option takes the action [-4] twice and terminates.
     def _initiable(_1, m, _3, _4):
         m["num_steps"] = 0
         return True
 
-    def _policy(_1, _2, _3 ,_4):
+    def _policy(_1, m, _3, _4):
         m["num_steps"] += 1
         return Action(np.array([-4]))
 
@@ -895,13 +889,11 @@ def test_LinearChainParameterizedOption():
         return m["num_steps"] >= 2
 
     param_option0 = ParameterizedOption("dummy0", [cup_type],
-                                        Box(0.1, 1, (1, )),
-                                        lambda s, m, o, p: Action(p),
-                                        lambda s, m, o, p: False,
-                                        lambda s, m, o, p: False)
+                                        Box(0.1, 1, (1, )), _policy,
+                                        _initiable, _terminal)
 
     # This parameterized option takes the action [2] four times and terminates.
-    def _policy(_1, _2, _3 ,_4):
+    def _policy(_1, m, _3, _4):
         m["num_steps"] += 1
         return Action(np.array([2]))
 
@@ -909,16 +901,30 @@ def test_LinearChainParameterizedOption():
         return m["num_steps"] >= 4
 
     param_option1 = ParameterizedOption("dummy1", [cup_type],
-                                        Box(0.1, 1, (1, )),
-                                        lambda s, m, o, p: Action(p),
-                                        lambda s, m, o, p: False,
-                                        lambda s, m, o, p: False)
+                                        Box(0.1, 1, (1, )), _policy,
+                                        _initiable, _terminal)
 
     children = [param_option0, param_option1]
-    chain = utils.LinearChainParameterizedOption("chain", children)
+    chain_param_opt = utils.LinearChainParameterizedOption("chain", children)
+    assert chain_param_opt.types == [cup_type]
+    assert np.allclose(chain_param_opt.params_space.low, [0.1])
+    assert np.allclose(chain_param_opt.params_space.high, [1.0])
+    chain_option = chain_param_opt.ground([cup], [0.5])
+    assert chain_option.objects == [cup]
 
-    import ipdb; ipdb.set_trace()
-
+    assert chain_option.initiable(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert chain_option.terminal(state)
 
 
 def test_nsrt_methods():
