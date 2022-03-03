@@ -915,8 +915,7 @@ def test_LinearChainParameterizedOption():
                                         lambda s, m, o, p: False)
 
     children = [param_option0, param_option1]
-    chain_param_option = utils.LinearChainParameterizedOption("chain",
-        types, params_space, children)
+    chain = utils.LinearChainParameterizedOption("chain", children)
 
     import ipdb; ipdb.set_trace()
 

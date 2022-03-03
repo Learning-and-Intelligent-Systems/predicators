@@ -299,8 +299,8 @@ class LinearChainParameterizedOption(ParameterizedOption):
         for i in range(1, len(self._children)):
             child = self._children[i]
             assert types == child.types
-            assert np.allclose(params_space.low == child.params_space.low)
-            assert np.allclose(params_space.high == child.params_space.high)
+            assert np.allclose(params_space.low, child.params_space.low)
+            assert np.allclose(params_space.high, child.params_space.high)
 
         super().__init__(name,
                          types,
