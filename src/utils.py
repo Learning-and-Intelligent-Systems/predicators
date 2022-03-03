@@ -14,7 +14,6 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     TYPE_CHECKING
 import heapq as hq
 import pathos.multiprocessing as mp
-from gym.spaces import Box
 import imageio
 import matplotlib
 import numpy as np
