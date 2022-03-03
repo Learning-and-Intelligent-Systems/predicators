@@ -1,11 +1,11 @@
 """A PyBullet version of Blocks."""
 
-from typing import Sequence, Tuple, Optional
+from typing import Sequence, Tuple, Dict, Optional
 from gym.spaces import Box
 import numpy as np
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.structs import State, Action
+from predicators.src.structs import State, Action, Object, Array
 from predicators.src import utils
 from predicators.src.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics
@@ -185,9 +185,9 @@ class PyBulletBlocksEnv(BlocksEnv):
                               physicsClientId=self._physics_client_id)
 
         # Prevent collisions between robot and blocks during scene init.
-        up_action = Action(np.array([-0.5, -0.5, 0.5, 0.0], dtype=np.float32))
-        for _ in range(10):
-            self.step(up_action)
+        # up_action = Action(np.array([-0.5, -0.5, 0.5, 0.0], dtype=np.float32))
+        # for _ in range(10):
+        #     self.step(up_action)
 
         # Reset block positions based on the state.
         block_objs = list(o for o in state if o.type == self._block_type)
@@ -210,8 +210,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                 self._block_orientation,
                 physicsClientId=self._physics_client_id)
 
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
         return state
 
@@ -255,3 +255,28 @@ class PyBulletBlocksEnv(BlocksEnv):
                          physicsClientId=self._physics_client_id)
 
         return block_id
+
+    def step(self, action: Action) -> State:
+        import ipdb; ipdb.set_trace()
+
+    def _Pick_policy(self, state: State, memory: Dict,
+                     objects: Sequence[Object], params: Array) -> Action:
+        robot, block = objects
+        import ipdb; ipdb.set_trace()
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
+
+    def _Stack_policy(self, state: State, memory: Dict,
+                      objects: Sequence[Object], params: Array) -> Action:
+        robot, block = objects
+        import ipdb; ipdb.set_trace()
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
+
+    def _PutOnTable_policy(self, state: State, memory: Dict,
+                           objects: Sequence[Object], params: Array) -> Action:
+        robot, = objects
+        import ipdb; ipdb.set_trace()
+        arr = np.clip(arr, self.action_space.low, self.action_space.high)
+        return Action(arr)
+

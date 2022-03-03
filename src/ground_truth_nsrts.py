@@ -451,13 +451,13 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
 
 def _get_blocks_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for BlocksEnv."""
-    block_type, robot_type = _get_types_by_names("blocks", ["block", "robot"])
+    block_type, robot_type = _get_types_by_names(CFG.env, ["block", "robot"])
 
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
-        "blocks", ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+        CFG.env, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
 
     Pick, Stack, PutOnTable = _get_options_by_names(
-        "blocks", ["Pick", "Stack", "PutOnTable"])
+        CFG.env, ["Pick", "Stack", "PutOnTable"])
 
     nsrts = set()
 
