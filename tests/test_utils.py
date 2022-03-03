@@ -16,7 +16,6 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper, GoalCountHeuristic
-from predicators.tests import utils as test_utils
 
 
 def test_num_options_in_action_sequence():
@@ -301,9 +300,11 @@ def test_option_plan_to_policy():
     option = parameterized_option.ground([], params)
     plan = [option]
     policy = utils.option_plan_to_policy(plan)
-    traj = test_utils.option_to_trajectory(state,
+    assert option.initiable(state)
+    traj = utils.run_policy_with_simulator(option.policy,
                                            _simulator,
-                                           option,
+                                           state,
+                                           option.terminal,
                                            max_num_steps=100)
     assert len(traj.actions) == len(traj.states) - 1 == 19
     for t in range(19):

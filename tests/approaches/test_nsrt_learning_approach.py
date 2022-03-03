@@ -6,7 +6,6 @@ from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
 from predicators.src.settings import CFG
 from predicators.src import utils
-from predicators.tests import utils as test_utils
 
 
 def _test_approach(env_name,
@@ -64,7 +63,13 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert test_utils.policy_solves_task(policy, task, env.simulate)
+            traj = utils.run_policy_with_simulator(
+                policy,
+                env.simulate,
+                task.init,
+                task.goal_holds,
+                max_num_steps=CFG.max_num_steps_check_policy)
+            assert task.goal_holds(traj.states[-1])
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -74,7 +79,13 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert test_utils.policy_solves_task(policy, task, env.simulate)
+            traj = utils.run_policy_with_simulator(
+                policy,
+                env.simulate,
+                task.init,
+                task.goal_holds,
+                max_num_steps=CFG.max_num_steps_check_policy)
+            assert task.goal_holds(traj.states[-1])
 
 
 def test_nsrt_learning_approach():

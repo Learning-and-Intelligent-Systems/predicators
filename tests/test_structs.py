@@ -9,7 +9,6 @@ from predicators.src.structs import Type, Object, Variable, State, Predicate, \
     PartialNSRTAndDatastore, _GroundSTRIPSOperator, InteractionRequest, \
     InteractionResult, DefaultState, Query, DemonstrationQuery
 from predicators.src import utils
-from predicators.tests import utils as test_utils
 
 
 def test_object_type():
@@ -664,9 +663,11 @@ def test_action():
                                                _policy, _initiable, _terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    traj = test_utils.option_to_trajectory(state,
+    assert option.initiable(state)
+    traj = utils.run_policy_with_simulator(option.policy,
                                            _simulator,
-                                           option,
+                                           state,
+                                           option.terminal,
                                            max_num_steps=5)
     assert len(traj.actions) == len(traj.states) - 1 == 5
     for act in traj.actions:
