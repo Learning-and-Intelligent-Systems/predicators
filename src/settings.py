@@ -221,6 +221,8 @@ class GlobalSettings:
                 {
                     # For the BEHAVIOR environment, use a special option model.
                     "behavior": "behavior_oracle",
+                    # For PyBullet environments, use non-PyBullet analogs.
+                    "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before
