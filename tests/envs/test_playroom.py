@@ -374,8 +374,7 @@ def test_playroom_options():
     ]
     assert plan[0].initiable(state)
     # Here's an example of how to make a video within this test.
-    # monitor = utils.VideoMonitor(env.render)
-    # env.reset("train", 0)
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
     # traj = utils.run_policy_with_simulator(policy,
     #                                        env.simulate,
     #                                        task.init,
