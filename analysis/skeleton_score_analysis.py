@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src import utils
 from predicators.src.settings import CFG
@@ -51,7 +51,7 @@ def _setup_data_for_env(env_name: str,
         "env": env_name,
         "offline_data_planning_timeout": 10
     })
-    env = create_env(env_name)
+    env = create_new_env(env_name)
     env.seed(seed)
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
@@ -95,7 +95,7 @@ def _order_predicate_sets(
     utils.reset_config({"seed": seed, "env": env_name})
     score_function = _create_score_function(score_name)
     aggregate = _create_aggregation_function(aggregation_name)
-    env = create_env(env_name)
+    env = create_new_env(env_name)
     oracle_predicates = set(env.predicates)
     # Hack: remove these unnecessary predicates for cover.
     if env_name.startswith("cover"):
