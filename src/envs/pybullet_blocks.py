@@ -5,7 +5,8 @@ from gym.spaces import Box
 import numpy as np
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.structs import State, Action, Object, Array
+from predicators.src.structs import State, Action, Object, Array, \
+    ParameterizedOption
 from predicators.src import utils
 from predicators.src.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics
@@ -53,16 +54,18 @@ class PyBulletBlocksEnv(BlocksEnv):
         super().__init__()
 
         # Override options.
-        types = [self._robot_type, self._block_type]
-        self._Pick = utils.LinearChainParameterizedOption("Pick", [
-            # Creates a ParameterizedOption for moving to the position that has
-            # z equal to self.pick_z, and x and y equal to that of the second
-            # object parameter (as indicated by the 1 index), which in this
-            # case is the block. In other words, move the end effector to high
-            # above the block in preparation for picking. Note that the params
-            # space here is trivial (size 0).
-            self._move_relative_to_obj(types, 1, rel_x=0., rel_y=0., abs_z=self.pick_z),
-        ])
+        self._Pick = utils.LinearChainParameterizedOption(
+            "Pick",
+            [
+                # Creates a ParameterizedOption for moving to the position that
+                # has z equal to self.pick_z, and x and y equal to that of the
+                # block object paramereter. In other words, move the end
+                # effector to high above the block in preparation for picking.
+                # Note that the params space here is trivial (size 0) and
+                # the types are [robot, block].
+                self._move_relative_to_obj((0., 0., self.pick_z),
+                                           ("rel", "rel", "abs")),
+            ])
         # TODO: override Stack and Place.
 
         # One-time initialization of pybullet assets. Note that this happens
@@ -270,26 +273,29 @@ class PyBulletBlocksEnv(BlocksEnv):
         return block_id
 
     def step(self, action: Action) -> State:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
 
-    def _Pick_policy(self, state: State, memory: Dict,
-                     objects: Sequence[Object], params: Array) -> Action:
-        robot, block = objects
-        import ipdb; ipdb.set_trace()
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
+    def _move_relative_to_obj(
+            self, pose: Tuple[float, float, float],
+            rel_or_abs: Tuple[str, str, str]) -> ParameterizedOption:
 
-    def _Stack_policy(self, state: State, memory: Dict,
-                      objects: Sequence[Object], params: Array) -> Action:
-        robot, block = objects
-        import ipdb; ipdb.set_trace()
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
 
-    def _PutOnTable_policy(self, state: State, memory: Dict,
-                           objects: Sequence[Object], params: Array) -> Action:
-        robot, = objects
-        import ipdb; ipdb.set_trace()
-        arr = np.clip(arr, self.action_space.low, self.action_space.high)
-        return Action(arr)
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            import ipdb
+            ipdb.set_trace()
 
+        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+            import ipdb
+            ipdb.set_trace()
+
+        return ParameterizedOption("MoveRelativeToObj",
+                                   types=types,
+                                   params_space=params_space,
+                                   policy=_policy,
+                                   initiable=utils.always_initiable,
+                                   terminal=_terminal)
