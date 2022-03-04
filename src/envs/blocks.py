@@ -80,7 +80,7 @@ class BlocksEnv(BaseEnv):
             policy=self._PutOnTable_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
-        # Objects
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
