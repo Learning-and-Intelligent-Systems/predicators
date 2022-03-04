@@ -319,6 +319,32 @@ def test_oracle_approach_cover_multistep_options():
         # Test that a repeated random action fails.
         assert not policy_solves_task(lambda s: random_action, task,
                                       env.simulate)
+    # Test goal-conditioned oracle approach.
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "cover_multistep_bimodal_goal": True,
+        "cover_multistep_goal_conditioned_sampling": True,
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1,
+        "cover_block_widths": [0.12],
+        "cover_target_widths": [0.1],
+        "cover_multistep_thr_percent": 0.3,
+        "cover_multistep_bhr_percent": 0.99,
+        "sesame_max_skeletons_optimized": 1,
+        "sesame_max_samples_per_step": 1
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    approach.seed(123)
+    for task in train_tasks:
+        policy = approach.solve(task, timeout=500)
+        assert policy_solves_task(policy, task, env.simulate)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert policy_solves_task(policy, task, env.simulate)
 
 
 def test_oracle_approach_cover_multistep_options_fixed_tasks():

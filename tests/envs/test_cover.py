@@ -661,6 +661,36 @@ def test_cover_multistep_options():
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
 
+    # Test bimodal goal flag.
+    utils.reset_config({
+        "cover_multistep_bimodal_goal": True,
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    task = env.get_test_tasks()[0]
+    state = task.init
+    goal = task.goal
+    assert len(goal) == 1
+    goal_atom = next(iter(goal))
+    t = goal_atom.objects[1]
+    tx, tw = state.get(t, "x"), state.get(t, "width")
+    thr_found = False  # target hand region
+    # Loop over objects in state to find target hand region,
+    # whose center should overlap with the target.
+    for obj in state.data:
+        if obj.type.name == "target_hand_region":
+            lb = state.get(obj, "lb")
+            ub = state.get(obj, "ub")
+            m = (lb + ub) / 2  # midpoint of hand region
+            if tx - tw / 2 < m < tx + tw / 2:
+                thr_found = True
+                break
+    assert thr_found
+    # Assert off-center hand region
+    assert abs(m - tx) > tw / 5
+
 
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
