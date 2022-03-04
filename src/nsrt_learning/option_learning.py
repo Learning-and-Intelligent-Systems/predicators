@@ -194,7 +194,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 ]
                 assert len(picked_blocks) == 1
                 block = picked_blocks[0]
-                params = np.zeros(3, dtype=np.float32)
+                params = np.zeros(0, dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
             elif param_opt.name == "PutOnTable":
@@ -215,8 +215,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 ]
                 assert len(dropped_blocks) == 1
                 block = dropped_blocks[0]
-                params = np.array([0, 0, BlocksEnv.block_size],
-                                  dtype=np.float32)
+                params = np.zeros(0, dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
 
