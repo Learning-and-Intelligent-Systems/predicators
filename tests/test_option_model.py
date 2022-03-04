@@ -3,7 +3,6 @@
 from typing import Set
 import pytest
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
 from predicators.src.structs import State, Action, Type, ParameterizedOption
 from predicators.src.option_model import create_option_model, \
     _OracleOptionModel
@@ -27,9 +26,11 @@ def test_default_option_model():
     obj4 = type2("obj4")
     obj9 = type2("obj9")
 
-    class _MockEnv(BaseEnv):
+    class _MockEnv:
 
-        def simulate(self, state: State, action: Action) -> State:
+        @staticmethod
+        def simulate(state: State, action: Action) -> State:
+            """A mock simulate method."""
             next_state = state.copy()
             obj = list(state)[0]
             next_state.set(obj, "feat3",
@@ -38,6 +39,7 @@ def test_default_option_model():
 
         @property
         def options(self) -> Set[ParameterizedOption]:
+            """Mock options."""
             params_space = Box(-10, 10, (2, ))
 
             def policy(s, m, o, p):
@@ -61,9 +63,7 @@ def test_default_option_model():
 
             return {parameterized_option}
 
-    # Necessary to instantiate what would otherwise be an ABC.
-    _MockEnv.__abstractmethods__ = set()  # pylint:disable=protected-access
-    env = _MockEnv()  # pylint:disable=abstract-class-instantiated
+    env = _MockEnv()
     parameterized_option = env.options.pop()
 
     params = [-5, 5]

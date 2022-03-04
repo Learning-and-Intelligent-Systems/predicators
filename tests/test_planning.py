@@ -5,7 +5,7 @@ from gym.spaces import Box
 from predicators.src.approaches import OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.envs import BaseEnv, CoverEnv
+from predicators.src.envs import CoverEnv
 from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
 from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
@@ -249,9 +249,11 @@ def test_planning_determinism():
     task1 = Task(State({robby: [0, 0], robin: [0, 0]}), goal)
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
 
-    class _MockEnv(BaseEnv):
+    class _MockEnv:
 
-        def simulate(self, state: State, action: Action) -> State:
+        @staticmethod
+        def simulate(state: State, action: Action) -> State:
+            """A mock simulate method."""
             next_state = state.copy()
             if action.arr.item() < -1:
                 next_state[robby][0] = 1
@@ -265,12 +267,10 @@ def test_planning_determinism():
 
         @property
         def options(self):
+            """Mock options."""
             return {sleep_option, cry_option}
 
-    # Necessary to instantiate what would otherwise be an ABC.
-    _MockEnv.__abstractmethods__ = set()  # pylint:disable=protected-access
-    env = _MockEnv()  # pylint:disable=abstract-class-instantiated
-
+    env = _MockEnv()
     option_model = _OracleOptionModel(env)
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
     plan1 = [
