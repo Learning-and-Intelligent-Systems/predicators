@@ -3,8 +3,8 @@
 from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
-from predicators.src.envs import get_or_create_env, BlocksEnv, \
-    PaintingEnv, PlayroomEnv, BehaviorEnv, ToolsEnv
+from predicators.src.envs import get_or_create_env, PaintingEnv, PlayroomEnv, \
+    BehaviorEnv, ToolsEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
@@ -478,15 +478,9 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot])
     }
 
-    def pick_sampler(state: State, goal: Set[GroundAtom],
-                     rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.zeros(3, dtype=np.float32)
-
     pickfromtable_nsrt = NSRT("PickFromTable", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
-                              option_vars, pick_sampler)
+                              option_vars, null_sampler)
     nsrts.add(pickfromtable_nsrt)
 
     # Unstack
@@ -512,7 +506,7 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     }
     unstack_nsrt = NSRT("Unstack",
                         parameters, preconditions, add_effects, delete_effects,
-                        set(), option, option_vars, pick_sampler)
+                        set(), option, option_vars, null_sampler)
     nsrts.add(unstack_nsrt)
 
     # Stack
@@ -536,15 +530,8 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Clear, [otherblock])
     }
 
-    def stack_sampler(state: State, goal: Set[GroundAtom],
-                      rng: np.random.Generator,
-                      objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.array([0, 0, BlocksEnv.block_size], dtype=np.float32)
-
-    stack_nsrt = NSRT("Stack",
-                      parameters, preconditions, add_effects, delete_effects,
-                      set(), option, option_vars, stack_sampler)
+    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                      delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(stack_nsrt)
 
     # PutOnTable
