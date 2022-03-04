@@ -3,8 +3,8 @@
 from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
-from predicators.src.envs import get_or_create_env, BlocksEnv, \
-    PaintingEnv, PlayroomEnv, BehaviorEnv, ToolsEnv
+from predicators.src.envs import get_or_create_env, PaintingEnv, PlayroomEnv, \
+    BehaviorEnv, ToolsEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
@@ -141,28 +141,6 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                          objs: Sequence[Object]) -> Array:
             # The only things that change are the block's grasp, and the
             # robot's grip, holding, x, and y.
-           
-            if CFG.cover_multistep_goal_conditioned_sampling:
-                # Goal conditioned sampling currently assumes one goal. 
-                assert len(goal) == 1
-                goal_atom = next(iter(goal))
-                t = goal_atom.objects[1]
-                tx, tw = state.get(t, "x"), state.get(t, "width")
-                thr_found = False # target hand region
-                # Loop over objects in state to find target hand region, 
-                # whose center should overlap with the target. 
-                for obj in state.data: 
-                    try: 
-                        lb = state.get(obj, "lb")
-                        ub = state.get(obj, "ub")
-                        m = (lb + ub) / 2 # midpoint of hand region
-                        if m > tx - tw/2 and m < tx + tw/2: 
-                            thr_found = True
-                            break
-                    except: 
-                        continue
-                assert thr_found 
-
             assert len(objs) == 2
             block, robot = objs
             assert block.is_instance(block_type)
@@ -170,10 +148,31 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             bx, by = state.get(block, "x"), state.get(block, "y")
             rx, ry = state.get(robot, "x"), state.get(robot, "y")
             bw = state.get(block, "width")
+
+            if CFG.cover_multistep_goal_conditioned_sampling:
+                # Goal conditioned sampling currently assumes one goal.
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                t = goal_atom.objects[1]
+                tx, tw = state.get(t, "x"), state.get(t, "width")
+                thr_found = False  # target hand region
+                # Loop over objects in state to find target hand region,
+                # whose center should overlap with the target.
+                for obj in state.data:
+                    if obj.type.name == "target_hand_region":
+                        tlb = state.get(obj, "lb")
+                        tub = state.get(obj, "ub")
+                        tm = (tlb + tub) / 2  # midpoint of hand region
+                        if tx - tw / 2 < tm < tx + tw / 2:
+                            thr_found = True
+                            break
+                assert thr_found
+
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(bx)
             elif CFG.cover_multistep_goal_conditioned_sampling:
-                desired_x = bx + (m - tx) 
+                desired_x = bx + (
+                    tm - tx)  # block position adjusted by target/ thr offset
             else:
                 desired_x = rng.uniform(bx - bw / 2, bx + bw / 2)
             # is_block, is_target, width, x, grasp, y, height
@@ -261,25 +260,23 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
                           objs: Sequence[Object]) -> Array:
 
             if CFG.cover_multistep_goal_conditioned_sampling:
-                # Goal conditioned sampling currently assumes one goal. 
+                # Goal conditioned sampling currently assumes one goal.
                 assert len(goal) == 1
                 goal_atom = next(iter(goal))
                 t = goal_atom.objects[1]
                 tx, tw = state.get(t, "x"), state.get(t, "width")
-                thr_found = False # target hand region
-                # Loop over objects in state to find target hand region, 
-                # whose center should overlap with the target. 
-                for obj in state.data: 
-                    try: 
+                thr_found = False  # target hand region
+                # Loop over objects in state to find target hand region,
+                # whose center should overlap with the target.
+                for obj in state.data:
+                    if obj.type.name == "target_hand_region":
                         lb = state.get(obj, "lb")
                         ub = state.get(obj, "ub")
-                        m = (lb + ub) / 2 # midpoint of hand region
-                        if m > tx - tw/2 and m < tx + tw/2: 
+                        m = (lb + ub) / 2  # midpoint of hand region
+                        if tx - tw / 2 < m < tx + tw / 2:
                             thr_found = True
                             break
-                    except: 
-                        continue
-                assert thr_found 
+                assert thr_found
 
             # The x, y, and held features of the block change, and the x, y,
             # grasp, and holding features of the robot change.
@@ -299,8 +296,8 @@ def _get_cover_gt_nsrts() -> Set[NSRT]:
             tx, tw = state.get(target, "x"), state.get(target, "width")
             if CFG.cover_multistep_degenerate_oracle_samplers:
                 desired_x = float(tx)
-            elif CFG.cover_multistep_goal_conditioned_sampling: 
-                desired_x = m # midpoint of hand region
+            elif CFG.cover_multistep_goal_conditioned_sampling:
+                desired_x = m  # midpoint of hand region
             else:
                 desired_x = rng.uniform(tx - tw / 2, tx + tw / 2)
             delta_x = desired_x - rx
@@ -524,15 +521,9 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(GripperOpen, [robot])
     }
 
-    def pick_sampler(state: State, goal: Set[GroundAtom],
-                     rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.zeros(3, dtype=np.float32)
-
     pickfromtable_nsrt = NSRT("PickFromTable", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
-                              option_vars, pick_sampler)
+                              option_vars, null_sampler)
     nsrts.add(pickfromtable_nsrt)
 
     # Unstack
@@ -558,7 +549,7 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
     }
     unstack_nsrt = NSRT("Unstack",
                         parameters, preconditions, add_effects, delete_effects,
-                        set(), option, option_vars, pick_sampler)
+                        set(), option, option_vars, null_sampler)
     nsrts.add(unstack_nsrt)
 
     # Stack
@@ -582,15 +573,8 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
         LiftedAtom(Clear, [otherblock])
     }
 
-    def stack_sampler(state: State, goal: Set[GroundAtom],
-                      rng: np.random.Generator,
-                      objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.array([0, 0, BlocksEnv.block_size], dtype=np.float32)
-
-    stack_nsrt = NSRT("Stack",
-                      parameters, preconditions, add_effects, delete_effects,
-                      set(), option, option_vars, stack_sampler)
+    stack_nsrt = NSRT("Stack", parameters, preconditions, add_effects,
+                      delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(stack_nsrt)
 
     # PutOnTable
@@ -657,7 +641,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                             rng: np.random.Generator,
                             objs: Sequence[Object]) -> Array:
         del state, goal, rng, objs  # unused
-        return np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+        return np.array([1.0], dtype=np.float32)
 
     pickfromtop_nsrt = NSRT("PickFromTop", parameters, preconditions,
                             add_effects, delete_effects, set(), option,
@@ -681,7 +665,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
         del state, goal, rng, objs  # unused
-        return np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        return np.array([0.0], dtype=np.float32)
 
     pickfromside_nsrt = NSRT("PickFromSide", parameters, preconditions,
                              add_effects, delete_effects, set(), option,
@@ -702,14 +686,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsWet, [obj]), LiftedAtom(IsClean, [obj])}
     delete_effects = {LiftedAtom(IsDry, [obj]), LiftedAtom(IsDirty, [obj])}
 
-    def wash_sampler(state: State, goal: Set[GroundAtom],
-                     rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.array([1.0], dtype=np.float32)
-
     wash_nsrt = NSRT("Wash", parameters, preconditions, add_effects,
-                     delete_effects, set(), option, option_vars, wash_sampler)
+                     delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(wash_nsrt)
 
     # Dry
@@ -722,13 +700,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsDry, [obj])}
     delete_effects = {LiftedAtom(IsWet, [obj])}
 
-    def dry_sampler(state: State, goal: Set[GroundAtom],
-                    rng: np.random.Generator, objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.array([1.0], dtype=np.float32)
-
     dry_nsrt = NSRT("Dry", parameters, preconditions, add_effects,
-                    delete_effects, set(), option, option_vars, dry_sampler)
+                    delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(dry_nsrt)
 
     # PaintToBox
@@ -1289,7 +1262,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
-        return np.array([0, 0, 0, rotation], dtype=np.float32)
+        return np.array([rotation], dtype=np.float32)
 
     pickfromtable_nsrt = NSRT("PickFromTable", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
@@ -1332,7 +1305,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
-        return np.array([0, 0, 0, rotation], dtype=np.float32)
+        return np.array([rotation], dtype=np.float32)
 
     unstack_nsrt = NSRT("Unstack",
                         parameters, preconditions, add_effects, delete_effects,
@@ -1374,8 +1347,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
-        return np.array([0, 0, PlayroomEnv.block_size, rotation],
-                        dtype=np.float32)
+        return np.array([rotation], dtype=np.float32)
 
     stack_nsrt = NSRT("Stack",
                       parameters, preconditions, add_effects, delete_effects,

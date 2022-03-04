@@ -260,8 +260,8 @@ def test_cover_multistep_options():
     state.data[block1] = np.array([1., 0., 0.07, 0.8334956, -1., 0.1, 0.1])
     state.data[target0] = np.array([0., 1., 0.05, 0.17778981])
     state.data[target1] = np.array([0., 1., 0.03, 0.63629464])
-    state.data[block0_hr] = np.array([-0.1 / 2, 0.1 / 2])
-    state.data[block1_hr] = np.array([-0.07 / 2, 0.07 / 2])
+    state.data[block0_hr] = np.array([-0.1 / 2, 0.1 / 2, 0])
+    state.data[block1_hr] = np.array([-0.07 / 2, 0.07 / 2, 1])
     state.data[target0_hr] = np.array(
         [0.17778981 - 0.05 / 2, 0.17778981 + 0.05 / 2])
     state.data[target1_hr] = np.array(
@@ -661,6 +661,36 @@ def test_cover_multistep_options():
     assert Covers([block0, target0]) not in init_atoms
     assert Covers([block0, target0]) in final_atoms
 
+    # Test bimodal goal flag.
+    utils.reset_config({
+        "cover_multistep_bimodal_goal": True,
+        "cover_num_blocks": 1,
+        "cover_num_targets": 1
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    task = env.get_test_tasks()[0]
+    state = task.init
+    goal = task.goal
+    assert len(goal) == 1
+    goal_atom = next(iter(goal))
+    t = goal_atom.objects[1]
+    tx, tw = state.get(t, "x"), state.get(t, "width")
+    thr_found = False  # target hand region
+    # Loop over objects in state to find target hand region,
+    # whose center should overlap with the target.
+    for obj in state.data:
+        if obj.type.name == "target_hand_region":
+            lb = state.get(obj, "lb")
+            ub = state.get(obj, "ub")
+            m = (lb + ub) / 2  # midpoint of hand region
+            if tx - tw / 2 < m < tx + tw / 2:
+                thr_found = True
+                break
+    assert thr_found
+    # Assert off-center hand region
+    assert abs(m - tx) > tw / 5
+
 
 def test_cover_multistep_options_fixed_tasks():
     """Tests for CoverMultistepOptionsFixedTasks."""
@@ -684,38 +714,3 @@ def test_cover_multistep_options_fixed_tasks():
     for task in env.get_test_tasks():
         assert state.allclose(task.init)
         assert frozenset(task.goal) in all_goals
-
-def test_cover_multistep_options_bimodal_goal():
-    utils.reset_config({
-        "cover_multistep_bimodel_goal": True,
-        "cover_num_blocks": 1,
-        "cover_num_targets": 1
-    })
-    env = CoverMultistepOptions()
-    env.seed(123)
-    task = env.get_test_tasks()[0]
-    state = task.init
-    goal = task.goal
-    assert len(goal) == 1
-    goal_atom = next(iter(goal))
-    t = goal_atom.objects[1]
-    tx, tw = state.get(t, "x"), state.get(t, "width")
-    thr_found = False # target hand region
-    # Loop over objects in state to find target hand region, 
-    # whose center should overlap with the target. 
-    for obj in state.data: 
-        try: 
-            lb = state.get(obj, "lb")
-            ub = state.get(obj, "ub")
-            m = (lb + ub) / 2 # midpoint of hand region
-            if m > tx - tw/2 and m < tx + tw/2: 
-                thr_found = True
-                break
-        except: 
-            continue
-    assert thr_found 
-    # Assert off-center hand region 
-    assert abs(m - tx) > tw/5  
-
-
-

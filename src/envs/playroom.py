@@ -97,19 +97,19 @@ class PlayroomEnv(BlocksEnv):
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z, rotation]
+            # params: [rotation]
             "Pick",
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4, )),
+            params_space=Box(-1, 1, (1, )),
             policy=self._Pick_policy,
             initiable=self._NextToTable_initiable,
             terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # params: [delta x, delta y, delta z, rotation]
+            # params: [rotation]
             "Stack",
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4, )),
+            params_space=Box(-1, 1, (1, )),
             policy=self._Stack_policy,
             initiable=self._NextToTable_initiable,
             terminal=utils.onestep_terminal)
@@ -191,7 +191,7 @@ class PlayroomEnv(BlocksEnv):
             policy=self._ToggleDial_policy,
             initiable=self._ToggleDial_initiable,
             terminal=utils.onestep_terminal)
-        # Objects
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._door1 = Object("door1", self._door_type)
         self._door2 = Object("door2", self._door_type)
@@ -724,8 +724,7 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1],
-                    0.0].astype(np.float32)
+        arr = np.r_[block_pose, params[-1], 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -739,7 +738,12 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1],
+        relative_grasp = np.array([
+            0.,
+            0.,
+            self.block_size,
+        ])
+        arr = np.r_[block_pose + relative_grasp, params[-1],
                     1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)

@@ -47,13 +47,7 @@ class CoverEnv(BaseEnv):
                                               policy=self._PickPlace_policy,
                                               initiable=utils.always_initiable,
                                               terminal=utils.onestep_terminal)
-        # Objects
-        self._blocks = []
-        self._targets = []
-        for i in range(CFG.cover_num_blocks):
-            self._blocks.append(Object(f"block{i}", self._block_type))
-        for i in range(CFG.cover_num_targets):
-            self._targets.append(Object(f"target{i}", self._target_type))
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
@@ -68,7 +62,7 @@ class CoverEnv(BaseEnv):
         # Identify which block we're holding and which block we're above.
         held_block = None
         above_block = None
-        for block in self._blocks:
+        for block in state.get_objects(self._block_type):
             if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
@@ -97,11 +91,12 @@ class CoverEnv(BaseEnv):
                 return next_state
             # Only place if free space placing is allowed, or if we're
             # placing onto some target.
+            targets = state.get_objects(self._target_type)
             if self._allow_free_space_placing or \
                 any(state.get(targ, "pose")-state.get(targ, "width")/2
                     <= pose <=
                     state.get(targ, "pose")+state.get(targ, "width")/2
-                    for targ in self._targets):
+                    for targ in targets):
                 next_state.set(self._robot, "hand", pose)
                 next_state.set(held_block, "pose", new_pose)
                 next_state.set(held_block, "grasp", -1)
@@ -169,7 +164,7 @@ class CoverEnv(BaseEnv):
         block_alpha = 0.75
         targ_alpha = 0.25
         # Draw blocks
-        for i, block in enumerate(self._blocks):
+        for i, block in enumerate(state.get_objects(self._block_type)):
             c = cs[i]
             if state.get(block, "grasp") != -1:
                 lcolor = "red"
@@ -191,7 +186,7 @@ class CoverEnv(BaseEnv):
                 label=f"block{i}" + suffix)
             ax.add_patch(rect)
         # Draw targets
-        for i, targ in enumerate(self._targets):
+        for i, targ in enumerate(state.get_objects(self._target_type)):
             c = cs[i]
             rect = plt.Rectangle(
                 (state.get(targ, "pose") - state.get(targ, "width") / 2.,
@@ -215,46 +210,61 @@ class CoverEnv(BaseEnv):
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
         hand_regions = []
-        for block in self._blocks:
+        for block in state.get_objects(self._block_type):
             hand_regions.append(
                 (state.get(block, "pose") - state.get(block, "width") / 2,
                  state.get(block, "pose") + state.get(block, "width") / 2))
-        for targ in self._targets:
+        for targ in state.get_objects(self._target_type):
             hand_regions.append(
                 (state.get(targ, "pose") - state.get(targ, "width") / 10,
                  state.get(targ, "pose") + state.get(targ, "width") / 10))
         return hand_regions
 
+    def _create_blocks_and_targets(self) -> Tuple[List[Object], List[Object]]:
+        blocks = []
+        targets = []
+        for i in range(CFG.cover_num_blocks):
+            blocks.append(Object(f"block{i}", self._block_type))
+        for i in range(CFG.cover_num_targets):
+            targets.append(Object(f"target{i}", self._target_type))
+        return blocks, targets
+
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        if len(self._blocks) > 1:  
-            goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
-            goal2 = {GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])}
+        # Create blocks and targets.
+        blocks, targets = self._create_blocks_and_targets()
+        # Create goals.
+        goal1 = {GroundAtom(self._Covers, [blocks[0], targets[0]])}
+        goals = [goal1]
+        if len(blocks) > 1 and len(targets) > 1:
+            goal2 = {GroundAtom(self._Covers, [blocks[1], targets[1]])}
+            goals.append(goal2)
             goal3 = {
-                GroundAtom(self._Covers, [self._blocks[0], self._targets[0]]),
-                GroundAtom(self._Covers, [self._blocks[1], self._targets[1]])
+                GroundAtom(self._Covers, [blocks[0], targets[0]]),
+                GroundAtom(self._Covers, [blocks[1], targets[1]])
             }
-            goals = [goal1, goal2, goal3]
-        else: 
-            goal1 = {GroundAtom(self._Covers, [self._blocks[0], self._targets[0]])}
-            goals = [goal1] 
+            goals.append(goal3)
         for i in range(num):
-            tasks.append(
-                Task(self._create_initial_state(rng), goals[i % len(goals)]))
+            init = self._create_initial_state(blocks, targets, rng)
+            assert init.get_objects(self._block_type) == blocks
+            assert init.get_objects(self._target_type) == targets
+            tasks.append(Task(init, goals[i % len(goals)]))
         return tasks
 
-    def _create_initial_state(self, rng: np.random.Generator) -> State:
+    def _create_initial_state(self, blocks: List[Object],
+                              targets: List[Object],
+                              rng: np.random.Generator) -> State:
         data: Dict[Object, Array] = {}
-        assert len(CFG.cover_block_widths) == len(self._blocks)
-        for block, width in zip(self._blocks, CFG.cover_block_widths):
+        assert len(CFG.cover_block_widths) == len(blocks)
+        for block, width in zip(blocks, CFG.cover_block_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
                 if not self._any_intersection(pose, width, data):
                     break
             # [is_block, is_target, width, pose, grasp]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0])
-        assert len(CFG.cover_target_widths) == len(self._targets)
-        for target, width in zip(self._targets, CFG.cover_target_widths):
+        assert len(CFG.cover_target_widths) == len(targets)
+        for target, width in zip(targets, CFG.cover_target_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
                 if not self._any_intersection(
@@ -267,7 +277,7 @@ class CoverEnv(BaseEnv):
         state = State(data)
         # Allow some chance of holding a block in the initial state.
         if rng.uniform() < CFG.cover_initial_holding_prob:
-            block = self._blocks[rng.choice(len(self._blocks))]
+            block = blocks[rng.choice(len(blocks))]
             pick_pose = state.get(block, "pose")
             if self._initial_pick_offsets:
                 offset = rng.choice(self._initial_pick_offsets)
@@ -328,7 +338,7 @@ class CoverEnv(BaseEnv):
                           excluded_object: Optional[Object] = None) -> bool:
         mult = 1.5 if larger_gap else 0.5
         for other in data:
-            if block_only and other not in self._blocks:
+            if block_only and other.type != self._block_type:
                 continue
             if other == excluded_object:
                 continue
@@ -383,19 +393,16 @@ class CoverEnvHierarchicalTypes(CoverEnv):
     def __init__(self) -> None:
         super().__init__()
         # Change blocks to be of a derived type
-        self._block_type_derived = Type(
+        self._parent_block_type = self._block_type
+        self._block_type = Type(
             "block_derived",
             ["is_block", "is_target", "width", "pose", "grasp"],
-            parent=self._block_type)
-        # Objects
-        self._blocks = []
-        for i in range(CFG.cover_num_blocks):
-            self._blocks.append(Object(f"block{i}", self._block_type_derived))
+            parent=self._parent_block_type)
 
     @property
     def types(self) -> Set[Type]:
         return {
-            self._block_type, self._block_type_derived, self._target_type,
+            self._block_type, self._parent_block_type, self._target_type,
             self._robot_type
         }
 
@@ -433,7 +440,8 @@ class CoverEnvRegrasp(CoverEnv):
         hand_regions = []
         # Construct the allowed hand regions from left to right.
         left_bound = 0.0
-        for targ in sorted(self._targets, key=lambda t: state.get(t, "pose")):
+        targets = state.get_objects(self._target_type)
+        for targ in sorted(targets, key=lambda t: state.get(t, "pose")):
             w = state.get(targ, "width")
             targ_left = state.get(targ, "pose") - w / 2
             targ_right = state.get(targ, "pose") + w / 2
@@ -492,7 +500,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                  ["is_block", "is_target", "width", "x"])
         # Also removing "hand" because that's ambiguous.
         self._robot_type = Type("robot", ["x", "y", "grip", "holding"])
-        self._hand_region_type = Type("hand_region", ["lb", "ub"])
+        self._block_hand_region_type = Type("block_hand_region",
+                                            ["lb", "ub", "block_idx"])
+        self._target_hand_region_type = Type("target_hand_region",
+                                             ["lb", "ub"])
 
         # Need to override predicate creation because the types are
         # now different (in terms of equality).
@@ -507,21 +518,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._Holding = Predicate("Holding",
                                   [self._block_type, self._robot_type],
                                   self._Holding_holds)
-        # Need to override object creation because the types are now
+        # Need to override static object creation because the types are now
         # different (in terms of equality).
-        self._blocks = []
-        self._targets = []
-        self._block_hand_regions = []
-        self._target_hand_regions = []
-        for i in range(CFG.cover_num_blocks):
-            self._blocks.append(Object(f"block{i}", self._block_type))
-            self._block_hand_regions.append(Object(f"block{i}_hand_region", \
-            self._hand_region_type))
-        for i in range(CFG.cover_num_targets):
-            target = Object(f"target{i}", self._target_type)
-            self._targets.append(target)
-            self._target_hand_regions.append(Object(f"target{i}_hand_region", \
-            self._hand_region_type))
         self._robot = Object("robby", self._robot_type)
         # Override the original options to make them multi-step.
         self._Pick = ParameterizedOption("Pick",
@@ -587,8 +585,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         x = state.get(self._robot, "x")
         y = state.get(self._robot, "y")
         grip = state.get(self._robot, "grip")
+        blocks = state.get_objects(self._block_type)
         held_block = None
-        for block in self._blocks:
+        for block in blocks:
             if state.get(block, "grasp") != -1:
                 assert held_block is None
                 held_block = block
@@ -609,7 +608,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # another block during the trajectory defined by dx, dy.
         p1 = (x, y)
         p2 = (x + dx, y + dy)
-        for block in self._blocks:
+        for block in blocks:
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw, bh = state.get(block, "width"), state.get(block, "height")
             ct = self.collision_threshold
@@ -666,7 +665,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
 
         # Check if we are above a block.
         above_block = None
-        for block in self._blocks:
+        for block in blocks:
             block_x_lb = state.get(block, "x") - state.get(block, "width") / 2
             block_x_ub = state.get(block, "x") + state.get(block, "width") / 2
             if state.get(block, "grasp") == -1 and \
@@ -700,9 +699,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             next_state.set(held_block, "y", self.initial_block_y)
             next_state.set(held_block, "grasp", -1)
             next_state.set(self._robot, "holding", -1)
+            targets = state.get_objects(self._target_type)
             place_would_cover = any(
                 self._Covers_holds(next_state, [held_block, targ])
-                for targ in self._targets)
+                for targ in targets)
             # If the place would cover, but we were outside of an allowed
             # hand region, then disallow the place. Otherwise, keep the new
             # next state (place succeeded).
@@ -755,7 +755,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         targ_alpha = 0.25
 
         # Draw blocks
-        for i, block in enumerate(self._blocks):
+        for i, block in enumerate(state.get_objects(self._block_type)):
             c = cs[i]
             bx, by = state.get(block, "x"), state.get(block, "y")
             bw = state.get(block, "width")
@@ -776,7 +776,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                  label=f"block{i}" + suffix)
             ax.add_patch(rect)
         # Draw targets
-        for i, targ in enumerate(self._targets):
+        for i, targ in enumerate(state.get_objects(self._target_type)):
             c = cs[i]
             rect = plt.Rectangle(
                 (state.get(targ, "x") - state.get(targ, "width") / 2., 0.0),
@@ -798,7 +798,9 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         plt.close()
         return [img]
 
-    def _create_initial_state(self, rng: np.random.Generator) -> State:
+    def _create_initial_state(self, blocks: List[Object],
+                              targets: List[Object],
+                              rng: np.random.Generator) -> State:
         """Creates initial state by (1) placing targets and blocks in random
         locations such that each target has enough space on either side to
         ensure no covering placement will cause a collision (note that this is
@@ -806,7 +808,21 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         sufficiently tune the difficulty through hand region specification),
         and (2) choosing hand region intervals on the targets and blocks such
         that the problem is solvable."""
+        assert len(blocks) == CFG.cover_num_blocks
+        assert len(targets) == CFG.cover_num_targets
+
         data: Dict[Object, Array] = {}
+
+        # Create hand regions for each block and target.
+        block_hand_region_objs = []
+        target_hand_region_objs = []
+        for i in range(CFG.cover_num_blocks):
+            block_hand_region_objs.append(
+                Object(f"block{i}_hand_region", self._block_hand_region_type))
+        for i in range(CFG.cover_num_targets):
+            target_hand_region_objs.append(
+                Object(f"target{i}_hand_region",
+                       self._target_hand_region_type))
 
         # Place targets and blocks
         counter = 0
@@ -817,14 +833,14 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 raise RuntimeError("Reached maximum number of " \
                 "placements of targets and blocks.")
             block_placements = []
-            for block, bw in zip(self._blocks, CFG.cover_block_widths):
+            for block, bw in zip(blocks, CFG.cover_block_widths):
                 xb = rng.uniform(bw / 2, 1 - bw / 2)
                 left_pt = xb - bw / 2
                 right_pt = xb + bw / 2
                 block_placements.append((left_pt, xb, right_pt))
             target_placements = []
-            for target, tw, bw in zip(self._targets, CFG.cover_target_widths, \
-                CFG.cover_block_widths):
+            for target, tw, bw in zip(targets, CFG.cover_target_widths,
+                                      CFG.cover_block_widths):
                 xt = rng.uniform(bw - tw / 2, 1 - bw + tw / 2)
                 left_pt = xt + tw / 2 - bw
                 right_pt = xt - tw / 2 + bw
@@ -841,13 +857,13 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 break
 
         # Make the targets, blocks, and robot objects
-        for target, width, placement in zip(self._targets, \
-            CFG.cover_target_widths, target_placements):
+        for target, width, placement in zip(targets, CFG.cover_target_widths,
+                                            target_placements):
             _, x, _ = placement
             # [is_block, is_target, width, x]
             data[target] = np.array([0.0, 1.0, width, x])
-        for block, width, placement in zip(self._blocks, \
-            CFG.cover_block_widths, block_placements):
+        for block, width, placement in zip(blocks, CFG.cover_block_widths,
+                                           block_placements):
             _, x, _ = placement
             # [is_block, is_target, width, x, grasp, y, height]
             data[block] = np.array([
@@ -860,27 +876,27 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         # Make the hand regions
         # Sample a hand region interval in each target
         target_hand_regions = []
-        for i, target in enumerate(self._targets):
-            target_hr = self._target_hand_regions[i]
+        for i, target in enumerate(targets):
+            target_hr = target_hand_region_objs[i]
             tw = CFG.cover_target_widths[i]
             _, x, _ = target_placements[i]
             region_length = tw * CFG.cover_multistep_thr_percent
-            if CFG.cover_multistep_bimodel_goal: 
-                if rng.uniform(0,1) < 0.5: 
-                    left_pt = x - tw/2
+            if CFG.cover_multistep_bimodal_goal:
+                if rng.uniform(0, 1) < 0.5:
+                    left_pt = x - tw / 2
                     region = [left_pt, left_pt + region_length]
-                else: 
-                    right_pt = x + tw/2
+                else:
+                    right_pt = x + tw / 2
                     region = [right_pt - region_length, right_pt]
-            else: 
+            else:
                 left_pt = rng.uniform(x - tw / 2, x + tw / 2 - region_length)
                 region = [left_pt, left_pt + region_length]
             data[target_hr] = np.array(region)
             target_hand_regions.append(region)
 
         # Sample a hand region interval in each block
-        for i, block in enumerate(self._blocks):
-            block_hr = self._block_hand_regions[i]
+        for i, block in enumerate(blocks):
+            block_hr = block_hand_region_objs[i]
             thr_left, thr_right = target_hand_regions[i]
             bw = CFG.cover_block_widths[i]
             tw = CFG.cover_target_widths[i]
@@ -926,14 +942,21 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                 if relative_l >= (tx + tw/2 - thr_right) and \
                     relative_r >= (thr_left-(tx - tw/2)):
                     break
-            data[block_hr] = np.array(relative_region)
+            # Store the block index (i) in the hand region object.
+            data[block_hr] = np.array(relative_region + [i])
 
         return State(data)
 
     def _get_hand_regions_block(self, state: State) \
         -> List[Tuple[float, float]]:
+        blocks = state.get_objects(self._block_type)
+        block_hand_regions = state.get_objects(self._block_hand_region_type)
         hand_regions = []
-        for block, block_hr in zip(self._blocks, self._block_hand_regions):
+        for block_hr in block_hand_regions:
+            block_idx_flt = state.get(block_hr, "block_idx")
+            assert block_idx_flt.is_integer()
+            block_idx = int(block_idx_flt)
+            block = blocks[block_idx]
             hand_regions.append(
                 (state.get(block, "x") + state.get(block_hr, "lb"),
                  state.get(block, "x") + state.get(block_hr, "ub")))
@@ -942,7 +965,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def _get_hand_regions_target(self, state: State) \
         -> List[Tuple[float, float]]:
         hand_regions = []
-        for target_hr in self._target_hand_regions:
+        target_hand_regions = state.get_objects(self._target_hand_region_type)
+        for target_hr in target_hand_regions:
             hand_regions.append((state.get(target_hr,
                                            "lb"), state.get(target_hr, "ub")))
         return hand_regions
@@ -1214,9 +1238,11 @@ class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
     Cover(block0, target0), Cover(block1, target1), or both.
     """
 
-    def _create_initial_state(self, rng: np.random.Generator) -> State:
+    def _create_initial_state(self, blocks: List[Object],
+                              targets: List[Object],
+                              rng: np.random.Generator) -> State:
         # Force one initial state by overriding the rng and using an identical
         # one on every call, so this method becomes deterministic.
         del rng
         zero_rng = np.random.default_rng(0)
-        return super()._create_initial_state(zero_rng)
+        return super()._create_initial_state(blocks, targets, zero_rng)
