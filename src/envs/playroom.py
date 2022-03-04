@@ -191,7 +191,7 @@ class PlayroomEnv(BlocksEnv):
             policy=self._ToggleDial_policy,
             initiable=self._ToggleDial_initiable,
             terminal=utils.onestep_terminal)
-        # Objects
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._door1 = Object("door1", self._door_type)
         self._door2 = Object("door2", self._door_type)

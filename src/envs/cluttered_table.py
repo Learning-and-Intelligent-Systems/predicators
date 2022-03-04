@@ -42,12 +42,6 @@ class ClutteredTableEnv(BaseEnv):
             policy=self._Dump_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
-        # Objects
-        self._cans = []
-        for i in range(
-                max(CFG.cluttered_table_num_cans_train,
-                    CFG.cluttered_table_num_cans_test)):
-            self._cans.append(Object(f"can{i}", self._can_type))
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -171,12 +165,19 @@ class ClutteredTableEnv(BaseEnv):
 
     def _get_tasks(self, num: int, train_or_test: str) -> List[Task]:
         tasks = []
-        goal = {GroundAtom(self._Holding, [self._cans[0]])}
+        cans = []
+        for i in range(
+                max(CFG.cluttered_table_num_cans_train,
+                    CFG.cluttered_table_num_cans_test)):
+            cans.append(Object(f"can{i}", self._can_type))
+        goal = {GroundAtom(self._Holding, [cans[0]])}
         for _ in range(num):
-            tasks.append(Task(self._create_initial_state(train_or_test), goal))
+            tasks.append(
+                Task(self._create_initial_state(cans, train_or_test), goal))
         return tasks
 
-    def _create_initial_state(self, train_or_test: str) -> State:
+    def _create_initial_state(self, cans: List[Object],
+                              train_or_test: str) -> State:
         data: Dict[Object, Array] = {}
         assert train_or_test in ("train", "test")
         if train_or_test == "train":
@@ -187,7 +188,7 @@ class ClutteredTableEnv(BaseEnv):
             rng = self._test_rng
         radius = CFG.cluttered_table_can_radius
         for i in range(num_cans):
-            can = self._cans[i]
+            can = cans[i]
             while True:
                 # keep cans near center of table to allow grasps from all angles
                 pose = np.array(rng.uniform(0.25, 0.75, size=2),
@@ -313,10 +314,6 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
                                           policy=self._Grasp_policy,
                                           initiable=utils.always_initiable,
                                           terminal=utils.onestep_terminal)
-        # Place env will always use two cans.
-        self._cans = []
-        for i in range(2):
-            self._cans.append(Object(f"can{i}", self._can_type))
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -374,13 +371,15 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
         next_state.set(desired_can, "is_grasped", 1.0)
         return next_state
 
-    def _create_initial_state(self, train_or_test: str) -> State:
+    def _create_initial_state(self, cans: List[Object],
+                              train_or_test: str) -> State:
         data: Dict[Object, Array] = {}
         radius = CFG.cluttered_table_can_radius
         # The goal can is placed behind an obstructing can and randomly either
         # on the left or right. The obstructing can is in the middle of the
         # action space.
         goal_x = 0.3 if self._train_rng.uniform() < 0.5 else 0.1
-        data[self._cans[0]] = np.array([goal_x, 0.8, radius, 0.0, 0.0])
-        data[self._cans[1]] = np.array([0.2, 0.6, radius, 0.0, 0.0])
+        # Always use exactly two cans.
+        data[cans[0]] = np.array([goal_x, 0.8, radius, 0.0, 0.0])
+        data[cans[1]] = np.array([0.2, 0.6, radius, 0.0, 0.0])
         return State(data)
