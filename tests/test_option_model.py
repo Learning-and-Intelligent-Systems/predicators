@@ -1,15 +1,24 @@
 """Test cases for option models."""
 
+from typing import Set
 import pytest
 from gym.spaces import Box
+from predicators.src.envs import BaseEnv
 from predicators.src.structs import State, Action, Type, ParameterizedOption
-from predicators.src.option_model import create_option_model
+from predicators.src.option_model import create_option_model, \
+    _OracleOptionModel
 from predicators.src import utils
 
 
 def test_default_option_model():
     """Tests for the default option model."""
+
+    # First test create_option_model with a real environment.
     utils.reset_config({"env": "cover"})
+    model = create_option_model("oracle")
+    assert isinstance(model, _OracleOptionModel)
+
+    # Test with a mock environment.
     type1 = Type("type1", ["feat1", "feat2"])
     type2 = Type("type2", ["feat3", "feat4", "feat5"])
     obj3 = type1("obj3")
@@ -18,32 +27,45 @@ def test_default_option_model():
     obj4 = type2("obj4")
     obj9 = type2("obj9")
 
-    def _simulate(state, action):
-        next_state = state.copy()
-        obj = list(state)[0]
-        next_state.set(obj, "feat3",
-                       next_state.get(obj, "feat3") + action.arr[1])
-        return next_state
+    class _MockEnv(BaseEnv):
 
-    params_space = Box(-10, 10, (2, ))
+        def simulate(self, state: State, action: Action) -> State:
+            next_state = state.copy()
+            obj = list(state)[0]
+            next_state.set(obj, "feat3",
+                           next_state.get(obj, "feat3") + action.arr[1])
+            return next_state
 
-    def policy(s, m, o, p):
-        del s, m, o  # unused
-        return Action(p * 2)
+        @property
+        def options(self) -> Set[ParameterizedOption]:
+            params_space = Box(-10, 10, (2, ))
 
-    def initiable(s, m, o, p):
-        del o, p  # unused
-        obj = list(s)[0]
-        m["start_state"] = s
-        return s[obj][0] < 10 or s[obj][0] > 60
+            def policy(s, m, o, p):
+                del s, m, o  # unused
+                return Action(p * 2)
 
-    def terminal(s, m, o, p):
-        del o, p  # unused
-        obj = list(s)[0]
-        return s[obj][0] > 50 and not s.allclose(m["start_state"])
+            def initiable(s, m, o, p):
+                del o, p  # unused
+                obj = list(s)[0]
+                m["start_state"] = s
+                return s[obj][0] < 10 or s[obj][0] > 60
 
-    parameterized_option = ParameterizedOption("Pick", [], params_space,
-                                               policy, initiable, terminal)
+            def terminal(s, m, o, p):
+                del o, p  # unused
+                obj = list(s)[0]
+                return s[obj][0] > 50 and not s.allclose(m["start_state"])
+
+            parameterized_option = ParameterizedOption("Pick", [],
+                                                       params_space, policy,
+                                                       initiable, terminal)
+
+            return {parameterized_option}
+
+    # Necessary to instantiate what would otherwise be an ABC.
+    _MockEnv.__abstractmethods__ = set()  # pylint:disable=protected-access
+    env = _MockEnv()  # pylint: abstract-class-instantiated
+    parameterized_option = env.options.pop()
+
     params = [-5, 5]
     option1 = parameterized_option.ground([], params)
     params = [-7, 7]
@@ -57,9 +79,13 @@ def test_default_option_model():
         obj4: [8, 9, 10],
         obj9: [11, 12, 13]
     })
-    model = create_option_model("oracle")
-    model._simulator = _simulate  # pylint:disable=protected-access
+    model = _OracleOptionModel(env)
     next_state = model.get_next_state(state, option1)
+    # Test that the option's memory has not been updated.
+    assert "start_state" not in option1.memory
+    # But after actually calling the option, it should be updated.
+    option1.initiable(state)
+    assert "start_state" in option1.memory
     assert abs(next_state.get(obj1, "feat3") - 55) < 1e-6
     with pytest.raises(AssertionError):  # option2 is not initiable
         model.get_next_state(next_state, option2)
