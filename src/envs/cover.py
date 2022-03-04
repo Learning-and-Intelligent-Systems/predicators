@@ -518,7 +518,7 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._Holding = Predicate("Holding",
                                   [self._block_type, self._robot_type],
                                   self._Holding_holds)
-        # Need to override object creation because the types are now
+        # Need to override static object creation because the types are now
         # different (in terms of equality).
         self._robot = Object("robby", self._robot_type)
         # Override the original options to make them multi-step.
