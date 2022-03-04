@@ -260,8 +260,8 @@ def test_cover_multistep_options():
     state.data[block1] = np.array([1., 0., 0.07, 0.8334956, -1., 0.1, 0.1])
     state.data[target0] = np.array([0., 1., 0.05, 0.17778981])
     state.data[target1] = np.array([0., 1., 0.03, 0.63629464])
-    state.data[block0_hr] = np.array([-0.1 / 2, 0.1 / 2])
-    state.data[block1_hr] = np.array([-0.07 / 2, 0.07 / 2])
+    state.data[block0_hr] = np.array([-0.1 / 2, 0.1 / 2, 0])
+    state.data[block1_hr] = np.array([-0.07 / 2, 0.07 / 2, 1])
     state.data[target0_hr] = np.array(
         [0.17778981 - 0.05 / 2, 0.17778981 + 0.05 / 2])
     state.data[target1_hr] = np.array(
