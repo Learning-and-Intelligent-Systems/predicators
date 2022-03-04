@@ -228,7 +228,7 @@ class GlobalSettings:
             # In SeSamE, the maximum number of skeletons optimized before
             # giving up. If 1, can only solve downward refinable tasks.
             sesame_max_skeletons_optimized=defaultdict(
-                lambda: 1, #8,
+                lambda: 8,
                 {
                     # For the tools environment, allow many more skeletons.
                     "tools": 1000,
@@ -238,7 +238,7 @@ class GlobalSettings:
             # Concretely, this effort refers to the maximum number of calls to
             # the sampler on each step before backtracking.
             sesame_max_samples_per_step=defaultdict(
-                lambda: 1, #10,
+                lambda: 10,
                 {
                     # For the tools environment, don't do any backtracking.
                     "tools": 1,
