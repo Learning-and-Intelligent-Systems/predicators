@@ -251,17 +251,17 @@ def test_planning_determinism():
 
     class _MockEnv(BaseEnv):
 
-        def simulate(self, s: State, a: Action) -> State:
-            ns = s.copy()
-            if a.arr.item() < -1:
-                ns[robby][0] = 1
-            elif a.arr.item() < 0:
-                ns[robin][0] = 1
-            elif a.arr.item() < 1:
-                ns[robin][1] = 1
+        def simulate(self, state: State, action: Action) -> State:
+            next_state = state.copy()
+            if action.arr.item() < -1:
+                next_state[robby][0] = 1
+            elif action.arr.item() < 0:
+                next_state[robin][0] = 1
+            elif action.arr.item() < 1:
+                next_state[robin][1] = 1
             else:
-                ns[robby][1] = 1
-            return ns
+                next_state[robby][1] = 1
+            return next_state
 
         @property
         def options(self):
