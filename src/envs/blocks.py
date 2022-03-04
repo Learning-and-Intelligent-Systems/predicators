@@ -55,19 +55,19 @@ class BlocksEnv(BaseEnv):
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
-            # no params
+            # params: []
             "Pick",
             types=[self._robot_type, self._block_type],
-            params_space=Box(0, 1, (0, )),
+            params_space=Box(0, 1, (0, )),  # no parameters
             policy=self._Pick_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # no params
+            # params: []
             "Stack",
             types=[self._robot_type, self._block_type],
-            params_space=Box(0, 1, (0, )),
+            params_space=Box(0, 1, (0, )),  # no parameters
             policy=self._Stack_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
