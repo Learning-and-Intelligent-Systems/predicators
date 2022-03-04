@@ -598,7 +598,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                             rng: np.random.Generator,
                             objs: Sequence[Object]) -> Array:
         del state, goal, rng, objs  # unused
-        return np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+        return np.array([1.0], dtype=np.float32)
 
     pickfromtop_nsrt = NSRT("PickFromTop", parameters, preconditions,
                             add_effects, delete_effects, set(), option,
@@ -622,7 +622,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
         del state, goal, rng, objs  # unused
-        return np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        return np.array([0.0], dtype=np.float32)
 
     pickfromside_nsrt = NSRT("PickFromSide", parameters, preconditions,
                              add_effects, delete_effects, set(), option,
@@ -643,14 +643,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsWet, [obj]), LiftedAtom(IsClean, [obj])}
     delete_effects = {LiftedAtom(IsDry, [obj]), LiftedAtom(IsDirty, [obj])}
 
-    def wash_sampler(state: State, goal: Set[GroundAtom],
-                     rng: np.random.Generator,
-                     objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.array([1.0], dtype=np.float32)
-
     wash_nsrt = NSRT("Wash", parameters, preconditions, add_effects,
-                     delete_effects, set(), option, option_vars, wash_sampler)
+                     delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(wash_nsrt)
 
     # Dry
@@ -663,13 +657,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     add_effects = {LiftedAtom(IsDry, [obj])}
     delete_effects = {LiftedAtom(IsWet, [obj])}
 
-    def dry_sampler(state: State, goal: Set[GroundAtom],
-                    rng: np.random.Generator, objs: Sequence[Object]) -> Array:
-        del state, goal, rng, objs  # unused
-        return np.array([1.0], dtype=np.float32)
-
     dry_nsrt = NSRT("Dry", parameters, preconditions, add_effects,
-                    delete_effects, set(), option, option_vars, dry_sampler)
+                    delete_effects, set(), option, option_vars, null_sampler)
     nsrts.add(dry_nsrt)
 
     # PaintToBox
@@ -1230,7 +1219,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
-        return np.array([0, 0, 0, rotation], dtype=np.float32)
+        return np.array([rotation], dtype=np.float32)
 
     pickfromtable_nsrt = NSRT("PickFromTable", parameters, preconditions,
                               add_effects, delete_effects, set(), option,
@@ -1273,7 +1262,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
-        return np.array([0, 0, 0, rotation], dtype=np.float32)
+        return np.array([rotation], dtype=np.float32)
 
     unstack_nsrt = NSRT("Unstack",
                         parameters, preconditions, add_effects, delete_effects,
@@ -1315,8 +1304,7 @@ def _get_playroom_gt_nsrts() -> Set[NSRT]:
         table_x = (cls.table_x_lb + cls.table_x_ub) / 2
         table_y = (cls.table_y_lb + cls.table_y_ub) / 2
         rotation = np.arctan2(table_y - y, table_x - x) / np.pi
-        return np.array([0, 0, PlayroomEnv.block_size, rotation],
-                        dtype=np.float32)
+        return np.array([rotation], dtype=np.float32)
 
     stack_nsrt = NSRT("Stack",
                       parameters, preconditions, add_effects, delete_effects,
