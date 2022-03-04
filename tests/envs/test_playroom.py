@@ -346,11 +346,11 @@ def test_playroom_options():
     TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
     TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
     plan = [
-        Pick.ground([robot, block1], [0.0, 0.0, 0.0, 0.35]),
+        Pick.ground([robot, block1], [0.35]),
         PutOnTable.ground([robot], [0.1, 0.5, 0.0]),  # put block1 on table
-        Pick.ground([robot, block2], [0.0, 0.0, 0.0, -0.15]),
+        Pick.ground([robot, block2], [-0.15]),
         # stack block2 on block1
-        Stack.ground([robot, block1], [0.0, 0.0, 1.0, 0.0]),
+        Stack.ground([robot, block1], [0.0]),
         MoveToDoor.ground([robot, region1, door1], [-0.2, 0.0, 0.0]),
         OpenDoor.ground([robot, door1], [-0.2, 0.0, 0.0, 0.0]),
         # advance through door1
