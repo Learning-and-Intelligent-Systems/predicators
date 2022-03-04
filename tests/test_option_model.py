@@ -1,6 +1,5 @@
 """Test cases for option models."""
 
-from typing import Set
 import pytest
 from gym.spaces import Box
 from predicators.src.structs import State, Action, Type, ParameterizedOption
@@ -29,7 +28,7 @@ def test_default_option_model():
     class _MockEnv:
 
         @staticmethod
-        def simulate(state: State, action: Action) -> State:
+        def simulate(state, action):
             """A mock simulate method."""
             next_state = state.copy()
             obj = list(state)[0]
@@ -38,7 +37,7 @@ def test_default_option_model():
             return next_state
 
         @property
-        def options(self) -> Set[ParameterizedOption]:
+        def options(self):
             """Mock options."""
             params_space = Box(-10, 10, (2, ))
 

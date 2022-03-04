@@ -252,7 +252,7 @@ def test_planning_determinism():
     class _MockEnv:
 
         @staticmethod
-        def simulate(state: State, action: Action) -> State:
+        def simulate(state, action):
             """A mock simulate method."""
             next_state = state.copy()
             if action.arr.item() < -1:
