@@ -22,7 +22,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 5.0
-    _max_vel_norm: float = 1.0
+    _max_vel_norm: float = 0.5
 
     # Table parameters.
     _table_position: Sequence[float] = [1.35, 0.75, 0.0]
@@ -50,6 +50,9 @@ class PyBulletBlocksEnv(BlocksEnv):
     _yaw: float = 90.0
     _pitch: float = -24
     _camera_target: Sequence[float] = [1.65, 0.75, 0.42]
+
+    # Other parameters.
+    _sim_steps_per_action: int = 20
 
     def __init__(self) -> None:
         super().__init__()
@@ -177,7 +180,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     @property
     def action_space(self) -> Box:
         # dimensions: [dx, dy, dz, fingers]
-        return Box(low=-1, high=1, shape=(4, ), dtype=np.float32)
+        return Box(low=-0.05, high=0.05, shape=(4, ), dtype=np.float32)
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
         # Resets current_state and current_task.
@@ -231,6 +234,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
+        # TODO: assert that the initial state is properly reconstructed
+
         return state
 
     def _create_block(self, block_num: int) -> int:
@@ -275,8 +280,52 @@ class PyBulletBlocksEnv(BlocksEnv):
         return block_id
 
     def step(self, action: Action) -> State:
-        import ipdb
-        ipdb.set_trace()
+        ee_delta, finger_action = action.arr[:3], action.arr[3]
+
+        ee_link_state = p.getLinkState(self._fetch_id,
+                                       self._ee_id,
+                                       physicsClientId=self._physics_client_id)
+        current_position = ee_link_state[4]
+        target_position = np.add(current_position, ee_delta)
+
+        joint_values = inverse_kinematics(
+            self._fetch_id,
+            self._ee_id,
+            target_position,
+            self._ee_orientation,
+            self._arm_joints,
+            physics_client_id=self._physics_client_id)
+
+        # Set arm joint motors.
+        for joint_idx, joint_val in zip(self._arm_joints, joint_values):
+            p.setJointMotorControl2(bodyIndex=self._fetch_id,
+                                    jointIndex=joint_idx,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPosition=joint_val,
+                                    physicsClientId=self._physics_client_id)
+
+        # TODO other things...
+
+        for _ in range(self._sim_steps_per_action):
+            p.stepSimulation(physicsClientId=self._physics_client_id)
+
+        return self._get_state()
+
+    def _get_state(self) -> State:
+        """Create a State based on the current PyBullet state."""
+        state = self._current_state.copy()
+
+        ee_link_state = p.getLinkState(self._fetch_id,
+                                       self._ee_id,
+                                       physicsClientId=self._physics_client_id)
+        x, y, z = ee_link_state[4]
+
+        # TODO A BUNCH OF OTHER STUFF
+        state.set(self._robot, "pose_x", x)
+        state.set(self._robot, "pose_y", y)
+        state.set(self._robot, "pose_z", z)
+
+        return state
 
     ########################## Parameterized Options ##########################
 
