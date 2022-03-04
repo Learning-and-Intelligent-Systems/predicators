@@ -275,7 +275,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
     This class is meant to help ParameterizedOption manual design.
 
     The children are executed in order starting with the first in the sequence
-    and transitioning when the terminal function of the respect child is hit.
+    and transitioning when the terminal function of each child is hit.
 
     The children are assumed to chain together, so the initiable of the next
     child should always be True when the previous child terminates. If this
@@ -284,7 +284,8 @@ class LinearChainParameterizedOption(ParameterizedOption):
     The children must all have the same types and params_space, which in turn
     become the types and params_space for this ParameterizedOption.
 
-    The options have memory, which stores the current child index.
+    The LinearChainParameterizedOption has memory, which stores the current
+    child index.
     """
 
     def __init__(self, name: str,

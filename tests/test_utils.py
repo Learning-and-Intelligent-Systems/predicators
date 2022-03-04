@@ -926,6 +926,27 @@ def test_LinearChainParameterizedOption():
     assert chain_option.policy(state).arr[0] == 2
     assert chain_option.terminal(state)
 
+    # Cannot initialize with empty children.
+    with pytest.raises(AssertionError):
+        utils.LinearChainParameterizedOption("chain", [])
+
+    # Test that AssertionError is raised when options don't chain.
+    param_option2 = ParameterizedOption(
+        "dummy2", [cup_type], Box(0.1, 1, (1, )),
+        lambda _1, _2, _3, _4: Action(np.array([0])),
+        lambda _1, _2, _3, _4: False, lambda _1, _2, _3, _4: False)
+
+    children = [param_option0, param_option2]
+    chain_param_opt = utils.LinearChainParameterizedOption("chain2", children)
+    chain_option = chain_param_opt.ground([cup], [0.5])
+    assert chain_option.initiable(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    with pytest.raises(AssertionError):
+        chain_option.policy(state)
+
 
 def test_nsrt_methods():
     """Tests for all_ground_nsrts(), extract_preds_and_types()."""
