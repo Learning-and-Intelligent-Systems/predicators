@@ -11,7 +11,8 @@ from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
 from predicators.src.settings import CFG
-from predicators.src.option_model import create_option_model
+from predicators.src.option_model import create_option_model, \
+    _OracleOptionModel
 
 
 def test_sesame_plan():
@@ -207,7 +208,6 @@ def test_sesame_plan_uninitiable_option():
 def test_planning_determinism():
     """Tests that planning is deterministic when there are multiple ways of
     achieving a goal."""
-    utils.reset_config({"env": "cover"})
     robot_type = Type("robot_type", ["asleep", "cried"])
     robot_var = robot_type("?robot")
     robby = robot_type("robby")
@@ -245,23 +245,33 @@ def test_planning_determinism():
         cry_option, [robot_var],
         lambda s, g, rng, objs: pos_params_space.sample())
 
-    def _simulator(s, a):
-        ns = s.copy()
-        if a.arr.item() < -1:
-            ns[robby][0] = 1
-        elif a.arr.item() < 0:
-            ns[robin][0] = 1
-        elif a.arr.item() < 1:
-            ns[robin][1] = 1
-        else:
-            ns[robby][1] = 1
-        return ns
-
     goal = {asleep([robby]), asleep([robin]), cried([robby]), cried([robin])}
     task1 = Task(State({robby: [0, 0], robin: [0, 0]}), goal)
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
-    option_model = create_option_model("oracle")
-    option_model._simulator = _simulator  # pylint:disable=protected-access
+
+    class _MockEnv:
+
+        @staticmethod
+        def simulate(state, action):
+            """A mock simulate method."""
+            next_state = state.copy()
+            if action.arr.item() < -1:
+                next_state[robby][0] = 1
+            elif action.arr.item() < 0:
+                next_state[robin][0] = 1
+            elif action.arr.item() < 1:
+                next_state[robin][1] = 1
+            else:
+                next_state[robby][1] = 1
+            return next_state
+
+        @property
+        def options(self):
+            """Mock options."""
+            return {sleep_option, cry_option}
+
+    env = _MockEnv()
+    option_model = _OracleOptionModel(env)
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
     plan1 = [
         (act.name, act.objects) for act in sesame_plan(
