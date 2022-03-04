@@ -87,30 +87,29 @@ class PaintingEnv(BaseEnv):
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z, grasp]
+            # params: [grasp]
             "Pick",
             types=[self._robot_type, self._obj_type],
-            params_space=Box(
-                np.array([-1.0, -1.0, -1.0, -0.01], dtype=np.float32),
-                np.array([1.0, 1.0, 1.0, 1.01], dtype=np.float32)),
+            params_space=Box(np.array([-0.01], dtype=np.float32),
+                             np.array([1.01], dtype=np.float32)),
             policy=self._Pick_policy,
             initiable=self._handempty_initiable,
             terminal=utils.onestep_terminal)
         self._Wash = ParameterizedOption(
             # variables: [robot]
-            # params: [water level]
+            # params: []
             "Wash",
             types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1, )),
+            params_space=Box(0, 1, (0, )),  # no parameters
             policy=self._Wash_policy,
             initiable=self._holding_initiable,
             terminal=utils.onestep_terminal)
         self._Dry = ParameterizedOption(
             # variables: [robot]
-            # params: [heat level]
+            # params: []
             "Dry",
             types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1, )),
+            params_space=Box(0, 1, (0, )),  # no parameters
             policy=self._Dry_policy,
             initiable=self._holding_initiable,
             terminal=utils.onestep_terminal)
@@ -141,7 +140,7 @@ class PaintingEnv(BaseEnv):
             # params: []
             "OpenLid",
             types=[self._robot_type, self._lid_type],
-            params_space=Box(-0.01, 1.01, (0, )),  # no parameters
+            params_space=Box(0, 1, (0, )),  # no parameters
             policy=self._OpenLid_policy,
             initiable=self._handempty_initiable,
             terminal=utils.onestep_terminal)
@@ -524,37 +523,28 @@ class PaintingEnv(BaseEnv):
         obj_x = state.get(obj, "pose_x")
         obj_y = state.get(obj, "pose_y")
         obj_z = state.get(obj, "pose_z")
-        dx, dy, dz, grasp = params
-        arr = np.array(
-            [obj_x + dx, obj_y + dy, obj_z + dz, grasp, 1.0, 0.0, 0.0, 0.0],
-            dtype=np.float32)
-        # The addition of dx, dy, and dz could cause the action to go
-        # out of bounds, so we clip it back into the bounds for safety.
+        grasp, = params
+        arr = np.array([obj_x, obj_y, obj_z, grasp, 1.0, 0.0, 0.0, 0.0],
+                       dtype=np.float32)
+        # The grasp could cause the action to go out of bounds, so we clip
+        # it back into the bounds for safety.
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _Wash_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        water_level, = params
-        water_level = min(max(water_level, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, water_level, 0.0,
-            0.0
-        ],
-                       dtype=np.float32)
+        del state, memory, objects, params  # unused
+        arr = np.array(
+            [self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 1.0, 0.0, 0.0],
+            dtype=np.float32)
         return Action(arr)
 
     def _Dry_policy(self, state: State, memory: Dict,
                     objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        heat_level, = params
-        heat_level = min(max(heat_level, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, heat_level,
-            0.0
-        ],
-                       dtype=np.float32)
+        del state, memory, objects, params  # unused
+        arr = np.array(
+            [self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 1.0, 0.0],
+            dtype=np.float32)
         return Action(arr)
 
     def _Paint_policy(self, state: State, memory: Dict,
