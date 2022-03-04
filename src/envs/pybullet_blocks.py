@@ -52,6 +52,19 @@ class PyBulletBlocksEnv(BlocksEnv):
     def __init__(self) -> None:
         super().__init__()
 
+        # Override options.
+        types = [self._robot_type, self._block_type]
+        self._Pick = utils.LinearChainParameterizedOption("Pick", [
+            # Creates a ParameterizedOption for moving to the position that has
+            # z equal to self.pick_z, and x and y equal to that of the second
+            # object parameter (as indicated by the 1 index), which in this
+            # case is the block. In other words, move the end effector to high
+            # above the block in preparation for picking. Note that the params
+            # space here is trivial (size 0).
+            self._move_relative_to_obj(types, 1, rel_x=0., rel_y=0., abs_z=self.pick_z),
+        ])
+        # TODO: override Stack and Place.
+
         # One-time initialization of pybullet assets. Note that this happens
         # in __init__ because many class attributes are created.
         if CFG.pybullet_use_gui:
