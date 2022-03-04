@@ -41,13 +41,12 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         # Options
-        self._PickPlace = ParameterizedOption(
-            "PickPlace",
-            types=[],
-            params_space=Box(0, 1, (1, )),
-            _policy=self._PickPlace_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+        self._PickPlace = ParameterizedOption("PickPlace",
+                                              types=[],
+                                              params_space=Box(0, 1, (1, )),
+                                              policy=self._PickPlace_policy,
+                                              initiable=utils.always_initiable,
+                                              terminal=utils.onestep_terminal)
         # Objects
         self._blocks = []
         self._targets = []
@@ -352,16 +351,16 @@ class CoverEnvTypedOptions(CoverEnv):
         self._Pick = ParameterizedOption("Pick",
                                          types=[self._block_type],
                                          params_space=Box(-0.1, 0.1, (1, )),
-                                         _policy=self._Pick_policy,
-                                         _initiable=utils.always_initiable,
-                                         _terminal=utils.onestep_terminal)
+                                         policy=self._Pick_policy,
+                                         initiable=utils.always_initiable,
+                                         terminal=utils.onestep_terminal)
         self._Place = ParameterizedOption(
             "Place",
             types=[self._target_type],
             params_space=Box(0, 1, (1, )),
-            _policy=self._PickPlace_policy,  # use the parent class's policy
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._PickPlace_policy,  # use the parent class's policy
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -528,18 +527,18 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         self._Pick = ParameterizedOption("Pick",
                                          types=[self._block_type],
                                          params_space=Box(-1.0, 1.0, (1, )),
-                                         _policy=self._Pick_policy,
-                                         _initiable=self._Pick_initiable,
-                                         _terminal=self._Pick_terminal)
+                                         policy=self._Pick_policy,
+                                         initiable=self._Pick_initiable,
+                                         terminal=self._Pick_terminal)
         # Note: there is a change here -- the parameter space is now
         # relative to the target. In the parent env, the parameter
         # space is absolute, and the state of the target is not used.
         self._Place = ParameterizedOption("Place",
                                           types=[self._target_type],
                                           params_space=Box(-1.0, 1.0, (1, )),
-                                          _policy=self._Place_policy,
-                                          _initiable=self._Place_initiable,
-                                          _terminal=self._Place_terminal)
+                                          policy=self._Place_policy,
+                                          initiable=self._Place_initiable,
+                                          terminal=self._Place_terminal)
         # We also add two ground truth options that correspond to the options
         # learned by the _SimpleOptionLearner. The parameter for these options
         # is a concatenation of several vectors, where each vector corresponds
@@ -549,16 +548,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             "LearnedEquivalentPick",
             types=[self._block_type, self._robot_type],
             params_space=Box(-np.inf, np.inf, (11, )),
-            _policy=self._Pick_learned_equivalent_policy,
-            _initiable=self._Pick_learned_equivalent_initiable,
-            _terminal=self._Pick_learned_equivalent_terminal)
+            policy=self._Pick_learned_equivalent_policy,
+            initiable=self._Pick_learned_equivalent_initiable,
+            terminal=self._Pick_learned_equivalent_terminal)
         self._LearnedEquivalentPlace = ParameterizedOption(
             "LearnedEquivalentPlace",
             types=[self._block_type, self._robot_type, self._target_type],
             params_space=Box(-np.inf, np.inf, (11, )),
-            _policy=self._Place_learned_equivalent_policy,
-            _initiable=self._Place_learned_equivalent_initiable,
-            _terminal=self._Place_learned_equivalent_terminal)
+            policy=self._Place_learned_equivalent_policy,
+            initiable=self._Place_learned_equivalent_initiable,
+            terminal=self._Place_learned_equivalent_terminal)
 
     @property
     def options(self) -> Set[ParameterizedOption]:

@@ -566,8 +566,8 @@ def make_behavior_option(
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
-    def _policy(state: State, memory: Dict, _objects: Sequence[Object],
-                _params: Array) -> Action:
+    def policy(state: State, memory: Dict, _objects: Sequence[Object],
+               _params: Array) -> Action:
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
         assert memory.get("policy_controller") is not None
@@ -576,8 +576,8 @@ def make_behavior_option(
             state, env.igibson_behavior_env)
         return Action(action_arr)
 
-    def _initiable(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> bool:
+    def initiable(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
 
@@ -612,8 +612,8 @@ def make_behavior_option(
             memory["has_terminated"] = False
         return planner_result is not None
 
-    def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
-                  _params: Array) -> bool:
+    def terminal(_state: State, memory: Dict, _objects: Sequence[Object],
+                 _params: Array) -> bool:
         assert "has_terminated" in memory
         return memory["has_terminated"]
 
@@ -621,7 +621,7 @@ def make_behavior_option(
         name,
         types=types,
         params_space=params_space,
-        _policy=_policy,
-        _initiable=_initiable,
-        _terminal=_terminal,
+        policy=policy,
+        initiable=initiable,
+        terminal=terminal,
     )

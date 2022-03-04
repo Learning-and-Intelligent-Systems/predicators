@@ -43,16 +43,16 @@ class RepeatedNextToEnv(BaseEnv):
             "Move",
             types=[self._robot_type, self._dot_type],
             params_space=Box(-1, 1, (1, )),
-            _policy=self._Move_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Move_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._Grasp = ParameterizedOption(
             "Grasp",
             types=[self._robot_type, self._dot_type],
             params_space=Box(0, 1, (0, )),
-            _policy=self._Grasp_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Grasp_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         # Objects
         self._dots = []
         for i in range(CFG.repeated_nextto_num_dots):

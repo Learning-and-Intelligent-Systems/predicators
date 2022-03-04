@@ -32,16 +32,16 @@ class ClutteredTableEnv(BaseEnv):
         # Options
         self._Grasp = ParameterizedOption("Grasp", [self._can_type],
                                           params_space=Box(0, 1, (4, )),
-                                          _policy=self._Grasp_policy,
-                                          _initiable=utils.always_initiable,
-                                          _terminal=utils.onestep_terminal)
+                                          policy=self._Grasp_policy,
+                                          initiable=utils.always_initiable,
+                                          terminal=utils.onestep_terminal)
         self._Dump = ParameterizedOption(
             "Dump",
             [],
             params_space=Box(0, 1, (0, )),  # no parameter
-            _policy=self._Dump_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Dump_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         # Objects
         self._cans = []
         for i in range(
@@ -303,16 +303,16 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
                                           params_space=Box(
                                               np.array([0, 0, 0, 0]),
                                               np.array([1, 1, 1, 1])),
-                                          _policy=self._Place_policy,
-                                          _initiable=utils.always_initiable,
-                                          _terminal=utils.onestep_terminal)
+                                          policy=self._Place_policy,
+                                          initiable=utils.always_initiable,
+                                          terminal=utils.onestep_terminal)
         self._Grasp = ParameterizedOption("Grasp", [self._can_type],
                                           params_space=Box(
                                               np.array([0, 0, 0, 0]),
                                               np.array([1, 1, 1, 1])),
-                                          _policy=self._Grasp_policy,
-                                          _initiable=utils.always_initiable,
-                                          _terminal=utils.onestep_terminal)
+                                          policy=self._Grasp_policy,
+                                          initiable=utils.always_initiable,
+                                          terminal=utils.onestep_terminal)
         # Place env will always use two cans.
         self._cans = []
         for i in range(2):
