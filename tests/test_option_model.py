@@ -63,7 +63,7 @@ def test_default_option_model():
 
     # Necessary to instantiate what would otherwise be an ABC.
     _MockEnv.__abstractmethods__ = set()  # pylint:disable=protected-access
-    env = _MockEnv()  # pylint: abstract-class-instantiated
+    env = _MockEnv()  # pylint:disable=abstract-class-instantiated
     parameterized_option = env.options.pop()
 
     params = [-5, 5]
