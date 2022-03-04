@@ -106,8 +106,6 @@ def test_blocks_failure_cases():
     assert state.allclose(next_state)
     # Cannot stack onto no block
     act = Stack.ground([robot, block1], np.zeros(0)).policy(state)
-    fake_state = state.copy()
-    fake_state.set(block0, "pose_y", state.get(block0, "pose_y") - 1)
     next_state = env.simulate(fake_state, act)
     assert fake_state.allclose(next_state)
     # Cannot stack onto yourself
