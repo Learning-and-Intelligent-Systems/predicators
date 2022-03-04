@@ -21,7 +21,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     _base_position: Sequence[float] = [0.75, 0.7441, 0.0]
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
-    _ee_initial_position: Sequence[float] = [1., 0.7, 0.5]
+    _move_gain: float = 5.0
+    _max_vel_norm: float = 1.0
 
     # Table parameters.
     _table_position: Sequence[float] = [1.35, 0.75, 0.0]
@@ -63,8 +64,9 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # effector to high above the block in preparation for picking.
                 # Note that the params space here is trivial (size 0) and
                 # the types are [robot, block].
-                self._move_relative_to_obj((0., 0., self.pick_z),
-                                           ("rel", "rel", "abs")),
+                self._move_relative_to_block((0., 0., self.pick_z),
+                                             ("rel", "rel", "abs")),
+                # TODO more.
             ])
         # TODO: override Stack and Place.
 
@@ -155,11 +157,11 @@ class PyBulletBlocksEnv(BlocksEnv):
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
 
-        # Determine good initial joint values.
+        # Determine the initial joint values.
         self._initial_joint_values = inverse_kinematics(
             self._fetch_id,
             self._ee_id,
-            self._ee_initial_position,
+            [self.robot_init_x, self.robot_init_y, self.robot_init_z],
             self._ee_orientation,
             self._arm_joints,
             physics_client_id=self._physics_client_id)
@@ -276,22 +278,47 @@ class PyBulletBlocksEnv(BlocksEnv):
         import ipdb
         ipdb.set_trace()
 
-    def _move_relative_to_obj(
-            self, pose: Tuple[float, float, float],
+    ########################## Parameterized Options ##########################
+
+    def _move_relative_to_block(
+            self, rel_or_abs_target_pose: Tuple[float, float, float],
             rel_or_abs: Tuple[str, str, str]) -> ParameterizedOption:
+
+        def _get_target_pose(
+                state: State,
+                objects: Sequence[Object]) -> Tuple[float, float, float]:
+            _, block = objects
+            block_pose = state[block][:3]
+            target_pose = []
+            for i in range(3):
+                if rel_or_abs[i] == "rel":
+                    pose_i = block_pose[i] + rel_or_abs_target_pose[i]
+                else:
+                    assert rel_or_abs[i] == "abs"
+                    pose_i = rel_or_abs_target_pose[i]
+                target_pose.append(pose_i)
+            return (target_pose[0], target_pose[1], target_pose[2])
 
         types = [self._robot_type, self._block_type]
         params_space = Box(0, 1, (0, ))
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            import ipdb
-            ipdb.set_trace()
+            del memory, params  # unused
+            robot, _ = objects
+            current_pose = state[robot][:3]
+            target_pose = _get_target_pose(state, objects)
+            return self._get_move_toward_waypoint_action(
+                current_pose, target_pose)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
-            import ipdb
-            ipdb.set_trace()
+            del memory, params  # unused
+            robot, _ = objects
+            current_pose = state[robot][:3]
+            target_pose = _get_target_pose(state, objects)
+            dist = np.sum(np.subtract(current_pose, target_pose)**2)
+            return dist < self.pick_tol
 
         return ParameterizedOption("MoveRelativeToObj",
                                    types=types,
@@ -299,3 +326,15 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    policy=_policy,
                                    initiable=utils.always_initiable,
                                    terminal=_terminal)
+
+    def _get_move_toward_waypoint_action(
+            self, gripper_position: Sequence[float],
+            target_position: Sequence[float]) -> Action:
+        delta_position = np.subtract(target_position, gripper_position)
+        action = self._move_gain * delta_position
+        action_norm = np.linalg.norm(action)  # type: ignore
+        if action_norm > self._max_vel_norm:
+            action = action * self._max_vel_norm / action_norm
+        action = np.r_[action, 0.0]
+        action = np.clip(action, self.action_space.low, self.action_space.high)
+        return Action(action.astype(np.float32))

@@ -30,6 +30,9 @@ class BlocksEnv(BaseEnv):
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb = 0.4
     y_ub = 1.1
+    robot_init_x = 1.0
+    robot_init_y = 0.7
+    robot_init_z = 0.5
     held_tol = 0.5
     open_fingers = 0.8
     pick_tol = 0.0001
@@ -43,7 +46,8 @@ class BlocksEnv(BaseEnv):
         # Types
         self._block_type = Type("block",
                                 ["pose_x", "pose_y", "pose_z", "held"])
-        self._robot_type = Type("robot", ["fingers"])
+        self._robot_type = Type("robot",
+                                ["pose_x", "pose_y", "pose_z", "fingers"])
         # Predicates
         self._On = Predicate("On", [self._block_type, self._block_type],
                              self._On_holds)
@@ -318,8 +322,12 @@ class BlocksEnv(BaseEnv):
             z = self.table_height + self.block_size * (0.5 + pile_j)
             # [pose_x, pose_y, pose_z, held]
             data[block] = np.array([x, y, z, 0.0])
-        # [fingers]
-        data[self._robot] = np.array([1.0], dtype=np.float32)
+        # [pose_x, pose_y, pose_z, fingers]
+        # Note: the robot poses are not used in this environment, but they
+        # are used in the PyBullet subclass.
+        data[self._robot] = np.array(
+            [self.robot_init_x, self.robot_init_y, self.robot_init_z, 1.0],
+            dtype=np.float32)
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,
