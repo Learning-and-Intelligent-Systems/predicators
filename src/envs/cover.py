@@ -881,8 +881,16 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             tw = CFG.cover_target_widths[i]
             _, x, _ = target_placements[i]
             region_length = tw * CFG.cover_multistep_thr_percent
-            left_pt = rng.uniform(x - tw / 2, x + tw / 2 - region_length)
-            region = [left_pt, left_pt + region_length]
+            if CFG.cover_multistep_bimodal_goal:
+                if rng.uniform(0, 1) < 0.5:
+                    left_pt = x - tw / 2
+                    region = [left_pt, left_pt + region_length]
+                else:
+                    right_pt = x + tw / 2
+                    region = [right_pt - region_length, right_pt]
+            else:
+                left_pt = rng.uniform(x - tw / 2, x + tw / 2 - region_length)
+                region = [left_pt, left_pt + region_length]
             data[target_hr] = np.array(region)
             target_hand_regions.append(region)
 
