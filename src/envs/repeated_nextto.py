@@ -53,10 +53,7 @@ class RepeatedNextToEnv(BaseEnv):
             policy=self._Grasp_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
-        # Objects
-        self._dots = []
-        for i in range(CFG.repeated_nextto_num_dots):
-            self._dots.append(Object(f"dot{i}", self._dot_type))
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
@@ -71,9 +68,9 @@ class RepeatedNextToEnv(BaseEnv):
             # Handle grasp action.
             robot_x = state.get(self._robot, "x")
             desired_x = norm_dot_x * (self.env_ub - self.env_lb) + self.env_lb
+            dots = state.get_objects(self._dot_type)
             dot_to_grasp = min(
-                self._dots,
-                key=lambda dot: abs(state.get(dot, "x") - desired_x))
+                dots, key=lambda dot: abs(state.get(dot, "x") - desired_x))
             dot_to_grasp_x = state.get(dot_to_grasp, "x")
             if abs(dot_to_grasp_x - desired_x) > 1e-4:
                 # There is no dot near the desired_x action argument.
@@ -120,7 +117,7 @@ class RepeatedNextToEnv(BaseEnv):
                      action: Optional[Action] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         robot_x = state.get(self._robot, "x")
-        for dot in self._dots:
+        for dot in state.get_objects(self._dot_type):
             dot_x = state.get(dot, "x")
             if state.get(dot, "grasped") > self.grasped_thresh:
                 color = "green"
@@ -140,16 +137,19 @@ class RepeatedNextToEnv(BaseEnv):
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        goal1 = {GroundAtom(self._Grasped, [self._robot, self._dots[0]])}
-        goal2 = {GroundAtom(self._Grasped, [self._robot, self._dots[1]])}
+        dots = []
+        for i in range(CFG.repeated_nextto_num_dots):
+            dots.append(Object(f"dot{i}", self._dot_type))
+        goal1 = {GroundAtom(self._Grasped, [self._robot, dots[0]])}
+        goal2 = {GroundAtom(self._Grasped, [self._robot, dots[1]])}
         goal3 = {
-            GroundAtom(self._Grasped, [self._robot, self._dots[0]]),
-            GroundAtom(self._Grasped, [self._robot, self._dots[1]])
+            GroundAtom(self._Grasped, [self._robot, dots[0]]),
+            GroundAtom(self._Grasped, [self._robot, dots[1]])
         }
         goals = [goal1, goal2, goal3]
         for i in range(num):
             data: Dict[Object, Array] = {}
-            for dot in self._dots:
+            for dot in dots:
                 dot_x = rng.uniform(self.env_lb, self.env_ub)
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = rng.uniform(self.env_lb, self.env_ub)

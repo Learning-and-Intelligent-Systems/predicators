@@ -145,7 +145,7 @@ class PaintingEnv(BaseEnv):
             policy=self._OpenLid_policy,
             initiable=self._handempty_initiable,
             terminal=utils.onestep_terminal)
-        # Objects
+        # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
         self._shelf = Object("receptacle_shelf", self._shelf_type)
