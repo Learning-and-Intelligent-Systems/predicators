@@ -37,4 +37,9 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id repeated_nextto_oracle --env repeated_nextto --approach oracle --seed $SEED
     python $FILE --experiment_id repeated_nextto_noinvent_noexclude --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --seed $SEED --num_train_tasks 50
     # python $FILE --experiment_id repeated_nextto_noinvent_allexclude --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --excluded_predicates all --seed $SEED --num_train_tasks 50
+
+    # playroom
+    python $FILE --experiment_id playroom_oracle --env playroom --approach oracle --seed $SEED
+    python $FILE --experiment_id playroom_noinvent_noexclude --env playroom --approach nsrt_learning --learn_side_predicates True --seed $SEED --num_train_tasks 50
+    # python $FILE --experiment_id playroom_noinvent_allexclude --env playroom --approach nsrt_learning --learn_side_predicates True --excluded_predicates all --seed $SEED --num_train_tasks 50
 done
