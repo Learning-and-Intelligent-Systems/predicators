@@ -3,17 +3,19 @@
 from __future__ import annotations
 import abc
 from typing import cast
+import numpy as np
 from predicators.src import utils
 from predicators.src.structs import State, _Option
 from predicators.src.settings import CFG
-from predicators.src.envs import get_or_create_env
+from predicators.src.envs import BaseEnv, get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
 
 
 def create_option_model(name: str) -> _OptionModelBase:
     """Create an option model given its name."""
     if name == "oracle":
-        return _OracleOptionModel(CFG.env)
+        env = get_or_create_env(CFG.env)
+        return _OracleOptionModel(env)
     if name == "behavior_oracle":
         return _BehaviorOptionModel()  # pragma: no cover
     if name.startswith("oracle"):
@@ -41,18 +43,34 @@ class _OracleOptionModel(_OptionModelBase):
     Runs options through this simulator to figure out the next state.
     """
 
-    def __init__(self, env_name: str) -> None:
+    def __init__(self, env: BaseEnv) -> None:
         super().__init__()
-        env = get_or_create_env(env_name)
+        self._name_to_parameterized_option = {o.name: o for o in env.options}
         self._simulator = env.simulate
 
     def get_next_state(self, state: State, option: _Option) -> State:
-        assert option.initiable(state)
+        # We do not want to actually execute the option; we want to know what
+        # *would* happen if we were to execute the option. So, we will make a
+        # copy of the option and run that instead. This is important if the
+        # option has memory. It is also important when using the option model
+        # for one environment with options from another environment. E.g.,
+        # using a non-PyBullet environment in the option model while using a
+        # PyBullet environment otherwise.
+        param_opt = option.parent
+        env_param_opt = self._name_to_parameterized_option[param_opt.name]
+        assert env_param_opt.types == param_opt.types
+        assert np.allclose(env_param_opt.params_space.low,
+                           param_opt.params_space.low)
+        assert np.allclose(env_param_opt.params_space.high,
+                           param_opt.params_space.high)
+        env_option = env_param_opt.ground(option.objects, option.params)
+        del option  # unused after this
+        assert env_option.initiable(state)
         traj = utils.run_policy_with_simulator(
-            option.policy,
+            env_option.policy,
             self._simulator,
             state,
-            option.terminal,
+            env_option.terminal,
             max_num_steps=CFG.max_num_steps_option_rollout)
         return traj.states[-1]
 
