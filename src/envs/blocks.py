@@ -55,19 +55,19 @@ class BlocksEnv(BaseEnv):
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z]
+            # no params
             "Pick",
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (3, )),
+            params_space=Box(0, 1, (0, )),
             policy=self._Pick_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # params: [delta x, delta y, delta z]
+            # no params
             "Stack",
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (3, )),
+            params_space=Box(0, 1, (0, )),
             policy=self._Stack_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
@@ -405,27 +405,32 @@ class BlocksEnv(BaseEnv):
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
+        del memory, params  # unused
         _, block = objects
         block_pose = np.array([
             state.get(block, "pose_x"),
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params, 0.0].astype(np.float32)
+        arr = np.r_[block_pose, 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _Stack_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
+        del memory, params  # unused
         _, block = objects
         block_pose = np.array([
             state.get(block, "pose_x"),
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params, 1.0].astype(np.float32)
+        relative_grasp = np.array([
+            0.,
+            0.,
+            self.block_size,
+        ])
+        arr = np.r_[block_pose + relative_grasp, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
