@@ -20,7 +20,8 @@ def create_option_model(name: str) -> _OptionModelBase:
         return _BehaviorOptionModel()  # pragma: no cover
     if name.startswith("oracle"):
         _, env_name = name.split("_")
-        return _OracleOptionModel(env_name)
+        env = get_or_create_env(env_name)
+        return _OracleOptionModel(env)
     raise NotImplementedError(f"Unknown option model: {name}")
 
 
