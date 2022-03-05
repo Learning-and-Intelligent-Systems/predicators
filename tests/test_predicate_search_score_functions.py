@@ -107,10 +107,10 @@ def test_predicate_search_heuristic_base_classes():
     robby = [o for o in state if o.type.name == "robot"][0]
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
     option = parameterized_option.ground([], np.array([0.0]))
     assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))

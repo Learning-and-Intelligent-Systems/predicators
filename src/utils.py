@@ -85,6 +85,7 @@ def entropy(p: float) -> float:
     return -(p * np.log(p) + (1 - p) * np.log(1 - p))
 
 
+# TODO should we get rid of these?
 def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
                      params: Array) -> bool:
     """An initiation function for an option that can always be run."""

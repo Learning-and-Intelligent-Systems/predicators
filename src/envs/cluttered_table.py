@@ -30,18 +30,13 @@ class ClutteredTableEnv(BaseEnv):
         self._Untrashed = Predicate("Untrashed", [self._can_type],
                                     self._Untrashed_holds)
         # Options
-        self._Grasp = ParameterizedOption("Grasp", [self._can_type],
-                                          params_space=Box(0, 1, (4, )),
-                                          policy=self._Grasp_policy,
-                                          initiable=utils.always_initiable,
-                                          terminal=utils.onestep_terminal)
-        self._Dump = ParameterizedOption(
-            "Dump",
-            [],
-            params_space=Box(0, 1, (0, )),  # no parameter
-            policy=self._Dump_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
+        self._Grasp = utils.SingletonParameterizedOption(
+            "Grasp",
+            self._Grasp_policy,
+            types=[self._can_type],
+            params_space=Box(0, 1, (4, )))
+        self._Dump = utils.SingletonParameterizedOption(
+            "Dump", self._Dump_policy)
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -300,20 +295,16 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
 
     def __init__(self) -> None:
         super().__init__()
-        self._Place = ParameterizedOption("Place", [self._can_type],
-                                          params_space=Box(
-                                              np.array([0, 0, 0, 0]),
-                                              np.array([1, 1, 1, 1])),
-                                          policy=self._Place_policy,
-                                          initiable=utils.always_initiable,
-                                          terminal=utils.onestep_terminal)
-        self._Grasp = ParameterizedOption("Grasp", [self._can_type],
-                                          params_space=Box(
-                                              np.array([0, 0, 0, 0]),
-                                              np.array([1, 1, 1, 1])),
-                                          policy=self._Grasp_policy,
-                                          initiable=utils.always_initiable,
-                                          terminal=utils.onestep_terminal)
+        self._Place = utils.SingletonParameterizedOption(
+            "Place",
+            self._Place_policy,
+            types=[self._can_type],
+            params_space=Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])))
+        self._Grasp = utils.SingletonParameterizedOption(
+            "Grasp",
+            self._Grasp_policy,
+            types=[self._can_type],
+            params_space=Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])))
 
     @property
     def options(self) -> Set[ParameterizedOption]:
