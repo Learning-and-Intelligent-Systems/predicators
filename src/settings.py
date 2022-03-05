@@ -86,6 +86,9 @@ class GlobalSettings:
 
     # general pybullet parameters
     pybullet_use_gui = False
+    pybullet_draw_debug = False
+    pybullet_draw_debug_lifetime = 3
+    pybullet_sim_steps_per_action = 20
 
     # parameters for approaches
     random_options_max_tries = 100

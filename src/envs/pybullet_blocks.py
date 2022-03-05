@@ -21,7 +21,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _base_position: Sequence[float] = [0.75, 0.7441, 0.0]
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
-    _move_gain: float = 5.0
+    _move_gain: float = 1.0
     _max_vel_norm: float = 0.5
 
     # Table parameters.
@@ -50,9 +50,6 @@ class PyBulletBlocksEnv(BlocksEnv):
     _yaw: float = 90.0
     _pitch: float = -24
     _camera_target: Sequence[float] = [1.65, 0.75, 0.42]
-
-    # Other parameters.
-    _sim_steps_per_action: int = 20
 
     def __init__(self) -> None:
         super().__init__()
@@ -134,28 +131,34 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
-        # Draw the workspace on the table for clarity.
-        p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
-                           [self.x_ub, self.y_lb, self.table_height],
-                           [1.0, 0.0, 0.0],
-                           lineWidth=5.0)
-        p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
-                           [self.x_ub, self.y_ub, self.table_height],
-                           [1.0, 0.0, 0.0],
-                           lineWidth=5.0)
-        p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
-                           [self.x_lb, self.y_ub, self.table_height],
-                           [1.0, 0.0, 0.0],
-                           lineWidth=5.0)
-        p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
-                           [self.x_ub, self.y_ub, self.table_height],
-                           [1.0, 0.0, 0.0],
-                           lineWidth=5.0)
-
-        # Draw coordinate frame labels for reference.
-        p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0])
-        p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0])
-        p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0])
+        if CFG.pybullet_draw_debug:
+            # Draw the workspace on the table for clarity.
+            p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
+                               [self.x_ub, self.y_lb, self.table_height],
+                               [1.0, 0.0, 0.0],
+                               lineWidth=5.0)
+            p.addUserDebugLine([self.x_lb, self.y_ub, self.table_height],
+                               [self.x_ub, self.y_ub, self.table_height],
+                               [1.0, 0.0, 0.0],
+                               lineWidth=5.0)
+            p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
+                               [self.x_lb, self.y_ub, self.table_height],
+                               [1.0, 0.0, 0.0],
+                               lineWidth=5.0)
+            p.addUserDebugLine([self.x_ub, self.y_lb, self.table_height],
+                               [self.x_ub, self.y_ub, self.table_height],
+                               [1.0, 0.0, 0.0],
+                               lineWidth=5.0)
+            # Draw coordinate frame labels for reference.
+            p.addUserDebugText("x", [0.25, 0, 0], [0.0, 0.0, 0.0])
+            p.addUserDebugText("y", [0, 0.25, 0], [0.0, 0.0, 0.0])
+            p.addUserDebugText("z", [0, 0, 0.25], [0.0, 0.0, 0.0])
+            # Draw the pick z location at the x/y midpoint.
+            mid_x = (self.x_ub + self.x_lb) / 2
+            mid_y = (self.y_ub + self.y_lb) / 2
+            p.addUserDebugText("*", [mid_x, mid_y, self.pick_z],
+                               [1.0, 0.0, 0.0],
+                               lifeTime=CFG.pybullet_draw_debug_lifetime)
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
@@ -176,6 +179,9 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # When a block is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
+
+        # while True:
+        #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
     @property
     def action_space(self) -> Box:
@@ -306,7 +312,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # TODO other things...
 
-        for _ in range(self._sim_steps_per_action):
+        for _ in range(CFG.pybullet_sim_steps_per_action):
             p.stepSimulation(physicsClientId=self._physics_client_id)
 
         return self._get_state()
@@ -333,10 +339,11 @@ class PyBulletBlocksEnv(BlocksEnv):
             self, rel_or_abs_target_pose: Tuple[float, float, float],
             rel_or_abs: Tuple[str, str, str]) -> ParameterizedOption:
 
-        def _get_target_pose(
-                state: State,
-                objects: Sequence[Object]) -> Tuple[float, float, float]:
-            _, block = objects
+        def _get_current_and_target_pose(
+            state: State, objects: Sequence[Object]
+        ) -> Tuple[Sequence[float], Sequence[float]]:
+            robot, block = objects
+            current_pose = state[robot][:3]
             block_pose = state[block][:3]
             target_pose = []
             for i in range(3):
@@ -346,34 +353,39 @@ class PyBulletBlocksEnv(BlocksEnv):
                     assert rel_or_abs[i] == "abs"
                     pose_i = rel_or_abs_target_pose[i]
                 target_pose.append(pose_i)
-            return (target_pose[0], target_pose[1], target_pose[2])
+            return current_pose, target_pose
 
         types = [self._robot_type, self._block_type]
         params_space = Box(0, 1, (0, ))
 
+        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                       params: Array) -> bool:
+            del memory, params  # unused
+            _, target = _get_current_and_target_pose(state, objects)
+            if CFG.pybullet_draw_debug:
+                p.addUserDebugText("*",
+                                   target, [1.0, 0.0, 0.0],
+                                   lifeTime=CFG.pybullet_draw_debug_lifetime)
+            return True
+
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
             del memory, params  # unused
-            robot, _ = objects
-            current_pose = state[robot][:3]
-            target_pose = _get_target_pose(state, objects)
-            return self._get_move_toward_waypoint_action(
-                current_pose, target_pose)
+            current, target = _get_current_and_target_pose(state, objects)
+            return self._get_move_toward_waypoint_action(current, target)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
             del memory, params  # unused
-            robot, _ = objects
-            current_pose = state[robot][:3]
-            target_pose = _get_target_pose(state, objects)
-            dist = np.sum(np.subtract(current_pose, target_pose)**2)
+            current, target = _get_current_and_target_pose(state, objects)
+            dist = np.sum(np.subtract(current, target)**2)
             return dist < self.pick_tol
 
         return ParameterizedOption("MoveRelativeToObj",
                                    types=types,
                                    params_space=params_space,
                                    policy=_policy,
-                                   initiable=utils.always_initiable,
+                                   initiable=_initiable,
                                    terminal=_terminal)
 
     def _get_move_toward_waypoint_action(
