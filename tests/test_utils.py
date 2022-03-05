@@ -868,6 +868,38 @@ def test_find_substitution():
     assert assignment == {var3: plate0, var0: cup0}
 
 
+def test_SingletonParameterizedOption():
+    """Tests for SingletonParameterizedOption()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state1 = State({cup: [0.0], plate: [1.0, 1.2]})
+    state2 = State({cup: [1.0], plate: [1.0, 1.2]})
+
+    def _initiable(s, _2, objs, _4):
+        return s[objs[0]][0] > 0.0
+
+    def _policy(_1, _2, _3, p):
+        return Action(p)
+
+    param_option = utils.SingletonParameterizedOption("Dummy",
+                                                      _policy,
+                                                      types=[cup_type],
+                                                      params_space=Box(
+                                                          0, 1, (1, )),
+                                                      initiable=_initiable)
+
+    option = param_option.ground([cup], [0.5])
+    assert not option.initiable(state1)
+    option = param_option.ground([cup], [0.5])
+    assert option.initiable(state2)
+    assert not option.terminal(state2)
+    action = option.policy(state2)
+    assert np.allclose(action.arr, np.array([0.5]))
+    assert option.terminal(state2.copy())
+
+
 def test_LinearChainParameterizedOption():
     """Tests for LinearChainParameterizedOption()."""
     cup_type = Type("cup_type", ["feat1"])
