@@ -8,7 +8,7 @@ from predicators.src import approaches  # pylint:disable=unused-import
 from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LowLevelTrajectory
+    LowLevelTrajectory
 from predicators.src import utils
 
 

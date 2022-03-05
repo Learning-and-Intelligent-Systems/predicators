@@ -12,7 +12,7 @@ from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action, ParameterizedOption, Box, LowLevelTrajectory, Dataset
+    Action, Box, LowLevelTrajectory, Dataset
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src import utils

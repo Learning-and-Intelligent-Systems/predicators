@@ -19,8 +19,7 @@ from predicators.src.envs import CoverEnv, BlocksEnv
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Predicate, STRIPSOperator, Action, \
-    ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, OptionSpec, \
-    _GroundSTRIPSOperator
+    Box, LowLevelTrajectory, GroundAtom, OptionSpec, _GroundSTRIPSOperator
 from predicators.src.settings import CFG
 from predicators.src import utils
 

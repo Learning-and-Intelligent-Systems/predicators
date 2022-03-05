@@ -5,7 +5,7 @@ import numpy as np
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LowLevelTrajectory
+    LowLevelTrajectory
 from predicators.src import utils
 
 

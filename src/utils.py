@@ -324,6 +324,7 @@ class SingletonParameterizedOption(ParameterizedOption):
         * Types defaults to [].
         * Params space defaults to Box(0, 1, (0, )).
     """
+
     def __init__(
         self,
         name: str,
@@ -339,7 +340,6 @@ class SingletonParameterizedOption(ParameterizedOption):
             params_space = Box(0, 1, (0, ))
         if initiable is None:
             initiable = lambda _1, _2, _3, _4: True
-        assert initiable is not None
 
         # Wrap the given initiable so that we can track whether the action
         # has been executed yet.
@@ -349,6 +349,7 @@ class SingletonParameterizedOption(ParameterizedOption):
                 assert state.allclose(memory["start_state"])
             # Always update the memory dict due to the "is" check in _terminal.
             memory["start_state"] = state
+            assert initiable is not None
             return initiable(state, memory, objects, params)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
@@ -369,7 +370,6 @@ class SingletonParameterizedOption(ParameterizedOption):
 def action_sequence_to_parameterized_option(
         action_sequence: Sequence[Action],
         name: str,
-        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
         types: Optional[Sequence[Type]] = None,
         params_space: Optional[Box] = None) -> ParameterizedOption:
     """Create a ParameterizedOption that executes the given action sequence.
@@ -380,13 +380,21 @@ def action_sequence_to_parameterized_option(
     parameterized options in the same chain use the types and
     parameters.
     """
+
+    # Necessary to avoid closure issues.
+    def _action_to_policy(
+            a: Action
+    ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
+        return lambda _1, _2, _3, _4: a
+
     singletons = [
         SingletonParameterizedOption(name + f"_step{i}",
-                                     lambda _1, _2, _3, _4: a,
+                                     _action_to_policy(a),
                                      types=types,
                                      params_space=params_space)
         for i, a in enumerate(action_sequence)
     ]
+
     return LinearChainParameterizedOption(name, singletons)
 
 
