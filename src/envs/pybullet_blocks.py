@@ -23,7 +23,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 1.0
     _max_vel_norm: float = 0.5
-    _grasp_tol: float = 0.0001
+    _grasp_tol: float = 0.001
+    _grasp_offset_z: float = 0.01
 
     # Table parameters.
     _table_position: Sequence[float] = [1.35, 0.75, 0.0]
@@ -72,7 +73,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # Open grippers.
                 self._change_grippers("OpenGrippers", self.open_fingers),
                 # Move down to grasp.
-                self._move_relative_to_block("MoveToGrasp", (0., 0., 0.),
+                self._move_relative_to_block("MoveToGrasp", (0., 0., self._grasp_offset_z),
                                              ("rel", "rel", "rel")),
                 # Grasp.
                 self._change_grippers("Grasp", self.closed_fingers),
@@ -91,8 +92,14 @@ class PyBulletBlocksEnv(BlocksEnv):
                                              ("rel", "rel", "abs")),
                 # Move down to place.
                 self._move_relative_to_block("MoveToPlace",
-                                             (0., 0., self.block_size),
+                                             (0., 0., self.block_size + self._grasp_offset_z),
                                              ("rel", "rel", "rel")),
+                # Open grippers.
+                self._change_grippers("OpenGrippers", self.open_fingers),
+                # Move up.
+                self._move_relative_to_block("MoveToAboveBlock",
+                                             (0., 0., self.pick_z),
+                                             ("rel", "rel", "abs")),
             ])
 
         # TODO: override Place.
@@ -232,10 +239,10 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._base_orientation,
             physicsClientId=self._physics_client_id)
 
-        for joint_idx, joint_val in zip(self._arm_joints,
-                                        self._initial_joint_values):
+        for joint_id, joint_val in zip(self._arm_joints,
+                                       self._initial_joint_values):
             p.resetJointState(self._fetch_id,
-                              joint_idx,
+                              joint_id,
                               joint_val,
                               physicsClientId=self._physics_client_id)
 
@@ -352,8 +359,10 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     targetPosition=target_val,
                                     physicsClientId=self._physics_client_id)
 
-        # If picking, create a grasp constraint.
+        # Detect whether an object is held based on distance.
         held_block_id = self._detect_held_block()
+
+        # If picking, create a grasp constraint.
         if self._held_constraint_id is None and held_block_id:
             base_link_to_world = np.r_[p.invertTransform(
                 *p.getLinkState(self._fetch_id,
@@ -377,7 +386,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                 childFrameOrientation=base_link_to_obj[1],
                 physicsClientId=self._physics_client_id)
 
-        # TODO other things...
+        # If placing, remove the grasp constraint.
+        if self._held_constraint_id is not None and finger_action > 0:
+            p.removeConstraint(self._held_constraint_id,
+                               physicsClientId=self._physics_client_id)
+            self._held_constraint_id = None
 
         for _ in range(CFG.pybullet_sim_steps_per_action):
             p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -407,10 +420,12 @@ class PyBulletBlocksEnv(BlocksEnv):
     def _detect_held_block(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists."""
         for block_id in self._block_ids:
-            contact_points = p.getContactPoints(self._fetch_id, block_id,
-                                                self._left_finger_id)
-            if contact_points:
-                return block_id
+            for finger_id in [self._left_finger_id, self._right_finger_id]:
+                closest_points = p.getClosestPoints(self._fetch_id, block_id, finger_id)
+                for point in closest_points:
+                    contact_distance = point[8]
+                    if contact_distance < self._grasp_tol:
+                        return block_id
         return None
 
     ########################## Parameterized Options ##########################
@@ -489,6 +504,9 @@ class PyBulletBlocksEnv(BlocksEnv):
             gripper_action = target_val - current_val
             gripper_action = np.clip(gripper_action, self.action_space.low[3],
                                      self.action_space.high[3])
+            print("\nATTEMPTING...")
+            print("current:", current_val)
+            print("target:", target_val)
             return Action(
                 np.array([0., 0., 0., gripper_action], dtype=np.float32))
 
@@ -497,6 +515,9 @@ class PyBulletBlocksEnv(BlocksEnv):
             del memory, params  # unused
             current_val = state.get(self._robot, "fingers")
             dist = (target_val - current_val)**2
+            print("\nTERMINATING...")
+            print("current:", current_val)
+            print("target:", target_val)
             return dist < self._grasp_tol
 
         return ParameterizedOption(name,

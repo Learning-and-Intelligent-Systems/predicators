@@ -23,7 +23,7 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height = 0.2
-    block_size = 0.075
+    block_size = 0.06
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     x_lb = 1.15
     x_ub = 1.55
@@ -35,7 +35,7 @@ class BlocksEnv(BaseEnv):
     robot_init_z = 0.5
     held_tol = 0.5
     open_fingers = 0.04
-    closed_fingers = 0.02
+    closed_fingers = 0.03
     pick_tol = 0.0001
     assert pick_tol < block_size
     pick_z = 0.8
@@ -100,12 +100,10 @@ class BlocksEnv(BaseEnv):
             return self._transition_putontable(state, x, y, z)
         return self._transition_stack(state, x, y, z)
 
-    def _transition_pick(self, state: State, x: float, y: float,
-                         z: float) -> State:
+    def _transition_pick(self, state: State, x: float, y: float, z: float) -> State:
         next_state = state.copy()
         # Can only pick if fingers are open
-        if state.get(self._robot,
-                     "fingers") - self.pick_tol > self.open_fingers:
+        if state.get(self._robot, "fingers") - self.pick_tol > self.open_fingers:
             return next_state
         block = self._get_block_at_xyz(state, x, y, z)
         if block is None:  # no block at this pose
@@ -125,8 +123,7 @@ class BlocksEnv(BaseEnv):
                                z: float) -> State:
         next_state = state.copy()
         # Can only putontable if fingers are closed
-        if state.get(self._robot,
-                     "fingers") + self.pick_tol < self.closed_fingers:
+        if state.get(self._robot, "fingers") + self.pick_tol < self.closed_fingers:
             return next_state
         block = self._get_held_block(state)
         assert block is not None
@@ -147,12 +144,10 @@ class BlocksEnv(BaseEnv):
         next_state.set(self._robot, "fingers", self.closed_fingers)
         return next_state
 
-    def _transition_stack(self, state: State, x: float, y: float,
-                          z: float) -> State:
+    def _transition_stack(self, state: State, x: float, y: float, z: float) -> State:
         next_state = state.copy()
         # Can only stack if fingers are closed
-        if state.get(self._robot,
-                     "fingers") + self.pick_tol < self.closed_fingers:
+        if state.get(self._robot, "fingers") + self.pick_tol < self.closed_fingers:
             return next_state
         # Check that both blocks exist
         block = self._get_held_block(state)
@@ -329,11 +324,9 @@ class BlocksEnv(BaseEnv):
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment, but they
         # are used in the PyBullet subclass.
-        data[self._robot] = np.array([
-            self.robot_init_x, self.robot_init_y, self.robot_init_z,
-            self.open_fingers
-        ],
-                                     dtype=np.float32)
+        data[self._robot] = np.array(
+            [self.robot_init_x, self.robot_init_y, self.robot_init_z, self.open_fingers],
+            dtype=np.float32)
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,
@@ -403,8 +396,7 @@ class BlocksEnv(BaseEnv):
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(
-            robot, "fingers") - BlocksEnv.pick_tol < BlocksEnv.open_fingers
+        return state.get(robot, "fingers") - BlocksEnv.pick_tol < BlocksEnv.open_fingers
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
