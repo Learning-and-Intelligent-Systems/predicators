@@ -73,7 +73,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # Open grippers.
                 self._change_grippers("OpenGrippers", self.open_fingers),
                 # Move down to grasp.
-                self._move_relative_to_block("MoveToGrasp", (0., 0., self._grasp_offset_z),
+                self._move_relative_to_block("MoveToGrasp",
+                                             (0., 0., self._grasp_offset_z),
                                              ("rel", "rel", "rel")),
                 # Grasp.
                 self._change_grippers("Grasp", self.closed_fingers),
@@ -91,9 +92,10 @@ class PyBulletBlocksEnv(BlocksEnv):
                                              (0., 0., self.pick_z),
                                              ("rel", "rel", "abs")),
                 # Move down to place.
-                self._move_relative_to_block("MoveToPlace",
-                                             (0., 0., self.block_size + self._grasp_offset_z),
-                                             ("rel", "rel", "rel")),
+                self._move_relative_to_block(
+                    "MoveToPlace",
+                    (0., 0., self.block_size + self._grasp_offset_z),
+                    ("rel", "rel", "rel")),
                 # Open grippers.
                 self._change_grippers("OpenGrippers", self.open_fingers),
                 # Move up.
@@ -421,7 +423,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         """Return the PyBullet object ID of the held object if one exists."""
         for block_id in self._block_ids:
             for finger_id in [self._left_finger_id, self._right_finger_id]:
-                closest_points = p.getClosestPoints(self._fetch_id, block_id, finger_id)
+                closest_points = p.getClosestPoints(self._fetch_id, block_id,
+                                                    finger_id)
                 for point in closest_points:
                     contact_distance = point[8]
                     if contact_distance < self._grasp_tol:
