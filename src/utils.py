@@ -290,7 +290,10 @@ class LinearChainParameterizedOption(ParameterizedOption):
                    params: Array) -> bool:
         # Initialize the current child to the first one.
         memory["current_child_index"] = 0
-        # Create memory dicts for each child to avoid key collisions.
+        # Create memory dicts for each child to avoid key collisions. One
+        # example of a failure that arises without this is when using
+        # action_sequence_to_parameterized_option, each of the singleton
+        # options would be referencing the same start_state in memory.
         memory["child_memory"] = [{} for _ in self._children]
         current_child = self._children[0]
         child_memory = memory["child_memory"][0]
