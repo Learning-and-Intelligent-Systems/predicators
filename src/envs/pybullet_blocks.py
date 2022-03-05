@@ -71,6 +71,16 @@ class PyBulletBlocksEnv(BlocksEnv):
                                              ("rel", "rel", "abs")),
                 # Open grippers.
                 self._change_grippers("OpenGrippers", 0.95),
+                # Move down to grasp.
+                self._move_relative_to_block("MoveToGrasp",
+                                             (0., 0., 0.),
+                                             ("rel", "rel", "rel")),
+                # Grasp.        
+                self._change_grippers("Grasp", 0.98),
+                # Move up.
+                self._move_relative_to_block("MoveToAboveBlock",
+                                             (0., 0., self.pick_z),
+                                             ("rel", "rel", "abs")),                
                 # TODO more.
             ])
         # TODO: override Stack and Place.
