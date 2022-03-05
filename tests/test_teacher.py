@@ -165,6 +165,7 @@ def test_StateBasedDemonstrationQuery():
     utils.update_config({"max_num_steps_option_rollout": 2})
     query = StateBasedDemonstrationQuery(goal_state)
     response = teacher.answer_query(state, query)
+    assert response.teacher_traj is None
     # Test that an error is raised when an unsupported environment is used.
     utils.reset_config({"env": "painting", "approach": "unittest"})
     env = create_new_env("painting")
