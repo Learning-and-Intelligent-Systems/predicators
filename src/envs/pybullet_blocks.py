@@ -81,7 +81,21 @@ class PyBulletBlocksEnv(BlocksEnv):
                                              (0., 0., self.pick_z),
                                              ("rel", "rel", "abs")),
             ])
-        # TODO: override Stack and Place.
+
+        self._Stack = utils.LinearChainParameterizedOption(
+            "Stack",
+            [
+                # Move to above the block on which we will stack.
+                self._move_relative_to_block("MoveToAboveBlock",
+                                             (0., 0., self.pick_z),
+                                             ("rel", "rel", "abs")),
+                # Move down to place.
+                self._move_relative_to_block("MoveToPlace",
+                                             (0., 0., self.block_size),
+                                             ("rel", "rel", "rel")),
+            ])
+
+        # TODO: override Place.
 
         # One-time initialization of pybullet assets. Note that this happens
         # in __init__ because many class attributes are created.
@@ -211,6 +225,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
 
+        # Reset robot.
         p.resetBasePositionAndOrientation(
             self._fetch_id,
             self._base_position,
@@ -224,10 +239,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                               joint_val,
                               physicsClientId=self._physics_client_id)
 
-        # Prevent collisions between robot and blocks during scene init.
-        # up_action = Action(np.array([-0.5, -0.5, 0.5, 0.0], dtype=np.float32))
-        # for _ in range(10):
-        #     self.step(up_action)
+        for finger_id in [self._left_finger_id, self._right_finger_id]:
+            p.resetJointState(self._fetch_id,
+                              finger_id,
+                              self.open_fingers,
+                              physicsClientId=self._physics_client_id)
 
         # Reset block positions based on the state.
         block_objs = list(o for o in state if o.type == self._block_type)
@@ -329,9 +345,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 self._fetch_id,
                 finger_id,
                 physicsClientId=self._physics_client_id)[0]
-            # We use the convention that larger values means more open. This is
-            # the opposite of the sign of the finger joint values in PyBullet.
-            target_val = current_val - finger_action
+            target_val = current_val + finger_action
             p.setJointMotorControl2(bodyIndex=self._fetch_id,
                                     jointIndex=finger_id,
                                     controlMode=p.POSITION_CONTROL,
@@ -378,11 +392,9 @@ class PyBulletBlocksEnv(BlocksEnv):
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
         x, y, z = ee_link_state[4]
-        # We use the convention that larger values means more open.
-        fingers = 1.0 - p.getJointState(
-            self._fetch_id,
-            self._left_finger_id,
-            physicsClientId=self._physics_client_id)[0]
+        fingers = p.getJointState(self._fetch_id,
+                                  self._left_finger_id,
+                                  physicsClientId=self._physics_client_id)[0]
 
         # TODO A BUNCH OF OTHER STUFF
         state.set(self._robot, "pose_x", x)
