@@ -34,7 +34,8 @@ class BlocksEnv(BaseEnv):
     robot_init_y = 0.7
     robot_init_z = 0.5
     held_tol = 0.5
-    open_fingers = 0.8
+    open_fingers = 0.98
+    closed_fingers = 0.95
     pick_tol = 0.0001
     assert pick_tol < block_size
     pick_z = 0.8
@@ -103,7 +104,8 @@ class BlocksEnv(BaseEnv):
                          fingers: float) -> State:
         next_state = state.copy()
         # Can only pick if fingers are open
-        if state.get(self._robot, "fingers") < self.open_fingers:
+        if abs(state.get(self._robot, "fingers") -
+               self.open_fingers) < self.pick_tol:
             return next_state
         block = self._get_block_at_xyz(state, x, y, z)
         if block is None:  # no block at this pose
@@ -123,7 +125,8 @@ class BlocksEnv(BaseEnv):
                                z: float, fingers: float) -> State:
         next_state = state.copy()
         # Can only putontable if fingers are closed
-        if state.get(self._robot, "fingers") >= self.open_fingers:
+        if abs(state.get(self._robot, "fingers") -
+               self.closed_fingers) < self.pick_tol:
             return next_state
         block = self._get_held_block(state)
         assert block is not None
@@ -148,7 +151,8 @@ class BlocksEnv(BaseEnv):
                           fingers: float) -> State:
         next_state = state.copy()
         # Can only stack if fingers are closed
-        if state.get(self._robot, "fingers") >= self.open_fingers:
+        if abs(state.get(self._robot, "fingers") -
+               self.closed_fingers) < self.pick_tol:
             return next_state
         # Check that both blocks exist
         block = self._get_held_block(state)
@@ -397,7 +401,7 @@ class BlocksEnv(BaseEnv):
     @staticmethod
     def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(robot, "fingers") >= BlocksEnv.open_fingers
+        return abs(state.get(robot, "fingers") - BlocksEnv.open_fingers)
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects

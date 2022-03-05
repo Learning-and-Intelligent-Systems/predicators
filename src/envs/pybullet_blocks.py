@@ -70,18 +70,16 @@ class PyBulletBlocksEnv(BlocksEnv):
                                              (0., 0., self.pick_z),
                                              ("rel", "rel", "abs")),
                 # Open grippers.
-                self._change_grippers("OpenGrippers", 0.95),
+                self._change_grippers("OpenGrippers", self.open_fingers),
                 # Move down to grasp.
-                self._move_relative_to_block("MoveToGrasp",
-                                             (0., 0., 0.),
+                self._move_relative_to_block("MoveToGrasp", (0., 0., 0.),
                                              ("rel", "rel", "rel")),
-                # Grasp.        
-                self._change_grippers("Grasp", 0.98),
+                # Grasp.
+                self._change_grippers("Grasp", self.closed_fingers),
                 # Move up.
                 self._move_relative_to_block("MoveToAboveBlock",
                                              (0., 0., self.pick_z),
-                                             ("rel", "rel", "abs")),                
-                # TODO more.
+                                             ("rel", "rel", "abs")),
             ])
         # TODO: override Stack and Place.
 
@@ -331,6 +329,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                 self._fetch_id,
                 finger_id,
                 physicsClientId=self._physics_client_id)[0]
+            # We use the convention that larger values means more open. This is
+            # the opposite of the sign of the finger joint values in PyBullet.
             target_val = current_val - finger_action
             p.setJointMotorControl2(bodyIndex=self._fetch_id,
                                     jointIndex=finger_id,
@@ -342,7 +342,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         held_block_id = self._detect_held_block()
         if self._held_constraint_id is None and held_block_id:
             base_link_to_world = np.r_[p.invertTransform(
-                *p.getLinkState(self._fetch_id, self._ee_id,
+                *p.getLinkState(self._fetch_id,
+                                self._ee_id,
                                 physicsClientId=self._physics_client_id)[:2])]
             world_to_obj = np.r_[p.getBasePositionAndOrientation(
                 held_block_id, physicsClientId=self._physics_client_id)]
@@ -377,6 +378,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
         x, y, z = ee_link_state[4]
+        # We use the convention that larger values means more open.
         fingers = 1.0 - p.getJointState(
             self._fetch_id,
             self._left_finger_id,
@@ -393,7 +395,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     def _detect_held_block(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists."""
         for block_id in self._block_ids:
-            contact_points = p.getContactPoints(self._fetch_id, block_id, self._left_finger_id)
+            contact_points = p.getContactPoints(self._fetch_id, block_id,
+                                                self._left_finger_id)
             if contact_points:
                 return block_id
         return None
