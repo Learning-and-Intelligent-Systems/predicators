@@ -64,8 +64,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # effector to high above the block in preparation for picking.
                 # Note that the params space here is trivial (size 0) and
                 # the types are [robot, block].
-                self._move_relative_to_block((0., 0., self.pick_z),
+                self._move_relative_to_block("MoveToAboveBlock",
+                                             (0., 0., self.pick_z),
                                              ("rel", "rel", "abs")),
+                # Open grippers.
+                self._change_grippers("OpenGrippers", 1.0),
                 # TODO more.
             ])
         # TODO: override Stack and Place.
@@ -310,6 +313,18 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
+        # Set finger joint motors
+        for finger_id in [self._left_finger_id, self._right_finger_id]:
+            current_val = p.getJointState(self._fetch_id, finger_id, physicsClientId=self._physics_client_id)[0]
+            target_val = current_val + finger_action
+            p.setJointMotorControl2(bodyIndex=self._fetch_id, jointIndex=finger_id, controlMode=p.POSITION_CONTROL,
+                targetPosition=target_val, physicsClientId=self._physics_client_id)
+
+        if finger_action != 0:
+            while True:
+                p.stepSimulation(physicsClientId=self._physics_client_id)
+
+
         # TODO other things...
 
         for _ in range(CFG.pybullet_sim_steps_per_action):
@@ -336,8 +351,13 @@ class PyBulletBlocksEnv(BlocksEnv):
     ########################## Parameterized Options ##########################
 
     def _move_relative_to_block(
-            self, rel_or_abs_target_pose: Tuple[float, float, float],
+            self, name: str, rel_or_abs_target_pose: Tuple[float, float, float],
             rel_or_abs: Tuple[str, str, str]) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a target pose.
+
+        Each of the three dimensions of the target pose can be specified
+        relatively or absolutely. The rel_or_abs argument indicates whether
+        each dimension is relative ("rel") or absolute ("abs")."""
 
         def _get_current_and_target_pose(
             state: State, objects: Sequence[Object]
@@ -381,12 +401,34 @@ class PyBulletBlocksEnv(BlocksEnv):
             dist = np.sum(np.subtract(current, target)**2)
             return dist < self.pick_tol
 
-        return ParameterizedOption("MoveRelativeToObj",
+        return ParameterizedOption(name,
                                    types=types,
                                    params_space=params_space,
                                    policy=_policy,
                                    initiable=_initiable,
                                    terminal=_terminal)
+
+    def _change_grippers(self, name: str, gripper_action: float
+                        ) -> ParameterizedOption:
+        """Creates a ParameterizedOption for changing the robot grippers.
+        """
+        # TODO probably factor this out.
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
+
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            del state, memory, params  # unused
+            return Action(np.array([0., 0., 0., gripper_action],
+                                   dtype=np.float32))
+
+        return ParameterizedOption(name,
+                                   types=types,
+                                   params_space=params_space,
+                                   policy=_policy,
+                                   initiable=utils.always_initiable,
+                                   terminal=utils.onestep_terminal)
+
 
     def _get_move_toward_waypoint_action(
             self, gripper_position: Sequence[float],
