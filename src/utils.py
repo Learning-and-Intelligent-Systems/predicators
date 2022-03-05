@@ -345,19 +345,19 @@ class SingletonParameterizedOption(ParameterizedOption):
         # has been executed yet.
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            if "start_state" in memory:
-                assert state.allclose(memory["start_state"])
+            if start_state_key in memory:
+                assert state.allclose(memory[start_state_key])
             # Always update the memory dict due to the "is" check in _terminal.
-            memory["start_state"] = state
+            memory[start_state_key] = state
             assert initiable is not None
             return initiable(state, memory, objects, params)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
             del objects, params  # unused
-            assert "start_state" in memory, \
+            assert start_state_key in memory, \
                 "Must call initiable() before terminal()."
-            return state is not memory["start_state"]
+            return state is not memory[start_state_key]
 
         super().__init__(name,
                          types,
