@@ -13,6 +13,7 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
     TYPE_CHECKING
 import heapq as hq
+from gym.spaces import Box
 import pathos.multiprocessing as mp
 import imageio
 import matplotlib
@@ -337,6 +338,53 @@ class LinearChainParameterizedOption(ParameterizedOption):
             return False
         current_child = self._children[current_index]
         return current_child.terminal(state, memory, objects, params)
+
+
+class SingletonParameterizedOption(ParameterizedOption):
+    """A parameterized option that takes a single action and stops.
+
+    Types and params_space default to empty for convenience.
+    """
+
+    def __init__(self,
+                 name: str,
+                 policy: Callable[[State, Dict, Sequence[Object], Array],
+                                  Action],
+                 types: Optional[Sequence[Type]] = None,
+                 params_space: Optional[Box] = None) -> None:
+        if types is None:
+            types = []
+        if params_space is None:
+            params_space = Box(0, 1, (0, ))
+        super().__init__(name,
+                         types,
+                         params_space,
+                         policy=policy,
+                         initiable=always_initiable,
+                         terminal=onestep_terminal)
+
+
+def action_sequence_to_parameterized_option(
+        action_sequence: Sequence[Action],
+        name: str,
+        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
+        types: Optional[Sequence[Type]] = None,
+        params_space: Optional[Box] = None) -> ParameterizedOption:
+    """Create a ParameterizedOption that executes the given action sequence.
+
+    One reason that types and parameters are optionally included, even
+    though they are ignored, is that this ParameterizedOption may be
+    included in a LinearChainParameterizedOption, where other
+    parameterized options in the same chain use the types and
+    parameters.
+    """
+    singletons = [
+        SingletonParameterizedOption(name + f"_step{i}",
+                                     lambda _1, _2, _3, _4: a, types,
+                                     params_space)
+        for i, a in enumerate(action_sequence)
+    ]
+    return LinearChainParameterizedOption(name, singletons)
 
 
 class Monitor(abc.ABC):
