@@ -4,7 +4,7 @@ from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
 from predicators.src.envs import get_or_create_env, PaintingEnv, PlayroomEnv, \
-    BehaviorEnv, ToolsEnv
+    BehaviorEnv, ToolsEnv, BlocksEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
@@ -595,8 +595,8 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
         del state, goal, objs  # unused
-        x = rng.uniform()
-        y = rng.uniform()
+        x = rng.uniform(BlocksEnv.x_lb, BlocksEnv.x_ub)
+        y = rng.uniform(BlocksEnv.y_lb, BlocksEnv.y_ub)
         return np.array([x, y], dtype=np.float32)
 
     putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,

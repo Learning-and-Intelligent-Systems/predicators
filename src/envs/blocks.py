@@ -84,7 +84,8 @@ class BlocksEnv(BaseEnv):
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable",
             types=[self._robot_type],
-            params_space=Box(0, 1, (2, )),
+            params_space=Box(np.array([self.x_lb, self.y_lb]),
+                             np.array([self.x_ub, self.y_ub])),
             policy=self._PutOnTable_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
@@ -138,8 +139,9 @@ class BlocksEnv(BaseEnv):
             state.get(b, "pose_z")
         ] for b in state if b.is_instance(self._block_type)]
         existing_xys = {(float(p[0]), float(p[1])) for p in poses}
-        if not self._table_xy_is_clear(x, y, existing_xys):
-            return next_state
+        # TODO update
+        # if not self._table_xy_is_clear(x, y, existing_xys):
+        #     return next_state
         # Execute putontable
         next_state.set(block, "pose_x", x)
         next_state.set(block, "pose_y", y)

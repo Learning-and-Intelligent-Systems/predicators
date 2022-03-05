@@ -112,7 +112,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             ])
 
         types = [self._robot_type]
-        params_space = Box(0, 1, (2, ))
+        params_space = Box(np.array([self.x_lb, self.y_lb]),
+                           np.array([self.x_ub, self.y_ub]))
         self._PutOnTable = utils.LinearChainParameterizedOption(
             "PutOnTable",
             [
@@ -122,7 +123,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                     ("rel", "rel", "abs"), types, params_space),
                 # Move down to place.
                 self._move_relative_to_table(
-                    "MoveToPlaceOnTable", (0., 0., self._grasp_offset_z),
+                    "MoveToPlaceOnTable",
+                    (0., 0., self.block_size + self._grasp_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Open grippers.
                 self._change_grippers("OpenGrippers", self.open_fingers, types,
@@ -487,16 +489,6 @@ class PyBulletBlocksEnv(BlocksEnv):
         function that takes in the current state and objects and returns the
         current pose and target pose of the robot."""
 
-        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
-                       params: Array) -> bool:
-            del memory  # unused
-            _, target = get_current_and_target_pose(state, objects, params)
-            if CFG.pybullet_draw_debug:
-                p.addUserDebugText("*",
-                                   target, [1.0, 0.0, 0.0],
-                                   lifeTime=CFG.pybullet_draw_debug_lifetime)
-            return True
-
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
             del memory  # unused
@@ -516,7 +508,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    types=types,
                                    params_space=params_space,
                                    policy=_policy,
-                                   initiable=_initiable,
+                                   initiable=lambda _1, _2, _3, _4: True,
                                    terminal=_terminal)
 
     def _move_relative_to_block(self, name: str,
@@ -598,8 +590,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             robot, = objects
             px, py = params
             current_pose = (state[robot][0], state[robot][1], state[robot][2])
-            workspace_pose = (px, py, self.table_height)
-            target_pose = self._convert_rel_abs_to_abs(workspace_pose,
+            table_pose = (px, py, self.table_height)
+            target_pose = self._convert_rel_abs_to_abs(table_pose,
                                                        rel_or_abs_target_pose,
                                                        rel_or_abs)
             return current_pose, target_pose
