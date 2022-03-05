@@ -3,6 +3,8 @@
 from typing import List, Sequence, Tuple
 import pybullet as p
 
+Pose3D = Tuple[float, float, float]
+
 
 def get_kinematic_chain(robot_id: int, end_effector_id: int,
                         physics_client_id: int) -> List[int]:

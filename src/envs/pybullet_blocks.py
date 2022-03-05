@@ -1,15 +1,15 @@
 """A PyBullet version of Blocks."""
 
-from typing import Sequence, Tuple, Dict, Optional
+from typing import Sequence, Tuple, Dict, Optional, Callable
 from gym.spaces import Box
 import numpy as np
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.structs import State, Action, Object, Array, \
-    ParameterizedOption
+    ParameterizedOption, Type
 from predicators.src import utils
 from predicators.src.pybullet_utils import get_kinematic_chain, \
-    inverse_kinematics
+    inverse_kinematics, Pose3D
 from predicators.src.settings import CFG
 
 
@@ -18,7 +18,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     # Parameters that aren't important enough to need to clog up settings.py
 
     # Fetch robot parameters.
-    _base_position: Sequence[float] = [0.75, 0.7441, 0.0]
+    _base_pose: Pose3D = (0.75, 0.7441, 0.0)
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 1.0
@@ -27,7 +27,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _grasp_offset_z: float = 0.01
 
     # Table parameters.
-    _table_position: Sequence[float] = [1.35, 0.75, 0.0]
+    _table_pose: Pose3D = (1.35, 0.75, 0.0)
     _table_orientation: Sequence[float] = [0., 0., 0., 1.]
 
     # Block parameters.
@@ -51,13 +51,15 @@ class PyBulletBlocksEnv(BlocksEnv):
     _camera_distance: float = 1.5
     _yaw: float = 90.0
     _pitch: float = -24
-    _camera_target: Sequence[float] = [1.65, 0.75, 0.42]
-    _debug_text_position = [1.65, 0.25, 0.75]
+    _camera_target: Pose3D = (1.65, 0.75, 0.42)
+    _debug_text_position: Pose3D = (1.65, 0.25, 0.75)
 
     def __init__(self) -> None:
         super().__init__()
 
         # Override options.
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
         self._Pick = utils.LinearChainParameterizedOption(
             "Pick",
             [
@@ -67,44 +69,69 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # effector to high above the block in preparation for picking.
                 # Note that the params space here is trivial (size 0) and
                 # the types are [robot, block].
-                self._move_relative_to_block("MoveToAboveBlock",
-                                             (0., 0., self.pick_z),
-                                             ("rel", "rel", "abs")),
+                self._move_relative_to_block(
+                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                    ("rel", "rel", "abs"), types, params_space),
                 # Open grippers.
-                self._change_grippers("OpenGrippers", self.open_fingers),
+                self._change_grippers("OpenGrippers", self.open_fingers, types,
+                                      params_space),
                 # Move down to grasp.
-                self._move_relative_to_block("MoveToGrasp",
-                                             (0., 0., self._grasp_offset_z),
-                                             ("rel", "rel", "rel")),
+                self._move_relative_to_block(
+                    "MoveToGrasp", (0., 0., self._grasp_offset_z),
+                    ("rel", "rel", "rel"), types, params_space),
                 # Grasp.
-                self._change_grippers("Grasp", self.closed_fingers),
+                self._change_grippers("Grasp", self.closed_fingers, types,
+                                      params_space),
                 # Move up.
-                self._move_relative_to_block("MoveToAboveBlock",
-                                             (0., 0., self.pick_z),
-                                             ("rel", "rel", "abs")),
+                self._move_relative_to_block(
+                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                    ("rel", "rel", "abs"), types, params_space),
             ])
 
+        types = [self._robot_type, self._block_type]
+        params_space = Box(0, 1, (0, ))
         self._Stack = utils.LinearChainParameterizedOption(
             "Stack",
             [
                 # Move to above the block on which we will stack.
-                self._move_relative_to_block("MoveToAboveBlock",
-                                             (0., 0., self.pick_z),
-                                             ("rel", "rel", "abs")),
+                self._move_relative_to_block(
+                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                    ("rel", "rel", "abs"), types, params_space),
                 # Move down to place.
                 self._move_relative_to_block(
                     "MoveToPlace",
                     (0., 0., self.block_size + self._grasp_offset_z),
-                    ("rel", "rel", "rel")),
+                    ("rel", "rel", "rel"), types, params_space),
                 # Open grippers.
-                self._change_grippers("OpenGrippers", self.open_fingers),
+                self._change_grippers("OpenGrippers", self.open_fingers, types,
+                                      params_space),
                 # Move up.
-                self._move_relative_to_block("MoveToAboveBlock",
-                                             (0., 0., self.pick_z),
-                                             ("rel", "rel", "abs")),
+                self._move_relative_to_block(
+                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                    ("rel", "rel", "abs"), types, params_space),
             ])
 
-        # TODO: override Place.
+        types = [self._robot_type]
+        params_space = Box(0, 1, (2, ))
+        self._PutOnTable = utils.LinearChainParameterizedOption(
+            "PutOnTable",
+            [
+                # Move to above the block on which we will stack.
+                self._move_relative_to_table(
+                    "MoveToAboveTable", (0., 0., self.pick_z),
+                    ("rel", "rel", "abs"), types, params_space),
+                # Move down to place.
+                self._move_relative_to_table(
+                    "MoveToPlaceOnTable", (0., 0., self._grasp_offset_z),
+                    ("rel", "rel", "rel"), types, params_space),
+                # Open grippers.
+                self._change_grippers("OpenGrippers", self.open_fingers, types,
+                                      params_space),
+                # Move up.
+                self._move_relative_to_table(
+                    "MoveToAboveTable", (0., 0., self.pick_z),
+                    ("rel", "rel", "abs"), types, params_space),
+            ])
 
         # One-time initialization of pybullet assets. Note that this happens
         # in __init__ because many class attributes are created.
@@ -133,7 +160,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
             self._fetch_id,
-            self._base_position,
+            self._base_pose,
             self._base_orientation,
             physicsClientId=self._physics_client_id)
 
@@ -163,7 +190,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             physicsClientId=self._physics_client_id)
         p.resetBasePositionAndOrientation(
             self._table_id,
-            self._table_position,
+            self._table_pose,
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
@@ -240,7 +267,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         # Reset robot.
         p.resetBasePositionAndOrientation(
             self._fetch_id,
-            self._base_position,
+            self._base_pose,
             self._base_orientation,
             physicsClientId=self._physics_client_id)
 
@@ -257,16 +284,16 @@ class PyBulletBlocksEnv(BlocksEnv):
                               self.open_fingers,
                               physicsClientId=self._physics_client_id)
 
-        # Reset block positions based on the state.
+        # Reset blocks based on the state.
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block = {}
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
             self._block_id_to_block[block_id] = block_obj
-            x, y, z, held = state[block_obj]
+            bx, by, bz, held = state[block_obj]
             assert held < 1.0  # not holding in the initial state
             p.resetBasePositionAndOrientation(
-                block_id, [x, y, z],
+                block_id, [bx, by, bz],
                 self._block_orientation,
                 physicsClientId=self._physics_client_id)
 
@@ -292,14 +319,14 @@ class PyBulletBlocksEnv(BlocksEnv):
         """Returns the body ID."""
         color = self._block_colors[block_num % len(self._block_colors)]
 
-        # The positions here are not important because they are overwritten by
+        # The poses here are not important because they are overwritten by
         # the state values when a task is reset. By default, we just stack all
         # the blocks into one pile at the center of the table so we can see.
         h = self.block_size
         x = (self.x_lb + self.x_ub) / 2
         y = (self.y_lb + self.y_ub) / 2
         z = self.table_height + (0.5 * h) + (h * block_num)
-        position = [x, y, z]
+        pose = (x, y, z)
 
         # Create the collision shape.
         half_extents = [self.block_size / 2.] * 3
@@ -319,7 +346,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         block_id = p.createMultiBody(baseMass=self._block_mass,
                                      baseCollisionShapeIndex=collision_id,
                                      baseVisualShapeIndex=visual_id,
-                                     basePosition=position,
+                                     basePosition=pose,
                                      baseOrientation=self._block_orientation,
                                      physicsClientId=self._physics_client_id)
         p.changeDynamics(block_id,
@@ -451,40 +478,19 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     ########################## Parameterized Options ##########################
 
-    def _move_relative_to_block(
-            self, name: str, rel_or_abs_target_pose: Tuple[float, float,
-                                                           float],
-            rel_or_abs: Tuple[str, str, str]) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a target pose.
-
-        Each of the three dimensions of the target pose can be specified
-        relatively or absolutely. The rel_or_abs argument indicates
-        whether each dimension is relative ("rel") or absolute ("abs").
-        """
-
-        def _get_current_and_target_pose(
-            state: State, objects: Sequence[Object]
-        ) -> Tuple[Sequence[float], Sequence[float]]:
-            robot, block = objects
-            current_pose = state[robot][:3]
-            block_pose = state[block][:3]
-            target_pose = []
-            for i in range(3):
-                if rel_or_abs[i] == "rel":
-                    pose_i = block_pose[i] + rel_or_abs_target_pose[i]
-                else:
-                    assert rel_or_abs[i] == "abs"
-                    pose_i = rel_or_abs_target_pose[i]
-                target_pose.append(pose_i)
-            return current_pose, target_pose
-
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
+    def _move_to_pose(
+        self, name: str, types: Sequence[Type], params_space: Box,
+        get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
+                                              Tuple[Pose3D, Pose3D]]
+    ) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a target pose, given a
+        function that takes in the current state and objects and returns the
+        current pose and target pose of the robot."""
 
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            del memory, params  # unused
-            _, target = _get_current_and_target_pose(state, objects)
+            del memory  # unused
+            _, target = get_current_and_target_pose(state, objects, params)
             if CFG.pybullet_draw_debug:
                 p.addUserDebugText("*",
                                    target, [1.0, 0.0, 0.0],
@@ -493,14 +499,16 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            del memory, params  # unused
-            current, target = _get_current_and_target_pose(state, objects)
+            del memory  # unused
+            current, target = get_current_and_target_pose(
+                state, objects, params)
             return self._get_move_toward_waypoint_action(current, target)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
-            del memory, params  # unused
-            current, target = _get_current_and_target_pose(state, objects)
+            del memory  # unused
+            current, target = get_current_and_target_pose(
+                state, objects, params)
             dist = np.sum(np.subtract(current, target)**2)
             return dist < self.pick_tol
 
@@ -511,12 +519,41 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    initiable=_initiable,
                                    terminal=_terminal)
 
-    def _change_grippers(self, name: str,
-                         target_val: float) -> ParameterizedOption:
+    def _move_relative_to_block(self, name: str,
+                                rel_or_abs_target_pose: Pose3D,
+                                rel_or_abs: Tuple[str, str,
+                                                  str], types: Sequence[Type],
+                                params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a target pose relative
+        to a block.
+
+        Each of the three dimensions of the target pose can be specified
+        relatively or absolutely. The rel_or_abs argument indicates
+        whether each dimension is relative ("rel") or absolute ("abs").
+        """
+        assert types == [self._robot_type, self._block_type]
+
+        def _get_current_and_target_pose(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose3D, Pose3D]:
+            del params  # not used
+            robot, block = objects
+            current_pose = (state[robot][0], state[robot][1], state[robot][2])
+            block_pose = (state[block][0], state[block][1], state[block][2])
+            target_pose = self._convert_rel_abs_to_abs(block_pose,
+                                                       rel_or_abs_target_pose,
+                                                       rel_or_abs)
+            return current_pose, target_pose
+
+        return self._move_to_pose(name, types, params_space,
+                                  _get_current_and_target_pose)
+
+    def _change_grippers(self, name: str, target_val: float,
+                         types: Sequence[Type],
+                         params_space: Box) -> ParameterizedOption:
         """Creates a ParameterizedOption for changing the robot grippers."""
-        # TODO probably factor this out.
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
+
+        assert types[0] == self._robot_type
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
@@ -542,14 +579,53 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    initiable=lambda _1, _2, _3, _4: True,
                                    terminal=_terminal)
 
-    def _get_move_toward_waypoint_action(
-            self, gripper_position: Sequence[float],
-            target_position: Sequence[float]) -> Action:
-        delta_position = np.subtract(target_position, gripper_position)
-        action = self._move_gain * delta_position
+    def _move_relative_to_table(self, name: str,
+                                rel_or_abs_target_pose: Pose3D,
+                                rel_or_abs: Tuple[str, str,
+                                                  str], types: Sequence[Type],
+                                params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving to a target pose relative
+        to the table.
+
+        Each of the three dimensions of the target pose can be specified
+        relatively or absolutely. The rel_or_abs argument indicates
+        whether each dimension is relative ("rel") or absolute ("abs").
+        """
+
+        def _get_current_and_target_pose(
+                state: State, objects: Sequence[Object],
+                params: Array) -> Tuple[Pose3D, Pose3D]:
+            robot, = objects
+            px, py = params
+            current_pose = (state[robot][0], state[robot][1], state[robot][2])
+            workspace_pose = (px, py, self.table_height)
+            target_pose = self._convert_rel_abs_to_abs(workspace_pose,
+                                                       rel_or_abs_target_pose,
+                                                       rel_or_abs)
+            return current_pose, target_pose
+
+        return self._move_to_pose(name, types, params_space,
+                                  _get_current_and_target_pose)
+
+    def _get_move_toward_waypoint_action(self, gripper_pose: Pose3D,
+                                         target_pose: Pose3D) -> Action:
+        action = self._move_gain * np.subtract(target_pose, gripper_pose)
         action_norm = np.linalg.norm(action)  # type: ignore
         if action_norm > self._max_vel_norm:
             action = action * self._max_vel_norm / action_norm
         action = np.r_[action, 0.0]
         action = np.clip(action, self.action_space.low, self.action_space.high)
         return Action(action.astype(np.float32))
+
+    @staticmethod
+    def _convert_rel_abs_to_abs(current_pose: Pose3D, rel_or_abs_pose: Pose3D,
+                                rel_or_abs: Tuple[str, str, str]) -> Pose3D:
+        abs_pos = []
+        for i in range(3):
+            if rel_or_abs[i] == "rel":
+                pose_i = current_pose[i] + rel_or_abs_pose[i]
+            else:
+                assert rel_or_abs[i] == "abs"
+                pose_i = rel_or_abs_pose[i]
+            abs_pos.append(pose_i)
+        return (abs_pos[0], abs_pos[1], abs_pos[2])
