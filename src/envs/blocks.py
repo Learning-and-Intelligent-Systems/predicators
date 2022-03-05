@@ -39,7 +39,7 @@ class BlocksEnv(BaseEnv):
     pick_tol = 0.0001
     on_tol = 0.01
     assert pick_tol < block_size
-    pick_z = 0.8
+    pick_z = 0.75
     num_blocks_train = [3, 4]
     num_blocks_test = [5, 6]
 
