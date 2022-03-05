@@ -85,31 +85,6 @@ def entropy(p: float) -> float:
     return -(p * np.log(p) + (1 - p) * np.log(1 - p))
 
 
-# TODO should we get rid of these?
-def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-    """An initiation function for an option that can always be run."""
-    del objects, params  # unused
-    if "start_state" in memory:
-        assert state.allclose(memory["start_state"])
-    # Always update the memory dict, due to the "is" check in onestep_terminal.
-    memory["start_state"] = state
-    return True
-
-
-def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-    """A termination function for an option that only lasts 1 timestep.
-
-    To use this as the terminal function for a policy, the policy's
-    initiable() function must set memory["start_state"], as
-    always_initiable() does above.
-    """
-    del objects, params  # unused
-    assert "start_state" in memory, "Must call initiable() before terminal()"
-    return state is not memory["start_state"]
-
-
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
                p3: Tuple[float, float], p4: Tuple[float, float]) -> bool:
     """Checks if line segment p1p2 and p3p4 intersect.
@@ -344,25 +319,51 @@ class LinearChainParameterizedOption(ParameterizedOption):
 class SingletonParameterizedOption(ParameterizedOption):
     """A parameterized option that takes a single action and stops.
 
-    Types and params_space default to empty for convenience.
+    For convenience:
+        * Initiable defaults to always True.
+        * Types defaults to [].
+        * Params space defaults to Box(0, 1, (0, )).
     """
-
-    def __init__(self,
-                 name: str,
-                 policy: Callable[[State, Dict, Sequence[Object], Array],
-                                  Action],
-                 types: Optional[Sequence[Type]] = None,
-                 params_space: Optional[Box] = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
+        types: Optional[Sequence[Type]] = None,
+        params_space: Optional[Box] = None,
+        initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
+                                     bool]] = None
+    ) -> None:
         if types is None:
             types = []
         if params_space is None:
             params_space = Box(0, 1, (0, ))
+        if initiable is None:
+            initiable = lambda _1, _2, _3, _4: True
+        assert initiable is not None
+
+        # Wrap the given initiable so that we can track whether the action
+        # has been executed yet.
+        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                       params: Array) -> bool:
+            if "start_state" in memory:
+                assert state.allclose(memory["start_state"])
+            # Always update the memory dict due to the "is" check in _terminal.
+            memory["start_state"] = state
+            return initiable(state, memory, objects, params)
+
+        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+            del objects, params  # unused
+            assert "start_state" in memory, \
+                "Must call initiable() before terminal()."
+            return state is not memory["start_state"]
+
         super().__init__(name,
                          types,
                          params_space,
                          policy=policy,
-                         initiable=always_initiable,
-                         terminal=onestep_terminal)
+                         initiable=_initiable,
+                         terminal=_terminal)
 
 
 def action_sequence_to_parameterized_option(
@@ -381,8 +382,9 @@ def action_sequence_to_parameterized_option(
     """
     singletons = [
         SingletonParameterizedOption(name + f"_step{i}",
-                                     lambda _1, _2, _3, _4: a, types,
-                                     params_space)
+                                     lambda _1, _2, _3, _4: a,
+                                     types=types,
+                                     params_space=params_space)
         for i, a in enumerate(action_sequence)
     ]
     return LinearChainParameterizedOption(name, singletons)
