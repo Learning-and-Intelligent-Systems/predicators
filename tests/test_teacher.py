@@ -100,7 +100,9 @@ def test_StateBasedDemonstrationQuery():
     """Tests for answering queries of type StateBasedDemonstrationQuery."""
     utils.reset_config({
         "env": "cover_multistep_options",
-        "approach": "unittest"
+        "approach": "unittest",
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99
     })
     # Test normal usage.
     env = create_new_env("cover_multistep_options")
