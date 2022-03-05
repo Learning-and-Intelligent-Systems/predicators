@@ -1,18 +1,18 @@
 """Test cases for teacher."""
 
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
-from predicators.src.teacher import Teacher
+from predicators.src.teacher import Teacher, TeacherInteractionMonitor
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    LowLevelTrajectory
+    LowLevelTrajectory, InteractionRequest
 
 
 def test_GroundAtomsHold():
     """Tests for answering queries of type GroundAtomsHoldQuery."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
     state = env.get_train_tasks()[0].init
@@ -55,7 +55,7 @@ def test_GroundAtomsHold():
 def test_DemonstrationQuery():
     """Tests for answering queries of type DemonstrationQuery."""
     utils.reset_config({"env": "cover", "approach": "unittest"})
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
     train_task_idx = 0
@@ -93,3 +93,39 @@ def test_DemonstrationQuery():
     assert isinstance(response, DemonstrationResponse)
     assert response.query is query
     assert response.teacher_traj is None
+
+
+def test_TeacherInteractionMonitor():
+    """Tests for TeacherInteractionMonitor()."""
+    utils.reset_config({
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 2,
+        "num_test_tasks": 1,
+        "num_online_learning_cycles": 1
+    })
+    env = create_new_env("cover")
+    HandEmpty = [p for p in env.predicates if p.name == "HandEmpty"][0]
+    hand_empty_atom = GroundAtom(HandEmpty, [])
+    query_policy = lambda s: GroundAtomsHoldQuery({hand_empty_atom})
+    act_policy = lambda _: env.action_space.sample()
+    termination_function = lambda s: True  # terminate immediately
+    request = InteractionRequest(0, act_policy, query_policy,
+                                 termination_function)
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    monitor = TeacherInteractionMonitor(request, teacher)
+    assert monitor.get_query_cost() == 0.0
+    assert monitor.get_responses() == []
+    state = train_tasks[0].init
+    action = env.action_space.sample()
+    monitor.observe(state, action)
+    assert monitor.get_query_cost() == 1.0
+    assert len(monitor.get_responses()) == 1
+    state = train_tasks[0].init
+    action = env.action_space.sample()
+    monitor.observe(state, action)
+    assert monitor.get_query_cost() == 2.0
+    assert len(monitor.get_responses()) == 2

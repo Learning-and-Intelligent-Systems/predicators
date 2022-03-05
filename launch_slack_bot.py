@@ -22,6 +22,7 @@ SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV = {
     "ronuchit": ("/home/gridsan/ronuchit/predicators/", "predicators"),
     "tslvr": ("/home/gridsan/tslvr/predicators/", "predicators"),
     "njk": ("/home/gridsan/njk/GitHub/research/predicators/", "predicators"),
+    "wshen": ("/home/gridsan/wshen/predicators/", "predicators"),
 }
 
 # Load all environment variables. We do this early on to make sure they exist.

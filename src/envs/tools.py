@@ -101,54 +101,54 @@ class ToolsEnv(BaseEnv):
             "PickScrew",
             types=[self._robot_type, self._screw_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._PickScrewdriver = ParameterizedOption(
             # variables: [robot, screwdriver to pick]
             # params: []
             "PickScrewdriver",
             types=[self._robot_type, self._screwdriver_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._PickNail = ParameterizedOption(
             # variables: [robot, nail to pick]
             # params: []
             "PickNail",
             types=[self._robot_type, self._nail_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._PickHammer = ParameterizedOption(
             # variables: [robot, hammer to pick]
             # params: []
             "PickHammer",
             types=[self._robot_type, self._hammer_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._PickBolt = ParameterizedOption(
             # variables: [robot, bolt to pick]
             # params: []
             "PickBolt",
             types=[self._robot_type, self._bolt_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._PickWrench = ParameterizedOption(
             # variables: [robot, wrench to pick]
             # params: []
             "PickWrench",
             types=[self._robot_type, self._wrench_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Pick_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._Place = ParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y]
@@ -157,9 +157,9 @@ class ToolsEnv(BaseEnv):
             params_space=Box(
                 np.array([self.table_lx, self.table_ly], dtype=np.float32),
                 np.array([self.table_ux, self.table_uy], dtype=np.float32)),
-            _policy=self._Place_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Place_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._FastenScrewWithScrewdriver = ParameterizedOption(
             # variables: [robot, screw, screwdriver]
             # params: []
@@ -169,18 +169,18 @@ class ToolsEnv(BaseEnv):
                 self._contraption_type
             ],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Fasten_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Fasten_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._FastenScrewByHand = ParameterizedOption(
             # variables: [robot, screw]
             # params: []
             "FastenScrewByHand",
             types=[self._robot_type, self._screw_type, self._contraption_type],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Fasten_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Fasten_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._FastenNailWithHammer = ParameterizedOption(
             # variables: [robot, nail, hammer]
             # params: []
@@ -190,9 +190,9 @@ class ToolsEnv(BaseEnv):
                 self._contraption_type
             ],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Fasten_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._Fasten_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
         self._FastenBoltWithWrench = ParameterizedOption(
             # variables: [robot, bolt, wrench]
             # params: []
@@ -202,10 +202,10 @@ class ToolsEnv(BaseEnv):
                 self._contraption_type
             ],
             params_space=Box(0, 1, (0, )),  # no parameters
-            _policy=self._Fasten_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        # Objects
+            policy=self._Fasten_policy,
+            initiable=utils.always_initiable,
+            terminal=utils.onestep_terminal)
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
@@ -335,10 +335,10 @@ class ToolsEnv(BaseEnv):
             np.array([self.table_lx, self.table_ly, 0, 0], dtype=np.float32),
             np.array([self.table_ux, self.table_uy, 1, 1], dtype=np.float32))
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_items_lst: List[int],
