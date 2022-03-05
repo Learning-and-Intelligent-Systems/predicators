@@ -338,6 +338,30 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     targetPosition=target_val,
                                     physicsClientId=self._physics_client_id)
 
+        # If picking, create a grasp constraint.
+        held_block_id = self._detect_held_block()
+        if self._held_constraint_id is None and held_block_id:
+            base_link_to_world = np.r_[p.invertTransform(
+                *p.getLinkState(self._fetch_id, self._ee_id,
+                                physicsClientId=self._physics_client_id)[:2])]
+            world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                held_block_id, physicsClientId=self._physics_client_id)]
+            base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+                base_link_to_world[:3], base_link_to_world[3:],
+                world_to_obj[:3], world_to_obj[3:]))
+            self._held_constraint_id = p.createConstraint(
+                parentBodyUniqueId=self._fetch_id,
+                parentLinkIndex=self._ee_id,
+                childBodyUniqueId=held_block_id,
+                childLinkIndex=-1,
+                jointType=p.JOINT_FIXED,
+                jointAxis=[0, 0, 0],
+                parentFramePosition=[0, 0, 0],
+                childFramePosition=base_link_to_obj[0],
+                parentFrameOrientation=[0, 0, 0, 1],
+                childFrameOrientation=base_link_to_obj[1],
+                physicsClientId=self._physics_client_id)
+
         # TODO other things...
 
         for _ in range(CFG.pybullet_sim_steps_per_action):
@@ -365,6 +389,14 @@ class PyBulletBlocksEnv(BlocksEnv):
         state.set(self._robot, "fingers", fingers)
 
         return state
+
+    def _detect_held_block(self) -> Optional[int]:
+        """Return the PyBullet object ID of the held object if one exists."""
+        for block_id in self._block_ids:
+            contact_points = p.getContactPoints(self._fetch_id, block_id, self._left_finger_id)
+            if contact_points:
+                return block_id
+        return None
 
     ########################## Parameterized Options ##########################
 
