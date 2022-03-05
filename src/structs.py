@@ -1247,6 +1247,16 @@ class DemonstrationResponse(Response):
     teacher_traj: Optional[LowLevelTrajectory]
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class StateBasedDemonstrationQuery(Query):
+    """A query requesting a demonstration to reach a specific state."""
+    goal_state: State
+
+    @property
+    def cost(self) -> float:
+        return 1
+
+
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]

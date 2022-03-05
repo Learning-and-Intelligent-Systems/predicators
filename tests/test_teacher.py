@@ -6,7 +6,7 @@ from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitor
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    LowLevelTrajectory, InteractionRequest
+    LowLevelTrajectory, InteractionRequest, StateBasedDemonstrationQuery
 
 
 def test_GroundAtomsHold():
@@ -93,6 +93,40 @@ def test_DemonstrationQuery():
     assert isinstance(response, DemonstrationResponse)
     assert response.query is query
     assert response.teacher_traj is None
+
+
+def test_StateBasedDemonstrationQuery():
+    """Tests for answering queries of type StateBasedDemonstrationQuery."""
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "approach": "unittest"
+    })
+    env = create_new_env("cover_multistep_options")
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    train_task_idx = 0
+    task = train_tasks[train_task_idx]
+    state = task.init
+    block0, _, _, _, robby, _, _, _, _ = state
+    # Create a goal state where robby has just picked block0.
+    goal_state = state.copy()
+    goal_state.set(block0, "grasp", 1)
+    goal_state.set(robby, "x", 0.9095)
+    goal_state.set(robby, "y", 0.1)
+    goal_state.set(robby, "grip", 1)
+    goal_state.set(robby, "holding", 1)
+    query = StateBasedDemonstrationQuery(goal_state)
+    response = teacher.answer_query(state, query)
+    assert isinstance(response, DemonstrationResponse)
+    assert response.query is query
+    assert isinstance(response.teacher_traj, LowLevelTrajectory)
+    assert len(response.teacher_traj.states) == 4
+    assert len(response.teacher_traj.actions) == 3
+    final_state = response.teacher_traj.states[-1]
+    assert final_state.allclose(goal_state)
+    # Although this is a good trajectory, demonstrations are expected to reach
+    # task goals, which this is not guaranteed to do.
+    assert not response.teacher_traj.is_demo
 
 
 def test_TeacherInteractionMonitor():

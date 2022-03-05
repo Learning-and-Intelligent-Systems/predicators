@@ -9,7 +9,9 @@ def test_get_allowed_query_type_names():
     utils.reset_config({
         "option_learner": "neural",
     })
-    assert get_allowed_query_type_names() == {"DemonstrationQuery"}
+    assert get_allowed_query_type_names() == {
+        "DemonstrationQuery", "StateBasedDemonstrationQuery"
+    }
     utils.reset_config({
         "option_learner": "no_learning",
         "approach": "interactive_learning"
@@ -20,5 +22,6 @@ def test_get_allowed_query_type_names():
         "approach": "unittest"
     })
     assert get_allowed_query_type_names() == {
-        "GroundAtomsHoldQuery", "DemonstrationQuery"
+        "GroundAtomsHoldQuery", "DemonstrationQuery",
+        "StateBasedDemonstrationQuery"
     }

@@ -4,14 +4,17 @@ information to assist an agent during online learning."""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Sequence, List, Optional
+import numpy as np
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
     DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
-    Action
+    Action, StateBasedDemonstrationQuery
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import get_or_create_env
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
     ApproachFailure
+from predicators.src.ground_truth_nsrts import _get_types_by_names, \
+    _get_options_by_names
 from predicators.src import utils
 
 
@@ -38,8 +41,11 @@ class Teacher:
             f"Disallowed query: {query}"
         if isinstance(query, GroundAtomsHoldQuery):
             return self._answer_GroundAtomsHold_query(state, query)
-        assert isinstance(query, DemonstrationQuery)
-        return self._answer_Demonstration_query(state, query)
+        if isinstance(query, DemonstrationQuery):
+            return self._answer_Demonstration_query(state, query)
+        if isinstance(query, StateBasedDemonstrationQuery):
+            return self._answer_StateBasedDemonstration_query(state, query)
+        raise NotImplementedError(f"Unrecognized query: {query}.")
 
     def _answer_GroundAtomsHold_query(
             self, state: State,
@@ -74,6 +80,74 @@ class Teacher:
                                           _is_demo=True,
                                           _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)
+
+    def _answer_StateBasedDemonstration_query(
+            self, state: State,
+            query: StateBasedDemonstrationQuery) -> DemonstrationResponse:
+        # The query is asking for a demonstration from the current state to
+        # the goal state. Planning to a low-level state is hard. This
+        # implementation currently assumes that only one option is required
+        # to get from the state to the goal state. Furthermore, the option
+        # is identified in an environment-specific way. This is all a stand-in
+        # for a human teacher. Note that although these trajectories are good,
+        # they are not demonstrations per se, because they do not reach task
+        # goals (and are not necessarily associated with any particular task).
+        trajectory = None
+        goal_state = query.goal_state
+        if CFG.env == "cover_multistep_options":
+            assert CFG.cover_multistep_use_learned_equivalents
+            # Setup.
+            block_type, target_type, robot_type = _get_types_by_names(
+                CFG.env, ["block", "target", "robot"])
+            Pick, Place = _get_options_by_names(
+                CFG.env, ["LearnedEquivalentPick", "LearnedEquivalentPlace"])
+            robot = state.get_objects(robot_type)[0]
+            blocks = state.get_objects(block_type)
+            targets = state.get_objects(target_type)
+            # Case 1: Pick.
+            if abs(goal_state.get(robot, "holding") - 1) < 1e-6:
+                blocks_held = [
+                    b for b in blocks
+                    if abs(goal_state.get(b, "grasp") - 1) < 1e-6
+                ]
+                assert len(blocks_held) == 1
+                block = blocks_held[0]
+                rx = state.get(robot, "x")
+                desired_rx = goal_state.get(robot, "x")
+                ry = state.get(robot, "y")
+                desired_ry = goal_state.get(robot, "y")
+                # is_block, is_target, width, x, grasp, y, height
+                # grasp changes from -1.0 to 1.0
+                block_param = [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]
+                # x, y, grip, holding
+                # grip changes from -1.0 to 1.0
+                # holding changes from -1.0 to 1.0
+                robot_param = [desired_rx - rx, desired_ry - ry, 2.0, 2.0]
+                param = np.array(block_param + robot_param, dtype=np.float32)
+                option = Pick.ground([block, robot], param)
+            # Case 2: Place.
+            else:
+                import ipdb
+                ipdb.set_trace()
+
+            policy = utils.option_plan_to_policy([option])
+            termination_function = lambda s: s.allclose(goal_state)
+            trajectory = utils.run_policy_with_simulator(
+                policy,
+                self._simulator,
+                state,
+                termination_function,
+                max_num_steps=CFG.max_num_steps_option_rollout)
+        else:
+            raise NotImplementedError("State-based demonstration queries not"
+                                      f"supported for env {CFG.env}.")
+        # Validate. If the goal state was not reached, the query is assumed
+        # to be invalid, and a None trajectory is returned.
+        if trajectory is None or not trajectory.states[-1].allclose(
+                goal_state):
+            return DemonstrationResponse(query, teacher_traj=None)
+        # Success.
+        return DemonstrationResponse(query, teacher_traj=trajectory)
 
 
 @dataclass
