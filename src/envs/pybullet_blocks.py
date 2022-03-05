@@ -23,6 +23,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 1.0
     _max_vel_norm: float = 0.5
+    _grasp_tol: float = 0.0001
 
     # Table parameters.
     _table_position: Sequence[float] = [1.35, 0.75, 0.0]
@@ -50,6 +51,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _yaw: float = 90.0
     _pitch: float = -24
     _camera_target: Sequence[float] = [1.65, 0.75, 0.42]
+    _debug_text_position = [1.65, 0.25, 0.75]
 
     def __init__(self) -> None:
         super().__init__()
@@ -68,7 +70,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                              (0., 0., self.pick_z),
                                              ("rel", "rel", "abs")),
                 # Open grippers.
-                self._change_grippers("OpenGrippers", 1.0),
+                self._change_grippers("OpenGrippers", 0.95),
                 # TODO more.
             ])
         # TODO: override Stack and Place.
@@ -315,15 +317,16 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # Set finger joint motors
         for finger_id in [self._left_finger_id, self._right_finger_id]:
-            current_val = p.getJointState(self._fetch_id, finger_id, physicsClientId=self._physics_client_id)[0]
-            target_val = current_val + finger_action
-            p.setJointMotorControl2(bodyIndex=self._fetch_id, jointIndex=finger_id, controlMode=p.POSITION_CONTROL,
-                targetPosition=target_val, physicsClientId=self._physics_client_id)
-
-        if finger_action != 0:
-            while True:
-                p.stepSimulation(physicsClientId=self._physics_client_id)
-
+            current_val = p.getJointState(
+                self._fetch_id,
+                finger_id,
+                physicsClientId=self._physics_client_id)[0]
+            target_val = current_val - finger_action
+            p.setJointMotorControl2(bodyIndex=self._fetch_id,
+                                    jointIndex=finger_id,
+                                    controlMode=p.POSITION_CONTROL,
+                                    targetPosition=target_val,
+                                    physicsClientId=self._physics_client_id)
 
         # TODO other things...
 
@@ -340,24 +343,31 @@ class PyBulletBlocksEnv(BlocksEnv):
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
         x, y, z = ee_link_state[4]
+        fingers = 1.0 - p.getJointState(
+            self._fetch_id,
+            self._left_finger_id,
+            physicsClientId=self._physics_client_id)[0]
 
         # TODO A BUNCH OF OTHER STUFF
         state.set(self._robot, "pose_x", x)
         state.set(self._robot, "pose_y", y)
         state.set(self._robot, "pose_z", z)
+        state.set(self._robot, "fingers", fingers)
 
         return state
 
     ########################## Parameterized Options ##########################
 
     def _move_relative_to_block(
-            self, name: str, rel_or_abs_target_pose: Tuple[float, float, float],
+            self, name: str, rel_or_abs_target_pose: Tuple[float, float,
+                                                           float],
             rel_or_abs: Tuple[str, str, str]) -> ParameterizedOption:
         """Creates a ParameterizedOption for moving to a target pose.
 
         Each of the three dimensions of the target pose can be specified
-        relatively or absolutely. The rel_or_abs argument indicates whether
-        each dimension is relative ("rel") or absolute ("abs")."""
+        relatively or absolutely. The rel_or_abs argument indicates
+        whether each dimension is relative ("rel") or absolute ("abs").
+        """
 
         def _get_current_and_target_pose(
             state: State, objects: Sequence[Object]
@@ -408,27 +418,36 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    initiable=_initiable,
                                    terminal=_terminal)
 
-    def _change_grippers(self, name: str, gripper_action: float
-                        ) -> ParameterizedOption:
-        """Creates a ParameterizedOption for changing the robot grippers.
-        """
+    def _change_grippers(self, name: str,
+                         target_val: float) -> ParameterizedOption:
+        """Creates a ParameterizedOption for changing the robot grippers."""
         # TODO probably factor this out.
         types = [self._robot_type, self._block_type]
         params_space = Box(0, 1, (0, ))
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            del state, memory, params  # unused
-            return Action(np.array([0., 0., 0., gripper_action],
-                                   dtype=np.float32))
+            del memory, params  # unused
+            current_val = state.get(self._robot, "fingers")
+            gripper_action = target_val - current_val
+            gripper_action = np.clip(gripper_action, self.action_space.low[3],
+                                     self.action_space.high[3])
+            return Action(
+                np.array([0., 0., 0., gripper_action], dtype=np.float32))
+
+        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+            del memory, params  # unused
+            current_val = state.get(self._robot, "fingers")
+            dist = (target_val - current_val)**2
+            return dist < self._grasp_tol
 
         return ParameterizedOption(name,
                                    types=types,
                                    params_space=params_space,
                                    policy=_policy,
-                                   initiable=utils.always_initiable,
-                                   terminal=utils.onestep_terminal)
-
+                                   initiable=lambda _1, _2, _3, _4: True,
+                                   terminal=_terminal)
 
     def _get_move_toward_waypoint_action(
             self, gripper_position: Sequence[float],
