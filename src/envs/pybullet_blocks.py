@@ -212,9 +212,11 @@ class PyBulletBlocksEnv(BlocksEnv):
         # remove blocks from view based on the number involved in the state.
         num_blocks = max(max(self.num_blocks_train), max(self.num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
+        self._block_id_to_block: Dict[int, Object] = {}
 
         # When a block is held, a constraint is created to prevent slippage.
         self._held_constraint_id: Optional[int] = None
+        self._held_block_id: Optional[int] = None
 
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -233,6 +235,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
+        self._held_block_id = None
 
         # Reset robot.
         p.resetBasePositionAndOrientation(
@@ -255,9 +258,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                               physicsClientId=self._physics_client_id)
 
         # Reset block positions based on the state.
-        block_objs = list(o for o in state if o.type == self._block_type)
+        block_objs = state.get_objects(self._block_type)
+        self._block_id_to_block = {}
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
+            self._block_id_to_block[block_id] = block_obj
             x, y, z, held = state[block_obj]
             assert held < 1.0  # not holding in the initial state
             p.resetBasePositionAndOrientation(
@@ -270,6 +275,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
+            assert block_id not in self._block_id_to_block
             p.resetBasePositionAndOrientation(
                 block_id, [oov_x, oov_y, i * h],
                 self._block_orientation,
@@ -361,38 +367,41 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     targetPosition=target_val,
                                     physicsClientId=self._physics_client_id)
 
-        # Detect whether an object is held based on distance.
-        held_block_id = self._detect_held_block()
-
-        # If picking, create a grasp constraint.
-        if self._held_constraint_id is None and held_block_id:
-            base_link_to_world = np.r_[p.invertTransform(
-                *p.getLinkState(self._fetch_id,
-                                self._ee_id,
-                                physicsClientId=self._physics_client_id)[:2])]
-            world_to_obj = np.r_[p.getBasePositionAndOrientation(
-                held_block_id, physicsClientId=self._physics_client_id)]
-            base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
-                base_link_to_world[:3], base_link_to_world[3:],
-                world_to_obj[:3], world_to_obj[3:]))
-            self._held_constraint_id = p.createConstraint(
-                parentBodyUniqueId=self._fetch_id,
-                parentLinkIndex=self._ee_id,
-                childBodyUniqueId=held_block_id,
-                childLinkIndex=-1,
-                jointType=p.JOINT_FIXED,
-                jointAxis=[0, 0, 0],
-                parentFramePosition=[0, 0, 0],
-                childFramePosition=base_link_to_obj[0],
-                parentFrameOrientation=[0, 0, 0, 1],
-                childFrameOrientation=base_link_to_obj[1],
-                physicsClientId=self._physics_client_id)
+        # If not currently holding something, check for a new grasp.
+        if self._held_constraint_id is None:
+            # Detect whether an object is held based on distance.
+            self._held_block_id = self._detect_held_block()
+            if self._held_block_id is not None:
+                # Create a grasp constraint.
+                base_link_to_world = np.r_[p.invertTransform(*p.getLinkState(
+                    self._fetch_id,
+                    self._ee_id,
+                    physicsClientId=self._physics_client_id)[:2])]
+                world_to_obj = np.r_[p.getBasePositionAndOrientation(
+                    self._held_block_id,
+                    physicsClientId=self._physics_client_id)]
+                base_link_to_obj = p.invertTransform(*p.multiplyTransforms(
+                    base_link_to_world[:3], base_link_to_world[3:],
+                    world_to_obj[:3], world_to_obj[3:]))
+                self._held_constraint_id = p.createConstraint(
+                    parentBodyUniqueId=self._fetch_id,
+                    parentLinkIndex=self._ee_id,
+                    childBodyUniqueId=self._held_block_id,
+                    childLinkIndex=-1,
+                    jointType=p.JOINT_FIXED,
+                    jointAxis=[0, 0, 0],
+                    parentFramePosition=[0, 0, 0],
+                    childFramePosition=base_link_to_obj[0],
+                    parentFrameOrientation=[0, 0, 0, 1],
+                    childFrameOrientation=base_link_to_obj[1],
+                    physicsClientId=self._physics_client_id)
 
         # If placing, remove the grasp constraint.
         if self._held_constraint_id is not None and finger_action > 0:
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
+            self._held_block_id = None
 
         for _ in range(CFG.pybullet_sim_steps_per_action):
             p.stepSimulation(physicsClientId=self._physics_client_id)
@@ -403,25 +412,34 @@ class PyBulletBlocksEnv(BlocksEnv):
         """Create a State based on the current PyBullet state."""
         state = self._current_state.copy()
 
+        # Get robot state.
         ee_link_state = p.getLinkState(self._fetch_id,
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
-        x, y, z = ee_link_state[4]
-        fingers = p.getJointState(self._fetch_id,
-                                  self._left_finger_id,
-                                  physicsClientId=self._physics_client_id)[0]
+        rx, ry, rz = ee_link_state[4]
+        rf = p.getJointState(self._fetch_id,
+                             self._left_finger_id,
+                             physicsClientId=self._physics_client_id)[0]
+        state.set(self._robot, "pose_x", rx)
+        state.set(self._robot, "pose_y", ry)
+        state.set(self._robot, "pose_z", rz)
+        state.set(self._robot, "fingers", rf)
 
-        # TODO A BUNCH OF OTHER STUFF
-        state.set(self._robot, "pose_x", x)
-        state.set(self._robot, "pose_y", y)
-        state.set(self._robot, "pose_z", z)
-        state.set(self._robot, "fingers", fingers)
+        # Get block states.
+        for block_id, block in self._block_id_to_block.items():
+            (bx, by, bz), _ = p.getBasePositionAndOrientation(
+                block_id, physicsClientId=self._physics_client_id)
+            held = (block_id == self._held_block_id)
+            state.set(block, "pose_x", bx)
+            state.set(block, "pose_y", by)
+            state.set(block, "pose_z", bz)
+            state.set(block, "held", held)
 
         return state
 
     def _detect_held_block(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists."""
-        for block_id in self._block_ids:
+        for block_id in self._block_id_to_block:
             for finger_id in [self._left_finger_id, self._right_finger_id]:
                 closest_points = p.getClosestPoints(self._fetch_id, block_id,
                                                     finger_id)
@@ -507,9 +525,6 @@ class PyBulletBlocksEnv(BlocksEnv):
             gripper_action = target_val - current_val
             gripper_action = np.clip(gripper_action, self.action_space.low[3],
                                      self.action_space.high[3])
-            print("\nATTEMPTING...")
-            print("current:", current_val)
-            print("target:", target_val)
             return Action(
                 np.array([0., 0., 0., gripper_action], dtype=np.float32))
 
@@ -518,9 +533,6 @@ class PyBulletBlocksEnv(BlocksEnv):
             del memory, params  # unused
             current_val = state.get(self._robot, "fingers")
             dist = (target_val - current_val)**2
-            print("\nTERMINATING...")
-            print("current:", current_val)
-            print("target:", target_val)
             return dist < self._grasp_tol
 
         return ParameterizedOption(name,

@@ -37,6 +37,7 @@ class BlocksEnv(BaseEnv):
     open_fingers = 0.04
     closed_fingers = 0.03
     pick_tol = 0.0001
+    on_tol = 0.01
     assert pick_tol < block_size
     pick_z = 0.8
     num_blocks_train = [3, 4]
@@ -391,7 +392,7 @@ class BlocksEnv(BaseEnv):
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
         return np.allclose([x1, y1, z1], [x2, y2, z2 + self.block_size],
-                           atol=self.pick_tol)
+                           atol=self.on_tol)
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
