@@ -4,7 +4,6 @@ information to assist an agent during online learning."""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Sequence, List, Optional
-import numpy as np
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
     DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
@@ -93,6 +92,7 @@ class Teacher:
         # they are not demonstrations per se, because they do not reach task
         # goals (and are not necessarily associated with any particular task).
         trajectory = None
+        null_response = DemonstrationResponse(query, teacher_traj=None)
         goal_state = query.goal_state
         if CFG.env == "cover_multistep_options":
             assert CFG.cover_multistep_use_learned_equivalents
@@ -104,32 +104,35 @@ class Teacher:
             robot = state.get_objects(robot_type)[0]
             blocks = state.get_objects(block_type)
             targets = state.get_objects(target_type)
+            state_blocks_held = [
+                b for b in blocks if abs(state.get(b, "grasp") - 1) < 1e-6
+            ]
+            goal_blocks_held = [
+                b for b in blocks if abs(goal_state.get(b, "grasp") - 1) < 1e-6
+            ]
             # Case 1: Pick.
-            if abs(goal_state.get(robot, "holding") - 1) < 1e-6:
-                blocks_held = [
-                    b for b in blocks
-                    if abs(goal_state.get(b, "grasp") - 1) < 1e-6
-                ]
-                assert len(blocks_held) == 1
-                block = blocks_held[0]
-                rx = state.get(robot, "x")
-                desired_rx = goal_state.get(robot, "x")
-                ry = state.get(robot, "y")
-                desired_ry = goal_state.get(robot, "y")
-                # is_block, is_target, width, x, grasp, y, height
-                # grasp changes from -1.0 to 1.0
-                block_param = [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0]
-                # x, y, grip, holding
-                # grip changes from -1.0 to 1.0
-                # holding changes from -1.0 to 1.0
-                robot_param = [desired_rx - rx, desired_ry - ry, 2.0, 2.0]
-                param = np.array(block_param + robot_param, dtype=np.float32)
-                option = Pick.ground([block, robot], param)
+            if len(goal_blocks_held) == 1:
+                parameterized_option = Pick
+                block = goal_blocks_held[0]
+                arguments = [block, robot]
+                changing_objs = [block, robot]
             # Case 2: Place.
+            elif len(state_blocks_held) == 1:
+                parameterized_option = Place
+                block = state_blocks_held[0]
+                # The target does not actually matter, because it is not
+                # involved in the definition of the Place policy. The only
+                # reason that it's included in the ParameterizedOption is
+                # that there is a change in the symbolic effects for the
+                # target (it becomes covered).
+                target = targets[0]
+                arguments = [block, robot, target]
+                changing_objs = [block, robot]
+            # Case 3: invalid or unsupported request.
             else:
-                import ipdb
-                ipdb.set_trace()
-
+                return null_response
+            params = goal_state.vec(changing_objs) - state.vec(changing_objs)
+            option = parameterized_option.ground(arguments, params)
             policy = utils.option_plan_to_policy([option])
             termination_function = lambda s: s.allclose(goal_state)
             trajectory = utils.run_policy_with_simulator(
@@ -145,7 +148,10 @@ class Teacher:
         # to be invalid, and a None trajectory is returned.
         if trajectory is None or not trajectory.states[-1].allclose(
                 goal_state):
-            return DemonstrationResponse(query, teacher_traj=None)
+            return null_response
+        # Strip the trajectory of options to prevent cheating.
+        for action in trajectory.actions:
+            action.unset_option()
         # Success.
         return DemonstrationResponse(query, teacher_traj=trajectory)
 
