@@ -6,6 +6,8 @@ from predicators.src import utils
 
 def test_get_allowed_query_type_names():
     """Test the get_allowed_query_type_names method."""
+    utils.reset_config()
+    assert get_allowed_query_type_names() == set()
     utils.reset_config({
         "option_learner": "neural",
     })
@@ -23,5 +25,5 @@ def test_get_allowed_query_type_names():
     })
     assert get_allowed_query_type_names() == {
         "GroundAtomsHoldQuery", "DemonstrationQuery",
-        "StateBasedDemonstrationQuery"
+        "StateBasedDemonstrationQuery", "_MockQuery"
     }

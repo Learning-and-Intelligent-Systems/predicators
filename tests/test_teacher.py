@@ -7,7 +7,8 @@ from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitor
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    LowLevelTrajectory, InteractionRequest, StateBasedDemonstrationQuery
+    LowLevelTrajectory, InteractionRequest, StateBasedDemonstrationQuery, \
+    Query
 
 
 def test_GroundAtomsHold():
@@ -120,6 +121,7 @@ def test_StateBasedDemonstrationQuery():
     goal_state.set(robby, "grip", 1)
     goal_state.set(robby, "holding", 1)
     query = StateBasedDemonstrationQuery(goal_state)
+    assert query.cost == 1
     response = teacher.answer_query(state, query)
     assert isinstance(response, DemonstrationResponse)
     assert response.query is query
@@ -154,15 +156,15 @@ def test_StateBasedDemonstrationQuery():
     assert len(response.teacher_traj.actions) == 4
     final_state = response.teacher_traj.states[-1]
     assert final_state.allclose(goal_state)
-    # Test that no trajectory is returned when the query would require two
-    # options to complete.
-    state = task.init
-    query = StateBasedDemonstrationQuery(goal_state)
-    response = teacher.answer_query(state, query)
-    assert response.teacher_traj is None
     # Test that no trajectory is returned when the query goal state cannot
     # be reached at all.
     utils.update_config({"max_num_steps_option_rollout": 2})
+    query = StateBasedDemonstrationQuery(goal_state)
+    response = teacher.answer_query(state, query)
+    assert response.teacher_traj is None
+    # Test that no trajectory is returned when the query would require two
+    # options to complete.
+    state = task.init
     query = StateBasedDemonstrationQuery(goal_state)
     response = teacher.answer_query(state, query)
     assert response.teacher_traj is None
@@ -212,3 +214,19 @@ def test_TeacherInteractionMonitor():
     monitor.observe(state, action)
     assert monitor.get_query_cost() == 2.0
     assert len(monitor.get_responses()) == 2
+
+
+def test_answer_query():
+    """Tests for Teacher.answer_query()."""
+    utils.reset_config({"env": "cover", "approach": "unittest"})
+    env = create_new_env("cover")
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    state = env.get_train_tasks()[0].init
+
+    class _MockQuery(Query):
+        """Not a real Query type."""
+
+    query = _MockQuery()
+    with pytest.raises(NotImplementedError):
+        teacher.answer_query(state, query)

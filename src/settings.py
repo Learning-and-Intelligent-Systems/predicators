@@ -264,8 +264,10 @@ def get_allowed_query_type_names() -> Set[str]:
         return {"GroundAtomsHoldQuery"}
     if CFG.approach == "unittest":
         return {
-            "GroundAtomsHoldQuery", "DemonstrationQuery",
-            "StateBasedDemonstrationQuery"
+            "GroundAtomsHoldQuery",
+            "DemonstrationQuery",
+            "StateBasedDemonstrationQuery",
+            "_MockQuery",
         }
     return set()
 
