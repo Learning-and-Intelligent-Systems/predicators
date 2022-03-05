@@ -910,8 +910,7 @@ def test_action_sequence_to_parameterized_option():
     state = State({cup: [0.0]})
     action_sequence = [Action(np.array([0.])), Action(np.array([1.]))]
     param_option = utils.action_sequence_to_parameterized_option(
-        action_sequence, "Dummy", [cup_type],
-            params_space=Box(0, 1, (1, )))
+        action_sequence, "Dummy", [cup_type], params_space=Box(0, 1, (1, )))
     assert param_option.name == "Dummy"
     assert param_option.types == [cup_type]
     assert np.allclose(param_option.params_space.low, np.array([0]))
@@ -921,6 +920,7 @@ def test_action_sequence_to_parameterized_option():
     for action in action_sequence:
         assert not option.terminal(state)
         assert np.allclose(option.policy(state).arr, action.arr)
+        state = state.copy()  # pretend simulation
     assert option.terminal(state)
 
 

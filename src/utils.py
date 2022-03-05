@@ -288,23 +288,29 @@ class LinearChainParameterizedOption(ParameterizedOption):
 
     def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
-        # Reset the current child to the first one.
+        # Initialize the current child to the first one.
         memory["current_child_index"] = 0
+        # Create memory dicts for each child to avoid key collisions.
+        memory["child_memory"] = [{} for _ in self._children]
         current_child = self._children[0]
-        return current_child.initiable(state, memory, objects, params)
+        child_memory = memory["child_memory"][0]
+        return current_child.initiable(state, child_memory, objects, params)
 
     def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         # Check if the current child has terminated.
         current_index = memory["current_child_index"]
         current_child = self._children[current_index]
-        if current_child.terminal(state, memory, objects, params):
+        child_memory = memory["child_memory"][current_index]
+        if current_child.terminal(state, child_memory, objects, params):
             # Move on to the next child.
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child.initiable(state, memory, objects, params)
-        return current_child.policy(state, memory, objects, params)
+            child_memory = memory["child_memory"][current_index]
+            assert current_child.initiable(state, child_memory, objects,
+                                           params)
+        return current_child.policy(state, child_memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
@@ -313,7 +319,8 @@ class LinearChainParameterizedOption(ParameterizedOption):
         if current_index < len(self._children) - 1:
             return False
         current_child = self._children[current_index]
-        return current_child.terminal(state, memory, objects, params)
+        child_memory = memory["child_memory"][current_index]
+        return current_child.terminal(state, child_memory, objects, params)
 
 
 class SingletonParameterizedOption(ParameterizedOption):
@@ -345,19 +352,19 @@ class SingletonParameterizedOption(ParameterizedOption):
         # has been executed yet.
         def _initiable(state: State, memory: Dict, objects: Sequence[Object],
                        params: Array) -> bool:
-            if start_state_key in memory:
-                assert state.allclose(memory[start_state_key])
+            if "start_state" in memory:
+                assert state.allclose(memory["start_state"])
             # Always update the memory dict due to the "is" check in _terminal.
-            memory[start_state_key] = state
+            memory["start_state"] = state
             assert initiable is not None
             return initiable(state, memory, objects, params)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
             del objects, params  # unused
-            assert start_state_key in memory, \
+            assert "start_state" in memory, \
                 "Must call initiable() before terminal()."
-            return state is not memory[start_state_key]
+            return state is not memory["start_state"]
 
         super().__init__(name,
                          types,
