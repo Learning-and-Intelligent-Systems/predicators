@@ -128,6 +128,8 @@ def _run_pipeline(env: BaseEnv,
         for i in range(CFG.num_online_learning_cycles):
             print(f"\n\nONLINE LEARNING CYCLE {i}\n")
             print("Getting interaction requests...")
+            if total_num_transitions > CFG.num_transitions:
+                break
             interaction_requests = approach.get_interaction_requests()
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
