@@ -593,7 +593,6 @@ class PyBulletBlocksEnv(BlocksEnv):
         relatively or absolutely. The rel_or_abs argument indicates
         whether each dimension is relative ("rel") or absolute ("abs").
         """
-
         def _get_current_and_target_pose(
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose3D, Pose3D]:

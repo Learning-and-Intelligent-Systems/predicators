@@ -595,8 +595,9 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
         del state, goal, objs  # unused
-        x = rng.uniform(BlocksEnv.x_lb, BlocksEnv.x_ub)
-        y = rng.uniform(BlocksEnv.y_lb, BlocksEnv.y_ub)
+        half_size = BlocksEnv.block_size / 2
+        x = rng.uniform(BlocksEnv.x_lb + half_size, BlocksEnv.x_ub - half_size)
+        y = rng.uniform(BlocksEnv.y_lb + half_size, BlocksEnv.y_ub - half_size)
         return np.array([x, y], dtype=np.float32)
 
     putontable_nsrt = NSRT("PutOnTable", parameters, preconditions,

@@ -23,10 +23,11 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height = 0.2
-    block_size = 0.06
+    block_size = 0.05
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
-    x_lb = 1.25
-    x_ub = 1.45
+    # Make it narrow enough that blocks can be only horizontally arranged.
+    x_lb = 1.35 - block_size
+    x_ub = 1.35 + block_size
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb = 0.4
     y_ub = 1.1
@@ -36,8 +37,8 @@ class BlocksEnv(BaseEnv):
     robot_init_z = pick_z
     held_tol = 0.5
     open_fingers = 0.04
-    closed_fingers = 0.03
-    collision_padding = 1.2
+    closed_fingers = 0.02
+    collision_padding = 1.25
     pick_tol = 0.0001
     on_tol = 0.01
     assert pick_tol < block_size
@@ -458,10 +459,7 @@ class BlocksEnv(BaseEnv):
     def _PutOnTable_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
-        # Un-normalize parameters to actual table coordinates
-        x_norm, y_norm = params
-        x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
-        y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
+        x, y = params
         z = self.table_height + 0.5 * self.block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
