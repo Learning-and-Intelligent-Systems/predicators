@@ -399,7 +399,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         # If not currently holding something, and gripper is closing,
         # check for a new grasp.
         if self._held_constraint_id is None and finger_action < 0:
-            # Detect whether an object is held based on distance.
+            # Detect whether an object is held.
             self._held_block_id = self._detect_held_block()
             if self._held_block_id is not None:
                 # Create a grasp constraint.
@@ -470,8 +470,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     def _detect_held_block(self) -> Optional[int]:
         """Return the PyBullet object ID of the held object if one exists.
 
-        If multiple blocks are within the grasp tolerance, return the one
-        that is closest.
+        If multiple blocks are within the grasp tolerance, return the
+        one that is closest.
         """
         closest_held_block = None
         closest_held_block_dist = float("inf")
@@ -480,9 +480,22 @@ class PyBulletBlocksEnv(BlocksEnv):
                 closest_points = p.getClosestPoints(self._fetch_id, block_id,
                                                     finger_id)
                 for point in closest_points:
+                    # If the contact normal is substantially different from
+                    # the expected contact normal, this is probably a block
+                    # on the outside of the gripper, rather than the inside.
+                    # A perfect score here is 1.0 (normals are unit vectors).
+                    contact_normal = point[7]
+                    expected_normal = [0, 1, 0]
+                    if np.dot(expected_normal, contact_normal) < 0.5:
+                        continue
+                    # Check if the distance to the finger is below the tol.
                     contact_distance = point[8]
                     if contact_distance > self._grasp_tol:
                         continue
+                    # Handle the case where multiple blocks pass this check
+                    # by taking the closest one. This should be rare, but it
+                    # can happen when two blocks are stacked and the robot is
+                    # unstacking the top one.
                     if contact_distance < closest_held_block_dist:
                         closest_held_block = block_id
                         closest_held_block_dist = contact_distance
@@ -593,6 +606,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         relatively or absolutely. The rel_or_abs argument indicates
         whether each dimension is relative ("rel") or absolute ("abs").
         """
+
         def _get_current_and_target_pose(
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose3D, Pose3D]:

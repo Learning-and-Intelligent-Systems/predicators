@@ -38,7 +38,7 @@ class BlocksEnv(BaseEnv):
     held_tol = 0.5
     open_fingers = 0.04
     closed_fingers = 0.02
-    collision_padding = 1.25
+    collision_padding = 1.5
     pick_tol = 0.0001
     on_tol = 0.01
     assert pick_tol < block_size
