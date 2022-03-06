@@ -291,14 +291,14 @@ def test_pybullet_blocks_putontable():
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
-    # Pick block0 to get to a state where we are prepared to place.
+    # Pick block to get to a state where we are prepared to place.
     state = env.execute_pick(block)
     # Create a PutOnTable option.
     # The params space is relative, so this should put the block at the center
     # of the work space.
     option = env.PutOnTable.ground([robot], [0.5, 0.5])
     assert option.initiable(state)
-    # Execute the stack option.
+    # Execute the option.
     for _ in range(100):
         if option.terminal(state):
             break
@@ -313,3 +313,34 @@ def test_pybullet_blocks_putontable():
     # Specifically, it should be at the center of the workspace.
     assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-3
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
+    # Test that the block can be placed at the extremes of the workspace.
+    half_size = env.block_size / 2
+    corners = [
+        (env.x_lb + half_size, env.y_lb + half_size),
+        (env.x_ub - half_size, env.y_lb + half_size),
+        (env.x_lb + half_size, env.y_ub - half_size),
+        (env.x_ub - half_size, env.y_ub - half_size),
+    ]
+    corner_params = [(0., 0.), (1., 0.), (0., 1.), (1., 1.)]
+    for (bx, by), (px, py) in zip(corners, corner_params):
+        state = init_state.copy()
+        # Pick block to get to a state where we are prepared to place.
+        state = env.execute_pick(block)
+        # Create a PutOnTable option.
+        option = env.PutOnTable.ground([robot], [px, px])
+        assert option.initiable(state)
+        # Execute the option.
+        for _ in range(100):
+            if option.terminal(state):
+                break
+            action = option.policy(state)
+            state = env.step(action)
+        else:
+            assert False, "Option failed to terminate."
+        # The block should now NOT be held.
+        assert state.get(block, "held") == 0.0
+        # And block should be on the table.
+        assert env.OnTable([block]).holds(state)
+        # Specifically, it should be at the corner of the workspace.
+        assert abs(state.get(block, "pose_x") - bx) < 1e-3
+        assert abs(state.get(block, "pose_y") - by) < 1e-3
