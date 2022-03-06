@@ -229,10 +229,11 @@ class PyBulletBlocksEnv(BlocksEnv):
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
 
         # Determine the initial joint values.
+        self._robot_home_pose = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
         self._initial_joint_values = inverse_kinematics(
             self._fetch_id,
             self._ee_id,
-            [self.robot_init_x, self.robot_init_y, self.robot_init_z],
+            self._robot_home_pose,
             self._ee_orientation,
             self._arm_joints,
             physics_client_id=self._physics_client_id)
@@ -256,9 +257,12 @@ class PyBulletBlocksEnv(BlocksEnv):
         return Box(low=-0.05, high=0.05, shape=(4, ), dtype=np.float32)
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
-        # Resets current_state and current_task.
         state = super().reset(train_or_test, task_idx)
+        self._reset_from_state(state)
+        return state
 
+    def _reset_from_state(self, state: State) -> None:
+        """Helper for reset. Also useful for testing."""
         # Tear down the old PyBullet scene.
         if self._held_constraint_id is not None:
             p.removeConstraint(self._held_constraint_id,
@@ -272,18 +276,27 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._base_pose,
             self._base_orientation,
             physicsClientId=self._physics_client_id)
-
-        for joint_id, joint_val in zip(self._arm_joints,
-                                       self._initial_joint_values):
+        rx, ry, rz, rf = state[self._robot]
+        # Avoid running IK in the common case where the robot is at home.
+        if np.allclose((rx, ry, rz), self._robot_home_pose):
+            joint_values = self._initial_joint_values
+        else:
+            joint_values = inverse_kinematics(
+                self._fetch_id,
+                self._ee_id,
+                target_position,
+                self._ee_orientation,
+                self._arm_joints,
+                physics_client_id=self._physics_client_id)
+        for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
                               joint_id,
                               joint_val,
                               physicsClientId=self._physics_client_id)
-
         for finger_id in [self._left_finger_id, self._right_finger_id]:
             p.resetJointState(self._fetch_id,
                               finger_id,
-                              self.open_fingers,
+                              rf,
                               physicsClientId=self._physics_client_id)
 
         # Reset blocks based on the state.
@@ -313,9 +326,14 @@ class PyBulletBlocksEnv(BlocksEnv):
         # while True:
         #     p.stepSimulation(physicsClientId=self._physics_client_id)
 
-        # TODO: assert that the initial state is properly reconstructed
-
-        return state
+        # Assert that the state was properly reconstructed.
+        # reconstructed_state = self._get_state()
+        # if not reconstructed_state.allclose(state):
+        #     print("Desired state:")
+        #     print(state.pretty_str())
+        #     print("Reconstructed state:")
+        #     print(reconstructed_state.pretty_str())
+        #     raise ValueError("Could not reconstruct state.")
 
     def _create_block(self, block_num: int) -> int:
         """Returns the body ID."""
