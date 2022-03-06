@@ -327,7 +327,7 @@ def test_pybullet_blocks_putontable():
         # Pick block to get to a state where we are prepared to place.
         state = env.execute_pick(block)
         # Create a PutOnTable option.
-        option = env.PutOnTable.ground([robot], [px, px])
+        option = env.PutOnTable.ground([robot], [px, py])
         assert option.initiable(state)
         # Execute the option.
         for _ in range(100):
