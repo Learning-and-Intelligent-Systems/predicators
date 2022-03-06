@@ -35,6 +35,16 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._predicates_to_learn
 
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        super().load(online_learning_cycle)
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
+            save_dict = pkl.load(f)
+        self._dataset = save_dict["dataset"]
+        self._predicates_to_learn = save_dict["predicates_to_learn"]
+        self._pred_to_ensemble = save_dict["pred_to_ensemble"]
+        self._best_score = save_dict["best_score"]
+
     ######################## Semi-supervised learning #########################
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
@@ -53,15 +63,6 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._dataset = Dataset(dataset.trajectories, dataset.annotations)
         # Learn predicates and NSRTs.
         self._relearn_predicates_and_nsrts(online_learning_cycle=None)
-
-    def load(self, online_learning_cycle: Optional[int]) -> None:
-        super().load(online_learning_cycle)
-        save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
-            save_dict = pkl.load(f)
-        self._dataset = save_dict["dataset"]
-        self._predicates_to_learn = save_dict["predicates_to_learn"]
-        self._best_score = save_dict["best_score"]
 
     def _relearn_predicates_and_nsrts(
             self, online_learning_cycle: Optional[int]) -> None:
@@ -118,6 +119,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 {
                     "dataset": self._dataset,
                     "predicates_to_learn": self._predicates_to_learn,
+                    "pred_to_ensemble": self._pred_to_ensemble,
                     "best_score": self._best_score,
                 }, f)
 
