@@ -137,6 +137,7 @@ class GlobalSettings:
     max_rejection_sampling_tries = 100
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
+    sampler_learning_use_goals_cover_version = True # only active if above flag also True
     sampler_disable_classifier = False
 
     # interactive learning parameters

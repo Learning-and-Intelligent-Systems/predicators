@@ -141,12 +141,32 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         # will not be true in most cases. This is a placeholder for better
         # methods to come.
         if CFG.sampler_learning_use_goals:
-            assert goal is not None
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            X_classifier[-1].extend(state[goal_obj])
+            # import pdb; pdb.set_trace()
+            if CFG.sampler_learning_use_goals_cover_version: 
+                assert goal is not None 
+                assert len(goal) == 1 
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 2
+                block = goal_atom.objects[0]
+                target = goal_atom.objects[1] 
+                thr_found = False
+                for obj in state.data:
+                    if obj.type.name == "target_hand_region":
+                        tlb = state.get(obj, "lb")
+                        tub = state.get(obj, "ub")
+                        thr_found = True 
+                assert thr_found
+                X_classifier[-1].extend(state[block])
+                X_classifier[-1].extend(state[target])
+                X_classifier[-1].extend(np.array([tlb, tub]))
+                # import pdb; pdb.set_trace()
+            else: 
+                assert goal is not None
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 1
+                goal_obj = goal_atom.objects[0]
+                X_classifier[-1].extend(state[goal_obj])
     X_arr_classifier = np.array(X_classifier)
     # output is binary signal
     y_arr_classifier = np.array([1 for _ in positive_data] +
@@ -168,12 +188,30 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
         # goal object, which must also be used when assembling data for the
         # regressor.
         if CFG.sampler_learning_use_goals:
-            assert goal is not None
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            X_regressor[-1].extend(state[goal_obj])
+            if CFG.sampler_learning_use_goals_cover_version: 
+                assert goal is not None 
+                assert len(goal) == 1 
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 2
+                block = goal_atom.objects[0]
+                target = goal_atom.objects[1] 
+                thr_found = False
+                for obj in state.data:
+                    if obj.type.name == "target_hand_region":
+                        tlb = state.get(obj, "lb")
+                        tub = state.get(obj, "ub")
+                        thr_found = True 
+                assert thr_found
+                X_regressor[-1].extend(state[block])
+                X_regressor[-1].extend(state[target])
+                X_regressor[-1].extend(np.array([tlb, tub]))
+            else: 
+                assert goal is not None
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 1
+                goal_obj = goal_atom.objects[0]
+                X_regressor[-1].extend(state[goal_obj])
         # output is option parameters
         Y_regressor.append(option.params)
     X_arr_regressor = np.array(X_regressor)
@@ -274,11 +312,30 @@ class _LearnedSampler:
         # will not be true in most cases. This is a placeholder for better
         # methods to come.
         if CFG.sampler_learning_use_goals:
-            assert len(goal) == 1
-            goal_atom = next(iter(goal))
-            assert len(goal_atom.objects) == 1
-            goal_obj = goal_atom.objects[0]
-            x_lst.extend(state[goal_obj])  # add goal state
+            # import pdb; pdb.set_trace()
+            if CFG.sampler_learning_use_goals_cover_version: 
+                assert goal is not None 
+                assert len(goal) == 1 
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 2
+                block = goal_atom.objects[0]
+                target = goal_atom.objects[1] 
+                thr_found = False
+                for obj in state.data:
+                    if obj.type.name == "target_hand_region":
+                        tlb = state.get(obj, "lb")
+                        tub = state.get(obj, "ub")
+                        thr_found = True 
+                assert thr_found
+                x_lst.extend(state[block])
+                x_lst.extend(state[target])
+                x_lst.extend(np.array([tlb, tub]))
+            else: 
+                assert len(goal) == 1
+                goal_atom = next(iter(goal))
+                assert len(goal_atom.objects) == 1
+                goal_obj = goal_atom.objects[0]
+                x_lst.extend(state[goal_obj])  # add goal state
         x = np.array(x_lst)
         num_rejections = 0
         if CFG.sampler_disable_classifier:
