@@ -385,6 +385,8 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # We assume that the robot is already close enough to the target
         # position that IK will succeed with one call, so validate is False.
+        # Furthermore, updating the state of the robot during simulation, which
+        # validate=True would do, is risky and discouraged by PyBullet.
         joint_values = inverse_kinematics(
             self._fetch_id,
             self._ee_id,
