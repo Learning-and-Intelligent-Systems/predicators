@@ -6,7 +6,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.structs import Action, InteractionRequest, \
     InteractionResult, Predicate, GroundAtom, GroundAtomsHoldQuery
 from predicators.src.main import _run_pipeline
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src import utils
 from predicators.src.settings import CFG
 
@@ -82,7 +82,7 @@ def test_interaction():
         "num_test_tasks": 1,
         "num_online_learning_cycles": 1
     })
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     approach = _MockApproach(env.predicates, env.options, env.types,
                              env.action_space, train_tasks)

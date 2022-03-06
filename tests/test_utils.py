@@ -2,13 +2,13 @@
 
 import os
 import time
-from typing import Iterator, Tuple, Type as TypingType
+from typing import Iterator, Tuple, Optional, Type as TypingType
 import pytest
 import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory
+    LowLevelTrajectory, DefaultState
 from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
     _get_predicates_by_names
 from predicators.src.envs import CoverEnv
@@ -261,6 +261,22 @@ def test_run_policy_with_simulator():
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
 
+    # Test with monitor.
+    class _NullMonitor(utils.Monitor):
+
+        def observe(self, state: State, action: Optional[Action]) -> None:
+            pass
+
+    monitor = _NullMonitor()
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           monitor=monitor)
+    assert len(traj.states) == 4
+    assert len(traj.actions) == 3
+
 
 def test_option_plan_to_policy():
     """Tests for option_plan_to_policy()."""
@@ -278,17 +294,17 @@ def test_option_plan_to_policy():
 
     params_space = Box(0, 1, (1, ))
 
-    def _policy(_1, _2, _3, p):
+    def policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(s, _2, _3, p):
+    def initiable(s, _2, _3, p):
         return p > 0.25 and s[cup][0] < 1
 
-    def _terminal(s, _1, _2, _3):
+    def terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
 
     parameterized_option = ParameterizedOption("Move", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     params = [0.1]
     option = parameterized_option.ground([], params)
     plan = [option]
@@ -317,6 +333,30 @@ def test_option_plan_to_policy():
     with pytest.raises(utils.OptionPlanExhausted):
         # Ran out of options
         policy(state)
+
+
+def test_action_arrs_to_policy():
+    """Tests for action_arrs_to_policy()."""
+    action_arrs = [
+        np.zeros(2, dtype=np.float32),
+        np.ones(2, dtype=np.float32),
+        np.zeros(2, dtype=np.float32),
+    ]
+
+    state = DefaultState
+    policy = utils.action_arrs_to_policy(action_arrs)
+    action = policy(state)
+    assert isinstance(action, Action)
+    assert np.allclose(action.arr, action_arrs[0])
+    action = policy(state)
+    assert np.allclose(action.arr, action_arrs[1])
+    action = policy(state)
+    assert np.allclose(action.arr, action_arrs[2])
+    with pytest.raises(IndexError):
+        # Ran out of actions.
+        policy(state)
+    # Original list should not be modified.
+    assert len(action_arrs) == 3
 
 
 def test_strip_predicate():
@@ -826,6 +866,86 @@ def test_find_substitution():
     found, assignment = utils.find_substitution(kb13, q13)
     assert found
     assert assignment == {var3: plate0, var0: cup0}
+
+
+def test_LinearChainParameterizedOption():
+    """Tests for LinearChainParameterizedOption()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state = State({cup: [0.0], plate: [1.0, 1.2]})
+
+    # This parameterized option takes the action [-4] twice and terminates.
+    def _initiable(_1, m, _3, _4):
+        m["num_steps"] = 0
+        return True
+
+    def _policy(_1, m, _3, _4):
+        m["num_steps"] += 1
+        return Action(np.array([-4]))
+
+    def _terminal(_1, m, _3, _4):
+        return m["num_steps"] >= 2
+
+    param_option0 = ParameterizedOption("dummy0", [cup_type],
+                                        Box(0.1, 1, (1, )), _policy,
+                                        _initiable, _terminal)
+
+    # This parameterized option takes the action [2] four times and terminates.
+    def _policy(_1, m, _3, _4):
+        m["num_steps"] += 1
+        return Action(np.array([2]))
+
+    def _terminal(_1, m, _3, _4):
+        return m["num_steps"] >= 4
+
+    param_option1 = ParameterizedOption("dummy1", [cup_type],
+                                        Box(0.1, 1, (1, )), _policy,
+                                        _initiable, _terminal)
+
+    children = [param_option0, param_option1]
+    chain_param_opt = utils.LinearChainParameterizedOption("chain", children)
+    assert chain_param_opt.types == [cup_type]
+    assert np.allclose(chain_param_opt.params_space.low, [0.1])
+    assert np.allclose(chain_param_opt.params_space.high, [1.0])
+    chain_option = chain_param_opt.ground([cup], [0.5])
+    assert chain_option.objects == [cup]
+
+    assert chain_option.initiable(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == 2
+    assert chain_option.terminal(state)
+
+    # Cannot initialize with empty children.
+    with pytest.raises(AssertionError):
+        utils.LinearChainParameterizedOption("chain", [])
+
+    # Test that AssertionError is raised when options don't chain.
+    param_option2 = ParameterizedOption(
+        "dummy2", [cup_type], Box(0.1, 1, (1, )),
+        lambda _1, _2, _3, _4: Action(np.array([0])),
+        lambda _1, _2, _3, _4: False, lambda _1, _2, _3, _4: False)
+
+    children = [param_option0, param_option2]
+    chain_param_opt = utils.LinearChainParameterizedOption("chain2", children)
+    chain_option = chain_param_opt.ground([cup], [0.5])
+    assert chain_option.initiable(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    assert chain_option.policy(state).arr[0] == -4
+    assert not chain_option.terminal(state)
+    with pytest.raises(AssertionError):
+        chain_option.policy(state)
 
 
 def test_nsrt_methods():
@@ -1483,6 +1603,46 @@ def test_create_pddl():
   (:goal (and (Covers block0 target0)))
 )
 """
+
+
+def test_VideoMonitor():
+    """Tests for VideoMonitor()."""
+    env = CoverEnv()
+    monitor = utils.VideoMonitor(env.render)
+    policy = lambda _: Action(env.action_space.sample())
+    task = env.get_task("test", 0)
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=2,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 3
+    assert len(traj.actions) == 2
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
+
+
+def test_SimulateVideoMonitor():
+    """Tests for SimulateVideoMonitor()."""
+    env = CoverEnv()
+    task = env.get_task("test", 0)
+    monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    policy = lambda _: Action(env.action_space.sample())
+    traj = utils.run_policy(policy,
+                            env,
+                            "test",
+                            0,
+                            task.goal_holds,
+                            max_num_steps=2,
+                            monitor=monitor)
+    assert not task.goal_holds(traj.states[-1])
+    assert len(traj.states) == 3
+    assert len(traj.actions) == 2
+    video = monitor.get_video()
+    assert len(video) == len(traj.states)
 
 
 def test_save_video():

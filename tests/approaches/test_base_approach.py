@@ -48,7 +48,7 @@ def test_base_approach():
     action_space = Box(0, 0.5, (1, ))
     params_space = Box(0, 1, (1, ))
 
-    def _policy(_1, _2, _3, p):
+    def policy(_1, _2, _3, p):
         return Action(np.clip(p, a_min=None, a_max=0.45))
 
     predicates = {pred1, pred2}
@@ -56,9 +56,9 @@ def test_base_approach():
     options = {
         ParameterizedOption("Move", [],
                             params_space,
-                            _policy,
-                            _initiable=None,
-                            _terminal=None)
+                            policy,
+                            initiable=None,
+                            terminal=None)
     }
     goal = {pred1([cup, plate1])}
     task = Task(state, goal)

@@ -1,7 +1,8 @@
 """General utility methods."""
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import abc
 import argparse
 import functools
 import gc
@@ -267,10 +268,97 @@ def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
     return new_atoms
 
 
-def run_policy(policy: Callable[[State],
-                                Action], env: BaseEnv, train_or_test: str,
-               task_idx: int, termination_function: Callable[[State], bool],
-               max_num_steps: int) -> LowLevelTrajectory:
+class LinearChainParameterizedOption(ParameterizedOption):
+    """A parameterized option implemented via a sequence of "child"
+    parameterized options.
+
+    This class is meant to help ParameterizedOption manual design.
+
+    The children are executed in order starting with the first in the sequence
+    and transitioning when the terminal function of each child is hit.
+
+    The children are assumed to chain together, so the initiable of the next
+    child should always be True when the previous child terminates. If this
+    is not the case, an AssertionError is raised.
+
+    The children must all have the same types and params_space, which in turn
+    become the types and params_space for this ParameterizedOption.
+
+    The LinearChainParameterizedOption has memory, which stores the current
+    child index.
+    """
+
+    def __init__(self, name: str,
+                 children: Sequence[ParameterizedOption]) -> None:
+        assert len(children) > 0
+        self._children = children
+
+        # Make sure that the types and params spaces are consistent.
+        types = children[0].types
+        params_space = children[0].params_space
+        for i in range(1, len(self._children)):
+            child = self._children[i]
+            assert types == child.types
+            assert np.allclose(params_space.low, child.params_space.low)
+            assert np.allclose(params_space.high, child.params_space.high)
+
+        super().__init__(name,
+                         types,
+                         params_space,
+                         policy=self._policy,
+                         initiable=self._initiable,
+                         terminal=self._terminal)
+
+    def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
+                   params: Array) -> bool:
+        # Reset the current child to the first one.
+        memory["current_child_index"] = 0
+        current_child = self._children[0]
+        return current_child.initiable(state, memory, objects, params)
+
+    def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
+                params: Array) -> Action:
+        # Check if the current child has terminated.
+        current_index = memory["current_child_index"]
+        current_child = self._children[current_index]
+        if current_child.terminal(state, memory, objects, params):
+            # Move on to the next child.
+            current_index += 1
+            memory["current_child_index"] = current_index
+            current_child = self._children[current_index]
+            assert current_child.initiable(state, memory, objects, params)
+        return current_child.policy(state, memory, objects, params)
+
+    def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
+        # Check if the last child has terminated.
+        current_index = memory["current_child_index"]
+        if current_index < len(self._children) - 1:
+            return False
+        current_child = self._children[current_index]
+        return current_child.terminal(state, memory, objects, params)
+
+
+class Monitor(abc.ABC):
+    """Observes states and actions during environment interaction."""
+
+    @abc.abstractmethod
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        """Record a state and the action that is about to be taken.
+
+        On the last timestep of a trajectory, no action is taken, so
+        action is None.
+        """
+        raise NotImplementedError("Override me!")
+
+
+def run_policy(policy: Callable[[State], Action],
+               env: BaseEnv,
+               train_or_test: str,
+               task_idx: int,
+               termination_function: Callable[[State], bool],
+               max_num_steps: int,
+               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 
@@ -286,20 +374,26 @@ def run_policy(policy: Callable[[State],
     if not termination_function(state):
         for _ in range(max_num_steps):
             act = policy(state)
+            if monitor is not None:
+                monitor.observe(state, act)
             state = env.step(act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
+    if monitor is not None:
+        monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
 
 
-def run_policy_with_simulator(policy: Callable[[State], Action],
-                              simulator: Callable[[State, Action],
-                                                  State], init_state: State,
-                              termination_function: Callable[[State], bool],
-                              max_num_steps: int) -> LowLevelTrajectory:
+def run_policy_with_simulator(
+        policy: Callable[[State], Action],
+        simulator: Callable[[State, Action], State],
+        init_state: State,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
     *** This function should not be used with any core code, because we want
@@ -322,26 +416,17 @@ def run_policy_with_simulator(policy: Callable[[State], Action],
     if not termination_function(state):
         for _ in range(max_num_steps):
             act = policy(state)
+            if monitor is not None:
+                monitor.observe(state, act)
             state = simulator(state, act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
+    if monitor is not None:
+        monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
-
-
-def policy_with_callback(
-        policy: Callable[[State], Action],
-        callback: Callable[[State], None]) -> Callable[[State], Action]:
-    """Create a policy that first calls callback on the state, and then calls
-    the given policy."""
-
-    def _wrapped_policy(s: State) -> Action:
-        callback(s)
-        return policy(s)
-
-    return _wrapped_policy
 
 
 class ExceptionWithInfo(Exception):
@@ -388,6 +473,19 @@ def option_plan_to_policy(
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
+
+    return _policy
+
+
+def action_arrs_to_policy(
+        action_arrs: Sequence[Array]) -> Callable[[State], Action]:
+    """Create a policy that executes action arrays in sequence."""
+
+    queue = list(action_arrs)  # don't modify original, just in case
+
+    def _policy(s: State) -> Action:
+        del s  # unused
+        return Action(queue.pop(0))
 
     return _policy
 
@@ -1250,6 +1348,45 @@ def create_pddl_problem(objects: Collection[Object],
 """
 
 
+@dataclass
+class VideoMonitor(Monitor):
+    """A monitor that renders each state and action encountered.
+
+    The render_fn is generally env.render. Note that the state is unused
+    because the environment should use its current internal state to
+    render.
+    """
+    _render_fn: Callable[[Optional[Action]], List[Image]]
+    _video: Video = field(init=False, default_factory=list)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        del state  # unused
+        self._video.extend(self._render_fn(action))
+
+    def get_video(self) -> Video:
+        """Return the video."""
+        return self._video
+
+
+@dataclass
+class SimulateVideoMonitor(Monitor):
+    """A monitor that calls render_state on each state and action seen.
+
+    This monitor is meant for use with run_policy_with_simulator, as
+    opposed to VideoMonitor, which is meant for use with run_policy.
+    """
+    _task: Task
+    _render_state_fn: Callable[[State, Task, Optional[Action]], List[Image]]
+    _video: Video = field(init=False, default_factory=list)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        self._video.extend(self._render_state_fn(state, self._task, action))
+
+    def get_video(self) -> Video:
+        """Return the video."""
+        return self._video
+
+
 def create_video_from_partial_refinements(
     partial_refinements: Sequence[Tuple[Sequence[_GroundNSRT],
                                         Sequence[_Option]]],
@@ -1270,15 +1407,14 @@ def create_video_from_partial_refinements(
         _, plan = max(partial_refinements, key=lambda x: len(x[1]))
         policy = option_plan_to_policy(plan)
         video: Video = []
-        task = env.get_task(train_or_test, task_idx)
         state = env.reset(train_or_test, task_idx)
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
             except OptionPlanExhausted:
-                video.extend(env.render(state, task, None))
+                video.extend(env.render())
                 break
-            video.extend(env.render(state, task, act))
+            video.extend(env.render(act))
             try:
                 state = env.step(act)
             except EnvironmentFailure:

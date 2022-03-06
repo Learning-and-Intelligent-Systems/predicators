@@ -97,22 +97,22 @@ class PlayroomEnv(BlocksEnv):
         # Options
         self._Pick = ParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z, rotation]
+            # params: [rotation]
             "Pick",
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4, )),
-            _policy=self._Pick_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
+            params_space=Box(-1, 1, (1, )),
+            policy=self._Pick_policy,
+            initiable=self._NextToTable_initiable,
+            terminal=utils.onestep_terminal)
         self._Stack = ParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # params: [delta x, delta y, delta z, rotation]
+            # params: [rotation]
             "Stack",
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4, )),
-            _policy=self._Stack_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
+            params_space=Box(-1, 1, (1, )),
+            policy=self._Stack_policy,
+            initiable=self._NextToTable_initiable,
+            terminal=utils.onestep_terminal)
         self._PutOnTable = ParameterizedOption(
             # variables: [robot]
             # params: [x, y, rotation] (normalized coords on table surface)
@@ -120,27 +120,27 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type],
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
-            _policy=self._PutOnTable_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._PutOnTable_policy,
+            initiable=self._NextToTable_initiable,
+            terminal=utils.onestep_terminal)
         self._MoveToDoor = ParameterizedOption(
             # variables: [robot, region, door]
             # params: [dx, dy, rotation]
             "MoveToDoor",
             types=[self._robot_type, self._region_type, self._door_type],
             params_space=Box(-1, 1, (3, )),
-            _policy=self._MoveToDoor_policy,  # uses robot, door
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
+            policy=self._MoveToDoor_policy,  # uses robot, door
+            initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            terminal=utils.onestep_terminal)
         self._MoveDoorToTable = ParameterizedOption(
             # variables: [robot, region]
             # params: [x, y, rotation] (x, y normalized)
             "MoveDoorToTable",
             types=[self._robot_type, self._region_type],
             params_space=Box(-1, 1, (3, )),
-            _policy=self._MoveToTable_policy,  # uses robot
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
+            policy=self._MoveToTable_policy,  # uses robot
+            initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            terminal=utils.onestep_terminal)
         self._MoveDoorToDial = ParameterizedOption(
             # variables: [robot, region, dial]
             # params: [dx, dy, rotation]
@@ -148,9 +148,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._region_type, self._dial_type],
             params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
                              high=np.array([4.0, 4.0, 1.0])),
-            _policy=self._MoveToDial_policy,  # uses robot, dial
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
+            policy=self._MoveToDial_policy,  # uses robot, dial
+            initiable=self._MoveFromRegion_initiable,  # uses robot, region
+            terminal=utils.onestep_terminal)
         self._OpenDoor = ParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
@@ -158,9 +158,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDoor_policy,
-            _initiable=self._ToggleDoor_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDoor_policy,
+            initiable=self._ToggleDoor_initiable,
+            terminal=utils.onestep_terminal)
         self._CloseDoor = ParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
@@ -168,9 +168,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDoor_policy,
-            _initiable=self._ToggleDoor_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDoor_policy,
+            initiable=self._ToggleDoor_initiable,
+            terminal=utils.onestep_terminal)
         self._TurnOnDial = ParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
@@ -178,9 +178,9 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDial_policy,
-            _initiable=self._ToggleDial_initiable,
-            _terminal=utils.onestep_terminal)
+            policy=self._ToggleDial_policy,
+            initiable=self._ToggleDial_initiable,
+            terminal=utils.onestep_terminal)
         self._TurnOffDial = ParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
@@ -188,10 +188,10 @@ class PlayroomEnv(BlocksEnv):
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDial_policy,
-            _initiable=self._ToggleDial_initiable,
-            _terminal=utils.onestep_terminal)
-        # Objects
+            policy=self._ToggleDial_policy,
+            initiable=self._ToggleDial_initiable,
+            terminal=utils.onestep_terminal)
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._door1 = Object("door1", self._door_type)
         self._door2 = Object("door2", self._door_type)
@@ -335,10 +335,10 @@ class PlayroomEnv(BlocksEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
         fig = plt.figure(figsize=(20, 16))
@@ -724,8 +724,7 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1],
-                    0.0].astype(np.float32)
+        arr = np.r_[block_pose, params[-1], 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -739,7 +738,12 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1],
+        relative_grasp = np.array([
+            0.,
+            0.,
+            self.block_size,
+        ])
+        arr = np.r_[block_pose + relative_grasp, params[-1],
                     1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
