@@ -39,7 +39,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
 
 
 def _get_exposed_pybullet_env():
-    global EXPOSED_PYBULLET_ENV
+    global EXPOSED_PYBULLET_ENV  # pylint:disable=global-statement
     if EXPOSED_PYBULLET_ENV is None:
         EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
     return EXPOSED_PYBULLET_ENV
