@@ -110,6 +110,17 @@ def test_main():
         "--num_test_tasks", "3", "--predicate_mlp_classifier_max_itr", "100"
     ]
     main()
+    # Cover the case where online learning stops after collecting max number of
+    # transitions.
+    sys.argv = [
+        "dummy", "--env", "cover", "--approach", "interactive_learning",
+        "--seed", "123", "--num_online_learning_cycles", "1",
+        "--online_learning_max_transitions", "3",
+        "--excluded_predicates", "Covers",
+        "--interactive_num_ensemble_members", "1", "--num_train_tasks", "3",
+        "--num_test_tasks", "3", "--predicate_mlp_classifier_max_itr", "100"
+    ]
+    main()
 
 
 def test_tamp_approach_failure():
