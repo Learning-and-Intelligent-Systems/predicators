@@ -43,6 +43,11 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Expose the On predicate."""
         return self._On
 
+    @property
+    def OnTable(self):
+        """Expose the OnTable predicate."""
+        return self._OnTable
+
     def set_state(self, state):
         """Forcibly reset the state."""
         self._current_state = state
@@ -61,13 +66,13 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
 
         Returns a copy of the state upon completion.
         """
-        pick_option = self._Pick.ground([self._robot, block], [])
-        assert pick_option.initiable(self._current_state)
+        option = self._Pick.ground([self._robot, block], [])
+        assert option.initiable(self._current_state)
         # Execute the pick option.
         for _ in range(100):
-            if pick_option.terminal(self._current_state):
+            if option.terminal(self._current_state):
                 break
-            action = pick_option.policy(self._current_state)
+            action = option.policy(self._current_state)
             self._current_state = self.step(action)
         else:
             assert False, "Option failed to terminate."
@@ -209,13 +214,13 @@ def test_pybullet_blocks_stacking():
     # Pick block0 to get to a state where we are prepared to stack.
     state = env.execute_pick(block0)
     # Create a stack option.
-    stack_option = env.Stack.ground([robot, block1], [])
-    assert stack_option.initiable(state)
+    option = env.Stack.ground([robot, block1], [])
+    assert option.initiable(state)
     # Execute the stack option.
     for _ in range(100):
-        if stack_option.terminal(state):
+        if option.terminal(state):
             break
-        action = stack_option.policy(state)
+        action = option.policy(state)
         state = env.step(action)
     else:
         assert False, "Option failed to terminate."
@@ -251,13 +256,13 @@ def test_pybullet_blocks_stacking():
         # Pick block0 to get to a state where we are prepared to stack.
         state = env.execute_pick(block0)
         # Create a stack option.
-        stack_option = env.Stack.ground([robot, top_block], [])
-        assert stack_option.initiable(state)
+        option = env.Stack.ground([robot, top_block], [])
+        assert option.initiable(state)
         # Execute the stack option.
         for _ in range(100):
-            if stack_option.terminal(state):
+            if option.terminal(state):
                 break
-            action = stack_option.policy(state)
+            action = option.policy(state)
             state = env.step(action)
         else:
             assert False, "Option failed to terminate."
@@ -288,3 +293,23 @@ def test_pybullet_blocks_putontable():
     assert env.get_state().allclose(init_state)
     # Pick block0 to get to a state where we are prepared to place.
     state = env.execute_pick(block)
+    # Create a PutOnTable option.
+    # The params space is relative, so this should put the block at the center
+    # of the work space.
+    option = env.PutOnTable.ground([robot], [0.5, 0.5])
+    assert option.initiable(state)
+    # Execute the stack option.
+    for _ in range(100):
+        if option.terminal(state):
+            break
+        action = option.policy(state)
+        state = env.step(action)
+    else:
+        assert False, "Option failed to terminate."
+    # The block should now NOT be held.
+    assert state.get(block0, "held") == 0.0
+    # And block0 should be on the table.
+    assert env.OnTable([block0]).holds(state)
+    # Specifically, it should be at the center of the workspace.
+    assert abs(state.get(block0, "pose_x") - (env.x_lb + x_ub) / 2.) < 1e-3
+    assert abs(state.get(block0, "pose_y") - (env.y_lb + y_ub) / 2.) < 1e-3
