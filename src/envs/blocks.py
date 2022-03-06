@@ -25,21 +25,22 @@ class BlocksEnv(BaseEnv):
     table_height = 0.2
     block_size = 0.06
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
-    x_lb = 1.15
-    x_ub = 1.55
+    x_lb = 1.25
+    x_ub = 1.45
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb = 0.4
     y_ub = 1.1
-    robot_init_x = 1.0
-    robot_init_y = 0.7
-    robot_init_z = 0.5
+    pick_z = 0.75
+    robot_init_x = (x_lb + x_ub) / 2
+    robot_init_y = (y_lb + y_ub) / 2
+    robot_init_z = pick_z
     held_tol = 0.5
     open_fingers = 0.04
     closed_fingers = 0.03
+    collision_padding = 1.2
     pick_tol = 0.0001
     on_tol = 0.01
     assert pick_tol < block_size
-    pick_z = 0.75
     num_blocks_train = [3, 4]
     num_blocks_test = [5, 6]
 
@@ -139,9 +140,8 @@ class BlocksEnv(BaseEnv):
             state.get(b, "pose_z")
         ] for b in state if b.is_instance(self._block_type)]
         existing_xys = {(float(p[0]), float(p[1])) for p in poses}
-        # TODO update
-        # if not self._table_xy_is_clear(x, y, existing_xys):
-        #     return next_state
+        if not self._table_xy_is_clear(x, y, existing_xys):
+            return next_state
         # Execute putontable
         next_state.set(block, "pose_x", x)
         next_state.set(block, "pose_y", y)
@@ -370,11 +370,11 @@ class BlocksEnv(BaseEnv):
     def _table_xy_is_clear(self, x: float, y: float,
                            existing_xys: Set[Tuple[float, float]]) -> bool:
         if all(
-                abs(x - other_x) > 2 * self.block_size
+                abs(x - other_x) > self.collision_padding * self.block_size
                 for other_x, _ in existing_xys):
             return True
         if all(
-                abs(y - other_y) > 2 * self.block_size
+                abs(y - other_y) > self.collision_padding * self.block_size
                 for _, other_y in existing_xys):
             return True
         return False
