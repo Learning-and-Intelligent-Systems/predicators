@@ -36,10 +36,10 @@ def inverse_kinematics(
 ) -> Sequence[float]:
     """Runs IK and returns joint values for the given (free) joints.
 
-    If validate is True, the PyBullet IK solver is called multiple times,
-    resetting the robot state each time, until the target position is reached.
-    If the target position is not reached after a maximum number of iters,
-    an exception is raised.
+    If validate is True, the PyBullet IK solver is called multiple
+    times, resetting the robot state each time, until the target
+    position is reached. If the target position is not reached after a
+    maximum number of iters, an exception is raised.
     """
     # Figure out which joint each dimension of the return of IK corresponds to.
     free_joints = []

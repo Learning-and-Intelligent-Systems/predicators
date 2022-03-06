@@ -67,8 +67,6 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # has z equal to self.pick_z, and x and y equal to that of the
                 # block object paramereter. In other words, move the end
                 # effector to high above the block in preparation for picking.
-                # Note that the params space here is trivial (size 0) and
-                # the types are [robot, block].
                 self._move_relative_to_block(
                     "MoveToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
@@ -287,8 +285,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         else:
             joint_values = inverse_kinematics(
                 self._fetch_id,
-                self._ee_id,
-                (rx, ry, rz),
+                self._ee_id, (rx, ry, rz),
                 self._ee_orientation,
                 self._arm_joints,
                 physics_client_id=self._physics_client_id)
