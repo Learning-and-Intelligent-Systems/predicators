@@ -329,7 +329,7 @@ class SupercloudAnalysisResponse(SupercloudResponse):
                 f"is working as expected."
             ]
         self._generated_csv = True
-        message = output.split("AGGREGATED DATA OVER SEEDS:")[1].split(
+        message = output[output.index("Git commit hashes"):].split(
             "Wrote out")[0].strip("\n")
         chunks = self._chunk_message(
             message,
