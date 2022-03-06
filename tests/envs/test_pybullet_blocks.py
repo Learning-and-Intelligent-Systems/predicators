@@ -34,11 +34,16 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._Stack
 
     @property
+    def PutOnTable(self):
+        """Expose the PutOnTable parameterized option."""
+        return self._PutOnTable
+
+    @property
     def On(self):
         """Expose the On predicate."""
         return self._On
 
-    def set_state(self, state) -> None:
+    def set_state(self, state):
         """Forcibly reset the state."""
         self._current_state = state
         self._current_task = None
@@ -47,6 +52,28 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
     def get_state(self):
         """Expose get state."""
         return self._get_state()
+
+    def execute_pick(self, block):
+        """Convenient for tests that want a state where block is held.
+
+        The reason we do it this way instead of setting the state directly
+        is that a holding constraint needs to be created.
+
+        Returns a copy of the state upon completion.
+        """
+        pick_option = self._Pick.ground([self._robot, block], [])
+        assert pick_option.initiable(self._current_state)
+        # Execute the pick option.
+        for _ in range(100):
+            if pick_option.terminal(self._current_state):
+                break
+            action = pick_option.policy(self._current_state)
+            self._current_state = self.step(action)
+        else:
+            assert False, "Option failed to terminate."
+        # The block should now be held.
+        assert self._current_state.get(block, "held") == 1.0
+        return self._current_state.copy()
 
 
 def _get_exposed_pybullet_env():
@@ -179,21 +206,8 @@ def test_pybullet_blocks_stacking():
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
-    # Pick block0 to get to a state where we are prepared to stack. Note that
-    # this has to be done in this way to create the holding constraint.
-    pick_option = env.Pick.ground([robot, block0], [])
-    state = init_state.copy()
-    assert pick_option.initiable(state)
-    # Execute the pick option.
-    for _ in range(100):
-        if pick_option.terminal(state):
-            break
-        action = pick_option.policy(state)
-        state = env.step(action)
-    else:
-        assert False, "Option failed to terminate."
-    # The block should now be held.
-    assert state.get(block0, "held") == 1.0
+    # Pick block0 to get to a state where we are prepared to stack.
+    state = env.execute_pick(block0)
     # Create a stack option.
     stack_option = env.Stack.ground([robot, block1], [])
     assert stack_option.initiable(state)
@@ -235,18 +249,7 @@ def test_pybullet_blocks_stacking():
         env.set_state(state)
         assert env.get_state().allclose(state)
         # Pick block0 to get to a state where we are prepared to stack.
-        pick_option = env.Pick.ground([robot, block0], [])
-        assert pick_option.initiable(state)
-        # Execute the pick option.
-        for _ in range(100):
-            if pick_option.terminal(state):
-                break
-            action = pick_option.policy(state)
-            state = env.step(action)
-        else:
-            assert False, "Option failed to terminate."
-        # The block should now be held.
-        assert state.get(block0, "held") == 1.0
+        state = env.execute_pick(block0)
         # Create a stack option.
         stack_option = env.Stack.ground([robot, top_block], [])
         assert stack_option.initiable(state)
@@ -262,3 +265,26 @@ def test_pybullet_blocks_stacking():
         assert state.get(block0, "held") == 0.0
         # And block0 should be on top_block.
         assert env.On([block0, top_block]).holds(state)
+
+
+def test_pybullet_blocks_putontable():
+    """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
+    env = _get_exposed_pybullet_env()
+    env.seed(123)
+    block = Object("block0", env.block_type)
+    robot = env.robot
+    bx = (env.x_lb + env.x_ub) / 2
+    by = (env.y_lb + env.y_ub) / 2
+    bz = env.table_height
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
+    # Create a simple custom state with one block for testing.
+    init_state = State({
+        robot: np.array([rx, ry, rz, rf]),
+        block: np.array([bx, by, bz, 0.0]),
+    })
+    env.set_state(init_state)
+    assert env.get_state().allclose(init_state)
+    # Pick block0 to get to a state where we are prepared to place.
+    state = env.execute_pick(block)
