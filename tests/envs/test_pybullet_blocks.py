@@ -38,7 +38,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._get_state()
 
 
-def get_exposed_pybullet_env():
+def _get_exposed_pybullet_env():
     global EXPOSED_PYBULLET_ENV
     if EXPOSED_PYBULLET_ENV is None:
         EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
@@ -48,7 +48,7 @@ def get_exposed_pybullet_env():
 def test_pybullet_blocks_reset():
     """Tests for PyBulletBlocksEnv.reset()."""
     utils.reset_config({"env": "pybullet_blocks"})
-    env = get_exposed_pybullet_env()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     for idx, task in enumerate(env.get_train_tasks()):
         state = env.reset("train", idx)
@@ -69,7 +69,7 @@ def test_pybullet_blocks_reset():
 def test_pybullet_blocks_picking():
     """Tests cases for picking blocks in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = get_exposed_pybullet_env()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
