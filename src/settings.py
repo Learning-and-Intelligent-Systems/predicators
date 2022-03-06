@@ -23,7 +23,7 @@ class GlobalSettings:
     # Maximum number of steps to roll out an option policy.
     max_num_steps_option_rollout = 1000
     # Maximum number of steps to run a policy when checking if it solves a task.
-    max_num_steps_check_policy = 100
+    max_num_steps_check_policy = 1000
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
