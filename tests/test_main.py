@@ -115,10 +115,10 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "interactive_learning",
         "--seed", "123", "--num_online_learning_cycles", "1",
-        "--online_learning_max_transitions", "3",
-        "--excluded_predicates", "Covers",
-        "--interactive_num_ensemble_members", "1", "--num_train_tasks", "3",
-        "--num_test_tasks", "3", "--predicate_mlp_classifier_max_itr", "100"
+        "--online_learning_max_transitions", "3", "--excluded_predicates",
+        "Covers", "--interactive_num_ensemble_members", "1",
+        "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "--predicate_mlp_classifier_max_itr", "100"
     ]
     main()
 
