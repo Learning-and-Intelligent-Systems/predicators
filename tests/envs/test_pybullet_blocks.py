@@ -134,13 +134,11 @@ def test_pybullet_blocks_picking():
         # Create an option for picking the block.
         option = env.Pick.ground([robot, block], [])
         assert option.initiable(state)
-        # Execute the option. Also record the actions for use in the next test.
-        pick_actions = []
+        # Execute the option.
         for _ in range(100):
             if option.terminal(state):
                 break
             action = option.policy(state)
-            pick_actions.append(action)
             state = env.step(action)
         else:
             assert False, "Option failed to terminate."
