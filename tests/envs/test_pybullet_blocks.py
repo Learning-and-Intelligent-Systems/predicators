@@ -5,8 +5,9 @@ import pytest
 from predicators.src.envs import PyBulletBlocksEnv
 from predicators.src.structs import Object, State, Action
 from predicators.src import utils
+from predicators.src.settings import CFG
 
-GUI_ON = True  # toggle for debugging
+GUI_ON = False  # toggle for debugging
 EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
 
 
@@ -164,17 +165,17 @@ def test_pybullet_blocks_stacking():
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
     robot = env.robot
-    bx = (env.x_lb + env.x_ub) / 2
+    bx0 = (env.x_lb + env.x_ub) / 2
     by0 = (env.y_lb + env.y_ub) / 2 - env.block_size
     by1 = (env.y_lb + env.y_ub) / 2 + env.block_size
-    bz = env.table_height
+    bz0 = env.table_height
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
     rf = env.open_fingers
     # Create a state with two blocks.
     init_state = State({
         robot: np.array([rx, ry, rz, rf]),
-        block0: np.array([bx, by0, bz, 0.0]),
-        block1: np.array([bx, by1, bz, 0.0]),
+        block0: np.array([bx0, by0, bz0, 0.0]),
+        block1: np.array([bx0, by1, bz0, 0.0]),
     })
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
@@ -203,11 +204,61 @@ def test_pybullet_blocks_stacking():
         action = stack_option.policy(state)
         state = env.step(action)
     else:
-        assert False, "Option failed to terminate."    
+        assert False, "Option failed to terminate."
     # The block should now NOT be held.
     assert state.get(block0, "held") == 0.0
     # And block0 should be on block1.
     assert env.On([block0, block1]).holds(state)
     # Test extremes: stacking a block on the tallest possible tower, at each
     # of the possible corners.
-
+    half_size = env.block_size / 2
+    corners = [
+        (env.x_lb + half_size, env.y_lb + half_size),
+        (env.x_ub - half_size, env.y_lb + half_size),
+        (env.x_lb + half_size, env.y_ub - half_size),
+        (env.x_ub - half_size, env.y_ub - half_size),
+    ]
+    max_num_blocks = max(max(CFG.blocks_num_blocks_train),
+                         max(CFG.blocks_num_blocks_test))
+    block_to_z = {
+        Object(f"block{i+1}", env.block_type): bz0 + i * env.block_size
+        for i in range(max_num_blocks - 1)
+    }
+    top_block = max(block_to_z, key=block_to_z.get)
+    for (bx, by) in corners:
+        state = State({
+            robot: np.array([rx, ry, rz, rf]),
+            block0: np.array([bx0, by0, bz0, 0.0]),
+            **{b: np.array([bx, by, bz, 0.0])
+               for b, bz in block_to_z.items()}
+        })
+        env.set_state(state)
+        assert env.get_state().allclose(state)
+        # Pick block0 to get to a state where we are prepared to stack.
+        pick_option = env.Pick.ground([robot, block0], [])
+        assert pick_option.initiable(state)
+        # Execute the pick option.
+        for _ in range(100):
+            if pick_option.terminal(state):
+                break
+            action = pick_option.policy(state)
+            state = env.step(action)
+        else:
+            assert False, "Option failed to terminate."
+        # The block should now be held.
+        assert state.get(block0, "held") == 1.0
+        # Create a stack option.
+        stack_option = env.Stack.ground([robot, top_block], [])
+        assert stack_option.initiable(state)
+        # Execute the stack option.
+        for _ in range(100):
+            if stack_option.terminal(state):
+                break
+            action = stack_option.policy(state)
+            state = env.step(action)
+        else:
+            assert False, "Option failed to terminate."
+        # The block should now NOT be held.
+        assert state.get(block0, "held") == 0.0
+        # And block0 should be on top_block.
+        assert env.On([block0, top_block]).holds(state)

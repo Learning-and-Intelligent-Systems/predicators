@@ -42,8 +42,6 @@ class BlocksEnv(BaseEnv):
     pick_tol = 0.0001
     on_tol = 0.01
     assert pick_tol < block_size
-    num_blocks_train = [3, 4]
-    num_blocks_test = [5, 6]
 
     def __init__(self) -> None:
         super().__init__()
@@ -183,12 +181,12 @@ class BlocksEnv(BaseEnv):
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               possible_num_blocks=self.num_blocks_train,
+                               possible_num_blocks=CFG.blocks_num_blocks_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               possible_num_blocks=self.num_blocks_test,
+                               possible_num_blocks=CFG.blocks_num_blocks_test,
                                rng=self._test_rng)
 
     @property

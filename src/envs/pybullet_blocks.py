@@ -239,7 +239,8 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # Create blocks. Note that we create the maximum number once, and then
         # remove blocks from view based on the number involved in the state.
-        num_blocks = max(max(self.num_blocks_train), max(self.num_blocks_test))
+        num_blocks = max(max(CFG.blocks_num_blocks_train),
+                         max(CFG.blocks_num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
         self._block_id_to_block: Dict[int, Object] = {}
 
