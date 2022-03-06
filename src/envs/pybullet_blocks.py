@@ -110,8 +110,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             ])
 
         types = [self._robot_type]
-        params_space = Box(np.array([self.x_lb, self.y_lb]),
-                           np.array([self.x_ub, self.y_ub]))
+        params_space = Box(0, 1, (2, ))  # normalized w.r.t. workspace
         self._PutOnTable = utils.LinearChainParameterizedOption(
             "PutOnTable",
             [
@@ -639,9 +638,14 @@ class PyBulletBlocksEnv(BlocksEnv):
                 state: State, objects: Sequence[Object],
                 params: Array) -> Tuple[Pose3D, Pose3D]:
             robot, = objects
-            px, py = params
+            # De-normalize parameters to actual table coordinates.
+            x_norm, y_norm = params
+            x = self.x_lb + self.block_size / 2 + (self.x_ub - self.x_lb -
+                                                   self.block_size) * x_norm
+            y = self.y_lb + self.block_size / 2 + (self.y_ub - self.y_lb -
+                                                   self.block_size) * y_norm
             current_pose = (state[robot][0], state[robot][1], state[robot][2])
-            table_pose = (px, py, self.table_height)
+            table_pose = (x, y, self.table_height)
             target_pose = self._convert_rel_abs_to_abs(table_pose,
                                                        rel_or_abs_target_pose,
                                                        rel_or_abs)

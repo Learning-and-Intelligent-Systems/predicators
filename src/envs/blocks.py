@@ -84,8 +84,7 @@ class BlocksEnv(BaseEnv):
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable",
             types=[self._robot_type],
-            params_space=Box(np.array([self.x_lb, self.y_lb]),
-                             np.array([self.x_ub, self.y_ub])),
+            params_space=Box(0, 1, (2, )),
             policy=self._PutOnTable_policy,
             initiable=utils.always_initiable,
             terminal=utils.onestep_terminal)
@@ -457,7 +456,12 @@ class BlocksEnv(BaseEnv):
     def _PutOnTable_policy(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> Action:
         del state, memory, objects  # unused
-        x, y = params
+        # De-normalize parameters to actual table coordinates.
+        x_norm, y_norm = params
+        x = self.x_lb + self.block_size / 2 + (self.x_ub - self.x_lb -
+                                               self.block_size) * x_norm
+        y = self.y_lb + self.block_size / 2 + (self.y_ub - self.y_lb -
+                                               self.block_size) * y_norm
         z = self.table_height + 0.5 * self.block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)

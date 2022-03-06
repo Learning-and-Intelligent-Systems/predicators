@@ -7,7 +7,7 @@ from predicators.src.structs import Object, State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 
-GUI_ON = False  # toggle for debugging
+GUI_ON = True  # toggle for debugging
 EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
 
 
@@ -307,9 +307,9 @@ def test_pybullet_blocks_putontable():
     else:
         assert False, "Option failed to terminate."
     # The block should now NOT be held.
-    assert state.get(block0, "held") == 0.0
-    # And block0 should be on the table.
-    assert env.OnTable([block0]).holds(state)
+    assert state.get(block, "held") == 0.0
+    # And block should be on the table.
+    assert env.OnTable([block]).holds(state)
     # Specifically, it should be at the center of the workspace.
-    assert abs(state.get(block0, "pose_x") - (env.x_lb + x_ub) / 2.) < 1e-3
-    assert abs(state.get(block0, "pose_y") - (env.y_lb + y_ub) / 2.) < 1e-3
+    assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-3
+    assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
