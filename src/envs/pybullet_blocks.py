@@ -23,7 +23,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 1.0
     _max_vel_norm: float = 0.5
-    _grasp_tol: float = 0.001
+    _grasp_tol: float = 0.05
     _grasp_offset_z: float = 0.01
 
     # Table parameters.
@@ -396,8 +396,9 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     targetPosition=target_val,
                                     physicsClientId=self._physics_client_id)
 
-        # If not currently holding something, check for a new grasp.
-        if self._held_constraint_id is None:
+        # If not currently holding something, and gripper is closing,
+        # check for a new grasp.
+        if self._held_constraint_id is None and finger_action < 0:
             # Detect whether an object is held based on distance.
             self._held_block_id = self._detect_held_block()
             if self._held_block_id is not None:
@@ -467,16 +468,25 @@ class PyBulletBlocksEnv(BlocksEnv):
         return state
 
     def _detect_held_block(self) -> Optional[int]:
-        """Return the PyBullet object ID of the held object if one exists."""
+        """Return the PyBullet object ID of the held object if one exists.
+
+        If multiple blocks are within the grasp tolerance, return the one
+        that is closest.
+        """
+        closest_held_block = None
+        closest_held_block_dist = float("inf")
         for block_id in self._block_id_to_block:
             for finger_id in [self._left_finger_id, self._right_finger_id]:
                 closest_points = p.getClosestPoints(self._fetch_id, block_id,
                                                     finger_id)
                 for point in closest_points:
                     contact_distance = point[8]
-                    if contact_distance < self._grasp_tol:
-                        return block_id
-        return None
+                    if contact_distance > self._grasp_tol:
+                        continue
+                    if contact_distance < closest_held_block_dist:
+                        closest_held_block = block_id
+                        closest_held_block_dist = contact_distance
+        return closest_held_block
 
     ########################## Parameterized Options ##########################
 
