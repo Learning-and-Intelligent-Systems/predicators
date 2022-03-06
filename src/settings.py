@@ -89,6 +89,8 @@ class GlobalSettings:
     pybullet_draw_debug = False
     pybullet_draw_debug_lifetime = 3
     pybullet_sim_steps_per_action = 20
+    pybullet_max_ik_iters = 100
+    pybullet_ik_tol = 1e-3
 
     # parameters for approaches
     random_options_max_tries = 100

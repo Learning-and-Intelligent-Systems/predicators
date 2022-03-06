@@ -229,7 +229,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
 
         # Determine the initial joint values.
-        self._robot_home_pose = (self.robot_init_x, self.robot_init_y, self.robot_init_z)
+        self._robot_home_pose = (self.robot_init_x, self.robot_init_y,
+                                 self.robot_init_z)
         self._initial_joint_values = inverse_kinematics(
             self._fetch_id,
             self._ee_id,
@@ -262,7 +263,10 @@ class PyBulletBlocksEnv(BlocksEnv):
         return state
 
     def _reset_from_state(self, state: State) -> None:
-        """Helper for reset. Also useful for testing."""
+        """Helper for reset.
+
+        Also useful for testing.
+        """
         # Tear down the old PyBullet scene.
         if self._held_constraint_id is not None:
             p.removeConstraint(self._held_constraint_id,
@@ -323,17 +327,14 @@ class PyBulletBlocksEnv(BlocksEnv):
                 self._block_orientation,
                 physicsClientId=self._physics_client_id)
 
-        # while True:
-        #     p.stepSimulation(physicsClientId=self._physics_client_id)
-
         # Assert that the state was properly reconstructed.
-        # reconstructed_state = self._get_state()
-        # if not reconstructed_state.allclose(state):
-        #     print("Desired state:")
-        #     print(state.pretty_str())
-        #     print("Reconstructed state:")
-        #     print(reconstructed_state.pretty_str())
-        #     raise ValueError("Could not reconstruct state.")
+        reconstructed_state = self._get_state()
+        if not reconstructed_state.allclose(state):
+            print("Desired state:")
+            print(state.pretty_str())
+            print("Reconstructed state:")
+            print(reconstructed_state.pretty_str())
+            raise ValueError("Could not reconstruct state.")
 
     def _create_block(self, block_num: int) -> int:
         """Returns the body ID."""
@@ -385,13 +386,16 @@ class PyBulletBlocksEnv(BlocksEnv):
         current_position = ee_link_state[4]
         target_position = np.add(current_position, ee_delta)
 
+        # We assume that the robot is already closed enough to the target
+        # position that IK will succeed with one call, so validate is False.
         joint_values = inverse_kinematics(
             self._fetch_id,
             self._ee_id,
             target_position,
             self._ee_orientation,
             self._arm_joints,
-            physics_client_id=self._physics_client_id)
+            physics_client_id=self._physics_client_id,
+            validate=False)
 
         # Set arm joint motors.
         for joint_idx, joint_val in zip(self._arm_joints, joint_values):
