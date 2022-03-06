@@ -298,7 +298,13 @@ def _save_test_results(results: Metrics,
     outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
                f"{online_learning_cycle}.pkl")
     # Save CFG alongside results.
-    outdata = {"config": CFG, "results": results.copy()}
+    git_commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"
+                                               ]).decode("ascii").strip()
+    outdata = {
+        "config": CFG,
+        "results": results.copy(),
+        "git_commit_hash": git_commit_hash
+    }
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
     print(f"Test results: {outdata['results']}")
