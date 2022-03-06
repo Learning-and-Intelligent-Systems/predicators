@@ -6,7 +6,7 @@ from predicators.src.envs import PyBulletBlocksEnv
 from predicators.src.structs import Object, State, Action
 from predicators.src import utils
 
-GUI_ON = False  # toggle for debugging
+GUI_ON = True  # toggle for debugging
 EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
 
 
@@ -26,6 +26,16 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
     def Pick(self):
         """Expose the Pick parameterized option."""
         return self._Pick
+
+    @property
+    def Stack(self):
+        """Expose the Stack parameterized option."""
+        return self._Stack
+
+    @property
+    def On(self):
+        """Expose the On predicate."""
+        return self._On
 
     def set_state(self, state) -> None:
         """Forcibly reset the state."""
@@ -144,3 +154,60 @@ def test_pybullet_blocks_picking():
             assert False, "Option failed to terminate."
         # The block should now be held.
         assert state.get(block, "held") == 1.0
+
+
+def test_pybullet_blocks_stacking():
+    """Tests cases for stacking blocks in PyBulletBlocksEnv."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
+    env = _get_exposed_pybullet_env()
+    env.seed(123)
+    block0 = Object("block0", env.block_type)
+    block1 = Object("block1", env.block_type)
+    robot = env.robot
+    bx = (env.x_lb + env.x_ub) / 2
+    by0 = (env.y_lb + env.y_ub) / 2 - env.block_size
+    by1 = (env.y_lb + env.y_ub) / 2 + env.block_size
+    bz = env.table_height
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
+    # Create a state with two blocks.
+    init_state = State({
+        robot: np.array([rx, ry, rz, rf]),
+        block0: np.array([bx, by0, bz, 0.0]),
+        block1: np.array([bx, by1, bz, 0.0]),
+    })
+    env.set_state(init_state)
+    assert env.get_state().allclose(init_state)
+    # Pick block0 to get to a state where we are prepared to stack. Note that
+    # this has to be done in this way to create the holding constraint.
+    pick_option = env.Pick.ground([robot, block0], [])
+    state = init_state.copy()
+    assert pick_option.initiable(state)
+    # Execute the pick option.
+    for _ in range(100):
+        if pick_option.terminal(state):
+            break
+        action = pick_option.policy(state)
+        state = env.step(action)
+    else:
+        assert False, "Option failed to terminate."
+    # The block should now be held.
+    assert state.get(block0, "held") == 1.0
+    # Create a stack option.
+    stack_option = env.Stack.ground([robot, block1], [])
+    assert stack_option.initiable(state)
+    # Execute the stack option.
+    for _ in range(100):
+        if stack_option.terminal(state):
+            break
+        action = stack_option.policy(state)
+        state = env.step(action)
+    else:
+        assert False, "Option failed to terminate."    
+    # The block should now NOT be held.
+    assert state.get(block0, "held") == 0.0
+    # And block0 should be on block1.
+    assert env.On([block0, block1]).holds(state)
+    # Test extremes: stacking a block on the tallest possible tower, at each
+    # of the possible corners.
+
