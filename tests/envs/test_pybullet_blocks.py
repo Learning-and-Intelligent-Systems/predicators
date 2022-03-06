@@ -100,3 +100,32 @@ def test_pybullet_blocks_picking():
         state = env.step(action)
     # The block should NOT be held.
     assert state.get(block, "held") == 0.0
+    # Test that the block can be picked at the extremes of the workspace.
+    half_size = env.block_size / 2
+    corners = [
+        (env.x_lb + half_size, env.y_lb + half_size),
+        (env.x_ub - half_size, env.y_lb + half_size),
+        (env.x_lb + half_size, env.y_ub - half_size),
+        (env.x_ub - half_size, env.y_ub - half_size),
+    ]
+    for (bx, by) in corners:
+        state = init_state.copy()
+        state.set(block, "pose_x", bx)
+        state.set(block, "pose_y", by)
+        env.set_state(state)
+        assert env.get_state().allclose(state)
+        # Create an option for picking the block.
+        option = env.Pick.ground([robot, block], [])
+        assert option.initiable(state)
+        # Execute the option. Also record the actions for use in the next test.
+        pick_actions = []
+        for _ in range(100):
+            if option.terminal(state):
+                break
+            action = option.policy(state)
+            pick_actions.append(action)
+            state = env.step(action)
+        else:
+            assert False, "Option failed to terminate."
+        # The block should now be held.
+        assert state.get(block, "held") == 1.0
