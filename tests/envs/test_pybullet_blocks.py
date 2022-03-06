@@ -1,11 +1,13 @@
 """Test cases for PyBulletBlocksEnv."""
 
 import numpy as np
+import pytest
 from predicators.src.envs import PyBulletBlocksEnv
 from predicators.src.structs import Object, State, Action
 from predicators.src import utils
 
 GUI_ON = False  # toggle for debugging
+EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
 
 
 class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
@@ -36,10 +38,17 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._get_state()
 
 
+def get_exposed_pybullet_env():
+    global EXPOSED_PYBULLET_ENV
+    if EXPOSED_PYBULLET_ENV is None:
+        EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
+    return EXPOSED_PYBULLET_ENV
+
+
 def test_pybullet_blocks_reset():
     """Tests for PyBulletBlocksEnv.reset()."""
     utils.reset_config({"env": "pybullet_blocks"})
-    env = PyBulletBlocksEnv()
+    env = get_exposed_pybullet_env()
     env.seed(123)
     for idx, task in enumerate(env.get_train_tasks()):
         state = env.reset("train", idx)
@@ -47,12 +56,20 @@ def test_pybullet_blocks_reset():
     for idx, task in enumerate(env.get_test_tasks()):
         state = env.reset("test", idx)
         assert state.allclose(task.init)
+    # Test that resetting raises an error if an unreachable state is given.
+    state = env.get_train_tasks()[0].init.copy()
+    block = state.get_objects(env.block_type)[0]
+    # Make the state impossible.
+    state.set(block, "held", -10000)
+    with pytest.raises(ValueError) as e:
+        env.set_state(state)
+    assert "Could not reconstruct state." in str(e)
 
 
 def test_pybullet_blocks_picking():
     """Tests cases for picking blocks in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _ExposedPyBulletBlocksEnv()
+    env = get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
