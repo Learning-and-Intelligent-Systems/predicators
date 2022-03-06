@@ -257,10 +257,10 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
-        self._reset_from_state(state)
+        self._reset_state(state)
         return state
 
-    def _reset_from_state(self, state: State) -> None:
+    def _reset_state(self, state: State) -> None:
         """Helper for reset.
 
         Also useful for testing.
