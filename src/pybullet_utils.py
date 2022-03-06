@@ -36,9 +36,10 @@ def inverse_kinematics(
 ) -> Sequence[float]:
     """Runs IK and returns joint values for the given (free) joints.
 
-    If validate is True, the PyBullet IK solver is called multiple
-    times, resetting the robot state each time, until the target
-    position is reached.
+    If validate is True, the PyBullet IK solver is called multiple times,
+    resetting the robot state each time, until the target position is reached.
+    If the target position is not reached after a maximum number of iters,
+    an exception is raised.
     """
     # Figure out which joint each dimension of the return of IK corresponds to.
     free_joints = []
@@ -87,8 +88,6 @@ def inverse_kinematics(
         if np.allclose(position, target_position, atol=convergence_tol):
             break
     else:
-        import ipdb
-        ipdb.set_trace()
         raise Exception("Inverse kinematics failed to converge.")
 
     # Reset the joint states to their initial values to avoid modifying the
