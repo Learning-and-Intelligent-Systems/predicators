@@ -83,7 +83,6 @@ def inverse_kinematics(
                                        computeForwardKinematics=True,
                                        physicsClientId=physics_client_id)
         position = ee_link_state[4]
-        orientation = ee_link_state[5]
         # Note: we are checking positions only for convergence.
         if np.allclose(position, target_position, atol=convergence_tol):
             break

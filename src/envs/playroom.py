@@ -238,10 +238,10 @@ class PlayroomEnv(BlocksEnv):
             and (self.table_x_lb < x < self.table_x_ub) \
             and (self.table_y_lb < y < self.table_y_ub):
             if fingers < 0.5:
-                return self._transition_pick(state, x, y, z, fingers)
+                return self._transition_pick(state, x, y, z)
             if z < self.table_height + self.block_size:
-                return self._transition_putontable(state, x, y, z, fingers)
-            return self._transition_stack(state, x, y, z, fingers)
+                return self._transition_putontable(state, x, y, z)
+            return self._transition_stack(state, x, y, z)
         # Interact with some door
         if any(
                 self._NextToDoor_holds(state, (self._robot, door))

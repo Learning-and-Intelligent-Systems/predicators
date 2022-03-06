@@ -288,7 +288,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             joint_values = inverse_kinematics(
                 self._fetch_id,
                 self._ee_id,
-                target_position,
+                (rx, ry, rz),
                 self._ee_orientation,
                 self._arm_joints,
                 physics_client_id=self._physics_client_id)
@@ -507,8 +507,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                     # on the outside of the gripper, rather than the inside.
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
-                    expected_normal = [0, 1, 0]
-                    if np.dot(expected_normal, contact_normal) < 0.5:
+                    expected_normal = np.array([0, 1, 0])
+                    if expected_normal.dot(contact_normal) < 0.5:
                         continue
                     # Check if the distance to the finger is below the tol.
                     contact_distance = point[8]
@@ -594,7 +594,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
-            del memory, params  # unused
+            del memory, objects, params  # unused
             current_val = state.get(self._robot, "fingers")
             gripper_action = target_val - current_val
             gripper_action = np.clip(gripper_action, self.action_space.low[3],
@@ -604,7 +604,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
-            del memory, params  # unused
+            del memory, objects, params  # unused
             current_val = state.get(self._robot, "fingers")
             dist = (target_val - current_val)**2
             return dist < self._grasp_tol
