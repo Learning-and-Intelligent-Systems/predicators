@@ -383,7 +383,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         current_position = ee_link_state[4]
         target_position = np.add(current_position, ee_delta)
 
-        # We assume that the robot is already closed enough to the target
+        # We assume that the robot is already close enough to the target
         # position that IK will succeed with one call, so validate is False.
         joint_values = inverse_kinematics(
             self._fetch_id,
@@ -402,7 +402,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     targetPosition=joint_val,
                                     physicsClientId=self._physics_client_id)
 
-        # Set finger joint motors
+        # Set finger joint motors.
         for finger_id in [self._left_finger_id, self._right_finger_id]:
             current_val = p.getJointState(
                 self._fetch_id,
@@ -414,6 +414,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                                     controlMode=p.POSITION_CONTROL,
                                     targetPosition=target_val,
                                     physicsClientId=self._physics_client_id)
+
+        # Step the simulation here before adding or removing constraints
+        # because detect_held_block() should use the updated state.
+        for _ in range(CFG.pybullet_sim_steps_per_action):
+            p.stepSimulation(physicsClientId=self._physics_client_id)
 
         # If not currently holding something, and gripper is closing,
         # check for a new grasp.
@@ -452,9 +457,6 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._held_constraint_id = None
             self._held_block_id = None
 
-        for _ in range(CFG.pybullet_sim_steps_per_action):
-            p.stepSimulation(physicsClientId=self._physics_client_id)
-
         return self._get_state()
 
     def _get_state(self) -> State:
@@ -492,29 +494,35 @@ class PyBulletBlocksEnv(BlocksEnv):
         If multiple blocks are within the grasp tolerance, return the
         one that is closest.
         """
+        expected_finger_normals = {
+            self._left_finger_id: np.array([0., 1., 0.]),
+            self._right_finger_id: np.array([0., -1., 0.]),
+        }
         closest_held_block = None
         closest_held_block_dist = float("inf")
         for block_id in self._block_id_to_block:
-            for finger_id in [self._left_finger_id, self._right_finger_id]:
-                closest_points = p.getClosestPoints(self._fetch_id, block_id,
-                                                    finger_id)
+            for finger_id, expected_normal in expected_finger_normals.items():
+                # Find points on the block that are within grasp_tol distance
+                # of the finger.
+                closest_points = p.getClosestPoints(
+                    bodyA=self._fetch_id,
+                    bodyB=block_id,
+                    distance=self._grasp_tol,
+                    linkIndexA=finger_id,
+                    physicsClientId=self._physics_client_id)
                 for point in closest_points:
                     # If the contact normal is substantially different from
                     # the expected contact normal, this is probably a block
                     # on the outside of the gripper, rather than the inside.
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
-                    expected_normal = np.array([0, 1, 0])
                     if expected_normal.dot(contact_normal) < 0.5:
-                        continue
-                    # Check if the distance to the finger is below the tol.
-                    contact_distance = point[8]
-                    if contact_distance > self._grasp_tol:
                         continue
                     # Handle the case where multiple blocks pass this check
                     # by taking the closest one. This should be rare, but it
                     # can happen when two blocks are stacked and the robot is
                     # unstacking the top one.
+                    contact_distance = point[8]
                     if contact_distance < closest_held_block_dist:
                         closest_held_block = block_id
                         closest_held_block_dist = contact_distance
