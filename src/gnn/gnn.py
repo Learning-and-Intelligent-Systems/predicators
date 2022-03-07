@@ -1,4 +1,4 @@
-"""Graph neural network code. Here for learning search guidance.
+"""Graph neural network code.
 
 A lot of this was copied and modified from code originally written by
 Kelsey Allen.
