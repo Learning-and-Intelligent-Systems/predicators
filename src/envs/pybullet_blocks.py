@@ -220,8 +220,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             mid_x = (self.x_ub + self.x_lb) / 2
             mid_y = (self.y_ub + self.y_lb) / 2
             p.addUserDebugText("*", [mid_x, mid_y, self.pick_z],
-                               [1.0, 0.0, 0.0],
-                               lifeTime=CFG.pybullet_draw_debug_lifetime)
+                               [1.0, 0.0, 0.0])
 
         # Set gravity.
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
