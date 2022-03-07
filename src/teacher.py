@@ -110,7 +110,11 @@ class Teacher:
             goal_blocks_held = [
                 b for b in blocks if abs(goal_state.get(b, "grasp") - 1) < 1e-6
             ]
-            # Case 1: Pick.
+            # Case 1: Pick. Note that if there is a block held in the goal
+            # state, the only possible option that will lead to that goal state
+            # being reached in exactly one step is a Pick option. If the option
+            # does not succeed in achieving the goal state, "Validate" will
+            # fail, and null_response will be returned.
             if len(goal_blocks_held) == 1:
                 parameterized_option = Pick
                 block = goal_blocks_held[0]
