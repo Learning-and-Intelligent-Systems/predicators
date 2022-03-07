@@ -34,15 +34,13 @@ def _segment_with_option_changes(
     traj, _ = trajectory
 
     def _switch_fn(t: int) -> bool:
-        # Segment when the option terminates.
+        # Segment by checking whether the option changes on the next step.
         option_t = traj.actions[t].get_option()
-        option_terminated = option_t.terminal(traj.states[t + 1])
-        # If the option terminated, the next option should be different,
-        # unless this the last step in the trajectory.
-        if option_terminated:
-            assert t == len(traj.actions) - 1 or \
-                not option_t is traj.actions[t + 1].get_option()
-        return option_terminated
+        # As a special case, if this is the last time step, then use the
+        # option's terminal function to check if it completed.
+        if t == len(traj.actions) - 1:
+            return option_t.terminal(traj.states[t + 1])
+        return not option_t is traj.actions[t + 1].get_option()
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 
@@ -58,8 +56,10 @@ def _segment_with_switch_function(
     segments = []
     traj, all_atoms = trajectory
     assert len(traj.states) == len(all_atoms)
+    assert len(traj.states) > 0
     current_segment_states: List[State] = []
     current_segment_actions: List[Action] = []
+    current_segment_init_atoms = all_atoms[0]
     for t in range(len(traj.actions)):
         current_segment_states.append(traj.states[t])
         current_segment_actions.append(traj.actions[t])
@@ -68,18 +68,22 @@ def _segment_with_switch_function(
             current_segment_states.append(traj.states[t + 1])
             current_segment_traj = LowLevelTrajectory(current_segment_states,
                                                       current_segment_actions)
+            current_segment_final_atoms = all_atoms[t + 1]
             if traj.actions[t].has_option():
-                segment = Segment(current_segment_traj, all_atoms[t],
-                                  all_atoms[t + 1],
+                segment = Segment(current_segment_traj,
+                                  current_segment_init_atoms,
+                                  current_segment_final_atoms,
                                   traj.actions[t].get_option())
             else:
                 # If we're in option learning mode, include the default option
                 # here; replaced later during option learning.
-                segment = Segment(current_segment_traj, all_atoms[t],
-                                  all_atoms[t + 1])
+                segment = Segment(current_segment_traj,
+                                  current_segment_init_atoms,
+                                  current_segment_final_atoms)
             segments.append(segment)
             current_segment_states = []
             current_segment_actions = []
+            current_segment_init_atoms = current_segment_final_atoms
     # Don't include the last current segment because it didn't result in a
     # switch. (E.g., with option_changes, the option may not have terminated.)
     return segments
