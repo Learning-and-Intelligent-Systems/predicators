@@ -370,7 +370,11 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         return block_id
 
-    def render(self, action: Optional[Action] = None) -> List[Image]:
+    def render(self,
+               action: Optional[Action] = None,
+               caption: Optional[str] = None) -> List[Image]:
+        del caption  # unused
+
         if not CFG.pybullet_use_gui:
             raise Exception(
                 "Rendering only works with GUI on. See "
