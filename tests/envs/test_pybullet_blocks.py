@@ -48,6 +48,11 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Expose the OnTable predicate."""
         return self._OnTable
 
+    @property
+    def GripperOpen(self):
+        """Expose the GripperOpen predicate."""
+        return self._GripperOpen
+
     def set_state(self, state):
         """Forcibly reset the state."""
         self._current_state = state
@@ -132,6 +137,7 @@ def test_pybullet_blocks_picking():
     option = env.Pick.ground([robot, block], [])
     state = init_state.copy()
     assert option.initiable(state)
+    assert env.GripperOpen([robot]).holds(state)
     # Execute the option. Also record the actions for use in the next test.
     pick_actions = []
     for _ in range(100):
@@ -144,6 +150,7 @@ def test_pybullet_blocks_picking():
         assert False, "Option failed to terminate."
     # The block should now be held.
     assert state.get(block, "held") == 1.0
+    assert not env.GripperOpen([robot]).holds(state)
     # Test the case where the right finger is on the left side of the block,
     # but within the grasp tolerance. The contact normal check should prevent
     # a holding constraint from being created.
@@ -216,6 +223,7 @@ def test_pybullet_blocks_stacking():
     # Create a stack option.
     option = env.Stack.ground([robot, block1], [])
     assert option.initiable(state)
+    assert not env.GripperOpen([robot]).holds(state)
     # Execute the stack option.
     for _ in range(100):
         if option.terminal(state):
@@ -228,6 +236,7 @@ def test_pybullet_blocks_stacking():
     assert state.get(block0, "held") == 0.0
     # And block0 should be on block1.
     assert env.On([block0, block1]).holds(state)
+    assert env.GripperOpen([robot]).holds(state)
     # Test extremes: stacking a block on the tallest possible tower, at each
     # of the possible corners.
     half_size = env.block_size / 2

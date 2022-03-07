@@ -27,6 +27,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _place_offset_z: float = 0.005
     _grasp_tol: float = 0.05
     _move_to_pose_tol: float = 0.0001
+    _finger_action_nudge_magnitude: float = 0.001
 
     # Table parameters.
     _table_pose: Pose3D = (1.35, 0.75, 0.0)
@@ -442,7 +443,20 @@ class PyBulletBlocksEnv(BlocksEnv):
                 self._fetch_id,
                 finger_id,
                 physicsClientId=self._physics_client_id)[0]
-            target_val = current_val + finger_action
+            # Fingers drift if left alone. If the finger action is zero, nudge
+            # the fingers toward being open or closed, based on which end of
+            # the spectrum they are current closer to.
+            if finger_action == 0:
+                assert self.open_fingers > self.closed_fingers
+                if abs(current_val -
+                       self.open_fingers) < abs(current_val -
+                                                self.closed_fingers):
+                    nudge = self._finger_action_nudge_magnitude
+                else:
+                    nudge = -self._finger_action_nudge_magnitude
+                target_val = current_val + nudge
+            else:
+                target_val = current_val + finger_action
             p.setJointMotorControl2(bodyIndex=self._fetch_id,
                                     jointIndex=finger_id,
                                     controlMode=p.POSITION_CONTROL,
