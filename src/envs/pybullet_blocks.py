@@ -23,9 +23,10 @@ class PyBulletBlocksEnv(BlocksEnv):
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 1.0
     _max_vel_norm: float = 0.5
-    _grasp_tol: float = 0.05
     _grasp_offset_z: float = 0.01
     _place_offset_z: float = 0.005
+    _grasp_tol: float = 0.05
+    _move_to_pose_tol: float = 0.0001
 
     # Table parameters.
     _table_pose: Pose3D = (1.35, 0.75, 0.0)
@@ -586,7 +587,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             current, target = get_current_and_target_pose(
                 state, objects, params)
             dist = np.sum(np.subtract(current, target)**2)
-            return dist < self.pick_tol
+            return dist < self._move_to_pose_tol
 
         return ParameterizedOption(name,
                                    types=types,
