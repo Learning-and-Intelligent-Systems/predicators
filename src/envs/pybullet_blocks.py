@@ -247,12 +247,9 @@ class PyBulletBlocksEnv(BlocksEnv):
         self._held_constraint_id: Optional[int] = None
         self._held_block_id: Optional[int] = None
 
-        # while True:
-        #     p.stepSimulation(physicsClientId=self._physics_client_id)
-
     @property
     def action_space(self) -> Box:
-        # dimensions: [dx, dy, dz, fingers]
+        # dimensions: [dx, dy, dz, dfingers]
         return Box(low=-0.05, high=0.05, shape=(4, ), dtype=np.float32)
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
@@ -261,7 +258,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         return state
 
     def _reset_state(self, state: State) -> None:
-        """Helper for reset. Also useful for testing."""
+        """Helper for reset and testing."""
         # Tear down the old PyBullet scene.
         if self._held_constraint_id is not None:
             p.removeConstraint(self._held_constraint_id,

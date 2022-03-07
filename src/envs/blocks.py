@@ -23,7 +23,7 @@ class BlocksEnv(BaseEnv):
     """Blocks domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_height = 0.2
-    block_size = 0.05
+    block_size = 0.045
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
     x_lb = 1.35 - block_size
@@ -37,8 +37,8 @@ class BlocksEnv(BaseEnv):
     robot_init_z = pick_z
     held_tol = 0.5
     open_fingers = 0.04
-    closed_fingers = 0.02
-    collision_padding = 1.5
+    closed_fingers = 0.01
+    collision_padding = 2.0
     pick_tol = 0.0001
     on_tol = 0.01
     assert pick_tol < block_size
