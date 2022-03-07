@@ -204,8 +204,8 @@ class CoverEnv(BaseEnv):
         plt.ylim(-0.25, 0.5)
         plt.yticks([])
         plt.legend()
-        # if caption:
-        plt.figtext(0.1, 0.6, caption, fontsize='x-small')
+        if caption is not None:
+            plt.suptitle(caption, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
@@ -717,7 +717,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
         # Draw main line
@@ -796,6 +797,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 1)
         plt.legend()
+        if caption is not None:
+            plt.suptitle(caption, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()

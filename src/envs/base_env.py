@@ -91,7 +91,9 @@ class BaseEnv(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-    def render(self, action: Optional[Action] = None, caption: Optional[str] = None) -> List[Image]:
+    def render(self,
+               action: Optional[Action] = None,
+               caption: Optional[str] = None) -> List[Image]:
         """Render the current state and action into a list of images.
 
         By default, calls render_state, but subclasses may override.
