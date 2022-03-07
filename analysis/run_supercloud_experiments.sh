@@ -7,7 +7,7 @@ END_NUM_DOTS=25
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
-    for NUM_DOTS in $(seq $START_NUM_DOTS $END_NUM_DOTS)
+    for NUM_DOTS in $(seq $START_NUM_DOTS $END_NUM_DOTS); do
     # repeated nextto with naive
     python $FILE --experiment_id repeated_nextto_naive --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --repeated_nextto_num_dots NUM_DOTS --sidelining_approach naive --seed $SEED
 
@@ -46,4 +46,5 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # python $FILE --experiment_id repeated_nextto_oracle --env repeated_nextto --approach oracle --seed $SEED
     # python $FILE --experiment_id repeated_nextto_noinvent_noexclude --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --seed $SEED --num_train_tasks 50
     # # python $FILE --experiment_id repeated_nextto_noinvent_allexclude --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --excluded_predicates all --seed $SEED --num_train_tasks 50
+    done
 done
