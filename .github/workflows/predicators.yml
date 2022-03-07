@@ -74,4 +74,4 @@ jobs:
     - name: Run YAPF to test if python code is correctly formatted
       uses: AlexanderMelde/yapf-action@master
       with:
-        args: --verbose --exclude '**/src/gnn/**' --style .style.yapf
+        args: --verbose --exclude 'src/gnn/**' --style .style.yapf
