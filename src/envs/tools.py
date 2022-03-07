@@ -95,116 +95,85 @@ class ToolsEnv(BaseEnv):
                                           [self._hammer_type],
                                           self._HammerGraspable_holds)
         # Options
-        self._PickScrew = ParameterizedOption(
+        self._PickScrew = utils.SingletonParameterizedOption(
             # variables: [robot, screw to pick]
             # params: []
             "PickScrew",
-            types=[self._robot_type, self._screw_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._PickScrewdriver = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._screw_type])
+        self._PickScrewdriver = utils.SingletonParameterizedOption(
             # variables: [robot, screwdriver to pick]
             # params: []
             "PickScrewdriver",
-            types=[self._robot_type, self._screwdriver_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._PickNail = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._screwdriver_type])
+        self._PickNail = utils.SingletonParameterizedOption(
             # variables: [robot, nail to pick]
             # params: []
             "PickNail",
-            types=[self._robot_type, self._nail_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._PickHammer = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._nail_type])
+        self._PickHammer = utils.SingletonParameterizedOption(
             # variables: [robot, hammer to pick]
             # params: []
             "PickHammer",
-            types=[self._robot_type, self._hammer_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._PickBolt = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._hammer_type])
+        self._PickBolt = utils.SingletonParameterizedOption(
             # variables: [robot, bolt to pick]
             # params: []
             "PickBolt",
-            types=[self._robot_type, self._bolt_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._PickWrench = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._bolt_type])
+        self._PickWrench = utils.SingletonParameterizedOption(
             # variables: [robot, wrench to pick]
             # params: []
             "PickWrench",
-            types=[self._robot_type, self._wrench_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._Place = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._wrench_type])
+        self._Place = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y]
             "Place",
+            policy=self._Place_policy,
             types=[self._robot_type],
             params_space=Box(
                 np.array([self.table_lx, self.table_ly], dtype=np.float32),
                 np.array([self.table_ux, self.table_uy], dtype=np.float32)),
-            policy=self._Place_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._FastenScrewWithScrewdriver = ParameterizedOption(
+        )
+        self._FastenScrewWithScrewdriver = utils.SingletonParameterizedOption(
             # variables: [robot, screw, screwdriver]
             # params: []
             "FastenScrewWithScrewdriver",
+            self._Fasten_policy,
             types=[
                 self._robot_type, self._screw_type, self._screwdriver_type,
                 self._contraption_type
-            ],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Fasten_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._FastenScrewByHand = ParameterizedOption(
+            ])
+        self._FastenScrewByHand = utils.SingletonParameterizedOption(
             # variables: [robot, screw]
             # params: []
             "FastenScrewByHand",
-            types=[self._robot_type, self._screw_type, self._contraption_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Fasten_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._FastenNailWithHammer = ParameterizedOption(
+            self._Fasten_policy,
+            types=[self._robot_type, self._screw_type, self._contraption_type])
+        self._FastenNailWithHammer = utils.SingletonParameterizedOption(
             # variables: [robot, nail, hammer]
             # params: []
             "FastenNailWithHammer",
+            self._Fasten_policy,
             types=[
                 self._robot_type, self._nail_type, self._hammer_type,
                 self._contraption_type
-            ],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Fasten_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._FastenBoltWithWrench = ParameterizedOption(
+            ])
+        self._FastenBoltWithWrench = utils.SingletonParameterizedOption(
             # variables: [robot, bolt, wrench]
             # params: []
             "FastenBoltWithWrench",
+            self._Fasten_policy,
             types=[
                 self._robot_type, self._bolt_type, self._wrench_type,
                 self._contraption_type
-            ],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Fasten_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
+            ])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 

@@ -13,6 +13,7 @@ from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
     TYPE_CHECKING
 import heapq as hq
+from gym.spaces import Box
 import pathos.multiprocessing as mp
 import imageio
 import matplotlib
@@ -82,30 +83,6 @@ def entropy(p: float) -> float:
     if p in {0.0, 1.0}:
         return 0.0
     return -(p * np.log(p) + (1 - p) * np.log(1 - p))
-
-
-def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-    """An initiation function for an option that can always be run."""
-    del objects, params  # unused
-    if "start_state" in memory:
-        assert state.allclose(memory["start_state"])
-    # Always update the memory dict, due to the "is" check in onestep_terminal.
-    memory["start_state"] = state
-    return True
-
-
-def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-    """A termination function for an option that only lasts 1 timestep.
-
-    To use this as the terminal function for a policy, the policy's
-    initiable() function must set memory["start_state"], as
-    always_initiable() does above.
-    """
-    del objects, params  # unused
-    assert "start_state" in memory, "Must call initiable() before terminal()"
-    return state is not memory["start_state"]
 
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
@@ -311,23 +288,32 @@ class LinearChainParameterizedOption(ParameterizedOption):
 
     def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
-        # Reset the current child to the first one.
+        # Initialize the current child to the first one.
         memory["current_child_index"] = 0
+        # Create memory dicts for each child to avoid key collisions. One
+        # example of a failure that arises without this is when using
+        # multiple SingletonParameterizedOption instances, each of those
+        # options would be referencing the same start_state in memory.
+        memory["child_memory"] = [{} for _ in self._children]
         current_child = self._children[0]
-        return current_child.initiable(state, memory, objects, params)
+        child_memory = memory["child_memory"][0]
+        return current_child.initiable(state, child_memory, objects, params)
 
     def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         # Check if the current child has terminated.
         current_index = memory["current_child_index"]
         current_child = self._children[current_index]
-        if current_child.terminal(state, memory, objects, params):
+        child_memory = memory["child_memory"][current_index]
+        if current_child.terminal(state, child_memory, objects, params):
             # Move on to the next child.
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child.initiable(state, memory, objects, params)
-        return current_child.policy(state, memory, objects, params)
+            child_memory = memory["child_memory"][current_index]
+            assert current_child.initiable(state, child_memory, objects,
+                                           params)
+        return current_child.policy(state, child_memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
@@ -336,7 +322,59 @@ class LinearChainParameterizedOption(ParameterizedOption):
         if current_index < len(self._children) - 1:
             return False
         current_child = self._children[current_index]
-        return current_child.terminal(state, memory, objects, params)
+        child_memory = memory["child_memory"][current_index]
+        return current_child.terminal(state, child_memory, objects, params)
+
+
+class SingletonParameterizedOption(ParameterizedOption):
+    """A parameterized option that takes a single action and stops.
+
+    For convenience:
+        * Initiable defaults to always True.
+        * Types defaults to [].
+        * Params space defaults to Box(0, 1, (0, )).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
+        types: Optional[Sequence[Type]] = None,
+        params_space: Optional[Box] = None,
+        initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
+                                     bool]] = None
+    ) -> None:
+        if types is None:
+            types = []
+        if params_space is None:
+            params_space = Box(0, 1, (0, ))
+        if initiable is None:
+            initiable = lambda _1, _2, _3, _4: True
+
+        # Wrap the given initiable so that we can track whether the action
+        # has been executed yet.
+        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                       params: Array) -> bool:
+            if "start_state" in memory:
+                assert state.allclose(memory["start_state"])
+            # Always update the memory dict due to the "is" check in _terminal.
+            memory["start_state"] = state
+            assert initiable is not None
+            return initiable(state, memory, objects, params)
+
+        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+            del objects, params  # unused
+            assert "start_state" in memory, \
+                "Must call initiable() before terminal()."
+            return state is not memory["start_state"]
+
+        super().__init__(name,
+                         types,
+                         params_space,
+                         policy=policy,
+                         initiable=_initiable,
+                         terminal=_terminal)
 
 
 class Monitor(abc.ABC):
