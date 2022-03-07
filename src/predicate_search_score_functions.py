@@ -6,16 +6,16 @@ import time
 import abc
 from dataclasses import dataclass, field
 from typing import Set, Callable, List, Sequence, FrozenSet, Tuple, Dict, \
-    Collection, Iterator
+    Collection
 import numpy as np
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.planning import task_plan, task_plan_grounding
-from predicators.src.structs import LowLevelTrajectory, Predicate, Object, GroundAtomTrajectory, \
+from predicators.src.structs import Predicate, Object, GroundAtomTrajectory, \
     STRIPSOperator, OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, \
-    DummyOption, Task, _GroundNSRT
+    DummyOption, Task
 from predicators.src.settings import CFG
 
 
@@ -255,78 +255,6 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
                 score += node_expansion_upper_bound
         return score
 
-
-# NOTE: This function is intended to be used during side predicate search
-# We check whether we preserve task plans or not.
-@dataclass(frozen=True, eq=False, repr=False)
-class _TaskPlanPreservationScoreFunction(_OperatorLearningBasedScoreFunction):
-    """Score a predicate set by learning operators and planning in the training
-    tasks.
-
-    The score corresponds to whether planning is able to preserve the demonstrator-
-    provided skeletons. Any set of operators+predicates that cannot do this is
-    assigned a uniformly bad score. Among sets that can preserve these skeletons,
-    better scores are assigned to sets with the most sidelining
-    """
-
-    # NOTE: This score function is only designed to be used to
-    # evaluate_with_operators.
-
-    def check_plan_preservation(self,
-                                candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
-                                strips_ops: List[STRIPSOperator],
-                                option_specs: List[OptionSpec], ll_trajs: List[LowLevelTrajectory]) -> bool:
-        #del pruned_atom_data, segments  # unused
-
-        for ll_traj, hl_traj in pruned_atom_data:
-            if not ll_traj.is_demo:
-                continue
-            init_atoms = utils.abstract(
-                ll_traj.states[0],
-                candidate_predicates | self._initial_predicates)
-            objects = set(ll_traj.states[0])
-            ground_nsrts, reachable_atoms = task_plan_grounding(
-                init_atoms, objects, strips_ops, option_specs)
-            traj_goal = self._train_tasks[ll_traj.train_task_idx].goal
-            heuristic = utils.create_task_planning_heuristic(
-                CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
-                ground_nsrts, candidate_predicates | self._initial_predicates,
-                objects)
-            
-            def _check_goal(state: Set[GroundAtom]) -> bool:
-                return traj_goal.issubset(state)
-
-            idx_into_traj = 0
-            def _get_successor_with_correct_option(state: Set[GroundAtom]) -> Iterator[Tuple[_GroundNSRT, Set[GroundAtom], float]]:
-                nonlocal idx_into_traj
-                if idx_into_traj > len(ll_traj.actions) - 1:
-                    yield ([], frozenset(state), 1.0)
-                else:
-                    assert ll_traj.actions[idx_into_traj].has_option()
-                    gt_option = ll_traj.actions[idx_into_traj].get_option()
-                    expected_next_hl_state = hl_traj[idx_into_traj+1]
-                    for applicable_nsrt in utils.get_applicable_operators(ground_nsrts, state):
-                        if applicable_nsrt.option.ground(applicable_nsrt.option_objs, gt_option.params) == gt_option:
-                            next_hl_state = utils.apply_operator(applicable_nsrt, state)
-                            # Here, we check whether all atoms that differ between next_hl_state and state are part of the operator's
-                            # side predicates. If so, this nsrt can be applied from this state!
-                            exp_state_matches = next_hl_state.issubset(expected_next_hl_state)
-
-                            if exp_state_matches:
-                                # The returned cost is uniform because we don't actually care about finding the shortest
-                                # path; just one that matches!
-                                yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
-                    idx_into_traj += 1
-
-            state_seq, action_seq = utils.run_gbfs(frozenset(init_atoms), _check_goal, _get_successor_with_correct_option, heuristic)
-
-            if not _check_goal(state_seq[-1]):
-                # If the state sequence doesn't achieve the goal, then we haven't found a valid plan.
-                return False
-
-        return True
 
 @dataclass(frozen=True, eq=False, repr=False)
 class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):

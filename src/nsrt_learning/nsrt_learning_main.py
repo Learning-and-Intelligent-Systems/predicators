@@ -11,7 +11,8 @@ from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.predicate_search_score_functions import \
-    _PredictionErrorScoreFunction, _TaskPlanPreservationScoreFunction
+    _PredictionErrorScoreFunction
+from predicators.src.planning import check_plan_preservation
 
 
 def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
@@ -89,8 +90,8 @@ def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
         ground_atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task], predicates: Set[Predicate],
-        segments: List[Segment],
-        segmented_trajs: List[List[Segment]], ll_trajs: List[LowLevelTrajectory]) -> List[PartialNSRTAndDatastore]:
+        segments: List[Segment], segmented_trajs: List[List[Segment]],
+        ll_trajs: List[LowLevelTrajectory]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
         del s  # unused
@@ -108,9 +109,9 @@ def _learn_pnad_side_predicates(
             for effect in pnad.op.add_effects:
                 # if len(pnad.op.add_effects) > 1:
                 new_pnad = PartialNSRTAndDatastore(
-                    pnad.op.effect_to_side_predicate(
-                        effect, option_vars, "add"),
-                    pnad.datastore, pnad.option_spec)
+                    pnad.op.effect_to_side_predicate(effect, option_vars,
+                                                     "add"), pnad.datastore,
+                    pnad.option_spec)
                 # else:
                 #     # We don't want sidelining to result in a no-op
                 #     continue
@@ -123,44 +124,38 @@ def _learn_pnad_side_predicates(
             yield (None, tuple(sprime), 1.0)
 
     if CFG.sidelining_approach == "naive":
-        score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
+        score_func = _PredictionErrorScoreFunction(predicates, [], {},
+                                                   train_tasks)
 
         def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
             # Score function for search. Lower is better.
             strips_ops = [pnad.op for pnad in s]
             option_specs = [pnad.option_spec for pnad in s]
             score = score_func.evaluate_with_operators(frozenset(),
-                                                    ground_atom_dataset,
-                                                    segments, strips_ops,
-                                                    option_specs)
+                                                       ground_atom_dataset,
+                                                       segments, strips_ops,
+                                                       option_specs)
             return score
 
     elif CFG.sidelining_approach == "preserve_skeletons":
-        score_func = _TaskPlanPreservationScoreFunction(predicates, [], {}, train_tasks)
 
         def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
             # Score function for search. Lower is better.
             strips_ops = [pnad.op for pnad in s]
             option_specs = [pnad.option_spec for pnad in s]
-            preserves_harmlessness = score_func.check_plan_preservation(frozenset(),
-                                                        ground_atom_dataset,
-                                                        segments, strips_ops,
-                                                        option_specs, ll_trajs)
-            score = 10000 # Arbitrary large number bigger than total number of operators
+            preserves_harmlessness = check_plan_preservation(
+                predicates, train_tasks, ground_atom_dataset, strips_ops,
+                option_specs)
+            score = 10000  # Arbitrary large number bigger than total number of operators
             if preserves_harmlessness:
-                # pred_score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
-                # score = pred_score_func.evaluate_with_operators(frozenset(),
-                #                                     ground_atom_dataset,
-                #                                     segments, strips_ops,
-                #                                     option_specs)
-                # Count number of sidelined predicates; the more the better!
                 score = 2 * len(strips_ops)
                 for op in strips_ops:
                     score -= len(op.side_predicates)
             return score
 
     else:
-        raise ValueError(f"sidelining_approach {CFG.sidelining_approach} not implemented")
+        raise ValueError(
+            f"sidelining_approach {CFG.sidelining_approach} not implemented")
 
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
