@@ -116,7 +116,14 @@ class Teacher:
                 block = goal_blocks_held[0]
                 arguments = [block, robot]
                 changing_objs = [block, robot]
-            # Case 2: Place.
+            # Case 2: Place. Note that we only know how to do two things in
+            # this environment, Pick and Place. In this Case 2, we have already
+            # established that we're not going to be picking, so we must be
+            # placing. That means there should be a block that we're holding.
+            # If there's not, we proceed to Case 3 (return null_response). If
+            # instead, we're holding a different block from the one that we
+            # want to see changed in the goal state, then "Validate" will fail,
+            # and we will also return null.
             elif len(state_blocks_held) == 1:
                 parameterized_option = Place
                 block = state_blocks_held[0]
