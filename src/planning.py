@@ -406,6 +406,9 @@ def check_plan_preservation(init_preds: Set[Predicate],
                             pruned_atom_data: List[GroundAtomTrajectory],
                             strips_ops: List[STRIPSOperator],
                             option_specs: List[OptionSpec]) -> bool:
+    """Function to check whether a given set of operators preservers
+    harmlessness over some number of training tasks.
+    """
 
     for ll_traj, hl_traj in pruned_atom_data:
         if not ll_traj.is_demo:
