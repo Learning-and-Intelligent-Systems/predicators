@@ -16,8 +16,8 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-class PlanningApproach(BaseApproach):
-    """Planning approach."""
+class BilevelPlanningApproach(BaseApproach):
+    """Bilevel planning approach."""
 
     def __init__(self,
                  initial_predicates: Set[Predicate],

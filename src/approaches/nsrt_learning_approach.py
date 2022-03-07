@@ -1,13 +1,13 @@
-"""A planning approach that learns NSRTs.
+"""A bilevel planning approach that learns NSRTs.
 
-In contrast to other approaches, this approach does not attempt to learn
-new predicates or options.
+Learns operators and samplers. Does not attempt to learn new predicates
+or options.
 """
 
 from typing import Set, List, Sequence, Optional
 import dill as pkl
 from gym.spaces import Box
-from predicators.src.approaches import PlanningApproach
+from predicators.src.approaches import BilevelPlanningApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
     Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning.nsrt_learning_main import \
@@ -16,8 +16,8 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-class NSRTLearningApproach(PlanningApproach):
-    """A planning approach that learns NSRTs."""
+class NSRTLearningApproach(BilevelPlanningApproach):
+    """A bilevel planning approach that learns NSRTs."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
