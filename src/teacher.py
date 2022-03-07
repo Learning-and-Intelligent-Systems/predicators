@@ -146,8 +146,7 @@ class Teacher:
                                       f"supported for env {CFG.env}.")
         # Validate. If the goal state was not reached, the query is assumed
         # to be invalid, and a None trajectory is returned.
-        if trajectory is None or not trajectory.states[-1].allclose(
-                goal_state):
+        if not trajectory.states[-1].allclose(goal_state):
             return null_response
         # Strip the trajectory of options to prevent cheating.
         for action in trajectory.actions:
