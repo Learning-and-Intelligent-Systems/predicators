@@ -360,9 +360,8 @@ def test_option():
     assert repr(option) == str(option) == (
         "_Option(name='Pick', objects=[obj7:type1], "
         "params=array([ 5., -5.], dtype=float32))")
-    parameterized_option = ParameterizedOption("Pick", [type1], params_space,
-                                               policy, utils.always_initiable,
-                                               utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Pick", policy, types=[type1], params_space=params_space)
     option = parameterized_option.ground([obj7], params)
     with pytest.raises(AssertionError):
         assert not option.terminal(state)  # must call initiable() first
