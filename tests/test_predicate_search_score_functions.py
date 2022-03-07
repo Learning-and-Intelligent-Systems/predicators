@@ -16,11 +16,10 @@ from predicators.src.predicate_search_score_functions import (
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction,
     _ExpectedNodesScoreFunction)
 from predicators.src.envs import CoverEnv, BlocksEnv
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Predicate, STRIPSOperator, Action, \
-    ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, OptionSpec, \
-    _GroundSTRIPSOperator
+    Box, LowLevelTrajectory, GroundAtom, OptionSpec, _GroundSTRIPSOperator
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -107,10 +106,10 @@ def test_predicate_search_heuristic_base_classes():
     robby = [o for o in state if o.type.name == "robot"][0]
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
     option = parameterized_option.ground([], np.array([0.0]))
     assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))

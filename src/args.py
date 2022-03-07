@@ -15,6 +15,7 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--approach", required=approach_required, type=str)
     parser.add_argument("--excluded_predicates", default="", type=str)
     parser.add_argument("--seed", required=seed_required, type=int)
+    parser.add_argument("--option_learner", type=str, default="no_learning")
     parser.add_argument("--timeout", default=10, type=float)
     parser.add_argument("--make_videos", action="store_true")
     parser.add_argument("--make_failure_videos", action="store_true")

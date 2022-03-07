@@ -12,8 +12,8 @@ from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
 from predicators.src.envs import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action, ParameterizedOption, Box, LowLevelTrajectory, Dataset
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
+    Action, Box, LowLevelTrajectory, Dataset
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -88,10 +88,10 @@ def test_count_positives_for_ops():
                                      add_effects, delete_effects, set())
     cup = cup_type("cup")
     plate = plate_type("plate")
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
     option = parameterized_option.ground([], np.array([0.0]))
     state = State({cup: [0.5], plate: [1.0]})
     action = Action(np.zeros(1, dtype=np.float32))

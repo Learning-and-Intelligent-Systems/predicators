@@ -145,10 +145,10 @@ def test_learned_sampler_with_goal():
     regressor.fit(X, Y)
 
     variables = [goal_obj]
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
 
     ls = _LearnedSampler(classifier, regressor, variables,
                          parameterized_option).sampler
