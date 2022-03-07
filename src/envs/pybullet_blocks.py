@@ -261,10 +261,7 @@ class PyBulletBlocksEnv(BlocksEnv):
         return state
 
     def _reset_state(self, state: State) -> None:
-        """Helper for reset.
-
-        Also useful for testing.
-        """
+        """Helper for reset. Also useful for testing."""
         # Tear down the old PyBullet scene.
         if self._held_constraint_id is not None:
             p.removeConstraint(self._held_constraint_id,
@@ -459,7 +456,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._held_constraint_id = None
             self._held_block_id = None
 
-        return self._get_state()
+        self._current_state = self._get_state()
+        return self._current_state.copy()
 
     def _get_state(self) -> State:
         """Create a State based on the current PyBullet state."""

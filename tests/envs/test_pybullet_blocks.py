@@ -73,7 +73,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
             if option.terminal(self._current_state):
                 break
             action = option.policy(self._current_state)
-            self._current_state = self.step(action)
+            self.step(action)
         else:
             assert False, "Option failed to terminate."
         # The block should now be held.
@@ -118,7 +118,7 @@ def test_pybullet_blocks_picking():
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
     by = (env.y_lb + env.y_ub) / 2
-    bz = env.table_height
+    bz = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
     rf = env.open_fingers
     # Create a simple custom state with one block for testing.
@@ -200,7 +200,7 @@ def test_pybullet_blocks_stacking():
     bx0 = (env.x_lb + env.x_ub) / 2
     by0 = (env.y_lb + env.y_ub) / 2 - env.block_size
     by1 = (env.y_lb + env.y_ub) / 2 + env.block_size
-    bz0 = env.table_height
+    bz0 = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
     rf = env.open_fingers
     # Create a state with two blocks.
@@ -281,7 +281,7 @@ def test_pybullet_blocks_putontable():
     robot = env.robot
     bx = (env.x_lb + env.x_ub) / 2
     by = (env.y_lb + env.y_ub) / 2
-    bz = env.table_height
+    bz = env.table_height + 0.5 * env.block_size
     rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
     rf = env.open_fingers
     # Create a simple custom state with one block for testing.
@@ -347,3 +347,41 @@ def test_pybullet_blocks_putontable():
         # and try to improve the PutOnTable controller.
         assert abs(state.get(block, "pose_x") - bx) < 1e-2
         assert abs(state.get(block, "pose_y") - by) < 1e-2
+
+
+def test_pybullet_blocks_close_pick_place():
+    """Test a tricky case where we attempt to pick and place immediately next
+    to a pile of blocks. Make sure that the pile is not disturbed."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
+    env = _get_exposed_pybullet_env()
+    env.seed(123)
+    block = Object("block0", env.block_type)
+    robot = env.robot
+    bx = (env.x_lb + env.x_ub) / 2
+    by = (env.y_lb + env.y_ub) / 2
+    # Start the block out on the left side of the pile.
+    by0 = by + env.collision_padding * env.block_size
+    bz0 = env.table_height
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
+    max_num_blocks = max(max(CFG.blocks_num_blocks_train),
+                         max(CFG.blocks_num_blocks_test))
+    block_to_z = {
+        Object(f"block{i+1}", env.block_type): bz0 + i * env.block_size
+        for i in range(max_num_blocks - 1)
+    }
+    state = State({
+        robot: np.array([rx, ry, rz, rf]),
+        block: np.array([bx, by0, bz0, 0.0]),
+        **{b: np.array([bx, by, bz, 0.0])
+           for b, bz in block_to_z.items()}
+    })
+    env.set_state(state)
+    assert env.get_state().allclose(state)
+    initial_pile_state = State({b: state[b] for b in block_to_z})
+    state = env.execute_pick(block)
+    # The main block should now be held.
+    assert state.get(block, "held") == 1.0
+    # The other block states should be the same.
+    pile_state = State({b: state[b] for b in block_to_z})
+    assert initial_pile_state.allclose(pile_state)
