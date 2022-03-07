@@ -25,7 +25,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _max_vel_norm: float = 0.5
     _grasp_tol: float = 0.05
     _grasp_offset_z: float = 0.01
-    _place_offset_z: float = 0.001
+    _place_offset_z: float = 0.005
 
     # Table parameters.
     _table_pose: Pose3D = (1.35, 0.75, 0.0)
