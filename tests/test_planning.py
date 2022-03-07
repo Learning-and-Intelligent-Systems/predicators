@@ -219,10 +219,11 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     neg_params_space = Box(-0.75, -0.25, (1, ))
-    sleep_option = ParameterizedOption(
-        "Sleep", [robot_type], neg_params_space,
+    sleep_option = utils.SingletonParameterizedOption(
+        "Sleep",
         lambda s, m, o, p: Action(p - int(o[0] == robby)),
-        utils.always_initiable, utils.onestep_terminal)
+        types=[robot_type],
+        params_space=neg_params_space)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
                               delete_effects, side_predicates)
     sleep_nsrt = sleep_op.make_nsrt(
@@ -235,10 +236,11 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     pos_params_space = Box(0.25, 0.75, (1, ))
-    cry_option = ParameterizedOption(
-        "Cry", [robot_type], pos_params_space,
+    cry_option = utils.SingletonParameterizedOption(
+        "Cry",
         lambda s, m, o, p: Action(p + int(o[0] == robby)),
-        utils.always_initiable, utils.onestep_terminal)
+        types=[robot_type],
+        params_space=pos_params_space)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
     cry_nsrt = cry_op.make_nsrt(
