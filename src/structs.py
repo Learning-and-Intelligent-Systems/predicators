@@ -1248,13 +1248,20 @@ class DemonstrationResponse(Response):
 
 
 @dataclass(frozen=True, eq=False, repr=False)
-class StateBasedDemonstrationQuery(Query):
+class PathToStateQuery(Query):
     """A query requesting a demonstration to reach a specific state."""
     goal_state: State
 
     @property
     def cost(self) -> float:
         return 1
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateResponse(Response):
+    """A response to a PathToStateQuery; provides a LowLevelTrajectory if one
+    can be found by the teacher, otherwise returns None."""
+    teacher_traj: Optional[LowLevelTrajectory]
 
 
 # Convenience higher-order types useful throughout the code

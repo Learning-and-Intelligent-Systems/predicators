@@ -7,8 +7,8 @@ from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitor
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    LowLevelTrajectory, InteractionRequest, StateBasedDemonstrationQuery, \
-    Query
+    LowLevelTrajectory, InteractionRequest, PathToStateQuery, \
+    Query, PathToStateResponse
 
 
 def test_GroundAtomsHold():
@@ -97,8 +97,8 @@ def test_DemonstrationQuery():
     assert response.teacher_traj is None
 
 
-def test_StateBasedDemonstrationQuery():
-    """Tests for answering queries of type StateBasedDemonstrationQuery."""
+def test_PathToStateQuery():
+    """Tests for answering queries of type PathToStateQuery."""
     utils.reset_config({
         "env": "cover_multistep_options",
         "approach": "unittest",
@@ -120,10 +120,10 @@ def test_StateBasedDemonstrationQuery():
     goal_state.set(robby, "y", 0.1)
     goal_state.set(robby, "grip", 1)
     goal_state.set(robby, "holding", 1)
-    query = StateBasedDemonstrationQuery(goal_state)
+    query = PathToStateQuery(goal_state)
     assert query.cost == 1
     response = teacher.answer_query(state, query)
-    assert isinstance(response, DemonstrationResponse)
+    assert isinstance(response, PathToStateResponse)
     assert response.query is query
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
     assert len(response.teacher_traj.states) == 4
@@ -147,9 +147,9 @@ def test_StateBasedDemonstrationQuery():
     goal_state.set(robby, "y", 0.101)
     goal_state.set(robby, "grip", -1)
     goal_state.set(robby, "holding", -1)
-    query = StateBasedDemonstrationQuery(goal_state)
+    query = PathToStateQuery(goal_state)
     response = teacher.answer_query(state, query)
-    assert isinstance(response, DemonstrationResponse)
+    assert isinstance(response, PathToStateResponse)
     assert response.query is query
     assert isinstance(response.teacher_traj, LowLevelTrajectory)
     assert len(response.teacher_traj.states) == 5
@@ -159,13 +159,13 @@ def test_StateBasedDemonstrationQuery():
     # Test that no trajectory is returned when the query goal state cannot
     # be reached at all.
     utils.update_config({"max_num_steps_option_rollout": 2})
-    query = StateBasedDemonstrationQuery(goal_state)
+    query = PathToStateQuery(goal_state)
     response = teacher.answer_query(state, query)
     assert response.teacher_traj is None
     # Test that no trajectory is returned when the query would require two
     # options to complete.
     state = task.init
-    query = StateBasedDemonstrationQuery(goal_state)
+    query = PathToStateQuery(goal_state)
     response = teacher.answer_query(state, query)
     assert response.teacher_traj is None
     # Test that an error is raised when an unsupported environment is used.
@@ -175,7 +175,7 @@ def test_StateBasedDemonstrationQuery():
     teacher = Teacher(train_tasks)
     task = train_tasks[0]
     state = task.init
-    query = StateBasedDemonstrationQuery(state)
+    query = PathToStateQuery(state)
     with pytest.raises(NotImplementedError):
         teacher.answer_query(state, query)
 

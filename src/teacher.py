@@ -7,7 +7,7 @@ from typing import Sequence, List, Optional
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
     DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
-    Action, StateBasedDemonstrationQuery
+    Action, PathToStateQuery, PathToStateResponse
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import get_or_create_env
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
@@ -42,8 +42,8 @@ class Teacher:
             return self._answer_GroundAtomsHold_query(state, query)
         if isinstance(query, DemonstrationQuery):
             return self._answer_Demonstration_query(state, query)
-        if isinstance(query, StateBasedDemonstrationQuery):
-            return self._answer_StateBasedDemonstration_query(state, query)
+        if isinstance(query, PathToStateQuery):
+            return self._answer_PathToState_query(state, query)
         raise NotImplementedError(f"Unrecognized query: {query}.")
 
     def _answer_GroundAtomsHold_query(
@@ -80,10 +80,10 @@ class Teacher:
                                           _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)
 
-    def _answer_StateBasedDemonstration_query(
+    def _answer_PathToState_query(
             self, state: State,
-            query: StateBasedDemonstrationQuery) -> DemonstrationResponse:
-        # The query is asking for a demonstration from the current state to
+            query: PathToStateQuery) -> PathToStateResponse:
+        # The query is asking for a trajectory from the current state to
         # the goal state. Planning to a low-level state is hard. This
         # implementation currently assumes that only one option is required
         # to get from the state to the goal state. Furthermore, the option
@@ -92,7 +92,7 @@ class Teacher:
         # they are not demonstrations per se, because they do not reach task
         # goals (and are not necessarily associated with any particular task).
         trajectory = None
-        null_response = DemonstrationResponse(query, teacher_traj=None)
+        null_response = PathToStateResponse(query, teacher_traj=None)
         goal_state = query.goal_state
         if CFG.env == "cover_multistep_options":
             assert CFG.cover_multistep_use_learned_equivalents
@@ -152,7 +152,7 @@ class Teacher:
         for action in trajectory.actions:
             action.unset_option()
         # Success.
-        return DemonstrationResponse(query, teacher_traj=trajectory)
+        return PathToStateResponse(query, teacher_traj=trajectory)
 
 
 @dataclass
