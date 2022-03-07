@@ -103,6 +103,8 @@ class GlobalSettings:
     failure_video_mode = "longest_only"
 
     # dataset parameters
+    # For learning-based approaches, the data collection timeout for planning.
+    offline_data_planning_timeout = 10
     # If "default", defaults to CFG.task_planning_heuristic.
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
@@ -186,16 +188,6 @@ class GlobalSettings:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
         return dict(
-            # For learning-based approaches, the data collection timeout for
-            # planning.
-            offline_data_planning_timeout=defaultdict(
-                lambda: 3,
-                {
-                    # Planning in cover multistep options with default settings
-                    # is challenging for oracle because sampling is hard.
-                    "cover_multistep_options": 10,
-                })[args.get("env", "")],
-
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
