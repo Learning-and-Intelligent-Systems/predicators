@@ -1,7 +1,7 @@
-"""An abstract approach that does TAMP to solve tasks.
+"""An abstract approach that does planning to solve tasks.
 
-Uses the SeSamE planning strategy: SEarch-and-SAMple planning, then
-Execution.
+Uses the SeSamE bilevel planning strategy: SEarch-and-SAMple planning,
+then Execution.
 """
 
 import abc
@@ -16,8 +16,8 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-class TAMPApproach(BaseApproach):
-    """TAMP approach."""
+class BilevelPlanningApproach(BaseApproach):
+    """Bilevel planning approach."""
 
     def __init__(self,
                  initial_predicates: Set[Predicate],

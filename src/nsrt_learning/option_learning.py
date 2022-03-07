@@ -245,7 +245,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
     The hope is that by sampling different continuous parameters, the option
     will be able to navigate to different states in the effect set, giving the
-    diversity of transition samples that we need to do TAMP.
+    diversity of transition samples that we need to do bilevel planning.
 
     Also note that the parameters correspond to a state *change*, rather than
     an absolute state. This distinction is useful for learning; relative changes
