@@ -53,6 +53,16 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Expose the GripperOpen predicate."""
         return self._GripperOpen
 
+    @property
+    def Clear(self):
+        """Expose the Clear predicate."""
+        return self._Clear
+
+    @property
+    def Holding(self):
+        """Expose the Holding predicate."""
+        return self._Holding
+
     def set_state(self, state):
         """Forcibly reset the state."""
         self._current_state = state
@@ -72,6 +82,22 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         Returns a copy of the state upon completion.
         """
         option = self._Pick.ground([self._robot, block], [])
+        state = self._execute_option(option)
+        assert state.get(block, "held") == 1.0
+        return state
+
+    def execute_stack(self, block):
+        """Helper for tests involving stacking."""
+        option = self._Stack.ground([self._robot, block], [])
+        return self._execute_option(option)
+
+    def execute_putontable(self, norm_x, norm_y):
+        """Helper for tests involving putting on table."""
+        option = self._PutOnTable.ground([self._robot], [norm_x, norm_y])
+        return self._execute_option(option)
+
+    def _execute_option(self, option):
+        """Helper for execution methods."""
         assert option.initiable(self._current_state)
         # Execute the pick option.
         for _ in range(100):
@@ -81,8 +107,6 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
             self.step(action)
         else:
             assert False, "Option failed to terminate."
-        # The block should now be held.
-        assert self._current_state.get(block, "held") == 1.0
         return self._current_state.copy()
 
 
@@ -434,3 +458,75 @@ def test_pybullet_blocks_close_pick_place():
     # The other block states should be the same.
     pile_state = State({b: state[b] for b in block_to_z})
     assert initial_pile_state.allclose(pile_state)
+
+
+def test_pybullet_blocks_abstract_states():
+    """Tests abstract states during option execution in PyBulletBlocksEnv."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
+    env = _get_exposed_pybullet_env()
+    On = env.On
+    OnTable = env.OnTable
+    GripperOpen = env.GripperOpen
+    Holding = env.Holding
+    Clear = env.Clear
+    env.seed(123)
+    block0 = Object("block0", env.block_type)
+    block1 = Object("block1", env.block_type)
+    robot = env.robot
+    bx0 = (env.x_lb + env.x_ub) / 2
+    by0 = (env.y_lb + env.y_ub) / 2 - env.block_size
+    by1 = (env.y_lb + env.y_ub) / 2 + env.block_size
+    bz0 = env.table_height + 0.5 * env.block_size
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
+    # Create a state with two blocks on the table.
+    state = State({
+        robot: np.array([rx, ry, rz, rf]),
+        block0: np.array([bx0, by0, bz0, 0.0]),
+        block1: np.array([bx0, by1, bz0, 0.0]),
+    })
+    env.set_state(state)
+    assert env.get_state().allclose(state)
+    expected_abstract_state = {
+        OnTable([block0]),
+        OnTable([block1]),
+        GripperOpen([robot]),
+        Clear([block0]),
+        Clear([block1]),
+    }
+    assert utils.abstract(state, env.predicates) == expected_abstract_state
+    # Execute a pick of block0.
+    state = env.execute_pick(block0)
+    expected_abstract_state = {
+        Holding([block0]),
+        OnTable([block1]),
+        Clear([block1]),
+    }
+    assert utils.abstract(state, env.predicates) == expected_abstract_state
+    # Stack block0 on block1.
+    state = env.execute_stack(block1)
+    expected_abstract_state = {
+        On([block0, block1]),
+        OnTable([block1]),
+        Clear([block0]),
+        GripperOpen([robot]),
+    }
+    assert utils.abstract(state, env.predicates) == expected_abstract_state
+    # Unstack block0.
+    state = env.execute_pick(block0)
+    expected_abstract_state = {
+        Holding([block0]),
+        OnTable([block1]),
+        Clear([block1]),
+    }
+    assert utils.abstract(state, env.predicates) == expected_abstract_state
+    # Put block0 on the table.
+    state = env.execute_putontable(0.5, 0.9)
+    expected_abstract_state = {
+        OnTable([block0]),
+        OnTable([block1]),
+        GripperOpen([robot]),
+        Clear([block0]),
+        Clear([block1]),
+    }
+    assert utils.abstract(state, env.predicates) == expected_abstract_state
