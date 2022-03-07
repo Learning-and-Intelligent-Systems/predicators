@@ -52,6 +52,10 @@ class GlobalSettings:
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
+    # block parameters
+    blocks_num_blocks_train = [3, 4]
+    blocks_num_blocks_test = [5, 6]
+
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10

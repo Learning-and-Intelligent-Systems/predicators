@@ -14,11 +14,14 @@ from predicators.src import utils
 class PlayroomEnv(BlocksEnv):
     """Boring room vs playroom domain."""
     # Parameters that aren't important enough to need to clog up settings.py
+    table_height = 0.2
     block_size = 0.5
     x_lb = 0.0
     y_lb = 0.0
     x_ub = 140.0
     y_ub = 30.0
+    held_tol = 0.5
+    open_fingers = 0.8
     table_tol = 1.0
     table_x_lb = 10.0
     table_y_lb = 10.0
@@ -35,6 +38,7 @@ class PlayroomEnv(BlocksEnv):
     dial_button_tol = 0.4
     pick_tol = 0.4
     assert pick_tol < block_size
+    pick_z = 1.5
     num_blocks_train = [3]
     num_blocks_test = [3]
 
@@ -224,10 +228,10 @@ class PlayroomEnv(BlocksEnv):
             and (self.table_x_lb < x < self.table_x_ub) \
             and (self.table_y_lb < y < self.table_y_ub):
             if fingers < 0.5:
-                return self._transition_pick(state, x, y, z, fingers)
+                return self._transition_pick(state, x, y, z)
             if z < self.table_height + self.block_size:
-                return self._transition_putontable(state, x, y, z, fingers)
-            return self._transition_stack(state, x, y, z, fingers)
+                return self._transition_putontable(state, x, y, z)
+            return self._transition_stack(state, x, y, z)
         # Interact with some door
         if any(
                 self._NextToDoor_holds(state, (self._robot, door))
