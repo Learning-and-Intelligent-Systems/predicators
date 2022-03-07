@@ -1,12 +1,12 @@
 """A PyBullet version of Blocks."""
 
-from typing import Sequence, Tuple, Dict, Optional, Callable
+from typing import Sequence, Tuple, Dict, Optional, Callable, List
 from gym.spaces import Box
 import numpy as np
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.structs import State, Action, Object, Array, \
-    ParameterizedOption, Type
+    ParameterizedOption, Type, Image
 from predicators.src import utils
 from predicators.src.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics, Pose3D
@@ -48,9 +48,11 @@ class PyBulletBlocksEnv(BlocksEnv):
     _out_of_view_xy: Sequence[float] = [10.0, 10.0]
 
     # Camera parameters.
-    _camera_distance: float = 1.5
-    _yaw: float = 90.0
-    _pitch: float = -24
+    _camera_distance: float = 0.8
+    _camera_yaw: float = 90.0
+    _camera_pitch: float = -24
+    _camera_width: int = 1674
+    _camera_height: int = 900
     _camera_target: Pose3D = (1.65, 0.75, 0.42)
     _debug_text_position: Pose3D = (1.65, 0.25, 0.75)
 
@@ -138,8 +140,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._physics_client_id = p.connect(p.GUI)
             p.resetDebugVisualizerCamera(
                 self._camera_distance,
-                self._yaw,
-                self._pitch,
+                self._camera_yaw,
+                self._camera_pitch,
                 self._camera_target,
                 physicsClientId=self._physics_client_id)
         else:
@@ -367,6 +369,42 @@ class PyBulletBlocksEnv(BlocksEnv):
                          physicsClientId=self._physics_client_id)
 
         return block_id
+
+    def render(self, action: Optional[Action] = None) -> List[Image]:
+        if not CFG.pybullet_use_gui:
+            raise Exception(
+                "Rendering only works with GUI on. See "
+                "https://github.com/bulletphysics/bullet3/issues/1157")
+
+        view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=self._camera_target,
+            distance=self._camera_distance,
+            yaw=self._camera_yaw,
+            pitch=self._camera_pitch,
+            roll=0,
+            upAxisIndex=2,
+            physicsClientId=self._physics_client_id)
+
+        width, height = self._camera_width, self._camera_height
+
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=float(width / height),
+            nearVal=0.1,
+            farVal=100.0,
+            physicsClientId=self._physics_client_id)
+
+        (_, _, px, _,
+         _) = p.getCameraImage(width=width,
+                               height=height,
+                               viewMatrix=view_matrix,
+                               projectionMatrix=proj_matrix,
+                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                               physicsClientId=self._physics_client_id)
+
+        rgb_array = np.array(px)
+        rgb_array = rgb_array[:, :, :3]
+        return [rgb_array]
 
     def step(self, action: Action) -> State:
         ee_delta, finger_action = action.arr[:3], action.arr[3]
