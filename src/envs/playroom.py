@@ -328,7 +328,8 @@ class PlayroomEnv(BlocksEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
         fig = plt.figure(figsize=(20, 16))
@@ -504,7 +505,10 @@ class PlayroomEnv(BlocksEnv):
                                         facecolor=c)
             yz_ax.add_patch(yz_rect)
 
-        plt.suptitle(f"Held: {held}, Fingers: {fingers}", fontsize=36)
+        title = f"Held: {held}, Fingers: {fingers}"
+        if caption is not None:
+            title += f"; {caption}"
+        plt.suptitle(title, fontsize=24, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
 

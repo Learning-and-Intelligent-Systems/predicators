@@ -101,18 +101,20 @@ def test_main():
     main()
     # Try running interactive approach with no online learning, to make sure
     # it doesn't crash. This is also an important test of the full pipeline
-    # in the case where a goal predicate is excluded.
+    # in the case where a goal predicate is excluded. No online learning occurs
+    # because max number of transitions is set.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "interactive_learning",
-        "--seed", "123", "--num_online_learning_cycles", "0",
-        "--excluded_predicates", "Covers",
-        "--interactive_num_ensemble_members", "1", "--num_train_tasks", "3",
-        "--num_test_tasks", "3", "--predicate_mlp_classifier_max_itr", "100"
+        "--seed", "123", "--num_online_learning_cycles", "1",
+        "--online_learning_max_transitions", "3", "--excluded_predicates",
+        "Covers", "--interactive_num_ensemble_members", "1",
+        "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "--predicate_mlp_classifier_max_itr", "100"
     ]
     main()
 
 
-def test_tamp_approach_failure():
+def test_bilevel_planning_approach_failure():
     """Test coverage for ApproachFailure in run_testing()."""
     utils.reset_config({
         "env": "cover",

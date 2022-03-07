@@ -91,12 +91,15 @@ def create_dataframes(
     name to config name (in CFG).
     """
     all_data = []
+    git_commit_hashes = set()
     column_names = [c for (c, _) in column_names_and_keys]
     for group in groups:
         assert group in column_names, f"Missing column {group}"
     for filepath in sorted(glob.glob(f"{CFG.results_dir}/*")):
         with open(filepath, "rb") as f:
             outdata = pkl.load(f)
+        if "git_commit_hash" in outdata:
+            git_commit_hashes.add(outdata["git_commit_hash"])
         if "config" in outdata:
             config = outdata["config"].__dict__.copy()
             run_data_defaultdict = outdata["results"]
@@ -128,8 +131,11 @@ def create_dataframes(
     pd.set_option("display.max_rows", 999999)
     df = pd.DataFrame(all_data)
     df.columns = column_names
-    print("RAW DATA:")
-    print(df)
+    print(f"Git commit hashes seen in {CFG.results_dir}/:")
+    for commit_hash in git_commit_hashes:
+        print(commit_hash)
+    # Uncomment the next line to print out ALL the raw data.
+    # print(df)
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     grouped = df.groupby(groups)
     means = grouped.mean()
