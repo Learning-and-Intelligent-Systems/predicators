@@ -14,13 +14,11 @@ from predicators.src import utils
 class PlayroomEnv(BlocksEnv):
     """Boring room vs playroom domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_height = 0.2
     block_size = 0.5
     x_lb = 0.0
     y_lb = 0.0
     x_ub = 140.0
     y_ub = 30.0
-    held_tol = 0.5
     open_fingers = 0.8
     table_tol = 1.0
     table_x_lb = 10.0
@@ -37,6 +35,7 @@ class PlayroomEnv(BlocksEnv):
     dial_tol = 0.5
     dial_button_tol = 0.4
     pick_tol = 0.4
+    on_tol = pick_tol
     assert pick_tol < block_size
     pick_z = 1.5
     num_blocks_train = [3]
