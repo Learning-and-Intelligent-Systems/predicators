@@ -95,6 +95,8 @@ class GlobalSettings:
     pybullet_use_gui = False
     pybullet_draw_debug = False
     pybullet_draw_debug_lifetime = 3
+    pybullet_camera_width = 335  # for high quality, use 1674
+    pybullet_camera_height = 180  # for high quality, use 900
     pybullet_sim_steps_per_action = 20
     pybullet_max_ik_iters = 100
     pybullet_ik_tol = 1e-3

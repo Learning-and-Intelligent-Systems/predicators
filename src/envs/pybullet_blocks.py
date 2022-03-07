@@ -52,8 +52,6 @@ class PyBulletBlocksEnv(BlocksEnv):
     _camera_distance: float = 0.8
     _camera_yaw: float = 90.0
     _camera_pitch: float = -24
-    _camera_width: int = 1674
-    _camera_height: int = 900
     _camera_target: Pose3D = (1.65, 0.75, 0.42)
     _debug_text_position: Pose3D = (1.65, 0.25, 0.75)
 
@@ -386,7 +384,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             upAxisIndex=2,
             physicsClientId=self._physics_client_id)
 
-        width, height = self._camera_width, self._camera_height
+        width = CFG.pybullet_camera_width
+        height = CFG.pybullet_camera_height
 
         proj_matrix = p.computeProjectionMatrixFOV(
             fov=60,
