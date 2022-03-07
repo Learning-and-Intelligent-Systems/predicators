@@ -25,6 +25,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _max_vel_norm: float = 0.5
     _grasp_tol: float = 0.05
     _grasp_offset_z: float = 0.01
+    _place_offset_z: float = 0.001
 
     # Table parameters.
     _table_pose: Pose3D = (1.35, 0.75, 0.0)
@@ -32,7 +33,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     # Block parameters.
     _block_orientation: Sequence[float] = [0., 0., 0., 1.]
-    _block_mass = 0.04
+    _block_mass = 0.5
     _block_friction = 1.2
     _block_colors: Sequence[Tuple[float, float, float, float]] = [
         (0.95, 0.05, 0.1, 1.),
@@ -100,7 +101,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # Move down to place.
                 self._move_relative_to_block(
                     "MoveToPlace",
-                    (0., 0., self.block_size + self._grasp_offset_z),
+                    (0., 0., self.block_size + self._place_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Open grippers.
                 self._change_grippers("OpenGrippers", self.open_fingers, types,
@@ -123,7 +124,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # Move down to place.
                 self._move_relative_to_table(
                     "MoveToPlaceOnTable",
-                    (0., 0., self.block_size + self._grasp_offset_z),
+                    (0., 0., self.block_size + self._place_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Open grippers.
                 self._change_grippers("OpenGrippers", self.open_fingers, types,
