@@ -3,11 +3,11 @@ information to assist an agent during online learning."""
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Sequence, List, Optional
+from typing import Sequence, List, Optional, Callable
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
     DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
-    Action
+    Action, Image, Video
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import get_or_create_env
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
@@ -102,3 +102,31 @@ class TeacherInteractionMonitor(utils.Monitor):
     def get_query_cost(self) -> float:
         """Return the query cost."""
         return self._query_cost
+
+@dataclass
+class TeacherInteractionVideoMonitor(TeacherInteractionMonitor, utils.VideoMonitor):
+    """A monitor that renders each state and action encountered and queries and
+    responses during interaction with the teacher.
+
+    The render_fn is generally env.render.
+    """
+    _request: InteractionRequest
+    _teacher: Teacher
+    _render_fn: Callable[[Optional[Action], Optional[str]], List[Image]]
+    _responses: List[Optional[Response]] = field(init=False,
+                                                 default_factory=list)
+    _query_cost: float = field(init=False, default=0.0)
+    _video: Video = field(init=False, default_factory=list)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        # super(TeacherInteractionMonitor, self).observe(state, action)
+        query = self._request.query_policy(state)
+        if query is None:
+            response = None
+        else:
+            response = self._teacher.answer_query(state, query)
+            self._query_cost += query.cost
+        self._responses.append(response)
+        # TODO: add query/response overlay to video
+        caption = f"{response}, cost={query.cost}"
+        self._video.extend(self._render_fn(action, caption))

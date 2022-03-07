@@ -33,6 +33,7 @@ class GlobalSettings:
     pretty_print_when_loading = False
     # Used for random seeding in test environment.
     test_env_seed_offset = 10000
+    make_interaction_videos = False
 
     # cover env parameters
     cover_num_blocks = 2

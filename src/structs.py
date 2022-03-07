@@ -1229,6 +1229,13 @@ class GroundAtomsHoldResponse(Response):
     """A response to a GroundAtomsHoldQuery, providing boolean answers."""
     holds: Dict[GroundAtom, bool]
 
+    def __str__(self) -> str:
+        responses = []
+        for ga, b in self.holds.items():
+            suffix = "holds" if b else "does not hold"
+            responses.append(f"{ga} {suffix}")
+        return ", ".join(responses)
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class DemonstrationQuery(Query):

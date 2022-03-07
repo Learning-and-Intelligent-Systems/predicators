@@ -46,7 +46,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, \
     InteractionRequest, InteractionResult
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitor
+from predicators.src.teacher import Teacher, TeacherInteractionVideoMonitor
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -134,7 +134,7 @@ def _run_pipeline(env: BaseEnv,
             if not interaction_requests:
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, interaction_requests)
+                env, teacher, interaction_requests, i)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
@@ -178,7 +178,8 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-    env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest]
+    env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest],
+    cycle_num: int
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
@@ -186,7 +187,7 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        monitor = TeacherInteractionMonitor(request, teacher)
+        monitor = TeacherInteractionVideoMonitor(env.render, request, teacher)
         traj = utils.run_policy(
             request.act_policy,
             env,
@@ -200,6 +201,11 @@ def _generate_interaction_results(
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
+        if CFG.make_interaction_videos:
+            video = monitor.get_video()
+            video_prefix = utils.get_config_path_str()
+            outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+            utils.save_video(outfile, video)
     return results, query_cost
 
 
