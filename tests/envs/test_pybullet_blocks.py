@@ -184,6 +184,7 @@ def test_pybullet_blocks_picking():
         # Create an option for picking the block.
         option = env.Pick.ground([robot, block], [])
         assert option.initiable(state)
+        assert env.GripperOpen([robot]).holds(state)
         # Execute the option.
         for _ in range(100):
             if option.terminal(state):
@@ -194,6 +195,7 @@ def test_pybullet_blocks_picking():
             assert False, "Option failed to terminate."
         # The block should now be held.
         assert state.get(block, "held") == 1.0
+        assert not env.GripperOpen([robot]).holds(state)
 
 
 def test_pybullet_blocks_stacking():
@@ -267,6 +269,7 @@ def test_pybullet_blocks_stacking():
         # Create a stack option.
         option = env.Stack.ground([robot, top_block], [])
         assert option.initiable(state)
+        assert not env.GripperOpen([robot]).holds(state)
         # Execute the stack option.
         for _ in range(100):
             if option.terminal(state):
@@ -279,6 +282,7 @@ def test_pybullet_blocks_stacking():
         assert state.get(block0, "held") == 0.0
         # And block0 should be on top_block.
         assert env.On([block0, top_block]).holds(state)
+        assert env.GripperOpen([robot]).holds(state)
 
 
 def test_pybullet_blocks_putontable():
@@ -307,6 +311,7 @@ def test_pybullet_blocks_putontable():
     # of the work space.
     option = env.PutOnTable.ground([robot], [0.5, 0.5])
     assert option.initiable(state)
+    assert not env.GripperOpen([robot]).holds(state)
     # Execute the option.
     for _ in range(100):
         if option.terminal(state):
@@ -319,6 +324,7 @@ def test_pybullet_blocks_putontable():
     assert state.get(block, "held") == 0.0
     # And block should be on the table.
     assert env.OnTable([block]).holds(state)
+    assert env.GripperOpen([robot]).holds(state)
     # Specifically, it should be at the center of the workspace.
     # Note: setting this threshold to 1e-3 causes the check to fail.
     # If this is not precise enough in practice, we will need to revisit
@@ -341,6 +347,7 @@ def test_pybullet_blocks_putontable():
         # Create a PutOnTable option.
         option = env.PutOnTable.ground([robot], [px, py])
         assert option.initiable(state)
+        assert not env.GripperOpen([robot]).holds(state)
         # Execute the option.
         for _ in range(100):
             if option.terminal(state):
@@ -353,6 +360,7 @@ def test_pybullet_blocks_putontable():
         assert state.get(block, "held") == 0.0
         # And block should be on the table.
         assert env.OnTable([block]).holds(state)
+        assert env.GripperOpen([robot]).holds(state)
         # Specifically, it should be at the given corner of the workspace.
         # Note: setting this threshold to 1e-3 causes the check to fail.
         # If this is not precise enough in practice, we will need to revisit
@@ -407,6 +415,7 @@ def test_pybullet_blocks_close_pick_place():
                                                     env.block_size)
     option = env.PutOnTable.ground([robot], [0.5, py])
     assert option.initiable(state)
+    assert not env.GripperOpen([robot]).holds(state)
     # Execute the option.
     for _ in range(100):
         if option.terminal(state):
@@ -419,6 +428,7 @@ def test_pybullet_blocks_close_pick_place():
     assert state.get(block, "held") == 0.0
     # And block should be on the table.
     assert env.OnTable([block]).holds(state)
+    assert env.GripperOpen([robot]).holds(state)
     assert abs(state.get(block, "pose_x") - bx) < 1e-2
     assert abs(state.get(block, "pose_y") - by0) < 1e-2
     # The other block states should be the same.
