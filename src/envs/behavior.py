@@ -303,7 +303,8 @@ class BehaviorEnv(BaseEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
