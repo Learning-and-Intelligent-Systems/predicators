@@ -14,7 +14,7 @@ import numpy as np
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.structs import State, Task, NSRT, Predicate, \
     GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    Metrics, STRIPSOperator, OptionSpec, Object, GroundAtomTrajectory
+    Metrics, STRIPSOperator, OptionSpec, Object
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, ExceptionWithInfo, \
     EnvironmentFailure
@@ -399,72 +399,6 @@ def _update_nsrts_with_failure(
                 new_ground_nsrt = ground_nsrt
             new_ground_nsrts.append(new_ground_nsrt)
     return new_predicates, new_ground_nsrts
-
-
-def check_plan_preservation(init_preds: Set[Predicate],
-                            train_tasks: List[Task],
-                            pruned_atom_data: List[GroundAtomTrajectory],
-                            strips_ops: List[STRIPSOperator],
-                            option_specs: List[OptionSpec]) -> bool:
-    """Function to check whether a given set of operators preservers
-    harmlessness over some number of training tasks.
-    """
-
-    for ll_traj, hl_traj in pruned_atom_data:
-        if not ll_traj.is_demo:
-            continue
-        init_atoms = utils.abstract(ll_traj.states[0], init_preds)
-        objects = set(ll_traj.states[0])
-        ground_nsrts, _ = task_plan_grounding(init_atoms, objects, strips_ops,
-                                              option_specs)
-        traj_goal = train_tasks[ll_traj.train_task_idx].goal
-        heuristic = utils.create_task_planning_heuristic(
-            CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
-            ground_nsrts, init_preds, objects)
-
-        def _check_goal(state: Set[GroundAtom]) -> bool:
-            return traj_goal.issubset(state)
-
-        idx_into_traj = 0
-
-        def _get_successor_with_correct_option(
-            state: Set[GroundAtom]
-        ) -> Iterator[Tuple[_GroundNSRT, Set[GroundAtom], float]]:
-            nonlocal idx_into_traj
-            if idx_into_traj > len(ll_traj.actions) - 1:
-                yield ([], frozenset(state), 1.0)
-            else:
-                assert ll_traj.actions[idx_into_traj].has_option()
-                gt_option = ll_traj.actions[idx_into_traj].get_option()
-                expected_next_hl_state = hl_traj[idx_into_traj + 1]
-                for applicable_nsrt in utils.get_applicable_operators(
-                        ground_nsrts, state):
-                    if applicable_nsrt.option.ground(
-                            applicable_nsrt.option_objs,
-                            gt_option.params) == gt_option:
-                        next_hl_state = utils.apply_operator(
-                            applicable_nsrt, state)
-                        # Here, we check whether all atoms that differ between next_hl_state and state are part of the operator's
-                        # side predicates. If so, this nsrt can be applied from this state!
-                        exp_state_matches = next_hl_state.issubset(
-                            expected_next_hl_state)
-
-                        if exp_state_matches:
-                            # The returned cost is uniform because we don't actually care about finding the shortest
-                            # path; just one that matches!
-                            yield (applicable_nsrt, frozenset(next_hl_state),
-                                   1.0)
-                idx_into_traj += 1
-
-        state_seq, _ = utils.run_gbfs(frozenset(init_atoms), _check_goal,
-                                      _get_successor_with_correct_option,
-                                      heuristic)
-
-        if not _check_goal(state_seq[-1]):
-            # If the state sequence doesn't achieve the goal, then we haven't found a valid plan.
-            return False
-
-    return True
 
 
 @dataclass(frozen=True, eq=False)
