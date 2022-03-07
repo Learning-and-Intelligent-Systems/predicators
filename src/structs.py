@@ -1249,7 +1249,7 @@ class DemonstrationResponse(Response):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class PathToStateQuery(Query):
-    """A query requesting a demonstration to reach a specific state."""
+    """A query requesting a trajectory that reaches a specific state."""
     goal_state: State
 
     @property

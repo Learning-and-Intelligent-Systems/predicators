@@ -142,8 +142,8 @@ class Teacher:
                 termination_function,
                 max_num_steps=CFG.max_num_steps_option_rollout)
         else:
-            raise NotImplementedError("State-based demonstration queries not"
-                                      f"supported for env {CFG.env}.")
+            raise NotImplementedError("PathToStateQuery is not supported for "
+                                      f"env {CFG.env}.")
         # Validate. If the goal state was not reached, the query is assumed
         # to be invalid, and a None trajectory is returned.
         if not trajectory.states[-1].allclose(goal_state):
