@@ -306,23 +306,28 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
             expected_next_hl_state = hl_traj[idx_into_traj + 1]
             for applicable_nsrt in utils.get_applicable_operators(
                     ground_nsrts, state):
-                if applicable_nsrt.option.ground(
-                        applicable_nsrt.option_objs,
-                        gt_option.params) == gt_option:
-                    next_hl_state = utils.apply_operator(
-                        applicable_nsrt, set(state))
-                    # Here, we check whether all atoms that differ
-                    # between next_hl_state and state are part of
-                    # the operator's side predicates. If so, this nsrt
-                    # can be applied from this state!
-                    exp_state_matches = next_hl_state.issubset(
-                        expected_next_hl_state)
+                # NOTE: we check that the option names are equal before
+                # attempting to ground because otherwise, we might
+                # get a parameter mismatch and trigger an AssertionError
+                # during grounding.
+                if applicable_nsrt.option.name == gt_option.name:
+                    if applicable_nsrt.option.ground(
+                            applicable_nsrt.option_objs,
+                            gt_option.params) == gt_option:
+                        next_hl_state = utils.apply_operator(
+                            applicable_nsrt, set(state))
+                        # Here, we check whether all atoms that differ
+                        # between next_hl_state and state are part of
+                        # the operator's side predicates. If so, this nsrt
+                        # can be applied from this state!
+                        exp_state_matches = next_hl_state.issubset(
+                            expected_next_hl_state)
 
-                    if exp_state_matches:
-                        # The returned cost is uniform because we don't
-                        # actually care about finding the shortest path;
-                        # just one that matches!
-                        yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
+                        if exp_state_matches:
+                            # The returned cost is uniform because we don't
+                            # actually care about finding the shortest path;
+                            # just one that matches!
+                            yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
             idx_into_traj += 1
 
     init_atoms_frozen = frozenset(init_atoms)
