@@ -114,7 +114,7 @@ def test_main():
     main()
 
 
-def test_tamp_approach_failure():
+def test_planning_approach_failure():
     """Test coverage for ApproachFailure in run_testing()."""
     utils.reset_config({
         "env": "cover",

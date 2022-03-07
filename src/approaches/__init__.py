@@ -8,7 +8,7 @@ from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
-from predicators.src.approaches.tamp_approach import TAMPApproach
+from predicators.src.approaches.planning_approach import PlanningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
@@ -24,7 +24,7 @@ __all__ = [
     "OracleApproach",
     "RandomActionsApproach",
     "RandomOptionsApproach",
-    "TAMPApproach",
+    "PlanningApproach",
     "NSRTLearningApproach",
     "InteractiveLearningApproach",
     "GrammarSearchInventionApproach",
