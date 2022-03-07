@@ -179,7 +179,7 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 def _generate_interaction_results(
     env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest],
-    cycle_num: int
+    cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""

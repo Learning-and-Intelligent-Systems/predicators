@@ -1356,12 +1356,12 @@ class VideoMonitor(Monitor):
     because the environment should use its current internal state to
     render.
     """
-    _render_fn: Callable[[Optional[Action]], List[Image]]
+    _render_fn: Callable[[Optional[Action], Optional[str]], List[Image]]
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         del state  # unused
-        self._video.extend(self._render_fn(action))
+        self._video.extend(self._render_fn(action, None))
 
     def get_video(self) -> Video:
         """Return the video."""
