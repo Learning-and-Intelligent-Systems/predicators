@@ -14,7 +14,7 @@ import numpy as np
 class GlobalSettings:
     """Unchanging settings."""
     # global parameters
-    num_train_tasks =50
+    num_train_tasks = 50
     num_test_tasks = 50
     # Perform online learning for this many cycles or until this many
     # transitions have been collected, whichever happens first.
