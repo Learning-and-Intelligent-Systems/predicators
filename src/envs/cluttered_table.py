@@ -116,7 +116,8 @@ class ClutteredTableEnv(BaseEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
         assert len(task.goal) == 1
@@ -158,6 +159,8 @@ class ClutteredTableEnv(BaseEnv):
         plt.ylim(-0.1, 1.1)
         plt.xticks([])
         plt.yticks([])
+        if caption is not None:
+            plt.suptitle(caption, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()

@@ -346,7 +346,8 @@ class PaintingEnv(BaseEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)
@@ -427,10 +428,12 @@ class PaintingEnv(BaseEnv):
             ax.add_patch(rect)
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
-        plt.suptitle(
-            "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-            "yellow border = side grasp, orange border = top grasp",
-            fontsize=12)
+        title = ("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
+                 "yellow border = side grasp, orange border = top grasp")
+        if caption is not None:
+            title += f";\n{caption}"
+        plt.suptitle(title, fontsize=12, wrap=True)
+        plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
         return [img]
