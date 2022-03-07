@@ -108,14 +108,14 @@ def _learn_pnad_side_predicates(
             _, option_vars = pnad.option_spec
             # ...consider changing each of its effects to a side predicate.
             for effect in pnad.op.add_effects:
-                # if len(pnad.op.add_effects) > 1:
-                new_pnad = PartialNSRTAndDatastore(
-                    pnad.op.effect_to_side_predicate(effect, option_vars,
-                                                     "add"), pnad.datastore,
-                    pnad.option_spec)
-                # else:
-                #     # We don't want sidelining to result in a no-op
-                #     continue
+                if len(pnad.op.add_effects) > 1:
+                    new_pnad = PartialNSRTAndDatastore(
+                        pnad.op.effect_to_side_predicate(effect, option_vars,
+                                                        "add"), pnad.datastore,
+                        pnad.option_spec)
+                else:
+                    # We don't want sidelining to result in a no-op
+                    continue
                 sprime = list(s)
                 sprime[i] = new_pnad
                 yield (None, tuple(sprime), 1.0)
@@ -264,6 +264,8 @@ def check_harmlessness(init_preds: Set[Predicate], train_tasks: List[Task],
     tasks."""
 
     for ll_traj, hl_traj in pruned_atom_data:
+        if not ll_traj.is_demo:
+            continue
         traj_goal = train_tasks[ll_traj.train_task_idx].goal
         plan_preserved = check_single_plan_preservation(
             ll_traj, hl_traj, traj_goal, init_preds, strips_ops, option_specs)
