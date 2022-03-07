@@ -5,7 +5,7 @@ import numpy as np
 from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
     learn_strips_operators
 from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LowLevelTrajectory
+    LowLevelTrajectory
 from predicators.src import utils
 
 
@@ -25,10 +25,12 @@ def test_segment_trajectory():
     state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     atoms1 = utils.abstract(state1, preds)
     # Tests with known options.
-    param_option = ParameterizedOption("dummy", [cup_type], Box(0.1, 1, (1, )),
-                                       lambda s, m, o, p: Action(p),
-                                       utils.always_initiable,
-                                       utils.onestep_terminal)
+    param_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(p),
+        types=[cup_type],
+        params_space=Box(0.1, 1, (1, )),
+    )
     option0 = param_option.ground([cup0], np.array([0.2]))
     assert option0.initiable(state0)
     action0 = option0.policy(state0)
