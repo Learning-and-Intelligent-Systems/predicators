@@ -46,7 +46,8 @@ from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, \
     InteractionRequest, InteractionResult
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionVideoMonitor
+from predicators.src.teacher import Teacher, TeacherInteractionMonitor, \
+    TeacherInteractionVideoMonitor
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -187,7 +188,10 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        monitor = TeacherInteractionVideoMonitor(env.render, request, teacher)
+        if CFG.make_interaction_videos:
+            monitor = TeacherInteractionVideoMonitor(env.render, request, teacher)
+        else:
+            monitor = TeacherInteractionMonitor(request, teacher)
         traj = utils.run_policy(
             request.act_policy,
             env,
