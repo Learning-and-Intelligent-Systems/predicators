@@ -81,7 +81,8 @@ class BaseEnv(abc.ABC):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         """Render a state and action into a list of images.
 
         Like simulate, this function is not meant to be part of the
@@ -90,13 +91,13 @@ class BaseEnv(abc.ABC):
         """
         raise NotImplementedError("Override me!")
 
-    def render(self, action: Optional[Action] = None) -> List[Image]:
+    def render(self, action: Optional[Action] = None, caption: Optional[str] = None) -> List[Image]:
         """Render the current state and action into a list of images.
 
         By default, calls render_state, but subclasses may override.
         """
         return self.render_state(self._current_state, self._current_task,
-                                 action)
+                                 action, caption)
 
     def get_train_tasks(self) -> List[Task]:
         """Return the ordered list of tasks for training."""
