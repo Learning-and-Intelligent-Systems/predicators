@@ -9,6 +9,7 @@ from predicators.src.envs import BlocksEnv
 from predicators.src.structs import Type, Predicate, State, Task, \
     ParameterizedOption, Object, Action, Image, Array, GroundAtom
 from predicators.src import utils
+from predicators.src.settings import CFG
 
 
 class PlayroomEnv(BlocksEnv):
@@ -38,8 +39,8 @@ class PlayroomEnv(BlocksEnv):
     on_tol = pick_tol
     assert pick_tol < block_size
     pick_z = 1.5
-    num_blocks_train = [3]
-    num_blocks_test = [3]
+    num_blocks_train = CFG.playroom_num_blocks_train
+    num_blocks_test = CFG.playroom_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()

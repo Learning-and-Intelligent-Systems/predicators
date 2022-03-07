@@ -43,6 +43,8 @@ class BlocksEnv(BaseEnv):
     on_tol = 0.01
     collision_padding = 2.0
     assert pick_tol < block_size
+    num_blocks_train = CFG.blocks_num_blocks_train
+    num_blocks_test = CFG.blocks_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()
@@ -171,12 +173,12 @@ class BlocksEnv(BaseEnv):
 
     def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               possible_num_blocks=CFG.blocks_num_blocks_train,
+                               possible_num_blocks=self.num_blocks_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               possible_num_blocks=CFG.blocks_num_blocks_test,
+                               possible_num_blocks=self.num_blocks_test,
                                rng=self._test_rng)
 
     @property
@@ -399,8 +401,8 @@ class BlocksEnv(BaseEnv):
     def _GripperOpen_holds(self, state: State,
                            objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(
-            robot, "fingers") + self.finger_tol > self.open_fingers
+        return state.get(robot,
+                         "fingers") + self.finger_tol > self.open_fingers
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects

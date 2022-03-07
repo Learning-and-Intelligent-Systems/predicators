@@ -56,6 +56,10 @@ class GlobalSettings:
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
 
+    # playroom parameters
+    playroom_num_blocks_train = [3]
+    playroom_num_blocks_test = [3]
+
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
     cluttered_table_num_cans_test = 10
