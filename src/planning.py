@@ -1,4 +1,4 @@
-"""Algorithms for task and motion planning.
+"""Algorithms for bilevel planning.
 
 Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
@@ -45,7 +45,7 @@ def sesame_plan(
     check_dr_reachable: bool = True,
     allow_noops: bool = False,
 ) -> Tuple[List[_Option], Metrics]:
-    """Run TAMP.
+    """Run bilevel planning.
 
     Return a sequence of options, and a dictionary of metrics for this
     run of the planner. Uses the SeSamE strategy: SEarch-and-SAMple
