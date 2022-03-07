@@ -53,33 +53,25 @@ class BlocksEnv(BaseEnv):
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         # Options
-        self._Pick = ParameterizedOption(
+        self._Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
             # params: []
             "Pick",
-            types=[self._robot_type, self._block_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Pick_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._Stack = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._block_type])
+        self._Stack = utils.SingletonParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: []
             "Stack",
-            types=[self._robot_type, self._block_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
-            policy=self._Stack_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._PutOnTable = ParameterizedOption(
+            self._Stack_policy,
+            types=[self._robot_type, self._block_type])
+        self._PutOnTable = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable",
+            self._PutOnTable_policy,
             types=[self._robot_type],
-            params_space=Box(0, 1, (2, )),
-            policy=self._PutOnTable_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
+            params_space=Box(0, 1, (2, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
