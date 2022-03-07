@@ -62,19 +62,20 @@ class BlocksEnv(BaseEnv):
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         # Options
-        self._Pick = utils.SingletonParameterizedOption(
+        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
             # params: []
             "Pick",
             self._Pick_policy,
             types=[self._robot_type, self._block_type])
-        self._Stack = utils.SingletonParameterizedOption(
+        self._Stack: ParameterizedOption = utils.SingletonParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
             # params: []
             "Stack",
             self._Stack_policy,
             types=[self._robot_type, self._block_type])
-        self._PutOnTable = utils.SingletonParameterizedOption(
+        self._PutOnTable: ParameterizedOption = \
+            utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable",
