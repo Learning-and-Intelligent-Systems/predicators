@@ -1079,18 +1079,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                           o: Sequence[Object],
                                           p: Array) -> bool:
         assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        block, robot = o
         # Pick is done when we're holding the desired object.
-        terminal = self._Holding_holds(s, [block, robot])
-        if terminal and CFG.sampler_learner == "neural":
-            # Ensure terminal state matches parameterization.
-            param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(absolute_params,
-                               param_from_terminal,
-                               atol=1e-05)
-        return terminal
+        return self._Holding_holds(s, o)
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
@@ -1199,17 +1189,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
                                            o: Sequence[Object],
                                            p: Array) -> bool:
+        del o  # unused
         assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        block, robot, _ = o
         # Place is done when the hand is empty.
-        terminal = self._HandEmpty_holds(s, [])
-        if terminal and CFG.sampler_learner == "neural":
-            # Ensure terminal state matches parameterization.
-            param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(absolute_params, param_from_terminal, atol=1e-5)
-        return terminal
+        return self._HandEmpty_holds(s, [])
 
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:
