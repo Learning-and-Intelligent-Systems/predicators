@@ -265,6 +265,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                    (not strict and score >= self._best_score):
                     atoms_to_query.add(atom)
                     self._best_score = score
+            if not atoms_to_query:
+                return None
             return GroundAtomsHoldQuery(atoms_to_query)
 
         return _query_policy
@@ -281,6 +283,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 score = self._score_atom_set({atom}, s)
                 if score > CFG.interactive_score_threshold:
                     atoms_to_query.add(atom)
+            if not atoms_to_query:
+                return None
             return GroundAtomsHoldQuery(atoms_to_query)
 
         return _query_policy

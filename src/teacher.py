@@ -119,14 +119,13 @@ class TeacherInteractionVideoMonitor(TeacherInteractionMonitor, utils.VideoMonit
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
-        # super(TeacherInteractionMonitor, self).observe(state, action)
         query = self._request.query_policy(state)
         if query is None:
             response = None
+            caption = "No queries"
         else:
             response = self._teacher.answer_query(state, query)
             self._query_cost += query.cost
+            caption = f"{response}, cost={query.cost}"
         self._responses.append(response)
-        # TODO: add query/response overlay to video
-        caption = f"{response}, cost={query.cost}"
         self._video.extend(self._render_fn(action, caption))
