@@ -292,7 +292,7 @@ class LinearChainParameterizedOption(ParameterizedOption):
         memory["current_child_index"] = 0
         # Create memory dicts for each child to avoid key collisions. One
         # example of a failure that arises without this is when using
-        # action_sequence_to_parameterized_option, each of the singleton
+        # multiple SingletonParameterizedOption instances, each of those
         # options would be referencing the same start_state in memory.
         memory["child_memory"] = [{} for _ in self._children]
         current_child = self._children[0]
@@ -375,37 +375,6 @@ class SingletonParameterizedOption(ParameterizedOption):
                          policy=policy,
                          initiable=_initiable,
                          terminal=_terminal)
-
-
-def action_sequence_to_parameterized_option(
-        action_sequence: Sequence[Action],
-        name: str,
-        types: Optional[Sequence[Type]] = None,
-        params_space: Optional[Box] = None) -> ParameterizedOption:
-    """Create a ParameterizedOption that executes the given action sequence.
-
-    One reason that types and parameters are optionally included, even
-    though they are ignored, is that this ParameterizedOption may be
-    included in a LinearChainParameterizedOption, where other
-    parameterized options in the same chain use the types and
-    parameters.
-    """
-
-    # Necessary to avoid closure issues.
-    def _action_to_policy(
-            a: Action
-    ) -> Callable[[State, Dict, Sequence[Object], Array], Action]:
-        return lambda _1, _2, _3, _4: a
-
-    singletons = [
-        SingletonParameterizedOption(name + f"_step{i}",
-                                     _action_to_policy(a),
-                                     types=types,
-                                     params_space=params_space)
-        for i, a in enumerate(action_sequence)
-    ]
-
-    return LinearChainParameterizedOption(name, singletons)
 
 
 class Monitor(abc.ABC):

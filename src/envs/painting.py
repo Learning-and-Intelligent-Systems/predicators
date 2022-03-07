@@ -100,7 +100,6 @@ class PaintingEnv(BaseEnv):
             "Wash",
             self._Wash_policy,
             types=[self._robot_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
             initiable=self._holding_initiable)
         self._Dry = utils.SingletonParameterizedOption(
             # variables: [robot]
@@ -108,7 +107,6 @@ class PaintingEnv(BaseEnv):
             "Dry",
             self._Dry_policy,
             types=[self._robot_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
             initiable=self._holding_initiable)
         self._Paint = utils.SingletonParameterizedOption(
             # variables: [robot]
@@ -136,7 +134,6 @@ class PaintingEnv(BaseEnv):
             "OpenLid",
             self._OpenLid_policy,
             types=[self._robot_type, self._lid_type],
-            params_space=Box(0, 1, (0, )),  # no parameters
             initiable=self._handempty_initiable)
         # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
@@ -567,23 +564,13 @@ class PaintingEnv(BaseEnv):
     def _holding_initiable(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding an object.
-        del objects, params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del objects, params, memory  # unused
         return self._get_held_object(state) is not None
 
     def _handempty_initiable(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding nothing.
-        del objects, params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del objects, params, memory  # unused
         return self._get_held_object(state) is None
 
     def _OpenLid_policy(self, state: State, memory: Dict,
