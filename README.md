@@ -2,11 +2,11 @@
 
 ## Repository Description
 
-This codebase provides a concrete implementation of [Neuro-Symbolic Relational Transition Models](https://arxiv.org/abs/2105.14074) for task and motion planning. **Several features are concurrently under active development -- please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.**
+This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*. Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.**
 
-The scope of this codebase extends far beyond the scope of the paper linked above. In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample task and motion planning. That includes: options, predicates, operators, and samplers.
+Initially, this codebase provided a concrete implementation of Neuro-Symbolic Relational Transition Models (NSRTs), as described in [this paper](https://arxiv.org/abs/2105.14074). Now, the scope extends beyond that paper's. In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers.
 
-### Code structure
+### Code Structure
 
 In `src/`, the environments are defined in the `envs/` directory, and the approaches (both learning-based and not) are defined in the `approaches/` directory. The core NSRT learning algorithm happens in `src/nsrt_learning/nsrt_learning_main.py`, which has the following steps:
 * Segment data based on changes in predicates.
@@ -17,7 +17,7 @@ In `src/`, the environments are defined in the `envs/` directory, and the approa
 
 Methods for predicate learning are implemented as Approaches (e.g., `src/approaches/grammar_search_invention_approach.py`), and may interface with the core structure of `src/nsrt_learning/nsrt_learning_main.py` in various ways.
 
-A simple implementation of search-then-sample task and motion planning is provided in `src/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
+A simple implementation of search-then-sample bilevel planning is provided in `src/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
 
 ## Installation
 ### Pip
