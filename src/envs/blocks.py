@@ -504,7 +504,7 @@ class BlocksEnv(BaseEnv):
                  state.get(block, "pose_y")])
             block_z = state.get(block, "pose_z")
             if np.allclose([x, y], block_pose, atol=self.pick_tol) and \
-               block_z < z:
+               block_z < z - self.pick_tol:
                 blocks_here.append((block, block_z))
         if not blocks_here:
             return None
