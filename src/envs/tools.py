@@ -338,7 +338,8 @@ class ToolsEnv(BaseEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         raise NotImplementedError
 
     def _get_tasks(self, num_tasks: int, num_items_lst: List[int],

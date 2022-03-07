@@ -151,7 +151,7 @@ def test_cover_typed_options():
     ]
     plan = []
     state = task.init
-    env.render_state(state, task)
+    env.render_state(state, task, caption="caption")
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [
         state[block0][3], state[target0][3], state[block1][3],
@@ -335,7 +335,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     state = traj.states[0]
-    env.render_state(state, task)
+    env.render_state(state, task, caption="caption")
     # Render a state where we're grasping
     env.render_state(traj.states[20], task)
     Covers = [p for p in env.predicates if p.name == "Covers"][0]

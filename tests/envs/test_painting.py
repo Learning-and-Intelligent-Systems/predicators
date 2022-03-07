@@ -57,7 +57,7 @@ def test_painting():
         assert lid is not None
         if i < 3:
             # Test rendering
-            env.render_state(state, task)
+            env.render_state(state, task, caption="caption")
 
 
 def test_painting_failure_cases():
