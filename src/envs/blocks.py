@@ -396,11 +396,11 @@ class BlocksEnv(BaseEnv):
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 
-    @staticmethod
-    def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _GripperOpen_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
         return state.get(
-            robot, "fingers") + BlocksEnv.finger_tol > BlocksEnv.open_fingers
+            robot, "fingers") + self.finger_tol > self.open_fingers
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
