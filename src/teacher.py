@@ -103,8 +103,10 @@ class TeacherInteractionMonitor(utils.Monitor):
         """Return the query cost."""
         return self._query_cost
 
+
 @dataclass
-class TeacherInteractionVideoMonitor(TeacherInteractionMonitor, utils.VideoMonitor):
+class TeacherInteractionVideoMonitor(TeacherInteractionMonitor,
+                                     utils.VideoMonitor):
     """A monitor that renders each state and action encountered and queries and
     responses during interaction with the teacher.
 

@@ -179,8 +179,10 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-    env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest],
-    cycle_num: Optional[int] = None
+        env: BaseEnv,
+        teacher: Teacher,
+        requests: Sequence[InteractionRequest],
+        cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
@@ -189,7 +191,8 @@ def _generate_interaction_results(
     query_cost = 0.0
     for request in requests:
         if CFG.make_interaction_videos:
-            monitor = TeacherInteractionVideoMonitor(env.render, request, teacher)
+            monitor = TeacherInteractionVideoMonitor(env.render, request,
+                                                     teacher)
         else:
             monitor = TeacherInteractionMonitor(request, teacher)
         traj = utils.run_policy(
