@@ -132,9 +132,6 @@ class GlobalSettings:
     neural_gaus_regressor_sample_clip = 1
     mlp_classifier_n_iter_no_change = 5000
 
-    # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle" or "neural"
-
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
     max_rejection_sampling_tries = 100
@@ -187,6 +184,7 @@ class GlobalSettings:
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
+
         return dict(
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
@@ -255,6 +253,14 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
+
+            # Segmentation parameters.
+            segmenter=defaultdict(
+                lambda: "atom_changes",
+                {
+                    # When options are given, use them to segment instead.
+                    "no_learning": "option_changes",
+                })[args.get("option_learner", "")],
         )
 
 
