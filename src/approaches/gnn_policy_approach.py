@@ -51,6 +51,7 @@ class GNNPolicyApproach(BaseApproach):
         return True
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
+        assert self._gnn is not None, "Learning hasn't happened yet!"
         cur_option = DummyOption
 
         def _policy(state: State) -> Action:
