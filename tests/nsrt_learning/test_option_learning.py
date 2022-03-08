@@ -103,8 +103,6 @@ def test_oracle_option_learner_blocks():
         "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "oracle",
-        "blocks_num_blocks_train": [3],
-        "blocks_num_blocks_test": [4],
     })
     env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
