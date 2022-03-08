@@ -109,7 +109,7 @@ def test_gnn_policy_approach_special_cases():
             LowLevelTrajectory([state, next_state], [action1],
                                _is_demo=True,
                                _train_task_idx=0),
-            # For coverage, this trajectory is not a demo, so it will be ignored.
+            # For coverage, this is not a demo, so it will be ignored.
             LowLevelTrajectory([state, next_state], [action1])
         ]))
 
