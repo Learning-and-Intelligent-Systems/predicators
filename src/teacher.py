@@ -3,11 +3,11 @@ information to assist an agent during online learning."""
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Sequence, List, Optional, Callable
+from typing import Sequence, List, Optional
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
     DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
-    Action, Image, Video
+    Action
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import get_or_create_env
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
