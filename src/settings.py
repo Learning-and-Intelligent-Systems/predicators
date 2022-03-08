@@ -16,7 +16,10 @@ class GlobalSettings:
     # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
+    # Perform online learning for this many cycles or until this many
+    # transitions have been collected, whichever happens first.
     num_online_learning_cycles = 10
+    online_learning_max_transitions = float("inf")
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
@@ -28,6 +31,8 @@ class GlobalSettings:
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
     pretty_print_when_loading = False
+    # Used for random seeding in test environment.
+    test_env_seed_offset = 10000
 
     # cover env parameters
     cover_num_blocks = 2
@@ -40,6 +45,12 @@ class GlobalSettings:
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
+    cover_multistep_max_tb_placements = 100  # max placements of targets/blocks
+    cover_multistep_max_hr_placements = 100  # max placements of hand regions
+    cover_multistep_thr_percent = 0.5  # target hand region percent of width
+    cover_multistep_bhr_percent = 0.5  # block hand region percent of width
+    cover_multistep_bimodal_goal = False
+    cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
@@ -93,7 +104,7 @@ class GlobalSettings:
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
-    offline_data_planning_timeout = 3
+    offline_data_planning_timeout = 10
     # If "default", defaults to CFG.task_planning_heuristic.
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
@@ -132,17 +143,15 @@ class GlobalSettings:
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
 
-    # iterative invention parameters
-    iterative_invention_accept_score = 1 - 1e-3
-    predicate_mlp_classifier_max_itr = 1000
-
     # interactive learning parameters
     interactive_num_ensemble_members = 10
     interactive_action_strategy = "glib"
     interactive_query_policy = "strict_best_seen"
     interactive_score_function = "frequency"
+    interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+    predicate_mlp_classifier_max_itr = 1000
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True

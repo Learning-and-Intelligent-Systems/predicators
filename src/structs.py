@@ -128,6 +128,10 @@ class State:
         idx = obj.type.feature_names.index(feature_name)
         self.data[obj][idx] = feature_val
 
+    def get_objects(self, object_type: Type) -> List[Object]:
+        """Return objects of the given type in the order of __iter__()."""
+        return [o for o in self if o.type == object_type]
+
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the given
         ordered list."""
@@ -390,6 +394,13 @@ class Task:
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
+    def goal_holds(self, state: State) -> bool:
+        """Return whether the goal of this task holds in the given state."""
+        return all(goal_atom.holds(state) for goal_atom in self.goal)
+
+
+DefaultTask = Task(DefaultState, set())
+
 
 @dataclass(frozen=True, eq=False)
 class ParameterizedOption:
@@ -407,20 +418,20 @@ class ParameterizedOption:
     # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    _policy: Callable[[State, Dict, Sequence[Object], Array],
-                      Action] = field(repr=False)
+    policy: Callable[[State, Dict, Sequence[Object], Array],
+                     Action] = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
     # parameters will be contained in params_space.
-    _initiable: Callable[[State, Dict, Sequence[Object], Array],
-                         bool] = field(repr=False)
+    initiable: Callable[[State, Dict, Sequence[Object], Array],
+                        bool] = field(repr=False)
     # A termination condition maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option should
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
-    _terminal: Callable[[State, Dict, Sequence[Object], Array],
-                        bool] = field(repr=False)
+    terminal: Callable[[State, Dict, Sequence[Object], Array],
+                       bool] = field(repr=False)
 
     @cached_property
     def _hash(self) -> int:
@@ -451,9 +462,9 @@ class ParameterizedOption:
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name,
-            lambda s: self._policy(s, memory, objects, params),
-            initiable=lambda s: self._initiable(s, memory, objects, params),
-            terminal=lambda s: self._terminal(s, memory, objects, params),
+            lambda s: self.policy(s, memory, objects, params),
+            initiable=lambda s: self.initiable(s, memory, objects, params),
+            terminal=lambda s: self.terminal(s, memory, objects, params),
             parent=self,
             objects=objects,
             params=params,

@@ -1,36 +1,18 @@
 """Create offline datasets by collecting demonstrations and replaying."""
 
-from typing import List, Set
+from typing import List
 import numpy as np
-from predicators.src.approaches import BaseApproach, ApproachFailure, \
-    ApproachTimeout, OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, _GroundNSRT, Task, \
-    LowLevelTrajectory, GroundAtom
+    LowLevelTrajectory
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-def create_demo_replay_data(env: BaseEnv,
-                            train_tasks: List[Task],
-                            nonoptimal_only: bool = False) -> Dataset:
-    """Create offline datasets by collecting demos and replaying.
-
-    If nonoptimal_only is True, perform planning after each replay to
-    check if the replay is optimal. If it is, filter it out.
-    """
-    if nonoptimal_only:
-        # Oracle is used to check if replays are optimal.
-        oracle_approach = OracleApproach(
-            env.predicates,
-            env.options,
-            env.types,
-            env.action_space,
-            train_tasks,
-            task_planning_heuristic=CFG.offline_data_task_planning_heuristic,
-            max_skeletons_optimized=CFG.offline_data_max_skeletons_optimized)
+def create_demo_replay_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
+    """Create offline datasets by collecting demos and replaying."""
     demo_dataset = create_demo_data(env, train_tasks)
     # We will sample from states uniformly at random.
     # The reason for doing it this way, rather than combining
@@ -77,13 +59,15 @@ def create_demo_replay_data(env: BaseEnv,
             if option.initiable(state):
                 break
         # Execute the option
+        assert option.initiable(state)
         try:
-            replay_traj = utils.option_to_trajectory(
-                state,
+            replay_traj = utils.run_policy_with_simulator(
+                option.policy,
                 env.simulate,
-                option,
+                state,
+                option.terminal,
                 max_num_steps=CFG.max_num_steps_option_rollout)
-            # Add task goal into the trajectory.
+            # Add task index information into the trajectory.
             replay_traj = LowLevelTrajectory(
                 replay_traj.states,
                 replay_traj.actions,
@@ -93,10 +77,6 @@ def create_demo_replay_data(env: BaseEnv,
             # We ignore replay data which leads to an environment failure.
             continue
         goal = train_tasks[traj.train_task_idx].goal
-        if nonoptimal_only and _replay_is_optimal(replay_traj, traj, state_idx,
-                                                  oracle_approach, env, goal):
-            continue
-
         if CFG.option_learner != "no_learning":
             for act in replay_traj.actions:
                 act.unset_option()
@@ -105,39 +85,3 @@ def create_demo_replay_data(env: BaseEnv,
     assert len(replay_trajectories) == CFG.offline_data_num_replays
 
     return Dataset(demo_dataset.trajectories + replay_trajectories)
-
-
-def _replay_is_optimal(replay_traj: LowLevelTrajectory,
-                       demo_traj: LowLevelTrajectory, state_idx: int,
-                       oracle_approach: BaseApproach, env: BaseEnv,
-                       goal: Set[GroundAtom]) -> bool:
-    """Plan from the end of the replay to the goal and check whether the result
-    is as good as the demo.
-
-    The state_idx is the index into demo_traj.states where the replay
-    started.
-    """
-    assert demo_traj.states[state_idx].allclose(replay_traj.states[0])
-    # Plan starting at the end of the replay trajectory to the demo goal.
-    task = Task(replay_traj.states[-1], goal)
-    try:
-        policy = oracle_approach.solve(
-            task, timeout=CFG.offline_data_planning_timeout)
-
-        continued_traj, _, solved = utils.run_policy_on_task(
-            policy, task, env.simulate, CFG.max_num_steps_check_policy)
-        assert solved
-    except (ApproachFailure, ApproachTimeout):
-        # If planning fails, assume that the replay was not optimal.
-        return False
-
-    # Get the costs-to-go for both the demo actions and the replay actions.
-    # This is not just len(actions) because we care about the length of the
-    # option trajectory, not the length of the low-level action trajectory.
-    demo_cost_to_go = utils.num_options_in_action_sequence(demo_traj.actions)
-    replay_actions = demo_traj.actions[:state_idx] + continued_traj.actions
-    # The +1 is for the replay itself, which consists of one option.
-    replay_cost_to_go = 1 + utils.num_options_in_action_sequence(
-        replay_actions)
-    assert demo_cost_to_go <= replay_cost_to_go, "Demo was not optimal."
-    return demo_cost_to_go == replay_cost_to_go

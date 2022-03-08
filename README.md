@@ -2,11 +2,11 @@
 
 ## Repository Description
 
-This codebase provides a concrete implementation of [Neuro-Symbolic Relational Transition Models](https://arxiv.org/abs/2105.14074) for task and motion planning. **Several features are concurrently under active development -- please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.**
+This codebase implements a framework for *bilevel planning with learned neuro-symbolic relational abstractions*. Several features are concurrently under active development. **Please contact <tslvr@mit.edu> and <ronuchit@mit.edu> before attempting to use it for your own research.**
 
-The scope of this codebase extends far beyond the scope of the paper linked above. In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample task and motion planning. That includes: options, predicates, operators, and samplers.
+Initially, this codebase provided a concrete implementation of Neuro-Symbolic Relational Transition Models (NSRTs), as described in [this paper](https://arxiv.org/abs/2105.14074). Now, the scope extends beyond that paper's. In particular, this codebase aims to ultimately provide an integrated system for learning the ingredients of search-then-sample bilevel planning with learned abstractions. That includes: options, predicates, operators, and samplers.
 
-### Code structure
+### Code Structure
 
 In `src/`, the environments are defined in the `envs/` directory, and the approaches (both learning-based and not) are defined in the `approaches/` directory. The core NSRT learning algorithm happens in `src/nsrt_learning/nsrt_learning_main.py`, which has the following steps:
 * Segment data based on changes in predicates.
@@ -17,7 +17,7 @@ In `src/`, the environments are defined in the `envs/` directory, and the approa
 
 Methods for predicate learning are implemented as Approaches (e.g., `src/approaches/grammar_search_invention_approach.py`), and may interface with the core structure of `src/nsrt_learning/nsrt_learning_main.py` in various ways.
 
-A simple implementation of search-then-sample task and motion planning is provided in `src/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
+A simple implementation of search-then-sample bilevel planning is provided in `src/planning.py`. This implementation uses the "SeSamE" strategy: SEarch-and-SAMple planning, then Execution.
 
 ## Installation
 ### Pip
@@ -43,7 +43,7 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
 
 ### Running Experiments on Supercloud
-* Log into supercloud (ask Rohan if you don't know how to do this).
+* Log into supercloud (see [this page](https://supercloud.mit.edu/requesting-account) for instructions on making an account).
 * Go into the `predicators` folder and `git pull` if necessary.
 * Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
 * Monitor with `squeue`, or cancel jobs with `scancel` (standard Slurm commands).
@@ -60,9 +60,9 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Example command: `python src/main.py --env behavior --approach oracle --seed 0 --timeout 1000 --sesame_max_samples_per_step 20 --behavior_mode simple --max_num_steps_check_policy 1000 --option_model_name behavior_oracle --num_train_tasks 2 --num_test_tasks 2 --behavior_randomize_init_state True --behavior_scene_name Pomaria_1_int --behavior_task_name re-shelving_library_books`.
 
 ## Instructions For Contributing
-* You can't push directly to master. Make a PR and merge that in.
-* To merge a PR, you have to pass 4 checks, all defined in `.github/workflows/predicators.yml`.
-* The unit testing check verifies that tests pass and that code is adequately covered. To run locally: `pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered`, which will print out the lines that are uncovered in every file. The "100" here means that all lines in every file must be covered.
+* You can't push directly to master. Make a new branch in this repository (don't use a fork, since that will not properly trigger the checks when you make a PR). When your code is ready for review, make a PR and request reviews from the appropriate people.
+* To merge a PR, you need at least one approval, and you have to pass the 4 checks defined in `.github/workflows/predicators.yml`.
+* The unit testing check verifies that tests pass and that code is adequately covered. To run locally: `pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=0`, which will print out the lines that are uncovered in every file, and also the time taken by every test. The "100" here means that all lines in every file must be covered.
 * The static typing check uses Mypy to verify type annotations. To run locally: `mypy . --config-file mypy.ini`. If this doesn't work due to import errors, try `mypy -p predicators --config-file predicators/mypy.ini` from one directory up.
 * The linter check runs pylint with the custom config file `.predicators_pylintrc` in the root of this repository. Feel free to edit this file as necessary. To run locally: `pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc`.
 * The autoformatting check uses the custom `.style.yapf` in this repo. You can run the autoformatter locally with `yapf -i -r --style .style.yapf . && docformatter -i -r .`.

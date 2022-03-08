@@ -95,103 +95,93 @@ class PlayroomEnv(BlocksEnv):
         self._LightOff = Predicate("LightOff", [self._dial_type],
                                    self._LightOff_holds)
         # Options
-        self._Pick = ParameterizedOption(
+        self._Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z, rotation]
+            # params: [rotation]
             "Pick",
+            self._Pick_policy,
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4, )),
-            _policy=self._Pick_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Stack = ParameterizedOption(
+            params_space=Box(-1, 1, (1, )),
+            initiable=self._NextToTable_initiable)
+        self._Stack = utils.SingletonParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # params: [delta x, delta y, delta z, rotation]
+            # params: [rotation]
             "Stack",
+            self._Stack_policy,
             types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (4, )),
-            _policy=self._Stack_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
-        self._PutOnTable = ParameterizedOption(
+            params_space=Box(-1, 1, (1, )),
+            initiable=self._NextToTable_initiable)
+        self._PutOnTable = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [x, y, rotation] (normalized coords on table surface)
             "PutOnTable",
+            self._PutOnTable_policy,
             types=[self._robot_type],
             params_space=Box(low=np.array([0.0, 0.0, -1.0]),
                              high=np.array([1.0, 1.0, 1.0])),
-            _policy=self._PutOnTable_policy,
-            _initiable=self._NextToTable_initiable,
-            _terminal=utils.onestep_terminal)
-        self._MoveToDoor = ParameterizedOption(
+            initiable=self._NextToTable_initiable)
+        self._MoveToDoor = utils.SingletonParameterizedOption(
             # variables: [robot, region, door]
             # params: [dx, dy, rotation]
             "MoveToDoor",
+            self._MoveToDoor_policy,  # uses robot, door
             types=[self._robot_type, self._region_type, self._door_type],
             params_space=Box(-1, 1, (3, )),
-            _policy=self._MoveToDoor_policy,  # uses robot, door
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
-        self._MoveDoorToTable = ParameterizedOption(
+            initiable=self._MoveFromRegion_initiable)  # uses robot, region
+        self._MoveDoorToTable = utils.SingletonParameterizedOption(
             # variables: [robot, region]
             # params: [x, y, rotation] (x, y normalized)
             "MoveDoorToTable",
+            self._MoveToTable_policy,  # uses robot
             types=[self._robot_type, self._region_type],
             params_space=Box(-1, 1, (3, )),
-            _policy=self._MoveToTable_policy,  # uses robot
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
-        self._MoveDoorToDial = ParameterizedOption(
+            initiable=self._MoveFromRegion_initiable)  # uses robot, region
+        self._MoveDoorToDial = utils.SingletonParameterizedOption(
             # variables: [robot, region, dial]
             # params: [dx, dy, rotation]
             "MoveDoorToDial",
+            self._MoveToDial_policy,  # uses robot, dial
             types=[self._robot_type, self._region_type, self._dial_type],
             params_space=Box(low=np.array([-4.0, -4.0, -1.0]),
                              high=np.array([4.0, 4.0, 1.0])),
-            _policy=self._MoveToDial_policy,  # uses robot, dial
-            _initiable=self._MoveFromRegion_initiable,  # uses robot, region
-            _terminal=utils.onestep_terminal)
-        self._OpenDoor = ParameterizedOption(
+            initiable=self._MoveFromRegion_initiable)  # uses robot, region
+        self._OpenDoor = utils.SingletonParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
             "OpenDoor",
+            self._ToggleDoor_policy,
             types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDoor_policy,
-            _initiable=self._ToggleDoor_initiable,
-            _terminal=utils.onestep_terminal)
-        self._CloseDoor = ParameterizedOption(
+            initiable=self._ToggleDoor_initiable)
+        self._CloseDoor = utils.SingletonParameterizedOption(
             # variables: [robot, door]
             # params: [dx, dy, dz, rotation]
             "CloseDoor",
+            self._ToggleDoor_policy,
             types=[self._robot_type, self._door_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDoor_policy,
-            _initiable=self._ToggleDoor_initiable,
-            _terminal=utils.onestep_terminal)
-        self._TurnOnDial = ParameterizedOption(
+            initiable=self._ToggleDoor_initiable)
+        self._TurnOnDial = utils.SingletonParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
             "TurnOnDial",
+            self._ToggleDial_policy,
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDial_policy,
-            _initiable=self._ToggleDial_initiable,
-            _terminal=utils.onestep_terminal)
-        self._TurnOffDial = ParameterizedOption(
+            initiable=self._ToggleDial_initiable)
+        self._TurnOffDial = utils.SingletonParameterizedOption(
             # variables: [robot, dial]
             # params: [dx, dy, dz, rotation]
             "TurnOffDial",
+            self._ToggleDial_policy,
             types=[self._robot_type, self._dial_type],
             params_space=Box(low=np.array([-5.0, -5.0, -5.0, -1.0]),
                              high=np.array([5.0, 5.0, 5.0, 1.0])),
-            _policy=self._ToggleDial_policy,
-            _initiable=self._ToggleDial_initiable,
-            _terminal=utils.onestep_terminal)
-        # Objects
+            initiable=self._ToggleDial_initiable)
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
         self._door1 = Object("door1", self._door_type)
         self._door2 = Object("door2", self._door_type)
@@ -335,10 +325,11 @@ class PlayroomEnv(BlocksEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
         fig = plt.figure(figsize=(20, 16))
@@ -514,7 +505,10 @@ class PlayroomEnv(BlocksEnv):
                                         facecolor=c)
             yz_ax.add_patch(yz_rect)
 
-        plt.suptitle(f"Held: {held}, Fingers: {fingers}", fontsize=36)
+        title = f"Held: {held}, Fingers: {fingers}"
+        if caption is not None:
+            title += f"; {caption}"
+        plt.suptitle(title, fontsize=24, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
 
@@ -724,8 +718,7 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1],
-                    0.0].astype(np.float32)
+        arr = np.r_[block_pose, params[-1], 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
@@ -739,7 +732,12 @@ class PlayroomEnv(BlocksEnv):
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params[:-1], params[-1],
+        relative_grasp = np.array([
+            0.,
+            0.,
+            self.block_size,
+        ])
+        arr = np.r_[block_pose + relative_grasp, params[-1],
                     1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
@@ -761,12 +759,7 @@ class PlayroomEnv(BlocksEnv):
     def _NextToTable_initiable(state: State, memory: Dict,
                                objects: Sequence[Object],
                                params: Array) -> bool:
-        del params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del memory, params  # unused
         robot = objects[0]
         return PlayroomEnv._NextToTable_holds(state, (robot, ))
 
@@ -774,12 +767,7 @@ class PlayroomEnv(BlocksEnv):
     def _MoveFromRegion_initiable(state: State, memory: Dict,
                                   objects: Sequence[Object],
                                   params: Array) -> bool:
-        del params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del memory, params  # unused
         # objects: robot, region, ...
         return PlayroomEnv._InRegion_holds(state, objects[:2])
 
@@ -843,12 +831,7 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDoor_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
-        del params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del memory, params  # unused
         # objects: (robot, door)
         return PlayroomEnv._NextToDoor_holds(state, objects)
 
@@ -869,12 +852,7 @@ class PlayroomEnv(BlocksEnv):
     def _ToggleDial_initiable(state: State, memory: Dict,
                               objects: Sequence[Object],
                               params: Array) -> bool:
-        del params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del memory, params  # unused
         # objects: (robot, dial)
         return PlayroomEnv._NextToDial_holds(state, objects)
 

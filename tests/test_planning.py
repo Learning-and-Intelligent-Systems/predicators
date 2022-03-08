@@ -11,7 +11,8 @@ from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
     _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
 from predicators.src.settings import CFG
-from predicators.src.option_model import create_option_model
+from predicators.src.option_model import create_option_model, \
+    _OracleOptionModel
 
 
 def test_sesame_plan():
@@ -106,7 +107,13 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    assert utils.policy_solves_task(policy, trivial_task, env.simulate)
+    traj = utils.run_policy_with_simulator(
+        policy,
+        env.simulate,
+        trivial_task.init,
+        trivial_task.goal_holds,
+        max_num_steps=CFG.max_num_steps_check_policy)
+    assert trivial_task.goal_holds(traj.states[-1])
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
     block0 = [obj for obj in task.init if obj.name == "block0"][0]
@@ -174,8 +181,8 @@ def test_sesame_plan_uninitiable_option():
     old_option = next(iter(env.options))
     new_option = ParameterizedOption(old_option.name, old_option.types,
                                      old_option.params_space,
-                                     old_option._policy, initiable,
-                                     old_option._terminal)
+                                     old_option.policy, initiable,
+                                     old_option.terminal)
     new_nsrts = set()
     for nsrt in nsrts:
         new_nsrts.add(
@@ -201,7 +208,6 @@ def test_sesame_plan_uninitiable_option():
 def test_planning_determinism():
     """Tests that planning is deterministic when there are multiple ways of
     achieving a goal."""
-    utils.reset_config({"env": "cover"})
     robot_type = Type("robot_type", ["asleep", "cried"])
     robot_var = robot_type("?robot")
     robby = robot_type("robby")
@@ -213,10 +219,11 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     neg_params_space = Box(-0.75, -0.25, (1, ))
-    sleep_option = ParameterizedOption(
-        "Sleep", [robot_type], neg_params_space,
+    sleep_option = utils.SingletonParameterizedOption(
+        "Sleep",
         lambda s, m, o, p: Action(p - int(o[0] == robby)),
-        utils.always_initiable, utils.onestep_terminal)
+        types=[robot_type],
+        params_space=neg_params_space)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
                               delete_effects, side_predicates)
     sleep_nsrt = sleep_op.make_nsrt(
@@ -229,33 +236,44 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     pos_params_space = Box(0.25, 0.75, (1, ))
-    cry_option = ParameterizedOption(
-        "Cry", [robot_type], pos_params_space,
+    cry_option = utils.SingletonParameterizedOption(
+        "Cry",
         lambda s, m, o, p: Action(p + int(o[0] == robby)),
-        utils.always_initiable, utils.onestep_terminal)
+        types=[robot_type],
+        params_space=pos_params_space)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
     cry_nsrt = cry_op.make_nsrt(
         cry_option, [robot_var],
         lambda s, g, rng, objs: pos_params_space.sample())
 
-    def _simulator(s, a):
-        ns = s.copy()
-        if a.arr.item() < -1:
-            ns[robby][0] = 1
-        elif a.arr.item() < 0:
-            ns[robin][0] = 1
-        elif a.arr.item() < 1:
-            ns[robin][1] = 1
-        else:
-            ns[robby][1] = 1
-        return ns
-
     goal = {asleep([robby]), asleep([robin]), cried([robby]), cried([robin])}
     task1 = Task(State({robby: [0, 0], robin: [0, 0]}), goal)
     task2 = Task(State({robin: [0, 0], robby: [0, 0]}), goal)
-    option_model = create_option_model("oracle")
-    option_model._simulator = _simulator  # pylint:disable=protected-access
+
+    class _MockEnv:
+
+        @staticmethod
+        def simulate(state, action):
+            """A mock simulate method."""
+            next_state = state.copy()
+            if action.arr.item() < -1:
+                next_state[robby][0] = 1
+            elif action.arr.item() < 0:
+                next_state[robin][0] = 1
+            elif action.arr.item() < 1:
+                next_state[robin][1] = 1
+            else:
+                next_state[robby][1] = 1
+            return next_state
+
+        @property
+        def options(self):
+            """Mock options."""
+            return {sleep_option, cry_option}
+
+    env = _MockEnv()
+    option_model = _OracleOptionModel(env)
     # Check that sesame_plan is deterministic, over both NSRTs and objects.
     plan1 = [
         (act.name, act.objects) for act in sesame_plan(

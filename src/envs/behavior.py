@@ -156,10 +156,10 @@ class BehaviorEnv(BaseEnv):
         next_state = self.current_ig_state_to_state()
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
@@ -300,10 +300,11 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.igibson_behavior_env.action_space.high == 1)
         return self.igibson_behavior_env.action_space
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
@@ -566,8 +567,8 @@ def make_behavior_option(
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
-    def _policy(state: State, memory: Dict, _objects: Sequence[Object],
-                _params: Array) -> Action:
+    def policy(state: State, memory: Dict, _objects: Sequence[Object],
+               _params: Array) -> Action:
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
         assert memory.get("policy_controller") is not None
@@ -576,8 +577,8 @@ def make_behavior_option(
             state, env.igibson_behavior_env)
         return Action(action_arr)
 
-    def _initiable(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> bool:
+    def initiable(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
 
@@ -612,8 +613,8 @@ def make_behavior_option(
             memory["has_terminated"] = False
         return planner_result is not None
 
-    def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
-                  _params: Array) -> bool:
+    def terminal(_state: State, memory: Dict, _objects: Sequence[Object],
+                 _params: Array) -> bool:
         assert "has_terminated" in memory
         return memory["has_terminated"]
 
@@ -621,7 +622,7 @@ def make_behavior_option(
         name,
         types=types,
         params_space=params_space,
-        _policy=_policy,
-        _initiable=_initiable,
-        _terminal=_terminal,
+        policy=policy,
+        initiable=initiable,
+        terminal=terminal,
     )

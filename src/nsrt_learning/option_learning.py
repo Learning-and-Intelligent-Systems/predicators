@@ -9,7 +9,7 @@ from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
 from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
 from predicators.src.torch_models import MLPRegressor
-from predicators.src.envs import create_env, BlocksEnv
+from predicators.src.envs import get_or_create_env, BlocksEnv
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -105,7 +105,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
-        env = create_env(CFG.env)
+        env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
             assert len(strips_ops) == 3
@@ -194,7 +194,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 ]
                 assert len(picked_blocks) == 1
                 block = picked_blocks[0]
-                params = np.zeros(3, dtype=np.float32)
+                params = np.zeros(0, dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
             elif param_opt.name == "PutOnTable":
@@ -215,8 +215,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 ]
                 assert len(dropped_blocks) == 1
                 block = dropped_blocks[0]
-                params = np.array([0, 0, BlocksEnv.block_size],
-                                  dtype=np.float32)
+                params = np.zeros(0, dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
 
@@ -246,7 +245,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
     The hope is that by sampling different continuous parameters, the option
     will be able to navigate to different states in the effect set, giving the
-    diversity of transition samples that we need to do TAMP.
+    diversity of transition samples that we need to do bilevel planning.
 
     Also note that the parameters correspond to a state *change*, rather than
     an absolute state. This distinction is useful for learning; relative changes
@@ -280,9 +279,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         super().__init__(name,
                          types,
                          params_space,
-                         _policy=self._regressor_based_policy,
-                         _initiable=self._precondition_based_initiable,
-                         _terminal=self._effect_based_terminal)
+                         policy=self._regressor_based_policy,
+                         initiable=self._precondition_based_initiable,
+                         terminal=self._effect_based_terminal)
 
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],

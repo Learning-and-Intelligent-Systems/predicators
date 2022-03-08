@@ -53,34 +53,26 @@ class BlocksEnv(BaseEnv):
                                   self._Holding_holds)
         self._Clear = Predicate("Clear", [self._block_type], self._Clear_holds)
         # Options
-        self._Pick = ParameterizedOption(
+        self._Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z]
+            # params: []
             "Pick",
-            types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (3, )),
-            _policy=self._Pick_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Stack = ParameterizedOption(
+            self._Pick_policy,
+            types=[self._robot_type, self._block_type])
+        self._Stack = utils.SingletonParameterizedOption(
             # variables: [robot, object on which to stack currently-held-object]
-            # params: [delta x, delta y, delta z]
+            # params: []
             "Stack",
-            types=[self._robot_type, self._block_type],
-            params_space=Box(-1, 1, (3, )),
-            _policy=self._Stack_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        self._PutOnTable = ParameterizedOption(
+            self._Stack_policy,
+            types=[self._robot_type, self._block_type])
+        self._PutOnTable = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [x, y] (normalized coordinates on the table surface)
             "PutOnTable",
+            self._PutOnTable_policy,
             types=[self._robot_type],
-            params_space=Box(0, 1, (2, )),
-            _policy=self._PutOnTable_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        # Objects
+            params_space=Box(0, 1, (2, )))
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
     def simulate(self, state: State, action: Action) -> State:
@@ -167,12 +159,12 @@ class BlocksEnv(BaseEnv):
         next_state.set(self._robot, "fingers", fingers)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                possible_num_blocks=self.num_blocks_train,
                                rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                possible_num_blocks=self.num_blocks_test,
                                rng=self._test_rng)
@@ -203,10 +195,11 @@ class BlocksEnv(BaseEnv):
         uppers = np.array([self.x_ub, self.y_ub, 10.0, 1.0], dtype=np.float32)
         return Box(lowers, uppers)
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         r = self.block_size * 0.5  # block radius
 
         width_ratio = max(
@@ -263,7 +256,10 @@ class BlocksEnv(BaseEnv):
                                         facecolor=c)
             yz_ax.add_patch(yz_rect)
 
-        plt.suptitle(f"Held: {held}", fontsize=36)
+        title = f"Held: {held}"
+        if caption is not None:
+            title += f"; {caption}"
+        plt.suptitle(title, fontsize=24, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
 
@@ -405,27 +401,32 @@ class BlocksEnv(BaseEnv):
 
     def _Pick_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
+        del memory, params  # unused
         _, block = objects
         block_pose = np.array([
             state.get(block, "pose_x"),
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params, 0.0].astype(np.float32)
+        arr = np.r_[block_pose, 0.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _Stack_policy(self, state: State, memory: Dict,
                       objects: Sequence[Object], params: Array) -> Action:
-        del memory  # unused
+        del memory, params  # unused
         _, block = objects
         block_pose = np.array([
             state.get(block, "pose_x"),
             state.get(block, "pose_y"),
             state.get(block, "pose_z")
         ])
-        arr = np.r_[block_pose + params, 1.0].astype(np.float32)
+        relative_grasp = np.array([
+            0.,
+            0.,
+            self.block_size,
+        ])
+        arr = np.r_[block_pose + relative_grasp, 1.0].astype(np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 

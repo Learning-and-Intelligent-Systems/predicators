@@ -49,7 +49,7 @@ def test_interactive_learning_approach():
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     interaction_results, _ = _generate_interaction_results(
-        env.simulate, teacher, train_tasks, interaction_requests)
+        env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):
@@ -66,16 +66,14 @@ def test_interactive_learning_approach():
         "interactive_action_strategy": "random",
     })
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib falls back to random if no solvable task can be found.
     utils.update_config({
         "interactive_action_strategy": "glib",
         "timeout": 0.0,
     })
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib also falls back when there are no non-static predicates.
     approach2 = InteractiveLearningApproach(initial_predicates, env.options,
                                             env.types, env.action_space,
@@ -90,7 +88,7 @@ def test_interactive_learning_approach():
     approach._best_score = -np.inf  # pylint:disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     interaction_results, query_cost = _generate_interaction_results(
-        env.simulate, teacher, train_tasks, interaction_requests)
+        env, teacher, interaction_requests)
     assert len(interaction_results) == 1
     interaction_result = interaction_results[0]
     predicates_to_learn = {
@@ -102,6 +100,20 @@ def test_interactive_learning_approach():
         ground_atoms = utils.all_possible_ground_atoms(s, predicates_to_learn)
         expected_query_cost += len(ground_atoms)
     assert query_cost == expected_query_cost
+    # Test with entropy score function and score threshold.
+    utils.update_config({
+        "interactive_query_policy": "threshold",
+        "interactive_score_function": "entropy",
+        "interactive_score_threshold": 0.5,
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
+    # Test with BALD score function and score threshold.
+    utils.update_config({
+        "interactive_score_function": "BALD",
+    })
+    interaction_requests = approach.get_interaction_requests()
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",

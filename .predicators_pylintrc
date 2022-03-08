@@ -9,6 +9,9 @@ extension-pkg-whitelist=numpy,pybullet,torch,tensorflow
 # paths.
 ignore=CVS
 
+# Add paths to the blacklist.
+ignore-paths=src/gnn
+
 # Add files or directories matching the regex patterns to the blacklist. The
 # regex matches against base names, not paths.
 ignore-patterns=
@@ -328,7 +331,7 @@ dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_
 ignored-argument-names=_.*|^ignored_|^unused_
 
 # Tells whether we should check for unused import in __init__ files.
-init-import=no
+init-import=yes
 
 # List of qualified module names which can have objects that can redefine
 # builtins.

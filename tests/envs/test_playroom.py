@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from predicators.src.envs import PlayroomEnv
 from predicators.src import utils
-from predicators.src.structs import Action, State
+from predicators.src.structs import Action
 
 
 def test_playroom():
@@ -346,11 +346,11 @@ def test_playroom_options():
     TurnOnDial = [o for o in env.options if o.name == "TurnOnDial"][0]
     TurnOffDial = [o for o in env.options if o.name == "TurnOffDial"][0]
     plan = [
-        Pick.ground([robot, block1], [0.0, 0.0, 0.0, 0.35]),
+        Pick.ground([robot, block1], [0.35]),
         PutOnTable.ground([robot], [0.1, 0.5, 0.0]),  # put block1 on table
-        Pick.ground([robot, block2], [0.0, 0.0, 0.0, -0.15]),
+        Pick.ground([robot, block2], [-0.15]),
         # stack block2 on block1
-        Stack.ground([robot, block1], [0.0, 0.0, 1.0, 0.0]),
+        Stack.ground([robot, block1], [0.0]),
         MoveToDoor.ground([robot, region1, door1], [-0.2, 0.0, 0.0]),
         OpenDoor.ground([robot, door1], [-0.2, 0.0, 0.0, 0.0]),
         # advance through door1
@@ -373,13 +373,27 @@ def test_playroom_options():
         TurnOnDial.ground([robot, dial], [-0.2, 0.0, 0.0, 0.0])
     ]
     assert plan[0].initiable(state)
-    make_video = False  # Can toggle to true for debugging
-    traj, video, _ = utils.run_policy_on_task(
-        utils.option_plan_to_policy(plan), task, env.simulate, len(plan),
-        env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_options_playroom.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
+
+    policy = utils.option_plan_to_policy(plan)
+
+    # Here's an example of how to make a video within this test.
+    # monitor = utils.SimulateVideoMonitor(task, env.render_state)
+    # traj = utils.run_policy_with_simulator(policy,
+    #                                        env.simulate,
+    #                                        task.init,
+    #                                        lambda _: False,
+    #                                        max_num_steps=len(plan),
+    #                                        monitor=monitor)
+    # Uncomment to save the video.
+    # video = monitor.get_video()
+    # outfile = "hardcoded_options_playroom.mp4"
+    # utils.save_video(outfile, video)
+
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           task.goal_holds,
+                                           max_num_steps=len(plan))
     final_atoms = utils.abstract(traj.states[-1], env.predicates)
     assert LightOn([dial]) in final_atoms
     assert OnTable([block1]) in final_atoms
@@ -424,19 +438,15 @@ def test_playroom_action_sequence_video():
         # Turn dial on
         np.array([125, 15.1, 1, -0.5, 1]).astype(np.float32),
     ]
-    make_video = False  # Can toggle to true for debugging
 
-    def policy(s: State) -> Action:
-        del s  # unused
-        return Action(action_arrs.pop(0))
+    policy = utils.action_arrs_to_policy(action_arrs)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           task.init,
+                                           task.goal_holds,
+                                           max_num_steps=len(action_arrs))
 
-    traj, video, _ = utils.run_policy_on_task(
-        policy, task, env.simulate, len(action_arrs),
-        env.render if make_video else None)
-    if make_video:
-        outfile = "hardcoded_actions_playroom.mp4"  # pragma: no cover
-        utils.save_video(outfile, video)  # pragma: no cover
     # Render a state where we're grasping
-    env.render(traj.states[1], task)
+    env.render_state(traj.states[1], task)
     # Render end state with open and closed doors
-    env.render(traj.states[-1], task)
+    env.render_state(traj.states[-1], task, caption="caption")

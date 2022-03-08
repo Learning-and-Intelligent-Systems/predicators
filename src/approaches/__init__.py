@@ -1,6 +1,6 @@
 """Default imports for approaches folder."""
 
-from typing import Set, Callable, List
+from typing import Set, List
 from gym.spaces import Box
 from predicators.src.approaches.base_approach import BaseApproach, \
     ApproachTimeout, ApproachFailure
@@ -8,28 +8,26 @@ from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
-from predicators.src.approaches.tamp_approach import TAMPApproach
+from predicators.src.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
-from predicators.src.approaches.iterative_invention_approach import \
-    IterativeInventionApproach
 from predicators.src.approaches.grammar_search_invention_approach import \
     GrammarSearchInventionApproach
-from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action
+from predicators.src.structs import Predicate, ParameterizedOption, \
+    Type, Task
 
 __all__ = [
     "BaseApproach",
     "OracleApproach",
     "RandomActionsApproach",
     "RandomOptionsApproach",
-    "TAMPApproach",
+    "BilevelPlanningApproach",
     "NSRTLearningApproach",
     "InteractiveLearningApproach",
-    "IterativeInventionApproach",
     "GrammarSearchInventionApproach",
     "ApproachTimeout",
     "ApproachFailure",
@@ -56,9 +54,6 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
     if name == "interactive_learning":
         return InteractiveLearningApproach(initial_predicates, initial_options,
                                            types, action_space, train_tasks)
-    if name == "iterative_invention":
-        return IterativeInventionApproach(initial_predicates, initial_options,
-                                          types, action_space, train_tasks)
     if name == "grammar_search_invention":
         return GrammarSearchInventionApproach(initial_predicates,
                                               initial_options, types,

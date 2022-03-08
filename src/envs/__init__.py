@@ -36,10 +36,11 @@ __all__ = [
 _MOST_RECENT_ENV_INSTANCE = {}
 
 
-def _create_new_env_instance(name: str) -> BaseEnv:
+def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
     """Create a new instance of an environment from its name.
 
-    Note that this env instance will not be cached.
+    If do_cache is True, then cache this env instance so that it can
+    later be loaded using get_or_create_env().
     """
     if name == "cover":
         return CoverEnv()
@@ -81,8 +82,16 @@ def create_env(name: str) -> BaseEnv:
     return env
 
 
-def get_cached_env_instance(name: str) -> BaseEnv:
-    """Get the most recent cached env instance (env must have been previously
-    created with create_env() to exist in the cache)."""
-    assert name in _MOST_RECENT_ENV_INSTANCE
+def get_or_create_env(name: str) -> BaseEnv:
+    """Get the most recent cached env instance. If one does not exist in the
+    cache, create it using create_new_env().
+
+    If you use this function, you should NOT be doing anything that
+    relies on the environment's internal state (i.e., you should not
+    call reset() or step()).
+    """
+    if name not in _MOST_RECENT_ENV_INSTANCE:
+        print("WARNING: you called get_or_create_env, but I couldn't find "
+              f"{name} in the cache. Making a new environment instance.")
+        create_new_env(name, do_cache=True)
     return _MOST_RECENT_ENV_INSTANCE[name]

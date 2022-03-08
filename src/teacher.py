@@ -2,12 +2,14 @@
 information to assist an agent during online learning."""
 
 from __future__ import annotations
-from typing import Sequence
+from dataclasses import dataclass, field
+from typing import Sequence, List, Optional
 from predicators.src.structs import State, Task, Query, Response, \
     GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
-    DemonstrationResponse, LowLevelTrajectory
+    DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
+    Action
 from predicators.src.settings import CFG, get_allowed_query_type_names
-from predicators.src.envs import create_env
+from predicators.src.envs import get_or_create_env
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
     ApproachFailure
 from predicators.src import utils
@@ -18,7 +20,7 @@ class Teacher:
 
     def __init__(self, train_tasks: Sequence[Task]) -> None:
         self._train_tasks = train_tasks
-        env = create_env(CFG.env)
+        env = get_or_create_env(CFG.env)
         self._pred_name_to_pred = {pred.name: pred for pred in env.predicates}
         self._allowed_query_type_names = get_allowed_query_type_names()
         self._oracle_approach = OracleApproach(
@@ -60,11 +62,43 @@ class Teacher:
         except (ApproachTimeout, ApproachFailure):
             return DemonstrationResponse(query, teacher_traj=None)
 
-        traj, _, goal_reached = utils.run_policy_on_task(
-            policy, task, self._simulator, CFG.max_num_steps_option_rollout)
-        assert goal_reached
+        traj = utils.run_policy_with_simulator(
+            policy,
+            self._simulator,
+            task.init,
+            task.goal_holds,
+            max_num_steps=CFG.max_num_steps_option_rollout)
+        assert task.goal_holds(traj.states[-1])
         teacher_traj = LowLevelTrajectory(traj.states,
                                           traj.actions,
                                           _is_demo=True,
                                           _train_task_idx=query.train_task_idx)
         return DemonstrationResponse(query, teacher_traj)
+
+
+@dataclass
+class TeacherInteractionMonitor(utils.Monitor):
+    """Wraps the interaction between agent and teacher to include generating
+    and answering queries."""
+    _request: InteractionRequest
+    _teacher: Teacher
+    _responses: List[Optional[Response]] = field(init=False,
+                                                 default_factory=list)
+    _query_cost: float = field(init=False, default=0.0)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        del action  # unused
+        query = self._request.query_policy(state)
+        if query is None:
+            self._responses.append(None)
+        else:
+            self._responses.append(self._teacher.answer_query(state, query))
+            self._query_cost += query.cost
+
+    def get_responses(self) -> List[Optional[Response]]:
+        """Return the responses."""
+        return self._responses
+
+    def get_query_cost(self) -> float:
+        """Return the query cost."""
+        return self._query_cost
