@@ -84,7 +84,6 @@ def test_interactive_learning_approach():
     utils.update_config({
         "interactive_query_policy": "nonstrict_best_seen",
         "interactive_score_function": "trivial",
-        "make_interaction_videos": True,
     })
     approach._best_score = -np.inf  # pylint:disable=protected-access
     interaction_requests = approach.get_interaction_requests()
@@ -112,7 +111,6 @@ def test_interactive_learning_approach():
     # Test with BALD score function and score threshold.
     utils.update_config({
         "interactive_score_function": "BALD",
-        "make_interaction_videos": False,
     })
     interaction_requests = approach.get_interaction_requests()
     _generate_interaction_results(env, teacher, interaction_requests)

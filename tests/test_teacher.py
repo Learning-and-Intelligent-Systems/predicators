@@ -116,7 +116,7 @@ def test_TeacherInteractionMonitor():
                                  termination_function)
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
-    monitor = TeacherInteractionMonitor(request, teacher)
+    monitor = TeacherInteractionMonitor(env.render, request, teacher)
     assert monitor.get_query_cost() == 0.0
     assert monitor.get_responses() == []
     state = train_tasks[0].init
@@ -129,3 +129,19 @@ def test_TeacherInteractionMonitor():
     monitor.observe(state, action)
     assert monitor.get_query_cost() == 2.0
     assert len(monitor.get_responses()) == 2
+    # Cover not making queries and generating a video
+    utils.update_config({
+        "make_interaction_videos": False,
+    })
+    env = create_new_env("cover")
+    query_policy = lambda s: None
+    act_policy = lambda _: env.action_space.sample()
+    termination_function = lambda s: True  # terminate immediately
+    request = InteractionRequest(0, act_policy, query_policy,
+                                 termination_function)
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    monitor = TeacherInteractionMonitor(env.render, request, teacher)
+    state = train_tasks[0].init
+    action = env.action_space.sample()
+    monitor.observe(state, action)
