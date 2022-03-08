@@ -693,10 +693,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             robot, = objects
             # De-normalize parameters to actual table coordinates.
             x_norm, y_norm = params
-            x = self.x_lb + self.block_size / 2 + (self.x_ub - self.x_lb -
-                                                   self.block_size) * x_norm
-            y = self.y_lb + self.block_size / 2 + (self.y_ub - self.y_lb -
-                                                   self.block_size) * y_norm
+            x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
+            y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
             current_pose = (state[robot][0], state[robot][1], state[robot][2])
             table_pose = (x, y, self.table_height)
             target_pose = self._convert_rel_abs_to_abs(table_pose,

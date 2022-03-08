@@ -192,12 +192,11 @@ def test_pybullet_blocks_picking():
     # The block should NOT be held.
     assert state.get(block, "held") == 0.0
     # Test that the block can be picked at the extremes of the workspace.
-    half_size = env.block_size / 2
     corners = [
-        (env.x_lb + half_size, env.y_lb + half_size),
-        (env.x_ub - half_size, env.y_lb + half_size),
-        (env.x_lb + half_size, env.y_ub - half_size),
-        (env.x_ub - half_size, env.y_ub - half_size),
+        (env.x_lb, env.y_lb),
+        (env.x_ub, env.y_lb),
+        (env.x_lb, env.y_ub),
+        (env.x_ub, env.y_ub),
     ]
     for (bx, by) in corners:
         state = init_state.copy()
@@ -265,12 +264,11 @@ def test_pybullet_blocks_stacking():
     assert env.GripperOpen([robot]).holds(state)
     # Test extremes: stacking a block on the tallest possible tower, at each
     # of the possible corners.
-    half_size = env.block_size / 2
     corners = [
-        (env.x_lb + half_size, env.y_lb + half_size),
-        (env.x_ub - half_size, env.y_lb + half_size),
-        (env.x_lb + half_size, env.y_ub - half_size),
-        (env.x_ub - half_size, env.y_ub - half_size),
+        (env.x_lb, env.y_lb),
+        (env.x_ub, env.y_lb),
+        (env.x_lb, env.y_ub),
+        (env.x_ub, env.y_ub),
     ]
     max_num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
@@ -356,12 +354,11 @@ def test_pybullet_blocks_putontable():
     assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-2
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-2
     # Test that the block can be placed at the extremes of the workspace.
-    half_size = env.block_size / 2
     corners = [
-        (env.x_lb + half_size, env.y_lb + half_size),
-        (env.x_ub - half_size, env.y_lb + half_size),
-        (env.x_lb + half_size, env.y_ub - half_size),
-        (env.x_ub - half_size, env.y_ub - half_size),
+        (env.x_lb, env.y_lb),
+        (env.x_ub, env.y_lb),
+        (env.x_lb, env.y_ub),
+        (env.x_ub, env.y_ub),
     ]
     corner_params = [(0., 0.), (1., 0.), (0., 1.), (1., 1.)]
     for (bx, by), (px, py) in zip(corners, corner_params):
