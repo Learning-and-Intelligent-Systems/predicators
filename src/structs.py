@@ -1260,12 +1260,30 @@ class DemonstrationResponse(Response):
     teacher_traj: Optional[LowLevelTrajectory]
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateQuery(Query):
+    """A query requesting a trajectory that reaches a specific state."""
+    goal_state: State
+
+    @property
+    def cost(self) -> float:
+        return 1
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateResponse(Response):
+    """A response to a PathToStateQuery; provides a LowLevelTrajectory if one
+    can be found by the teacher, otherwise returns None."""
+    teacher_traj: Optional[LowLevelTrajectory]
+
+
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
+Pose3D = Tuple[float, float, float]
 ObjToVarSub = Dict[Object, Variable]
 ObjToObjSub = Dict[Object, Object]
 VarToObjSub = Dict[Variable, Object]

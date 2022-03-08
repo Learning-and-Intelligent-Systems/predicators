@@ -1,12 +1,14 @@
 """Test cases for teacher."""
 
+import pytest
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    LowLevelTrajectory, InteractionRequest
+    LowLevelTrajectory, InteractionRequest, PathToStateQuery, \
+    Query, PathToStateResponse
 
 
 def test_GroundAtomsHold():
@@ -95,6 +97,89 @@ def test_DemonstrationQuery():
     assert response.teacher_traj is None
 
 
+def test_PathToStateQuery():
+    """Tests for answering queries of type PathToStateQuery."""
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "approach": "unittest",
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99
+    })
+    # Test normal usage.
+    env = create_new_env("cover_multistep_options")
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    train_task_idx = 0
+    task = train_tasks[train_task_idx]
+    state = task.init
+    block0, _, _, _, robby, _, _, _, _ = state
+    # Create a goal state where robby has just picked block0.
+    goal_state = state.copy()
+    goal_state.set(block0, "grasp", 1)
+    goal_state.set(robby, "x", 0.9095)
+    goal_state.set(robby, "y", 0.1)
+    goal_state.set(robby, "grip", 1)
+    goal_state.set(robby, "holding", 1)
+    query = PathToStateQuery(goal_state)
+    assert query.cost == 1
+    response = teacher.answer_query(state, query)
+    assert isinstance(response, PathToStateResponse)
+    assert response.query is query
+    assert isinstance(response.teacher_traj, LowLevelTrajectory)
+    assert len(response.teacher_traj.states) == 4
+    assert len(response.teacher_traj.actions) == 3
+    final_state = response.teacher_traj.states[-1]
+    assert final_state.allclose(goal_state)
+    # Although this is a good trajectory, demonstrations are expected to reach
+    # task goals, which this is not guaranteed to do.
+    assert not response.teacher_traj.is_demo
+    # Trajectory should not contain options.
+    for action in response.teacher_traj.actions:
+        assert not action.has_option()
+    # Reset the state to be the previous goal state.
+    state = goal_state.copy()
+    # Create a new goal state where robby has just placed block0 on target0.
+    goal_state = state.copy()
+    goal_state.set(block0, "grasp", -1)
+    goal_state.set(block0, "x", 0.7339)
+    goal_state.set(block0, "y", 0.1)
+    goal_state.set(robby, "x", 0.7587)
+    goal_state.set(robby, "y", 0.101)
+    goal_state.set(robby, "grip", -1)
+    goal_state.set(robby, "holding", -1)
+    query = PathToStateQuery(goal_state)
+    response = teacher.answer_query(state, query)
+    assert isinstance(response, PathToStateResponse)
+    assert response.query is query
+    assert isinstance(response.teacher_traj, LowLevelTrajectory)
+    assert len(response.teacher_traj.states) == 5
+    assert len(response.teacher_traj.actions) == 4
+    final_state = response.teacher_traj.states[-1]
+    assert final_state.allclose(goal_state)
+    # Test that no trajectory is returned when the query goal state cannot
+    # be reached at all.
+    utils.update_config({"max_num_steps_option_rollout": 2})
+    query = PathToStateQuery(goal_state)
+    response = teacher.answer_query(state, query)
+    assert response.teacher_traj is None
+    # Test that no trajectory is returned when the query would require two
+    # options to complete.
+    state = task.init
+    query = PathToStateQuery(goal_state)
+    response = teacher.answer_query(state, query)
+    assert response.teacher_traj is None
+    # Test that an error is raised when an unsupported environment is used.
+    utils.reset_config({"env": "painting", "approach": "unittest"})
+    env = create_new_env("painting")
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    task = train_tasks[0]
+    state = task.init
+    query = PathToStateQuery(state)
+    with pytest.raises(NotImplementedError):
+        teacher.answer_query(state, query)
+
+
 def test_TeacherInteractionMonitorWithVideo():
     """Tests for TeacherInteractionMonitorWithVideo()."""
     utils.reset_config({
@@ -145,3 +230,19 @@ def test_TeacherInteractionMonitorWithVideo():
     state = env.reset("train", 0)
     action = env.action_space.sample()
     monitor.observe(state, action)
+
+
+def test_answer_query():
+    """Tests for Teacher.answer_query()."""
+    utils.reset_config({"env": "cover", "approach": "unittest"})
+    env = create_new_env("cover")
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    state = env.get_train_tasks()[0].init
+
+    class _MockQuery(Query):
+        """Not a real Query type."""
+
+    query = _MockQuery()
+    with pytest.raises(NotImplementedError):
+        teacher.answer_query(state, query)
