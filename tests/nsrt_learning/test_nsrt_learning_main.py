@@ -32,9 +32,10 @@ def test_nsrt_learning_specific_nsrts():
     pred2 = Predicate("Pred2", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
-    option1 = utils.SingletonParameterizedOption(
-        "Dummy", lambda s, m, o, p: Action(p),
-        params_space=Box(0.1, 1, (1, ))).ground([], np.array([0.2]))
+    param_option1 = utils.SingletonParameterizedOption(
+        "Dummy", lambda s, m, o, p: Action(p), params_space=Box(0.1, 1, (1, )))
+    option1 = param_option1.ground([], np.array([0.2]))
+    assert option1.initiable(state1)
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
@@ -61,10 +62,14 @@ def test_nsrt_learning_specific_nsrts():
     pred2 = Predicate("Pred2", [cup_type], lambda s, o: s[o[0]][0] > 0.5)
     preds = {pred0, pred1, pred2}
     state1 = State({cup0: [0.4], cup1: [0.7], cup2: [0.1]})
+    option1 = param_option1.ground([], np.array([0.2]))
+    assert option1.initiable(state1)
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.8], cup1: [0.3], cup2: [1.0]})
     state2 = State({cup3: [0.4], cup4: [0.7], cup5: [0.1]})
+    option1 = param_option1.ground([], np.array([0.2]))
+    assert option1.initiable(state2)
     action2 = option1.policy(state2)
     action2.set_option(option1)
     next_state2 = State({cup3: [0.8], cup4: [0.3], cup5: [1.0]})
@@ -95,14 +100,18 @@ def test_nsrt_learning_specific_nsrts():
         "Dummy",
         lambda s, m, o, p: Action(p),
         params_space=Box(0.1, 0.5, (1, ))).ground([], np.array([0.3]))
+    option1 = param_option1.ground([], np.array([0.2]))
+    assert option1.initiable(state1)
     action1 = option1.policy(state1)
     action1.set_option(option1)
     next_state1 = State({cup0: [0.9], cup1: [0.2], cup2: [0.5]})
     state2 = State({cup4: [0.9], cup5: [0.2], cup2: [0.5], cup3: [0.5]})
-    option2 = utils.SingletonParameterizedOption(
+    param_option2 = utils.SingletonParameterizedOption(
         "Dummy",
         lambda s, m, o, p: Action(p),
-        params_space=Box(0.1, 0.5, (1, ))).ground([], np.array([0.5]))
+        params_space=Box(0.1, 0.5, (1, )))
+    option2 = param_option2.ground([], np.array([0.5]))
+    assert option2.initiable(state2)
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5], cup2: [1.0], cup3: [0.1]})
@@ -134,6 +143,8 @@ def test_nsrt_learning_specific_nsrts():
                       lambda s, o: s[o[0]][0] > 0.7 and s[o[1]][0] < 0.3)
     preds = {pred0}
     state1 = State({cup0: [0.5], cup1: [0.5]})
+    option2 = param_option2.ground([], np.array([0.5]))
+    assert option2.initiable(state1)
     action1 = option2.policy(state1)
     action1.set_option(option2)
     next_state1 = State({
@@ -141,6 +152,8 @@ def test_nsrt_learning_specific_nsrts():
         cup1: [0.1],
     })
     state2 = State({cup4: [0.9], cup5: [0.1]})
+    option2 = param_option2.ground([], np.array([0.5]))
+    assert option2.initiable(state2)
     action2 = option2.policy(state2)
     action2.set_option(option2)
     next_state2 = State({cup4: [0.5], cup5: [0.5]})

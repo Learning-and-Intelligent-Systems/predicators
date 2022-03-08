@@ -12,8 +12,8 @@ from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
 from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Dataset, Object, GroundAtomTrajectory, Task
 from predicators.src.predicate_search_score_functions import \
