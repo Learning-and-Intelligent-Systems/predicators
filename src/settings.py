@@ -93,7 +93,7 @@ class GlobalSettings:
     # parameters for GNN policy approach
     gnn_policy_num_message_passing = 3
     gnn_policy_learning_rate = 1e-3
-    gnn_policy_num_epochs = 2500
+    gnn_policy_num_epochs = 25000
     gnn_policy_batch_size = 128
     gnn_policy_do_normalization = False  # performs worse in Cover when True
     gnn_policy_use_validation_set = True
