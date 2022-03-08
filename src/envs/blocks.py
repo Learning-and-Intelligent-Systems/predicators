@@ -26,6 +26,9 @@ class BlocksEnv(BaseEnv):
     block_size = 0.045
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
+    # Note that these boundaries are for the block positions, and that a
+    # block's origin is its center, so the block itself may extend beyond
+    # the boundaries while the origin remains in bounds.
     x_lb = 1.35 - block_size / 2
     x_ub = 1.35 + block_size / 2
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
