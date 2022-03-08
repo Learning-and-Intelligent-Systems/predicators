@@ -1492,6 +1492,15 @@ def save_video(outfile: str, video: Video) -> None:
     print(f"Wrote out to {outpath}")
 
 
+def get_env_asset_path(asset_name: str) -> str:
+    """Return the absolute path to env asset."""
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    asset_dir_path = os.path.join(dir_path, "envs", "assets")
+    path = os.path.join(asset_dir_path, asset_name)
+    assert os.path.exists(path), f"Env asset not found: {asset_name}."
+    return path
+
+
 def update_config(args: Dict[str, Any]) -> None:
     """Args is a dictionary of new arguments to add to the config CFG."""
     arg_specific_settings = GlobalSettings.get_arg_specific_settings(args)

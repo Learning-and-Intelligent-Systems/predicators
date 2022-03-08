@@ -41,7 +41,7 @@ class GlobalSettings:
     cover_target_widths = [0.05, 0.03]
     cover_initial_holding_prob = 0.75
 
-    # cover_multistep_options env parameters
+    # cover_multistep_options parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
@@ -51,14 +51,6 @@ class GlobalSettings:
     cover_multistep_bhr_percent = 0.5  # block hand region percent of width
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
-
-    # blocks env parameters
-    blocks_num_blocks_train = [3, 4]
-    blocks_num_blocks_test = [5, 6]
-
-    # playroom env parameters
-    playroom_num_blocks_train = [3]
-    playroom_num_blocks_test = [3]
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
@@ -94,6 +86,15 @@ class GlobalSettings:
     behavior_task_name = "re-shelving_library_books"
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = False
+
+    # general pybullet parameters
+    pybullet_use_gui = False  # must be True to make videos
+    pybullet_draw_debug = False  # useful for annotating in the GUI
+    pybullet_camera_width = 335  # for high quality, use 1674
+    pybullet_camera_height = 180  # for high quality, use 900
+    pybullet_sim_steps_per_action = 20
+    pybullet_max_ik_iters = 100
+    pybullet_ik_tol = 1e-3
 
     # parameters for approaches
     random_options_max_tries = 100
