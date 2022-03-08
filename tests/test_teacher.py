@@ -3,7 +3,7 @@
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitor
+from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     LowLevelTrajectory, InteractionRequest
@@ -95,8 +95,8 @@ def test_DemonstrationQuery():
     assert response.teacher_traj is None
 
 
-def test_TeacherInteractionMonitor():
-    """Tests for TeacherInteractionMonitor()."""
+def test_TeacherInteractionMonitorWithVideo():
+    """Tests for TeacherInteractionMonitorWithVideo()."""
     utils.reset_config({
         "env": "cover",
         "cover_initial_holding_prob": 0.0,
@@ -116,7 +116,7 @@ def test_TeacherInteractionMonitor():
                                  termination_function)
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
-    monitor = TeacherInteractionMonitor(env.render, request, teacher)
+    monitor = TeacherInteractionMonitorWithVideo(env.render, request, teacher)
     assert monitor.get_query_cost() == 0.0
     assert monitor.get_responses() == []
     state = train_tasks[0].init
@@ -141,7 +141,7 @@ def test_TeacherInteractionMonitor():
                                  termination_function)
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
-    monitor = TeacherInteractionMonitor(env.render, request, teacher)
+    monitor = TeacherInteractionMonitorWithVideo(env.render, request, teacher)
     state = env.reset("train", 0)
     action = env.action_space.sample()
     monitor.observe(state, action)

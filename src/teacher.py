@@ -77,12 +77,42 @@ class Teacher:
 
 
 @dataclass
-class TeacherInteractionMonitor(utils.VideoMonitor):
+class TeacherInteractionMonitor(utils.Monitor):
+    """Wraps the interaction between agent and teacher to include generating
+    and answering queries."""
+    _request: InteractionRequest
+    _teacher: Teacher
+    _responses: List[Optional[Response]] = field(init=False,
+                                                 default_factory=list)
+    _query_cost: float = field(init=False, default=0.0)
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        del action  # unused
+        query = self._request.query_policy(state)
+        if query is None:
+            self._responses.append(None)
+        else:
+            self._responses.append(self._teacher.answer_query(state, query))
+            self._query_cost += query.cost
+
+    def get_responses(self) -> List[Optional[Response]]:
+        """Return the responses."""
+        return self._responses
+
+    def get_query_cost(self) -> float:
+        """Return the query cost."""
+        return self._query_cost
+
+
+@dataclass
+class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
+                                         utils.VideoMonitor):
     """A monitor that wraps interaction with an environment to include
     generating and answering queries.
 
-    Optionally, if CFG.make_interaction_videos is True, also renders every
-    state and action encountered. The render_fn is generally env.render.
+    Optionally, if CFG.make_interaction_videos is True, also renders
+    every state and action encountered. The render_fn is generally
+    env.render.
     """
     _request: InteractionRequest
     _teacher: Teacher
@@ -102,11 +132,3 @@ class TeacherInteractionMonitor(utils.VideoMonitor):
         self._responses.append(response)
         if CFG.make_interaction_videos:
             self._video.extend(self._render_fn(action, caption))
-
-    def get_responses(self) -> List[Optional[Response]]:
-        """Return the responses."""
-        return self._responses
-
-    def get_query_cost(self) -> float:
-        """Return the query cost."""
-        return self._query_cost
