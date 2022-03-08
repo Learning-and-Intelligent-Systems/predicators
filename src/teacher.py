@@ -85,11 +85,9 @@ class TeacherInteractionMonitor(utils.VideoMonitor):
     """
     _request: InteractionRequest
     _teacher: Teacher
-    _render_fn: Callable[[Optional[Action], Optional[str]], List[Image]]
     _responses: List[Optional[Response]] = field(init=False,
                                                  default_factory=list)
     _query_cost: float = field(init=False, default=0.0)
-    _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         query = self._request.query_policy(state)
