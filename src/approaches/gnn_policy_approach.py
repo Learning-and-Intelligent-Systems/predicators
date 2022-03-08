@@ -10,7 +10,7 @@ import torch
 import torch.nn
 import torch.optim
 from torch.utils.data import DataLoader
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.gnn.gnn import setup_graph_net
 from predicators.src.gnn.gnn_dataset import GraphDictDataset, \
     graph_batch_collate
