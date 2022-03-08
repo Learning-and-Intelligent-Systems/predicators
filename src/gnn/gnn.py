@@ -3,10 +3,7 @@
 A lot of this was copied and modified from code originally written by
 Kelsey Allen.
 """
-try:
-    from .gnn_utils import *
-except ImportError:
-    from gnn_utils import *
+from predicators.src.gnn_utils import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

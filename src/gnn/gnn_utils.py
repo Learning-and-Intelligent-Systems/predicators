@@ -1,7 +1,4 @@
-try:
-    from .gnn_dataset import create_super_graph
-except ImportError:
-    from gnn_dataset import create_super_graph
+from predicators.src.gnn_dataset import create_super_graph
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
