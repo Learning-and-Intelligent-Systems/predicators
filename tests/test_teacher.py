@@ -142,6 +142,6 @@ def test_TeacherInteractionMonitor():
     train_tasks = env.get_train_tasks()
     teacher = Teacher(train_tasks)
     monitor = TeacherInteractionMonitor(env.render, request, teacher)
-    state = train_tasks[0].init
+    state = env.reset("train", 0)
     action = env.action_space.sample()
     monitor.observe(state, action)
