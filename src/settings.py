@@ -146,7 +146,6 @@ class GlobalSettings:
     mlp_classifier_balance_data = True
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 10000
-    neural_gaus_regressor_sample_clip = 1
     mlp_classifier_n_iter_no_change = 5000
 
     # sampler learning parameters
