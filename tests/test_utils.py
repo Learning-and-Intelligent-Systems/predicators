@@ -2049,6 +2049,15 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
 
 
+def test_get_env_asset_path():
+    """Tests for get_env_asset_path()."""
+    path = utils.get_env_asset_path("urdf/plane.urdf")
+    assert path.endswith("urdf/plane.urdf")
+    assert os.path.exists(path)
+    with pytest.raises(AssertionError):
+        utils.get_env_asset_path("not_a_real_asset")
+
+
 def test_create_video_from_partial_refinements():
     """Tests for create_video_from_partial_refinements()."""
     env = CoverEnv()
