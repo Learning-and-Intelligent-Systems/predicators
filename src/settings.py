@@ -41,7 +41,7 @@ class GlobalSettings:
     cover_target_widths = [0.05, 0.03]
     cover_initial_holding_prob = 0.75
 
-    # cover_multistep_options parameters
+    # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
@@ -52,9 +52,13 @@ class GlobalSettings:
     cover_multistep_bimodal_goal = False
     cover_multistep_goal_conditioned_sampling = False  # assumes one goal
 
-    # block parameters
+    # blocks env parameters
     blocks_num_blocks_train = [3, 4]
     blocks_num_blocks_test = [5, 6]
+
+    # playroom env parameters
+    playroom_num_blocks_train = [3]
+    playroom_num_blocks_test = [3]
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5

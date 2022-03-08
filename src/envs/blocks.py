@@ -43,6 +43,8 @@ class BlocksEnv(BaseEnv):
     on_tol = 0.01
     collision_padding = 2.0
     assert pick_tol < block_size
+    num_blocks_train = CFG.blocks_num_blocks_train
+    num_blocks_test = CFG.blocks_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()
@@ -325,11 +327,9 @@ class BlocksEnv(BaseEnv):
         # [pose_x, pose_y, pose_z, fingers]
         # Note: the robot poses are not used in this environment, but they
         # are used in the PyBullet subclass.
-        data[self._robot] = np.array([
-            self.robot_init_x, self.robot_init_y, self.robot_init_z,
-            self.open_fingers
-        ],
-                                     dtype=np.float32)
+        rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
+        rf = self.open_fingers
+        data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
         return State(data)
 
     def _sample_goal_from_piles(self, num_blocks: int,
@@ -396,11 +396,11 @@ class BlocksEnv(BaseEnv):
         return (state.get(block, "held") < self.held_tol) and \
             (desired_z-self.on_tol < z < desired_z+self.on_tol)
 
-    @staticmethod
-    def _GripperOpen_holds(state: State, objects: Sequence[Object]) -> bool:
+    def _GripperOpen_holds(self, state: State,
+                           objects: Sequence[Object]) -> bool:
         robot, = objects
-        return state.get(
-            robot, "fingers") + BlocksEnv.finger_tol > BlocksEnv.open_fingers
+        rf = state.get(robot, "fingers")
+        return rf + self.finger_tol > self.open_fingers
 
     def _Holding_holds(self, state: State, objects: Sequence[Object]) -> bool:
         block, = objects
