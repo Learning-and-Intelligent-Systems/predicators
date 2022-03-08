@@ -5,7 +5,6 @@ import os
 from dataclasses import dataclass
 import tempfile
 from typing import Sequence, List, Tuple, Optional
-from scipy.stats import truncnorm
 import torch
 from torch import nn
 from torch import optim
@@ -168,11 +167,7 @@ class NeuralGaussianRegressor(nn.Module):
         mean, variance = self._predict_mean_var(x)
         y = []
         for mu, sigma_sq in zip(mean, variance):
-            y_i = truncnorm.rvs(-1.0 * CFG.neural_gaus_regressor_sample_clip,
-                                CFG.neural_gaus_regressor_sample_clip,
-                                loc=mu,
-                                scale=np.sqrt(sigma_sq),
-                                random_state=rng)
+            y_i = rng.normal(loc=mu, scale=np.sqrt(sigma_sq))
             y.append(y_i)
         return np.array(y)
 
