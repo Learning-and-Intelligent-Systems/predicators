@@ -77,36 +77,7 @@ class Teacher:
 
 
 @dataclass
-class TeacherInteractionMonitor(utils.Monitor):
-    """Wraps the interaction between agent and teacher to include generating
-    and answering queries."""
-    _request: InteractionRequest
-    _teacher: Teacher
-    _responses: List[Optional[Response]] = field(init=False,
-                                                 default_factory=list)
-    _query_cost: float = field(init=False, default=0.0)
-
-    def observe(self, state: State, action: Optional[Action]) -> None:
-        del action  # unused
-        query = self._request.query_policy(state)
-        if query is None:
-            self._responses.append(None)
-        else:
-            self._responses.append(self._teacher.answer_query(state, query))
-            self._query_cost += query.cost
-
-    def get_responses(self) -> List[Optional[Response]]:
-        """Return the responses."""
-        return self._responses
-
-    def get_query_cost(self) -> float:
-        """Return the query cost."""
-        return self._query_cost
-
-
-@dataclass
-class TeacherInteractionVideoMonitor(TeacherInteractionMonitor,
-                                     utils.VideoMonitor):
+class TeacherInteractionMonitor(utils.VideoMonitor):
     """A monitor that renders each state and action encountered and queries and
     responses during interaction with the teacher.
 
@@ -130,4 +101,13 @@ class TeacherInteractionVideoMonitor(TeacherInteractionMonitor,
             self._query_cost += query.cost
             caption = f"{response}, cost={query.cost}"
         self._responses.append(response)
-        self._video.extend(self._render_fn(action, caption))
+        if CFG.make_interaction_videos:
+            self._video.extend(self._render_fn(action, caption))
+
+    def get_responses(self) -> List[Optional[Response]]:
+        """Return the responses."""
+        return self._responses
+
+    def get_query_cost(self) -> float:
+        """Return the query cost."""
+        return self._query_cost
