@@ -26,8 +26,8 @@ class BlocksEnv(BaseEnv):
     block_size = 0.045
     # The table x bounds are (1.1, 1.6), but the workspace is smaller.
     # Make it narrow enough that blocks can be only horizontally arranged.
-    x_lb = 1.35 - block_size
-    x_ub = 1.35 + block_size
+    x_lb = 1.35 - block_size / 2
+    x_ub = 1.35 + block_size / 2
     # The table y bounds are (0.3, 1.2), but the workspace is smaller.
     y_lb = 0.4
     y_ub = 1.1
@@ -325,8 +325,8 @@ class BlocksEnv(BaseEnv):
             # [pose_x, pose_y, pose_z, held]
             data[block] = np.array([x, y, z, 0.0])
         # [pose_x, pose_y, pose_z, fingers]
-        # Note: the robot poses are not used in this environment, but they
-        # are used in the PyBullet subclass.
+        # Note: the robot poses are not used in this environment (they are
+        # constant), but they change and get used in the PyBullet subclass.
         rx, ry, rz = self.robot_init_x, self.robot_init_y, self.robot_init_z
         rf = self.open_fingers
         data[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
@@ -353,10 +353,9 @@ class BlocksEnv(BaseEnv):
     def _sample_initial_pile_xy(
             self, rng: np.random.Generator,
             existing_xys: Set[Tuple[float, float]]) -> Tuple[float, float]:
-        half_size = self.block_size / 2
         while True:
-            x = rng.uniform(self.x_lb + half_size, self.x_ub - half_size)
-            y = rng.uniform(self.y_lb + half_size, self.y_ub - half_size)
+            x = rng.uniform(self.x_lb, self.x_ub)
+            y = rng.uniform(self.y_lb, self.y_ub)
             if self._table_xy_is_clear(x, y, existing_xys):
                 return (x, y)
 
@@ -453,10 +452,8 @@ class BlocksEnv(BaseEnv):
         del state, memory, objects  # unused
         # De-normalize parameters to actual table coordinates.
         x_norm, y_norm = params
-        x = self.x_lb + self.block_size / 2 + (self.x_ub - self.x_lb -
-                                               self.block_size) * x_norm
-        y = self.y_lb + self.block_size / 2 + (self.y_ub - self.y_lb -
-                                               self.block_size) * y_norm
+        x = self.x_lb + (self.x_ub - self.x_lb) * x_norm
+        y = self.y_lb + (self.y_ub - self.y_lb) * y_norm
         z = self.table_height + 0.5 * self.block_size
         arr = np.array([x, y, z, 1.0], dtype=np.float32)
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
