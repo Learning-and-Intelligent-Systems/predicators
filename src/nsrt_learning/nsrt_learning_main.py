@@ -14,7 +14,7 @@ from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.planning import task_plan_grounding
-
+import functools
 
 def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
                           train_tasks: List[Task], predicates: Set[Predicate],
@@ -291,15 +291,14 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
         CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
         ground_nsrts, init_preds, objects)
 
-    def _check_goal(state: FrozenSet[GroundAtom]) -> bool:
-        return traj_goal.issubset(state)
-
-    idx_into_traj = 0
+    def _check_goal(state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
+        return traj_goal.issubset(state[0])
 
     def _get_successor_with_correct_option(
-        state: FrozenSet[GroundAtom]
-    ) -> Iterator[Tuple[_GroundNSRT, FrozenSet[GroundAtom], float]]:
-        nonlocal idx_into_traj
+        searchnode_state: Tuple[FrozenSet[GroundAtom], int]
+    ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int], float]]:
+        state = searchnode_state[0]
+        idx_into_traj = searchnode_state[1]
         if idx_into_traj <= len(ll_traj.actions) - 1:
             assert ll_traj.actions[idx_into_traj].has_option()
             gt_option = ll_traj.actions[idx_into_traj].get_option()
@@ -327,13 +326,16 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
                             # The returned cost is uniform because we don't
                             # actually care about finding the shortest path;
                             # just one that matches!
-                            yield (applicable_nsrt, frozenset(next_hl_state),
+                            yield (applicable_nsrt, (frozenset(next_hl_state), idx_into_traj + 1),
                                    1.0)
-            idx_into_traj += 1
 
     init_atoms_frozen = frozenset(init_atoms)
-    state_seq, _ = utils.run_gbfs(init_atoms_frozen, _check_goal,
+    init_searchnode_state = (init_atoms_frozen, 0)
+    state_seq, _ = utils.run_gbfs(init_searchnode_state, _check_goal,
                                   _get_successor_with_correct_option,
-                                  heuristic)
+                                  lambda searchnode_state: heuristic(searchnode_state[0]))
+
+    if len(strips_ops[2].side_predicates) == 1 and not _check_goal(state_seq[-1]):
+        import ipdb; ipdb.set_trace()
 
     return _check_goal(state_seq[-1])
