@@ -93,7 +93,7 @@ class TeacherInteractionMonitor(utils.VideoMonitor):
         query = self._request.query_policy(state)
         if query is None:
             response = None
-            caption = "No queries"
+            caption = "None"
         else:
             response = self._teacher.answer_query(state, query)
             self._query_cost += query.cost

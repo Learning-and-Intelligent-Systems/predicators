@@ -1234,6 +1234,8 @@ class GroundAtomsHoldResponse(Response):
     holds: Dict[GroundAtom, bool]
 
     def __str__(self) -> str:
+        if not self.holds:
+            return "No queries"
         responses = []
         for ga, b in self.holds.items():
             suffix = "holds" if b else "does not hold"
