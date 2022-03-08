@@ -231,7 +231,7 @@ def replace_graph(graph: Dict, graph_dict: Dict) -> Dict:
 def _unstack(array: Array) -> List[torch.Tensor]:
     num_splits = int(array.shape[0])
     return [
-        torch.squeeze(x, dim=0)
+        torch.squeeze(x, dim=0)  # type: ignore
         for x in np.split(array, num_splits, axis=0)  # type: ignore
     ]
 
@@ -252,7 +252,7 @@ def split_graphs(graph: Dict) -> List[Dict]:
                                       graph['n_edge'].view(-1))
     nodes_splits = np.cumsum(graph['n_node'][:-1])
     edges_splits = np.cumsum(graph['n_edge'][:-1])
-    graph_of_lists = collections.defaultdict(lambda: [])
+    graph_of_lists: Dict[str, Any] = collections.defaultdict(lambda: [])
     if graph['nodes'] is not None:
         graph_of_lists['nodes'] = np.split(  # type: ignore
             graph['nodes'], nodes_splits)
