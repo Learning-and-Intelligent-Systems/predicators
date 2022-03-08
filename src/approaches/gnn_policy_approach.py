@@ -86,6 +86,10 @@ class GNNPolicyApproach(BaseApproach):
                 data.append((state, atoms, goal, option))
         self._setup_fields(data)
         # Set up exemplar, which is just the first tuple in the data.
+        # Note that this call to graphify_data() will set the normalization
+        # constants to undesired values, but it doesn't matter because in a
+        # few lines, we'll call graphify_data() again with all the data,
+        # which will set them in the desired way.
         example_inputs, example_targets = self._graphify_data(
             [(data[0][0], data[0][1], data[0][2])], [data[0][3]])
         self._data_exemplar = (example_inputs[0], example_targets[0])
@@ -206,9 +210,9 @@ class GNNPolicyApproach(BaseApproach):
         in_graph, object_to_node = self._graphify_single_input(
             state, atoms, goal)
         node_to_object = {v: k for k, v in object_to_node.items()}
-        type_to_obj = defaultdict(set)
+        type_to_node = defaultdict(set)
         for obj, node in object_to_node.items():
-            type_to_obj[obj.type.name].add(node)
+            type_to_node[obj.type.name].add(node)
         if CFG.gnn_policy_do_normalization:
             in_graph = normalize_graph(  # type: ignore
                 in_graph, self._input_normalizers)
@@ -231,12 +235,12 @@ class GNNPolicyApproach(BaseApproach):
         objects = []
         for i, obj_type in enumerate(param_opt.types):
             scores = out_graph["nodes"][:, i]
-            allowed_idxs = type_to_obj[obj_type.name]
+            allowed_idxs = type_to_node[obj_type.name]
             for j in range(len(scores)):
                 if j not in allowed_idxs:
                     scores[j] = float("-inf")  # set its score to be really bad
             if np.max(scores) == float("-inf"):  # type: ignore
-                # If all scores are None, we failed to select an object.
+                # If all scores are -inf, we failed to select an object.
                 raise ApproachFailure("GNN policy could not select an object")
             objects.append(node_to_object[np.argmax(scores)])
         return param_opt.ground(objects, params)
@@ -261,7 +265,7 @@ class GNNPolicyApproach(BaseApproach):
             max_option_params = max(max_option_params, option.params.shape[0])
             for atom in atoms | goal:
                 arity = atom.predicate.arity
-                assert arity <= 2
+                assert arity <= 2, "Predicates with arity > 2 are not supported"
                 if arity == 0:
                     nullary_predicates_set.add(atom.predicate)
                 elif arity == 1:

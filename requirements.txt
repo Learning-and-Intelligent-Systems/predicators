@@ -13,4 +13,3 @@ pyperplan
 pathos
 requests
 slack_bolt
-networkx
