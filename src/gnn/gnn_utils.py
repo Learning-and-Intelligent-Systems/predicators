@@ -19,6 +19,7 @@ def train_model(model, dataloaders, criterion, optimizer, use_gpu, print_iter=10
     since = time.time()
 
     best_seen_model_weights = None # as measured on validation loss
+    best_seen_model_train_loss = np.inf
     best_seen_running_validation_loss = np.inf
 
     if use_gpu:
@@ -103,15 +104,16 @@ def train_model(model, dataloaders, criterion, optimizer, use_gpu, print_iter=10
             if do_validation and running_loss['val'] < best_seen_running_validation_loss:
                 best_seen_running_validation_loss = running_loss['val']
                 best_seen_model_weights = model.state_dict()
+                best_seen_model_train_loss = running_loss['train']
                 print("Found new best model with validation loss {} at epoch {}".format(
                     best_seen_running_validation_loss, epoch), flush=True)
 
     time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60), flush=True)
 
     if return_last_model_weights or not do_validation:
+        print('Training complete in {:.0f}m {:.0f}s with train loss {:.5f}'.format(time_elapsed // 60, time_elapsed % 60, running_loss['train']), flush=True)
         return model.state_dict()
+    print('Training complete in {:.0f}m {:.0f}s with train loss {:.5f} and validation loss {:.5f}'.format(time_elapsed // 60, time_elapsed % 60, best_seen_model_train_loss, best_seen_running_validation_loss), flush=True)
 
     return best_seen_model_weights
 

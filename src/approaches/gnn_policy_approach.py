@@ -166,7 +166,8 @@ class GNNPolicyApproach(BaseApproach):
             use_gpu=False,
             num_epochs=CFG.gnn_policy_num_epochs,
             target_nodes_only=True,
-            global_criterion=_global_criterion)
+            global_criterion=_global_criterion,
+            do_validation=CFG.gnn_policy_use_validation_set)
         self._gnn.load_state_dict(best_model_dict)
         info = {
             "exemplar": self._data_exemplar,
