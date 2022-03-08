@@ -3,7 +3,7 @@
 from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
-from predicators.src.envs import create_env, BlocksEnv, PaintingEnv, \
+from predicators.src.envs import get_or_create_env, BlocksEnv, PaintingEnv, \
     PlayroomEnv, BehaviorEnv, RepeatedNextToPaintingEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
