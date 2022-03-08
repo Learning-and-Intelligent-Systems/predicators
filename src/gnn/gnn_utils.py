@@ -1,7 +1,4 @@
-try:
-    from .gnn_dataset import create_super_graph
-except ImportError:
-    from gnn_dataset import create_super_graph
+from predicators.src.gnn.gnn_dataset import create_super_graph
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,7 +7,6 @@ import collections
 import time
 import copy
 import matplotlib.pyplot as plt
-import networkx as nx
 import os
 
 RECURRENT_HIDDEN_STATE_SIZE = 32
@@ -23,6 +19,7 @@ def train_model(model, dataloaders, criterion, optimizer, use_gpu, print_iter=10
     since = time.time()
 
     best_seen_model_weights = None # as measured on validation loss
+    best_seen_model_train_loss = np.inf
     best_seen_running_validation_loss = np.inf
 
     if use_gpu:
@@ -107,15 +104,16 @@ def train_model(model, dataloaders, criterion, optimizer, use_gpu, print_iter=10
             if do_validation and running_loss['val'] < best_seen_running_validation_loss:
                 best_seen_running_validation_loss = running_loss['val']
                 best_seen_model_weights = model.state_dict()
+                best_seen_model_train_loss = running_loss['train']
                 print("Found new best model with validation loss {} at epoch {}".format(
                     best_seen_running_validation_loss, epoch), flush=True)
 
     time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60), flush=True)
 
     if return_last_model_weights or not do_validation:
+        print('Training complete in {:.0f}m {:.0f}s with train loss {:.5f}'.format(time_elapsed // 60, time_elapsed % 60, running_loss['train']), flush=True)
         return model.state_dict()
+    print('Training complete in {:.0f}m {:.0f}s with train loss {:.5f} and validation loss {:.5f}'.format(time_elapsed // 60, time_elapsed % 60, best_seen_model_train_loss, best_seen_running_validation_loss), flush=True)
 
     return best_seen_model_weights
 
@@ -333,39 +331,6 @@ def get_multi_model_predictions(model, inputs, use_gpu=False):
         graph['n_edge'] = graph['n_edge'].item()
         out.append(graph)
     return out
-
-
-def visualize_graphs(input_graph, output_graph, outfile, node_color_fn=None, edge_color_fn=None, **kwargs):
-    """Draw input and output graphs side by side with networkx."""
-    fig, axes = plt.subplots(1, 2)
-    axes[0].set_title("Input")
-    axes[1].set_title("Output")
-
-    if node_color_fn is None:
-        node_color_fn = lambda *args : 'black'
-    if edge_color_fn is None:
-        edge_color_fn = lambda *args : 'black'
-
-    for graph, ax in zip([input_graph, output_graph], axes.flat):
-        G = nx.DiGraph()
-
-        # Add nodes with colors
-        for node in range(graph['n_node']):
-            color = node_color_fn(graph, node, graph['nodes'][node])
-            G.add_node(node, color=color)
-        node_color_map = [G.nodes[u]['color'] for u in G.nodes()]
-
-        # Add edges with colors
-        for u, v, attrs in zip(graph['senders'], graph['receivers'], graph['edges']):
-            color = edge_color_fn(graph, u, v, attrs)
-            G.add_edge(u, v, color=color)
-        edge_color_map = [G[u][v]['color'] for u,v in G.edges()]
-
-        pos = nx.spring_layout(G, iterations=100, seed=0)
-        nx.draw(G, pos, ax, node_color=node_color_map, edge_color=edge_color_map, **kwargs)
-
-    plt.savefig(outfile)
-    print("Wrote out to {}".format(outfile))
 
 def _compute_stacked_offsets(sizes, repeats, numpy=False, use_gpu=True):
   """Computes offsets to add to indices of stacked np arrays.
