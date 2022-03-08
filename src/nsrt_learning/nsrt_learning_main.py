@@ -110,8 +110,8 @@ def _learn_pnad_side_predicates(
             for effect in pnad.op.add_effects:
                 if len(pnad.op.add_effects) > 1:
                     new_pnad = PartialNSRTAndDatastore(
-                        pnad.op.effect_to_side_predicate(effect, option_vars,
-                                                        "add"), pnad.datastore,
+                        pnad.op.effect_to_side_predicate(
+                            effect, option_vars, "add"), pnad.datastore,
                         pnad.option_spec)
                 else:
                     # We don't want sidelining to result in a no-op
@@ -327,7 +327,8 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
                             # The returned cost is uniform because we don't
                             # actually care about finding the shortest path;
                             # just one that matches!
-                            yield (applicable_nsrt, frozenset(next_hl_state), 1.0)
+                            yield (applicable_nsrt, frozenset(next_hl_state),
+                                   1.0)
             idx_into_traj += 1
 
     init_atoms_frozen = frozenset(init_atoms)
