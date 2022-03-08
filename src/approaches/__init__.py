@@ -8,6 +8,8 @@ from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
+from predicators.src.approaches.gnn_policy_approach import \
+    GNNPolicyApproach
 from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
 from predicators.src.approaches.oracle_approach import OracleApproach
@@ -25,6 +27,7 @@ __all__ = [
     "OracleApproach",
     "RandomActionsApproach",
     "RandomOptionsApproach",
+    "GNNPolicyApproach",
     "BilevelPlanningApproach",
     "NSRTLearningApproach",
     "InteractiveLearningApproach",
@@ -48,6 +51,9 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
     if name == "random_options":
         return RandomOptionsApproach(initial_predicates, initial_options,
                                      types, action_space, train_tasks)
+    if name == "gnn_policy":
+        return GNNPolicyApproach(initial_predicates, initial_options, types,
+                                 action_space, train_tasks)
     if name == "nsrt_learning":
         return NSRTLearningApproach(initial_predicates, initial_options, types,
                                     action_space, train_tasks)
