@@ -154,8 +154,8 @@ class GNNPolicyApproach(BaseApproach):
             return onehot_loss + params_loss
 
         ## Launch training code.
-        best_model_dict = train_model(
-            self._gnn,  # type: ignore
+        best_model_dict = train_model(  # type: ignore
+            self._gnn,
             dataloaders,
             criterion=node_criterion,
             optimizer=optimizer,
