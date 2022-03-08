@@ -1,9 +1,10 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-from typing import Set, List, Sequence, Iterator, Tuple
+from typing import Set, List, Sequence, Iterator, Tuple, FrozenSet
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
+    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task, \
+    STRIPSOperator, OptionSpec, GroundAtom, _GroundNSRT
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
@@ -12,6 +13,7 @@ from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
+from predicators.src.planning import task_plan_grounding
 
 
 def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
@@ -105,33 +107,58 @@ def _learn_pnad_side_predicates(
             pnad = s[i]
             _, option_vars = pnad.option_spec
             # ...consider changing each of its effects to a side predicate.
-            for effect_set, add_or_delete in [(pnad.op.add_effects, "add"),
-                                              (pnad.op.delete_effects,
-                                               "delete")]:
-                for effect in effect_set:
+            for effect in pnad.op.add_effects:
+                if len(pnad.op.add_effects) > 1:
                     new_pnad = PartialNSRTAndDatastore(
                         pnad.op.effect_to_side_predicate(
-                            effect, option_vars, add_or_delete),
-                        pnad.datastore, pnad.option_spec)
-                    sprime = list(s)
-                    sprime[i] = new_pnad
-                    yield (None, tuple(sprime), 1.0)
+                            effect, option_vars, "add"), pnad.datastore,
+                        pnad.option_spec)
+                else:
+                    # We don't want sidelining to result in a no-op
+                    continue
+                sprime = list(s)
+                sprime[i] = new_pnad
+                yield (None, tuple(sprime), 1.0)
             # ...consider removing it.
             sprime = list(s)
             del sprime[i]
             yield (None, tuple(sprime), 1.0)
 
-    score_func = _PredictionErrorScoreFunction(predicates, [], {}, train_tasks)
+    if CFG.sidelining_approach == "naive":
+        score_func = _PredictionErrorScoreFunction(predicates, [], {},
+                                                   train_tasks)
 
-    def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
-        # Score function for search. Lower is better.
-        strips_ops = [pnad.op for pnad in s]
-        option_specs = [pnad.option_spec for pnad in s]
-        score = score_func.evaluate_with_operators(frozenset(),
-                                                   ground_atom_dataset,
-                                                   segments, strips_ops,
-                                                   option_specs)
-        return score
+        def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+            # Score function for search. Lower is better.
+            strips_ops = [pnad.op for pnad in s]
+            option_specs = [pnad.option_spec for pnad in s]
+            score = score_func.evaluate_with_operators(frozenset(),
+                                                       ground_atom_dataset,
+                                                       segments, strips_ops,
+                                                       option_specs)
+            return score
+
+    elif CFG.sidelining_approach == "preserve_skeletons":
+
+        def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
+            # Score function for search. Lower is better.
+            strips_ops = [pnad.op for pnad in s]
+            option_specs = [pnad.option_spec for pnad in s]
+            preserves_harmlessness = check_harmlessness(
+                predicates, train_tasks, ground_atom_dataset, strips_ops,
+                option_specs)
+            # NOTE: Arbitrary large number bigger than total number of
+            # operators
+            score = 10000
+            if preserves_harmlessness:
+                score = 2 * len(strips_ops)
+                for op in strips_ops:
+                    score -= len(op.side_predicates)
+            return score
+
+    else:
+        raise ValueError(
+            f"sidelining_approach {CFG.sidelining_approach} not implemented")
 
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
@@ -174,6 +201,9 @@ def _recompute_datastores_from_segments(
                     # predicates semantics here!
                     atoms = utils.apply_operator(ground_op, segment.init_atoms)
                     if not atoms.issubset(segment.final_atoms):
+                        continue
+                    # Skip over segments that have multiple possible bindings.
+                    if len(set(ground_op.objects)) != len(ground_op.objects):
                         continue
                     # This segment belongs in this datastore, so add it.
                     sub = dict(zip(pnad.op.parameters, ground_op.objects))
@@ -223,3 +253,87 @@ def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
     # Replace the samplers in the PNADs.
     for pnad, sampler in zip(pnads, samplers):
         pnad.sampler = sampler
+
+
+def check_harmlessness(init_preds: Set[Predicate], train_tasks: List[Task],
+                       pruned_atom_data: List[GroundAtomTrajectory],
+                       strips_ops: List[STRIPSOperator],
+                       option_specs: List[OptionSpec]) -> bool:
+    """Function to check whether a given set of operators and predicates
+    preserves harmlessness over demonstrations on some number of training
+    tasks."""
+
+    for ll_traj, hl_traj in pruned_atom_data:
+        if not ll_traj.is_demo:
+            continue
+        traj_goal = train_tasks[ll_traj.train_task_idx].goal
+        plan_preserved = check_single_plan_preservation(
+            ll_traj, hl_traj, traj_goal, init_preds, strips_ops, option_specs)
+        if not plan_preserved:
+            return False
+
+    return True
+
+
+def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
+                                   hl_traj: List[Set[GroundAtom]],
+                                   traj_goal: Set[GroundAtom],
+                                   init_preds: Set[Predicate],
+                                   strips_ops: List[STRIPSOperator],
+                                   option_specs: List[OptionSpec]) -> bool:
+    """Function to check whether a given set of operators and predicates
+    preserves a sigle training trajectory."""
+    init_atoms = utils.abstract(ll_traj.states[0], init_preds)
+    objects = set(ll_traj.states[0])
+    ground_nsrts, _ = task_plan_grounding(init_atoms, objects, strips_ops,
+                                          option_specs)
+    heuristic = utils.create_task_planning_heuristic(
+        CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
+        ground_nsrts, init_preds, objects)
+
+    def _check_goal(state: FrozenSet[GroundAtom]) -> bool:
+        return traj_goal.issubset(state)
+
+    idx_into_traj = 0
+
+    def _get_successor_with_correct_option(
+        state: FrozenSet[GroundAtom]
+    ) -> Iterator[Tuple[_GroundNSRT, FrozenSet[GroundAtom], float]]:
+        nonlocal idx_into_traj
+        if idx_into_traj <= len(ll_traj.actions) - 1:
+            assert ll_traj.actions[idx_into_traj].has_option()
+            gt_option = ll_traj.actions[idx_into_traj].get_option()
+            expected_next_hl_state = hl_traj[idx_into_traj + 1]
+            for applicable_nsrt in utils.get_applicable_operators(
+                    ground_nsrts, state):
+                # NOTE: we check that the option names are equal before
+                # attempting to ground because otherwise, we might
+                # get a parameter mismatch and trigger an AssertionError
+                # during grounding.
+                if applicable_nsrt.option.name == gt_option.name:
+                    if applicable_nsrt.option.ground(
+                            applicable_nsrt.option_objs,
+                            gt_option.params) == gt_option:
+                        next_hl_state = utils.apply_operator(
+                            applicable_nsrt, set(state))
+                        # Here, we check whether all atoms that differ
+                        # between next_hl_state and state are part of
+                        # the operator's side predicates. If so, this nsrt
+                        # can be applied from this state!
+                        exp_state_matches = next_hl_state.issubset(
+                            expected_next_hl_state)
+
+                        if exp_state_matches:
+                            # The returned cost is uniform because we don't
+                            # actually care about finding the shortest path;
+                            # just one that matches!
+                            yield (applicable_nsrt, frozenset(next_hl_state),
+                                   1.0)
+            idx_into_traj += 1
+
+    init_atoms_frozen = frozenset(init_atoms)
+    state_seq, _ = utils.run_gbfs(init_atoms_frozen, _check_goal,
+                                  _get_successor_with_correct_option,
+                                  heuristic)
+
+    return _check_goal(state_seq[-1])

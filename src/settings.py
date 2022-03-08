@@ -134,6 +134,7 @@ class GlobalSettings:
     # NSRT learning parameters
     min_data_for_nsrt = 0
     learn_side_predicates = False
+    sidelining_approach = "naive"
 
     # torch model parameters
     normalization_scale_clip = 1
