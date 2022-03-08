@@ -440,12 +440,18 @@ def test_abstract():
         return state[cup][0] + state[plate][0] < 2
 
     pred1 = Predicate("On", [cup_type, plate_type], _classifier1)
+    wrapped_pred1 = utils.wrap_predicate(pred1, "TEST-PREFIX-")
+    assert wrapped_pred1.name == "TEST-PREFIX-On"
+    assert wrapped_pred1.types == pred1.types
 
     def _classifier2(state, objects):
         cup, _, plate = objects
         return state[cup][0] + state[plate][0] < -1
 
     pred2 = Predicate("Is", [cup_type, plate_type, plate_type], _classifier2)
+    wrapped_pred2 = utils.wrap_predicate(pred2, "TEST-PREFIX-")
+    assert wrapped_pred2.name == "TEST-PREFIX-Is"
+    assert wrapped_pred2.types == pred2.types
     cup = cup_type("cup")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
@@ -467,6 +473,8 @@ def test_abstract():
         pred2([cup, plate1, plate2]),
         pred2([cup, plate2, plate2])
     }
+    # Wrapping a predicate should destroy its classifier.
+    assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
 
 
 def test_powerset():
@@ -2039,6 +2047,15 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
     assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
     assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
+
+
+def test_get_env_asset_path():
+    """Tests for get_env_asset_path()."""
+    path = utils.get_env_asset_path("urdf/plane.urdf")
+    assert path.endswith("urdf/plane.urdf")
+    assert os.path.exists(path)
+    with pytest.raises(AssertionError):
+        utils.get_env_asset_path("not_a_real_asset")
 
 
 def test_create_video_from_partial_refinements():

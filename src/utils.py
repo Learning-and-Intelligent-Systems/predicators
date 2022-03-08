@@ -229,18 +229,27 @@ def unify_preconds_effects_options(
     return unify(all_atoms1, all_atoms2)
 
 
-def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
-                         prefix: str) -> Set[LiftedOrGroundAtom]:
-    """Return a new set of atoms which adds the given prefix string to the name
-    of every predicate in atoms.
+def wrap_predicate(predicate: Predicate, prefix: str) -> Predicate:
+    """Return a new predicate which adds the given prefix string to the name.
 
     NOTE: the classifier is removed.
     """
+    new_predicate = Predicate(prefix + predicate.name,
+                              predicate.types,
+                              _classifier=lambda s, o: False)  # dummy
+    return new_predicate
+
+
+def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
+                         prefix: str) -> Set[LiftedOrGroundAtom]:
+    """Return a new set of atoms which adds the given prefix string to the name
+    of every atom's predicate.
+
+    NOTE: all the classifiers are removed.
+    """
     new_atoms = set()
     for atom in atoms:
-        new_predicate = Predicate(prefix + atom.predicate.name,
-                                  atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
+        new_predicate = wrap_predicate(atom.predicate, prefix)
         new_atoms.add(atom.__class__(new_predicate, atom.entities))
     return new_atoms
 
@@ -1481,6 +1490,15 @@ def save_video(outfile: str, video: Video) -> None:
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
     print(f"Wrote out to {outpath}")
+
+
+def get_env_asset_path(asset_name: str) -> str:
+    """Return the absolute path to env asset."""
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    asset_dir_path = os.path.join(dir_path, "envs", "assets")
+    path = os.path.join(asset_dir_path, asset_name)
+    assert os.path.exists(path), f"Env asset not found: {asset_name}."
+    return path
 
 
 def update_config(args: Dict[str, Any]) -> None:

@@ -129,9 +129,11 @@ def _run_pipeline(env: BaseEnv,
             print(f"\n\nONLINE LEARNING CYCLE {i}\n")
             print("Getting interaction requests...")
             if total_num_transitions > CFG.online_learning_max_transitions:
+                print("Reached online_learning_max_transitions, terminating")
                 break
             interaction_requests = approach.get_interaction_requests()
             if not interaction_requests:
+                print("Did not receive any interaction requests, terminating")
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
                 env, teacher, interaction_requests)
@@ -255,7 +257,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             num_solved += 1
             total_suc_time += (time.time() - start)
         else:
-            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed")
+            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed "
+                  f"to reach goal")
         if CFG.make_videos:
             assert monitor is not None
             video = monitor.get_video()
