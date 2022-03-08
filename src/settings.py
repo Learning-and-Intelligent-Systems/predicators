@@ -87,6 +87,15 @@ class GlobalSettings:
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = False
 
+    # general pybullet parameters
+    pybullet_use_gui = False  # must be True to make videos
+    pybullet_draw_debug = False  # useful for annotating in the GUI
+    pybullet_camera_width = 335  # for high quality, use 1674
+    pybullet_camera_height = 180  # for high quality, use 900
+    pybullet_sim_steps_per_action = 20
+    pybullet_max_ik_iters = 100
+    pybullet_ik_tol = 1e-3
+
     # parameters for approaches
     random_options_max_tries = 100
 
