@@ -4,7 +4,7 @@ from typing import Any, Dict
 import numpy as np
 import pybullet as p
 import pytest
-from predicators.src.pybullet_utils import get_kinematic_chain, \
+from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics
 from predicators.src import utils
 from predicators.src.settings import CFG

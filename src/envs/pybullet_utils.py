@@ -5,8 +5,6 @@ import numpy as np
 import pybullet as p
 from predicators.src.settings import CFG
 
-Pose3D = Tuple[float, float, float]
-
 
 def get_kinematic_chain(robot: int, end_effector: int,
                         physics_client_id: int) -> List[int]:
