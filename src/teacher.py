@@ -78,10 +78,11 @@ class Teacher:
 
 @dataclass
 class TeacherInteractionMonitor(utils.VideoMonitor):
-    """A monitor that renders each state and action encountered and queries and
-    responses during interaction with the teacher.
+    """A monitor that wraps interaction with an environment to include
+    generating and answering queries.
 
-    The render_fn is generally env.render.
+    Optionally, if CFG.make_interaction_videos is True, also renders every
+    state and action encountered. The render_fn is generally env.render.
     """
     _request: InteractionRequest
     _teacher: Teacher
