@@ -87,8 +87,25 @@ class GlobalSettings:
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = False
 
-    # parameters for approaches
+    # general pybullet parameters
+    pybullet_use_gui = False  # must be True to make videos
+    pybullet_draw_debug = False  # useful for annotating in the GUI
+    pybullet_camera_width = 335  # for high quality, use 1674
+    pybullet_camera_height = 180  # for high quality, use 900
+    pybullet_sim_steps_per_action = 20
+    pybullet_max_ik_iters = 100
+    pybullet_ik_tol = 1e-3
+
+    # parameters for random options approach
     random_options_max_tries = 100
+
+    # parameters for GNN policy approach
+    gnn_policy_num_message_passing = 3
+    gnn_policy_learning_rate = 1e-3
+    gnn_policy_num_epochs = 25000
+    gnn_policy_batch_size = 128
+    gnn_policy_do_normalization = False  # performs worse in Cover when True
+    gnn_policy_use_validation_set = True
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
@@ -130,9 +147,6 @@ class GlobalSettings:
     neural_gaus_regressor_hid_sizes = [32, 32]
     neural_gaus_regressor_max_itr = 10000
     mlp_classifier_n_iter_no_change = 5000
-
-    # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle" or "neural"
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
@@ -186,6 +200,7 @@ class GlobalSettings:
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
+
         return dict(
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
@@ -254,6 +269,14 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
+
+            # Segmentation parameters.
+            segmenter=defaultdict(
+                lambda: "atom_changes",
+                {
+                    # When options are given, use them to segment instead.
+                    "no_learning": "option_changes",
+                })[args.get("option_learner", "")],
         )
 
 
@@ -261,11 +284,16 @@ def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
     if CFG.option_learner == "neural":
-        return {"DemonstrationQuery"}
+        return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
     if CFG.approach == "unittest":
-        return {"GroundAtomsHoldQuery", "DemonstrationQuery"}
+        return {
+            "GroundAtomsHoldQuery",
+            "DemonstrationQuery",
+            "PathToStateQuery",
+            "_MockQuery",
+        }
     return set()
 
 
