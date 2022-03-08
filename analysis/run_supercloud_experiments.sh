@@ -3,16 +3,16 @@
 START_SEED=456
 NUM_SEEDS=3
 START_NUM_DOTS=5
-END_NUM_DOTS=25
+END_NUM_DOTS=20
 FILE="analysis/submit.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     for NUM_DOTS in $(seq $START_NUM_DOTS $END_NUM_DOTS); do
     # repeated nextto with naive
-    python $FILE --experiment_id repeated_nextto_naive --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --repeated_nextto_num_dots $NUM_DOTS --sidelining_approach naive --seed $SEED
+    python $FILE --experiment_id repeated_nextto_naive$NUM_DOTS --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --repeated_nextto_num_dots $NUM_DOTS --sidelining_approach naive --seed $SEED
 
     # repeated nextto with plan preservation
-    python $FILE --experiment_id repeated_nextto_preserve_skeletons --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --repeated_nextto_num_dots $NUM_DOTS --sidelining_approach preserve_skeletons --seed $SEED
+    python $FILE --experiment_id repeated_nextto_preserve_skeletons$NUM_DOTS --env repeated_nextto --approach nsrt_learning --learn_side_predicates True --repeated_nextto_num_dots $NUM_DOTS --sidelining_approach preserve_skeletons --seed $SEED
 
     # # cover
     # python $FILE --experiment_id cover_oracle --env cover --approach oracle --seed $SEED
