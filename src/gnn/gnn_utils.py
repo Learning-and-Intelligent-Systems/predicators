@@ -1,4 +1,4 @@
-from predicators.src.gnn_dataset import create_super_graph
+from predicators.src.gnn.gnn_dataset import create_super_graph
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

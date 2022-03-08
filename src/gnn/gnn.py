@@ -3,7 +3,7 @@
 A lot of this was copied and modified from code originally written by
 Kelsey Allen.
 """
-from predicators.src.gnn_utils import *
+from predicators.src.gnn.gnn_utils import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
