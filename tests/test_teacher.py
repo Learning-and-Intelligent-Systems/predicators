@@ -131,7 +131,7 @@ def test_TeacherInteractionMonitor():
     assert len(monitor.get_responses()) == 2
     # Cover not making queries and generating a video
     utils.update_config({
-        "make_interaction_videos": False,
+        "make_interaction_videos": True,
     })
     env = create_new_env("cover")
     query_policy = lambda s: None
