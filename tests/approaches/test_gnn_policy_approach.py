@@ -12,7 +12,7 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-@pytest.mark.parametrize("env_name", ["cover", "blocks"])
+@pytest.mark.parametrize("env_name", ["cover", "cover_typed_options"])
 def test_gnn_policy_approach_with_envs(env_name: str):
     """Tests for GNNPolicyApproach class on environments."""
     utils.reset_config({
