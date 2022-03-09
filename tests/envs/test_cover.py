@@ -215,7 +215,7 @@ def test_cover_regrasp():
     assert len(init_atoms) == 2
     # Clear should not be true after a place.
     state = task.init.copy()
-    block0, _, _, target0, _ = sorted(state)
+    block0, _, _, target0, _ = list(state)
     state.set(block0, "pose", state.get(target0, "pose"))
     assert not Clear([target0]).holds(state)
 
