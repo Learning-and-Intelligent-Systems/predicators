@@ -307,7 +307,7 @@ _DEBUG_PREDICATE_PREFIXES = {
         "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
     ],
     "blocks": [
-        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
+        "NOT-((0:robot).fingers<=[idx 0]",  # GripperOpen
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
     ],
@@ -326,16 +326,20 @@ class _DebugGrammar(_PredicateGrammar):
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         del max_num
-        expected_len = len(_DEBUG_PREDICATE_PREFIXES[CFG.env])
+        env_name = (CFG.env if not CFG.env.startswith("pybullet") else
+                    CFG.env[CFG.env.index("_") + 1:])
+        expected_len = len(_DEBUG_PREDICATE_PREFIXES[env_name])
         result = super().generate(expected_len)
         assert len(result) == expected_len
         return result
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        env_name = (CFG.env if not CFG.env.startswith("pybullet") else
+                    CFG.env[CFG.env.index("_") + 1:])
         for (predicate, cost) in self.base_grammar.enumerate():
             if any(
                     str(predicate).startswith(debug_str)
-                    for debug_str in _DEBUG_PREDICATE_PREFIXES[CFG.env]):
+                    for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
                 yield (predicate, cost)
 
 

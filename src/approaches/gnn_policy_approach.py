@@ -12,10 +12,9 @@ import torch.optim
 from torch.utils.data import DataLoader
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.gnn.gnn import setup_graph_net
-from predicators.src.gnn.gnn_dataset import GraphDictDataset, \
-    graph_batch_collate
 from predicators.src.gnn.gnn_utils import get_single_model_prediction, \
-    train_model, compute_normalizers, normalize_graph
+    train_model, compute_normalizers, normalize_graph, GraphDictDataset, \
+    graph_batch_collate
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.structs import State, Action, Task, _Option, Predicate, \
     ParameterizedOption, Type, DummyOption, GroundAtom, Dataset
@@ -94,12 +93,11 @@ class GNNPolicyApproach(BaseApproach):
         example_inputs, example_targets = self._graphify_data(
             [(data[0][0], data[0][1], data[0][2])], [data[0][3]])
         self._data_exemplar = (example_inputs[0], example_targets[0])
-        example_dataset = GraphDictDataset(  # type: ignore
-            example_inputs, example_targets)
-        self._gnn = setup_graph_net(  # type: ignore
+        example_dataset = GraphDictDataset(example_inputs, example_targets)
+        self._gnn = setup_graph_net(
             example_dataset,
-            use_gpu=False,
-            num_steps=CFG.gnn_policy_num_message_passing)
+            num_steps=CFG.gnn_policy_num_message_passing,
+            layer_size=CFG.gnn_policy_layer_size)
         # Set up all the graphs, now using *all* the data.
         inputs, targets = self._graphify_data([(d[0], d[1], d[2])
                                                for d in data],
@@ -114,10 +112,8 @@ class GNNPolicyApproach(BaseApproach):
         train_targets = targets[num_validation:]
         val_inputs = inputs[:num_validation]
         val_targets = targets[:num_validation]
-        train_dataset = GraphDictDataset(  # type: ignore
-            train_inputs, train_targets)
-        val_dataset = GraphDictDataset(  # type: ignore
-            val_inputs, val_targets)
+        train_dataset = GraphDictDataset(train_inputs, train_targets)
+        val_dataset = GraphDictDataset(val_inputs, val_targets)
         ## Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_policy_learning_rate)
@@ -133,15 +129,18 @@ class GNNPolicyApproach(BaseApproach):
                                     collate_fn=graph_batch_collate)
         dataloaders = {"train": train_dataloader, "val": val_dataloader}
         ## Set up the optimization criteria.
-        if self._max_option_objects > 0:
-            node_criterion = torch.nn.BCEWithLogitsLoss()
-        else:
-            node_criterion = None
+        bce_loss = torch.nn.BCEWithLogitsLoss()
         crossent_loss = torch.nn.CrossEntropyLoss()
         mse_loss = torch.nn.MSELoss()
 
+        def _criterion(output: torch.Tensor,
+                       target: torch.Tensor) -> torch.Tensor:
+            if self._max_option_objects == 0:
+                return torch.tensor(0.0)
+            return bce_loss(output, target)
+
         def _global_criterion(output: torch.Tensor,
-                              target: torch.Tensor) -> float:
+                              target: torch.Tensor) -> torch.Tensor:
             # Combine losses from the one-hot option selection and
             # the continuous parameters.
             onehot_output, params_output = torch.split(  # type: ignore
@@ -155,19 +154,17 @@ class GNNPolicyApproach(BaseApproach):
             if self._max_option_params > 0:
                 params_loss = mse_loss(params_output, params_target)
             else:
-                params_loss = 0.0
+                params_loss = torch.tensor(0.0)
             return onehot_loss + params_loss
 
         ## Launch training code.
-        best_model_dict = train_model(  # type: ignore
+        best_model_dict = train_model(
             self._gnn,
             dataloaders,
-            criterion=node_criterion,
             optimizer=optimizer,
-            use_gpu=False,
-            num_epochs=CFG.gnn_policy_num_epochs,
-            target_nodes_only=True,
+            criterion=_criterion,
             global_criterion=_global_criterion,
+            num_epochs=CFG.gnn_policy_num_epochs,
             do_validation=CFG.gnn_policy_use_validation_set)
         self._gnn.load_state_dict(best_model_dict)
         info = {
@@ -191,12 +188,11 @@ class GNNPolicyApproach(BaseApproach):
             info = pkl.load(f)
         # Initialize fields from loaded dictionary.
         input_example, target_example = info["exemplar"]
-        dataset = GraphDictDataset(  # type: ignore
-            [input_example], [target_example])
-        self._gnn = setup_graph_net(  # type: ignore
+        dataset = GraphDictDataset([input_example], [target_example])
+        self._gnn = setup_graph_net(
             dataset,
-            use_gpu=False,
-            num_steps=CFG.gnn_policy_num_message_passing)
+            num_steps=CFG.gnn_policy_num_message_passing,
+            layer_size=CFG.gnn_policy_layer_size)
         self._gnn.load_state_dict(info["state_dict"])
         self._nullary_predicates = info["nullary_predicates"]
         self._max_option_objects = info["max_option_objects"]
@@ -216,15 +212,12 @@ class GNNPolicyApproach(BaseApproach):
         for obj, node in object_to_node.items():
             type_to_node[obj.type.name].add(node)
         if CFG.gnn_policy_do_normalization:
-            in_graph = normalize_graph(  # type: ignore
-                in_graph, self._input_normalizers)
-        out_graph = get_single_model_prediction(  # type: ignore
-            self._gnn, in_graph)
+            in_graph = normalize_graph(in_graph, self._input_normalizers)
+        out_graph = get_single_model_prediction(self._gnn, in_graph)
         if CFG.gnn_policy_do_normalization:
-            out_graph = normalize_graph(  # type: ignore
-                out_graph,
-                self._target_normalizers,
-                invert=True)
+            out_graph = normalize_graph(out_graph,
+                                        self._target_normalizers,
+                                        invert=True)
         # Extract parameterized option and continuous parameters.
         onehot_output, params = np.split(  # type: ignore
             out_graph["globals"], [len(self._sorted_options)])
@@ -363,16 +356,14 @@ class GNNPolicyApproach(BaseApproach):
         if CFG.gnn_policy_do_normalization:
             # Update normalization constants. Note that we do this for both
             # the input graph and the target graph.
-            self._input_normalizers = compute_normalizers(  # type: ignore
-                graph_inputs)
-            self._target_normalizers = compute_normalizers(  # type: ignore
-                graph_targets)
+            self._input_normalizers = compute_normalizers(graph_inputs)
+            self._target_normalizers = compute_normalizers(graph_targets)
             graph_inputs = [
-                normalize_graph(g, self._input_normalizers)  # type: ignore
+                normalize_graph(g, self._input_normalizers)
                 for g in graph_inputs
             ]
             graph_targets = [
-                normalize_graph(g, self._target_normalizers)  # type: ignore
+                normalize_graph(g, self._target_normalizers)
                 for g in graph_targets
             ]
 
