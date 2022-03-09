@@ -87,12 +87,12 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return state
 
     def execute_stack(self, block):
-        """Helper for tests involving stacking."""
+        """Helper for tests that incidentally involve stacking."""
         option = self._Stack.ground([self._robot, block], [])
         return self._execute_option(option)
 
     def execute_putontable(self, norm_x, norm_y):
-        """Helper for tests involving putting on table."""
+        """Helper for tests that incidentally involve putting on the table."""
         option = self._PutOnTable.ground([self._robot], [norm_x, norm_y])
         return self._execute_option(option)
 
@@ -108,7 +108,7 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         return self._current_state.copy()
 
 
-def _get__EXPOSED_PYBULLET_ENV():
+def _get_exposed_pybullet_env():
     global _EXPOSED_PYBULLET_ENV  # pylint:disable=global-statement
     if _EXPOSED_PYBULLET_ENV is None:
         _EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
@@ -118,7 +118,7 @@ def _get__EXPOSED_PYBULLET_ENV():
 def test_pybullet_blocks_reset():
     """Tests for PyBulletBlocksEnv.reset()."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    env = _get__EXPOSED_PYBULLET_ENV()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     for idx, task in enumerate(env.get_train_tasks()):
         state = env.reset("train", idx)
@@ -139,7 +139,7 @@ def test_pybullet_blocks_reset():
 def test_pybullet_blocks_picking():
     """Tests cases for picking blocks in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    env = _get__EXPOSED_PYBULLET_ENV()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -187,7 +187,25 @@ def test_pybullet_blocks_picking():
         state = env.step(action)
     # The block should NOT be held.
     assert state.get(block, "held") == 0.0
-    # Test that the block can be picked at the extremes of the workspace.
+
+
+def test_pybullet_blocks_picking_corners():
+    """Test that the block can be picked at the extremes of the workspace."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get_exposed_pybullet_env()
+    env.seed(123)
+    block = Object("block0", env.block_type)
+    robot = env.robot
+    bx = (env.x_lb + env.x_ub) / 2
+    by = (env.y_lb + env.y_ub) / 2
+    bz = env.table_height + 0.5 * env.block_size
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
+    # Create a simple custom state with one block for testing.
+    init_state = State({
+        robot: np.array([rx, ry, rz, rf]),
+        block: np.array([bx, by, bz, 0.0]),
+    })
     corners = [
         (env.x_lb, env.y_lb),
         (env.x_ub, env.y_lb),
@@ -218,7 +236,7 @@ def test_pybullet_blocks_picking():
 def test_pybullet_blocks_stacking():
     """Tests cases for stacking blocks in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    env = _get__EXPOSED_PYBULLET_ENV()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
@@ -254,14 +272,27 @@ def test_pybullet_blocks_stacking():
     # And block0 should be on block1.
     assert env.On([block0, block1]).holds(state)
     assert env.GripperOpen([robot]).holds(state)
-    # Test extremes: stacking a block on the tallest possible tower, at each
-    # of the possible corners.
+
+
+def test_pybullet_blocks_stacking_corners():
+    """Test stacking a block on the tallest possible tower at each of the
+    possible corners."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get_exposed_pybullet_env()
+    env.seed(123)
     corners = [
         (env.x_lb, env.y_lb),
         (env.x_ub, env.y_lb),
         (env.x_lb, env.y_ub),
         (env.x_ub, env.y_ub),
     ]
+    block0 = Object("block0", env.block_type)
+    robot = env.robot
+    bx0 = (env.x_lb + env.x_ub) / 2
+    by0 = (env.y_lb + env.y_ub) / 2 - env.block_size
+    bz0 = env.table_height + 0.5 * env.block_size
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
     max_num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
     block_to_z = {
@@ -300,7 +331,7 @@ def test_pybullet_blocks_stacking():
 def test_pybullet_blocks_putontable():
     """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    env = _get__EXPOSED_PYBULLET_ENV()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -341,7 +372,25 @@ def test_pybullet_blocks_putontable():
     # and try to improve the PutOnTable controller.
     assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-2
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-2
-    # Test that the block can be placed at the extremes of the workspace.
+
+
+def test_pybullet_blocks_putontable_corners():
+    """Test that the block can be placed at the extremes of the workspace."""
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get_exposed_pybullet_env()
+    env.seed(123)
+    block = Object("block0", env.block_type)
+    robot = env.robot
+    bx = (env.x_lb + env.x_ub) / 2
+    by = (env.y_lb + env.y_ub) / 2
+    bz = env.table_height + 0.5 * env.block_size
+    rx, ry, rz = env.robot_init_x, env.robot_init_y, env.robot_init_z
+    rf = env.open_fingers
+    # Create a simple custom state with one block for testing.
+    init_state = State({
+        robot: np.array([rx, ry, rz, rf]),
+        block: np.array([bx, by, bz, 0.0]),
+    })
     corners = [
         (env.x_lb, env.y_lb),
         (env.x_ub, env.y_lb),
@@ -351,6 +400,8 @@ def test_pybullet_blocks_putontable():
     corner_params = [(0., 0.), (1., 0.), (0., 1.), (1., 1.)]
     for (bx, by), (px, py) in zip(corners, corner_params):
         state = init_state.copy()
+        env.set_state(state)
+        assert env.get_state().allclose(state)
         # Pick block to get to a state where we are prepared to place.
         state = env.execute_pick(block)
         # Create a PutOnTable option.
@@ -383,7 +434,7 @@ def test_pybullet_blocks_close_pick_place():
     Make sure that the pile is not disturbed.
     """
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    env = _get__EXPOSED_PYBULLET_ENV()
+    env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -444,7 +495,7 @@ def test_pybullet_blocks_close_pick_place():
 def test_pybullet_blocks_abstract_states():
     """Tests abstract states during option execution in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    env = _get__EXPOSED_PYBULLET_ENV()
+    env = _get_exposed_pybullet_env()
     On = env.On
     OnTable = env.OnTable
     GripperOpen = env.GripperOpen
