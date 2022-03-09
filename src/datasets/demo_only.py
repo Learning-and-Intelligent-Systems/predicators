@@ -27,13 +27,12 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         try:
             policy = oracle_approach.solve(
                 task, timeout=CFG.offline_data_planning_timeout)
-            horizon = CFG.max_num_steps_check_policy  # to be changed very soon
             traj = utils.run_policy(policy,
                                     env,
                                     "train",
                                     idx,
                                     task.goal_holds,
-                                    max_num_steps=horizon)
+                                    max_num_steps=CFG.horizon)
         except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments
