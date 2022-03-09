@@ -12,6 +12,7 @@ from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
 from predicators.src.structs import Action, NSRT, Variable
 from predicators.src.settings import CFG
 from predicators.src import utils
+from predicators.tests.conftest import longrun
 
 
 def policy_solves_task(policy, task, simulator):
@@ -338,6 +339,34 @@ def test_oracle_approach_cover_multistep_options():
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
+    approach.seed(123)
+    for task in train_tasks:
+        policy = approach.solve(task, timeout=500)
+        assert policy_solves_task(policy, task, env.simulate)
+    for task in env.get_test_tasks():
+        policy = approach.solve(task, timeout=500)
+        assert policy_solves_task(policy, task, env.simulate)
+
+
+@longrun
+def test_longrun_oracle_approach_cover_multistep_options():
+    """Tests for OracleApproach class with CoverMultistepOptions.
+
+    This is a longrun test because planning with default parameters is
+    hard in this environment.
+    """
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "cover_multistep_use_learned_equivalents": True,
+        "num_train_tasks": 5,
+        "num_test_tasks": 5,
+    })
+    env = CoverMultistepOptions()
+    env.seed(123)
+    train_tasks = env.get_train_tasks()
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    assert not approach.is_learning_based
     approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
