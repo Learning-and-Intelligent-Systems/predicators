@@ -136,8 +136,19 @@ class PyBulletBlocksEnv(BlocksEnv):
                     ("rel", "rel", "abs"), types, params_space),
             ])
 
-        # One-time initialization of pybullet assets. Note that this happens
-        # in __init__ because many instance attributes are created.
+        # We track the correspondence between PyBullet object IDs and Object
+        # instances for blocks. This correspondence changes with the task.
+        self._block_id_to_block: Dict[int, Object] = {}
+
+        # When a block is held, a constraint is created to prevent slippage.
+        self._held_constraint_id: Optional[int] = None
+        self._held_block_id: Optional[int] = None
+
+        # Set up all the static PyBullet content.
+        self._initialize_pybullet()
+
+    def _initialize_pybullet(self) -> None:
+        """One-time initialization of pybullet assets."""
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_use_gui:  # pragma: no cover
@@ -251,11 +262,6 @@ class PyBulletBlocksEnv(BlocksEnv):
         num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
-        self._block_id_to_block: Dict[int, Object] = {}
-
-        # When a block is held, a constraint is created to prevent slippage.
-        self._held_constraint_id: Optional[int] = None
-        self._held_block_id: Optional[int] = None
 
     @property
     def action_space(self) -> Box:
