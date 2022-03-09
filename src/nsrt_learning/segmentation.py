@@ -36,11 +36,11 @@ def _segment_with_option_changes(
     def _switch_fn(t: int) -> bool:
         # Segment by checking whether the option changes on the next step.
         option_t = traj.actions[t].get_option()
-        # As a special case, if this is the last time step, then use the
+        # As a special case, if this is the last timestep, then use the
         # option's terminal function to check if it completed.
         if t == len(traj.actions) - 1:
             return option_t.terminal(traj.states[t + 1])
-        return not option_t is traj.actions[t + 1].get_option()
+        return option_t is not traj.actions[t + 1].get_option()
 
     return _segment_with_switch_function(trajectory, _switch_fn)
 
@@ -50,8 +50,8 @@ def _segment_with_switch_function(
         switch_fn: Callable[[int], bool]) -> List[Segment]:
     """Helper for other segmentation methods.
 
-    The switch_fn takes a timestep and returns True if the trajectory
-    should be segmented at that timestep.
+    The switch_fn takes in a timestep and returns True if the trajectory
+    should be segmented at the end of that timestep.
     """
     segments = []
     traj, all_atoms = trajectory
@@ -84,6 +84,6 @@ def _segment_with_switch_function(
             current_segment_states = []
             current_segment_actions = []
             current_segment_init_atoms = current_segment_final_atoms
-    # Don't include the last current segment because it didn't result in a
-    # switch. (E.g., with option_changes, the option may not have terminated.)
+    # Don't include the last segment because it didn't result in a switch.
+    # E.g., with option_changes, the option may not have terminated.
     return segments

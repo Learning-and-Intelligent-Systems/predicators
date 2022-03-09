@@ -63,8 +63,61 @@ def test_segment_trajectory():
     infinite_option.initiable(states[0])
     actions = [infinite_option.policy(s) for s in states[:-1]]
     trajectory = (LowLevelTrajectory(states, actions),
-                  [atoms0, atoms0, atoms0, atoms0, atoms0])
+                  [atoms0, atoms0, atoms0, atoms0, atoms1])
     assert len(segment_trajectory(trajectory)) == 0
+
+    # More tests for temporally extended options.
+    def _initiable(s, m, o, p):
+        del s, o, p  # unused
+        m["steps_remaining"] = 3
+        return True
+
+    def _policy(s, m, o, p):
+        del s, o  # unused
+        m["steps_remaining"] -= 1
+        return Action(p)
+
+    def _terminal(s, m, o, p):
+        del s, o, p  # unused
+        return m["steps_remaining"] <= 0
+
+    three_step_param_option = ParameterizedOption(
+        "ThreeStepDummy",
+        types=[cup_type],
+        params_space=Box(0.1, 1, (1, )),
+        policy=_policy,
+        initiable=_initiable,
+        terminal=_terminal,
+    )
+
+    def _simulate(s, a):
+        del a  # unused
+        return s.copy()
+
+    three_option0 = three_step_param_option.ground([cup0], np.array([0.2]))
+    three_option1 = three_step_param_option.ground([cup0], np.array([0.2]))
+    policy = utils.option_plan_to_policy([three_option0, three_option1])
+    traj = utils.run_policy_with_simulator(
+        policy,
+        _simulate,
+        state0,
+        termination_function=lambda s: False,
+        max_num_steps=6)
+    atom_traj = [atoms0] * 3 + [atoms1] * 3 + [atoms0]
+    trajectory = (traj, atom_traj)
+    segments = segment_trajectory(trajectory)
+    assert len(segments) == 2
+    segment0 = segments[0]
+    segment1 = segments[1]
+    assert segment0.has_option()
+    assert segment0.get_option() == three_option0
+    assert segment0.init_atoms == atoms0
+    assert segment0.final_atoms == atoms1
+    assert segment1.has_option()
+    assert segment1.get_option() == three_option1
+    assert segment1.init_atoms == atoms1
+    assert segment1.final_atoms == atoms0
+
     # Tests without known options.
     action0 = option0.policy(state0)
     action0.unset_option()
@@ -88,7 +141,11 @@ def test_segment_trajectory():
                   [atoms0, atoms0, atoms0, atoms0, atoms0, atoms1])
     unknown_option_segments = segment_trajectory(trajectory)
     assert len(unknown_option_segments) == 1
-    assert len(unknown_option_segments[0].actions) == 5
+    segment = unknown_option_segments[0]
+    assert len(segment.actions) == 5
+    assert not segment.has_option()
+    assert segment.init_atoms == atoms0
+    assert segment.final_atoms == atoms1
     # Test unknown segmenter.
     utils.reset_config({"segmenter": "not a real segmenter"})
     with pytest.raises(NotImplementedError):
