@@ -10,8 +10,8 @@ from typing import Set, Callable, List, Sequence, FrozenSet, Tuple, Dict, \
 import numpy as np
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.planning import task_plan, task_plan_grounding
 from predicators.src.structs import Predicate, Object, GroundAtomTrajectory, \
     STRIPSOperator, OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, \

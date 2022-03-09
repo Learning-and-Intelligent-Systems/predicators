@@ -6,8 +6,8 @@ from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
 from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.predicate_search_score_functions import \

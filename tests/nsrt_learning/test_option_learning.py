@@ -6,8 +6,8 @@ from predicators.src.approaches import ApproachFailure
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.datasets.demo_replay import create_demo_replay_data
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import STRIPSOperator
 from predicators.src.torch_models import MLPRegressor
 from predicators.src.nsrt_learning.option_learning import \

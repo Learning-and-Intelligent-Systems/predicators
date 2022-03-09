@@ -16,7 +16,7 @@ from predicators.src.predicate_search_score_functions import (
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction,
     _ExpectedNodesScoreFunction)
 from predicators.src.envs import CoverEnv, BlocksEnv
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Predicate, STRIPSOperator, Action, \
     Box, LowLevelTrajectory, GroundAtom, OptionSpec, _GroundSTRIPSOperator
