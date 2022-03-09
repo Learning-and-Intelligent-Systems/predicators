@@ -214,8 +214,9 @@ class GlobalSettings:
             horizon=defaultdict(
                 lambda: 100,
                 {
-                    # For PyBullet environments, actions are lower-level, so
-                    # tasks take more actions to complete.
+                    # For Behavior and PyBullet environments, actions are
+                    # lower level, so tasks take more actions to complete.
+                    "behavior": 1000,
                     "pybullet_blocks": 1000,
                 })[args.get("env", "")],
             # In SeSamE, when to propagate failures back up to the high level
