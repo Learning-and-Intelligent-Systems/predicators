@@ -299,20 +299,26 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
     ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int], float]]:
         state = searchnode_state[0]
         idx_into_traj = searchnode_state[1]
+
         if idx_into_traj <= len(ll_traj.actions) - 1:
             assert ll_traj.actions[idx_into_traj].has_option()
             gt_option = ll_traj.actions[idx_into_traj].get_option()
             expected_next_hl_state = hl_traj[idx_into_traj + 1]
+
+            # if len(strips_ops[2].side_predicates) == 1 and \
+            #     idx_into_traj == 2 and \
+            #     str(hl_traj) == '[{NextToNothing(robby:robot)}, {NextTo(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {Grasped(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {NextTo(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot)}, {Grasped(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot), NextToNothing(robby:robot)}]':
+            #     import ipdb; ipdb.set_trace()
+
             for applicable_nsrt in utils.get_applicable_operators(
                     ground_nsrts, state):
-                # NOTE: we check that the option names are equal before
+                # NOTE: we check that the ParameterizedOptions are equal before
                 # attempting to ground because otherwise, we might
                 # get a parameter mismatch and trigger an AssertionError
                 # during grounding.
-                if applicable_nsrt.option.name == gt_option.name:
-                    if applicable_nsrt.option.ground(
-                            applicable_nsrt.option_objs,
-                            gt_option.params) == gt_option:
+
+                if applicable_nsrt.option == gt_option.parent:
+                    if applicable_nsrt.option_objs == gt_option.objects:
                         next_hl_state = utils.apply_operator(
                             applicable_nsrt, set(state))
                         # Here, we check whether all atoms that differ
@@ -322,20 +328,28 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
                         exp_state_matches = next_hl_state.issubset(
                             expected_next_hl_state)
 
+                        # if not exp_state_matches and len(applicable_nsrt.side_predicates) == 1 and len(strips_ops[2].side_predicates) == 1:
+                        #     import ipdb; ipdb.set_trace()
+
                         if exp_state_matches:
                             # The returned cost is uniform because we don't
                             # actually care about finding the shortest path;
                             # just one that matches!
+
+                            # if len(strips_ops[2].side_predicates) == 1 and \
+                            #     str(hl_traj) == '[{NextToNothing(robby:robot)}, {NextTo(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {Grasped(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {NextTo(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot)}, {Grasped(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot), NextToNothing(robby:robot)}]':
+                            #     import ipdb; ipdb.set_trace()
+
                             yield (applicable_nsrt, (frozenset(next_hl_state), idx_into_traj + 1),
                                    1.0)
 
     init_atoms_frozen = frozenset(init_atoms)
     init_searchnode_state = (init_atoms_frozen, 0)
-    state_seq, _ = utils.run_gbfs(init_searchnode_state, _check_goal,
+    state_seq, action_seq = utils.run_gbfs(init_searchnode_state, _check_goal,
                                   _get_successor_with_correct_option,
                                   lambda searchnode_state: heuristic(searchnode_state[0]))
 
-    if len(strips_ops[2].side_predicates) == 1 and not _check_goal(state_seq[-1]):
-        import ipdb; ipdb.set_trace()
+    # if not _check_goal(state_seq[-1]) and len(strips_ops[2].side_predicates) == 1:
+    #     import ipdb; ipdb.set_trace()
 
     return _check_goal(state_seq[-1])
