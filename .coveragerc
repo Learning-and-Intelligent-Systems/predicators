@@ -2,7 +2,6 @@
 omit =
     src/envs/behavior.py
     src/envs/behavior_options.py
-    src/gnn/*py
 
 [report]
 # Regexes for lines to exclude from consideration
