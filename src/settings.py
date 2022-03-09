@@ -101,6 +101,7 @@ class GlobalSettings:
 
     # parameters for GNN policy approach
     gnn_policy_num_message_passing = 3
+    gnn_policy_layer_size = 16
     gnn_policy_learning_rate = 1e-3
     gnn_policy_num_epochs = 25000
     gnn_policy_batch_size = 128
