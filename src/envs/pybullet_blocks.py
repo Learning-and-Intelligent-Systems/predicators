@@ -137,7 +137,9 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # One-time initialization of pybullet assets. Note that this happens
         # in __init__ because many class attributes are created.
-        if CFG.pybullet_use_gui:
+        # Skip test coverage because GUI is too expensive to use in unit tests
+        # and cannot be used in headless mode.
+        if CFG.pybullet_use_gui:  # pragma: no cover
             self._physics_client_id = p.connect(p.GUI)
             p.resetDebugVisualizerCamera(
                 self._camera_distance,
@@ -196,7 +198,9 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._table_orientation,
             physicsClientId=self._physics_client_id)
 
-        if CFG.pybullet_draw_debug:
+        # Skip test coverage because GUI is too expensive to use in unit tests
+        # and cannot be used in headless mode.
+        if CFG.pybullet_draw_debug:  # pragma: no cover
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
@@ -275,16 +279,8 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._base_orientation,
             physicsClientId=self._physics_client_id)
         rx, ry, rz, rf = state[self._robot]
-        # Avoid running IK in the common case where the robot is at home.
-        if np.allclose((rx, ry, rz), self._robot_home_pose):
-            joint_values = self._initial_joint_values
-        else:
-            joint_values = inverse_kinematics(
-                self._fetch_id,
-                self._ee_id, (rx, ry, rz),
-                self._ee_orientation,
-                self._arm_joints,
-                physics_client_id=self._physics_client_id)
+        assert np.allclose((rx, ry, rz), self._robot_home_pose)
+        joint_values = self._initial_joint_values
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
                               joint_id,
@@ -370,9 +366,12 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         return block_id
 
-    def render(self,
-               action: Optional[Action] = None,
-               caption: Optional[str] = None) -> List[Image]:
+    def render(
+            self,
+            action: Optional[Action] = None,
+            caption: Optional[str] = None) -> List[Image]:  # pragma: no cover
+        # Skip test coverage because GUI is too expensive to use in unit tests
+        # and cannot be used in headless mode.
         del caption  # unused
 
         if not CFG.pybullet_use_gui:
