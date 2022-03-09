@@ -89,6 +89,8 @@ class _BehaviorOptionModel(_OptionModelBase):
         env_base = get_or_create_env("behavior")
         env = cast(BehaviorEnv, env_base)
         assert option.memory.get("model_controller") is not None
+        assert option.memory.get("planner_result") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)
         next_state = env.current_ig_state_to_state()
-        return next_state, 0
+        plan, _ = option.memory["planner_result"]
+        return next_state, len(plan)
