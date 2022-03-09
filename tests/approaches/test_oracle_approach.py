@@ -358,6 +358,8 @@ def test_longrun_oracle_approach_cover_multistep_options():
     utils.reset_config({
         "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": True,
+        "num_train_tasks": 5,
+        "num_test_tasks": 5,
     })
     env = CoverMultistepOptions()
     env.seed(123)

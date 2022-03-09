@@ -8,9 +8,9 @@ longrun = pytest.mark.skipif("not config.getoption('longrun')")
 
 
 def pytest_addoption(parser):
-    """Enable a commandline flag for running tests marked as longrun."""
+    """Enable a command line flag for running tests decorated with @longrun."""
     parser.addoption('--longrun',
                      action='store_true',
                      dest="longrun",
                      default=False,
-                     help="enable longrundecorated tests")
+                     help="enable tests decorated with @longrun")
