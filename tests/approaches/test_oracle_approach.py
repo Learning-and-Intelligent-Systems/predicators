@@ -17,12 +17,11 @@ from predicators.tests.conftest import longrun
 
 def policy_solves_task(policy, task, simulator):
     """Helper method used throughout this file."""
-    traj = utils.run_policy_with_simulator(
-        policy,
-        simulator,
-        task.init,
-        task.goal_holds,
-        max_num_steps=CFG.max_num_steps_check_policy)
+    traj = utils.run_policy_with_simulator(policy,
+                                           simulator,
+                                           task.init,
+                                           task.goal_holds,
+                                           max_num_steps=CFG.horizon)
     return task.goal_holds(traj.states[-1])
 
 

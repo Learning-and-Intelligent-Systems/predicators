@@ -103,3 +103,19 @@ def test_option_model_notimplemented():
     })
     with pytest.raises(NotImplementedError):
         create_option_model("not a real option model")
+
+
+def test_create_option_model():
+    """Tests for create_option_model()."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+    })
+    model = create_option_model("oracle")
+    assert isinstance(model, _OracleOptionModel)
+    utils.reset_config({
+        "env": "pybullet_blocks",
+        "approach": "nsrt_learning",
+    })
+    model = create_option_model("oracle_blocks")
+    assert isinstance(model, _OracleOptionModel)
