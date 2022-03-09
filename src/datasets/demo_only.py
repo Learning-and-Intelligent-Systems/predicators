@@ -27,6 +27,13 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         try:
             policy = oracle_approach.solve(
                 task, timeout=CFG.offline_data_planning_timeout)
+            horizon = CFG.max_num_steps_check_policy  # to be changed very soon
+            traj = utils.run_policy(policy,
+                                    env,
+                                    "train",
+                                    idx,
+                                    task.goal_holds,
+                                    max_num_steps=horizon)
         except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments
@@ -34,19 +41,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             print(f"WARNING: Approach failed to solve with error: {e}")
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
-            continue
-        horizon = CFG.max_num_steps_check_policy  # to be changed very soon
-        try:
-            traj = utils.run_policy(policy,
-                                    env,
-                                    "train",
-                                    idx,
-                                    task.goal_holds,
-                                    max_num_steps=horizon)
-        except utils.OptionPlanExhausted:  # pragma: no cover
-            # In rare occurrences where the option plan is executed, but the
-            # task goal does not hold, we throw out the data, because it is not
-            # a good demonstration.
             continue
         assert task.goal_holds(traj.states[-1]), \
             "Oracle failed on training task."
