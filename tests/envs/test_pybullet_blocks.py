@@ -7,8 +7,8 @@ from predicators.src.structs import Object, State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG
 
-GUI_ON = False  # toggle for debugging
-EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
+_GUI_ON = False  # toggle for debugging
+_EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
 
 
 class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
@@ -100,27 +100,25 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Helper for execution methods."""
         assert option.initiable(self._current_state)
         # Execute the pick option.
-        for _ in range(100):
+        while True:
             if option.terminal(self._current_state):
                 break
             action = option.policy(self._current_state)
             self.step(action)
-        else:
-            assert False, "Option failed to terminate."
         return self._current_state.copy()
 
 
-def _get_exposed_pybullet_env():
-    global EXPOSED_PYBULLET_ENV  # pylint:disable=global-statement
-    if EXPOSED_PYBULLET_ENV is None:
-        EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
-    return EXPOSED_PYBULLET_ENV
+def _get__EXPOSED_PYBULLET_ENV():
+    global _EXPOSED_PYBULLET_ENV  # pylint:disable=global-statement
+    if _EXPOSED_PYBULLET_ENV is None:
+        _EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
+    return _EXPOSED_PYBULLET_ENV
 
 
 def test_pybullet_blocks_reset():
     """Tests for PyBulletBlocksEnv.reset()."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _get_exposed_pybullet_env()
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get__EXPOSED_PYBULLET_ENV()
     env.seed(123)
     for idx, task in enumerate(env.get_train_tasks()):
         state = env.reset("train", idx)
@@ -140,8 +138,8 @@ def test_pybullet_blocks_reset():
 
 def test_pybullet_blocks_picking():
     """Tests cases for picking blocks in PyBulletBlocksEnv."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _get_exposed_pybullet_env()
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get__EXPOSED_PYBULLET_ENV()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -164,14 +162,12 @@ def test_pybullet_blocks_picking():
     assert env.GripperOpen([robot]).holds(state)
     # Execute the option. Also record the actions for use in the next test.
     pick_actions = []
-    for _ in range(100):
+    while True:
         if option.terminal(state):
             break
         action = option.policy(state)
         pick_actions.append(action)
         state = env.step(action)
-    else:
-        assert False, "Option failed to terminate."
     # The block should now be held.
     assert state.get(block, "held") == 1.0
     assert not env.GripperOpen([robot]).holds(state)
@@ -209,13 +205,11 @@ def test_pybullet_blocks_picking():
         assert option.initiable(state)
         assert env.GripperOpen([robot]).holds(state)
         # Execute the option.
-        for _ in range(100):
+        while True:
             if option.terminal(state):
                 break
             action = option.policy(state)
             state = env.step(action)
-        else:
-            assert False, "Option failed to terminate."
         # The block should now be held.
         assert state.get(block, "held") == 1.0
         assert not env.GripperOpen([robot]).holds(state)
@@ -223,8 +217,8 @@ def test_pybullet_blocks_picking():
 
 def test_pybullet_blocks_stacking():
     """Tests cases for stacking blocks in PyBulletBlocksEnv."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _get_exposed_pybullet_env()
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get__EXPOSED_PYBULLET_ENV()
     env.seed(123)
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
@@ -250,13 +244,11 @@ def test_pybullet_blocks_stacking():
     assert option.initiable(state)
     assert not env.GripperOpen([robot]).holds(state)
     # Execute the stack option.
-    for _ in range(100):
+    while True:
         if option.terminal(state):
             break
         action = option.policy(state)
         state = env.step(action)
-    else:
-        assert False, "Option failed to terminate."
     # The block should now NOT be held.
     assert state.get(block0, "held") == 0.0
     # And block0 should be on block1.
@@ -293,13 +285,11 @@ def test_pybullet_blocks_stacking():
         assert option.initiable(state)
         assert not env.GripperOpen([robot]).holds(state)
         # Execute the stack option.
-        for _ in range(100):
+        while True:
             if option.terminal(state):
                 break
             action = option.policy(state)
             state = env.step(action)
-        else:
-            assert False, "Option failed to terminate."
         # The block should now NOT be held.
         assert state.get(block0, "held") == 0.0
         # And block0 should be on top_block.
@@ -309,8 +299,8 @@ def test_pybullet_blocks_stacking():
 
 def test_pybullet_blocks_putontable():
     """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _get_exposed_pybullet_env()
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get__EXPOSED_PYBULLET_ENV()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -335,13 +325,11 @@ def test_pybullet_blocks_putontable():
     assert option.initiable(state)
     assert not env.GripperOpen([robot]).holds(state)
     # Execute the option.
-    for _ in range(100):
+    while True:
         if option.terminal(state):
             break
         action = option.policy(state)
         state = env.step(action)
-    else:
-        assert False, "Option failed to terminate."
     # The block should now NOT be held.
     assert state.get(block, "held") == 0.0
     # And block should be on the table.
@@ -370,13 +358,11 @@ def test_pybullet_blocks_putontable():
         assert option.initiable(state)
         assert not env.GripperOpen([robot]).holds(state)
         # Execute the option.
-        for _ in range(100):
+        while True:
             if option.terminal(state):
                 break
             action = option.policy(state)
             state = env.step(action)
-        else:
-            assert False, "Option failed to terminate."
         # The block should now NOT be held.
         assert state.get(block, "held") == 0.0
         # And block should be on the table.
@@ -396,8 +382,8 @@ def test_pybullet_blocks_close_pick_place():
 
     Make sure that the pile is not disturbed.
     """
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _get_exposed_pybullet_env()
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get__EXPOSED_PYBULLET_ENV()
     env.seed(123)
     block = Object("block0", env.block_type)
     robot = env.robot
@@ -438,13 +424,11 @@ def test_pybullet_blocks_close_pick_place():
     assert option.initiable(state)
     assert not env.GripperOpen([robot]).holds(state)
     # Execute the option.
-    for _ in range(100):
+    while True:
         if option.terminal(state):
             break
         action = option.policy(state)
         state = env.step(action)
-    else:
-        assert False, "Option failed to terminate."
     # The block should now NOT be held.
     assert state.get(block, "held") == 0.0
     # And block should be on the table.
@@ -459,8 +443,8 @@ def test_pybullet_blocks_close_pick_place():
 
 def test_pybullet_blocks_abstract_states():
     """Tests abstract states during option execution in PyBulletBlocksEnv."""
-    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": GUI_ON})
-    env = _get_exposed_pybullet_env()
+    utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    env = _get__EXPOSED_PYBULLET_ENV()
     On = env.On
     OnTable = env.OnTable
     GripperOpen = env.GripperOpen
