@@ -1,4 +1,5 @@
-"""Definitions of option models."""
+"""Definitions of option models. An option model makes predictions about
+the result of executing an option in the environment."""
 
 from __future__ import annotations
 import abc
@@ -26,7 +27,7 @@ def create_option_model(name: str) -> _OptionModelBase:
 
 
 class _OptionModelBase(abc.ABC):
-    """Struct defining an option model, which computes the next state of the
+    """Struct defining an option model, which predicts the next state of the
     world after an option is executed from a given start state."""
 
     @abc.abstractmethod
