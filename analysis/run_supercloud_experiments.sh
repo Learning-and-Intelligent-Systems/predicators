@@ -38,4 +38,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # playroom
     python $FILE --experiment_id playroom_oracle --env playroom --approach oracle --seed $SEED --num_train_tasks 0
     python $FILE --experiment_id playroom_nsrt_learning --env playroom --approach nsrt_learning --seed $SEED --num_train_tasks 50
+
+    # pybullet_blocks
+    python $FILE --experiment_id pybullet_blocks_oracle --env pybullet_blocks --approach oracle --seed $SEED --num_train_tasks 0
+    python $FILE --experiment_id pybullet_blocks_nsrt_learning --env pybullet_blocks --approach nsrt_learning --seed $SEED --num_train_tasks 50
 done
