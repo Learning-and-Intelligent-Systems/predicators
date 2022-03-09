@@ -35,12 +35,19 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
             continue
-        traj = utils.run_policy(policy,
-                                env,
-                                "train",
-                                idx,
-                                task.goal_holds,
-                                max_num_steps=CFG.max_num_steps_check_policy)
+        horizon = CFG.max_num_steps_check_policy  # to be changed very soon
+        try:
+            traj = utils.run_policy(policy,
+                                    env,
+                                    "train",
+                                    idx,
+                                    task.goal_holds,
+                                    max_num_steps=horizon)
+        except utils.OptionPlanExhausted:  # pragma: no cover
+            # In rare occurrences where the option plan is executed, but the
+            # task goal does not hold, we throw out the data, because it is not
+            # a good demonstration.
+            continue
         assert task.goal_holds(traj.states[-1]), \
             "Oracle failed on training task."
         # Add is_demo flag and task index information into the trajectory.
