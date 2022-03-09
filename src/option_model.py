@@ -30,12 +30,12 @@ class _OptionModelBase(abc.ABC):
     world after an option is executed from a given start state."""
 
     @abc.abstractmethod
-    def get_next_state_and_num_actions(
-            self, state: State, option: _Option) -> Tuple[State, int]:
+    def get_next_state_and_num_actions(self, state: State,
+                                       option: _Option) -> Tuple[State, int]:
         """The key method that an option model must implement.
 
-        Given a current state and an option, returns a tuple of
-        (the next state, the number of actions needed to reach it).
+        Given a current state and an option, returns a tuple of (the
+        next state, the number of actions needed to reach it).
         """
         raise NotImplementedError("Override me!")
 
@@ -51,15 +51,18 @@ class _OracleOptionModel(_OptionModelBase):
         self._name_to_parameterized_option = {o.name: o for o in env.options}
         self._simulator = env.simulate
 
-    def get_next_state_and_num_actions(
-            self, state: State, option: _Option) -> Tuple[State, int]:
+    def get_next_state_and_num_actions(self, state: State,
+                                       option: _Option) -> Tuple[State, int]:
         # We do not want to actually execute the option; we want to know what
         # *would* happen if we were to execute the option. So, we will make a
         # copy of the option and run that instead. This is important if the
         # option has memory. It is also important when using the option model
         # for one environment with options from another environment. E.g.,
         # using a non-PyBullet environment in the option model while using a
-        # PyBullet environment otherwise.
+        # PyBullet environment otherwise. Note that in this case of using a
+        # PyBullet environment, the second return value (num_actions) will be
+        # an underestimate since we are not actually rolling out the option in
+        # the full simulator, but that's okay.
         param_opt = option.parent
         env_param_opt = self._name_to_parameterized_option[param_opt.name]
         assert env_param_opt.types == param_opt.types

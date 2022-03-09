@@ -371,7 +371,7 @@ class GNNPolicyApproach(BaseApproach):
 
     def _graphify_single_input(self, state: State, atoms: Set[GroundAtom],
                                goal: Set[GroundAtom]) -> Tuple[Dict, Dict]:
-        all_objects = sorted(state)
+        all_objects = list(state)
         node_to_object = dict(enumerate(all_objects))
         object_to_node = {v: k for k, v in node_to_object.items()}
         num_objects = len(all_objects)
