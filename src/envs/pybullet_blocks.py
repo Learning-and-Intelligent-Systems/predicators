@@ -22,9 +22,9 @@ class PyBulletBlocksEnv(BlocksEnv):
     _base_orientation: Sequence[float] = [0., 0., 0., 1.]
     _ee_orientation: Sequence[float] = [1., 0., -1., 0.]
     _move_gain: float = 1.0
-    _max_vel_norm: float = 0.5
+    _max_vel_norm: float = 0.05
     _grasp_offset_z: float = 0.01
-    _place_offset_z: float = 0.005
+    _place_offset_z: float = 0.01
     _grasp_tol: float = 0.05
     _move_to_pose_tol: float = 0.0001
     _finger_action_nudge_magnitude: float = 0.001
@@ -266,7 +266,10 @@ class PyBulletBlocksEnv(BlocksEnv):
     @property
     def action_space(self) -> Box:
         # dimensions: [dx, dy, dz, dfingers]
-        return Box(low=-0.05, high=0.05, shape=(4, ), dtype=np.float32)
+        return Box(low=-self._max_vel_norm,
+                   high=self._max_vel_norm,
+                   shape=(4, ),
+                   dtype=np.float32)
 
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("PyBulletBlocksEnv cannot simulate.")
@@ -743,9 +746,9 @@ class PyBulletBlocksEnv(BlocksEnv):
         action_norm = np.linalg.norm(action)  # type: ignore
         if action_norm > self._max_vel_norm:
             action = action * self._max_vel_norm / action_norm
-        action = np.r_[action, 0.0]
-        action = np.clip(action, self.action_space.low, self.action_space.high)
-        return Action(action.astype(np.float32))
+        action = np.r_[action, 0.0].astype(np.float32)
+        assert self.action_space.contains(action)
+        return Action(action)
 
     @staticmethod
     def _convert_rel_abs_to_abs(current_pose: Pose3D, rel_or_abs_pose: Pose3D,

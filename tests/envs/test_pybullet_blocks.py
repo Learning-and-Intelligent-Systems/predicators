@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 from predicators.src.envs import PyBulletBlocksEnv
 from predicators.src.structs import Object, State, Action
-from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.tests.conftest import longrun
@@ -69,6 +68,17 @@ def _get_exposed_pybullet_env():
     if _EXPOSED_PYBULLET_ENV is None:
         _EXPOSED_PYBULLET_ENV = _ExposedPyBulletBlocksEnv()
     return _EXPOSED_PYBULLET_ENV
+
+
+def _get_predicates_by_names(names):
+    # Note that we do this, rather than use the function of the same name
+    # defined in ground_truth_nsrts, because that function calls
+    # get_or_create_env. We want to use the _ExposedPyBulletBlocksEnv only,
+    # not create a new instance of the PyBulletEnv. This is especially
+    # important when _GUI_ON = True.
+    env = _get_exposed_pybullet_env()
+    name_to_pred = {p.name: p for p in env.predicates}
+    return [name_to_pred[n] for n in names]
 
 
 def test_pybullet_blocks_reset():
@@ -225,7 +235,7 @@ def test_pybullet_blocks_stacking():
     # The block should now NOT be held.
     assert state.get(block0, "held") == 0.0
     # And block0 should be on block1.
-    On, = _get_predicates_by_names("pybullet_blocks", ["On"])
+    On, = _get_predicates_by_names(["On"])
     assert On([block0, block1]).holds(state)
 
 
@@ -234,7 +244,7 @@ def test_pybullet_blocks_stacking_corners():
     """Test stacking a block on the tallest possible tower at each of the
     possible corners."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    On, = _get_predicates_by_names("pybullet_blocks", ["On"])
+    On, = _get_predicates_by_names(["On"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     corners = [
@@ -281,7 +291,7 @@ def test_pybullet_blocks_stacking_corners():
 def test_pybullet_blocks_putontable():
     """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    OnTable, = _get_predicates_by_names("pybullet_blocks", ["OnTable"])
+    OnTable, = _get_predicates_by_names(["OnTable"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
@@ -319,7 +329,7 @@ def test_pybullet_blocks_putontable():
 def test_pybullet_blocks_putontable_corners():
     """Test that the block can be placed at the extremes of the workspace."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    OnTable, = _get_predicates_by_names("pybullet_blocks", ["OnTable"])
+    OnTable, = _get_predicates_by_names(["OnTable"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
@@ -371,7 +381,7 @@ def test_pybullet_blocks_close_pick_place():
     Make sure that the pile is not disturbed.
     """
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
-    OnTable, = _get_predicates_by_names("pybullet_blocks", ["OnTable"])
+    OnTable, = _get_predicates_by_names(["OnTable"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
@@ -429,7 +439,6 @@ def test_pybullet_blocks_abstract_states():
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
     env = _get_exposed_pybullet_env()
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
-        "pybullet_blocks",
         ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
     env.seed(123)
     block0 = Object("block0", env.block_type)
