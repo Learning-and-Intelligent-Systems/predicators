@@ -359,7 +359,6 @@ def test_longrun_oracle_approach_cover_multistep_options():
         "env": "cover_multistep_options",
         "cover_multistep_use_learned_equivalents": True,
     })
-    timeout = CFG.offline_data_planning_timeout
     env = CoverMultistepOptions()
     env.seed(123)
     train_tasks = env.get_train_tasks()
@@ -368,10 +367,10 @@ def test_longrun_oracle_approach_cover_multistep_options():
     assert not approach.is_learning_based
     approach.seed(123)
     for task in train_tasks:
-        policy = approach.solve(task, timeout=timeout)
+        policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
     for task in env.get_test_tasks():
-        policy = approach.solve(task, timeout=timeout)
+        policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
 
 
