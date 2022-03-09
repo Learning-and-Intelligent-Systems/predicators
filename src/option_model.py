@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import abc
-from typing import cast
+from typing import cast, Tuple
 import numpy as np
 from predicators.src import utils
 from predicators.src.structs import State, _Option
@@ -30,10 +30,12 @@ class _OptionModelBase(abc.ABC):
     world after an option is executed from a given start state."""
 
     @abc.abstractmethod
-    def get_next_state(self, state: State, option: _Option) -> State:
+    def get_next_state_and_num_actions(
+            self, state: State, option: _Option) -> Tuple[State, int]:
         """The key method that an option model must implement.
 
-        Returns the next state given a current state and an option.
+        Given a current state and an option, returns a tuple of
+        (the next state, the number of actions needed to reach it).
         """
         raise NotImplementedError("Override me!")
 
@@ -49,7 +51,8 @@ class _OracleOptionModel(_OptionModelBase):
         self._name_to_parameterized_option = {o.name: o for o in env.options}
         self._simulator = env.simulate
 
-    def get_next_state(self, state: State, option: _Option) -> State:
+    def get_next_state_and_num_actions(
+            self, state: State, option: _Option) -> Tuple[State, int]:
         # We do not want to actually execute the option; we want to know what
         # *would* happen if we were to execute the option. So, we will make a
         # copy of the option and run that instead. This is important if the
@@ -73,18 +76,19 @@ class _OracleOptionModel(_OptionModelBase):
             state,
             env_option.terminal,
             max_num_steps=CFG.max_num_steps_option_rollout)
-        return traj.states[-1]
+        return traj.states[-1], len(traj.actions)
 
 
 class _BehaviorOptionModel(_OptionModelBase):
     """An oracle option model that is specific to BEHAVIOR, since simulation is
     expensive in this environment."""
 
-    def get_next_state(self, state: State,
-                       option: _Option) -> State:  # pragma: no cover
+    def get_next_state_and_num_actions(
+            self, state: State,
+            option: _Option) -> Tuple[State, int]:  # pragma: no cover
         env_base = get_or_create_env("behavior")
         env = cast(BehaviorEnv, env_base)
         assert option.memory.get("model_controller") is not None
         option.memory["model_controller"](state, env.igibson_behavior_env)
         next_state = env.current_ig_state_to_state()
-        return next_state
+        return next_state, 0
