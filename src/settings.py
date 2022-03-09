@@ -209,12 +209,12 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
-            # Maximum number of steps to run a policy when checking if it
-            # solves a task.
+            # Horizon for each environment. When checking if a policy solves a
+            # task, we run the policy for at most this many steps.
             horizon=defaultdict(
                 lambda: 100,
                 {
-                    # For Behavior and PyBullet environments, actions are
+                    # For BEHAVIOR and PyBullet environments, actions are
                     # lower level, so tasks take more actions to complete.
                     "behavior": 1000,
                     "pybullet_blocks": 1000,
@@ -256,7 +256,7 @@ class GlobalSettings:
                 lambda: "oracle",
                 {
                     # For the BEHAVIOR environment, use a special option model.
-                    "behavior": "behavior_oracle",
+                    "behavior": "oracle_behavior",
                     # For PyBullet environments, use non-PyBullet analogs.
                     "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],

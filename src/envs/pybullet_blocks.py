@@ -6,7 +6,7 @@ import numpy as np
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.structs import State, Action, Object, Array, \
-    ParameterizedOption, Type, Image, Pose3D
+    ParameterizedOption, Type, Image, Pose3D, Task
 from predicators.src import utils
 from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics
@@ -28,6 +28,7 @@ class PyBulletBlocksEnv(BlocksEnv):
     _grasp_tol: float = 0.05
     _move_to_pose_tol: float = 0.0001
     _finger_action_nudge_magnitude: float = 0.001
+    _finger_action_tol = 0.0001
 
     # Table parameters.
     _table_pose: Pose3D = (1.35, 0.75, 0.0)
@@ -60,83 +61,83 @@ class PyBulletBlocksEnv(BlocksEnv):
     def __init__(self) -> None:
         super().__init__()
 
-        # Override options.
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
-        self._Pick = utils.LinearChainParameterizedOption(
+        # Override options, keeping the types and parameter spaces the same.
+        types = self._Pick.types
+        params_space = self._Pick.params_space
+        self._Pick: ParameterizedOption = utils.LinearChainParameterizedOption(
             "Pick",
             [
                 # Creates a ParameterizedOption for moving to the position that
                 # has z equal to self.pick_z, and x and y equal to that of the
-                # block object paramereter. In other words, move the end
-                # effector to high above the block in preparation for picking.
-                self._move_relative_to_block(
-                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                # block object parameter. In other words, move the end effector
+                # to high above the block in preparation for picking.
+                self._move_end_effector_relative_to_block(
+                    "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
-                # Open grippers.
-                self._change_grippers("OpenGrippers", self.open_fingers, types,
-                                      params_space),
+                # Open fingers.
+                self._change_fingers("OpenFingers", self.open_fingers, types,
+                                     params_space),
                 # Move down to grasp.
-                self._move_relative_to_block(
-                    "MoveToGrasp", (0., 0., self._grasp_offset_z),
+                self._move_end_effector_relative_to_block(
+                    "MoveEndEffectorToGrasp", (0., 0., self._grasp_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Grasp.
-                self._change_grippers("Grasp", self.closed_fingers, types,
-                                      params_space),
+                self._change_fingers("Grasp", self.closed_fingers, types,
+                                     params_space),
                 # Move up.
-                self._move_relative_to_block(
-                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                self._move_end_effector_relative_to_block(
+                    "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
             ])
 
-        types = [self._robot_type, self._block_type]
-        params_space = Box(0, 1, (0, ))
-        self._Stack = utils.LinearChainParameterizedOption(
-            "Stack",
+        types = self._Stack.types
+        params_space = self._Stack.params_space
+        self._Stack: ParameterizedOption = \
+            utils.LinearChainParameterizedOption("Stack",
             [
                 # Move to above the block on which we will stack.
-                self._move_relative_to_block(
-                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                self._move_end_effector_relative_to_block(
+                    "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
                 # Move down to place.
-                self._move_relative_to_block(
-                    "MoveToPlace",
+                self._move_end_effector_relative_to_block(
+                    "MoveEndEffectorToPlace",
                     (0., 0., self.block_size + self._place_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
-                # Open grippers.
-                self._change_grippers("OpenGrippers", self.open_fingers, types,
-                                      params_space),
+                # Open fingers.
+                self._change_fingers("OpenFingers", self.open_fingers, types,
+                                     params_space),
                 # Move up.
-                self._move_relative_to_block(
-                    "MoveToAboveBlock", (0., 0., self.pick_z),
+                self._move_end_effector_relative_to_block(
+                    "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
             ])
 
-        types = [self._robot_type]
-        params_space = Box(0, 1, (2, ))  # normalized w.r.t. workspace
-        self._PutOnTable = utils.LinearChainParameterizedOption(
-            "PutOnTable",
+        types = self._PutOnTable.types
+        params_space = self._PutOnTable.params_space
+        self._PutOnTable: ParameterizedOption = \
+            utils.LinearChainParameterizedOption("PutOnTable",
             [
                 # Move to above the block on which we will stack.
-                self._move_relative_to_table(
-                    "MoveToAboveTable", (0., 0., self.pick_z),
+                self._move_end_effector_relative_totable(
+                    "MoveEndEffectorToAboveTable", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
                 # Move down to place.
-                self._move_relative_to_table(
-                    "MoveToPlaceOnTable",
+                self._move_end_effector_relative_totable(
+                    "MoveEndEffectorToPlaceOnTable",
                     (0., 0., self.block_size + self._place_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
-                # Open grippers.
-                self._change_grippers("OpenGrippers", self.open_fingers, types,
-                                      params_space),
+                # Open fingers.
+                self._change_fingers("OpenFingers", self.open_fingers, types,
+                                     params_space),
                 # Move up.
-                self._move_relative_to_table(
-                    "MoveToAboveTable", (0., 0., self.pick_z),
+                self._move_end_effector_relative_totable(
+                    "MoveEndEffectorToAboveTable", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
             ])
 
         # One-time initialization of pybullet assets. Note that this happens
-        # in __init__ because many class attributes are created.
+        # in __init__ because many instance attributes are created.
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_use_gui:  # pragma: no cover
@@ -201,6 +202,8 @@ class PyBulletBlocksEnv(BlocksEnv):
         # Skip test coverage because GUI is too expensive to use in unit tests
         # and cannot be used in headless mode.
         if CFG.pybullet_draw_debug:  # pragma: no cover
+            assert CFG.pybullet_use_gui, \
+                "pybullet_use_gui must be True to use pybullet_draw_debug."
             # Draw the workspace on the table for clarity.
             p.addUserDebugLine([self.x_lb, self.y_lb, self.table_height],
                                [self.x_ub, self.y_lb, self.table_height],
@@ -232,18 +235,19 @@ class PyBulletBlocksEnv(BlocksEnv):
         p.setGravity(0., 0., -10., physicsClientId=self._physics_client_id)
 
         # Determine the initial joint values.
-        self._robot_home_pose = (self.robot_init_x, self.robot_init_y,
-                                 self.robot_init_z)
+        self._ee_home_pose = (self.robot_init_x, self.robot_init_y,
+                              self.robot_init_z)
         self._initial_joint_values = inverse_kinematics(
             self._fetch_id,
             self._ee_id,
-            self._robot_home_pose,
+            self._ee_home_pose,
             self._ee_orientation,
             self._arm_joints,
             physics_client_id=self._physics_client_id)
 
         # Create blocks. Note that we create the maximum number once, and then
-        # remove blocks from view based on the number involved in the state.
+        # remove blocks from the workspace (teleporting them far away) based on
+        # the number involved in the state.
         num_blocks = max(max(CFG.blocks_num_blocks_train),
                          max(CFG.blocks_num_blocks_test))
         self._block_ids = [self._create_block(i) for i in range(num_blocks)]
@@ -257,6 +261,16 @@ class PyBulletBlocksEnv(BlocksEnv):
     def action_space(self) -> Box:
         # dimensions: [dx, dy, dz, dfingers]
         return Box(low=-0.05, high=0.05, shape=(4, ), dtype=np.float32)
+
+    def simulate(self, state: State, action: Action) -> State:
+        raise NotImplementedError("PyBulletBlocksEnv cannot simulate.")
+
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
+        raise NotImplementedError("PyBulletBlocksEnv cannot render states.")
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
@@ -279,7 +293,7 @@ class PyBulletBlocksEnv(BlocksEnv):
             self._base_orientation,
             physicsClientId=self._physics_client_id)
         rx, ry, rz, rf = state[self._robot]
-        assert np.allclose((rx, ry, rz), self._robot_home_pose)
+        assert np.allclose((rx, ry, rz), self._ee_home_pose)
         joint_values = self._initial_joint_values
         for joint_id, joint_val in zip(self._arm_joints, joint_values):
             p.resetJointState(self._fetch_id,
@@ -298,8 +312,9 @@ class PyBulletBlocksEnv(BlocksEnv):
         for i, block_obj in enumerate(block_objs):
             block_id = self._block_ids[i]
             self._block_id_to_block[block_id] = block_obj
-            bx, by, bz, held = state[block_obj]
-            assert held < 1.0  # not holding in the initial state
+            bx, by, bz, _ = state[block_obj]
+            # Assume not holding in the initial state
+            assert self._get_held_block(state) is None
             p.resetBasePositionAndOrientation(
                 block_id, [bx, by, bz],
                 self._block_orientation,
@@ -331,15 +346,15 @@ class PyBulletBlocksEnv(BlocksEnv):
 
         # The poses here are not important because they are overwritten by
         # the state values when a task is reset. By default, we just stack all
-        # the blocks into one pile at the center of the table so we can see.
+        # the blocks into one pile at the center of the table.
         h = self.block_size
         x = (self.x_lb + self.x_ub) / 2
         y = (self.y_lb + self.y_ub) / 2
         z = self.table_height + (0.5 * h) + (h * block_num)
         pose = (x, y, z)
+        half_extents = [self.block_size / 2.] * 3
 
         # Create the collision shape.
-        half_extents = [self.block_size / 2.] * 3
         collision_id = p.createCollisionShape(
             p.GEOM_BOX,
             halfExtents=half_extents,
@@ -359,10 +374,11 @@ class PyBulletBlocksEnv(BlocksEnv):
                                      basePosition=pose,
                                      baseOrientation=self._block_orientation,
                                      physicsClientId=self._physics_client_id)
-        p.changeDynamics(block_id,
-                         -1,
-                         lateralFriction=self._block_friction,
-                         physicsClientId=self._physics_client_id)
+        p.changeDynamics(
+            block_id,
+            linkIndex=-1,  # -1 for the base
+            lateralFriction=self._block_friction,
+            physicsClientId=self._physics_client_id)
 
         return block_id
 
@@ -446,10 +462,10 @@ class PyBulletBlocksEnv(BlocksEnv):
                 self._fetch_id,
                 finger_id,
                 physicsClientId=self._physics_client_id)[0]
-            # Fingers drift if left alone. If the finger action is zero, nudge
-            # the fingers toward being open or closed, based on which end of
-            # the spectrum they are currently closer to.
-            if finger_action == 0:
+            # Fingers drift if left alone. If the finger action is near zero,
+            # nudge the fingers toward being open or closed, based on which end
+            # of the spectrum they are currently closer to.
+            if abs(finger_action) < self._finger_action_tol:
                 assert self.open_fingers > self.closed_fingers
                 if abs(current_val -
                        self.open_fingers) < abs(current_val -
@@ -471,9 +487,10 @@ class PyBulletBlocksEnv(BlocksEnv):
         for _ in range(CFG.pybullet_sim_steps_per_action):
             p.stepSimulation(physicsClientId=self._physics_client_id)
 
-        # If not currently holding something, and gripper is closing,
-        # check for a new grasp.
-        if self._held_constraint_id is None and finger_action < 0:
+        # If not currently holding something, and fingers are closing, check
+        # for a new grasp.
+        if self._held_constraint_id is None and \
+            finger_action < -self._finger_action_tol:
             # Detect whether an object is held.
             self._held_block_id = self._detect_held_block()
             if self._held_block_id is not None:
@@ -492,7 +509,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                     parentBodyUniqueId=self._fetch_id,
                     parentLinkIndex=self._ee_id,
                     childBodyUniqueId=self._held_block_id,
-                    childLinkIndex=-1,
+                    childLinkIndex=-1,  # -1 for the base
                     jointType=p.JOINT_FIXED,
                     jointAxis=[0, 0, 0],
                     parentFramePosition=[0, 0, 0],
@@ -502,7 +519,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                     physicsClientId=self._physics_client_id)
 
         # If placing, remove the grasp constraint.
-        if self._held_constraint_id is not None and finger_action > 0:
+        if self._held_constraint_id is not None and \
+            finger_action > self._finger_action_tol:
             p.removeConstraint(self._held_constraint_id,
                                physicsClientId=self._physics_client_id)
             self._held_constraint_id = None
@@ -512,8 +530,14 @@ class PyBulletBlocksEnv(BlocksEnv):
         return self._current_state.copy()
 
     def _get_state(self) -> State:
-        """Create a State based on the current PyBullet state."""
-        state = self._current_state.copy()
+        """Create a State based on the current PyBullet state.
+
+        Note that in addition to the state inside PyBullet itself, this
+        uses self._block_id_to_block and self._held_block_id. As long as
+        the PyBullet internal state is only modified through reset() and
+        step(), these all should remain in sync.
+        """
+        state_dict = {}
 
         # Get robot state.
         ee_link_state = p.getLinkState(self._fetch_id,
@@ -523,20 +547,19 @@ class PyBulletBlocksEnv(BlocksEnv):
         rf = p.getJointState(self._fetch_id,
                              self._left_finger_id,
                              physicsClientId=self._physics_client_id)[0]
-        state.set(self._robot, "pose_x", rx)
-        state.set(self._robot, "pose_y", ry)
-        state.set(self._robot, "pose_z", rz)
-        state.set(self._robot, "fingers", rf)
+        # pose_x, pose_y, pose_z, fingers
+        state_dict[self._robot] = np.array([rx, ry, rz, rf], dtype=np.float32)
 
         # Get block states.
         for block_id, block in self._block_id_to_block.items():
             (bx, by, bz), _ = p.getBasePositionAndOrientation(
                 block_id, physicsClientId=self._physics_client_id)
             held = (block_id == self._held_block_id)
-            state.set(block, "pose_x", bx)
-            state.set(block, "pose_y", by)
-            state.set(block, "pose_z", bz)
-            state.set(block, "held", held)
+            # pose_x, pose_y, pose_z, held
+            state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
+
+        state = State(state_dict)
+        assert set(state) == set(self._current_state)
 
         return state
 
@@ -555,7 +578,10 @@ class PyBulletBlocksEnv(BlocksEnv):
         for block_id in self._block_id_to_block:
             for finger_id, expected_normal in expected_finger_normals.items():
                 # Find points on the block that are within grasp_tol distance
-                # of the finger.
+                # of the finger. Note that we use getClosestPoints instead of
+                # getContactPoints because we still want to consider the block
+                # held even if there is a tiny distance between the fingers and
+                # the block.
                 closest_points = p.getClosestPoints(
                     bodyA=self._fetch_id,
                     bodyB=block_id,
@@ -565,7 +591,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                 for point in closest_points:
                     # If the contact normal is substantially different from
                     # the expected contact normal, this is probably a block
-                    # on the outside of the gripper, rather than the inside.
+                    # on the outside of the fingers, rather than the inside.
                     # A perfect score here is 1.0 (normals are unit vectors).
                     contact_normal = point[7]
                     if expected_normal.dot(contact_normal) < 0.5:
@@ -582,7 +608,7 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     ########################## Parameterized Options ##########################
 
-    def _move_to_pose(
+    def _move_end_effector_to_pose(
         self, name: str, types: Sequence[Type], params_space: Box,
         get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
                                               Tuple[Pose3D, Pose3D]]
@@ -596,15 +622,16 @@ class PyBulletBlocksEnv(BlocksEnv):
             del memory  # unused
             current, target = get_current_and_target_pose(
                 state, objects, params)
-            return self._get_move_toward_waypoint_action(current, target)
+            return self._get_end_effector_move_toward_waypoint_action(
+                current, target)
 
         def _terminal(state: State, memory: Dict, objects: Sequence[Object],
                       params: Array) -> bool:
             del memory  # unused
             current, target = get_current_and_target_pose(
                 state, objects, params)
-            dist = np.sum(np.subtract(current, target)**2)
-            return dist < self._move_to_pose_tol
+            squared_dist = np.sum(np.square(np.subtract(current, target)))
+            return squared_dist < self._move_to_pose_tol
 
         return ParameterizedOption(name,
                                    types=types,
@@ -613,13 +640,12 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    initiable=lambda _1, _2, _3, _4: True,
                                    terminal=_terminal)
 
-    def _move_relative_to_block(self, name: str,
-                                rel_or_abs_target_pose: Pose3D,
-                                rel_or_abs: Tuple[str, str,
-                                                  str], types: Sequence[Type],
-                                params_space: Box) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a target pose relative
-        to a block.
+    def _move_end_effector_relative_to_block(
+            self, name: str, rel_or_abs_target_pose: Pose3D,
+            rel_or_abs: Tuple[str, str, str], types: Sequence[Type],
+            params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving the end effector to a
+        target pose relative to a block.
 
         Each of the three dimensions of the target pose can be specified
         relatively or absolutely. The rel_or_abs argument indicates
@@ -639,47 +665,15 @@ class PyBulletBlocksEnv(BlocksEnv):
                                                        rel_or_abs)
             return current_pose, target_pose
 
-        return self._move_to_pose(name, types, params_space,
-                                  _get_current_and_target_pose)
+        return self._move_end_effector_to_pose(name, types, params_space,
+                                               _get_current_and_target_pose)
 
-    def _change_grippers(self, name: str, target_val: float,
-                         types: Sequence[Type],
-                         params_space: Box) -> ParameterizedOption:
-        """Creates a ParameterizedOption for changing the robot grippers."""
-
-        assert types[0] == self._robot_type
-
-        def _policy(state: State, memory: Dict, objects: Sequence[Object],
-                    params: Array) -> Action:
-            del memory, objects, params  # unused
-            current_val = state.get(self._robot, "fingers")
-            gripper_action = target_val - current_val
-            gripper_action = np.clip(gripper_action, self.action_space.low[3],
-                                     self.action_space.high[3])
-            return Action(
-                np.array([0., 0., 0., gripper_action], dtype=np.float32))
-
-        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
-                      params: Array) -> bool:
-            del memory, objects, params  # unused
-            current_val = state.get(self._robot, "fingers")
-            dist = (target_val - current_val)**2
-            return dist < self._grasp_tol
-
-        return ParameterizedOption(name,
-                                   types=types,
-                                   params_space=params_space,
-                                   policy=_policy,
-                                   initiable=lambda _1, _2, _3, _4: True,
-                                   terminal=_terminal)
-
-    def _move_relative_to_table(self, name: str,
-                                rel_or_abs_target_pose: Pose3D,
-                                rel_or_abs: Tuple[str, str,
-                                                  str], types: Sequence[Type],
-                                params_space: Box) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a target pose relative
-        to the table.
+    def _move_end_effector_relative_totable(
+            self, name: str, rel_or_abs_target_pose: Pose3D,
+            rel_or_abs: Tuple[str, str, str], types: Sequence[Type],
+            params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for moving the end effector to a
+        target pose relative to the table.
 
         Each of the three dimensions of the target pose can be specified
         relatively or absolutely. The rel_or_abs argument indicates
@@ -701,12 +695,43 @@ class PyBulletBlocksEnv(BlocksEnv):
                                                        rel_or_abs)
             return current_pose, target_pose
 
-        return self._move_to_pose(name, types, params_space,
-                                  _get_current_and_target_pose)
+        return self._move_end_effector_to_pose(name, types, params_space,
+                                               _get_current_and_target_pose)
 
-    def _get_move_toward_waypoint_action(self, gripper_pose: Pose3D,
-                                         target_pose: Pose3D) -> Action:
-        action = self._move_gain * np.subtract(target_pose, gripper_pose)
+    def _change_fingers(self, name: str, target_val: float,
+                        types: Sequence[Type],
+                        params_space: Box) -> ParameterizedOption:
+        """Creates a ParameterizedOption for changing the robot fingers."""
+
+        assert types[0] == self._robot_type
+
+        def _policy(state: State, memory: Dict, objects: Sequence[Object],
+                    params: Array) -> Action:
+            del memory, objects, params  # unused
+            current_val = state.get(self._robot, "fingers")
+            finger_action = target_val - current_val
+            finger_action = np.clip(finger_action, self.action_space.low[3],
+                                    self.action_space.high[3])
+            return Action(
+                np.array([0., 0., 0., finger_action], dtype=np.float32))
+
+        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+            del memory, objects, params  # unused
+            current_val = state.get(self._robot, "fingers")
+            squared_dist = (target_val - current_val)**2
+            return squared_dist < self._grasp_tol
+
+        return ParameterizedOption(name,
+                                   types=types,
+                                   params_space=params_space,
+                                   policy=_policy,
+                                   initiable=lambda _1, _2, _3, _4: True,
+                                   terminal=_terminal)
+
+    def _get_end_effector_move_toward_waypoint_action(
+            self, ee_pose: Pose3D, target_pose: Pose3D) -> Action:
+        action = self._move_gain * np.subtract(target_pose, ee_pose)
         action_norm = np.linalg.norm(action)  # type: ignore
         if action_norm > self._max_vel_norm:
             action = action * self._max_vel_norm / action_norm
@@ -718,7 +743,8 @@ class PyBulletBlocksEnv(BlocksEnv):
     def _convert_rel_abs_to_abs(current_pose: Pose3D, rel_or_abs_pose: Pose3D,
                                 rel_or_abs: Tuple[str, str, str]) -> Pose3D:
         abs_pos = []
-        for i in range(3):
+        assert len(current_pose) == len(rel_or_abs_pose) == len(rel_or_abs)
+        for i in range(len(current_pose)):
             if rel_or_abs[i] == "rel":
                 pose_i = current_pose[i] + rel_or_abs_pose[i]
             else:

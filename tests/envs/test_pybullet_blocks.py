@@ -90,6 +90,13 @@ def test_pybullet_blocks_reset():
     with pytest.raises(ValueError) as e:
         env.set_state(state)
     assert "Could not reconstruct state." in str(e)
+    # Simulate and render state should be not implemented.
+    action = env.action_space.sample()
+    with pytest.raises(NotImplementedError):
+        env.simulate(state, action)
+    task = env.get_train_tasks()[0]
+    with pytest.raises(NotImplementedError):
+        env.render_state(state, task, action)
 
 
 def test_pybullet_blocks_picking():
@@ -296,7 +303,7 @@ def test_pybullet_blocks_putontable():
     state = env.execute_option(option)
     # Create a PutOnTable option.
     # The params space is relative, so this should put the block at the center
-    # of the work space.
+    # of the workspace.
     option = env.PutOnTable.ground([robot], [0.5, 0.5])
     state = env.execute_option(option)
     # The block should now NOT be held.
@@ -304,11 +311,8 @@ def test_pybullet_blocks_putontable():
     # And block should be on the table.
     assert OnTable([block]).holds(state)
     # Specifically, it should be at the center of the workspace.
-    # Note: setting this threshold to 1e-3 causes the check to fail.
-    # If this is not precise enough in practice, we will need to revisit
-    # and try to improve the PutOnTable controller.
-    assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-2
-    assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-2
+    assert abs(state.get(block, "pose_x") - (env.x_lb + env.x_ub) / 2.) < 1e-3
+    assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-3
 
 
 @longrun
