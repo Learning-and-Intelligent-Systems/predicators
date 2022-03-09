@@ -4,7 +4,8 @@ import pytest
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from predicators.src.teacher import Teacher, TeacherInteractionMonitor, \
+    TeacherInteractionMonitorWithVideo
 from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
     DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
     LowLevelTrajectory, InteractionRequest, PathToStateQuery, \
@@ -180,6 +181,55 @@ def test_PathToStateQuery():
         teacher.answer_query(state, query)
 
 
+def test_TeacherInteractionMonitor():
+    """Tests for TeacherInteractionMonitor()."""
+    utils.reset_config({
+        "env": "cover",
+        "cover_initial_holding_prob": 0.0,
+        "approach": "unittest",
+        "timeout": 1,
+        "num_train_tasks": 2,
+        "num_test_tasks": 1,
+        "num_online_learning_cycles": 1
+    })
+    env = create_new_env("cover")
+    HandEmpty = [p for p in env.predicates if p.name == "HandEmpty"][0]
+    hand_empty_atom = GroundAtom(HandEmpty, [])
+    query_policy = lambda s: GroundAtomsHoldQuery({hand_empty_atom})
+    act_policy = lambda _: env.action_space.sample()
+    termination_function = lambda s: True  # terminate immediately
+    request = InteractionRequest(0, act_policy, query_policy,
+                                 termination_function)
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    monitor = TeacherInteractionMonitor(request, teacher)
+    assert monitor.get_query_cost() == 0.0
+    assert monitor.get_responses() == []
+    state = train_tasks[0].init
+    action = env.action_space.sample()
+    monitor.observe(state, action)
+    assert monitor.get_query_cost() == 1.0
+    assert len(monitor.get_responses()) == 1
+    state = train_tasks[0].init
+    action = env.action_space.sample()
+    monitor.observe(state, action)
+    assert monitor.get_query_cost() == 2.0
+    assert len(monitor.get_responses()) == 2
+    # Cover not making queries
+    env = create_new_env("cover")
+    query_policy = lambda s: None
+    act_policy = lambda _: env.action_space.sample()
+    termination_function = lambda s: True  # terminate immediately
+    request = InteractionRequest(0, act_policy, query_policy,
+                                 termination_function)
+    train_tasks = env.get_train_tasks()
+    teacher = Teacher(train_tasks)
+    monitor = TeacherInteractionMonitor(request, teacher)
+    state = env.reset("train", 0)
+    action = env.action_space.sample()
+    monitor.observe(state, action)
+
+
 def test_TeacherInteractionMonitorWithVideo():
     """Tests for TeacherInteractionMonitorWithVideo()."""
     utils.reset_config({
@@ -209,11 +259,6 @@ def test_TeacherInteractionMonitorWithVideo():
     monitor.observe(state, action)
     assert monitor.get_query_cost() == 1.0
     assert len(monitor.get_responses()) == 1
-    state = train_tasks[0].init
-    action = env.action_space.sample()
-    monitor.observe(state, action)
-    assert monitor.get_query_cost() == 2.0
-    assert len(monitor.get_responses()) == 2
     # Cover not making queries and generating a video
     utils.update_config({
         "make_interaction_videos": True,
