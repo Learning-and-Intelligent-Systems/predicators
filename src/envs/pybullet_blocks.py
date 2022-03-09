@@ -417,7 +417,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                        self._ee_id,
                                        physicsClientId=self._physics_client_id)
         current_position = ee_link_state[4]
-        target_position = np.add(current_position, ee_delta).astype(np.float32)
+        target_position = np.add(current_position, ee_delta).tolist()
 
         # We assume that the robot is already close enough to the target
         # position that IK will succeed with one call, so validate is False.
