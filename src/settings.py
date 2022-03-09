@@ -25,8 +25,6 @@ class GlobalSettings:
     max_initial_demos = float("inf")
     # Maximum number of steps to roll out an option policy.
     max_num_steps_option_rollout = 1000
-    # Maximum number of steps to run a policy when checking if it solves a task.
-    max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -211,6 +209,15 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
+            # Maximum number of steps to run a policy when checking if it
+            # solves a task.
+            horizon=defaultdict(
+                lambda: 100,
+                {
+                    # For PyBullet environments, actions are lower-level, so
+                    # tasks take more actions to complete.
+                    "pybullet_blocks": 1000,
+                })[args.get("env", "")],
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
@@ -249,6 +256,8 @@ class GlobalSettings:
                 {
                     # For the BEHAVIOR environment, use a special option model.
                     "behavior": "behavior_oracle",
+                    # For PyBullet environments, use non-PyBullet analogs.
+                    "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before

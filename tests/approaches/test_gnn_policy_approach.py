@@ -21,7 +21,7 @@ def test_gnn_policy_approach_with_envs(env_name: str):
         "num_test_tasks": 3,
         "gnn_policy_num_epochs": 20,
         "gnn_policy_do_normalization": True,
-        "max_num_steps_check_policy": 10
+        "horizon": 10
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
@@ -35,12 +35,11 @@ def test_gnn_policy_approach_with_envs(env_name: str):
     approach.learn_from_offline_dataset(dataset)
     policy = approach.solve(task, timeout=CFG.timeout)
     # Test predictions by executing policy.
-    utils.run_policy_with_simulator(
-        policy,
-        env.simulate,
-        task.init,
-        task.goal_holds,
-        max_num_steps=CFG.max_num_steps_check_policy)
+    utils.run_policy_with_simulator(policy,
+                                    env.simulate,
+                                    task.init,
+                                    task.goal_holds,
+                                    max_num_steps=CFG.horizon)
     # Test loading.
     approach2 = create_approach("gnn_policy", env.predicates, env.options,
                                 env.types, env.action_space, train_tasks)
@@ -53,7 +52,7 @@ def test_gnn_policy_approach_special_cases():
         "env": "cover",
         "gnn_policy_num_epochs": 20,
         "gnn_policy_use_validation_set": False,
-        "max_num_steps_check_policy": 10
+        "horizon": 10
     })
     cup_type = Type("cup_type", ["feat1"])
     bowl_type = Type("bowl_type", ["feat1"])
@@ -116,21 +115,19 @@ def test_gnn_policy_approach_special_cases():
     policy = approach.solve(test_task, timeout=CFG.timeout)
     # Executing the policy should raise an ApproachFailure.
     with pytest.raises(ApproachFailure) as e:
-        utils.run_policy_with_simulator(
-            policy,
-            _simulator,
-            test_task.init,
-            test_task.goal_holds,
-            max_num_steps=CFG.max_num_steps_check_policy)
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        test_task.init,
+                                        test_task.goal_holds,
+                                        max_num_steps=CFG.horizon)
     assert "GNN policy chose a non-initiable option" in str(e)
     # Hackily change the type of the option so that the policy fails.
     Move.types[0] = bowl_type
     policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
     with pytest.raises(ApproachFailure) as e:
-        utils.run_policy_with_simulator(
-            policy,
-            _simulator,
-            test_task.init,
-            test_task.goal_holds,
-            max_num_steps=CFG.max_num_steps_check_policy)
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        test_task.init,
+                                        test_task.goal_holds,
+                                        max_num_steps=CFG.horizon)
     assert "GNN policy could not select an object" in str(e)

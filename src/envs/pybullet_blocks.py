@@ -6,10 +6,10 @@ import numpy as np
 import pybullet as p
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.structs import State, Action, Object, Array, \
-    ParameterizedOption, Type, Image
+    ParameterizedOption, Type, Image, Pose3D
 from predicators.src import utils
-from predicators.src.pybullet_utils import get_kinematic_chain, \
-    inverse_kinematics, Pose3D
+from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
+    inverse_kinematics
 from predicators.src.settings import CFG
 
 

@@ -15,7 +15,6 @@ from predicators.src.settings import CFG
 class PlayroomEnv(BlocksEnv):
     """Boring room vs playroom domain."""
     # Parameters that aren't important enough to need to clog up settings.py
-    table_height = 0.2
     block_size = 0.5
     x_lb = 0.0
     y_lb = 0.0

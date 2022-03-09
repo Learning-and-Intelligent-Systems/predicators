@@ -40,7 +40,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                                 "train",
                                 idx,
                                 task.goal_holds,
-                                max_num_steps=CFG.max_num_steps_check_policy)
+                                max_num_steps=CFG.horizon)
         assert task.goal_holds(traj.states[-1]), \
             "Oracle failed on training task."
         # Add is_demo flag and task index information into the trajectory.
