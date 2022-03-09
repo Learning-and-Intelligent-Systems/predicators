@@ -13,7 +13,6 @@ from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
-from predicators.src.settings import CFG
 
 __all__ = [
     "BaseEnv",
