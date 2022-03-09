@@ -279,7 +279,8 @@ class PyBulletBlocksEnv(BlocksEnv):
                      task: Task,
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
-        raise NotImplementedError("PyBulletBlocksEnv cannot render states.")
+        raise NotImplementedError("PyBulletBlocksEnv cannot render arbitrary "
+                                  "states.")
 
     def reset(self, train_or_test: str, task_idx: int) -> State:
         state = super().reset(train_or_test, task_idx)
