@@ -71,21 +71,21 @@ class PyBulletBlocksEnv(BlocksEnv):
                 # has z equal to self.pick_z, and x and y equal to that of the
                 # block object parameter. In other words, move the end effector
                 # to high above the block in preparation for picking.
-                self._move_end_effector_relative_to_block(
+                self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
                 # Open fingers.
-                self._change_fingers("OpenFingers", self.open_fingers, types,
-                                     params_space),
+                self._create_change_fingers_option(
+                    "OpenFingers", self.open_fingers, types, params_space),
                 # Move down to grasp.
-                self._move_end_effector_relative_to_block(
+                self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToGrasp", (0., 0., self._grasp_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Grasp.
-                self._change_fingers("Grasp", self.closed_fingers, types,
-                                     params_space),
+                self._create_change_fingers_option(
+                    "Grasp", self.closed_fingers, types, params_space),
                 # Move up.
-                self._move_end_effector_relative_to_block(
+                self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
             ])
@@ -96,19 +96,19 @@ class PyBulletBlocksEnv(BlocksEnv):
             utils.LinearChainParameterizedOption("Stack",
             [
                 # Move to above the block on which we will stack.
-                self._move_end_effector_relative_to_block(
+                self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
                 # Move down to place.
-                self._move_end_effector_relative_to_block(
+                self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToPlace",
                     (0., 0., self.block_size + self._place_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Open fingers.
-                self._change_fingers("OpenFingers", self.open_fingers, types,
-                                     params_space),
+                self._create_change_fingers_option("OpenFingers",
+                    self.open_fingers, types, params_space),
                 # Move up.
-                self._move_end_effector_relative_to_block(
+                self._create_move_end_effector_relative_to_block_option(
                     "MoveEndEffectorToAboveBlock", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
             ])
@@ -118,20 +118,20 @@ class PyBulletBlocksEnv(BlocksEnv):
         self._PutOnTable: ParameterizedOption = \
             utils.LinearChainParameterizedOption("PutOnTable",
             [
-                # Move to above the block on which we will stack.
-                self._move_end_effector_relative_totable(
+                # Move to above the table at the (x, y) where we will place.
+                self._create_move_end_effector_relative_to_table_option(
                     "MoveEndEffectorToAboveTable", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
                 # Move down to place.
-                self._move_end_effector_relative_totable(
+                self._create_move_end_effector_relative_to_table_option(
                     "MoveEndEffectorToPlaceOnTable",
                     (0., 0., self.block_size + self._place_offset_z),
                     ("rel", "rel", "rel"), types, params_space),
                 # Open fingers.
-                self._change_fingers("OpenFingers", self.open_fingers, types,
-                                     params_space),
+                self._create_change_fingers_option("OpenFingers",
+                    self.open_fingers, types, params_space),
                 # Move up.
-                self._move_end_effector_relative_totable(
+                self._create_move_end_effector_relative_to_table_option(
                     "MoveEndEffectorToAboveTable", (0., 0., self.pick_z),
                     ("rel", "rel", "abs"), types, params_space),
             ])
@@ -565,7 +565,9 @@ class PyBulletBlocksEnv(BlocksEnv):
             state_dict[block] = np.array([bx, by, bz, held], dtype=np.float32)
 
         state = State(state_dict)
-        assert set(state) == set(self._current_state)
+        assert set(state) == set(self._current_state), \
+            (f"Reconstructed state has objects {set(state)}, but "
+             f"self._current_state has objects {set(self._current_state)}.")
 
         return state
 
@@ -614,14 +616,14 @@ class PyBulletBlocksEnv(BlocksEnv):
 
     ########################## Parameterized Options ##########################
 
-    def _move_end_effector_to_pose(
+    def _create_move_end_effector_to_pose_option(
         self, name: str, types: Sequence[Type], params_space: Box,
         get_current_and_target_pose: Callable[[State, Sequence[Object], Array],
                                               Tuple[Pose3D, Pose3D]]
     ) -> ParameterizedOption:
-        """Creates a ParameterizedOption for moving to a target pose, given a
-        function that takes in the current state and objects and returns the
-        current pose and target pose of the robot."""
+        """Creates a ParameterizedOption for moving the end effector to a
+        target pose, given a function that takes in the current state and
+        objects and returns the current pose and target pose of the robot."""
 
         def _policy(state: State, memory: Dict, objects: Sequence[Object],
                     params: Array) -> Action:
@@ -646,7 +648,7 @@ class PyBulletBlocksEnv(BlocksEnv):
                                    initiable=lambda _1, _2, _3, _4: True,
                                    terminal=_terminal)
 
-    def _move_end_effector_relative_to_block(
+    def _create_move_end_effector_relative_to_block_option(
             self, name: str, rel_or_abs_target_pose: Pose3D,
             rel_or_abs: Tuple[str, str, str], types: Sequence[Type],
             params_space: Box) -> ParameterizedOption:
@@ -671,10 +673,10 @@ class PyBulletBlocksEnv(BlocksEnv):
                                                        rel_or_abs)
             return current_pose, target_pose
 
-        return self._move_end_effector_to_pose(name, types, params_space,
-                                               _get_current_and_target_pose)
+        return self._create_move_end_effector_to_pose_option(
+            name, types, params_space, _get_current_and_target_pose)
 
-    def _move_end_effector_relative_totable(
+    def _create_move_end_effector_relative_to_table_option(
             self, name: str, rel_or_abs_target_pose: Pose3D,
             rel_or_abs: Tuple[str, str, str], types: Sequence[Type],
             params_space: Box) -> ParameterizedOption:
@@ -701,12 +703,12 @@ class PyBulletBlocksEnv(BlocksEnv):
                                                        rel_or_abs)
             return current_pose, target_pose
 
-        return self._move_end_effector_to_pose(name, types, params_space,
-                                               _get_current_and_target_pose)
+        return self._create_move_end_effector_to_pose_option(
+            name, types, params_space, _get_current_and_target_pose)
 
-    def _change_fingers(self, name: str, target_val: float,
-                        types: Sequence[Type],
-                        params_space: Box) -> ParameterizedOption:
+    def _create_change_fingers_option(
+            self, name: str, target_val: float, types: Sequence[Type],
+            params_space: Box) -> ParameterizedOption:
         """Creates a ParameterizedOption for changing the robot fingers."""
 
         assert types[0] == self._robot_type
