@@ -4,8 +4,10 @@ import numpy as np
 import pytest
 from predicators.src.envs import PyBulletBlocksEnv
 from predicators.src.structs import Object, State, Action
+from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src import utils
 from predicators.src.settings import CFG
+from predicators.tests.conftest import longrun
 
 _GUI_ON = False  # toggle for debugging
 _EXPOSED_PYBULLET_ENV = None  # only create once, since init is expensive
@@ -38,31 +40,6 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Expose the PutOnTable parameterized option."""
         return self._PutOnTable
 
-    @property
-    def On(self):
-        """Expose the On predicate."""
-        return self._On
-
-    @property
-    def OnTable(self):
-        """Expose the OnTable predicate."""
-        return self._OnTable
-
-    @property
-    def GripperOpen(self):
-        """Expose the GripperOpen predicate."""
-        return self._GripperOpen
-
-    @property
-    def Clear(self):
-        """Expose the Clear predicate."""
-        return self._Clear
-
-    @property
-    def Holding(self):
-        """Expose the Holding predicate."""
-        return self._Holding
-
     def set_state(self, state):
         """Forcibly reset the state."""
         self._current_state = state
@@ -73,31 +50,10 @@ class _ExposedPyBulletBlocksEnv(PyBulletBlocksEnv):
         """Expose get state."""
         return self._get_state()
 
-    def execute_pick(self, block):
-        """Convenient for tests that want a state where block is held.
-
-        The reason we do it this way instead of setting the state directly
-        is that a holding constraint needs to be created.
-
-        Returns a copy of the state upon completion.
-        """
-        option = self._Pick.ground([self._robot, block], [])
-        state = self._execute_option(option)
-        assert state.get(block, "held") == 1.0
-        return state
-
-    def execute_stack(self, block):
-        """Helper for tests that incidentally involve stacking."""
-        option = self._Stack.ground([self._robot, block], [])
-        return self._execute_option(option)
-
-    def execute_putontable(self, norm_x, norm_y):
-        """Helper for tests that incidentally involve putting on the table."""
-        option = self._PutOnTable.ground([self._robot], [norm_x, norm_y])
-        return self._execute_option(option)
-
-    def _execute_option(self, option):
-        """Helper for execution methods."""
+    def execute_option(self, option):
+        """Helper for executing a single option, updating the env state."""
+        # Note that since we want to use self._current_state, it's convenient
+        # to make this an environment method, rather than a helper function.
         assert option.initiable(self._current_state)
         # Execute the pick option.
         while True:
@@ -159,7 +115,6 @@ def test_pybullet_blocks_picking():
     option = env.Pick.ground([robot, block], [])
     state = init_state.copy()
     assert option.initiable(state)
-    assert env.GripperOpen([robot]).holds(state)
     # Execute the option. Also record the actions for use in the next test.
     pick_actions = []
     while True:
@@ -170,7 +125,6 @@ def test_pybullet_blocks_picking():
         state = env.step(action)
     # The block should now be held.
     assert state.get(block, "held") == 1.0
-    assert not env.GripperOpen([robot]).holds(state)
     # Test the case where the right finger is on the left side of the block,
     # but within the grasp tolerance. The contact normal check should prevent
     # a holding constraint from being created.
@@ -189,6 +143,7 @@ def test_pybullet_blocks_picking():
     assert state.get(block, "held") == 0.0
 
 
+@longrun
 def test_pybullet_blocks_picking_corners():
     """Test that the block can be picked at the extremes of the workspace."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
@@ -221,7 +176,6 @@ def test_pybullet_blocks_picking_corners():
         # Create an option for picking the block.
         option = env.Pick.ground([robot, block], [])
         assert option.initiable(state)
-        assert env.GripperOpen([robot]).holds(state)
         # Execute the option.
         while True:
             if option.terminal(state):
@@ -230,7 +184,6 @@ def test_pybullet_blocks_picking_corners():
             state = env.step(action)
         # The block should now be held.
         assert state.get(block, "held") == 1.0
-        assert not env.GripperOpen([robot]).holds(state)
 
 
 def test_pybullet_blocks_stacking():
@@ -256,28 +209,25 @@ def test_pybullet_blocks_stacking():
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
     # Pick block0 to get to a state where we are prepared to stack.
-    state = env.execute_pick(block0)
+    option = env.Pick.ground([robot, block0], [])
+    state = env.execute_option(option)
     # Create a stack option.
     option = env.Stack.ground([robot, block1], [])
-    assert option.initiable(state)
-    assert not env.GripperOpen([robot]).holds(state)
     # Execute the stack option.
-    while True:
-        if option.terminal(state):
-            break
-        action = option.policy(state)
-        state = env.step(action)
+    state = env.execute_option(option)
     # The block should now NOT be held.
     assert state.get(block0, "held") == 0.0
     # And block0 should be on block1.
-    assert env.On([block0, block1]).holds(state)
-    assert env.GripperOpen([robot]).holds(state)
+    On, = _get_predicates_by_names("pybullet_blocks", ["On"])
+    assert On([block0, block1]).holds(state)
 
 
+@longrun
 def test_pybullet_blocks_stacking_corners():
     """Test stacking a block on the tallest possible tower at each of the
     possible corners."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    On, = _get_predicates_by_names("pybullet_blocks", ["On"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     corners = [
@@ -310,27 +260,21 @@ def test_pybullet_blocks_stacking_corners():
         env.set_state(state)
         assert env.get_state().allclose(state)
         # Pick block0 to get to a state where we are prepared to stack.
-        state = env.execute_pick(block0)
+        option = env.Pick.ground([robot, block0], [])
+        state = env.execute_option(option)
         # Create a stack option.
         option = env.Stack.ground([robot, top_block], [])
-        assert option.initiable(state)
-        assert not env.GripperOpen([robot]).holds(state)
-        # Execute the stack option.
-        while True:
-            if option.terminal(state):
-                break
-            action = option.policy(state)
-            state = env.step(action)
+        state = env.execute_option(option)
         # The block should now NOT be held.
         assert state.get(block0, "held") == 0.0
         # And block0 should be on top_block.
-        assert env.On([block0, top_block]).holds(state)
-        assert env.GripperOpen([robot]).holds(state)
+        assert On([block0, top_block]).holds(state)
 
 
 def test_pybullet_blocks_putontable():
     """Tests cases for putting blocks on the table in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    OnTable, = _get_predicates_by_names("pybullet_blocks", ["OnTable"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
@@ -348,24 +292,17 @@ def test_pybullet_blocks_putontable():
     env.set_state(init_state)
     assert env.get_state().allclose(init_state)
     # Pick block to get to a state where we are prepared to place.
-    state = env.execute_pick(block)
+    option = env.Pick.ground([robot, block], [])
+    state = env.execute_option(option)
     # Create a PutOnTable option.
     # The params space is relative, so this should put the block at the center
     # of the work space.
     option = env.PutOnTable.ground([robot], [0.5, 0.5])
-    assert option.initiable(state)
-    assert not env.GripperOpen([robot]).holds(state)
-    # Execute the option.
-    while True:
-        if option.terminal(state):
-            break
-        action = option.policy(state)
-        state = env.step(action)
+    state = env.execute_option(option)
     # The block should now NOT be held.
     assert state.get(block, "held") == 0.0
     # And block should be on the table.
-    assert env.OnTable([block]).holds(state)
-    assert env.GripperOpen([robot]).holds(state)
+    assert OnTable([block]).holds(state)
     # Specifically, it should be at the center of the workspace.
     # Note: setting this threshold to 1e-3 causes the check to fail.
     # If this is not precise enough in practice, we will need to revisit
@@ -374,9 +311,11 @@ def test_pybullet_blocks_putontable():
     assert abs(state.get(block, "pose_y") - (env.y_lb + env.y_ub) / 2.) < 1e-2
 
 
+@longrun
 def test_pybullet_blocks_putontable_corners():
     """Test that the block can be placed at the extremes of the workspace."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    OnTable, = _get_predicates_by_names("pybullet_blocks", ["OnTable"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
@@ -403,22 +342,15 @@ def test_pybullet_blocks_putontable_corners():
         env.set_state(state)
         assert env.get_state().allclose(state)
         # Pick block to get to a state where we are prepared to place.
-        state = env.execute_pick(block)
+        option = env.Pick.ground([robot, block], [])
+        state = env.execute_option(option)
         # Create a PutOnTable option.
         option = env.PutOnTable.ground([robot], [px, py])
-        assert option.initiable(state)
-        assert not env.GripperOpen([robot]).holds(state)
-        # Execute the option.
-        while True:
-            if option.terminal(state):
-                break
-            action = option.policy(state)
-            state = env.step(action)
+        state = env.execute_option(option)
         # The block should now NOT be held.
         assert state.get(block, "held") == 0.0
         # And block should be on the table.
-        assert env.OnTable([block]).holds(state)
-        assert env.GripperOpen([robot]).holds(state)
+        assert OnTable([block]).holds(state)
         # Specifically, it should be at the given corner of the workspace.
         # Note: setting this threshold to 1e-3 causes the check to fail.
         # If this is not precise enough in practice, we will need to revisit
@@ -427,6 +359,7 @@ def test_pybullet_blocks_putontable_corners():
         assert abs(state.get(block, "pose_y") - by) < 1e-2
 
 
+@longrun
 def test_pybullet_blocks_close_pick_place():
     """Test a tricky case where we attempt to pick and place immediately next
     to a pile of blocks.
@@ -434,6 +367,7 @@ def test_pybullet_blocks_close_pick_place():
     Make sure that the pile is not disturbed.
     """
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
+    OnTable, = _get_predicates_by_names("pybullet_blocks", ["OnTable"])
     env = _get_exposed_pybullet_env()
     env.seed(123)
     block = Object("block0", env.block_type)
@@ -460,7 +394,8 @@ def test_pybullet_blocks_close_pick_place():
     env.set_state(state)
     assert env.get_state().allclose(state)
     initial_pile_state = State({b: state[b] for b in block_to_z})
-    state = env.execute_pick(block)
+    option = env.Pick.ground([robot, block], [])
+    state = env.execute_option(option)
     # The main block should now be held.
     assert state.get(block, "held") == 1.0
     # The other block states should be the same.
@@ -472,19 +407,11 @@ def test_pybullet_blocks_close_pick_place():
     py = (by0 - (env.y_lb + env.block_size / 2)) / (env.y_ub - env.y_lb -
                                                     env.block_size)
     option = env.PutOnTable.ground([robot], [0.5, py])
-    assert option.initiable(state)
-    assert not env.GripperOpen([robot]).holds(state)
-    # Execute the option.
-    while True:
-        if option.terminal(state):
-            break
-        action = option.policy(state)
-        state = env.step(action)
+    state = env.execute_option(option)
     # The block should now NOT be held.
     assert state.get(block, "held") == 0.0
     # And block should be on the table.
-    assert env.OnTable([block]).holds(state)
-    assert env.GripperOpen([robot]).holds(state)
+    assert OnTable([block]).holds(state)
     assert abs(state.get(block, "pose_x") - bx) < 1e-2
     assert abs(state.get(block, "pose_y") - by0) < 1e-2
     # The other block states should be the same.
@@ -492,15 +419,14 @@ def test_pybullet_blocks_close_pick_place():
     assert initial_pile_state.allclose(pile_state)
 
 
+@longrun
 def test_pybullet_blocks_abstract_states():
     """Tests abstract states during option execution in PyBulletBlocksEnv."""
     utils.reset_config({"env": "pybullet_blocks", "pybullet_use_gui": _GUI_ON})
     env = _get_exposed_pybullet_env()
-    On = env.On
-    OnTable = env.OnTable
-    GripperOpen = env.GripperOpen
-    Holding = env.Holding
-    Clear = env.Clear
+    On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
+        "pybullet_blocks",
+        ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
     env.seed(123)
     block0 = Object("block0", env.block_type)
     block1 = Object("block1", env.block_type)
@@ -528,7 +454,8 @@ def test_pybullet_blocks_abstract_states():
     }
     assert utils.abstract(state, env.predicates) == expected_abstract_state
     # Execute a pick of block0.
-    state = env.execute_pick(block0)
+    option = env.Pick.ground([robot, block0], [])
+    state = env.execute_option(option)
     expected_abstract_state = {
         Holding([block0]),
         OnTable([block1]),
@@ -536,7 +463,8 @@ def test_pybullet_blocks_abstract_states():
     }
     assert utils.abstract(state, env.predicates) == expected_abstract_state
     # Stack block0 on block1.
-    state = env.execute_stack(block1)
+    option = env.Stack.ground([robot, block1], [])
+    state = env.execute_option(option)
     expected_abstract_state = {
         On([block0, block1]),
         OnTable([block1]),
@@ -545,7 +473,8 @@ def test_pybullet_blocks_abstract_states():
     }
     assert utils.abstract(state, env.predicates) == expected_abstract_state
     # Unstack block0.
-    state = env.execute_pick(block0)
+    option = env.Pick.ground([robot, block0], [])
+    state = env.execute_option(option)
     expected_abstract_state = {
         Holding([block0]),
         OnTable([block1]),
@@ -553,7 +482,8 @@ def test_pybullet_blocks_abstract_states():
     }
     assert utils.abstract(state, env.predicates) == expected_abstract_state
     # Put block0 on the table.
-    state = env.execute_putontable(0.5, 0.9)
+    option = env.PutOnTable.ground([robot], [0.5, 0.9])
+    state = env.execute_option(option)
     expected_abstract_state = {
         OnTable([block0]),
         OnTable([block1]),
