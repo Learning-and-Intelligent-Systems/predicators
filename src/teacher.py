@@ -212,4 +212,5 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
             self._query_cost += query.cost
             caption = f"{response}, cost={query.cost}"
         self._responses.append(response)
-        self._video.extend(self._render_fn(action, caption))
+        if CFG.make_interaction_videos:
+            self._video.extend(self._render_fn(action, caption))
