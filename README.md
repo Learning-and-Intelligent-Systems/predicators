@@ -43,11 +43,7 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
 
 ### Running Experiments on Supercloud
-* Log into supercloud (see [this page](https://supercloud.mit.edu/requesting-account) for instructions on making an account).
-* Go into the `predicators` folder and `git pull` if necessary.
-* Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
-* Monitor with `squeue`, or cancel jobs with `scancel` (standard Slurm commands).
-* When all jobs are done, run `python analysis/analyze_results_directory.py` (still on supercloud) to print out the results table.
+See [these instructions](supercloud.md).
 
 ### Running Experiments on BEHAVIOR
 * Currently, only the `oracle` approach is implemented to integrate with BEHAVIOR.
@@ -66,4 +62,5 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * The static typing check uses Mypy to verify type annotations. To run locally: `mypy . --config-file mypy.ini`. If this doesn't work due to import errors, try `mypy -p predicators --config-file predicators/mypy.ini` from one directory up.
 * The linter check runs pylint with the custom config file `.predicators_pylintrc` in the root of this repository. Feel free to edit this file as necessary. To run locally: `pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc`.
 * The autoformatting check uses the custom `.style.yapf` in this repo. You can run the autoformatter locally with `yapf -i -r --style .style.yapf . && docformatter -i -r .`.
+* If you want to run all checks locally in one line, you can do `./scripts/run_checks.sh`.
 * In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1`, `pytest-pylint>=0.18.0`, `yapf` and `docformatter`. Also, install `mypy` from source: `pip install -U git+git://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31`. (Note: if [this mypy issue](https://github.com/python/mypy/issues/5485) gets resolved, we can install from head again.)
