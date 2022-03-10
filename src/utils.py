@@ -1568,7 +1568,9 @@ def get_run_id_from_argv() -> str:
 def get_run_id(env: str, approach: str, seed: int, excluded_predicates: str,
                experiment_id: str) -> str:
     """Create a single string ID based on key settings."""
-    return f"{env}__{approach}__{seed}__{excluded_predicates}__{experiment_id}"
+    if experiment_id == "":
+        return f"{env}__{approach}__{seed}__{excluded_predicates}"
+    return f"{experiment_id}__{seed}"
 
 
 def get_approach_save_path_str() -> str:
