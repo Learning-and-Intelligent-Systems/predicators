@@ -63,12 +63,11 @@ def main() -> None:
     # Log to both stdout and a logfile.
     os.makedirs(CFG.log_dir, exist_ok=True)
     logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(
+        level=logging.INFO,
         format="%(message)s",
-        handlers=[
-            logging.FileHandler(logfile),
-            logging.StreamHandler()
-        ])
+        handlers=[logging.FileHandler(logfile),
+                  logging.StreamHandler()])
     logging.info(f"Logging to {logfile}.")
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
@@ -238,7 +237,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                  f"Approach failed to solve with error: {e}")
+                         f"Approach failed to solve with error: {e}")
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
@@ -262,11 +261,12 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             solved = task.goal_holds(traj.states[-1])
         except utils.EnvironmentFailure as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                  f"Environment failed with error: {e}")
+                         f"Environment failed with error: {e}")
             continue
         except (ApproachTimeout, ApproachFailure) as e:
-            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
-                  f"Approach failed at policy execution time with error: {e}")
+            logging.info(
+                f"Task {test_task_idx+1} / {len(test_tasks)}: "
+                f"Approach failed at policy execution time with error: {e}")
             total_num_execution_failures += 1
             continue
         if solved:
@@ -275,7 +275,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             total_suc_time += (time.time() - start)
         else:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy "
-                  f"failed to reach goal")
+                         f"failed to reach goal")
         if CFG.make_test_videos:
             assert monitor is not None
             video = monitor.get_video()

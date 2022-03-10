@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import time
 import abc
+import logging
 from dataclasses import dataclass, field
 from typing import Set, Callable, List, Sequence, FrozenSet, Tuple, Dict, \
     Collection
@@ -122,9 +123,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
-        print(
-            f"Evaluating predicates: {candidate_predicates}, with total cost "
-            f"{total_cost}")
+        logging.info(f"Evaluating predicates: {candidate_predicates}, with "
+                     f"total cost {total_cost}")
         start_time = time.time()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset,
@@ -142,10 +142,8 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
-        print(
-            f"\tTotal score: {total_score} computed in "
-            f"{time.time()-start_time:.3f} seconds",
-            flush=True)
+        logging.info(f"\tTotal score: {total_score} computed in "
+                     f"{time.time()-start_time:.3f} seconds")
         return total_score
 
     def evaluate_with_operators(self,

@@ -4,6 +4,7 @@ Learns operators and samplers. Does not attempt to learn new predicates
 or options.
 """
 
+import logging
 from typing import Set, List, Sequence, Optional
 import dill as pkl
 from gym.spaces import Box
@@ -57,19 +58,19 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         if CFG.pretty_print_when_loading:
             preds, _ = utils.extract_preds_and_types(self._nsrts)
             name_map = {}
-            print("Invented predicates:")
+            logging.info("Invented predicates:")
             for idx, pred in enumerate(
                     sorted(set(preds.values()) - self._initial_predicates)):
                 vars_str, body_str = pred.pretty_str()
-                print("\t", f"P{idx+1}({vars_str}) ≜ {body_str}")
+                logging.info(f"\tP{idx+1}({vars_str}) ≜ {body_str}")
                 name_map[body_str] = f"P{idx+1}"
-        print("\n\nLoaded NSRTs:")
+        logging.info("\n\nLoaded NSRTs:")
         for nsrt in sorted(self._nsrts):
             if CFG.pretty_print_when_loading:
-                print(nsrt.pretty_str(name_map))
+                logging.info(nsrt.pretty_str(name_map))
             else:
-                print(nsrt)
-        print()
+                logging.info(nsrt)
+        logging.info("")
         # Seed the option parameter spaces after loading.
         for nsrt in self._nsrts:
             nsrt.option.params_space.seed(CFG.seed)
