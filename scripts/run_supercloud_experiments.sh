@@ -42,4 +42,6 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # pybullet_blocks
     python $FILE --experiment_id pybullet_blocks_oracle --env pybullet_blocks --approach oracle --seed $SEED --num_train_tasks 0
     python $FILE --experiment_id pybullet_blocks_nsrt_learning --env pybullet_blocks --approach nsrt_learning --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id pybullet_blocks_invent_noexclude --env pybullet_blocks --approach grammar_search_invention --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id pybullet_blocks_invent_allexclude --env pybullet_blocks --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 50
 done
