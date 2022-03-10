@@ -482,7 +482,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             # self._state_sequence.
             for traj in self.dataset.trajectories:
                 dummy_atoms_seq: List[Set[GroundAtom]] = [
-                    set() for _ in range(len(traj.states))]
+                    set() for _ in range(len(traj.states))
+                ]
                 seg_traj = segment_trajectory((traj, dummy_atoms_seq))
                 state_seq = utils.segment_trajectory_to_state_sequence(
                     seg_traj)
