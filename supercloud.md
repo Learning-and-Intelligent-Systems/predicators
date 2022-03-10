@@ -47,6 +47,8 @@ Note that supercloud sometimes hangs, so the experiment may take a while to get 
 
 ## Running Experiments
 
+To get started, activate the conda environment and switch to the repository. If you followed the instructions above, you can do both with `predicate`.
+
 Before running any experiments, it is good practice to make sure that you have a clean workspace:
 * Make sure that you have already backed up any old results that you want to keep.
 * Remove all previous results: `rm -rf results/* supercloud_* saved_*`.
@@ -54,9 +56,6 @@ Before running any experiments, it is good practice to make sure that you have a
 
 To run our default suite of experiments (will take many hours to complete):
 ```
-# Activate conda and switch to the repository.
-predicate
-# Launch experiments.
 ./analysis/run_supercloud_experiments.sh
 ```
 
