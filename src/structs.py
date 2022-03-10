@@ -1223,11 +1223,24 @@ class GroundAtomsHoldQuery(Query):
     def cost(self) -> float:
         return len(self.ground_atoms)
 
+    def __str__(self) -> str:
+        atoms = ", ".join([str(ga) for ga in self.ground_atoms])
+        return f"Do these hold? {atoms}"
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class GroundAtomsHoldResponse(Response):
     """A response to a GroundAtomsHoldQuery, providing boolean answers."""
     holds: Dict[GroundAtom, bool]
+
+    def __str__(self) -> str:
+        if not self.holds:
+            return "No queries"
+        responses = []
+        for ga, b in self.holds.items():
+            suffix = "holds" if b else "does not hold"
+            responses.append(f"{ga} {suffix}")
+        return ", ".join(responses)
 
 
 @dataclass(frozen=True, eq=False, repr=False)

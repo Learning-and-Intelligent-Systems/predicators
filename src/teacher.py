@@ -192,3 +192,27 @@ class TeacherInteractionMonitor(utils.Monitor):
     def get_query_cost(self) -> float:
         """Return the query cost."""
         return self._query_cost
+
+
+@dataclass
+class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
+                                         utils.VideoMonitor):
+    """A monitor that wraps a TeacherInteractionMonitor to optionally also
+    render every state and action encountered, if CFG.make_interaction_videos
+    is True.
+
+    The render_fn is generally env.render.
+    """
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        query = self._request.query_policy(state)
+        if query is None:
+            response = None
+            caption = "None"
+        else:
+            response = self._teacher.answer_query(state, query)
+            self._query_cost += query.cost
+            caption = f"{response}, cost={query.cost}"
+        self._responses.append(response)
+        if CFG.make_interaction_videos:
+            self._video.extend(self._render_fn(action, caption))
