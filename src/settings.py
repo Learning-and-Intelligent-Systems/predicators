@@ -106,6 +106,9 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # parameters for GNN policy approach
+    gnn_policy_solve_with_shooting = True
+    gnn_policy_shooting_variance = 0.1
+    gnn_policy_shooting_num_samples = 100
     gnn_policy_num_message_passing = 3
     gnn_policy_layer_size = 16
     gnn_policy_learning_rate = 1e-3
