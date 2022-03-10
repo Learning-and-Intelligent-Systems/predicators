@@ -1,6 +1,7 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
+import logging
 from typing import Set, List, Iterator, Tuple
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, Task
@@ -19,7 +20,7 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
-    print(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+    logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -75,12 +76,12 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
-    # STEP 7: Print and return the NSRTs.
+    # STEP 7: Log and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
-    print("\nLearned NSRTs:")
+    logging.info("\nLearned NSRTs:")
     for nsrt in nsrts:
-        print(nsrt)
-    print()
+        logging.info(nsrt)
+    logging.info("")
     return set(nsrts)
 
 
@@ -179,7 +180,7 @@ def _recompute_datastores_from_segments(
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
-    print("\nDoing option learning...")
+    logging.info("\nDoing option learning...")
     option_learner = create_option_learner()
     strips_ops = []
     datastores = []
@@ -199,14 +200,14 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
         for (segment, _) in datastore:
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
-    print("\nLearned operators with option specs:")
+    logging.info("\nLearned operators with option specs:")
     for pnad in pnads:
-        print(pnad)
+        logging.info(pnad)
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
                          sampler_learner: str) -> None:
-    print("\nDoing sampler learning...")
+    logging.info("\nDoing sampler learning...")
     strips_ops = []
     datastores = []
     option_specs = []

@@ -1,5 +1,6 @@
 """A PyBullet version of Blocks."""
 
+import logging
 from typing import Sequence, Tuple, Dict, Optional, Callable, List
 from gym.spaces import Box
 import numpy as np
@@ -344,10 +345,10 @@ class PyBulletBlocksEnv(BlocksEnv):
         # Assert that the state was properly reconstructed.
         reconstructed_state = self._get_state()
         if not reconstructed_state.allclose(state):
-            print("Desired state:")
-            print(state.pretty_str())
-            print("Reconstructed state:")
-            print(reconstructed_state.pretty_str())
+            logging.debug("Desired state:")
+            logging.debug(state.pretty_str())
+            logging.debug("Reconstructed state:")
+            logging.debug(reconstructed_state.pretty_str())
             raise ValueError("Could not reconstruct state.")
 
     def _create_block(self, block_num: int) -> int:

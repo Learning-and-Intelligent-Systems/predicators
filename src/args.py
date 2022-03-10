@@ -4,6 +4,7 @@ All global, immutable settings should be in settings.py.
 """
 
 import argparse
+import logging
 
 
 def create_arg_parser(env_required: bool = True,
@@ -23,4 +24,9 @@ def create_arg_parser(env_required: bool = True,
     parser.add_argument("--load_approach", action="store_true")
     parser.add_argument("--load_data", action="store_true")
     parser.add_argument("--experiment_id", default="", type=str)
+    parser.add_argument('--debug',
+                        action="store_const",
+                        dest="loglevel",
+                        const=logging.DEBUG,
+                        default=logging.INFO)
     return parser
