@@ -15,7 +15,7 @@ from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Dataset, Object, GroundAtomTrajectory, Task
+    Type, Dataset, Object, GroundAtomTrajectory, Task, GroundAtom
 from predicators.src.predicate_search_score_functions import \
     create_score_function, _PredicateSearchScoreFunction
 from predicators.src.settings import CFG
@@ -480,12 +480,10 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
             # Then, we only need to care about the initial and final
             # states in each segment, which we store into
             # self._state_sequence.
-            atom_dataset = utils.create_ground_atom_dataset(
-                self.dataset.trajectories, set())
-            for traj in atom_dataset:
-                if not traj[0].is_demo:
-                    continue
-                seg_traj = segment_trajectory(traj)
+            for traj in self.dataset.trajectories:
+                dummy_atoms_seq: List[Set[GroundAtom]] = [
+                    set() for _ in range(len(traj.states))]
+                seg_traj = segment_trajectory((traj, dummy_atoms_seq))
                 state_seq = utils.segment_trajectory_to_state_sequence(
                     seg_traj)
                 self._state_sequences.append(state_seq)
