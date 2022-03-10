@@ -59,7 +59,7 @@ def test_main():
     results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
+        "--make_test_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
         "--results_dir", results_dir
     ]
     main()
@@ -120,7 +120,7 @@ def test_bilevel_planning_approach_failure():
         "env": "cover",
         "approach": "nsrt_learning",
         "timeout": 10,
-        "make_videos": False,
+        "make_test_videos": False,
         "num_test_tasks": 1,
     })
     env = CoverEnv()
@@ -139,7 +139,7 @@ def test_env_failure():
         "env": "cover",
         "approach": "random_actions",
         "timeout": 10,
-        "make_videos": False,
+        "make_test_videos": False,
         "cover_initial_holding_prob": 0.0,
         "num_test_tasks": 1,
     })
