@@ -272,16 +272,17 @@ def test_relaxation_energy_score_function():
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset,
                 candidate_predicates | self._initial_predicates)
-            segments = [
-                seg for traj in pruned_atom_data
-                for seg in segment_trajectory(traj)
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in pruned_atom_data
             ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
             return self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data, segments,
-                                                strips_ops, option_specs)
+                                                low_level_trajs,
+                                                segmented_trajs, strips_ops,
+                                                option_specs)
 
     candidates = {p: 1.0 for p in name_to_pred.values()}
     for heuristic_name in ["hadd", "hmax", "hff", "hsa", "lmcut"]:
@@ -387,16 +388,17 @@ def test_relaxation_energy_score_function():
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset,
                 candidate_predicates | self._initial_predicates)
-            segments = [
-                seg for traj in pruned_atom_data
-                for seg in segment_trajectory(traj)
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in pruned_atom_data
             ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
             return self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data, segments,
-                                                strips_ops, option_specs)
+                                                low_level_trajs,
+                                                segmented_trajs, strips_ops,
+                                                option_specs)
 
         def _evaluate_atom_trajectory(self,
                                       atoms_sequence: List[Set[GroundAtom]],
@@ -614,15 +616,11 @@ def test_expected_nodes_score_function():
     # than the max number of demos.
     max_num_demos = 5
     utils.reset_config({
-        "env":
-        "cover",
-        "grammar_search_max_demos":
-        max_num_demos,
-        "cover_initial_holding_prob":
-        0.0,
-        "grammar_search_expected_nodes_include_suspicious_score":
-        True,
+        "env": "cover",
+        "grammar_search_max_demos": max_num_demos,
+        "cover_initial_holding_prob": 0.0,
     })
+    assert CFG.segmenter == "option_changes"
     for num_train_tasks in [2, 15]:
         utils.update_config({
             "offline_data_method": "demo+replay",
