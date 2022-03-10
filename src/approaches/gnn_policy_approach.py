@@ -105,7 +105,7 @@ class GNNPolicyApproach(BaseApproach):
                     if opt.initiable(state):
                         break
                 else:
-                    break  # out of the while loop
+                    break  # out of the while loop for this shooting try
                 plan.append(opt)
                 # Use the option model to determine the next state.
                 try:
