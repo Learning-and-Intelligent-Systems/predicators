@@ -18,19 +18,45 @@ from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper, GoalCountHeuristic
 
 
-def test_segment_trajectory_to_atoms_sequence():
-    """Tests for segment_trajectory_to_atoms_sequence()."""
+def test_segment_trajectory_to_state_and_atoms_sequence():
+    """Tests for segment_trajectory_to_state_sequence() and
+    segment_trajectory_to_atoms_sequence()."""
+    # Set up the segments.
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1", "feat2"])
     cup = cup_type("cup")
     plate = plate_type("plate")
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
     not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
-    traj = LowLevelTrajectory([None], [])
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj1 = LowLevelTrajectory(states, actions)
+    traj2 = LowLevelTrajectory(list(reversed(states)), actions)
     init_atoms = {on([cup, plate])}
     final_atoms = {not_on([cup, plate])}
-    segment1 = Segment(traj, init_atoms, final_atoms)
-    segment2 = Segment(traj, final_atoms, init_atoms)
+    segment1 = Segment(traj1, init_atoms, final_atoms)
+    segment2 = Segment(traj2, final_atoms, init_atoms)
+    # Test segment_trajectory_to_state_sequence().
+    state_seq = utils.segment_trajectory_to_state_sequence([segment1])
+    assert state_seq == [state0, state2]
+    state_seq = utils.segment_trajectory_to_state_sequence(
+        [segment1, segment2])
+    assert state_seq == [state0, state2, state0]
+    state_seq = utils.segment_trajectory_to_state_sequence(
+        [segment1, segment2, segment1, segment2])
+    assert state_seq == [state0, state2, state0, state2, state0]
+    with pytest.raises(AssertionError):
+        # Need at least one segment in the trajectory.
+        utils.segment_trajectory_to_state_sequence([])
+    with pytest.raises(AssertionError):
+        # Segments don't chain together correctly.
+        utils.segment_trajectory_to_state_sequence([segment1, segment1])
+    # Test segment_trajectory_to_atoms_sequence().
     atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
     assert atoms_seq == [init_atoms, final_atoms]
     atoms_seq = utils.segment_trajectory_to_atoms_sequence(

@@ -3,7 +3,7 @@ the candidates proposed from a grammar."""
 
 from __future__ import annotations
 import abc
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 import itertools
 from operator import le
@@ -15,7 +15,7 @@ from predicators.src.approaches import NSRTLearningApproach
 from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Dataset, Object, GroundAtomTrajectory, Task
+    Type, Dataset, Object, GroundAtomTrajectory, Task, GroundAtom
 from predicators.src.predicate_search_score_functions import \
     create_score_function, _PredicateSearchScoreFunction
 from predicators.src.settings import CFG
@@ -469,6 +469,25 @@ class _SkipGrammar(_PredicateGrammar):
 class _PrunedGrammar(_DataBasedPredicateGrammar):
     """A grammar that prunes redundant predicates."""
     base_grammar: _PredicateGrammar
+    _state_sequences: List[List[State]] = field(init=False,
+                                                default_factory=list)
+
+    def __post_init__(self) -> None:
+        if CFG.segmenter == "option_changes":
+            # If the segmenter is based on changes in options, then
+            # because it doesn't depend on atoms, we can be very
+            # efficient during pruning by pre-computing the segments.
+            # Then, we only need to care about the initial and final
+            # states in each segment, which we store into
+            # self._state_sequence.
+            for traj in self.dataset.trajectories:
+                dummy_atoms_seq: List[Set[GroundAtom]] = [
+                    set() for _ in range(len(traj.states))
+                ]
+                seg_traj = segment_trajectory((traj, dummy_atoms_seq))
+                state_seq = utils.segment_trajectory_to_state_sequence(
+                    seg_traj)
+                self._state_sequences.append(state_seq)
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Predicates are identified based on their evaluation across
@@ -489,15 +508,25 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
     def _get_predicate_identifier(
         self, predicate: Predicate
     ) -> FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]]:
-        """Returns frozensets of groundatoms for each data point."""
-        # Get atoms for this predicate alone on the dataset.
-        atom_dataset = utils.create_ground_atom_dataset(
-            self.dataset.trajectories, {predicate})
+        """Returns frozenset identifiers for each data point."""
         raw_identifiers = set()
-        for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
-            for t, atoms in enumerate(atom_traj):
-                atom_args = frozenset(tuple(a.objects) for a in atoms)
-                raw_identifiers.add((traj_idx, t, atom_args))
+        if CFG.segmenter == "option_changes":
+            # Make use of the pre-computed segment-level state sequences.
+            for traj_idx, state_seq in enumerate(self._state_sequences):
+                for t, state in enumerate(state_seq):
+                    atoms = utils.abstract(state, {predicate})
+                    atom_args = frozenset(tuple(a.objects) for a in atoms)
+                    raw_identifiers.add((traj_idx, t, atom_args))
+        else:
+            assert CFG.segmenter == "atom_changes"
+            # Get atoms for this predicate alone on the dataset, and then
+            # go through the entire dataset.
+            atom_dataset = utils.create_ground_atom_dataset(
+                self.dataset.trajectories, {predicate})
+            for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
+                for t, atoms in enumerate(atom_traj):
+                    atom_args = frozenset(tuple(a.objects) for a in atoms)
+                    raw_identifiers.add((traj_idx, t, atom_args))
         return frozenset(raw_identifiers)
 
 
