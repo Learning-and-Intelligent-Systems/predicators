@@ -1,5 +1,8 @@
-"""Definitions of option models. An option model makes predictions about
-the result of executing an option in the environment."""
+"""Definitions of option models.
+
+An option model makes predictions about the result of executing an
+option in the environment.
+"""
 
 from __future__ import annotations
 import abc
