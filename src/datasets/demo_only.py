@@ -27,6 +27,12 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         try:
             policy = oracle_approach.solve(
                 task, timeout=CFG.offline_data_planning_timeout)
+            traj = utils.run_policy(policy,
+                                    env,
+                                    "train",
+                                    idx,
+                                    task.goal_holds,
+                                    max_num_steps=CFG.horizon)
         except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments
@@ -35,12 +41,6 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
             continue
-        traj = utils.run_policy(policy,
-                                env,
-                                "train",
-                                idx,
-                                task.goal_holds,
-                                max_num_steps=CFG.max_num_steps_check_policy)
         assert task.goal_holds(traj.states[-1]), \
             "Oracle failed on training task."
         # Add is_demo flag and task index information into the trajectory.

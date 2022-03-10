@@ -293,7 +293,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         cur_idx += 1
         if option.initiable(state):
             try:
-                next_state = option_model.get_next_state(state, option)
+                next_state, _ = option_model.get_next_state_and_num_actions(
+                    state, option)
             except EnvironmentFailure as e:
                 can_continue_on = False
                 # Remember only the most recent failure.

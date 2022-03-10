@@ -233,7 +233,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
-                    CFG.max_num_steps_check_policy)
+                    CFG.horizon)
                 outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
@@ -243,14 +243,13 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj = utils.run_policy(
-                policy,
-                env,
-                "test",
-                test_task_idx,
-                task.goal_holds,
-                max_num_steps=CFG.max_num_steps_check_policy,
-                monitor=monitor)
+            traj = utils.run_policy(policy,
+                                    env,
+                                    "test",
+                                    test_task_idx,
+                                    task.goal_holds,
+                                    max_num_steps=CFG.horizon,
+                                    monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
         except utils.EnvironmentFailure as e:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Environment "
