@@ -16,7 +16,7 @@ class GlobalSettings:
     # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
-    num_online_learning_cycles = 10
+    num_online_learning_cycles = 2
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")

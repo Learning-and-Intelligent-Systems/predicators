@@ -79,10 +79,11 @@ class DaggerLearningApproach(NSRTLearningApproach):
         # make videos of expert trajectories for debugging
         for result in results:  # one result per training task
             responses = result.responses  # one response per state in trajectory
+            print("LENGTH OF RESPONSES: ", len(responses))
             for res in responses:
                 teacher_traj = res.teacher_traj
-                if teacher_traj is not None:
-                    print("TEACHER TRAJ STATES: ", teacher_traj.states)
+                # if teacher_traj is not None:
+                #     print("TEACHER TRAJ STATES: ", teacher_traj.states)
                 video: Video = []
                 env = create_env(CFG.env)
                 for s in teacher_traj.states:
@@ -96,6 +97,8 @@ class DaggerLearningApproach(NSRTLearningApproach):
         for result in results:  # one result per training task
             responses = result.responses  # one response per state in trajectory
             # print("responses: ", responses)
+            # for res in responses[:1]:
+            responses = [responses[0], responses[3], responses[4]]
             for res in responses:
                 teacher_traj = res.teacher_traj
                 if teacher_traj is None:  # oracle approach shouldn't fail, but...

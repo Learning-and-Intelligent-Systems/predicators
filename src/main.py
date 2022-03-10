@@ -47,7 +47,7 @@ from predicators.src.structs import Metrics, Task, Dataset, State, Action, \
     InteractionRequest, InteractionResult, Response
 from predicators.src import utils
 from predicators.src.teacher import Teacher
-
+from contextlib import redirect_stdout
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -118,6 +118,7 @@ def _run_pipeline(env: BaseEnv,
         else:
             approach.learn_from_offline_dataset(offline_dataset)
         # Run evaluation once before online learning starts.
+        # results = run_testing3('test_-1_data.txt', env, approach)
         # results = _run_testing(env, approach)
         # results["num_transitions"] = total_num_transitions
         # results["cumulative_query_cost"] = total_query_cost
@@ -144,10 +145,11 @@ def _run_pipeline(env: BaseEnv,
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             # results = _run_testing2(train_tasks, env, approach)
-            # results["num_transitions"] = total_num_transitions
-            # results["cumulative_query_cost"] = total_query_cost
-            # results["learning_time"] = time.time() - learning_start
-            # _save_test_results(results, online_learning_cycle=i)
+            # results = run_testing3('test_{}_data.txt'.format(i), env, approach)
+            results["num_transitions"] = total_num_transitions
+            results["cumulative_query_cost"] = total_query_cost
+            results["learning_time"] = time.time() - learning_start
+            _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
@@ -355,6 +357,82 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         metrics[f"avg_{metric_name}"] = (
             total / num_found_policy if num_found_policy > 0 else float("inf"))
     return metrics
+
+def run_testing3(filename, env: BaseEnv, approach: BaseApproach) -> Metrics:
+    test_tasks = env.get_test_tasks()
+    with open(filename, 'w') as f:
+        with redirect_stdout(f):
+            print(test_tasks)
+    return None
+    # num_found_policy = 0
+    # num_solved = 0
+    # approach.reset_metrics()
+    # total_suc_time = 0.0
+    # total_num_execution_failures = 0
+    # video_prefix = utils.get_config_path_str()
+    # for i, task in enumerate(test_tasks):
+    #     start = time.time()
+    #     print(end="", flush=True)
+    #     try:
+    #         policy = approach.solve(task, timeout=CFG.timeout)
+    #     except (ApproachTimeout, ApproachFailure) as e:
+    #         print(f"Task {i+1} / {len(test_tasks)}: Approach failed to "
+    #               f"solve with error: {e}")
+    #         if CFG.make_failure_videos and e.info.get("partial_refinements"):
+    #             video = utils.create_video_from_partial_refinements(
+    #                 task, env.simulate, env.render,
+    #                 e.info["partial_refinements"])
+    #             outfile = f"{video_prefix}__task{i+1}_failure.mp4"
+    #             utils.save_video(outfile, video)
+    #         continue
+    #     num_found_policy += 1
+    #     try:
+    #         _, video, solved = utils.run_policy_on_task(
+    #             policy, task, env.simulate, CFG.max_num_steps_check_policy,
+    #             env.render if CFG.make_videos else None)
+    #     except utils.EnvironmentFailure as e:
+    #         print(f"Task {i+1} / {len(test_tasks)}: Environment failed "
+    #               f"with error: {e}")
+    #         continue
+    #     except (ApproachTimeout, ApproachFailure) as e:
+    #         print(f"Task {i+1} / {len(test_tasks)}: Approach failed at policy "
+    #               f"execution time with error: {e}")
+    #         total_num_execution_failures += 1
+    #         continue
+    #     if solved:
+    #         print(f"Task {i+1} / {len(test_tasks)}: SOLVED")
+    #         num_solved += 1
+    #         total_suc_time += (time.time() - start)
+    #     else:
+    #         print(f"Task {i+1} / {len(test_tasks)}: Policy failed")
+    #     if CFG.make_videos:
+    #         outfile = f"{video_prefix}__task{i+1}.mp4"
+    #         utils.save_video(outfile, video)
+    # metrics: Metrics = defaultdict(float)
+    # metrics["num_solved"] = num_solved
+    # metrics["num_total"] = len(test_tasks)
+    # metrics["avg_suc_time"] = (total_suc_time /
+    #                            num_solved if num_solved > 0 else float("inf"))
+    # metrics["min_skeletons_optimized"] = approach.metrics[
+    #     "min_num_skeletons_optimized"]
+    # metrics["max_skeletons_optimized"] = approach.metrics[
+    #     "max_num_skeletons_optimized"]
+    # metrics["avg_execution_failures"] = (
+    #     total_num_execution_failures /
+    #     num_found_policy if num_found_policy > 0 else float("inf"))
+    # # Handle computing averages of total approach metrics wrt the
+    # # number of found policies. Note: this is different from computing
+    # # an average wrt the number of solved tasks, which might be more
+    # # appropriate for some metrics, e.g. avg_suc_time above.
+    # for metric_name in [
+    #         "num_skeletons_optimized", "num_nodes_expanded",
+    #         "num_nodes_created", "num_nsrts", "num_preds", "plan_length",
+    #         "num_failures_discovered"
+    # ]:
+    #     total = approach.metrics[f"total_{metric_name}"]
+    #     metrics[f"avg_{metric_name}"] = (
+    #         total / num_found_policy if num_found_policy > 0 else float("inf"))
+    # return metrics
 
 
 def _save_test_results(results: Metrics,
