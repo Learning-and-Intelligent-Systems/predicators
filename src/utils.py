@@ -416,15 +416,15 @@ class Monitor(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-def run_policy(
-        policy: Callable[[State], Action],
-        env: BaseEnv,
-        train_or_test: str,
-        task_idx: int,
-        termination_function: Callable[[State], bool],
-        max_num_steps: int,
-        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
-        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+def run_policy(policy: Callable[[State], Action],
+               env: BaseEnv,
+               train_or_test: str,
+               task_idx: int,
+               termination_function: Callable[[State], bool],
+               max_num_steps: int,
+               exceptions_to_break_on: Optional[Set[
+                   TypingType[Exception]]] = None,
+               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 

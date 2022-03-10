@@ -25,15 +25,18 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         if idx >= CFG.max_initial_demos:
             break
         try:
-            oracle_approach.solve(
-                task, timeout=CFG.offline_data_planning_timeout)
+            oracle_approach.solve(task,
+                                  timeout=CFG.offline_data_planning_timeout)
             # Since we're running the oracle approach, we know that the policy
             # is actually a plan under the hood, and we can retrieve it with
             # get_last_plan(). We do this because we want to run the full plan.
             plan = oracle_approach.get_last_plan()
             # Stop run_policy() when OptionPlanExhausted() is hit.
             traj = utils.run_policy(
-                utils.option_plan_to_policy(plan), env, "train", idx,
+                utils.option_plan_to_policy(plan),
+                env,
+                "train",
+                idx,
                 termination_function=lambda s: False,
                 max_num_steps=CFG.horizon,
                 exceptions_to_break_on={utils.OptionPlanExhausted})
