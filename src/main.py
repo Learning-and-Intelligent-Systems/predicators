@@ -14,9 +14,9 @@ To load saved data:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_data
 
-To make videos:
+To make videos of test tasks:
     python src/main.py --env cover --approach oracle --seed 0 \
-        --make_videos --num_test_tasks 1
+        --make_test_videos --num_test_tasks 1
 
 To run interactive learning approach:
     python src/main.py --env cover --approach interactive_learning \
@@ -46,7 +46,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, \
     InteractionRequest, InteractionResult
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitor
+from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -136,7 +136,7 @@ def _run_pipeline(env: BaseEnv,
                 print("Did not receive any interaction requests, terminating")
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, interaction_requests)
+                env, teacher, interaction_requests, i)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
@@ -180,7 +180,10 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-    env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest]
+        env: BaseEnv,
+        teacher: Teacher,
+        requests: Sequence[InteractionRequest],
+        cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
@@ -188,7 +191,8 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        monitor = TeacherInteractionMonitor(request, teacher)
+        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
+                                                     teacher)
         traj = utils.run_policy(
             request.act_policy,
             env,
@@ -202,6 +206,11 @@ def _generate_interaction_results(
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
+        if CFG.make_interaction_videos:
+            video = monitor.get_video()
+            video_prefix = utils.get_config_path_str()
+            outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+            utils.save_video(outfile, video)
     return results, query_cost
 
 
@@ -230,7 +239,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             continue
         num_found_policy += 1
         try:
-            if CFG.make_videos:
+            if CFG.make_test_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
@@ -258,7 +267,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed "
                   f"to reach goal")
-        if CFG.make_videos:
+        if CFG.make_test_videos:
             assert monitor is not None
             video = monitor.get_video()
             outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
