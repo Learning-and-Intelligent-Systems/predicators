@@ -12,6 +12,7 @@ from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
 
 __all__ = [
     "BaseEnv",
@@ -28,6 +29,7 @@ __all__ = [
     "PlayroomEnv",
     "BehaviorEnv",
     "RepeatedNextToEnv",
+    "PyBulletBlocksEnv",
 ]
 
 _MOST_RECENT_ENV_INSTANCE = {}
@@ -67,6 +69,8 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
         env = BehaviorEnv()  # pragma: no cover
     elif name == "repeated_nextto":
         env = RepeatedNextToEnv()
+    elif name == "pybullet_blocks":
+        env = PyBulletBlocksEnv()
     else:
         raise NotImplementedError(f"Unknown env: {name}")
     if do_cache:

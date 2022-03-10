@@ -6,10 +6,31 @@ from gym.spaces import Box
 from predicators.src.structs import Type, ParameterizedOption, State, Action, \
     Task, Predicate, Dataset, LowLevelTrajectory, GroundAtom
 from predicators.src.envs import create_new_env
-from predicators.src.approaches import create_approach, ApproachFailure
+from predicators.src.approaches import create_approach, ApproachFailure, \
+    ApproachTimeout
 from predicators.src.datasets import create_dataset
 from predicators.src.settings import CFG
+from predicators.src.option_model import _OptionModelBase
 from predicators.src import utils
+
+
+class _MockOptionModel1(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        assert option.initiable(state)
+        return self._simulator(state, option.policy(state)), 1
+
+
+class _MockOptionModel2(_OptionModelBase):
+
+    def __init__(self, simulator):
+        self._simulator = simulator
+
+    def get_next_state_and_num_actions(self, state, option):
+        raise utils.EnvironmentFailure("Mock env failure")
 
 
 @pytest.mark.parametrize("env_name", ["cover", "cover_typed_options"])
@@ -19,9 +40,10 @@ def test_gnn_policy_approach_with_envs(env_name: str):
         "env": env_name,
         "num_train_tasks": 3,
         "num_test_tasks": 3,
+        "gnn_policy_solve_with_shooting": False,
         "gnn_policy_num_epochs": 20,
         "gnn_policy_do_normalization": True,
-        "max_num_steps_check_policy": 10
+        "horizon": 10
     })
     env = create_new_env(env_name)
     train_tasks = env.get_train_tasks()
@@ -35,12 +57,11 @@ def test_gnn_policy_approach_with_envs(env_name: str):
     approach.learn_from_offline_dataset(dataset)
     policy = approach.solve(task, timeout=CFG.timeout)
     # Test predictions by executing policy.
-    utils.run_policy_with_simulator(
-        policy,
-        env.simulate,
-        task.init,
-        task.goal_holds,
-        max_num_steps=CFG.max_num_steps_check_policy)
+    utils.run_policy_with_simulator(policy,
+                                    env.simulate,
+                                    task.init,
+                                    task.goal_holds,
+                                    max_num_steps=CFG.horizon)
     # Test loading.
     approach2 = create_approach("gnn_policy", env.predicates, env.options,
                                 env.types, env.action_space, train_tasks)
@@ -53,7 +74,8 @@ def test_gnn_policy_approach_special_cases():
         "env": "cover",
         "gnn_policy_num_epochs": 20,
         "gnn_policy_use_validation_set": False,
-        "max_num_steps_check_policy": 10
+        "gnn_policy_solve_with_shooting": False,
+        "horizon": 10
     })
     cup_type = Type("cup_type", ["feat1"])
     bowl_type = Type("bowl_type", ["feat1"])
@@ -116,21 +138,53 @@ def test_gnn_policy_approach_special_cases():
     policy = approach.solve(test_task, timeout=CFG.timeout)
     # Executing the policy should raise an ApproachFailure.
     with pytest.raises(ApproachFailure) as e:
-        utils.run_policy_with_simulator(
-            policy,
-            _simulator,
-            test_task.init,
-            test_task.goal_holds,
-            max_num_steps=CFG.max_num_steps_check_policy)
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        test_task.init,
+                                        test_task.goal_holds,
+                                        max_num_steps=CFG.horizon)
     assert "GNN policy chose a non-initiable option" in str(e)
     # Hackily change the type of the option so that the policy fails.
     Move.types[0] = bowl_type
-    policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    policy = approach.solve(test_task, timeout=CFG.timeout)
     with pytest.raises(ApproachFailure) as e:
-        utils.run_policy_with_simulator(
-            policy,
-            _simulator,
-            test_task.init,
-            test_task.goal_holds,
-            max_num_steps=CFG.max_num_steps_check_policy)
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        test_task.init,
+                                        test_task.goal_holds,
+                                        max_num_steps=CFG.horizon)
     assert "GNN policy could not select an object" in str(e)
+    Move.types[0] = cup_type  # revert
+    # Now test shooting.
+    utils.reset_config({
+        "env": "cover",
+        "gnn_policy_num_epochs": 20,
+        "gnn_policy_use_validation_set": False,
+        "gnn_policy_solve_with_shooting": True,
+        "timeout": 0.1,
+        "horizon": 10
+    })
+    approach._option_model = _MockOptionModel1(_simulator)  # pylint: disable=protected-access
+    policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    traj = utils.run_policy_with_simulator(policy,
+                                           _simulator,
+                                           train_tasks[0].init,
+                                           train_tasks[0].goal_holds,
+                                           max_num_steps=CFG.horizon)
+    assert train_tasks[0].goal_holds(traj.states[-1])
+    approach._option_model = _MockOptionModel2(_simulator)  # pylint: disable=protected-access
+    with pytest.raises(ApproachTimeout) as e:
+        policy = approach.solve(train_tasks[0], timeout=CFG.timeout)
+    assert "Shooting timed out" in str(e)
+    with pytest.raises(ApproachTimeout) as e:
+        policy = approach.solve(test_task, timeout=CFG.timeout)
+    assert "Shooting timed out" in str(e)
+    trivial_task = Task(test_task.init, set())
+    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    traj = utils.run_policy_with_simulator(policy,
+                                           _simulator,
+                                           trivial_task.init,
+                                           trivial_task.goal_holds,
+                                           max_num_steps=CFG.horizon)
+    assert trivial_task.goal_holds(traj.states[-1])
+    assert len(traj.actions) == 0

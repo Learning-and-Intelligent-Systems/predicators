@@ -25,8 +25,6 @@ class GlobalSettings:
     max_initial_demos = float("inf")
     # Maximum number of steps to roll out an option policy.
     max_num_steps_option_rollout = 1000
-    # Maximum number of steps to run a policy when checking if it solves a task.
-    max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -108,6 +106,9 @@ class GlobalSettings:
     random_options_max_tries = 100
 
     # parameters for GNN policy approach
+    gnn_policy_solve_with_shooting = True
+    gnn_policy_shooting_variance = 0.1
+    gnn_policy_shooting_num_samples = 100
     gnn_policy_num_message_passing = 3
     gnn_policy_layer_size = 16
     gnn_policy_learning_rate = 1e-3
@@ -211,6 +212,16 @@ class GlobalSettings:
         experiment-specific args."""
 
         return dict(
+            # Horizon for each environment. When checking if a policy solves a
+            # task, we run the policy for at most this many steps.
+            horizon=defaultdict(
+                lambda: 100,
+                {
+                    # For BEHAVIOR and PyBullet environments, actions are
+                    # lower level, so tasks take more actions to complete.
+                    "behavior": 1000,
+                    "pybullet_blocks": 1000,
+                })[args.get("env", "")],
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
@@ -248,7 +259,9 @@ class GlobalSettings:
                 lambda: "oracle",
                 {
                     # For the BEHAVIOR environment, use a special option model.
-                    "behavior": "behavior_oracle",
+                    "behavior": "oracle_behavior",
+                    # For PyBullet environments, use non-PyBullet analogs.
+                    "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before
