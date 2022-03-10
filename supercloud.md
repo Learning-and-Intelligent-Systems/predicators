@@ -73,6 +73,6 @@ After experiments are running:
 * To see a summary of results, do `python analysis/analyze_results_directory.py`.
 * To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `supercloud_logs/`, `saved_datasets/`, and `saved_approaches/`.
 
-### Contributing
+## Contributing
 
 If any of the above steps do not work perfectly or lack clarity, please update this document with a pull request!
