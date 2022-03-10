@@ -107,12 +107,11 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    traj = utils.run_policy_with_simulator(
-        policy,
-        env.simulate,
-        trivial_task.init,
-        trivial_task.goal_holds,
-        max_num_steps=CFG.max_num_steps_check_policy)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           trivial_task.init,
+                                           trivial_task.goal_holds,
+                                           max_num_steps=CFG.horizon)
     assert trivial_task.goal_holds(traj.states[-1])
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate
@@ -219,10 +218,11 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     neg_params_space = Box(-0.75, -0.25, (1, ))
-    sleep_option = ParameterizedOption(
-        "Sleep", [robot_type], neg_params_space,
+    sleep_option = utils.SingletonParameterizedOption(
+        "Sleep",
         lambda s, m, o, p: Action(p - int(o[0] == robby)),
-        utils.always_initiable, utils.onestep_terminal)
+        types=[robot_type],
+        params_space=neg_params_space)
     sleep_op = STRIPSOperator("Sleep", parameters, preconditions, add_effects,
                               delete_effects, side_predicates)
     sleep_nsrt = sleep_op.make_nsrt(
@@ -235,10 +235,11 @@ def test_planning_determinism():
     delete_effects = set()
     side_predicates = set()
     pos_params_space = Box(0.25, 0.75, (1, ))
-    cry_option = ParameterizedOption(
-        "Cry", [robot_type], pos_params_space,
+    cry_option = utils.SingletonParameterizedOption(
+        "Cry",
         lambda s, m, o, p: Action(p + int(o[0] == robby)),
-        utils.always_initiable, utils.onestep_terminal)
+        types=[robot_type],
+        params_space=pos_params_space)
     cry_op = STRIPSOperator("Cry", parameters, preconditions, add_effects,
                             delete_effects, side_predicates)
     cry_nsrt = cry_op.make_nsrt(

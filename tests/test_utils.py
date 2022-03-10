@@ -8,7 +8,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory, DefaultState
+    LowLevelTrajectory, DefaultState, Segment
 from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
     _get_predicates_by_names
 from predicators.src.envs import CoverEnv
@@ -16,6 +16,63 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper, GoalCountHeuristic
+
+
+def test_segment_trajectory_to_state_and_atoms_sequence():
+    """Tests for segment_trajectory_to_state_sequence() and
+    segment_trajectory_to_atoms_sequence()."""
+    # Set up the segments.
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj1 = LowLevelTrajectory(states, actions)
+    traj2 = LowLevelTrajectory(list(reversed(states)), actions)
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    segment1 = Segment(traj1, init_atoms, final_atoms)
+    segment2 = Segment(traj2, final_atoms, init_atoms)
+    # Test segment_trajectory_to_state_sequence().
+    state_seq = utils.segment_trajectory_to_state_sequence([segment1])
+    assert state_seq == [state0, state2]
+    state_seq = utils.segment_trajectory_to_state_sequence(
+        [segment1, segment2])
+    assert state_seq == [state0, state2, state0]
+    state_seq = utils.segment_trajectory_to_state_sequence(
+        [segment1, segment2, segment1, segment2])
+    assert state_seq == [state0, state2, state0, state2, state0]
+    with pytest.raises(AssertionError):
+        # Need at least one segment in the trajectory.
+        utils.segment_trajectory_to_state_sequence([])
+    with pytest.raises(AssertionError):
+        # Segments don't chain together correctly.
+        utils.segment_trajectory_to_state_sequence([segment1, segment1])
+    # Test segment_trajectory_to_atoms_sequence().
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
+    assert atoms_seq == [init_atoms, final_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+        [segment1, segment2])
+    assert atoms_seq == [init_atoms, final_atoms, init_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+        [segment1, segment2, segment1, segment2])
+    assert atoms_seq == [
+        init_atoms, final_atoms, init_atoms, final_atoms, init_atoms
+    ]
+    with pytest.raises(AssertionError):
+        # Need at least one segment in the trajectory.
+        utils.segment_trajectory_to_atoms_sequence([])
+    with pytest.raises(AssertionError):
+        # Segments don't chain together correctly.
+        utils.segment_trajectory_to_atoms_sequence([segment1, segment1])
 
 
 def test_num_options_in_action_sequence():
@@ -216,6 +273,27 @@ def test_run_policy():
     assert len(traj3.states) == 2
     assert len(traj3.actions) == 1
 
+    # Test exceptions_to_break_on.
+    def _policy(_):
+        raise ValueError("mock error")
+
+    with pytest.raises(ValueError) as e:
+        utils.run_policy(_policy,
+                         env,
+                         "test",
+                         0,
+                         task.goal_holds,
+                         max_num_steps=5)
+    assert "mock error" in str(e)
+    traj4 = utils.run_policy(_policy,
+                             env,
+                             "test",
+                             0,
+                             task.goal_holds,
+                             max_num_steps=5,
+                             exceptions_to_break_on={ValueError})
+    assert len(traj4.states) == 1
+
 
 def test_run_policy_with_simulator():
     """Tests for run_policy_with_simulator()."""
@@ -276,6 +354,25 @@ def test_run_policy_with_simulator():
                                            monitor=monitor)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
+
+    # Test exceptions_to_break_on.
+    def _policy(_):
+        raise ValueError("mock error")
+
+    with pytest.raises(ValueError) as e:
+        utils.run_policy_with_simulator(_policy,
+                                        _simulator,
+                                        state,
+                                        _terminal,
+                                        max_num_steps=5)
+    assert "mock error" in str(e)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           exceptions_to_break_on={ValueError})
+    assert len(traj.states) == 1
 
 
 def test_option_plan_to_policy():
@@ -440,12 +537,18 @@ def test_abstract():
         return state[cup][0] + state[plate][0] < 2
 
     pred1 = Predicate("On", [cup_type, plate_type], _classifier1)
+    wrapped_pred1 = utils.wrap_predicate(pred1, "TEST-PREFIX-")
+    assert wrapped_pred1.name == "TEST-PREFIX-On"
+    assert wrapped_pred1.types == pred1.types
 
     def _classifier2(state, objects):
         cup, _, plate = objects
         return state[cup][0] + state[plate][0] < -1
 
     pred2 = Predicate("Is", [cup_type, plate_type, plate_type], _classifier2)
+    wrapped_pred2 = utils.wrap_predicate(pred2, "TEST-PREFIX-")
+    assert wrapped_pred2.name == "TEST-PREFIX-Is"
+    assert wrapped_pred2.types == pred2.types
     cup = cup_type("cup")
     plate1 = plate_type("plate1")
     plate2 = plate_type("plate2")
@@ -467,6 +570,8 @@ def test_abstract():
         pred2([cup, plate1, plate2]),
         pred2([cup, plate2, plate2])
     }
+    # Wrapping a predicate should destroy its classifier.
+    assert not utils.abstract(state, {wrapped_pred1, wrapped_pred2})
 
 
 def test_powerset():
@@ -866,6 +971,41 @@ def test_find_substitution():
     found, assignment = utils.find_substitution(kb13, q13)
     assert found
     assert assignment == {var3: plate0, var0: cup0}
+
+
+def test_SingletonParameterizedOption():
+    """Tests for SingletonParameterizedOption()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    state1 = State({cup: [0.0], plate: [1.0, 1.2]})
+    state2 = State({cup: [1.0], plate: [1.0, 1.2]})
+
+    def _initiable(s, _2, objs, _4):
+        return s[objs[0]][0] > 0.0
+
+    def _policy(_1, _2, _3, p):
+        return Action(p)
+
+    param_option = utils.SingletonParameterizedOption("Dummy",
+                                                      _policy,
+                                                      types=[cup_type],
+                                                      params_space=Box(
+                                                          0, 1, (1, )),
+                                                      initiable=_initiable)
+    assert param_option.name == "Dummy"
+    assert param_option.types == [cup_type]
+    assert np.allclose(param_option.params_space.low, np.array([0]))
+    assert np.allclose(param_option.params_space.high, np.array([1]))
+    option = param_option.ground([cup], [0.5])
+    assert not option.initiable(state1)
+    option = param_option.ground([cup], [0.5])
+    assert option.initiable(state2)
+    assert not option.terminal(state2)
+    action = option.policy(state2)
+    assert np.allclose(action.arr, np.array([0.5]))
+    assert option.terminal(state2.copy())
 
 
 def test_LinearChainParameterizedOption():
@@ -2004,6 +2144,15 @@ def test_string_to_python_object():
     assert utils.string_to_python_object("[3.2, 4.3]") == [3.2, 4.3]
     assert utils.string_to_python_object("(3.2,4.3)") == (3.2, 4.3)
     assert utils.string_to_python_object("(3.2, 4.3)") == (3.2, 4.3)
+
+
+def test_get_env_asset_path():
+    """Tests for get_env_asset_path()."""
+    path = utils.get_env_asset_path("urdf/plane.urdf")
+    assert path.endswith("urdf/plane.urdf")
+    assert os.path.exists(path)
+    with pytest.raises(AssertionError):
+        utils.get_env_asset_path("not_a_real_asset")
 
 
 def test_create_video_from_partial_refinements():

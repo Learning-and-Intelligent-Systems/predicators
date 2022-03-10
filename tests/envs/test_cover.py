@@ -151,7 +151,7 @@ def test_cover_typed_options():
     ]
     plan = []
     state = task.init
-    env.render_state(state, task)
+    env.render_state(state, task, caption="caption")
     expected_lengths = [5, 5, 6, 6, 7]
     expected_hands = [
         state[block0][3], state[target0][3], state[block1][3],
@@ -215,7 +215,7 @@ def test_cover_regrasp():
     assert len(init_atoms) == 2
     # Clear should not be true after a place.
     state = task.init.copy()
-    block0, _, _, target0, _ = sorted(state)
+    block0, _, _, target0, _ = list(state)
     state.set(block0, "pose", state.get(target0, "pose"))
     assert not Clear([target0]).holds(state)
 
@@ -335,7 +335,7 @@ def test_cover_multistep_options():
                                            lambda _: False,
                                            max_num_steps=len(action_arrs))
     state = traj.states[0]
-    env.render_state(state, task)
+    env.render_state(state, task, caption="caption")
     # Render a state where we're grasping
     env.render_state(traj.states[20], task)
     Covers = [p for p in env.predicates if p.name == "Covers"][0]

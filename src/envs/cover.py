@@ -41,12 +41,8 @@ class CoverEnv(BaseEnv):
         self._Holding = Predicate("Holding", [self._block_type],
                                   self._Holding_holds)
         # Options
-        self._PickPlace = ParameterizedOption("PickPlace",
-                                              types=[],
-                                              params_space=Box(0, 1, (1, )),
-                                              policy=self._PickPlace_policy,
-                                              initiable=utils.always_initiable,
-                                              terminal=utils.onestep_terminal)
+        self._PickPlace = utils.SingletonParameterizedOption(
+            "PickPlace", self._PickPlace_policy, params_space=Box(0, 1, (1, )))
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -134,7 +130,8 @@ class CoverEnv(BaseEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         # Draw main line
         plt.plot([-0.2, 1.2], [-0.055, -0.055], color="black")
@@ -203,6 +200,8 @@ class CoverEnv(BaseEnv):
         plt.ylim(-0.25, 0.5)
         plt.yticks([])
         plt.legend()
+        if caption is not None:
+            plt.suptitle(caption, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
@@ -358,19 +357,16 @@ class CoverEnvTypedOptions(CoverEnv):
     def __init__(self) -> None:
         super().__init__()
         del self._PickPlace
-        self._Pick = ParameterizedOption("Pick",
-                                         types=[self._block_type],
-                                         params_space=Box(-0.1, 0.1, (1, )),
-                                         policy=self._Pick_policy,
-                                         initiable=utils.always_initiable,
-                                         terminal=utils.onestep_terminal)
-        self._Place = ParameterizedOption(
+        self._Pick: ParameterizedOption = utils.SingletonParameterizedOption(
+            "Pick",
+            self._Pick_policy,
+            types=[self._block_type],
+            params_space=Box(-0.1, 0.1, (1, )))
+        self._Place: ParameterizedOption = utils.SingletonParameterizedOption(
             "Place",
+            self._PickPlace_policy,  # use the parent class's policy
             types=[self._target_type],
-            params_space=Box(0, 1, (1, )),
-            policy=self._PickPlace_policy,  # use the parent class's policy
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
+            params_space=Box(0, 1, (1, )))
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -714,7 +710,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         # Need to override rendering to account for new state features.
         fig, ax = plt.subplots(1, 1)
         # Draw main line
@@ -793,6 +790,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
         plt.xlim(-0.2, 1.2)
         plt.ylim(-0.25, 1)
         plt.legend()
+        if caption is not None:
+            plt.suptitle(caption, wrap=True)
         plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
@@ -1073,18 +1072,8 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
                                           o: Sequence[Object],
                                           p: Array) -> bool:
         assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        block, robot = o
         # Pick is done when we're holding the desired object.
-        terminal = self._Holding_holds(s, [block, robot])
-        if terminal and CFG.sampler_learner == "neural":
-            # Ensure terminal state matches parameterization.
-            param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(absolute_params,
-                               param_from_terminal,
-                               atol=1e-05)
-        return terminal
+        return self._Holding_holds(s, o)
 
     def _Place_initiable(self, s: State, m: Dict, o: Sequence[Object],
                          p: Array) -> bool:
@@ -1193,17 +1182,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
     def _Place_learned_equivalent_terminal(self, s: State, m: Dict,
                                            o: Sequence[Object],
                                            p: Array) -> bool:
+        del o  # unused
         assert np.allclose(p, m["params"])
-        del p
-        absolute_params = m["absolute_params"]
-        block, robot, _ = o
         # Place is done when the hand is empty.
-        terminal = self._HandEmpty_holds(s, [])
-        if terminal and CFG.sampler_learner == "neural":
-            # Ensure terminal state matches parameterization.
-            param_from_terminal = np.hstack((s[block], s[robot]))
-            assert np.allclose(absolute_params, param_from_terminal, atol=1e-5)
-        return terminal
+        return self._HandEmpty_holds(s, [])
 
     @staticmethod
     def _Holding_holds(state: State, objects: Sequence[Object]) -> bool:

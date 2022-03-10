@@ -1,5 +1,6 @@
 """Default imports for envs folder."""
 
+import logging
 from predicators.src.envs.base_env import BaseEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, CoverMultistepOptions, \
@@ -12,7 +13,7 @@ from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
-from predicators.src.settings import CFG
+from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
 
 __all__ = [
     "BaseEnv",
@@ -29,6 +30,7 @@ __all__ = [
     "PlayroomEnv",
     "BehaviorEnv",
     "RepeatedNextToEnv",
+    "PyBulletBlocksEnv",
 ]
 
 _MOST_RECENT_ENV_INSTANCE = {}
@@ -68,6 +70,8 @@ def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
         env = BehaviorEnv()  # pragma: no cover
     elif name == "repeated_nextto":
         env = RepeatedNextToEnv()
+    elif name == "pybullet_blocks":
+        env = PyBulletBlocksEnv()
     else:
         raise NotImplementedError(f"Unknown env: {name}")
     if do_cache:
@@ -84,7 +88,8 @@ def get_or_create_env(name: str) -> BaseEnv:
     call reset() or step()).
     """
     if name not in _MOST_RECENT_ENV_INSTANCE:
-        print("WARNING: you called get_or_create_env, but I couldn't find "
-              f"{name} in the cache. Making a new environment instance.")
+        logging.warning(
+            "WARNING: you called get_or_create_env, but I couldn't "
+            f"find {name} in the cache. Making a new instance.")
         create_new_env(name, do_cache=True)
     return _MOST_RECENT_ENV_INSTANCE[name]

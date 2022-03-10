@@ -17,10 +17,9 @@ class RandomOptionsApproach(BaseApproach):
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         options = sorted(self._initial_options, key=lambda o: o.name)
         cur_option = DummyOption
-        cur_option_ind = 0
 
         def _policy(state: State) -> Action:
-            nonlocal cur_option, cur_option_ind
+            nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
                 for _ in range(CFG.random_options_max_tries):
                     param_opt = options[self._rng.choice(len(options))]
@@ -32,12 +31,10 @@ class RandomOptionsApproach(BaseApproach):
                     opt = param_opt.ground(objs, params)
                     if opt.initiable(state):
                         cur_option = opt
-                        cur_option_ind = 0
                         break
                 else:  # fall back to a random action
                     return Action(self._action_space.sample())
             act = cur_option.policy(state)
-            cur_option_ind += 1
             return act
 
         return _policy

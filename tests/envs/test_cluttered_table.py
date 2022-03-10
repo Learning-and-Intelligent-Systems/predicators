@@ -87,7 +87,7 @@ def test_cluttered_table(place_version=False):
             next_state = env.simulate(state, act)
             assert state.allclose(next_state)
         if i == 0:
-            env.render_state(state, task, act)
+            env.render_state(state, task, act, "caption")
 
 
 def test_cluttered_table_place():

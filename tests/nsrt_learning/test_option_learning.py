@@ -6,8 +6,8 @@ from predicators.src.approaches import ApproachFailure
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.datasets.demo_replay import create_demo_replay_data
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import STRIPSOperator
 from predicators.src.torch_models import MLPRegressor
 from predicators.src.nsrt_learning.option_learning import \
@@ -103,6 +103,8 @@ def test_oracle_option_learner_blocks():
         "seed": 123,
         "num_train_tasks": 3,
         "option_learner": "oracle",
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [4],
     })
     env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
@@ -184,7 +186,7 @@ def test_learned_neural_parameterized_option():
     task = env.get_test_tasks()[0]
 
     state = task.init.copy()
-    block0, _, block1, _, robot, _, _, _, _ = sorted(state)
+    block0, _, block1, _, robot, _, _, _, _ = list(state)
     assert block0.name == "block0"
     assert robot.name == "robby"
     option = param_option.ground([block0, robot],

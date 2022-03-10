@@ -46,7 +46,7 @@ def test_blocks():
                             clear(o, state)])[0]
             act = Pick.ground([robot, block], np.zeros(0)).policy(state)
             state = env.simulate(state, act)
-            env.render_state(state, task)
+            env.render_state(state, task, caption="caption")
 
 
 def test_blocks_failure_cases():

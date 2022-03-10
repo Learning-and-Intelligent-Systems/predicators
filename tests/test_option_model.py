@@ -79,7 +79,8 @@ def test_default_option_model():
         obj9: [11, 12, 13]
     })
     model = _OracleOptionModel(env)
-    next_state = model.get_next_state(state, option1)
+    next_state, num_act = model.get_next_state_and_num_actions(state, option1)
+    assert num_act == 5
     # Test that the option's memory has not been updated.
     assert "start_state" not in option1.memory
     # But after actually calling the option, it should be updated.
@@ -87,10 +88,13 @@ def test_default_option_model():
     assert "start_state" in option1.memory
     assert abs(next_state.get(obj1, "feat3") - 55) < 1e-6
     with pytest.raises(AssertionError):  # option2 is not initiable
-        model.get_next_state(next_state, option2)
-    next_state = model.get_next_state(state, option2)
+        model.get_next_state_and_num_actions(next_state, option2)
+    next_state, num_act = model.get_next_state_and_num_actions(state, option2)
+    assert num_act == 4
     assert abs(next_state.get(obj1, "feat3") - 61) < 1e-6
-    next_next_state = model.get_next_state(next_state, option3)
+    next_next_state, num_act = model.get_next_state_and_num_actions(
+        next_state, option3)
+    assert num_act == 1
     assert abs(next_state.get(obj1, "feat3") - 61) < 1e-6  # no change
     assert abs(next_next_state.get(obj1, "feat3") - 65) < 1e-6
 
@@ -103,3 +107,19 @@ def test_option_model_notimplemented():
     })
     with pytest.raises(NotImplementedError):
         create_option_model("not a real option model")
+
+
+def test_create_option_model():
+    """Tests for create_option_model()."""
+    utils.reset_config({
+        "env": "cover",
+        "approach": "nsrt_learning",
+    })
+    model = create_option_model("oracle")
+    assert isinstance(model, _OracleOptionModel)
+    utils.reset_config({
+        "env": "pybullet_blocks",
+        "approach": "nsrt_learning",
+    })
+    model = create_option_model("oracle_blocks")
+    assert isinstance(model, _OracleOptionModel)

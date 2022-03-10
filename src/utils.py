@@ -3,16 +3,18 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import abc
-import argparse
 import functools
 import gc
 import itertools
+import logging
 import os
+import subprocess
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
-    TYPE_CHECKING
+    TYPE_CHECKING, Type as TypingType
 import heapq as hq
+from gym.spaces import Box
 import pathos.multiprocessing as mp
 import imageio
 import matplotlib
@@ -26,12 +28,49 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
     GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
     Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
-    GroundNSRTOrSTRIPSOperator, ParameterizedOption
+    GroundNSRTOrSTRIPSOperator, ParameterizedOption, Segment
 from predicators.src.settings import CFG, GlobalSettings
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
 
 matplotlib.use("Agg")
+
+
+def segment_trajectory_to_state_sequence(
+        seg_traj: List[Segment]) -> List[State]:
+    """Convert a trajectory of segments into a trajectory of states, made up of
+    only the initial/final states of the segments.
+
+    The length of the return value will always be one greater than the
+    length of the given seg_traj.
+    """
+    assert len(seg_traj) >= 1
+    states = []
+    for i, seg in enumerate(seg_traj):
+        states.append(seg.states[0])
+        if i < len(seg_traj) - 1:
+            assert seg.states[-1].allclose(seg_traj[i + 1].states[0])
+    states.append(seg_traj[-1].states[-1])
+    assert len(states) == len(seg_traj) + 1
+    return states
+
+
+def segment_trajectory_to_atoms_sequence(
+        seg_traj: List[Segment]) -> List[Set[GroundAtom]]:
+    """Convert a trajectory of segments into a trajectory of ground atoms.
+
+    The length of the return value will always be one greater than the
+    length of the given seg_traj.
+    """
+    assert len(seg_traj) >= 1
+    atoms_seq = []
+    for i, seg in enumerate(seg_traj):
+        atoms_seq.append(seg.init_atoms)
+        if i < len(seg_traj) - 1:
+            assert seg.final_atoms == seg_traj[i + 1].init_atoms
+    atoms_seq.append(seg_traj[-1].final_atoms)
+    assert len(atoms_seq) == len(seg_traj) + 1
+    return atoms_seq
 
 
 def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
@@ -82,30 +121,6 @@ def entropy(p: float) -> float:
     if p in {0.0, 1.0}:
         return 0.0
     return -(p * np.log(p) + (1 - p) * np.log(1 - p))
-
-
-def always_initiable(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-    """An initiation function for an option that can always be run."""
-    del objects, params  # unused
-    if "start_state" in memory:
-        assert state.allclose(memory["start_state"])
-    # Always update the memory dict, due to the "is" check in onestep_terminal.
-    memory["start_state"] = state
-    return True
-
-
-def onestep_terminal(state: State, memory: Dict, objects: Sequence[Object],
-                     params: Array) -> bool:
-    """A termination function for an option that only lasts 1 timestep.
-
-    To use this as the terminal function for a policy, the policy's
-    initiable() function must set memory["start_state"], as
-    always_initiable() does above.
-    """
-    del objects, params  # unused
-    assert "start_state" in memory, "Must call initiable() before terminal()"
-    return state is not memory["start_state"]
 
 
 def intersects(p1: Tuple[float, float], p2: Tuple[float, float],
@@ -252,18 +267,27 @@ def unify_preconds_effects_options(
     return unify(all_atoms1, all_atoms2)
 
 
-def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
-                         prefix: str) -> Set[LiftedOrGroundAtom]:
-    """Return a new set of atoms which adds the given prefix string to the name
-    of every predicate in atoms.
+def wrap_predicate(predicate: Predicate, prefix: str) -> Predicate:
+    """Return a new predicate which adds the given prefix string to the name.
 
     NOTE: the classifier is removed.
     """
+    new_predicate = Predicate(prefix + predicate.name,
+                              predicate.types,
+                              _classifier=lambda s, o: False)  # dummy
+    return new_predicate
+
+
+def wrap_atom_predicates(atoms: Collection[LiftedOrGroundAtom],
+                         prefix: str) -> Set[LiftedOrGroundAtom]:
+    """Return a new set of atoms which adds the given prefix string to the name
+    of every atom's predicate.
+
+    NOTE: all the classifiers are removed.
+    """
     new_atoms = set()
     for atom in atoms:
-        new_predicate = Predicate(prefix + atom.predicate.name,
-                                  atom.predicate.types,
-                                  _classifier=lambda s, o: False)  # dummy
+        new_predicate = wrap_predicate(atom.predicate, prefix)
         new_atoms.add(atom.__class__(new_predicate, atom.entities))
     return new_atoms
 
@@ -311,23 +335,32 @@ class LinearChainParameterizedOption(ParameterizedOption):
 
     def _initiable(self, state: State, memory: Dict, objects: Sequence[Object],
                    params: Array) -> bool:
-        # Reset the current child to the first one.
+        # Initialize the current child to the first one.
         memory["current_child_index"] = 0
+        # Create memory dicts for each child to avoid key collisions. One
+        # example of a failure that arises without this is when using
+        # multiple SingletonParameterizedOption instances, each of those
+        # options would be referencing the same start_state in memory.
+        memory["child_memory"] = [{} for _ in self._children]
         current_child = self._children[0]
-        return current_child.initiable(state, memory, objects, params)
+        child_memory = memory["child_memory"][0]
+        return current_child.initiable(state, child_memory, objects, params)
 
     def _policy(self, state: State, memory: Dict, objects: Sequence[Object],
                 params: Array) -> Action:
         # Check if the current child has terminated.
         current_index = memory["current_child_index"]
         current_child = self._children[current_index]
-        if current_child.terminal(state, memory, objects, params):
+        child_memory = memory["child_memory"][current_index]
+        if current_child.terminal(state, child_memory, objects, params):
             # Move on to the next child.
             current_index += 1
             memory["current_child_index"] = current_index
             current_child = self._children[current_index]
-            assert current_child.initiable(state, memory, objects, params)
-        return current_child.policy(state, memory, objects, params)
+            child_memory = memory["child_memory"][current_index]
+            assert current_child.initiable(state, child_memory, objects,
+                                           params)
+        return current_child.policy(state, child_memory, objects, params)
 
     def _terminal(self, state: State, memory: Dict, objects: Sequence[Object],
                   params: Array) -> bool:
@@ -336,7 +369,59 @@ class LinearChainParameterizedOption(ParameterizedOption):
         if current_index < len(self._children) - 1:
             return False
         current_child = self._children[current_index]
-        return current_child.terminal(state, memory, objects, params)
+        child_memory = memory["child_memory"][current_index]
+        return current_child.terminal(state, child_memory, objects, params)
+
+
+class SingletonParameterizedOption(ParameterizedOption):
+    """A parameterized option that takes a single action and stops.
+
+    For convenience:
+        * Initiable defaults to always True.
+        * Types defaults to [].
+        * Params space defaults to Box(0, 1, (0, )).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        policy: Callable[[State, Dict, Sequence[Object], Array], Action],
+        types: Optional[Sequence[Type]] = None,
+        params_space: Optional[Box] = None,
+        initiable: Optional[Callable[[State, Dict, Sequence[Object], Array],
+                                     bool]] = None
+    ) -> None:
+        if types is None:
+            types = []
+        if params_space is None:
+            params_space = Box(0, 1, (0, ))
+        if initiable is None:
+            initiable = lambda _1, _2, _3, _4: True
+
+        # Wrap the given initiable so that we can track whether the action
+        # has been executed yet.
+        def _initiable(state: State, memory: Dict, objects: Sequence[Object],
+                       params: Array) -> bool:
+            if "start_state" in memory:
+                assert state.allclose(memory["start_state"])
+            # Always update the memory dict due to the "is" check in _terminal.
+            memory["start_state"] = state
+            assert initiable is not None
+            return initiable(state, memory, objects, params)
+
+        def _terminal(state: State, memory: Dict, objects: Sequence[Object],
+                      params: Array) -> bool:
+            del objects, params  # unused
+            assert "start_state" in memory, \
+                "Must call initiable() before terminal()."
+            return state is not memory["start_state"]
+
+        super().__init__(name,
+                         types,
+                         params_space,
+                         policy=policy,
+                         initiable=_initiable,
+                         terminal=_terminal)
 
 
 class Monitor(abc.ABC):
@@ -358,6 +443,8 @@ def run_policy(policy: Callable[[State], Action],
                task_idx: int,
                termination_function: Callable[[State], bool],
                max_num_steps: int,
+               exceptions_to_break_on: Optional[Set[
+                   TypingType[Exception]]] = None,
                monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
@@ -367,13 +454,20 @@ def run_policy(policy: Callable[[State], Action],
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
+    (3) policy() raises any exception of type in exceptions_to_break_on
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            act = policy(state)
+            try:
+                act = policy(state)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                raise e
             if monitor is not None:
                 monitor.observe(state, act)
             state = env.step(act)
@@ -393,6 +487,7 @@ def run_policy_with_simulator(
         init_state: State,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
+        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
@@ -409,13 +504,20 @@ def run_policy_with_simulator(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
+    (3) policy() raises any exception of type in exceptions_to_break_on
     """
     state = init_state
     states = [state]
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            act = policy(state)
+            try:
+                act = policy(state)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                raise e
             if monitor is not None:
                 monitor.observe(state, act)
             state = simulator(state, act)
@@ -469,7 +571,7 @@ def option_plan_to_policy(
         nonlocal cur_option
         if cur_option.terminal(state):
             if not queue:
-                raise OptionPlanExhausted()
+                raise OptionPlanExhausted("Option plan exhausted!")
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
@@ -793,18 +895,18 @@ def run_hill_climbing(
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
     visited = {initial_state}
-    print(f"\n\nStarting hill climbing at state {cur_node.state} "
-          f"with heuristic {last_heuristic}")
+    logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
+                 f"with heuristic {last_heuristic}")
     while True:
         if check_goal(cur_node.state):
-            print("\nTerminating hill climbing, achieved goal")
+            logging.info("\nTerminating hill climbing, achieved goal")
             break
         best_heuristic = float("inf")
         best_child_node = None
         current_depth_nodes = [cur_node]
         all_best_heuristics = []
         for depth in range(0, enforced_depth + 1):
-            print(f"Searching for an improvement at depth {depth}")
+            logging.info(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
@@ -840,22 +942,23 @@ def run_hill_climbing(
             all_best_heuristics.append(best_heuristic)
             if last_heuristic > best_heuristic:
                 # Some improvement found.
-                print(f"Found an improvement at depth {depth}")
+                logging.info(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
-            print(f"No improvement found at depth {depth}")
+            logging.info(f"No improvement found at depth {depth}")
         if best_child_node is None:
-            print("\nTerminating hill climbing, no more successors")
+            logging.info("\nTerminating hill climbing, no more successors")
             break
         if last_heuristic <= best_heuristic:
-            print("\nTerminating hill climbing, could not improve score")
+            logging.info(
+                "\nTerminating hill climbing, could not improve score")
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
-        print(f"\nHill climbing reached new state {cur_node.state} "
-              f"with heuristic {last_heuristic}")
+        logging.info(f"\nHill climbing reached new state {cur_node.state} "
+                     f"with heuristic {last_heuristic}")
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics
@@ -1250,7 +1353,10 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
                   pyperplan_goal: _PyperplanFacts,
                   pyperplan_heuristic: _PyperplanBaseHeuristic) -> float:
         pyperplan_node = _PyperplanNode(pyperplan_facts, pyperplan_goal)
-        return pyperplan_heuristic(pyperplan_node)
+        logging.disable(logging.DEBUG)
+        result = pyperplan_heuristic(pyperplan_node)
+        logging.disable(logging.NOTSET)
+        return result
 
 
 def _create_pyperplan_task(
@@ -1356,12 +1462,12 @@ class VideoMonitor(Monitor):
     because the environment should use its current internal state to
     render.
     """
-    _render_fn: Callable[[Optional[Action]], List[Image]]
+    _render_fn: Callable[[Optional[Action], Optional[str]], List[Image]]
     _video: Video = field(init=False, default_factory=list)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         del state  # unused
-        self._video.extend(self._render_fn(action))
+        self._video.extend(self._render_fn(action, None))
 
     def get_video(self) -> Video:
         """Return the video."""
@@ -1442,7 +1548,16 @@ def save_video(outfile: str, video: Video) -> None:
     os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
-    print(f"Wrote out to {outpath}")
+    logging.info(f"Wrote out to {outpath}")
+
+
+def get_env_asset_path(asset_name: str) -> str:
+    """Return the absolute path to env asset."""
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    asset_dir_path = os.path.join(dir_path, "envs", "assets")
+    path = os.path.join(asset_dir_path, asset_name)
+    assert os.path.exists(path), f"Env asset not found: {asset_name}."
+    return path
 
 
 def update_config(args: Dict[str, Any]) -> None:
@@ -1513,7 +1628,6 @@ def parse_args(env_required: bool = True,
                                approach_required=approach_required,
                                seed_required=seed_required)
     args, overrides = parser.parse_known_args()
-    print_args(args)
     arg_dict = vars(args)
     if len(overrides) == 0:
         return arg_dict
@@ -1557,15 +1671,6 @@ def string_to_python_object(value: str) -> Any:
     return value
 
 
-def print_args(args: argparse.Namespace) -> None:
-    """Print all info for this experiment."""
-    print(f"Seed: {args.seed}")
-    print(f"Env: {args.env}")
-    print(f"Approach: {args.approach}")
-    print(f"Timeout: {args.timeout}")
-    print()
-
-
 def flush_cache() -> None:
     """Clear all lru caches."""
     gc.collect()
@@ -1590,7 +1695,7 @@ def parse_config_excluded_predicates(
                 pred.name
                 for pred in env.predicates if pred not in env.goal_predicates
             }
-            print(f"All non-goal predicates excluded: {excluded_names}")
+            logging.info(f"All non-goal predicates excluded: {excluded_names}")
             included = env.goal_predicates
         else:
             excluded_names = set(CFG.excluded_predicates.split(","))
@@ -1616,3 +1721,9 @@ def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
     """A sampler for an NSRT with no continuous parameters."""
     del state, goal, rng, objs  # unused
     return np.array([], dtype=np.float32)  # no continuous parameters
+
+
+def get_git_commit_hash() -> str:
+    """Return the hash of the current git commit."""
+    out = subprocess.check_output(["git", "rev-parse", "HEAD"])
+    return out.decode("ascii").strip()

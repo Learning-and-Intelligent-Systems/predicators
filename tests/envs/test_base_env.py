@@ -21,6 +21,7 @@ def test_env_creation():
             "repeated_nextto",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
+            "pybullet_blocks",
     ]:
         env = create_new_env(name, do_cache=True)
         assert isinstance(env, BaseEnv)

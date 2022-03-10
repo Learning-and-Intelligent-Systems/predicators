@@ -39,20 +39,15 @@ class RepeatedNextToEnv(BaseEnv):
                                   [self._robot_type, self._dot_type],
                                   self._Grasped_holds)
         # Options
-        self._Move = ParameterizedOption(
+        self._Move = utils.SingletonParameterizedOption(
             "Move",
+            self._Move_policy,
             types=[self._robot_type, self._dot_type],
-            params_space=Box(-1, 1, (1, )),
-            policy=self._Move_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
-        self._Grasp = ParameterizedOption(
+            params_space=Box(-1, 1, (1, )))
+        self._Grasp = utils.SingletonParameterizedOption(
             "Grasp",
-            types=[self._robot_type, self._dot_type],
-            params_space=Box(0, 1, (0, )),
             policy=self._Grasp_policy,
-            initiable=utils.always_initiable,
-            terminal=utils.onestep_terminal)
+            types=[self._robot_type, self._dot_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
@@ -114,7 +109,8 @@ class RepeatedNextToEnv(BaseEnv):
     def render_state(self,
                      state: State,
                      task: Task,
-                     action: Optional[Action] = None) -> List[Image]:
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         robot_x = state.get(self._robot, "x")
         for dot in state.get_objects(self._dot_type):
@@ -129,8 +125,12 @@ class RepeatedNextToEnv(BaseEnv):
         plt.scatter(x=robot_x, y=0.2)
         ax.set_xlim(self.env_lb - 1, self.env_ub + 1)
         ax.set_ylim(-0.1, 0.25)
-        plt.suptitle("red = not next to, orange = next to, green = grasped,"
-                     "blue = robot")
+        title = ("red = not next to, orange = next to, green = grasped, "
+                 "blue = robot")
+        if caption is not None:
+            title += f";\n{caption}"
+        plt.suptitle(title, wrap=True)
+        plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
         return [img]

@@ -1223,11 +1223,24 @@ class GroundAtomsHoldQuery(Query):
     def cost(self) -> float:
         return len(self.ground_atoms)
 
+    def __str__(self) -> str:
+        atoms = ", ".join([str(ga) for ga in self.ground_atoms])
+        return f"Do these hold? {atoms}"
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class GroundAtomsHoldResponse(Response):
     """A response to a GroundAtomsHoldQuery, providing boolean answers."""
     holds: Dict[GroundAtom, bool]
+
+    def __str__(self) -> str:
+        if not self.holds:
+            return "No queries"
+        responses = []
+        for ga, b in self.holds.items():
+            suffix = "holds" if b else "does not hold"
+            responses.append(f"{ga} {suffix}")
+        return ", ".join(responses)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1247,12 +1260,30 @@ class DemonstrationResponse(Response):
     teacher_traj: Optional[LowLevelTrajectory]
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateQuery(Query):
+    """A query requesting a trajectory that reaches a specific state."""
+    goal_state: State
+
+    @property
+    def cost(self) -> float:
+        return 1
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateResponse(Response):
+    """A response to a PathToStateQuery; provides a LowLevelTrajectory if one
+    can be found by the teacher, otherwise returns None."""
+    teacher_traj: Optional[LowLevelTrajectory]
+
+
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
+Pose3D = Tuple[float, float, float]
 ObjToVarSub = Dict[Object, Variable]
 ObjToObjSub = Dict[Object, Object]
 VarToObjSub = Dict[Variable, Object]

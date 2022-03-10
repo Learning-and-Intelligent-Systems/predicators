@@ -1,13 +1,14 @@
-"""A TAMP approach that learns NSRTs.
+"""A bilevel planning approach that learns NSRTs.
 
-In contrast to other approaches, this approach does not attempt to learn
-new predicates or options.
+Learns operators and samplers. Does not attempt to learn new predicates
+or options.
 """
 
-from typing import Set, List, Sequence, Optional
+import logging
+from typing import Set, List, Optional
 import dill as pkl
 from gym.spaces import Box
-from predicators.src.approaches import TAMPApproach
+from predicators.src.approaches import BilevelPlanningApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
     Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning.nsrt_learning_main import \
@@ -16,8 +17,8 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 
 
-class NSRTLearningApproach(TAMPApproach):
-    """A TAMP approach that learns NSRTs."""
+class NSRTLearningApproach(BilevelPlanningApproach):
+    """A bilevel planning approach that learns NSRTs."""
 
     def __init__(self, initial_predicates: Set[Predicate],
                  initial_options: Set[ParameterizedOption], types: Set[Type],
@@ -39,7 +40,7 @@ class NSRTLearningApproach(TAMPApproach):
         # subclasses want to make use of it.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
-    def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory],
+    def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
         self._nsrts = learn_nsrts_from_data(
             trajectories,
@@ -57,19 +58,19 @@ class NSRTLearningApproach(TAMPApproach):
         if CFG.pretty_print_when_loading:
             preds, _ = utils.extract_preds_and_types(self._nsrts)
             name_map = {}
-            print("Invented predicates:")
+            logging.info("Invented predicates:")
             for idx, pred in enumerate(
                     sorted(set(preds.values()) - self._initial_predicates)):
                 vars_str, body_str = pred.pretty_str()
-                print("\t", f"P{idx+1}({vars_str}) ≜ {body_str}")
+                logging.info(f"\tP{idx+1}({vars_str}) ≜ {body_str}")
                 name_map[body_str] = f"P{idx+1}"
-        print("\n\nLoaded NSRTs:")
+        logging.info("\n\nLoaded NSRTs:")
         for nsrt in sorted(self._nsrts):
             if CFG.pretty_print_when_loading:
-                print(nsrt.pretty_str(name_map))
+                logging.info(nsrt.pretty_str(name_map))
             else:
-                print(nsrt)
-        print()
+                logging.info(nsrt)
+        logging.info("")
         # Seed the option parameter spaces after loading.
         for nsrt in self._nsrts:
             nsrt.option.params_space.seed(CFG.seed)

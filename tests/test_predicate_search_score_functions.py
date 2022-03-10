@@ -16,11 +16,10 @@ from predicators.src.predicate_search_score_functions import (
     _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction,
     _ExpectedNodesScoreFunction)
 from predicators.src.envs import CoverEnv, BlocksEnv
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.datasets import create_dataset
 from predicators.src.structs import Predicate, STRIPSOperator, Action, \
-    ParameterizedOption, Box, LowLevelTrajectory, GroundAtom, OptionSpec, \
-    _GroundSTRIPSOperator
+    Box, LowLevelTrajectory, GroundAtom, OptionSpec, _GroundSTRIPSOperator
 from predicators.src.settings import CFG
 from predicators.src import utils
 
@@ -107,10 +106,10 @@ def test_predicate_search_heuristic_base_classes():
     robby = [o for o in state if o.type.name == "robot"][0]
     state.set(robby, "hand", 0.5)
     other_state.set(robby, "hand", 0.8)
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
     option = parameterized_option.ground([], np.array([0.0]))
     assert option.initiable(state)  # set memory
     action = Action(np.zeros(1, dtype=np.float32))
@@ -170,6 +169,8 @@ def test_prediction_error_score_function():
         "env": "blocks",
         "offline_data_method": "demo+replay",
         "num_train_tasks": 5,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [4],
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -271,16 +272,17 @@ def test_relaxation_energy_score_function():
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset,
                 candidate_predicates | self._initial_predicates)
-            segments = [
-                seg for traj in pruned_atom_data
-                for seg in segment_trajectory(traj)
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in pruned_atom_data
             ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
             return self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data, segments,
-                                                strips_ops, option_specs)
+                                                low_level_trajs,
+                                                segmented_trajs, strips_ops,
+                                                option_specs)
 
     candidates = {p: 1.0 for p in name_to_pred.values()}
     for heuristic_name in ["hadd", "hmax", "hff", "hsa", "lmcut"]:
@@ -295,6 +297,8 @@ def test_relaxation_energy_score_function():
         "env": "blocks",
         "offline_data_method": "demo+replay",
         "num_train_tasks": 5,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [4],
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -384,16 +388,17 @@ def test_relaxation_energy_score_function():
             pruned_atom_data = utils.prune_ground_atom_dataset(
                 self._atom_dataset,
                 candidate_predicates | self._initial_predicates)
-            segments = [
-                seg for traj in pruned_atom_data
-                for seg in segment_trajectory(traj)
+            segmented_trajs = [
+                segment_trajectory(traj) for traj in pruned_atom_data
             ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
             return self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data, segments,
-                                                strips_ops, option_specs)
+                                                low_level_trajs,
+                                                segmented_trajs, strips_ops,
+                                                option_specs)
 
         def _evaluate_atom_trajectory(self,
                                       atoms_sequence: List[Set[GroundAtom]],
@@ -423,6 +428,8 @@ def test_exact_energy_score_function():
         "env": "blocks",
         "offline_data_method": "demo+replay",
         "num_train_tasks": 2,
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [4],
     })
     env = BlocksEnv()
     ablated = {"Holding", "Clear", "GripperOpen"}
@@ -609,15 +616,11 @@ def test_expected_nodes_score_function():
     # than the max number of demos.
     max_num_demos = 5
     utils.reset_config({
-        "env":
-        "cover",
-        "grammar_search_max_demos":
-        max_num_demos,
-        "cover_initial_holding_prob":
-        0.0,
-        "grammar_search_expected_nodes_include_suspicious_score":
-        True,
+        "env": "cover",
+        "grammar_search_max_demos": max_num_demos,
+        "cover_initial_holding_prob": 0.0,
     })
+    assert CFG.segmenter == "option_changes"
     for num_train_tasks in [2, 15]:
         utils.update_config({
             "offline_data_method": "demo+replay",

@@ -449,4 +449,4 @@ def test_playroom_action_sequence_video():
     # Render a state where we're grasping
     env.render_state(traj.states[1], task)
     # Render end state with open and closed doors
-    env.render_state(traj.states[-1], task)
+    env.render_state(traj.states[-1], task, caption="caption")

@@ -1,25 +1,26 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-from typing import Set, List, Sequence, Iterator, Tuple
+import logging
+from typing import Set, List, Iterator, Tuple
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
+    Segment, PartialNSRTAndDatastore, Task
 from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 
 
-def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
+def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                           train_tasks: List[Task], predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
-    print(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+    logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -66,9 +67,8 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     if CFG.learn_side_predicates:
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
-        pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
-                                            train_tasks, predicates, segments,
-                                            segmented_trajs)
+        pnads = _learn_pnad_side_predicates(pnads, trajectories, train_tasks,
+                                            predicates, segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -76,20 +76,19 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
-    # STEP 7: Print and return the NSRTs.
+    # STEP 7: Log and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
-    print("\nLearned NSRTs:")
+    logging.info("\nLearned NSRTs:")
     for nsrt in nsrts:
-        print(nsrt)
-    print()
+        logging.info(nsrt)
+    logging.info("")
     return set(nsrts)
 
 
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
-        ground_atom_dataset: List[GroundAtomTrajectory],
-        train_tasks: List[Task], predicates: Set[Predicate],
-        segments: List[Segment],
+        trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
@@ -127,9 +126,8 @@ def _learn_pnad_side_predicates(
         # Score function for search. Lower is better.
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
-        score = score_func.evaluate_with_operators(frozenset(),
-                                                   ground_atom_dataset,
-                                                   segments, strips_ops,
+        score = score_func.evaluate_with_operators(frozenset(), trajectories,
+                                                   segmented_trajs, strips_ops,
                                                    option_specs)
         return score
 
@@ -182,7 +180,7 @@ def _recompute_datastores_from_segments(
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
-    print("\nDoing option learning...")
+    logging.info("\nDoing option learning...")
     option_learner = create_option_learner()
     strips_ops = []
     datastores = []
@@ -202,14 +200,14 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
         for (segment, _) in datastore:
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
-    print("\nLearned operators with option specs:")
+    logging.info("\nLearned operators with option specs:")
     for pnad in pnads:
-        print(pnad)
+        logging.info(pnad)
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
                          sampler_learner: str) -> None:
-    print("\nDoing sampler learning...")
+    logging.info("\nDoing sampler learning...")
     strips_ops = []
     datastores = []
     option_specs = []
