@@ -518,7 +518,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
                     atoms = utils.abstract(state, {predicate})
                     atom_args = frozenset(tuple(a.objects) for a in atoms)
                     raw_identifiers.add((traj_idx, t, atom_args))
-        elif CFG.segmenter == "atom_changes":
+        else:
+            assert CFG.segmenter == "atom_changes"
             # Get atoms for this predicate alone on the dataset, and then
             # go through the entire dataset.
             atom_dataset = utils.create_ground_atom_dataset(
