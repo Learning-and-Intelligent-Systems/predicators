@@ -5,7 +5,7 @@ or options.
 """
 
 import logging
-from typing import Set, List, Sequence, Optional
+from typing import Set, List, Optional
 import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import BilevelPlanningApproach
@@ -40,7 +40,7 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         # subclasses want to make use of it.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
-    def _learn_nsrts(self, trajectories: Sequence[LowLevelTrajectory],
+    def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
         self._nsrts = learn_nsrts_from_data(
             trajectories,

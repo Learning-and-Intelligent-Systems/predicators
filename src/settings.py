@@ -203,7 +203,6 @@ class GlobalSettings:
     grammar_search_expected_nodes_upper_bound = 1e5
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
-    grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
@@ -299,7 +298,7 @@ class GlobalSettings:
                 {
                     # When options are given, use them to segment instead.
                     "no_learning": "option_changes",
-                })[args.get("option_learner", "")],
+                })[args.get("option_learner", "no_learning")],
         )
 
 
