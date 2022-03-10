@@ -6,7 +6,7 @@ Example usage with learning NSRTs:
 Example usage with oracle NSRTs:
     python src/main.py --env cover --approach oracle --seed 0
 
-Example with very verbose logging:
+Example with verbose logging:
     python src/main.py --env cover --approach oracle --seed 0 --debug
 
 To load a saved approach:

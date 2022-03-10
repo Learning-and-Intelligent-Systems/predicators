@@ -493,7 +493,8 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Predicates are identified based on their evaluation across
         # all states in the dataset.
-        seen = {}  # type: ignore
+        seen: Dict[FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]],
+                   Predicate] = {}  # keys are from _get_predicate_identifier()
         for (predicate, cost) in self.base_grammar.enumerate():
             if cost >= CFG.grammar_search_predicate_cost_upper_bound:
                 return

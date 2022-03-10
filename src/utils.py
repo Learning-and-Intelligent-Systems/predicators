@@ -1353,7 +1353,10 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
                   pyperplan_goal: _PyperplanFacts,
                   pyperplan_heuristic: _PyperplanBaseHeuristic) -> float:
         pyperplan_node = _PyperplanNode(pyperplan_facts, pyperplan_goal)
-        return pyperplan_heuristic(pyperplan_node)
+        logging.disable(logging.DEBUG)
+        result = pyperplan_heuristic(pyperplan_node)
+        logging.disable(logging.NOTSET)
+        return result
 
 
 def _create_pyperplan_task(
