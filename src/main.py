@@ -62,7 +62,7 @@ def main() -> None:
     str_args = " ".join(sys.argv)
     # Log to both stdout and a logfile.
     os.makedirs(CFG.log_dir, exist_ok=True)
-    logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
+    logfile = os.path.join(CFG.log_dir, f"{utils.get_run_id_from_cfg()}.log")
     logging.basicConfig(
         level=logging.INFO,
         format="%(message)s",
@@ -217,7 +217,7 @@ def _generate_interaction_results(
         results.append(result)
         if CFG.make_interaction_videos:
             video = monitor.get_video()
-            video_prefix = utils.get_config_path_str()
+            video_prefix = utils.get_run_id_from_cfg()
             outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
             utils.save_video(outfile, video)
     return results, query_cost
@@ -230,7 +230,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     approach.reset_metrics()
     total_suc_time = 0.0
     total_num_execution_failures = 0
-    video_prefix = utils.get_config_path_str()
+    video_prefix = utils.get_run_id_from_cfg()
     for test_task_idx, task in enumerate(test_tasks):
         start = time.time()
         try:
@@ -315,7 +315,7 @@ def _save_test_results(results: Metrics,
     avg_suc_time = results["avg_suc_time"]
     logging.info(f"Tasks solved: {num_solved} / {num_total}")
     logging.info(f"Average time for successes: {avg_suc_time:.5f} seconds")
-    outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
+    outfile = (f"{CFG.results_dir}/{utils.get_run_id_from_cfg()}__"
                f"{online_learning_cycle}.pkl")
     # Save CFG alongside results.
     outdata = {
