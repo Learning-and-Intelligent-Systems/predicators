@@ -43,11 +43,7 @@ Please make sure to `export PYTHONHASHSEED=0` when running the code. You can add
 * Run, e.g., `python src/main.py --env cover --approach oracle --seed 0` to run the system.
 
 ### Running Experiments on Supercloud
-* Log into supercloud (see [this page](https://supercloud.mit.edu/requesting-account) for instructions on making an account).
-* Go into the `predicators` folder and `git pull` if necessary.
-* Edit `./analysis/run_supercloud_experiments.sh` as desired, and run that script to launch parallelized jobs.
-* Monitor with `squeue`, or cancel jobs with `scancel` (standard Slurm commands).
-* When all jobs are done, run `python analysis/analyze_results_directory.py` (still on supercloud) to print out the results table.
+See [these instructions](supercloud.md).
 
 ### Running Experiments on BEHAVIOR
 * Currently, only the `oracle` approach is implemented to integrate with BEHAVIOR.
