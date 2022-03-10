@@ -31,12 +31,11 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # is actually a plan under the hood. We want the full plan to be
             # executed, so we don't use a termination function. The run_policy()
             # function will stop when the OptionPlanExhausted() is caught.
-            traj = utils.run_policy(policy,
-                                    env,
-                                    "train",
-                                    idx,
-                                    termination_function=lambda s: False,
-                                    max_num_steps=CFG.horizon)
+            traj = utils.run_policy(
+                policy, env, "train", idx,
+                termination_function=lambda s: False,
+                max_num_steps=CFG.horizon,
+                exceptions_to_break_on={utils.OptionPlanExhausted})
         except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments

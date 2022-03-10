@@ -11,7 +11,7 @@ import os
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
-    TYPE_CHECKING
+    TYPE_CHECKING, Type as TypingType
 import heapq as hq
 from gym.spaces import Box
 import pathos.multiprocessing as mp
@@ -416,13 +416,15 @@ class Monitor(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-def run_policy(policy: Callable[[State], Action],
-               env: BaseEnv,
-               train_or_test: str,
-               task_idx: int,
-               termination_function: Callable[[State], bool],
-               max_num_steps: int,
-               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+def run_policy(
+        policy: Callable[[State], Action],
+        env: BaseEnv,
+        train_or_test: str,
+        task_idx: int,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+        monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 
@@ -431,7 +433,7 @@ def run_policy(policy: Callable[[State], Action],
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) an OptionPlanExhausted is raised when calling the policy
+    (3) policy() raises any exception of type in exceptions_to_break_on
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
@@ -440,8 +442,11 @@ def run_policy(policy: Callable[[State], Action],
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
-            except OptionPlanExhausted:
-                break
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                raise e
             if monitor is not None:
                 monitor.observe(state, act)
             state = env.step(act)
@@ -461,6 +466,7 @@ def run_policy_with_simulator(
         init_state: State,
         termination_function: Callable[[State], bool],
         max_num_steps: int,
+        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
         monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
     """Execute a policy from a given initial state, using a simulator.
 
@@ -477,7 +483,7 @@ def run_policy_with_simulator(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
-    (3) an OptionPlanExhausted is raised when calling the policy
+    (3) policy() raises any exception of type in exceptions_to_break_on
     """
     state = init_state
     states = [state]
@@ -486,8 +492,11 @@ def run_policy_with_simulator(
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
-            except OptionPlanExhausted:
-                break
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                raise e
             if monitor is not None:
                 monitor.observe(state, act)
             state = simulator(state, act)
