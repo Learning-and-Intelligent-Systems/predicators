@@ -6,6 +6,9 @@ Example usage with learning NSRTs:
 Example usage with oracle NSRTs:
     python src/main.py --env cover --approach oracle --seed 0
 
+Example with very verbose logging:
+    python src/main.py --env cover --approach oracle --seed 0 --debug
+
 To load a saved approach:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_approach
@@ -64,7 +67,7 @@ def main() -> None:
     os.makedirs(CFG.log_dir, exist_ok=True)
     logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
     logging.basicConfig(
-        level=logging.INFO,
+        level=CFG.loglevel,
         format="%(message)s",
         handlers=[logging.FileHandler(logfile),
                   logging.StreamHandler()])
