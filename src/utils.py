@@ -35,6 +35,25 @@ if TYPE_CHECKING:
 matplotlib.use("Agg")
 
 
+def segment_trajectory_to_state_sequence(
+        seg_traj: List[Segment]) -> List[State]:
+    """Convert a trajectory of segments into a trajectory of states, made up of
+    only the initial/final states of the segments.
+
+    The length of the return value will always be one greater than the
+    length of the given seg_traj.
+    """
+    assert len(seg_traj) >= 1
+    states = []
+    for i, seg in enumerate(seg_traj):
+        states.append(seg.states[0])
+        if i < len(seg_traj) - 1:
+            assert seg.states[-1].allclose(seg_traj[i + 1].states[0])
+    states.append(seg_traj[-1].states[-1])
+    assert len(states) == len(seg_traj) + 1
+    return states
+
+
 def segment_trajectory_to_atoms_sequence(
         seg_traj: List[Segment]) -> List[Set[GroundAtom]]:
     """Convert a trajectory of segments into a trajectory of ground atoms.
