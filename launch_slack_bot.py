@@ -12,8 +12,8 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 REPO_NAME = "Learning-and-Intelligent-Systems/predicators"
-ANALYSIS_CMD = "python analysis/analyze_results_directory.py"
-LAUNCH_CMD = "./analysis/run_supercloud_experiments.sh"
+ANALYSIS_CMD = "python scripts/analyze_results_directory.py"
+LAUNCH_CMD = "./scripts/run_supercloud_experiments.sh"
 MAX_CHARS_PER_MESSAGE = 3500  # actual limit is 4000, but we keep a buffer
 GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES = 3
 SUPERCLOUD_LOGIN_SERVER = "login-2"  # can also use login-3 or login-4
