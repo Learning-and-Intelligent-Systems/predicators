@@ -72,7 +72,7 @@ After experiments are running:
 * As indicated by the printouts, to see individual logs, you can use `tail -n 10000 -F supercloud_logs/14438294_log.out`.
 * To cancel all jobs, use `scancel -u $USER`.
 * To see a summary of results, do `python analysis/analyze_results_directory.py`.
-* To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `supercloud_logs/`, `saved_datasets/`, and `saved_approaches`.
+* To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `supercloud_logs/`, `saved_datasets/`, and `saved_approaches/`.
 
 ### Contributing
 
