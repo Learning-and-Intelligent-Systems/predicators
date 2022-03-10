@@ -42,9 +42,9 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 exceptions_to_break_on={utils.OptionPlanExhausted})
             # Even though we're running the full plan, we should still check
             # that the goal holds at the end.
-            if not task.goal_holds(traj.states[-1]):
-                raise ApproachFailure("Oracle failed on training task.")
-        except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
+            assert task.goal_holds(traj.states[-1]), \
+                "Oracle failed on training task"
+        except (ApproachTimeout, ApproachFailure, AssertionError) as e:
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments
             # with analysis/submit.py.

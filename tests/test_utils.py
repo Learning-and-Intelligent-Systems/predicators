@@ -33,12 +33,14 @@ def test_segment_trajectory_to_atoms_sequence():
     segment2 = Segment(traj, final_atoms, init_atoms)
     atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
     assert atoms_seq == [init_atoms, final_atoms]
-    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1, segment2])
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+        [segment1, segment2])
     assert atoms_seq == [init_atoms, final_atoms, init_atoms]
-    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1, segment2,
-                                                            segment1, segment2])
-    assert atoms_seq == [init_atoms, final_atoms, init_atoms, final_atoms,
-                         init_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+        [segment1, segment2, segment1, segment2])
+    assert atoms_seq == [
+        init_atoms, final_atoms, init_atoms, final_atoms, init_atoms
+    ]
     with pytest.raises(AssertionError):
         # Need at least one segment in the trajectory.
         utils.segment_trajectory_to_atoms_sequence([])
@@ -245,6 +247,27 @@ def test_run_policy():
     assert len(traj3.states) == 2
     assert len(traj3.actions) == 1
 
+    # Test exceptions_to_break_on.
+    def _policy(_):
+        raise ValueError("mock error")
+
+    with pytest.raises(ValueError) as e:
+        utils.run_policy(_policy,
+                         env,
+                         "test",
+                         0,
+                         task.goal_holds,
+                         max_num_steps=5)
+    assert "mock error" in str(e)
+    traj4 = utils.run_policy(_policy,
+                             env,
+                             "test",
+                             0,
+                             task.goal_holds,
+                             max_num_steps=5,
+                             exceptions_to_break_on={ValueError})
+    assert len(traj4.states) == 1
+
 
 def test_run_policy_with_simulator():
     """Tests for run_policy_with_simulator()."""
@@ -305,6 +328,25 @@ def test_run_policy_with_simulator():
                                            monitor=monitor)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
+
+    # Test exceptions_to_break_on.
+    def _policy(_):
+        raise ValueError("mock error")
+
+    with pytest.raises(ValueError) as e:
+        utils.run_policy_with_simulator(_policy,
+                                        _simulator,
+                                        state,
+                                        _terminal,
+                                        max_num_steps=5)
+    assert "mock error" in str(e)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           exceptions_to_break_on={ValueError})
+    assert len(traj.states) == 1
 
 
 def test_option_plan_to_policy():

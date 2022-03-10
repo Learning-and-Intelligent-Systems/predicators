@@ -4,7 +4,7 @@ Learns operators and samplers. Does not attempt to learn new predicates
 or options.
 """
 
-from typing import Set, List, Sequence, Optional
+from typing import Set, List, Optional
 import dill as pkl
 from gym.spaces import Box
 from predicators.src.approaches import BilevelPlanningApproach

@@ -616,12 +616,9 @@ def test_expected_nodes_score_function():
     # than the max number of demos.
     max_num_demos = 5
     utils.reset_config({
-        "env":
-        "cover",
-        "grammar_search_max_demos":
-        max_num_demos,
-        "cover_initial_holding_prob":
-        0.0,
+        "env": "cover",
+        "grammar_search_max_demos": max_num_demos,
+        "cover_initial_holding_prob": 0.0,
     })
     assert CFG.segmenter == "option_changes"
     for num_train_tasks in [2, 15]:

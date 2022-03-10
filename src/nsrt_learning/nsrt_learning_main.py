@@ -1,9 +1,9 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-from typing import Set, List, Sequence, Iterator, Tuple
+from typing import Set, List, Iterator, Tuple
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task
+    Segment, PartialNSRTAndDatastore, Task
 from predicators.src import utils
 from predicators.src.settings import CFG
 from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
@@ -66,9 +66,8 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     if CFG.learn_side_predicates:
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
-        pnads = _learn_pnad_side_predicates(pnads, trajectories,
-                                            train_tasks, predicates,
-                                            segmented_trajs)
+        pnads = _learn_pnad_side_predicates(pnads, trajectories, train_tasks,
+                                            predicates, segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -87,8 +86,8 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
 
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
-        trajectories: List[LowLevelTrajectory],
-        train_tasks: List[Task], predicates: Set[Predicate],
+        trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
@@ -126,8 +125,7 @@ def _learn_pnad_side_predicates(
         # Score function for search. Lower is better.
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
-        score = score_func.evaluate_with_operators(frozenset(),
-                                                   trajectories,
+        score = score_func.evaluate_with_operators(frozenset(), trajectories,
                                                    segmented_trajs, strips_ops,
                                                    option_specs)
         return score
