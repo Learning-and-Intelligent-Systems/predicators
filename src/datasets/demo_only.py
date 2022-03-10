@@ -51,7 +51,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             print(f"WARNING: Approach failed to solve with error: {e}")
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
-            continue
+            continue  # pragma: no cover
         # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
                                   traj.actions,
