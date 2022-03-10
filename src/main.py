@@ -14,9 +14,9 @@ To load saved data:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_data
 
-To make videos:
+To make videos of test tasks:
     python src/main.py --env cover --approach oracle --seed 0 \
-        --make_videos --num_test_tasks 1
+        --make_test_videos --num_test_tasks 1
 
 To run interactive learning approach:
     python src/main.py --env cover --approach interactive_learning \
@@ -46,7 +46,8 @@ from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, \
     InteractionRequest, InteractionResult
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from predicators.src.teacher import Teacher, TeacherInteractionMonitor, \
+    TeacherInteractionMonitorWithVideo
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -191,8 +192,11 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
-                                                     teacher)
+        if CFG.make_interaction_videos:
+            monitor = TeacherInteractionMonitorWithVideo(env.render, request,
+                                                         teacher)
+        else:
+            monitor = TeacherInteractionMonitor(request, teacher)
         traj = utils.run_policy(
             request.act_policy,
             env,
@@ -239,7 +243,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             continue
         num_found_policy += 1
         try:
-            if CFG.make_videos:
+            if CFG.make_test_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
@@ -268,7 +272,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         else:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed "
                   f"to reach goal")
-        if CFG.make_videos:
+        if CFG.make_test_videos:
             assert monitor is not None
             video = monitor.get_video()
             outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"

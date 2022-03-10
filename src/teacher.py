@@ -197,18 +197,10 @@ class TeacherInteractionMonitor(utils.Monitor):
 @dataclass
 class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
                                          utils.VideoMonitor):
-    """A monitor that wraps interaction with an environment to include
-    generating and answering queries.
-
-    Optionally, if CFG.make_interaction_videos is True, also renders
-    every state and action encountered. The render_fn is generally
-    env.render.
+    """A monitor that wraps a TeacherInteractionMonitor to optionally also
+    render every state and action encountered, if CFG.make_interaction_videos
+    is True. The render_fn is generally env.render.
     """
-    _request: InteractionRequest
-    _teacher: Teacher
-    _responses: List[Optional[Response]] = field(init=False,
-                                                 default_factory=list)
-    _query_cost: float = field(init=False, default=0.0)
 
     def observe(self, state: State, action: Optional[Action]) -> None:
         query = self._request.query_policy(state)
@@ -220,5 +212,4 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
             self._query_cost += query.cost
             caption = f"{response}, cost={query.cost}"
         self._responses.append(response)
-        if CFG.make_interaction_videos:
-            self._video.extend(self._render_fn(action, caption))
+        self._video.extend(self._render_fn(action, caption))
