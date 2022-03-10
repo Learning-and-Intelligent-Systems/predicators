@@ -1,5 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
+import logging
 from typing import Set, List, Optional, Tuple, Callable, Sequence, Dict
 import dill as pkl
 import numpy as np
@@ -67,7 +68,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     def _relearn_predicates_and_nsrts(
             self, online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
-        print("\nRelearning predicates and NSRTs...")
+        logging.info("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
             input_examples = []
@@ -88,9 +89,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             num_positives = sum(y == 1 for y in output_examples)
             num_negatives = sum(y == 0 for y in output_examples)
             assert num_positives + num_negatives == len(output_examples)
-            print(f"Generated {num_positives} positive and "
-                  f"{num_negatives} negative examples for "
-                  f"predicate {pred}")
+            logging.info(f"Generated {num_positives} positive and "
+                         f"{num_negatives} negative examples for "
+                         f"predicate {pred}")
 
             # Train MLP
             X = np.array(input_examples)
@@ -202,7 +203,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
         # If there are no possible goals, fall back to random immediately.
         if not ground_atom_universe:
-            print("No possible goals, falling back to random")
+            logging.info("No possible goals, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
@@ -225,7 +226,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         except ApproachFailure:
             # Fall back to a random exploration strategy if no solvable task
             # can be found.
-            print("No solvable task found, falling back to random")
+            logging.info("No solvable task found, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
 
@@ -305,11 +306,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             task_list: List[Task]) -> Tuple[Task, Callable[[State], Action]]:
         for task in task_list:
             try:
-                print("Solving for policy...")
+                logging.info("Solving for policy...")
                 policy = self.solve(task, timeout=CFG.timeout)
                 return task, policy
             except (ApproachTimeout, ApproachFailure) as e:
-                print(f"Approach failed to solve with error: {e}")
+                logging.info(f"Approach failed to solve with error: {e}")
                 continue
         raise ApproachFailure("Failed to sample a task that approach "
                               "can solve.")

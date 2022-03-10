@@ -122,6 +122,7 @@ class GlobalSettings:
     sesame_allow_noops = True  # recommended to keep this False if using replays
 
     # evaluation parameters
+    log_dir = "logs"
     results_dir = "results"
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"

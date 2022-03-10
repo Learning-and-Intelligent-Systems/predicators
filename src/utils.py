@@ -3,11 +3,12 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import abc
-import argparse
 import functools
 import gc
 import itertools
+import logging
 import os
+import subprocess
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
@@ -894,18 +895,18 @@ def run_hill_climbing(
     last_heuristic = heuristic(cur_node.state)
     heuristics = [last_heuristic]
     visited = {initial_state}
-    print(f"\n\nStarting hill climbing at state {cur_node.state} "
-          f"with heuristic {last_heuristic}")
+    logging.info(f"\n\nStarting hill climbing at state {cur_node.state} "
+                 f"with heuristic {last_heuristic}")
     while True:
         if check_goal(cur_node.state):
-            print("\nTerminating hill climbing, achieved goal")
+            logging.info("\nTerminating hill climbing, achieved goal")
             break
         best_heuristic = float("inf")
         best_child_node = None
         current_depth_nodes = [cur_node]
         all_best_heuristics = []
         for depth in range(0, enforced_depth + 1):
-            print(f"Searching for an improvement at depth {depth}")
+            logging.info(f"Searching for an improvement at depth {depth}")
             # This is a list to ensure determinism. Note that duplicates are
             # filtered out in the `child_state in visited` check.
             successors_at_depth = []
@@ -941,22 +942,23 @@ def run_hill_climbing(
             all_best_heuristics.append(best_heuristic)
             if last_heuristic > best_heuristic:
                 # Some improvement found.
-                print(f"Found an improvement at depth {depth}")
+                logging.info(f"Found an improvement at depth {depth}")
                 break
             # Continue on to the next depth.
             current_depth_nodes = successors_at_depth
-            print(f"No improvement found at depth {depth}")
+            logging.info(f"No improvement found at depth {depth}")
         if best_child_node is None:
-            print("\nTerminating hill climbing, no more successors")
+            logging.info("\nTerminating hill climbing, no more successors")
             break
         if last_heuristic <= best_heuristic:
-            print("\nTerminating hill climbing, could not improve score")
+            logging.info(
+                "\nTerminating hill climbing, could not improve score")
             break
         heuristics.extend(all_best_heuristics)
         cur_node = best_child_node
         last_heuristic = best_heuristic
-        print(f"\nHill climbing reached new state {cur_node.state} "
-              f"with heuristic {last_heuristic}")
+        logging.info(f"\nHill climbing reached new state {cur_node.state} "
+                     f"with heuristic {last_heuristic}")
     states, actions = _finish_plan(cur_node)
     assert len(states) == len(heuristics)
     return states, actions, heuristics
@@ -1351,7 +1353,10 @@ class _PyperplanHeuristicWrapper(_TaskPlanningHeuristic):
                   pyperplan_goal: _PyperplanFacts,
                   pyperplan_heuristic: _PyperplanBaseHeuristic) -> float:
         pyperplan_node = _PyperplanNode(pyperplan_facts, pyperplan_goal)
-        return pyperplan_heuristic(pyperplan_node)
+        logging.disable(logging.DEBUG)
+        result = pyperplan_heuristic(pyperplan_node)
+        logging.disable(logging.NOTSET)
+        return result
 
 
 def _create_pyperplan_task(
@@ -1543,7 +1548,7 @@ def save_video(outfile: str, video: Video) -> None:
     os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, outfile)
     imageio.mimwrite(outpath, video, fps=CFG.video_fps)
-    print(f"Wrote out to {outpath}")
+    logging.info(f"Wrote out to {outpath}")
 
 
 def get_env_asset_path(asset_name: str) -> str:
@@ -1623,7 +1628,6 @@ def parse_args(env_required: bool = True,
                                approach_required=approach_required,
                                seed_required=seed_required)
     args, overrides = parser.parse_known_args()
-    print_args(args)
     arg_dict = vars(args)
     if len(overrides) == 0:
         return arg_dict
@@ -1667,15 +1671,6 @@ def string_to_python_object(value: str) -> Any:
     return value
 
 
-def print_args(args: argparse.Namespace) -> None:
-    """Print all info for this experiment."""
-    print(f"Seed: {args.seed}")
-    print(f"Env: {args.env}")
-    print(f"Approach: {args.approach}")
-    print(f"Timeout: {args.timeout}")
-    print()
-
-
 def flush_cache() -> None:
     """Clear all lru caches."""
     gc.collect()
@@ -1700,7 +1695,7 @@ def parse_config_excluded_predicates(
                 pred.name
                 for pred in env.predicates if pred not in env.goal_predicates
             }
-            print(f"All non-goal predicates excluded: {excluded_names}")
+            logging.info(f"All non-goal predicates excluded: {excluded_names}")
             included = env.goal_predicates
         else:
             excluded_names = set(CFG.excluded_predicates.split(","))
@@ -1726,3 +1721,9 @@ def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
     """A sampler for an NSRT with no continuous parameters."""
     del state, goal, rng, objs  # unused
     return np.array([], dtype=np.float32)  # no continuous parameters
+
+
+def get_git_commit_hash() -> str:
+    """Return the hash of the current git commit."""
+    out = subprocess.check_output(["git", "rev-parse", "HEAD"])
+    return out.decode("ascii").strip()

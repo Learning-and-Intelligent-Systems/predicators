@@ -6,6 +6,7 @@ import abc
 from dataclasses import dataclass, field
 from functools import cached_property
 import itertools
+import logging
 from operator import le
 from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
@@ -492,14 +493,15 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Predicates are identified based on their evaluation across
         # all states in the dataset.
-        seen = {}  # maps identifier to previous predicate
+        seen: Dict[FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]],
+                   Predicate] = {}  # keys are from _get_predicate_identifier()
         for (predicate, cost) in self.base_grammar.enumerate():
             if cost >= CFG.grammar_search_predicate_cost_upper_bound:
                 return
             pred_id = self._get_predicate_identifier(predicate)
             if pred_id in seen:
-                # Useful for debugging
-                # print("Pruning", predicate, "b/c equal to", seen[pred_id])
+                logging.debug(f"Pruning {predicate} b/c equal to "
+                              f"{seen[pred_id]}")
                 continue
             # Found a new predicate.
             seen[pred_id] = predicate
@@ -614,28 +616,28 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
-        print("Generating candidate predicates...")
+        logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
-        print(f"Done: created {len(candidates)} candidates:")
+        logging.info(f"Done: created {len(candidates)} candidates:")
         for predicate, cost in candidates.items():
-            print(predicate, cost)
+            logging.info(f"{predicate} {cost}")
         # Apply the candidate predicates to the data.
-        print("Applying predicates to data...")
+        logging.info("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories,
             set(candidates) | self._initial_predicates)
-        print("Done.")
+        logging.info("Done.")
         # Create the score function that will be used to guide search.
         score_function = create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
             atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
-        print("Selecting a subset...")
+        logging.info("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
             candidates, score_function, self._initial_predicates, atom_dataset)
-        print("Done.")
+        logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
@@ -675,16 +677,16 @@ def _select_predicates_to_keep(
             score_function.evaluate,
             enforced_depth=CFG.grammar_search_hill_climbing_depth,
             parallelize=CFG.grammar_search_parallelize_hill_climbing)
-        print("\nHill climbing summary:")
+        logging.info("\nHill climbing summary:")
         for i in range(1, len(path)):
             new_additions = path[i] - path[i - 1]
             assert len(new_additions) == 1
             new_addition = next(iter(new_additions))
             h = heuristics[i]
             prev_h = heuristics[i - 1]
-            print(f"\tOn step {i}, added {new_addition}, with heuristic "
-                  f"{h:.3f} (an improvement of {prev_h - h:.3f} over the "
-                  "previous step)")
+            logging.info(f"\tOn step {i}, added {new_addition}, with "
+                         f"heuristic {h:.3f} (an improvement of "
+                         f"{prev_h - h:.3f} over the previous step)")
     elif CFG.grammar_search_search_algorithm == "gbfs":
         path, _ = utils.run_gbfs(init,
                                  _check_goal,
@@ -698,7 +700,8 @@ def _select_predicates_to_keep(
     kept_predicates = path[-1]
 
     # Filter out predicates that don't appear in some operator preconditions.
-    print("\nFiltering out predicates that don't appear in preconditions...")
+    logging.info("\nFiltering out predicates that don't appear in "
+                 "preconditions...")
     pruned_atom_data = utils.prune_ground_atom_dataset(
         atom_dataset, kept_predicates | initial_predicates)
     segments = [
@@ -710,10 +713,10 @@ def _select_predicates_to_keep(
             preds_in_preconds.add(atom.predicate)
     kept_predicates &= preds_in_preconds
 
-    print(f"\nSelected {len(kept_predicates)} predicates out of "
-          f"{len(candidates)} candidates:")
+    logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+                 f"{len(candidates)} candidates:")
     for pred in kept_predicates:
-        print("\t", pred)
-    score_function.evaluate(kept_predicates)  # print out useful numbers
+        logging.info(f"\t{pred}")
+    score_function.evaluate(kept_predicates)  # log useful numbers
 
     return set(kept_predicates)

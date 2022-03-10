@@ -2,6 +2,7 @@
 
 import abc
 import os
+import logging
 from dataclasses import dataclass
 import tempfile
 from typing import Sequence, List, Tuple, Optional
@@ -92,7 +93,7 @@ class MLPRegressor(nn.Module):
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         Y, self._output_shift, self._output_scale = self._normalize_data(Y)
         # Train
-        print(f"Training MLPRegressor on {num_data} datapoints")
+        logging.info(f"Training MLPRegressor on {num_data} datapoints")
         self.train()  # switch to train mode
         itr = 0
         max_itrs = CFG.mlp_regressor_max_itr
@@ -105,10 +106,8 @@ class MLPRegressor(nn.Module):
                 best_loss = loss.item()
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
-            if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}",
-                      end="\r",
-                      flush=True)
+            if itr % 1000 == 0:
+                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}")
             self._optimizer.zero_grad()
             loss.backward()
             if CFG.mlp_regressor_clip_gradients:
@@ -116,7 +115,6 @@ class MLPRegressor(nn.Module):
                     self.parameters(), CFG.mlp_regressor_gradient_clip_value)
             self._optimizer.step()
             if itr == max_itrs:
-                print()
                 break
             itr += 1
         # Load best model
@@ -125,7 +123,7 @@ class MLPRegressor(nn.Module):
         self.eval()  # switch to eval mode
         yhat = self(X)
         loss = self._loss_fn(yhat, Y)
-        print(f"Loaded best model with loss: {loss:.5f}")
+        logging.info(f"Loaded best model with loss: {loss:.5f}")
 
 
 class NeuralGaussianRegressor(nn.Module):
@@ -201,7 +199,8 @@ class NeuralGaussianRegressor(nn.Module):
         X, self._input_shift, self._input_scale = self._normalize_data(X)
         Y, self._output_shift, self._output_scale = self._normalize_data(Y)
         # Train
-        print(f"Training {self.__class__.__name__} on {num_data} datapoints")
+        logging.info(f"Training {self.__class__.__name__} on {num_data} "
+                     "datapoints")
         self.train()  # switch to train mode
         itr = 0
         max_itrs = CFG.neural_gaus_regressor_max_itr
@@ -214,15 +213,12 @@ class NeuralGaussianRegressor(nn.Module):
                 best_loss = loss.item()
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
-            if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}",
-                      end="\r",
-                      flush=True)
+            if itr % 1000 == 0:
+                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{max_itrs}")
             self._optimizer.zero_grad()
             loss.backward()
             self._optimizer.step()
             if itr == max_itrs:
-                print()
                 break
             itr += 1
         # Load best model
@@ -231,7 +227,7 @@ class NeuralGaussianRegressor(nn.Module):
         self.eval()  # switch to eval mode
         pred_mean, pred_var = self._split_prediction(self(X))
         loss = self._loss_fn(pred_mean, Y, pred_var)
-        print(f"Loaded best model with loss: {loss:.5f}")
+        logging.info(f"Loaded best model with loss: {loss:.5f}")
 
     def _initialize_net(self, in_size: int, hid_sizes: List[int],
                         out_size: int) -> None:
@@ -352,7 +348,7 @@ class MLPClassifier(Classifier, nn.Module):
             y_lst = [y[i] for i in keep_idxs]
             X = np.array(X_lst)
             y = np.array(y_lst)
-            print(f"Reduced dataset size from {old_len} to {len(y)}")
+            logging.info(f"Reduced dataset size from {old_len} to {len(y)}")
         self._fit(X, y)
 
     def forward(self, inputs: Array) -> Tensor:
@@ -393,7 +389,8 @@ class MLPClassifier(Classifier, nn.Module):
         X = torch.from_numpy(np.array(inputs, dtype=np.float32))
         y = torch.from_numpy(np.array(outputs, dtype=np.float32))
         # Train
-        print(f"Training {self.__class__.__name__} on {X.shape[0]} datapoints")
+        logging.info(f"Training {self.__class__.__name__} on {X.shape[0]} "
+                     "datapoints")
         self.train()  # switch to train mode
         itr = 0
         best_loss = float("inf")
@@ -410,19 +407,16 @@ class MLPClassifier(Classifier, nn.Module):
                 best_itr = itr
                 # Save this best model
                 torch.save(self.state_dict(), model_name)
-            if itr % 100 == 0:
-                print(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}",
-                      end="\r",
-                      flush=True)
+            if itr % 1000 == 0:
+                logging.info(f"Loss: {loss:.5f}, iter: {itr}/{self._max_itr}")
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             if itr == self._max_itr:
-                print()
                 break
             if itr - best_itr > n_iter_no_change:
-                print(f"\nLoss did not improve after {n_iter_no_change} "
-                      f"itrs, terminating at itr {itr}.")
+                logging.info(f"Loss did not improve after {n_iter_no_change} "
+                             f"itrs, terminating at itr {itr}.")
                 break
             itr += 1
         # Load best model
@@ -431,7 +425,7 @@ class MLPClassifier(Classifier, nn.Module):
         self.eval()  # switch to eval mode
         yhat = self(X)
         loss = loss_fn(yhat, y)
-        print(f"Loaded best model with loss: {loss:.5f}")
+        logging.info(f"Loaded best model with loss: {loss:.5f}")
 
 
 class MLPClassifierEnsemble(Classifier):
@@ -444,7 +438,7 @@ class MLPClassifierEnsemble(Classifier):
 
     def fit(self, X: Array, y: Array) -> None:
         for i, member in enumerate(self._members):
-            print(f"Fitting member {i} of ensemble...")
+            logging.info(f"Fitting member {i} of ensemble...")
             member.fit(X, y)
 
     def classify(self, x: Array) -> bool:
