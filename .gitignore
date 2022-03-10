@@ -11,7 +11,6 @@ build
 dist
 pylint_recursive.py
 .coverage
-supercloud_logs
 results
 videos
 logs
