@@ -67,7 +67,7 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
         pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
-                                            train_tasks, predicates, segments,
+                                            train_tasks, predicates,
                                             segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
@@ -89,7 +89,6 @@ def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
         ground_atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task], predicates: Set[Predicate],
-        segments: List[Segment],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
@@ -129,7 +128,7 @@ def _learn_pnad_side_predicates(
         option_specs = [pnad.option_spec for pnad in s]
         score = score_func.evaluate_with_operators(frozenset(),
                                                    ground_atom_dataset,
-                                                   segments, strips_ops,
+                                                   segmented_trajs, strips_ops,
                                                    option_specs)
         return score
 

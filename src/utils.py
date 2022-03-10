@@ -27,12 +27,29 @@ from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
     LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
     GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
     Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
-    GroundNSRTOrSTRIPSOperator, ParameterizedOption
+    GroundNSRTOrSTRIPSOperator, ParameterizedOption, Segment
 from predicators.src.settings import CFG, GlobalSettings
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
 
 matplotlib.use("Agg")
+
+
+def segment_trajectory_to_atoms_sequence(
+        seg_traj: List[Segment]) -> List[Set[GroundAtom]]:
+    """Convert a trajectory of segments into a trajectory of ground atoms.
+
+    The length of the return value will always be one greater than the
+    length of the given seg_traj.
+    """
+    atoms_seq = []
+    for i, seg in enumerate(seg_traj):
+        atoms_seq.append(seg.init_atoms)
+        if i < len(seg_traj) - 1:
+            assert seg.final_atoms == seg_traj[i + 1].init_atoms
+    atoms_seq.append(seg_traj[-1].final_atoms)
+    assert len(atoms_seq) == len(seg_traj) + 1
+    return atoms_seq
 
 
 def num_options_in_action_sequence(actions: Sequence[Action]) -> int:
@@ -414,13 +431,17 @@ def run_policy(policy: Callable[[State], Action],
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
+    (3) an OptionPlanExhausted is raised when calling the policy
     """
     state = env.reset(train_or_test, task_idx)
     states = [state]
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            act = policy(state)
+            try:
+                act = policy(state)
+            except OptionPlanExhausted:
+                break
             if monitor is not None:
                 monitor.observe(state, act)
             state = env.step(act)
@@ -456,13 +477,17 @@ def run_policy_with_simulator(
     Terminates when any of these conditions hold:
     (1) the termination_function returns True
     (2) max_num_steps is reached
+    (3) an OptionPlanExhausted is raised when calling the policy
     """
     state = init_state
     states = [state]
     actions: List[Action] = []
     if not termination_function(state):
         for _ in range(max_num_steps):
-            act = policy(state)
+            try:
+                act = policy(state)
+            except OptionPlanExhausted:
+                break
             if monitor is not None:
                 monitor.observe(state, act)
             state = simulator(state, act)
@@ -516,7 +541,7 @@ def option_plan_to_policy(
         nonlocal cur_option
         if cur_option.terminal(state):
             if not queue:
-                raise OptionPlanExhausted()
+                raise OptionPlanExhausted("Option plan exhausted!")
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)

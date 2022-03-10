@@ -7,7 +7,7 @@ then Execution.
 import abc
 from typing import Callable, Set, List
 from gym.spaces import Box
-from predicators.src.approaches import BaseApproach, ApproachFailure
+from predicators.src.approaches import BaseApproach
 from predicators.src.planning import sesame_plan
 from predicators.src.structs import State, Action, Task, NSRT, \
     Predicate, ParameterizedOption, Type
@@ -66,15 +66,7 @@ class BilevelPlanningApproach(BaseApproach):
         self._metrics["max_num_skeletons_optimized"] = max(
             metrics["num_skeletons_optimized"],
             self._metrics["max_num_skeletons_optimized"])
-        option_policy = utils.option_plan_to_policy(plan)
-
-        def _policy(s: State) -> Action:
-            try:
-                return option_policy(s)
-            except utils.OptionPlanExhausted:
-                raise ApproachFailure("Option plan exhausted.")
-
-        return _policy
+        return utils.option_plan_to_policy(plan)
 
     def reset_metrics(self) -> None:
         super().reset_metrics()

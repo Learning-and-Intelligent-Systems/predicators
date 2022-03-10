@@ -255,7 +255,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Environment "
                   f"failed with error: {e}")
             continue
-        except (ApproachTimeout, ApproachFailure) as e:
+        except (ApproachTimeout, ApproachFailure,
+                utils.OptionPlanExhausted) as e:
             print(f"Task {test_task_idx+1} / {len(test_tasks)}: Approach "
                   f"failed at policy execution time with error: {e}")
             total_num_execution_failures += 1
