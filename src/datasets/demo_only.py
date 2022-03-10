@@ -1,6 +1,5 @@
 """Create offline datasets by collecting demonstrations."""
 
-import logging
 import os
 from typing import List
 from predicators.src.approaches import OracleApproach, ApproachTimeout, \
@@ -38,8 +37,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments
             # with scripts/submit.py.
-            logging.warning("WARNING: Approach failed to solve with error: "
-                            f"{e}")
+            print(f"WARNING: Approach failed to solve with error: {e}")
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
             continue

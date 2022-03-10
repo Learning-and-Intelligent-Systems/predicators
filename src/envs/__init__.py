@@ -1,6 +1,5 @@
 """Default imports for envs folder."""
 
-import logging
 from predicators.src.envs.base_env import BaseEnv
 from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverEnvHierarchicalTypes, CoverMultistepOptions, \
@@ -88,8 +87,7 @@ def get_or_create_env(name: str) -> BaseEnv:
     call reset() or step()).
     """
     if name not in _MOST_RECENT_ENV_INSTANCE:
-        logging.warning(
-            "WARNING: you called get_or_create_env, but I couldn't "
-            f"find {name} in the cache. Making a new instance.")
+        print("WARNING: you called get_or_create_env, but I couldn't find "
+              f"{name} in the cache. Making a new environment instance.")
         create_new_env(name, do_cache=True)
     return _MOST_RECENT_ENV_INSTANCE[name]

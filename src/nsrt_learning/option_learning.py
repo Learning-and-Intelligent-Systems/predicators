@@ -3,7 +3,6 @@
 from __future__ import annotations
 import abc
 from typing import List, Sequence, Dict, Tuple, Set
-import logging
 import numpy as np
 from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
     Segment, Array, ParameterizedOption, Object, Variable, Box, State, Action
@@ -355,7 +354,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         assert len(strips_ops) == len(datastores)
 
         for op, datastore in zip(strips_ops, datastores):
-            logging.info(f"\nLearning option for NSRT {op.name}")
+            print(f"\nLearning option for NSRT {op.name}")
 
             X_regressor: List[Array] = []
             Y_regressor = []
@@ -413,9 +412,8 @@ class _NeuralOptionLearner(_OptionLearnerBase):
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
             regressor = MLPRegressor()
-            logging.info("Fitting regressor with X shape: "
-                         f"{X_arr_regressor.shape}, Y shape: "
-                         f"{Y_arr_regressor.shape}.")
+            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, "
+                  f"Y shape: {Y_arr_regressor.shape}.")
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this operator.

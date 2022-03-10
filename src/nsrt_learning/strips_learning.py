@@ -1,6 +1,5 @@
 """Code for learning the STRIPS operators within NSRTs."""
 
-import logging
 from typing import Set, List, Sequence, cast
 from predicators.src.structs import STRIPSOperator, LiftedAtom, Variable, \
     Predicate, VarToObjSub, Segment, PartialNSRTAndDatastore, DummyOption
@@ -111,8 +110,7 @@ def learn_strips_operators(
 
     # Print and return the PNADs.
     if verbose:
-        logging.info("Learned operators (before side predicate & option "
-                     "learning):")
+        print("\nLearned operators (before side predicate & option learning):")
         for pnad in pnads:
-            logging.info(pnad)
+            print(pnad)
     return pnads

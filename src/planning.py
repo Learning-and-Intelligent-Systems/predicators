@@ -7,7 +7,6 @@ from __future__ import annotations
 from collections import defaultdict
 import heapq as hq
 from itertools import islice
-import logging
 import time
 from typing import List, Set, Optional, Tuple, Iterator, Sequence, Dict
 from dataclasses import dataclass
@@ -100,7 +99,7 @@ def sesame_plan(
                     timeout - (time.time() - start_time))
                 if suc:
                     # Success! It's a complete plan.
-                    logging.info(
+                    print(
                         f"Planning succeeded! Found plan of length "
                         f"{len(plan)} after "
                         f"{int(metrics['num_skeletons_optimized'])} "
@@ -220,9 +219,9 @@ def _skeleton_generator(
         _, _, node = hq.heappop(queue)
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
-        for act in node.skeleton:
-            logging.debug(f"{act.name} {act.objects}")
-        logging.debug("")
+        # for act in node.skeleton:
+        #     print(act.name, act.objects)
+        # print()
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1

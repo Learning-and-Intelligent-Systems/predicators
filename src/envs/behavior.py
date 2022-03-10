@@ -32,6 +32,7 @@ try:
         shutil.rmtree("tmp_behavior_states/")
     os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
+    print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 from predicators.src.envs.behavior_options import navigate_to_obj_pos, \
@@ -338,9 +339,8 @@ class BehaviorEnv(BaseEnv):
             env_creation_attempts += 1
 
         if env_creation_attempts > 9:
-            raise RuntimeError("ERROR: Failed to sample iGibson BEHAVIOR "
-                               "environment that meets bddl initial "
-                               "conditions!")
+            print("ERROR: Failed to sample iGibson BEHAVIOR environment that" +
+                  " meets bddl initial conditions!")
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:

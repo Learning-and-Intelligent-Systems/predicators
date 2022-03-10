@@ -1,8 +1,7 @@
 """Utilities to support using the code in gnn.py."""
 
-from __future__ import division
+from __future__ import print_function, division
 from typing import Any, Callable, Dict, List, Tuple, OrderedDict
-import logging
 import time
 import collections
 import numpy as np
@@ -28,9 +27,9 @@ def train_model(model: Any, dataloaders: Dict,
     best_seen_running_validation_loss = np.inf
 
     for epoch in range(num_epochs):
-        if epoch % 1000 == 0:
-            logging.info(f'Epoch {epoch}/{num_epochs-1}')
-            logging.info('-' * 10)
+        if epoch % 100 == 0:
+            print(f'Epoch {epoch}/{num_epochs-1}', flush=True)
+            print('-' * 10, flush=True)
         # Each epoch has a training and validation phase
         if epoch % 100 == 0 and do_validation:
             phases = ['train', 'val']
@@ -77,17 +76,18 @@ def train_model(model: Any, dataloaders: Dict,
                 # statistics
                 running_loss[phase] += loss.item()
 
-        if epoch % 1000 == 0:
-            logging.info(f"running_loss: {running_loss}")
+        if epoch % 100 == 0:
+            print("running_loss:", running_loss, flush=True)
 
             if do_validation and \
                running_loss['val'] < best_seen_running_validation_loss:
                 best_seen_running_validation_loss = running_loss['val']
                 best_seen_model_weights = model.state_dict()
                 best_seen_model_train_loss = running_loss['train']
-                logging.info(
+                print(
                     "Found new best model with validation loss "
-                    f"{best_seen_running_validation_loss} at epoch {epoch}")
+                    f"{best_seen_running_validation_loss} at epoch {epoch}",
+                    flush=True)
 
     time_elapsed = time.time() - since
     num_min = time_elapsed // 60
@@ -95,13 +95,16 @@ def train_model(model: Any, dataloaders: Dict,
 
     if not do_validation:
         train_loss = running_loss['train']
-        logging.info(f"Training complete in {num_min:.0f}m {num_sec:.0f}s "
-                     f"with train loss {train_loss:.5f}")
+        print(
+            f"Training complete in {num_min:.0f}m {num_sec:.0f}s "
+            f"with train loss {train_loss:.5f}",
+            flush=True)
         return model.state_dict()
-    logging.info(
+    print(
         f"Training complete in {num_min:.0f}m {num_sec:.0f}s "
         f"with train loss {best_seen_model_train_loss:.5f} and validation "
-        f"loss {best_seen_running_validation_loss:.5f}")
+        f"loss {best_seen_running_validation_loss:.5f}",
+        flush=True)
 
     assert best_seen_model_weights
     return best_seen_model_weights

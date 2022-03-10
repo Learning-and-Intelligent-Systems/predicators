@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from typing import Set, Tuple, List, Sequence, Any
-import logging
 import numpy as np
 from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
     Object, Array, State, Datastore, STRIPSOperator, OptionSpec, NSRTSampler, \
@@ -122,14 +121,14 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     transitions corresponding to the datastore that this sampler is
     being learned for.
     """
-    logging.info(f"\nLearning neural sampler for NSRT {nsrt_name}")
+    print(f"\nLearning neural sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
         datastores, variables, preconditions, add_effects, delete_effects,
         param_option, datastore_idx)
 
     # Fit classifier to data
-    logging.info("Fitting classifier...")
+    print("Fitting classifier...")
     X_classifier: List[List[Array]] = []
     for state, sub, option, goal in positive_data + negative_data:
         # input is state features and option parameters
@@ -157,7 +156,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
-    logging.info("Fitting regressor...")
+    print("Fitting regressor...")
     X_regressor: List[List[Array]] = []
     Y_regressor = []
     for state, sub, option, goal in positive_data:  # don't use negative data!
@@ -245,8 +244,8 @@ def _create_sampler_data(
                     continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-    logging.info(f"Generated {len(positive_data)} positive and "
-                 f"{len(negative_data)} negative examples")
+    print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
+          f"negative examples")
     assert len(positive_data) == len(datastores[datastore_idx])
     return positive_data, negative_data
 
