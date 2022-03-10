@@ -29,5 +29,6 @@ def _run() -> None:
     logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
     print(f"Started job, see log with:\ntail -n 10000 -F {logfile}")
 
+
 if __name__ == "__main__":
     _run()
