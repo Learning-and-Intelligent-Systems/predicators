@@ -76,7 +76,7 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
-    # STEP 7: log and return the NSRTs.
+    # STEP 7: Log and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
     logging.info("\nLearned NSRTs:")
     for nsrt in nsrts:

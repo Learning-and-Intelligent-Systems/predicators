@@ -28,7 +28,7 @@ def train_model(model: Any, dataloaders: Dict,
     best_seen_running_validation_loss = np.inf
 
     for epoch in range(num_epochs):
-        if epoch % 1000 == 0:
+        if epoch % 100 == 0:
             logging.info(f'Epoch {epoch}/{num_epochs-1}')
             logging.info('-' * 10)
         # Each epoch has a training and validation phase
@@ -77,7 +77,7 @@ def train_model(model: Any, dataloaders: Dict,
                 # statistics
                 running_loss[phase] += loss.item()
 
-        if epoch % 1000 == 0:
+        if epoch % 100 == 0:
             logging.info(f"running_loss: {running_loss}")
 
             if do_validation and \
