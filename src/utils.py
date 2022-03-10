@@ -8,6 +8,7 @@ import functools
 import gc
 import itertools
 import os
+import subprocess
 from collections import defaultdict
 from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
     Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
@@ -1672,3 +1673,9 @@ def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
     """A sampler for an NSRT with no continuous parameters."""
     del state, goal, rng, objs  # unused
     return np.array([], dtype=np.float32)  # no continuous parameters
+
+
+def get_git_commit_hash() -> str:
+    """Return the hash of the current git commit."""
+    out = subprocess.check_output(["git", "rev-parse", "HEAD"])
+    return out.decode("ascii").strip()
