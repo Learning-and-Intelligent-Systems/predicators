@@ -31,6 +31,7 @@ export TMPDIR=/state/partition1/user/$USER
 pip install -r requirements.txt
 # Add a shortcut for activating the conda env and switching to this repository.
 echo -e "predicate() {\n    cd ~/predicators\n    conda activate predicators\n}" >> ~/.bashrc
+source ~/.bashrc
 ```
 To test if it worked:
 ```
@@ -43,20 +44,19 @@ python src/main.py --env cover --approach oracle --seed 0
 # Exit the interactive session.
 exit
 ```
-Note that supercloud sometimes hangs, so the experiment may take a while to get started. But once it does, you should see 50/50 tasks solved, and the script should terminate in roughly 2 seconds (as reported at the bottom).
+Note that supercloud sometimes hangs, so the experiment may take a few minutes to get started. But once it does, you should see 50/50 tasks solved, and the script should terminate in roughly 2 seconds (as reported at the bottom).
 
 ## Running Experiments
 
+To get started, activate the conda environment and switch to the repository. If you followed the instructions above, you can do both with `predicate`.
+
 Before running any experiments, it is good practice to make sure that you have a clean workspace:
 * Make sure that you have already backed up any old results that you want to keep.
-* Remove all previous results: `rm -rf results/* supercloud_* saved_*`.
+* Remove all previous results: `rm -f results/* supercloud_logs/* saved_approaches/* saved_datasets/*`.
 * Make sure you are on the right branch (`git branch`) with a clean diff (`git diff`).
 
-To run our default suite of experiments (will take many hours to complete):
+To run our default suite of experiments (will take many hours to complete, we recommend letting it run overnight):
 ```
-# Activate conda and switch to the repository.
-predicate
-# Launch experiments.
 ./analysis/run_supercloud_experiments.sh
 ```
 
@@ -69,11 +69,11 @@ tail -n 10000 -F supercloud_logs/14438294_log.out
 
 After experiments are running:
 * To monitor experiments that are running, use `squeue`.
-* As indicated by the printouts, to see individual logs, you can use `tail -n 10000 -F supercloud_logs/14438294_log.out`.
+* As indicated by the printouts, to see individual logs, you can use, for example, `tail -n 10000 -F supercloud_logs/14438294_log.out`.
 * To cancel all jobs, use `scancel -u $USER`.
-* To see a summary of results, do `python analysis/analyze_results_directory.py`.
-* To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `supercloud_logs/`, `saved_datasets/`, and `saved_approaches`.
+* To see a summary of results so far, do `python analysis/analyze_results_directory.py`.
+* To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `supercloud_logs/`, `saved_datasets/`, and `saved_approaches/`.
 
-### Contributing
+## Contributing
 
 If any of the above steps do not work perfectly or lack clarity, please update this document with a pull request!
