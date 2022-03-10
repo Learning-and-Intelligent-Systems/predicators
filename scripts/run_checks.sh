@@ -25,8 +25,10 @@ fi
 echo "Running unit tests."
 pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=10
 if [ $? -eq 0 ]; then
-    echo "Unit tests passed, but make sure to manually check coverage."
+    echo "Unit tests passed."
 else
     echo "Unit tests failed!"
     exit
 fi
+
+echo "All checks passed!"

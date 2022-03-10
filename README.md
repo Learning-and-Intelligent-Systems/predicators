@@ -56,6 +56,7 @@ See [these instructions](supercloud.md).
 * Example command: `python src/main.py --env behavior --approach oracle --seed 0 --timeout 1000 --sesame_max_samples_per_step 20 --behavior_mode simple --option_model_name oracle_behavior --num_train_tasks 2 --num_test_tasks 2 --behavior_randomize_init_state True --behavior_scene_name Pomaria_1_int --behavior_task_name re-shelving_library_books`.
 
 ## Instructions For Contributing
+* Run `pip install -r requirements-dev.txt` to install additional dependencies.
 * You can't push directly to master. Make a new branch in this repository (don't use a fork, since that will not properly trigger the checks when you make a PR). When your code is ready for review, make a PR and request reviews from the appropriate people.
 * To merge a PR, you need at least one approval, and you have to pass the 4 checks defined in `.github/workflows/predicators.yml`.
 * The unit testing check verifies that tests pass and that code is adequately covered. To run locally: `pytest -s tests/ --cov-config=.coveragerc --cov=src/ --cov=tests/ --cov-fail-under=100 --cov-report=term-missing:skip-covered --durations=0`, which will print out the lines that are uncovered in every file, and also the time taken by every test. The "100" here means that all lines in every file must be covered.
@@ -63,4 +64,3 @@ See [these instructions](supercloud.md).
 * The linter check runs pylint with the custom config file `.predicators_pylintrc` in the root of this repository. Feel free to edit this file as necessary. To run locally: `pytest . --pylint -m pylint --pylint-rcfile=.predicators_pylintrc`.
 * The autoformatting check uses the custom `.style.yapf` in this repo. You can run the autoformatter locally with `yapf -i -r --style .style.yapf . && docformatter -i -r .`.
 * If you want to run all checks locally in one line, you can do `./scripts/run_checks.sh`.
-* In addition to the packages in `requirements.txt`, please `pip install` the following packages if you want to contribute to the repository: `pytest-cov>=2.12.1`, `pytest-pylint>=0.18.0`, `yapf` and `docformatter`. Also, install `mypy` from source: `pip install -U git+git://github.com/python/mypy.git@9a10967fdaa2ac077383b9eccded42829479ef31`. (Note: if [this mypy issue](https://github.com/python/mypy/issues/5485) gets resolved, we can install from head again.)
