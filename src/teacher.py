@@ -199,7 +199,9 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
                                          utils.VideoMonitor):
     """A monitor that wraps a TeacherInteractionMonitor to optionally also
     render every state and action encountered, if CFG.make_interaction_videos
-    is True. The render_fn is generally env.render.
+    is True.
+
+    The render_fn is generally env.render.
     """
 
     def observe(self, state: State, action: Optional[Action]) -> None:

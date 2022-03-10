@@ -59,8 +59,8 @@ def test_main():
     results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--make_test_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
-        "--results_dir", results_dir
+        "--make_test_videos", "--num_test_tasks", "1", "--video_dir",
+        video_dir, "--results_dir", results_dir
     ]
     main()
     # Test making videos of failures.
