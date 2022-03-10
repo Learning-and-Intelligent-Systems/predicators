@@ -52,7 +52,7 @@ def _run_proxy_analysis(args: Dict[str, Any], env_names: List[str],
             for block in state:
                 if block.type.name != "block":
                     continue
-                if CoverEnv._Covers_holds(state, [block, target]):  # pylint:disable=protected-access
+                if CoverEnv._Covers_holds(state, [block, target]):  # pylint: disable=protected-access
                     return False
             return True
 

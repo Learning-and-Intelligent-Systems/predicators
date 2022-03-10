@@ -18,7 +18,7 @@ def _setup_pybullet_test_scene():
 
     Initialized only once and cached globally for efficiency.
     """
-    global _PYBULLET_SCENE_IS_SETUP  # pylint:disable=global-statement
+    global _PYBULLET_SCENE_IS_SETUP  # pylint: disable=global-statement
     if _PYBULLET_SCENE_IS_SETUP:
         return _PYBULLET_SCENE_ATTRIBUTES
     _PYBULLET_SCENE_IS_SETUP = True
