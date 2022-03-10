@@ -255,7 +255,7 @@ class SupercloudLaunchResponse(SupercloudResponse):
 
     def _get_commands(self) -> List[str]:
         return [("git stash && git checkout master && git pull && "
-                 "rm -f results/* logs/* saved_approaches/* "
+                 "rm -f results/* supercloud_logs/* saved_approaches/* "
                  f"saved_datasets/* && {LAUNCH_CMD}")]
 
     def _supercloud_get_message_chunks(self) -> List[str]:

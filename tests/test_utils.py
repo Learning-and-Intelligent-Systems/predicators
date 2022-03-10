@@ -1700,8 +1700,8 @@ def test_save_video():
     os.rmdir(dirname)
 
 
-def test_get_run_id_from_cfg():
-    """Tests for get_run_id_from_cfg()."""
+def test_get_config_path_str():
+    """Tests for get_config_path_str()."""
     utils.reset_config({
         "env": "dummyenv",
         "approach": "dummyapproach",
@@ -1709,7 +1709,7 @@ def test_get_run_id_from_cfg():
         "excluded_predicates": "all",
         "experiment_id": "foobar",
     })
-    s = utils.get_run_id_from_cfg()
+    s = utils.get_config_path_str()
     assert s == "dummyenv__dummyapproach__321__all__foobar"
 
 

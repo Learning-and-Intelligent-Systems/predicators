@@ -1551,32 +1551,16 @@ def reset_config(args: Optional[Dict[str, Any]] = None,
     update_config(arg_dict)
 
 
-def get_run_id_from_cfg() -> str:
+def get_config_path_str() -> str:
     """Get a filename prefix for configuration based on the current CFG."""
-    return get_run_id(CFG.env, CFG.approach, CFG.seed, CFG.excluded_predicates,
-                      CFG.experiment_id)
-
-
-def get_run_id_from_argv() -> str:
-    """Get a filename prefix for configuration based on sys.argv."""
-    parser = create_arg_parser()
-    args, _ = parser.parse_known_args()
-    return get_run_id(args.env, args.approach, args.seed,
-                      args.excluded_predicates, args.experiment_id)
-
-
-def get_run_id(env: str, approach: str, seed: int, excluded_predicates: str,
-               experiment_id: str) -> str:
-    """Create a single string ID based on key settings."""
-    if experiment_id == "":
-        return f"{env}__{approach}__{seed}__{excluded_predicates}"
-    return f"{experiment_id}__{seed}"
+    return (f"{CFG.env}__{CFG.approach}__{CFG.seed}__{CFG.excluded_predicates}"
+            f"__{CFG.experiment_id}")
 
 
 def get_approach_save_path_str() -> str:
     """Get a path for saving and loading approaches."""
     os.makedirs(CFG.approach_dir, exist_ok=True)
-    return f"{CFG.approach_dir}/{get_run_id_from_cfg()}.saved"
+    return f"{CFG.approach_dir}/{get_config_path_str()}.saved"
 
 
 def parse_args(env_required: bool = True,
