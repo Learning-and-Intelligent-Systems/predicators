@@ -1,5 +1,4 @@
-"""Script to analyze experiments resulting from running the script
-scripts/run_supercloud_experiments.sh."""
+"""Script to analyze the results of experiments in the results/ directory."""
 
 from typing import Tuple, Sequence, Callable, Dict
 import glob
