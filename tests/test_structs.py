@@ -69,6 +69,7 @@ def test_variable():
         Variable("var", my_type)  # name must start with ?
 
 
+@pytest.fixture(scope="module", name="state")
 def test_state():
     """Tests for State class."""
     type1 = Type("type1", ["feat1", "feat2"])
@@ -258,9 +259,8 @@ def test_predicate_and_atom():
         zero_arity_pred([])  # ambiguous whether lifted or ground
 
 
-def test_task():
+def test_task(state):
     """Tests for Task class."""
-    state = test_state()
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
@@ -284,13 +284,12 @@ def test_task():
     assert not task2.goal_holds(task.init)
 
 
-def test_option():
+def test_option(state):
     """Tests for ParameterizedOption, Option classes."""
     type1 = Type("type1", ["feat1", "feat2"])
     type2 = Type("type2", ["feat3", "feat4", "feat5"])
     obj7 = type1("obj7")
     obj1 = type2("obj1")
-    state = test_state()
     params_space = Box(-10, 10, (2, ))
 
     def policy(s, m, o, p):
@@ -452,7 +451,7 @@ def test_option_memory_correct():
     assert opt2.terminal(state)
 
 
-def test_operators_and_nsrts():
+def test_operators_and_nsrts(state):
     """Tests for STRIPSOperator, _GroundSTRIPSOperator, NSRT and
     _GroundNSRT."""
     cup_type = Type("cup_type", ["feat1"])
@@ -585,7 +584,6 @@ def test_operators_and_nsrts():
     ground_nsrt4 = nsrt4.ground([cup, plate])
     assert ground_nsrt4 < ground_nsrt2
     assert ground_nsrt2 > ground_nsrt4
-    state = test_state()
     ground_nsrt.sample_option(state, set(), np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
     assert len(filtered_nsrt.parameters) == 2
@@ -620,9 +618,8 @@ def test_operators_and_nsrts():
     Option Objects: []"""
 
 
-def test_datasets():
+def test_datasets(state):
     """Tests for ActionDatasets and OptionDatasets."""
-    state = test_state()
     action = np.zeros(3, dtype=np.float32)
     transition = [state, action, state]
     dataset = [transition]
