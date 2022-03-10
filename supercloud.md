@@ -31,6 +31,8 @@ export TMPDIR=/state/partition1/user/$USER
 pip install -r requirements.txt
 # Add a shortcut for activating the conda env and switching to this repository.
 echo -e "predicate() {\n    cd ~/predicators\n    conda activate predicators\n}" >> ~/.bashrc
+# Add a shortcut for displaying running jobs.
+echo "alias sl='squeue --format=\"%.18i %.9P %.42j %.8u %.8T %.10M %.6D %R\"'" >> ~/.bashrc
 source ~/.bashrc
 ```
 To test if it worked:
@@ -52,7 +54,7 @@ To get started, activate the conda environment and switch to the repository. If 
 
 Before running any experiments, it is good practice to make sure that you have a clean workspace:
 * Make sure that you have already backed up any old results that you want to keep.
-* Remove all previous results: `rm -f results/* supercloud_logs/* saved_approaches/* saved_datasets/*`.
+* Remove all previous results: `rm -f results/* logs/* saved_approaches/* saved_datasets/*`.
 * Make sure you are on the right branch (`git branch`) with a clean diff (`git diff`).
 
 To run our default suite of experiments (will take many hours to complete, we recommend letting it run overnight):
@@ -62,17 +64,17 @@ To run our default suite of experiments (will take many hours to complete, we re
 
 Upon running that script, you should see many printouts, such as:
 ```
-Running command: sbatch -p normal --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=run.sh -o supercloud_logs/%j_log.out run_534559589715824.sh
+Running command: sbatch -p normal --time=99:00:00 --partition=xeon-p8 --nodes=1 --exclusive --job-name=pybullet_blocks_nsrt_learning_456.sh -o /tmp/%j_log.out temp_run_file.sh
 Started job, see log with:
-tail -n 10000 -F supercloud_logs/14438294_log.out
+tail -n 10000 -F logs/pybullet_blocks_nsrt_learning_456.log
 ```
 
 After experiments are running:
-* To monitor experiments that are running, use `squeue`.
-* As indicated by the printouts, to see individual logs, you can use, for example, `tail -n 10000 -F supercloud_logs/14438294_log.out`.
+* To monitor experiments that are running, use `sl`.
+* As indicated by the printouts, to see individual logs, you can use, for example, `logs/pybullet_blocks_nsrt_learning_456.log`.
 * To cancel all jobs, use `scancel -u $USER`.
 * To see a summary of results so far, do `python scripts/analyze_results_directory.py`.
-* To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `supercloud_logs/`, `saved_datasets/`, and `saved_approaches/`.
+* To download results onto your local machine, use `scp -r`. The most important directory to back up is `results/`, but we also recommend backing up `logs/`, `saved_datasets/`, and `saved_approaches/`.
 
 ## Contributing
 
