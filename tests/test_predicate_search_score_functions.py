@@ -622,9 +622,8 @@ def test_expected_nodes_score_function():
         max_num_demos,
         "cover_initial_holding_prob":
         0.0,
-        "grammar_search_expected_nodes_include_suspicious_score":
-        True,
     })
+    assert CFG.segmenter == "option_changes"
     for num_train_tasks in [2, 15]:
         utils.update_config({
             "offline_data_method": "demo+replay",

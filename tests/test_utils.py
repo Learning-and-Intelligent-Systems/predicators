@@ -8,7 +8,7 @@ import numpy as np
 from gym.spaces import Box
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory, DefaultState
+    LowLevelTrajectory, DefaultState, Segment
 from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
     _get_predicates_by_names
 from predicators.src.envs import CoverEnv
@@ -16,6 +16,35 @@ from predicators.src.settings import CFG
 from predicators.src import utils
 from predicators.src.utils import _TaskPlanningHeuristic, \
     _PyperplanHeuristicWrapper, GoalCountHeuristic
+
+
+def test_segment_trajectory_to_atoms_sequence():
+    """Tests for segment_trajectory_to_atoms_sequence()."""
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    traj = LowLevelTrajectory([None], [])
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    segment1 = Segment(traj, init_atoms, final_atoms)
+    segment2 = Segment(traj, final_atoms, init_atoms)
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
+    assert atoms_seq == [init_atoms, final_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1, segment2])
+    assert atoms_seq == [init_atoms, final_atoms, init_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1, segment2,
+                                                            segment1, segment2])
+    assert atoms_seq == [init_atoms, final_atoms, init_atoms, final_atoms,
+                         init_atoms]
+    with pytest.raises(AssertionError):
+        # Need at least one segment in the trajectory.
+        utils.segment_trajectory_to_atoms_sequence([])
+    with pytest.raises(AssertionError):
+        # Segments don't chain together correctly.
+        utils.segment_trajectory_to_atoms_sequence([segment1, segment1])
 
 
 def test_num_options_in_action_sequence():

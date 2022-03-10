@@ -42,6 +42,7 @@ def segment_trajectory_to_atoms_sequence(
     The length of the return value will always be one greater than the
     length of the given seg_traj.
     """
+    assert len(seg_traj) >= 1
     atoms_seq = []
     for i, seg in enumerate(seg_traj):
         atoms_seq.append(seg.init_atoms)

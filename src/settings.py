@@ -297,7 +297,7 @@ class GlobalSettings:
                 {
                     # When options are given, use them to segment instead.
                     "no_learning": "option_changes",
-                })[args.get("option_learner", "")],
+                })[args.get("option_learner", "no_learning")],
         )
 
 

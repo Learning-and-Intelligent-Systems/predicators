@@ -74,6 +74,7 @@ def test_predicate_grammar():
 
 def test_count_positives_for_ops():
     """Tests for _count_positives_for_ops()."""
+    utils.reset_config({"segmenter": "atom_changes"})
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
