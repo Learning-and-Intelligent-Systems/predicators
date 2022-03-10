@@ -275,11 +275,12 @@ def test_relaxation_energy_score_function():
             segmented_trajs = [
                 segment_trajectory(traj) for traj in pruned_atom_data
             ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
             return self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data,
+                                                low_level_trajs,
                                                 segmented_trajs, strips_ops,
                                                 option_specs)
 
@@ -390,11 +391,12 @@ def test_relaxation_energy_score_function():
             segmented_trajs = [
                 segment_trajectory(traj) for traj in pruned_atom_data
             ]
+            low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
             # This is the part that we are overriding, to force no successors.
             strips_ops: List[STRIPSOperator] = []
             option_specs: List[OptionSpec] = []
             return self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data,
+                                                low_level_trajs,
                                                 segmented_trajs, strips_ops,
                                                 option_specs)
 

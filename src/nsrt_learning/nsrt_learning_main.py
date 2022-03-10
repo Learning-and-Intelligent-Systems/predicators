@@ -14,7 +14,7 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 
 
-def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
+def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                           train_tasks: List[Task], predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
@@ -66,7 +66,7 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     if CFG.learn_side_predicates:
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
-        pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
+        pnads = _learn_pnad_side_predicates(pnads, trajectories,
                                             train_tasks, predicates,
                                             segmented_trajs)
 
@@ -87,7 +87,7 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
 
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
-        ground_atom_dataset: List[GroundAtomTrajectory],
+        trajectories: List[LowLevelTrajectory],
         train_tasks: List[Task], predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
 
@@ -127,7 +127,7 @@ def _learn_pnad_side_predicates(
         strips_ops = [pnad.op for pnad in s]
         option_specs = [pnad.option_spec for pnad in s]
         score = score_func.evaluate_with_operators(frozenset(),
-                                                   ground_atom_dataset,
+                                                   trajectories,
                                                    segmented_trajs, strips_ops,
                                                    option_specs)
         return score
