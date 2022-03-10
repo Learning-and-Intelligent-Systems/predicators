@@ -427,7 +427,7 @@ class _MaxSkeletonsFailure(ApproachFailure):
 
 
 class _SkeletonSearchTimeout(ApproachTimeout):
-    """Raised when time out occurs in _run_low_level_search()."""
+    """Raised when timeout occurs in _run_low_level_search()."""
 
     def __init__(self) -> None:
         super().__init__("Planning timed out in skeleton search!")
