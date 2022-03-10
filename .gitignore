@@ -17,5 +17,5 @@ videos
 logs
 saved_approaches
 saved_datasets
-analysis/results
+scripts/results
 tmp_behavior_states
