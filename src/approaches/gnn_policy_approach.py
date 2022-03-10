@@ -1,5 +1,6 @@
 """An approach that trains a GNN mapping states and goals to options."""
 
+import time
 import functools
 from collections import defaultdict
 from typing import Callable, Set, List, Optional, Tuple, Dict, Any
@@ -15,11 +16,13 @@ from predicators.src.gnn.gnn import setup_graph_net
 from predicators.src.gnn.gnn_utils import get_single_model_prediction, \
     train_model, compute_normalizers, normalize_graph, GraphDictDataset, \
     graph_batch_collate
-from predicators.src.approaches import BaseApproach, ApproachFailure
+from predicators.src.approaches import BaseApproach, ApproachFailure, \
+    ApproachTimeout
 from predicators.src.structs import State, Action, Task, _Option, Predicate, \
-    ParameterizedOption, Type, DummyOption, GroundAtom, Dataset
+    ParameterizedOption, Type, DummyOption, GroundAtom, Dataset, Object, Array
 from predicators.src.settings import CFG
 from predicators.src import utils
+from predicators.src.option_model import create_option_model
 
 
 class GNNPolicyApproach(BaseApproach):
@@ -32,6 +35,7 @@ class GNNPolicyApproach(BaseApproach):
                          action_space, train_tasks)
         self._sorted_options = sorted(self._initial_options,
                                       key=lambda o: o.name)
+        self._option_model = create_option_model(CFG.option_model_name)
         # Fields for the GNN.
         self._gnn: Any = None
         self._nullary_predicates: List[Predicate] = []
@@ -51,13 +55,21 @@ class GNNPolicyApproach(BaseApproach):
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         assert self._gnn is not None, "Learning hasn't happened yet!"
+        if CFG.gnn_policy_solve_with_shooting:
+            return self._solve_with_shooting(task, timeout)
+        return self._solve_without_shooting(task)
+
+    def _solve_without_shooting(self, task: Task) -> Callable[[State], Action]:
         cur_option = DummyOption
 
         def _policy(state: State) -> Action:
             atoms = utils.abstract(state, self._initial_predicates)
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
-                cur_option = self._predict_option(state, atoms, task.goal)
+                # Just use the mean parameters to ground the option.
+                param_opt, objects, params_mean = self._predict(
+                    state, atoms, task.goal)
+                cur_option = param_opt.ground(objects, params_mean)
                 if not cur_option.initiable(state):
                     raise ApproachFailure("GNN policy chose a non-initiable "
                                           "option")
@@ -65,6 +77,45 @@ class GNNPolicyApproach(BaseApproach):
             return act
 
         return _policy
+
+    def _solve_with_shooting(self, task: Task,
+                             timeout: int) -> Callable[[State], Action]:
+        start_time = time.time()
+        # Keep trying until the timeout.
+        while time.time() - start_time < timeout:
+            total_num_act = 0
+            state = task.init
+            plan: List[_Option] = []
+            # A single shooting try goes up to the environment's horizon.
+            while total_num_act < CFG.horizon:
+                if task.goal_holds(state):
+                    return utils.option_plan_to_policy(plan)
+                atoms = utils.abstract(state, self._initial_predicates)
+                param_opt, objects, params_mean = self._predict(
+                    state, atoms, task.goal)
+                low = param_opt.params_space.low
+                high = param_opt.params_space.high
+                # Sample an initiable option.
+                for _ in range(CFG.gnn_policy_shooting_num_samples):
+                    params = np.array(self._rng.normal(
+                        params_mean, CFG.gnn_policy_shooting_variance),
+                                      dtype=np.float32)
+                    params = np.clip(params, low, high)
+                    opt = param_opt.ground(objects, params)
+                    if opt.initiable(state):
+                        break
+                else:
+                    break  # out of the while loop for this shooting try
+                plan.append(opt)
+                # Use the option model to determine the next state.
+                try:
+                    state, num_act = \
+                        self._option_model.get_next_state_and_num_actions(
+                            state, opt)
+                except utils.EnvironmentFailure:
+                    break
+                total_num_act += num_act
+        raise ApproachTimeout("Shooting timed out!")
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Organize data into (state, atoms, goal, option) tuples.
@@ -202,8 +253,12 @@ class GNNPolicyApproach(BaseApproach):
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]
 
-    def _predict_option(self, state: State, atoms: Set[GroundAtom],
-                        goal: Set[GroundAtom]) -> _Option:
+    def _predict(
+        self, state: State, atoms: Set[GroundAtom], goal: Set[GroundAtom]
+    ) -> Tuple[ParameterizedOption, List[Object], Array]:
+        """Uses the GNN, which must already have been trained, to predict a
+        parameterized option from self._sorted_options, discrete object
+        arguments, and continuous arguments."""
         # Get output graph.
         in_graph, object_to_node = self._graphify_single_input(
             state, atoms, goal)
@@ -238,7 +293,7 @@ class GNNPolicyApproach(BaseApproach):
                 # If all scores are -inf, we failed to select an object.
                 raise ApproachFailure("GNN policy could not select an object")
             objects.append(node_to_object[np.argmax(scores)])
-        return param_opt.ground(objects, params)
+        return param_opt, objects, params
 
     def _setup_fields(
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],

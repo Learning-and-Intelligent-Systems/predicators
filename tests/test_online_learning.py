@@ -80,7 +80,9 @@ def test_interaction():
         "timeout": 1,
         "num_train_tasks": 2,
         "num_test_tasks": 1,
-        "num_online_learning_cycles": 1
+        "num_online_learning_cycles": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
@@ -88,7 +90,11 @@ def test_interaction():
                              env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks)
     _run_pipeline(env, approach, train_tasks, dataset)
-    utils.update_config({"approach": "nsrt_learning", "load_data": True})
+    utils.update_config({
+        "approach": "nsrt_learning",
+        "load_data": True,
+        "make_interaction_videos": False,
+    })
     # Invalid query type.
     with pytest.raises(AssertionError) as e:
         _run_pipeline(env, approach, train_tasks, dataset)
