@@ -18,8 +18,9 @@ try:
         ObjectStateBinaryPredicate, ObjectStateUnaryPredicate
     from igibson.envs import behavior_env
     from igibson.object_states.on_floor import RoomFloor
-    from igibson.objects.articulated_object import ArticulatedObject, \
+    from igibson.objects.articulated_object import \
         URDFObject  # pylint: disable=unused-import
+    from igibson.objects.articulated_object import ArticulatedObject
     from igibson.robots.behavior_robot import BRBody
     from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
