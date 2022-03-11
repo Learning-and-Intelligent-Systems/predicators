@@ -1,7 +1,6 @@
 """Tests for args.py."""
 
 import sys
-
 from predicators.src import utils
 
 

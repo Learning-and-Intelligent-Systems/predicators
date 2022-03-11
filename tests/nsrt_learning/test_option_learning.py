@@ -1,20 +1,18 @@
 """Tests for option learning."""
 
-import numpy as np
 import pytest
-
-from predicators.src import utils
+import numpy as np
 from predicators.src.approaches import ApproachFailure
-from predicators.src.datasets.demo_replay import create_demo_replay_data
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.nsrt_learning.option_learning import \
-    _LearnedNeuralParameterizedOption, create_option_learner
+from predicators.src.datasets.demo_replay import create_demo_replay_data
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.strips_learning import \
-    learn_strips_operators
 from predicators.src.structs import STRIPSOperator
 from predicators.src.torch_models import MLPRegressor
+from predicators.src.nsrt_learning.option_learning import \
+    create_option_learner, _LearnedNeuralParameterizedOption
+from predicators.src import utils
 
 
 def test_known_options_option_learner():

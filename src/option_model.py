@@ -5,17 +5,14 @@ option in the environment.
 """
 
 from __future__ import annotations
-
 import abc
-from typing import Tuple, cast
-
+from typing import cast, Tuple
 import numpy as np
-
 from predicators.src import utils
+from predicators.src.structs import State, _Option
+from predicators.src.settings import CFG
 from predicators.src.envs import BaseEnv, get_or_create_env
 from predicators.src.envs.behavior import BehaviorEnv
-from predicators.src.settings import CFG
-from predicators.src.structs import State, _Option
 
 
 def create_option_model(name: str) -> _OptionModelBase:

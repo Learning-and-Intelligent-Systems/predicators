@@ -1,14 +1,13 @@
 """Test cases for the cover environment."""
 
-import numpy as np
 import pytest
+import numpy as np
 from gym.spaces import Box
-
-from predicators.src import utils
-from predicators.src.envs import CoverEnv, CoverEnvRegrasp, \
-    CoverEnvTypedOptions, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks
+from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
+    CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
+    CoverEnvRegrasp
 from predicators.src.structs import Action, Task
+from predicators.src import utils
 
 
 def test_cover():

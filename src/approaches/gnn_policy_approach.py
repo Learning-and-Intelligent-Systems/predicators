@@ -1,31 +1,28 @@
 """An approach that trains a GNN mapping states and goals to options."""
 
-import functools
 import time
+import functools
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
-
+from typing import Callable, Set, List, Optional, Tuple, Dict, Any
 import dill as pkl
 import numpy as np
+from gym.spaces import Box
 import torch
 import torch.nn
 import torch.optim
-from gym.spaces import Box
 from torch.utils.data import DataLoader
-
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
-    BaseApproach
-from predicators.src.gnn.gnn import setup_graph_net
-from predicators.src.gnn.gnn_utils import GraphDictDataset, \
-    compute_normalizers, get_single_model_prediction, graph_batch_collate, \
-    normalize_graph, train_model
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.option_model import create_option_model
+from predicators.src.gnn.gnn import setup_graph_net
+from predicators.src.gnn.gnn_utils import get_single_model_prediction, \
+    train_model, compute_normalizers, normalize_graph, GraphDictDataset, \
+    graph_batch_collate
+from predicators.src.approaches import BaseApproach, ApproachFailure, \
+    ApproachTimeout
+from predicators.src.structs import State, Action, Task, _Option, Predicate, \
+    ParameterizedOption, Type, DummyOption, GroundAtom, Dataset, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Dataset, DummyOption, \
-    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
-    _Option
+from predicators.src import utils
+from predicators.src.option_model import create_option_model
 
 
 class GNNPolicyApproach(BaseApproach):

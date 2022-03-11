@@ -1,19 +1,17 @@
 """A PyBullet version of Blocks."""
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
-
+from typing import Sequence, Tuple, Dict, Optional, Callable, List
+from gym.spaces import Box
 import numpy as np
 import pybullet as p
-from gym.spaces import Box
-
-from predicators.src import utils
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.structs import State, Action, Object, Array, \
+    ParameterizedOption, Type, Image, Pose3D, Task
+from predicators.src import utils
 from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Image, Object, \
-    ParameterizedOption, Pose3D, State, Task, Type
 
 
 class PyBulletBlocksEnv(BlocksEnv):

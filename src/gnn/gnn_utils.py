@@ -1,16 +1,13 @@
 """Utilities to support using the code in gnn.py."""
 
 from __future__ import division
-
-import collections
+from typing import Any, Callable, Dict, List, Tuple, OrderedDict
 import logging
 import time
-from typing import Any, Callable, Dict, List, OrderedDict, Tuple
-
+import collections
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-
 from predicators.src.structs import Array
 
 

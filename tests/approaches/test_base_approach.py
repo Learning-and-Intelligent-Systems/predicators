@@ -1,16 +1,14 @@
 """Test cases for the base approach class."""
 
 from typing import Callable
-
-import numpy as np
 import pytest
 from gym.spaces import Box
-
-from predicators.src import utils
+import numpy as np
 from predicators.src.approaches import BaseApproach, create_approach
 from predicators.src.envs import CoverEnv
-from predicators.src.structs import Action, ParameterizedOption, Predicate, \
-    State, Task, Type
+from predicators.src.structs import State, Type, ParameterizedOption, \
+    Predicate, Task, Action
+from predicators.src import utils
 
 
 class _DummyApproach(BaseApproach):

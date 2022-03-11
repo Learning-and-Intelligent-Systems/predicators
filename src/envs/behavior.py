@@ -5,25 +5,25 @@ import functools
 import itertools
 import os
 import shutil
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
-
+from typing import List, Set, Optional, Dict, Callable, Sequence, \
+    Union, Tuple
 import numpy as np
 from numpy.random._generator import Generator
 
 try:
+    import pybullet as pyb
     import bddl
     import igibson
-    import pybullet as pyb
-    from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
-        ObjectStateBinaryPredicate, ObjectStateUnaryPredicate
-    from igibson.envs import behavior_env
-    from igibson.object_states.on_floor import RoomFloor
-    from igibson.objects.articulated_object import \
-        URDFObject  # pylint: disable=unused-import
-    from igibson.objects.articulated_object import ArticulatedObject
-    from igibson.robots.behavior_robot import BRBody
     from igibson.simulator import Simulator  # pylint: disable=unused-import
-    from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
+    from igibson.envs import behavior_env
+    from igibson.objects.articulated_object import (  # pylint: disable=unused-import
+        ArticulatedObject, )
+    from igibson.objects.articulated_object import URDFObject
+    from igibson.object_states.on_floor import RoomFloor
+    from igibson.robots.behavior_robot import BRBody
+    from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
+        ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
+    from igibson.utils.checkpoint_utils import save_checkpoint, load_checkpoint
     from igibson.utils.utils import modify_config_file
 
     _BEHAVIOR_IMPORTED = True
@@ -34,15 +34,15 @@ try:
 except (ImportError, ModuleNotFoundError) as e:
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
-
+from predicators.src.envs.behavior_options import navigate_to_obj_pos, \
+        grasp_obj_at_pos, place_ontop_obj_pos, create_navigate_policy, \
+            create_grasp_policy, create_place_policy, \
+                create_navigate_option_model, create_grasp_option_model, \
+                    create_place_option_model
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.behavior_options import create_grasp_option_model, \
-    create_grasp_policy, create_navigate_option_model, \
-    create_navigate_policy, create_place_option_model, create_place_policy, \
-    grasp_obj_at_pos, navigate_to_obj_pos, place_ontop_obj_pos
+from predicators.src.structs import Type, Predicate, State, Task, \
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BehaviorEnv(BaseEnv):
