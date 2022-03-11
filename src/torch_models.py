@@ -5,7 +5,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Sequence, Optional, Tuple
 
 import numpy as np
 import torch
@@ -35,7 +35,7 @@ class MLPRegressor(nn.Module):
 
         Both X and Y are multi-dimensional.
         """
-        assert X.ndim== 2
+        assert X.ndim == 2
         assert Y.ndim == 2
         return self._fit(X, Y)
 
