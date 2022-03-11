@@ -63,13 +63,10 @@ class _OracleOptionModel(_OptionModelBase):
         # option has memory. It is also important when using the option model
         # for one environment with options from another environment. E.g.,
         # using a non-PyBullet environment in the option model while using a
-        # PyBullet environment otherwise. Note that in this case of using a
-        # PyBullet environment, the second return value (num_actions) will be
-        # an underestimate since we are not actually rolling out the option in
-        # the full simulator, but that's okay. Finally, in the case where we
-        # are learning options, the learned options will not appear in the
-        # env.options set. (However, we still want to use the environment
-        # options during data collection when we are learning options). In this
+        # PyBullet environment otherwise. In the case where we are
+        # learning options, the learned options will not appear in the
+        # env.options set. However, we still want to use the environment
+        # options during data collection when we are learning options. In this
         # case, we make a copy of the option itself, rather than reconstructing
         # it from env.options.
         param_opt = option.parent
@@ -93,6 +90,10 @@ class _OracleOptionModel(_OptionModelBase):
             state,
             option_copy.terminal,
             max_num_steps=CFG.max_num_steps_option_rollout)
+        # Note that in the case of using a PyBullet environment, the
+        # second return value (num_actions) will be an underestimate
+        # since we are not actually rolling out the option in the full
+        # simulator, but that's okay; it leads to optimistic planning.
         return traj.states[-1], len(traj.actions)
 
 
