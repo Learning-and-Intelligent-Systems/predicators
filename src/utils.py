@@ -1730,7 +1730,6 @@ def get_git_commit_hash() -> str:
 
 
 def get_all_subclasses(cls: Any) -> Set[Any]:
-    """Get all subclasses of the given class.
-    """
+    """Get all subclasses of the given class."""
     return set(cls.__subclasses__()).union(
         [s for c in cls.__subclasses__() for s in get_all_subclasses(c)])

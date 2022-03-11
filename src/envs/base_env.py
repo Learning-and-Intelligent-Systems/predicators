@@ -26,9 +26,8 @@ class BaseEnv(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def get_name(cls) -> str:
-        """Get the unique name of this environment, used as the argument
-        to `--env`.
-        """
+        """Get the unique name of this environment, used as the argument to
+        `--env`."""
         raise NotImplementedError("Override me!")
 
     @abc.abstractmethod

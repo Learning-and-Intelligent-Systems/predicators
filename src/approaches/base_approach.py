@@ -31,9 +31,8 @@ class BaseApproach(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def get_name(cls) -> str:
-        """Get the unique name of this approach, used as the argument
-        to `--approach`.
-        """
+        """Get the unique name of this approach, used as the argument to
+        `--approach`."""
         raise NotImplementedError("Override me!")
 
     @property

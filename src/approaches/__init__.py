@@ -11,7 +11,6 @@ from predicators.src import utils
 
 __all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
 
-
 if not TYPE_CHECKING:
     # Load all modules so that utils.get_all_subclasses() works.
     for loader, module_name, _ in pkgutil.walk_packages(__path__):
@@ -26,8 +25,8 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
     """Create an approach given its name."""
     for cls in utils.get_all_subclasses(BaseApproach):
         if cls is not BaseApproach and cls.get_name() == name:
-            approach = cls(initial_predicates, initial_options,
-                           types, action_space, train_tasks)
+            approach = cls(initial_predicates, initial_options, types,
+                           action_space, train_tasks)
             break
     else:
         raise NotImplementedError(f"Unknown approach: {name}")
