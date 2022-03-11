@@ -5,7 +5,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import List, Sequence, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
