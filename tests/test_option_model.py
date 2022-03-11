@@ -24,6 +24,22 @@ def test_default_option_model():
     obj1 = type2("obj1")
     obj4 = type2("obj4")
     obj9 = type2("obj9")
+    params_space = Box(-10, 10, (2, ))
+
+    def policy(s, m, o, p):
+        del s, m, o  # unused
+        return Action(p * 2)
+
+    def initiable(s, m, o, p):
+        del o, p  # unused
+        obj = list(s)[0]
+        m["start_state"] = s
+        return s[obj][0] < 10 or s[obj][0] > 60
+
+    def terminal(s, m, o, p):
+        del o, p  # unused
+        obj = list(s)[0]
+        return s[obj][0] > 50 and not s.allclose(m["start_state"])
 
     class _MockEnv:
 
@@ -39,22 +55,6 @@ def test_default_option_model():
         @property
         def options(self):
             """Mock options."""
-            params_space = Box(-10, 10, (2, ))
-
-            def policy(s, m, o, p):
-                del s, m, o  # unused
-                return Action(p * 2)
-
-            def initiable(s, m, o, p):
-                del o, p  # unused
-                obj = list(s)[0]
-                m["start_state"] = s
-                return s[obj][0] < 10 or s[obj][0] > 60
-
-            def terminal(s, m, o, p):
-                del o, p  # unused
-                obj = list(s)[0]
-                return s[obj][0] > 50 and not s.allclose(m["start_state"])
 
             parameterized_option = ParameterizedOption("Pick", [],
                                                        params_space, policy,
@@ -65,12 +65,12 @@ def test_default_option_model():
     env = _MockEnv()
     parameterized_option = env.options.pop()
 
-    params = [-5, 5]
-    option1 = parameterized_option.ground([], params)
-    params = [-7, 7]
-    option2 = parameterized_option.ground([], params)
-    params = [-8, 2]
-    option3 = parameterized_option.ground([], params)
+    params1 = [-5, 5]
+    option1 = parameterized_option.ground([], params1)
+    params2 = [-7, 7]
+    option2 = parameterized_option.ground([], params2)
+    params3 = [-8, 2]
+    option3 = parameterized_option.ground([], params3)
     state = State({
         obj3: [1, 2],
         obj7: [3, 4],
@@ -90,6 +90,7 @@ def test_default_option_model():
     with pytest.raises(AssertionError):  # option2 is not initiable
         model.get_next_state_and_num_actions(next_state, option2)
     next_state, num_act = model.get_next_state_and_num_actions(state, option2)
+    remembered_next_state = next_state
     assert num_act == 4
     assert abs(next_state.get(obj1, "feat3") - 61) < 1e-6
     next_next_state, num_act = model.get_next_state_and_num_actions(
@@ -97,6 +98,21 @@ def test_default_option_model():
     assert num_act == 1
     assert abs(next_state.get(obj1, "feat3") - 61) < 1e-6  # no change
     assert abs(next_next_state.get(obj1, "feat3") - 65) < 1e-6
+    # Test calling the option model with a learned option.
+    learned_param_opt = ParameterizedOption("MockOption", [], params_space,
+                                            policy, initiable, terminal)
+    learned_option = learned_param_opt.ground([], params2)
+    with pytest.raises(AssertionError):  # "Learned" doesn't appear in the name
+        model.get_next_state_and_num_actions(state, learned_option)
+    learned_param_opt = ParameterizedOption("MockLearnedOption", [],
+                                            params_space, policy, initiable,
+                                            terminal)
+    learned_option = learned_param_opt.ground([], params2)
+    # We fixed the name; now it should work.
+    next_state, num_act = model.get_next_state_and_num_actions(
+        state, learned_option)
+    assert num_act == 4
+    assert remembered_next_state.allclose(next_state)
 
 
 def test_option_model_notimplemented():
