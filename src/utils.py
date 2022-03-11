@@ -1,35 +1,41 @@
 """General utility methods."""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
+
 import abc
 import functools
 import gc
+import heapq as hq
 import itertools
 import logging
 import os
 import subprocess
 from collections import defaultdict
-from typing import List, Callable, Tuple, Collection, Set, Sequence, Iterator, \
-    Dict, FrozenSet, Any, Optional, Hashable, TypeVar, Generic, cast, Union, \
-    TYPE_CHECKING, Type as TypingType
-import heapq as hq
-from gym.spaces import Box
-import pathos.multiprocessing as mp
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Callable, Collection, Dict, FrozenSet, \
+    Generic, Hashable, Iterator, List, Optional, Sequence, Set, Tuple
+from typing import Type as TypingType
+from typing import TypeVar, Union, cast
+
 import imageio
 import matplotlib
 import numpy as np
+import pathos.multiprocessing as mp
+from gym.spaces import Box
 from pyperplan.heuristics.heuristic_base import \
     Heuristic as _PyperplanBaseHeuristic
 from pyperplan.planner import HEURISTICS as _PYPERPLAN_HEURISTICS
+
 from predicators.src.args import create_arg_parser
-from predicators.src.structs import _Option, State, Predicate, GroundAtom, \
-    Object, Type, NSRT, _GroundNSRT, Action, Task, LowLevelTrajectory, \
-    LiftedAtom, Image, Video, _TypedEntity, VarToObjSub, EntToEntSub, \
-    GroundAtomTrajectory, STRIPSOperator, DummyOption, _GroundSTRIPSOperator, \
-    Array, OptionSpec, LiftedOrGroundAtom, NSRTOrSTRIPSOperator, \
-    GroundNSRTOrSTRIPSOperator, ParameterizedOption, Segment
 from predicators.src.settings import CFG, GlobalSettings
+from predicators.src.structs import NSRT, Action, Array, DummyOption, \
+    EntToEntSub, GroundAtom, GroundAtomTrajectory, \
+    GroundNSRTOrSTRIPSOperator, Image, LiftedAtom, LiftedOrGroundAtom, \
+    LowLevelTrajectory, NSRTOrSTRIPSOperator, Object, OptionSpec, \
+    ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
+    Type, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
+    _TypedEntity
+
 if TYPE_CHECKING:
     from predicators.src.envs import BaseEnv
 

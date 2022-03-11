@@ -1,8 +1,9 @@
 """Test cases for the blocks environment."""
 
 import numpy as np
-from predicators.src.envs import BlocksEnv
+
 from predicators.src import utils
+from predicators.src.envs import BlocksEnv
 
 
 def test_blocks():

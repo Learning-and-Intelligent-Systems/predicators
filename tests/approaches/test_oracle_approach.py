@@ -1,17 +1,20 @@
 """Test cases for the oracle approach class."""
 
 from typing import Set
+
 import numpy as np
 import pytest
-from predicators.src.approaches import OracleApproach
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
-    BlocksEnv, PaintingEnv, ToolsEnv, PlayroomEnv, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvRegrasp
-from predicators.src.structs import Action, NSRT, Variable
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches import OracleApproach
+from predicators.src.envs import BlocksEnv, ClutteredTableEnv, \
+    ClutteredTablePlaceEnv, CoverEnv, CoverEnvHierarchicalTypes, \
+    CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions, \
+    CoverMultistepOptionsFixedTasks, PaintingEnv, PlayroomEnv, \
+    RepeatedNextToEnv, ToolsEnv
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Action, Variable
 from predicators.tests.conftest import longrun
 
 

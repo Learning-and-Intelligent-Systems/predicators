@@ -1,17 +1,18 @@
 """Test cases for the GNN policy approach."""
 
-import pytest
 import numpy as np
+import pytest
 from gym.spaces import Box
-from predicators.src.structs import Type, ParameterizedOption, State, Action, \
-    Task, Predicate, Dataset, LowLevelTrajectory, GroundAtom
-from predicators.src.envs import create_new_env
-from predicators.src.approaches import create_approach, ApproachFailure, \
-    ApproachTimeout
-from predicators.src.datasets import create_dataset
-from predicators.src.settings import CFG
-from predicators.src.option_model import _OptionModelBase
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    create_approach
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_new_env
+from predicators.src.option_model import _OptionModelBase
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Dataset, GroundAtom, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type
 
 
 class _MockOptionModel1(_OptionModelBase):
