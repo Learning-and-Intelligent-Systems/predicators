@@ -6,8 +6,11 @@ import dill as pkl
 import numpy as np
 from gym.spaces import Box
 from predicators.src import utils
-from predicators.src.approaches import NSRTLearningApproach, \
-    ApproachTimeout, ApproachFailure, RandomOptionsApproach
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.approaches.random_options_approach import \
+    RandomOptionsApproach
+from predicators.src.approaches import ApproachTimeout, ApproachFailure
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
     Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
     InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
@@ -32,6 +35,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._predicates_to_learn: Set[Predicate] = set()
         self._online_learning_cycle = 0
         self._pred_to_ensemble: Dict[str, MLPClassifierEnsemble] = {}
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "interactive_learning"
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._predicates_to_learn

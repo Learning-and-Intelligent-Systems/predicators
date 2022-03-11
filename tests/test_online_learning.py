@@ -20,6 +20,10 @@ class _MockApproach(BaseApproach):
                          action_space, train_tasks)
         self._dummy_saved = []
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
+
     @property
     def is_learning_based(self):
         return True

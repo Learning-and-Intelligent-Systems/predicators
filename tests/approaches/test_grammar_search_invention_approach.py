@@ -10,7 +10,7 @@ from predicators.src.approaches.grammar_search_invention_approach import (
     _SingleAttributeCompareClassifier, _NegationClassifier)
 from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
     Action, Box, LowLevelTrajectory, Dataset
 from predicators.src.nsrt_learning.segmentation import segment_trajectory

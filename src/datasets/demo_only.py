@@ -3,8 +3,8 @@
 import logging
 import os
 from typing import List
-from predicators.src.approaches import OracleApproach, ApproachTimeout, \
-    ApproachFailure
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.approaches import ApproachTimeout, ApproachFailure
 from predicators.src.envs import BaseEnv
 from predicators.src.structs import Dataset, Task, LowLevelTrajectory
 from predicators.src.settings import CFG

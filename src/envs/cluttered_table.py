@@ -38,6 +38,10 @@ class ClutteredTableEnv(BaseEnv):
         self._Dump = utils.SingletonParameterizedOption(
             "Dump", self._Dump_policy)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluttered_table"
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
@@ -308,6 +312,10 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             self._Grasp_policy,
             types=[self._can_type],
             params_space=Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])))
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluttered_table_place"
 
     @property
     def options(self) -> Set[ParameterizedOption]:
