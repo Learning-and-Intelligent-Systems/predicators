@@ -5,19 +5,29 @@ or options.
 """
 
 import logging
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Callable
 import dill as pkl
 from gym.spaces import Box
-from predicators.src.approaches import BilevelPlanningApproach
+from predicators.src.approaches import BilevelPlanningApproach2
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
-    Predicate, Type, Task, LowLevelTrajectory
+    Predicate, Type, Task, LowLevelTrajectory, State, Action
 from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src import utils
+import abc
+from typing import Callable, Set, List
+from gym.spaces import Box
+from predicators.src.approaches import BaseApproach, ApproachFailure
+from predicators.src.planning import sesame_plan
+from predicators.src.structs import State, Action, Task, NSRT, \
+    Predicate, ParameterizedOption, Type, _Option
+from predicators.src.option_model import create_option_model
+from predicators.src.settings import CFG
+from predicators.src import utils
 
 
-class NSRTLearningApproach(BilevelPlanningApproach):
+class NSRTLearningApproach(BilevelPlanningApproach2):
     """A bilevel planning approach that learns NSRTs."""
 
     def __init__(self, initial_predicates: Set[Predicate],

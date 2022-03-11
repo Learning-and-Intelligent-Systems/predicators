@@ -480,6 +480,97 @@ def run_policy(policy: Callable[[State], Action],
     traj = LowLevelTrajectory(states, actions)
     return traj
 
+# THIS IS FOR USE IN _GET_INTERACTION_RESULTS
+def run_policy2(policy: Callable[[State], Action],
+               env: BaseEnv,
+               train_or_test: str,
+               task_idx: int,
+               termination_function: Callable[[State], bool],
+               max_num_steps: int,
+               exceptions_to_break_on: Optional[Set[
+                   TypingType[Exception]]] = None,
+               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+    """Execute a policy starting from the initial state of a train or test task
+    in the environment. The task's goal is not used.
+
+    Note that the environment internal state is updated.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
+    (3) policy() raises any exception of type in exceptions_to_break_on
+    """
+    state = env.reset(train_or_test, task_idx)
+    states = [state]
+    actions: List[Action] = []
+    if not termination_function(state):
+        for _ in range(max_num_steps):
+            try:
+                act, _ = policy(state)
+            except OptionPlanExhausted:
+                traj = LowLevelTrajectory(states, actions)
+                return traj
+            # except Exception as e:
+            #     if exceptions_to_break_on is not None and \
+            #        type(e) in exceptions_to_break_on:
+            #         break
+            #     raise e
+            if monitor is not None:
+                monitor.observe(state, act)
+            state = env.step(act)
+            actions.append(act)
+            states.append(state)
+            if termination_function(state):
+                break
+    if monitor is not None:
+        monitor.observe(state, None)
+    traj = LowLevelTrajectory(states, actions)
+    return traj
+
+# THIS IS FOR USE IN _RUN_TESTING()
+def run_policy3(policy: Callable[[State], Action],
+               env: BaseEnv,
+               train_or_test: str,
+               task_idx: int,
+               termination_function: Callable[[State], bool],
+               max_num_steps: int,
+               exceptions_to_break_on: Optional[Set[
+                   TypingType[Exception]]] = None,
+               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+    """Execute a policy starting from the initial state of a train or test task
+    in the environment. The task's goal is not used.
+
+    Note that the environment internal state is updated.
+
+    Terminates when any of these conditions hold:
+    (1) the termination_function returns True
+    (2) max_num_steps is reached
+    (3) policy() raises any exception of type in exceptions_to_break_on
+    """
+    state = env.reset(train_or_test, task_idx)
+    states = [state]
+    actions: List[Action] = []
+    if not termination_function(state):
+        for _ in range(max_num_steps):
+            try:
+                act, _ = policy(state)
+            except Exception as e:
+                if exceptions_to_break_on is not None and \
+                   type(e) in exceptions_to_break_on:
+                    break
+                raise e
+            if monitor is not None:
+                monitor.observe(state, act)
+            state = env.step(act)
+            actions.append(act)
+            states.append(state)
+            if termination_function(state):
+                break
+    if monitor is not None:
+        monitor.observe(state, None)
+    traj = LowLevelTrajectory(states, actions)
+    return traj
+
 
 def run_policy_with_simulator(
         policy: Callable[[State], Action],
@@ -575,6 +666,24 @@ def option_plan_to_policy(
             cur_option = queue.pop(0)
             assert cur_option.initiable(state), "Unsound option plan"
         return cur_option.policy(state)
+
+    return _policy
+
+
+def option_plan_to_policy2(
+        plan: Sequence[_Option]) -> Callable[[State], Action]:
+    """Create a policy that executes a sequence of options in order."""
+    queue = list(plan)  # don't modify plan, just in case
+    cur_option = DummyOption
+
+    def _policy(state: State) -> Action:
+        nonlocal cur_option
+        if cur_option.terminal(state):
+            if not queue:
+                raise OptionPlanExhausted("Option plan exhausted!")
+            cur_option = queue.pop(0)
+            assert cur_option.initiable(state), "Unsound option plan"
+        return cur_option.policy(state), cur_option
 
     return _policy
 

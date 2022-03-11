@@ -12,6 +12,8 @@ from predicators.src.approaches.gnn_policy_approach import \
     GNNPolicyApproach
 from predicators.src.approaches.bilevel_planning_approach import \
     BilevelPlanningApproach
+from predicators.src.approaches.bilevel_planning_approach2 import \
+    BilevelPlanningApproach2
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.approaches.nsrt_learning_approach import \
     NSRTLearningApproach
@@ -29,6 +31,7 @@ __all__ = [
     "RandomOptionsApproach",
     "GNNPolicyApproach",
     "BilevelPlanningApproach",
+    "BilevelPlanningApproach2",
     "NSRTLearningApproach",
     "InteractiveLearningApproach",
     "GrammarSearchInventionApproach",

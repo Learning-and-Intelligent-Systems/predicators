@@ -205,7 +205,7 @@ def _generate_interaction_results(
     for request in requests:
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
-        traj = utils.run_policy(
+        traj = utils.run_policy2(
             request.act_policy,
             env,
             "train",
