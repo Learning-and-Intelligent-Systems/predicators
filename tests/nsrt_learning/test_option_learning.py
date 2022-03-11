@@ -2,7 +2,9 @@
 
 import pytest
 import numpy as np
-from predicators.src.approaches import ApproachFailure
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    create_approach
+from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.datasets.demo_replay import create_demo_replay_data
@@ -13,6 +15,8 @@ from predicators.src.torch_models import MLPRegressor
 from predicators.src.nsrt_learning.option_learning import \
     create_option_learner, _LearnedNeuralParameterizedOption
 from predicators.src import utils
+from predicators.src.settings import CFG
+from predicators.tests.conftest import longrun
 
 
 def test_known_options_option_learner():
@@ -227,3 +231,40 @@ def test_create_option_learner():
     })
     with pytest.raises(NotImplementedError):
         create_option_learner()
+
+
+@longrun
+def test_option_learning_approach_multistep_cover():
+    """A long test to identify any regressions in option learning."""
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "approach": "nsrt_learning",
+        "option_learner": "neural",
+        "sampler_learner": "oracle",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10,
+    })
+    env = create_new_env("cover_multistep_options")
+    train_tasks = env.get_train_tasks()
+    approach = create_approach("nsrt_learning", env.predicates, env.options,
+                               env.types, env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks)
+    assert approach.is_learning_based
+    approach.learn_from_offline_dataset(dataset)
+    num_test_successes = 0
+    for task in env.get_test_tasks():
+        try:
+            policy = approach.solve(task, timeout=CFG.timeout)
+            traj = utils.run_policy_with_simulator(policy,
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=CFG.horizon)
+            if task.goal_holds(traj.states[-1]):
+                num_test_successes += 1
+        except (ApproachFailure, ApproachTimeout):
+            continue
+    # This number is expected to be relatively low because the number of train
+    # tasks is pretty limiting. But if it goes lower than this, that could
+    # be a performance regression that we should investigate.
+    assert num_test_successes >= 3
