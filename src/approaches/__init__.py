@@ -21,6 +21,8 @@ from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
 from predicators.src.approaches.grammar_search_invention_approach import \
     GrammarSearchInventionApproach
+from predicators.src.approaches.dagger_learning_approach import \
+    DaggerLearningApproach
 from predicators.src.structs import Predicate, ParameterizedOption, \
     Type, Task
 
@@ -35,6 +37,7 @@ __all__ = [
     "NSRTLearningApproach",
     "InteractiveLearningApproach",
     "GrammarSearchInventionApproach",
+    "DaggerLearningApproach",
     "ApproachTimeout",
     "ApproachFailure",
 ]
@@ -67,4 +70,7 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
         return GrammarSearchInventionApproach(initial_predicates,
                                               initial_options, types,
                                               action_space, train_tasks)
+    if name == "dagger_learning":
+        return DaggerLearningApproach(initial_predicates, initial_options, types,
+                                    action_space, train_tasks)
     raise NotImplementedError(f"Unknown approach: {name}")

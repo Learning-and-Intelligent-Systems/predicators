@@ -506,7 +506,7 @@ def run_policy2(policy: Callable[[State], Action],
     if not termination_function(state):
         for _ in range(max_num_steps):
             try:
-                act, _ = policy(state)
+                act, option = policy(state)
             except OptionPlanExhausted:
                 traj = LowLevelTrajectory(states, actions)
                 return traj
@@ -516,14 +516,29 @@ def run_policy2(policy: Callable[[State], Action],
             #         break
             #     raise e
             if monitor is not None:
-                monitor.observe(state, act)
+                # figure out what the low level goal state of this option is
+                num_objs = len(option.objects)
+                params = option.params
+                reference = state.copy()
+                if num_objs == 2:
+                    block, robot = option.objects
+                elif num_objs == 3:
+                    block, robot, _ = option.objects
+                block_params = params[0:7]
+                robot_params = params[7:]
+                for i, name in enumerate(block.type.feature_names):
+                    reference.set(block, name, reference.get(block, name) + block_params[i])
+                for i, name in enumerate(robot.type.feature_names):
+                    reference.set(robot, name, reference.get(robot, name) + robot_params[i])
+                # import pdb; pdb.set_trace()
+                monitor.observe(state, reference, act)
             state = env.step(act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
-    if monitor is not None:
-        monitor.observe(state, None)
+    # if monitor is not None:
+    #     monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
     return traj
 

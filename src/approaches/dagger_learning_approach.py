@@ -17,14 +17,12 @@ from predicators.src.settings import CFG
 from typing import Set, List, Sequence, Optional
 import dill as pkl
 from gym.spaces import Box
-from predicators.src.approaches import TAMPApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
     Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning.nsrt_learning_main import \
     learn_nsrts_from_data
 from predicators.src.settings import CFG
 from predicators.src import utils
-from predicators.src.envs import create_env, BaseEnv
 
 class DaggerLearningApproach(NSRTLearningApproach):
     """An approach that implements DAgger for option learning."""
@@ -74,7 +72,7 @@ class DaggerLearningApproach(NSRTLearningApproach):
             request = InteractionRequest(
                 train_task_idx = i,
                 act_policy = _act_policy,
-                query_policy = self._make_query_policy(),
+                query_policy = self._make_query_policy(task.goal),
                 termination_function = self._make_termination_fn(task.goal)
             )
             requests.append(request)
@@ -88,23 +86,23 @@ class DaggerLearningApproach(NSRTLearningApproach):
             print("LENGTH OF RESPONSES: ", len(responses))
             for res in responses:
                 teacher_traj = res.teacher_traj
-                # if teacher_traj is not None:
-                #     print("TEACHER TRAJ STATES: ", teacher_traj.states)
-                video: Video = []
-                env = create_env(CFG.env)
-                for s in teacher_traj.states:
-                    dummy_task = Task(s, set())
-                    video.extend(env.render(s, dummy_task))
-                video_prefix = utils.get_config_path_str()
-                n = np.random.randint(0, 1000)
-                outfile = f"{video_prefix}_teacher_{n}.mp4"
-                utils.save_video(outfile, video)
+                if teacher_traj is not None:
+                    print("TEACHER TRAJ STATES: ", teacher_traj.states)
+                # video: Video = []
+                # env = create_env(CFG.env)
+                # for s in teacher_traj.states:
+                #     dummy_task = Task(s, set())
+                #     video.extend(env.render(s, dummy_task))
+                # video_prefix = utils.get_config_path_str()
+                # n = np.random.randint(0, 1000)
+                # outfile = f"{video_prefix}_teacher_{n}.mp4"
+                # utils.save_video(outfile, video)
 
         for result in results:  # one result per training task
             responses = result.responses  # one response per state in trajectory
             # print("responses: ", responses)
             # for res in responses[:1]:
-            responses = [responses[0], responses[3], responses[4]]
+            # responses = [responses[0], responses[3], responses[4]]
             for res in responses:
                 teacher_traj = res.teacher_traj
                 if teacher_traj is None:  # oracle approach shouldn't fail, but...
@@ -113,8 +111,7 @@ class DaggerLearningApproach(NSRTLearningApproach):
                     act.unset_option()
                 traj = LowLevelTrajectory(res.teacher_traj.states,
                                           res.teacher_traj.actions,
-                                          _is_demo=True,
-                                          _train_task_idx=res.teacher_traj.train_task_idx)
+                                          _is_demo=True)
                 self.dataset.append(traj)
         self._learn_nsrts(self.dataset.trajectories, online_learning_cycle=self.online_learning_cycle)
         self.online_learning_cycle += 1

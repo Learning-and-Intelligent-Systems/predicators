@@ -216,3 +216,27 @@ class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
         self._responses.append(response)
         if CFG.make_interaction_videos:
             self._video.extend(self._render_fn(action, caption))
+
+
+@dataclass
+class TeacherDagger(TeacherInteractionMonitor,
+                                         utils.VideoMonitor):
+    """A monitor that wraps a TeacherInteractionMonitor to optionally also
+    render every state and action encountered, if CFG.make_interaction_videos
+    is True.
+
+    The render_fn is generally env.render.
+    """
+
+    def observe(self, state: State, reference: State, action: Optional[Action]) -> None:
+        if self._request.query_policy(state) is None:
+            response = None
+            caption = "None"
+        else:
+            query = PathToStateQuery(reference)
+            response = self._teacher.answer_query(state, query)
+            self._query_cost += query.cost
+            caption = f"{response}, cost={query.cost}"
+        self._responses.append(response)
+        if CFG.make_interaction_videos:
+            self._video.extend(self._render_fn(action, caption))

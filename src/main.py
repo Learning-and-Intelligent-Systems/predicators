@@ -49,7 +49,7 @@ from predicators.src.datasets import create_dataset
 from predicators.src.structs import Metrics, Task, Dataset, \
     InteractionRequest, InteractionResult
 from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo, TeacherDagger
 
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
@@ -128,11 +128,11 @@ def _run_pipeline(env: BaseEnv,
         else:
             approach.learn_from_offline_dataset(offline_dataset)
         # Run evaluation once before online learning starts.
-        results = _run_testing(env, approach)
-        results["num_transitions"] = total_num_transitions
-        results["cumulative_query_cost"] = total_query_cost
-        results["learning_time"] = time.time() - learning_start
-        _save_test_results(results, online_learning_cycle=None)
+        # results = _run_testing(env, approach)
+        # results["num_transitions"] = total_num_transitions
+        # results["cumulative_query_cost"] = total_query_cost
+        # results["learning_time"] = time.time() - learning_start
+        # _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
@@ -203,7 +203,9 @@ def _generate_interaction_results(
     results = []
     query_cost = 0.0
     for request in requests:
-        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
+        # monitor = TeacherInteractionMonitorWithVideo(env.render, request,
+        #                                              teacher)
+        monitor = TeacherDagger(env.render, request,
                                                      teacher)
         traj = utils.run_policy2(
             request.act_policy,
