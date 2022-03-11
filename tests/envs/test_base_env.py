@@ -1,9 +1,8 @@
 """Test cases for the base environment class."""
 
 import pytest
-
-from predicators.src import utils
 from predicators.src.envs import BaseEnv, create_new_env, get_or_create_env
+from predicators.src import utils
 
 
 def test_env_creation():

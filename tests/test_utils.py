@@ -2,23 +2,20 @@
 
 import os
 import time
-from typing import Iterator, Optional, Tuple
-from typing import Type as TypingType
-
-import numpy as np
+from typing import Iterator, Tuple, Optional, Type as TypingType
 import pytest
+import numpy as np
 from gym.spaces import Box
-
-from predicators.src import utils
+from predicators.src.structs import State, Type, ParameterizedOption, \
+    Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
+    LowLevelTrajectory, DefaultState, Segment
+from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
+    _get_predicates_by_names
 from predicators.src.envs import CoverEnv
-from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
-    get_gt_nsrts
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
-    GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
-    State, STRIPSOperator, Type
-from predicators.src.utils import GoalCountHeuristic, \
-    _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
+from predicators.src import utils
+from predicators.src.utils import _TaskPlanningHeuristic, \
+    _PyperplanHeuristicWrapper, GoalCountHeuristic
 
 
 def test_segment_trajectory_to_state_and_atoms_sequence():

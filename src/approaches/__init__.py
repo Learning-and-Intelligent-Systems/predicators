@@ -1,26 +1,26 @@
 """Default imports for approaches folder."""
 
-from typing import List, Set
-
+from typing import Set, List
 from gym.spaces import Box
-
-from predicators.src.approaches.base_approach import ApproachFailure, \
-    ApproachTimeout, BaseApproach
-from predicators.src.approaches.bilevel_planning_approach import \
-    BilevelPlanningApproach
-from predicators.src.approaches.gnn_policy_approach import GNNPolicyApproach
-from predicators.src.approaches.grammar_search_invention_approach import \
-    GrammarSearchInventionApproach
-from predicators.src.approaches.interactive_learning_approach import \
-    InteractiveLearningApproach
-from predicators.src.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
-from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.approaches.base_approach import BaseApproach, \
+    ApproachTimeout, ApproachFailure
 from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
-from predicators.src.structs import ParameterizedOption, Predicate, Task, Type
+from predicators.src.approaches.gnn_policy_approach import \
+    GNNPolicyApproach
+from predicators.src.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
+from predicators.src.approaches.grammar_search_invention_approach import \
+    GrammarSearchInventionApproach
+from predicators.src.structs import Predicate, ParameterizedOption, \
+    Type, Task
 
 __all__ = [
     "BaseApproach",

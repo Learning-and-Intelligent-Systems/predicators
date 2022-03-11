@@ -7,18 +7,16 @@ are much less than the table dimensions). The simplicity of this
 environment makes it a good testbed for predicate invention.
 """
 
-from typing import Dict, List, Optional, Sequence, Set, Tuple
-
+from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
 from gym.spaces import Box
-from matplotlib import patches
 from matplotlib import pyplot as plt
-
-from predicators.src import utils
+from matplotlib import patches
 from predicators.src.envs import BaseEnv
+from predicators.src.structs import Type, Predicate, State, Task, \
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src import utils
 
 
 class BlocksEnv(BaseEnv):

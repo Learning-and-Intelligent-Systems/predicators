@@ -5,17 +5,15 @@ then Execution.
 """
 
 import abc
-from typing import Callable, List, Set
-
+from typing import Callable, Set, List
 from gym.spaces import Box
-
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, BaseApproach
-from predicators.src.option_model import create_option_model
+from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
+from predicators.src.structs import State, Action, Task, NSRT, \
+    Predicate, ParameterizedOption, Type, _Option
+from predicators.src.option_model import create_option_model
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Action, ParameterizedOption, \
-    Predicate, State, Task, Type, _Option
+from predicators.src import utils
 
 
 class BilevelPlanningApproach(BaseApproach):

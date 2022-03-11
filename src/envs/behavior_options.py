@@ -1,33 +1,32 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
+from typing import Callable, List, Sequence, Tuple, Union, Optional
 import logging
-from typing import Callable, List, Optional, Sequence, Tuple, Union
-
 import numpy as np
-import scipy
 from numpy.random._generator import Generator
-
-from predicators.src.structs import Array, State
+import scipy
+from predicators.src.structs import State, Array
 from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
     import pybullet as p
     from igibson import object_states
-    from igibson.envs.behavior_env import \
-        BehaviorEnv  # pylint: disable=unused-import
-    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS, \
-        get_aabb, get_aabb_extent
-    from igibson.object_states.on_floor import \
-        RoomFloor  # pylint: disable=unused-import
+    from igibson.envs.behavior_env import BehaviorEnv  # pylint: disable=unused-import
+    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
     from igibson.objects.articulated_object import URDFObject
-    from igibson.robots.behavior_robot import \
-        BRBody  # pylint: disable=unused-import
-    from igibson.robots.robot_base import \
-        BaseRobot  # pylint: disable=unused-import
+    from igibson.object_states.on_floor import RoomFloor  # pylint: disable=unused-import
+    from igibson.utils.behavior_robot_planning_utils import (
+        plan_base_motion_br,
+        plan_hand_motion_br,
+    )
     from igibson.utils import sampling_utils
-    from igibson.utils.behavior_robot_planning_utils import \
-        plan_base_motion_br, plan_hand_motion_br
+    from igibson.external.pybullet_tools.utils import (
+        get_aabb,
+        get_aabb_extent,
+    )
+    from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
+    from igibson.robots.behavior_robot import BRBody  # pylint: disable=unused-import
 
 except (ImportError, ModuleNotFoundError) as e:
     pass

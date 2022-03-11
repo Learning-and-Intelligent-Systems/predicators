@@ -1,9 +1,8 @@
 """Script for submitting jobs on supercloud."""
 
-import os
-import subprocess
 import sys
-
+import subprocess
+import os
 from predicators.src import utils
 from predicators.src.settings import CFG
 

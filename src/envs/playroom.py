@@ -1,17 +1,15 @@
 """Boring room vs playroom domain."""
 
-from typing import Dict, List, Optional, Sequence, Set, Tuple
-
+from typing import List, Set, Sequence, Dict, Tuple, Optional
 import numpy as np
 from gym.spaces import Box
-from matplotlib import patches
 from matplotlib import pyplot as plt
-
-from predicators.src import utils
+from matplotlib import patches
 from predicators.src.envs import BlocksEnv
+from predicators.src.structs import Type, Predicate, State, Task, \
+    ParameterizedOption, Object, Action, Image, Array, GroundAtom
+from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
 
 
 class PlayroomEnv(BlocksEnv):

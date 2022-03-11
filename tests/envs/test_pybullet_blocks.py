@@ -2,11 +2,10 @@
 
 import numpy as np
 import pytest
-
-from predicators.src import utils
 from predicators.src.envs import PyBulletBlocksEnv
+from predicators.src.structs import Object, State, Action
+from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Object, State
 from predicators.tests.conftest import longrun
 
 _GUI_ON = False  # toggle for debugging

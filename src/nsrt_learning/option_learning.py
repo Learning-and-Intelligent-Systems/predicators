@@ -1,20 +1,16 @@
 """Definitions of option learning strategies."""
 
 from __future__ import annotations
-
 import abc
+from typing import List, Sequence, Dict, Tuple, Set
 import logging
-from typing import Dict, List, Sequence, Set, Tuple
-
 import numpy as np
-
+from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
+    Segment, Array, ParameterizedOption, Object, Variable, Box, State, Action
 from predicators.src.approaches import ApproachFailure
-from predicators.src.envs import BlocksEnv, get_or_create_env
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, Box, Datastore, Object, \
-    OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
-    Variable
 from predicators.src.torch_models import MLPRegressor
+from predicators.src.envs import get_or_create_env, BlocksEnv
 
 
 def create_option_learner() -> _OptionLearnerBase:

@@ -1,16 +1,15 @@
 """Test cases for teacher."""
 
 import pytest
-
-from predicators.src import utils
 from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
-from predicators.src.structs import DemonstrationQuery, \
-    DemonstrationResponse, GroundAtom, GroundAtomsHoldQuery, \
-    GroundAtomsHoldResponse, InteractionRequest, LowLevelTrajectory, \
-    PathToStateQuery, PathToStateResponse, Query, Task
+from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitor, \
     TeacherInteractionMonitorWithVideo
+from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
+    DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
+    LowLevelTrajectory, InteractionRequest, PathToStateQuery, \
+    Query, PathToStateResponse
 
 
 def test_GroundAtomsHold():

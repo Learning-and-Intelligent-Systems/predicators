@@ -1,10 +1,9 @@
 """Tests for STRIPS operator learning."""
 
-from predicators.src import utils
-from predicators.src.nsrt_learning.strips_learning import \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.tests.nsrt_learning.test_segmentation import \
     test_segment_trajectory
+from predicators.src import utils
 
 
 def test_learn_strips_operators():
