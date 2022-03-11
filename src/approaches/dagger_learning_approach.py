@@ -101,7 +101,7 @@ class DaggerLearningApproach(NSRTLearningApproach):
 
         for result in results:  # one result per training task
             responses = result.responses  # one response per state in trajectory
-            responses = [responses[1]]
+            # responses = [responses[2]]
             # print("responses: ", responses)
             # for res in responses[:1]:
             # responses = [responses[0], responses[3], responses[4]]

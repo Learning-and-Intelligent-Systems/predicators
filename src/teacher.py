@@ -146,10 +146,10 @@ class Teacher:
             # Case 3: invalid or unsupported request.
             else:
                 return null_response
-            # print("current reference: ", goal_state)
-            # print("current state: ", state)
+            print("current reference: ", goal_state)
+            print("current state: ", state)
             params = goal_state.vec(changing_objs) - state.vec(changing_objs)
-            # print("Teacher inferred params: ", params)
+            print("Teacher inferred params: ", params)
             option = parameterized_option.ground(arguments, params)
             policy = utils.option_plan_to_policy([option])
             termination_function = lambda s: s.allclose(goal_state)

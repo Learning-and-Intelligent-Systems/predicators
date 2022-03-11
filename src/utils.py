@@ -549,6 +549,8 @@ def run_policy2(policy: Callable[[State], Action],
                         for i, name in enumerate(robot.type.feature_names):
                             reference.set(robot, name, reference.get(robot, name) + robot_params[i])
                         goal_state = reference
+                    
+                print("params in run_policy: ", goal_state.vec(changing_objs) - state.vec(changing_objs))
 
                 # import pdb; pdb.set_trace()
                 monitor.observe(state, goal_state, act, ignore=False)
