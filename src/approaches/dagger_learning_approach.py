@@ -45,10 +45,10 @@ class DaggerLearningApproach(NSRTLearningApproach):
     #         return DemonstrationQuery(train_task_idx)
     #     return _query_policy
 
-    def _make_query_policy(self, goal_state: State) -> Callable[[State], Query]:
+    def _make_query_policy(self, goal_state: State, train_task_idx: int) -> Callable[[State], Query]:
         def _query_policy(s: State) -> PathToStateQuery:
             del s  # not used
-            return PathToStateQuery(goal_state)
+            return PathToStateQuery(goal_state=goal_state, train_task_idx=train_task_idx)
         return _query_policy
 
     def _make_termination_fn(self, goal: Set[GroundAtom]) -> Callable[[State], bool]:
@@ -72,7 +72,7 @@ class DaggerLearningApproach(NSRTLearningApproach):
             request = InteractionRequest(
                 train_task_idx = i,
                 act_policy = _act_policy,
-                query_policy = self._make_query_policy(task.goal),
+                query_policy = self._make_query_policy(task.goal, i),
                 termination_function = self._make_termination_fn(task.goal)
             )
             requests.append(request)
@@ -81,13 +81,13 @@ class DaggerLearningApproach(NSRTLearningApproach):
 
     def learn_from_interaction_results(self, results: Sequence[InteractionResult]) -> None:
         # make videos of expert trajectories for debugging
-        for result in results:  # one result per training task
-            responses = result.responses  # one response per state in trajectory
-            print("LENGTH OF RESPONSES: ", len(responses))
-            for res in responses:
-                teacher_traj = res.teacher_traj
-                if teacher_traj is not None:
-                    print("TEACHER TRAJ STATES: ", teacher_traj.states)
+        # for result in results:  # one result per training task
+        #     responses = result.responses  # one response per state in trajectory
+            # print("LENGTH OF RESPONSES: ", len(responses))
+            # for res in responses:
+            #     teacher_traj = res.teacher_traj
+                # if teacher_traj is not None:
+                    # print("TEACHER TRAJ STATES: ", teacher_traj.states)
                 # video: Video = []
                 # env = create_env(CFG.env)
                 # for s in teacher_traj.states:
@@ -104,6 +104,8 @@ class DaggerLearningApproach(NSRTLearningApproach):
             # for res in responses[:1]:
             # responses = [responses[0], responses[3], responses[4]]
             for res in responses:
+                if res is None:
+                    continue
                 teacher_traj = res.teacher_traj
                 if teacher_traj is None:  # oracle approach shouldn't fail, but...
                     continue
@@ -111,7 +113,8 @@ class DaggerLearningApproach(NSRTLearningApproach):
                     act.unset_option()
                 traj = LowLevelTrajectory(res.teacher_traj.states,
                                           res.teacher_traj.actions,
-                                          _is_demo=True)
+                                          _is_demo=True,
+                                          _train_task_idx=res.teacher_traj.train_task_idx)
                 self.dataset.append(traj)
         self._learn_nsrts(self.dataset.trajectories, online_learning_cycle=self.online_learning_cycle)
         self.online_learning_cycle += 1

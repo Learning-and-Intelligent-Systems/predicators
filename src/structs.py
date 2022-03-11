@@ -1264,6 +1264,7 @@ class DemonstrationResponse(Response):
 class PathToStateQuery(Query):
     """A query requesting a trajectory that reaches a specific state."""
     goal_state: State
+    train_task_idx: int
 
     @property
     def cost(self) -> float:

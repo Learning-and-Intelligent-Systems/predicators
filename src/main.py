@@ -202,7 +202,7 @@ def _generate_interaction_results(
     logging.info("Generating interaction results...")
     results = []
     query_cost = 0.0
-    for request in requests:
+    for i, request in enumerate(requests):
         # monitor = TeacherInteractionMonitorWithVideo(env.render, request,
         #                                              teacher)
         monitor = TeacherDagger(env.render, request,

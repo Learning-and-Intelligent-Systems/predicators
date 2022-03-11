@@ -15,6 +15,7 @@ from predicators.src.approaches import OracleApproach, ApproachTimeout, \
 from predicators.src.ground_truth_nsrts import _get_types_by_names, \
     _get_options_by_names
 from predicators.src import utils
+import numpy as np
 
 
 class Teacher:
@@ -91,6 +92,7 @@ class Teacher:
         # for a human teacher. Note that although these trajectories are good,
         # they are not demonstrations per se, because they do not reach task
         # goals (and are not necessarily associated with any particular task).
+        train_task_idx = query.train_task_idx
         trajectory = None
         null_response = PathToStateResponse(query, teacher_traj=None)
         goal_state = query.goal_state
@@ -117,6 +119,7 @@ class Teacher:
             # fail, and null_response will be returned.
             if len(goal_blocks_held) == 1:
                 parameterized_option = Pick
+                print("Identified Pick")
                 block = goal_blocks_held[0]
                 arguments = [block, robot]
                 changing_objs = [block, robot]
@@ -130,6 +133,7 @@ class Teacher:
             # and we will also return null.
             elif len(state_blocks_held) == 1:
                 parameterized_option = Place
+                print("Identified Place")
                 block = state_blocks_held[0]
                 # The target does not actually matter, because it is not
                 # involved in the definition of the Place policy. The only
@@ -142,7 +146,10 @@ class Teacher:
             # Case 3: invalid or unsupported request.
             else:
                 return null_response
+            # print("current reference: ", goal_state)
+            # print("current state: ", state)
             params = goal_state.vec(changing_objs) - state.vec(changing_objs)
+            # print("Teacher inferred params: ", params)
             option = parameterized_option.ground(arguments, params)
             policy = utils.option_plan_to_policy([option])
             termination_function = lambda s: s.allclose(goal_state)
@@ -151,19 +158,23 @@ class Teacher:
                 self._simulator,
                 state,
                 termination_function,
-                max_num_steps=CFG.max_num_steps_option_rollout)
+                max_num_steps=10)
+                # max_num_steps=CFG.max_num_steps_option_rollout)
         else:
             raise NotImplementedError("PathToStateQuery is not supported for "
                                       f"env {CFG.env}.")
         # Validate. If the goal state was not reached, the query is assumed
         # to be invalid, and a None trajectory is returned.
         if not trajectory.states[-1].allclose(goal_state):
+            print("Teacher didn't reach goal state")
             return null_response
         # Strip the trajectory of options to prevent cheating.
         for action in trajectory.actions:
             action.unset_option()
         # Success.
-        return PathToStateResponse(query, teacher_traj=trajectory)
+        new_traj = LowLevelTrajectory(trajectory.states, trajectory.actions, True, train_task_idx)
+        # return PathToStateResponse(query, teacher_traj=trajectory)
+        return PathToStateResponse(query, new_traj)
 
 
 @dataclass
@@ -228,13 +239,44 @@ class TeacherDagger(TeacherInteractionMonitor,
     The render_fn is generally env.render.
     """
 
-    def observe(self, state: State, reference: State, action: Optional[Action]) -> None:
-        if self._request.query_policy(state) is None:
+    def observe(self, state: State, reference: State, action: Optional[Action], ignore: bool) -> None:
+        # video: Video = []
+        # dummy_task = Task(reference, set())
+        # video.extend(self._render_fn(state, dummy_task))
+        # video_prefix = utils.get_config_path_str()
+        # n = 100 + np.random.randint(0, 1000)
+        # outfile = f"{video_prefix}_teacher_observe_{n}.mp4"
+        # utils.save_video(outfile, video)
+
+        # self._responses.append(None)
+        # return
+        actual_query = self._request.query_policy(state)
+        if actual_query is None or ignore:
             response = None
             caption = "None"
         else:
-            query = PathToStateQuery(reference)
+            train_task_idx = actual_query.train_task_idx
+            query = PathToStateQuery(reference, train_task_idx)
             response = self._teacher.answer_query(state, query)
+            if response.teacher_traj is not None:
+                print("Length of teacher traj: ", len(response.teacher_traj.states))
+                # video: Video = []
+                # dummy_task = Task(reference, set())
+                # # import pdb; pdb.set_trace()
+                # for t in response.teacher_traj.states:
+                #     video.extend(self._render_fn(t, dummy_task))
+                # video_prefix = utils.get_config_path_str()
+                # outfile = f"{video_prefix}_teacher_observe_result_{n}.mp4"
+                # utils.save_video(outfile, video)
+            else:
+                print("Length of teacher traj: ", None)
+                # video: Video = []
+                # dummy_task = Task(reference, set())
+                # video.extend(self._render_fn(state, dummy_task))
+                # video_prefix = utils.get_config_path_str()
+                # outfile = f"{video_prefix}_teacher_observe_result_{n}.mp4"
+                # utils.save_video(outfile, video)
+
             self._query_cost += query.cost
             caption = f"{response}, cost={query.cost}"
         self._responses.append(response)

@@ -52,6 +52,7 @@ class NSRTLearningApproach(BilevelPlanningApproach2):
 
     def _learn_nsrts(self, trajectories: List[LowLevelTrajectory],
                      online_learning_cycle: Optional[int]) -> None:
+        print("Size of trajectories: ", len(trajectories))
         self._nsrts = learn_nsrts_from_data(
             trajectories,
             self._train_tasks,

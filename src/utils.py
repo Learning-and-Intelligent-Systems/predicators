@@ -503,8 +503,10 @@ def run_policy2(policy: Callable[[State], Action],
     state = env.reset(train_or_test, task_idx)
     states = [state]
     actions: List[Action] = []
+    curr_option = None
+    goal_state = None
     if not termination_function(state):
-        for _ in range(max_num_steps):
+        for i in range(max_num_steps):
             try:
                 act, option = policy(state)
             except OptionPlanExhausted:
@@ -517,28 +519,46 @@ def run_policy2(policy: Callable[[State], Action],
             #     raise e
             if monitor is not None:
                 # figure out what the low level goal state of this option is
+
                 num_objs = len(option.objects)
-                params = option.params
-                reference = state.copy()
                 if num_objs == 2:
                     block, robot = option.objects
                 elif num_objs == 3:
                     block, robot, _ = option.objects
-                block_params = params[0:7]
-                robot_params = params[7:]
-                for i, name in enumerate(block.type.feature_names):
-                    reference.set(block, name, reference.get(block, name) + block_params[i])
-                for i, name in enumerate(robot.type.feature_names):
-                    reference.set(robot, name, reference.get(robot, name) + robot_params[i])
+                params = option.params
+                changing_objs = [block, robot]
+
+                if i == 0:
+                    curr_option = option.name
+                    reference = state.copy()
+                    block_params = params[0:7]
+                    robot_params = params[7:]
+                    for i, name in enumerate(block.type.feature_names):
+                        reference.set(block, name, reference.get(block, name) + block_params[i])
+                    for i, name in enumerate(robot.type.feature_names):
+                        reference.set(robot, name, reference.get(robot, name) + robot_params[i])
+                    goal_state = reference
+                else:
+                    if option.name != curr_option:
+                        curr_option = option.name
+                        reference = state.copy()
+                        block_params = params[0:7]
+                        robot_params = params[7:]
+                        for i, name in enumerate(block.type.feature_names):
+                            reference.set(block, name, reference.get(block, name) + block_params[i])
+                        for i, name in enumerate(robot.type.feature_names):
+                            reference.set(robot, name, reference.get(robot, name) + robot_params[i])
+                        goal_state = reference
+
                 # import pdb; pdb.set_trace()
-                monitor.observe(state, reference, act)
+                monitor.observe(state, goal_state, act, ignore=False)
             state = env.step(act)
             actions.append(act)
             states.append(state)
             if termination_function(state):
                 break
-    # if monitor is not None:
-    #     monitor.observe(state, None)
+    if monitor is not None:
+        monitor.observe(state, reference, None, ignore=True)
     traj = LowLevelTrajectory(states, actions)
     return traj
 
@@ -619,6 +639,8 @@ def run_policy_with_simulator(
         for _ in range(max_num_steps):
             try:
                 act = policy(state)
+                # print("state in sim: ", state)
+                # print("action in sim: ", act)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
