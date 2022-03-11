@@ -1,28 +1,31 @@
 """Tests for PredicateSearchScoreFunction classes."""
 
 from typing import Callable, FrozenSet, List, Set
-import pytest
+
 import numpy as np
+import pytest
+
+from predicators.src import utils
 from predicators.src.approaches.grammar_search_invention_approach import \
     _UnaryFreeForallClassifier
-from predicators.src.predicate_search_score_functions import (
-    create_score_function, _PredicateSearchScoreFunction,
-    _OperatorLearningBasedScoreFunction, _HeuristicBasedScoreFunction,
-    _RelaxationHeuristicBasedScoreFunction,
-    _RelaxationHeuristicMatchBasedScoreFunction, _PredictionErrorScoreFunction,
-    _RelaxationHeuristicEnergyBasedScoreFunction, _TaskPlanningScoreFunction,
-    _ExactHeuristicEnergyBasedScoreFunction,
-    _RelaxationHeuristicCountBasedScoreFunction,
-    _ExactHeuristicCountBasedScoreFunction, _BranchingFactorScoreFunction,
-    _ExpectedNodesScoreFunction)
-from predicators.src.envs.cover import CoverEnv
-from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Predicate, STRIPSOperator, Action, \
-    Box, LowLevelTrajectory, GroundAtom, OptionSpec, _GroundSTRIPSOperator
+from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.predicate_search_score_functions import \
+    _BranchingFactorScoreFunction, _ExactHeuristicCountBasedScoreFunction, \
+    _ExactHeuristicEnergyBasedScoreFunction, _ExpectedNodesScoreFunction, \
+    _HeuristicBasedScoreFunction, _OperatorLearningBasedScoreFunction, \
+    _PredicateSearchScoreFunction, _PredictionErrorScoreFunction, \
+    _RelaxationHeuristicBasedScoreFunction, \
+    _RelaxationHeuristicCountBasedScoreFunction, \
+    _RelaxationHeuristicEnergyBasedScoreFunction, \
+    _RelaxationHeuristicMatchBasedScoreFunction, _TaskPlanningScoreFunction, \
+    create_score_function
 from predicators.src.settings import CFG
-from predicators.src import utils
+from predicators.src.structs import Action, Box, GroundAtom, \
+    LowLevelTrajectory, OptionSpec, Predicate, STRIPSOperator, \
+    _GroundSTRIPSOperator
 
 
 def test_create_score_function():

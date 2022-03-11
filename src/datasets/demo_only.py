@@ -3,12 +3,13 @@
 import logging
 import os
 from typing import List
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.approaches import ApproachTimeout, ApproachFailure
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Dataset, Task, LowLevelTrajectory
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, LowLevelTrajectory, Task
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:

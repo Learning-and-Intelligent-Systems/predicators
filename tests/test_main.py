@@ -1,16 +1,18 @@
 """Tests for main.py."""
 
-from typing import Callable
 import os
 import shutil
 import sys
+from typing import Callable
+
 import pytest
-from predicators.src.approaches import BaseApproach, ApproachFailure, \
+
+from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, BaseApproach, \
     create_approach
 from predicators.src.envs.cover import CoverEnv
-from predicators.src.main import main, _run_testing
-from predicators.src.structs import State, Task, Action
-from predicators.src import utils
+from predicators.src.main import _run_testing, main
+from predicators.src.structs import Action, State, Task
 
 
 class _DummyApproach(BaseApproach):

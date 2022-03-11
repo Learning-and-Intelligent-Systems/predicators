@@ -1,13 +1,14 @@
 """Handle creation of approaches."""
 
 import pkgutil
-from typing import Set, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Set
+
 from gym.spaces import Box
-from predicators.src.approaches.base_approach import BaseApproach, \
-    ApproachTimeout, ApproachFailure
-from predicators.src.structs import Predicate, ParameterizedOption, \
-    Type, Task
+
 from predicators.src import utils
+from predicators.src.approaches.base_approach import ApproachFailure, \
+    ApproachTimeout, BaseApproach
+from predicators.src.structs import ParameterizedOption, Predicate, Task, Type
 
 __all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
 
