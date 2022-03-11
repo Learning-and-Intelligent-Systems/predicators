@@ -29,8 +29,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
 
         # Other baselines.
         python $FILE --experiment_id ${ENV}_random --env $ENV --approach random_options --seed $SEED
-        python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --seed $SEED
-        python $FILE --experiment_id ${ENV}_gnn_model_free_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --gnn_policy_solve_with_shooting False --seed $SEED
+        python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --excluded_predicates all --seed $SEED
+        python $FILE --experiment_id ${ENV}_gnn_model_free_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --gnn_policy_solve_with_shooting False --excluded_predicates all --seed $SEED
 
         # Blocks-specific experiments.
         if [ $ENV = "blocks" ]; then
