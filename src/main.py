@@ -202,6 +202,8 @@ def _generate_interaction_results(
     logging.info("Generating interaction results...")
     results = []
     query_cost = 0.0
+    if CFG.make_interaction_videos:
+        video = []
     for request in requests:
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
@@ -219,10 +221,11 @@ def _generate_interaction_results(
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
-            video = monitor.get_video()
-            video_prefix = utils.get_config_path_str()
-            outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
-            utils.save_video(outfile, video)
+            video.extend(monitor.get_video())
+    if CFG.make_interaction_videos:
+        video_prefix = utils.get_config_path_str()
+        outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+        utils.save_video(outfile, video)
     return results, query_cost
 
 

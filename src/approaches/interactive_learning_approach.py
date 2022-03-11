@@ -127,18 +127,18 @@ class InteractiveLearningApproach(NSRTLearningApproach):
     ########################### Active learning ###############################
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        # We will create a single interaction request.
-        # Determine the train task that we will be using.
-        train_task_idx = self._select_interaction_train_task_idx()
-        # Determine the action policy and termination function.
-        act_policy, termination_function = \
-            self._create_interaction_action_strategy(train_task_idx)
-        # Determine the query policy.
-        query_policy = self._create_interaction_query_policy(train_task_idx)
-        return [
-            InteractionRequest(train_task_idx, act_policy, query_policy,
-                               termination_function)
-        ]
+        requests = []
+        for train_task_idx in self._select_interaction_train_task_idxs():
+            # Determine the action policy and termination function.
+            act_policy, termination_function = \
+                self._create_interaction_action_strategy(train_task_idx)
+            # Determine the query policy.
+            query_policy = self._create_interaction_query_policy(train_task_idx)
+            request = InteractionRequest(train_task_idx, act_policy,
+                                         query_policy, termination_function)
+            requests.append(request)
+        assert len(requests) == CFG.interactive_num_requests_per_cycle
+        return requests
 
     def _score_atom_set(self, atom_set: Set[GroundAtom],
                         state: State) -> float:
@@ -158,13 +158,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
-    def _select_interaction_train_task_idx(self) -> int:
+    def _select_interaction_train_task_idxs(self) -> List[int]:
         # At the moment, we only have one way to select a train task idx:
         # choose one uniformly at random. In the future, we may want to
         # try other strategies. But one nice thing about random selection
         # is that we're not making a hard commitment to the agent having
         # control over which train task it gets to use.
-        return self._rng.choice(len(self._train_tasks))
+        return self._rng.choice(len(self._train_tasks),
+                                size=CFG.interactive_num_requests_per_cycle)
 
     def _create_interaction_action_strategy(
         self, train_task_idx: int
@@ -229,6 +230,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             logging.info("No solvable task found, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
+
+        logging.info(f"GLIB found a plan to task with goal {task.goal}.")
 
         # Stop the episode if we reach the goal that we babbled.
         termination_function = task.goal_holds
