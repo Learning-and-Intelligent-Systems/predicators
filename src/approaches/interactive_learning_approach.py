@@ -211,13 +211,18 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             min_set_size=1,
             max_set_size=CFG.interactive_max_num_atoms_babbled,
             rng=self._rng)
+        # Exclude goals that hold in the initial state to prevent trivial
+        # interaction requests.
+        possible_goal_lst = [
+            g for g in possible_goals if not all(a.holds(init) for a in g)
+        ]
         # Sort the possible goals based on how interesting they are.
         # Note: we're using _score_atom_set_frequency here instead of
         # _score_atom_set because _score_atom_set in general could depend
         # on the current state. While babbling goals, we don't have any
         # current state because we don't know what the state will be if and
         # when we get to the goal.
-        goal_list = sorted(possible_goals,
+        goal_list = sorted(possible_goal_lst,
                            key=self._score_atom_set_frequency,
                            reverse=True)  # largest to smallest
         task_list = [Task(init, goal) for goal in goal_list]
