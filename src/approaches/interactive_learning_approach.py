@@ -160,11 +160,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                                   f" {CFG.interactive_score_function}.")
 
     def _select_interaction_train_task_idxs(self) -> List[int]:
-        # At the moment, we only have one way to select a train task idx:
-        # choose one uniformly at random. In the future, we may want to
-        # try other strategies. But one nice thing about random selection
-        # is that we're not making a hard commitment to the agent having
-        # control over which train task it gets to use.
+        # At the moment, we select train task indices uniformly at
+        # random, with replacement. In the future, we may want to
+        # try other strategies.
         return self._rng.choice(len(self._train_tasks),
                                 size=CFG.interactive_num_requests_per_cycle)
 
