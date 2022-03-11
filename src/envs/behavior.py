@@ -117,6 +117,10 @@ class BehaviorEnv(BaseEnv):
                 )
                 self._options.add(option)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "behavior"
+
     def simulate(self, state: State, action: Action) -> State:
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])

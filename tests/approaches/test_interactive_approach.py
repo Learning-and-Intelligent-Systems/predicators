@@ -2,10 +2,11 @@
 
 import numpy as np
 import pytest
-from predicators.src.approaches import InteractiveLearningApproach, \
-    ApproachTimeout, ApproachFailure
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
+from predicators.src.approaches import ApproachTimeout, ApproachFailure
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset
 from predicators.src.main import _generate_interaction_results
@@ -29,6 +30,7 @@ def test_interactive_learning_approach():
         "num_train_tasks": 5,
         "num_test_tasks": 5,
         "interactive_num_ensemble_members": 1,
+        "interactive_num_requests_per_cycle": 1,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()

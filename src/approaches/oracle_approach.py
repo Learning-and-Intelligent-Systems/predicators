@@ -8,7 +8,8 @@ generated at all.
 
 from typing import Set, List
 from predicators.src.structs import NSRT, _Option
-from predicators.src.approaches import BilevelPlanningApproach
+from predicators.src.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 
 
@@ -25,6 +26,10 @@ class OracleApproach(BilevelPlanningApproach):
         hood.
         """
         return self._last_plan
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "oracle"
 
     @property
     def is_learning_based(self) -> bool:

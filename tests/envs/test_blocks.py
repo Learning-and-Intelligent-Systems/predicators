@@ -1,7 +1,7 @@
 """Test cases for the blocks environment."""
 
 import numpy as np
-from predicators.src.envs import BlocksEnv
+from predicators.src.envs.blocks import BlocksEnv
 from predicators.src import utils
 
 

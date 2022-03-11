@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from predicators.src.envs import ToolsEnv
+from predicators.src.envs.tools import ToolsEnv
 from predicators.src import utils
 from predicators.src.structs import Action
 

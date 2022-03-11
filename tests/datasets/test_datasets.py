@@ -2,7 +2,8 @@
 
 import pytest
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv, ClutteredTableEnv
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.envs.cluttered_table import ClutteredTableEnv
 from predicators.src.approaches import ApproachTimeout
 from predicators.src.structs import Dataset, Task, GroundAtom
 from predicators.src import utils

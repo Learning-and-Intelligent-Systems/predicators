@@ -51,6 +51,10 @@ class RepeatedNextToEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto"
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         move_or_grasp, norm_robot_x, norm_dot_x = action.arr

@@ -3,8 +3,11 @@
 from typing import List, Sequence, Set, cast
 import itertools
 import numpy as np
-from predicators.src.envs import get_or_create_env, PaintingEnv, PlayroomEnv, \
-    BehaviorEnv, ToolsEnv
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.painting import PaintingEnv
+from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.behavior import BehaviorEnv
+from predicators.src.envs.tools import ToolsEnv
 from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
     ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG

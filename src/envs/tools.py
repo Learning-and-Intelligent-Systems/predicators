@@ -177,6 +177,10 @@ class ToolsEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "tools"
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         next_state = state.copy()
