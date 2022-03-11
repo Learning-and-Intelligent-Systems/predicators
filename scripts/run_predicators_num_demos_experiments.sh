@@ -24,9 +24,8 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
         for NUM_TRAIN_TASKS in ${ALL_NUM_TRAIN_TASKS[@]}; do
             # Main approach only.
             python $FILE --experiment_id ${ENV}_main_${NUM_TRAIN_TASKS}demo --env $ENV --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks $NUM_TRAIN_TASKS
-            # GNN approaches.
+            # GNN approach.
             python $FILE --experiment_id ${ENV}_gnn_shooting_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --excluded_predicates all --seed $SEED
-            python $FILE --experiment_id ${ENV}_gnn_model_free_${NUM_TRAIN_TASKS}demo --env $ENV --approach gnn_policy --gnn_policy_solve_with_shooting False --excluded_predicates all --seed $SEED
         done
     done
 done
