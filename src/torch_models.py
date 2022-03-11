@@ -1,19 +1,19 @@
 """Models useful for classification/regression."""
 
 import abc
-import logging
 import os
-import tempfile
+import logging
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
-
-import numpy as np
+import tempfile
+from typing import Sequence, List, Tuple, Optional
 import torch
+from torch import nn
+from torch import optim
+from torch import Tensor
 import torch.nn.functional as F
-from torch import Tensor, nn, optim
-
-from predicators.src.settings import CFG
+import numpy as np
 from predicators.src.structs import Array, Object, State
+from predicators.src.settings import CFG
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 

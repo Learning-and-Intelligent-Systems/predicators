@@ -1,17 +1,15 @@
 """Definitions of ground truth NSRTs for all environments."""
 
-import itertools
 from typing import List, Sequence, Set, cast
-
+import itertools
 import numpy as np
-
-from predicators.src.envs import BehaviorEnv, PaintingEnv, PlayroomEnv, \
-    ToolsEnv, get_or_create_env
-from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
-    navigate_to_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs import get_or_create_env, PaintingEnv, PlayroomEnv, \
+    BehaviorEnv, ToolsEnv
+from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
+    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, Array, GroundAtom, LiftedAtom, \
-    Object, ParameterizedOption, Predicate, State, Type, Variable
+from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
+    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.utils import null_sampler
 
 

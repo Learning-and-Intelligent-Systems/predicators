@@ -1,12 +1,10 @@
 """Create plots for online learning."""
 
 import os
-
 import matplotlib
 import matplotlib.pyplot as plt
-import pandas as pd
 from matplotlib.ticker import MaxNLocator
-
+import pandas as pd
 from predicators.scripts.analyze_results_directory import create_dataframes, \
     get_df_for_entry
 

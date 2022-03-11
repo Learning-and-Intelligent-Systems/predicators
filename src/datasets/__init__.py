@@ -2,14 +2,13 @@
 environment."""
 
 from typing import List
-
-from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.structs import Dataset, Task
 from predicators.src.datasets.demo_only import create_demo_data
 from predicators.src.datasets.demo_replay import create_demo_replay_data
 from predicators.src.datasets.ground_atom_data import create_ground_atom_data
-from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, Task
+from predicators.src import utils
 
 
 def create_dataset(env: BaseEnv, train_tasks: List[Task]) -> Dataset:

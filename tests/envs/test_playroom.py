@@ -1,10 +1,9 @@
 """Test cases for the boring room vs playroom environment."""
 
-import numpy as np
 import pytest
-
-from predicators.src import utils
+import numpy as np
 from predicators.src.envs import PlayroomEnv
+from predicators.src import utils
 from predicators.src.structs import Action
 
 

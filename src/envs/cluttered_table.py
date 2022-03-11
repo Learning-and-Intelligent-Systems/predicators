@@ -4,17 +4,15 @@ This environment is created to test our planner's ability to handle
 failures reported by the environment.
 """
 
-from typing import Dict, List, Optional, Sequence, Set
-
+from typing import List, Set, Sequence, Dict, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-
-from predicators.src import utils
 from predicators.src.envs import BaseEnv
+from predicators.src.structs import Type, Predicate, State, Task, \
+    ParameterizedOption, Object, Action, GroundAtom, Image, Array
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
-    ParameterizedOption, Predicate, State, Task, Type
+from predicators.src import utils
 
 
 class ClutteredTableEnv(BaseEnv):

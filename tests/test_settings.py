@@ -1,7 +1,7 @@
 """Test cases for some parts of the settings.py file."""
 
-from predicators.src import utils
 from predicators.src.settings import get_allowed_query_type_names
+from predicators.src import utils
 
 
 def test_get_allowed_query_type_names():

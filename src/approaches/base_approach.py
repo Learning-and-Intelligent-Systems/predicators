@@ -2,15 +2,13 @@
 
 import abc
 from collections import defaultdict
-from typing import Callable, List, Optional, Sequence, Set
-
+from typing import Set, Callable, List, Sequence, Optional
 import numpy as np
 from gym.spaces import Box
-
+from predicators.src.structs import State, Task, Predicate, Type, \
+    ParameterizedOption, Action, Dataset, Metrics, InteractionRequest, \
+    InteractionResult
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, Dataset, InteractionRequest, \
-    InteractionResult, Metrics, ParameterizedOption, Predicate, State, Task, \
-    Type
 from predicators.src.utils import ExceptionWithInfo
 
 

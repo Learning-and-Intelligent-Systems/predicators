@@ -1,14 +1,12 @@
 """Base class for an environment."""
 
 import abc
-from typing import List, Optional, Set
-
+from typing import List, Set, Optional
 import numpy as np
 from gym.spaces import Box
-
+from predicators.src.structs import State, Task, Predicate, \
+    ParameterizedOption, Type, Action, Image, DefaultState, DefaultTask
 from predicators.src.settings import CFG
-from predicators.src.structs import Action, DefaultState, DefaultTask, Image, \
-    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BaseEnv(abc.ABC):

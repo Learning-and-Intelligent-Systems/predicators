@@ -34,24 +34,23 @@ To run grammar search predicate invention (example):
         --seed 0 --excluded_predicates all
 """
 
+from collections import defaultdict
+from typing import List, Sequence, Optional, Tuple
 import logging
 import os
 import sys
 import time
-from collections import defaultdict
-from typing import List, Optional, Sequence, Tuple
-
 import dill as pkl
-
-from predicators.src import utils
-from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
-    BaseApproach, create_approach
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import BaseEnv, create_new_env
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset, InteractionRequest, \
-    InteractionResult, Metrics, Task
+from predicators.src.envs import create_new_env, BaseEnv
+from predicators.src.approaches import create_approach, ApproachTimeout, \
+    ApproachFailure, BaseApproach
+from predicators.src.datasets import create_dataset
+from predicators.src.structs import Metrics, Task, Dataset, \
+    InteractionRequest, InteractionResult
+from predicators.src import utils
 from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
+
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
