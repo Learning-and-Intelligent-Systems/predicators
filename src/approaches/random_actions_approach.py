@@ -1,8 +1,9 @@
 """An approach that just takes random low-level actions."""
 
 from typing import Callable
+
 from predicators.src.approaches import BaseApproach
-from predicators.src.structs import State, Task, Action
+from predicators.src.structs import Action, State, Task
 
 
 class RandomActionsApproach(BaseApproach):

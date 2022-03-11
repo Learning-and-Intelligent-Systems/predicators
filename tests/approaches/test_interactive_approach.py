@@ -2,16 +2,17 @@
 
 import numpy as np
 import pytest
+
+from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.interactive_learning_approach import \
     InteractiveLearningApproach
-from predicators.src.approaches import ApproachTimeout, ApproachFailure
 from predicators.src.datasets import create_dataset
 from predicators.src.envs.cover import CoverEnv
+from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset
-from predicators.src.main import _generate_interaction_results
 from predicators.src.teacher import Teacher
-from predicators.src import utils
 
 
 def test_interactive_learning_approach():
