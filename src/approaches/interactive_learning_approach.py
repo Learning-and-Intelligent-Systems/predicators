@@ -133,7 +133,8 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             act_policy, termination_function = \
                 self._create_interaction_action_strategy(train_task_idx)
             # Determine the query policy.
-            query_policy = self._create_interaction_query_policy(train_task_idx)
+            query_policy = self._create_interaction_query_policy(
+                train_task_idx)
             request = InteractionRequest(train_task_idx, act_policy,
                                          query_policy, termination_function)
             requests.append(request)
