@@ -1,9 +1,10 @@
 """Test cases for the repeated NextTo environment."""
 
 import numpy as np
+
+from predicators.src import utils
 from predicators.src.envs import RepeatedNextToEnv
 from predicators.src.structs import Action
-from predicators.src import utils
 
 
 def test_repeated_nextto():

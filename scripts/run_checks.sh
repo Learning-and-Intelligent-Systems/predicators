@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Running autoformatting."
-yapf -i -r --style .style.yapf . && docformatter -i -r .
+yapf -i -r --style .style.yapf . && docformatter -i -r . && isort .
 echo "Autoformatting complete."
 
 echo "Running type checking."

@@ -1,15 +1,16 @@
 """Tests for sampler learning."""
 
+import numpy as np
 import pytest
 from gym.spaces import Box
-import numpy as np
-from predicators.src.nsrt_learning.sampler_learning import \
-    _create_sampler_data, learn_samplers, _LearnedSampler
-from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
+
 from predicators.src import utils
-from predicators.src.torch_models import NeuralGaussianRegressor, MLPClassifier
 from predicators.src.envs import ClutteredTablePlaceEnv
+from predicators.src.nsrt_learning.sampler_learning import \
+    _create_sampler_data, _LearnedSampler, learn_samplers
+from predicators.src.structs import Action, LiftedAtom, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, State, Type
+from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 
 
 def test_create_sampler_data():

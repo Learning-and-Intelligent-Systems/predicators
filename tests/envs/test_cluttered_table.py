@@ -2,8 +2,9 @@
 
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import ClutteredTableEnv, ClutteredTablePlaceEnv
+
 from predicators.src import utils
+from predicators.src.envs import ClutteredTableEnv, ClutteredTablePlaceEnv
 from predicators.src.structs import Action, GroundAtom
 
 

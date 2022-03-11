@@ -1,18 +1,21 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
+
 import logging
-from typing import Set, List, Iterator, Tuple
-from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
-    Segment, PartialNSRTAndDatastore, Task
+from typing import Iterator, List, Set, Tuple
+
 from predicators.src import utils
-from predicators.src.settings import CFG
-from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
+from predicators.src.nsrt_learning.sampler_learning import learn_samplers
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, LowLevelTrajectory, \
+    PartialNSRTAndDatastore, Predicate, Segment, Task
 
 
 def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],

@@ -11,14 +11,16 @@ predicate. Hammer sizes work the same way as screwdriver sizes. Wrench
 sizes don't matter.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
+from typing import Dict, List, Optional, Sequence, Set
+
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class ToolsEnv(BaseEnv):
