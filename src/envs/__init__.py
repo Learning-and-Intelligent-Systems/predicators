@@ -1,10 +1,11 @@
 """Handle creation of environments."""
 
-import pkgutil
 import logging
+import pkgutil
 from typing import TYPE_CHECKING
-from predicators.src.envs.base_env import BaseEnv
+
 from predicators.src import utils
+from predicators.src.envs.base_env import BaseEnv
 
 __all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}

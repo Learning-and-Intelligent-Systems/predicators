@@ -5,12 +5,14 @@ Kelsey Allen.
 """
 
 import abc
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
+
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
-from predicators.src.gnn.gnn_utils import replace_graph, concat_graphs, \
-    GraphDictDataset
+
+from predicators.src.gnn.gnn_utils import GraphDictDataset, concat_graphs, \
+    replace_graph
 from predicators.src.structs import Array
 
 

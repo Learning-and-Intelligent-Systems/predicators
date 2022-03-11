@@ -1,10 +1,11 @@
 """Test cases for the painting environment."""
 
-import pytest
 import numpy as np
+import pytest
+
+from predicators.src import utils
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.structs import Action
-from predicators.src import utils
 
 
 def test_painting():
