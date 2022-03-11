@@ -2,10 +2,10 @@
 
 import pytest
 from gym.spaces import Box
-from predicators.src.approaches import OracleApproach
+from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
 from predicators.src import utils
 from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \

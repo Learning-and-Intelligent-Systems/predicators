@@ -5,7 +5,7 @@ import pytest
 from gym.spaces import Box
 import numpy as np
 from predicators.src.approaches import BaseApproach, create_approach
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.structs import State, Type, ParameterizedOption, \
     Predicate, Task, Action
 from predicators.src import utils
@@ -13,6 +13,10 @@ from predicators.src import utils
 
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):

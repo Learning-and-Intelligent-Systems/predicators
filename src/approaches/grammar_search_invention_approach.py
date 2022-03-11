@@ -12,7 +12,8 @@ from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
     Dict
 from gym.spaces import Box
 from predicators.src import utils
-from predicators.src.approaches import NSRTLearningApproach
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.structs import State, Predicate, ParameterizedOption, \
@@ -610,6 +611,10 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
                          action_space, train_tasks)
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "grammar_search_invention"
 
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates

@@ -7,7 +7,7 @@ import sys
 import pytest
 from predicators.src.approaches import BaseApproach, ApproachFailure, \
     create_approach
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import main, _run_testing
 from predicators.src.structs import State, Task, Action
 from predicators.src import utils
@@ -15,6 +15,10 @@ from predicators.src import utils
 
 class _DummyApproach(BaseApproach):
     """Dummy approach that raises ApproachFailure for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):
@@ -30,6 +34,10 @@ class _DummyApproach(BaseApproach):
 
 class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     def simulate(self, state, action):
         raise utils.EnvironmentFailure("", {"offending_objects": set()})

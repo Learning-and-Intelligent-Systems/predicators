@@ -9,7 +9,7 @@ from predicators.src.structs import Type, Predicate, State, Action, \
     ParameterizedOption, LiftedAtom, Segment, LowLevelTrajectory
 from predicators.src import utils
 from predicators.src.torch_models import NeuralGaussianRegressor, MLPClassifier
-from predicators.src.envs import ClutteredTablePlaceEnv
+from predicators.src.envs.cluttered_table import ClutteredTablePlaceEnv
 
 
 def test_create_sampler_data():

@@ -49,6 +49,10 @@ class GNNPolicyApproach(BaseApproach):
         # Seed torch.
         torch.manual_seed(self._seed)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "gnn_policy"
+
     @property
     def is_learning_based(self) -> bool:
         return True

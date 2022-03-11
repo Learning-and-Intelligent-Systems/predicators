@@ -8,7 +8,8 @@ import os
 from typing import Dict, DefaultDict, Set, List, Tuple, Sequence, Any
 import pandas as pd
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_new_env, BaseEnv, CoverEnv
+from predicators.src.envs import create_new_env, BaseEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.approaches import create_approach
 from predicators.src.approaches.grammar_search_invention_approach import \
     _ForallClassifier, _SingleAttributeCompareClassifier
