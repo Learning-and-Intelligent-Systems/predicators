@@ -156,7 +156,7 @@ def _run_pipeline(env: BaseEnv,
             if CFG.load_approach:
                 approach.load(online_learning_cycle=i)
             else:
-                approach.learn_from_interaction_results(interaction_results)
+                approach.learn_from_interaction_results(interaction_results, env)
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
