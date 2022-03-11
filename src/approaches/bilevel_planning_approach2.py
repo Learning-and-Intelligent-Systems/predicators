@@ -5,7 +5,7 @@ then Execution.
 """
 
 import abc
-from typing import Callable, Set, List
+from typing import Callable, Set, List, Tuple
 from gym.spaces import Box
 from predicators.src.approaches import BaseApproach, ApproachFailure
 from predicators.src.planning import sesame_plan
@@ -68,13 +68,28 @@ class BilevelPlanningApproach2(BaseApproach):
             metrics["num_skeletons_optimized"],
             self._metrics["max_num_skeletons_optimized"])
         self._last_plan = plan
-        option_policy = utils.option_plan_to_policy(plan)
+        option_policy = utils.option_plan_to_policy2(plan)
 
         def _policy(s: State) -> Action:
             try:
                 return option_policy(s)
             except utils.OptionPlanExhausted:
                 raise ApproachFailure("Option plan exhausted.")
+
+        return _policy
+
+    def solve(self, task: Task, timeout: int) -> Callable[[State], Tuple[Action, _Option]]:
+        """Light wrapper around the abstract self._solve().
+
+        Checks that actions are in the action space.
+        """
+        pi = self._solve(task, timeout)
+
+        def _policy(state: State) -> Action:
+            assert isinstance(state, State)
+            act, option = pi(state)
+            assert self._action_space.contains(act.arr)
+            return act, option
 
         return _policy
 

@@ -254,7 +254,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj = utils.run_policy(policy,
+            traj = utils.run_policy3(policy,
                                     env,
                                     "test",
                                     test_task_idx,

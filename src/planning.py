@@ -294,6 +294,7 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         cur_idx += 1
         if option.initiable(state):
             try:
+                option_model._name_to_parameterized_option[option.parent.name] = option.parent
                 next_state, _ = option_model.get_next_state_and_num_actions(
                     state, option)
             except EnvironmentFailure as e:

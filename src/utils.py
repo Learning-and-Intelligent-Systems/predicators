@@ -528,7 +528,7 @@ def run_policy2(policy: Callable[[State], Action],
     return traj
 
 # THIS IS FOR USE IN _RUN_TESTING()
-def run_policy3(policy: Callable[[State], Action],
+def run_policy3(policy: Callable[[State], Tuple[Action, _Option]],
                env: BaseEnv,
                train_or_test: str,
                task_idx: int,
@@ -553,7 +553,7 @@ def run_policy3(policy: Callable[[State], Action],
     if not termination_function(state):
         for _ in range(max_num_steps):
             try:
-                act, _ = policy(state)
+                act, option = policy(state)
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
