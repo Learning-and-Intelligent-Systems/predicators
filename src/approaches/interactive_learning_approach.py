@@ -1,20 +1,22 @@
 """An approach that learns predicates from a teacher."""
 
 import logging
-from typing import Set, List, Optional, Tuple, Callable, Sequence, Dict
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+
 import dill as pkl
 import numpy as np
 from gym.spaces import Box
+
 from predicators.src import utils
-from predicators.src.approaches import NSRTLearningApproach, \
-    ApproachTimeout, ApproachFailure, RandomOptionsApproach
-from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Dataset, GroundAtom, LowLevelTrajectory, InteractionRequest, \
-    InteractionResult, Action, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    Query
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    NSRTLearningApproach, RandomOptionsApproach
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Dataset, GroundAtom, \
+    GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
+    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Query, State, Task, Type
 from predicators.src.torch_models import LearnedPredicateClassifier, \
     MLPClassifierEnsemble
-from predicators.src.settings import CFG
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):

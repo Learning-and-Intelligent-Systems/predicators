@@ -2,24 +2,29 @@
 the candidates proposed from a grammar."""
 
 from __future__ import annotations
+
 import abc
-from dataclasses import dataclass, field
-from functools import cached_property
 import itertools
 import logging
+from dataclasses import dataclass, field
+from functools import cached_property
 from operator import le
-from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
-    Dict
+from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
+    Tuple
+
 from gym.spaces import Box
+
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
-from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Dataset, Object, GroundAtomTrajectory, Task, GroundAtom
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.src.predicate_search_score_functions import \
-    create_score_function, _PredicateSearchScoreFunction
+    _PredicateSearchScoreFunction, create_score_function
 from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, GroundAtom, \
+    GroundAtomTrajectory, Object, ParameterizedOption, Predicate, State, \
+    Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
