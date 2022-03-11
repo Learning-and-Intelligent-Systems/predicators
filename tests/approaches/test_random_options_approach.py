@@ -1,7 +1,8 @@
 """Test cases for the random options approach class."""
 
 from gym.spaces import Box
-from predicators.src.approaches import RandomOptionsApproach
+from predicators.src.approaches.random_options_approach import \
+    RandomOptionsApproach
 from predicators.src.structs import Type, ParameterizedOption, State, Action, \
     Task, Predicate, DefaultState
 from predicators.src import utils

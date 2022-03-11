@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from predicators.src.envs import PyBulletBlocksEnv
+from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
 from predicators.src.structs import Object, State, Action
 from predicators.src import utils
 from predicators.src.settings import CFG

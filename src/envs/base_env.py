@@ -23,6 +23,14 @@ class BaseEnv(abc.ABC):
         self._train_tasks: List[Task] = []
         self._test_tasks: List[Task] = []
 
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the unique name of this environment, used as the argument
+        to `--env`.
+        """
+        raise NotImplementedError("Override me!")
+
     @abc.abstractmethod
     def simulate(self, state: State, action: Action) -> State:
         """Get the next state, given a state and an action.

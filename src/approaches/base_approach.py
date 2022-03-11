@@ -28,6 +28,14 @@ class BaseApproach(abc.ABC):
         self._metrics: Metrics = defaultdict(float)
         self.seed(CFG.seed)
 
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the unique name of this approach, used as the argument
+        to `--approach`.
+        """
+        raise NotImplementedError("Override me!")
+
     @property
     @abc.abstractmethod
     def is_learning_based(self) -> bool:

@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from predicators.src.envs import PaintingEnv
+from predicators.src.envs.painting import PaintingEnv
 from predicators.src.structs import Action
 from predicators.src import utils
 

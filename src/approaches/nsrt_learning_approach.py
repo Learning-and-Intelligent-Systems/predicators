@@ -8,7 +8,8 @@ import logging
 from typing import Set, List, Optional
 import dill as pkl
 from gym.spaces import Box
-from predicators.src.approaches import BilevelPlanningApproach
+from predicators.src.approaches.bilevel_planning_approach import \
+    BilevelPlanningApproach
 from predicators.src.structs import Dataset, NSRT, ParameterizedOption, \
     Predicate, Type, Task, LowLevelTrajectory
 from predicators.src.nsrt_learning.nsrt_learning_main import \
@@ -26,6 +27,10 @@ class NSRTLearningApproach(BilevelPlanningApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._nsrts: Set[NSRT] = set()
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "nsrt_learning"
 
     @property
     def is_learning_based(self) -> bool:

@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
+from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
     CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
     CoverEnvRegrasp
 from predicators.src.structs import Action, Task

@@ -46,6 +46,10 @@ class CoverEnv(BaseEnv):
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover"
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         pose = action.arr.item()
@@ -368,6 +372,10 @@ class CoverEnvTypedOptions(CoverEnv):
             types=[self._target_type],
             params_space=Box(0, 1, (1, )))
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_typed_options"
+
     @property
     def options(self) -> Set[ParameterizedOption]:
         return {self._Pick, self._Place}
@@ -394,6 +402,10 @@ class CoverEnvHierarchicalTypes(CoverEnv):
             "block_derived",
             ["is_block", "is_target", "width", "pose", "grasp"],
             parent=self._parent_block_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_hierarchical_types"
 
     @property
     def types(self) -> Set[Type]:
@@ -427,6 +439,10 @@ class CoverEnvRegrasp(CoverEnv):
         # covered targets.
         self._Clear = Predicate("Clear", [self._target_type],
                                 self._Clear_holds)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_regrasp"
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -552,6 +568,10 @@ class CoverMultistepOptions(CoverEnvTypedOptions):
             policy=self._Place_learned_equivalent_policy,
             initiable=self._Place_learned_equivalent_initiable,
             terminal=self._Place_learned_equivalent_terminal)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_multistep_options"
 
     @property
     def options(self) -> Set[ParameterizedOption]:
@@ -1219,6 +1239,10 @@ class CoverMultistepOptionsFixedTasks(CoverMultistepOptions):
     Note that like the parent env, there are three possible goals:
     Cover(block0, target0), Cover(block1, target1), or both.
     """
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cover_multistep_options_fixed_tasks"
 
     def _create_initial_state(self, blocks: List[Object],
                               targets: List[Object],

@@ -10,8 +10,8 @@ from predicators.src.structs import State, Task, Query, Response, \
     Action, PathToStateQuery, PathToStateResponse
 from predicators.src.settings import CFG, get_allowed_query_type_names
 from predicators.src.envs import get_or_create_env
-from predicators.src.approaches import OracleApproach, ApproachTimeout, \
-    ApproachFailure
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.approaches import ApproachTimeout, ApproachFailure
 from predicators.src.ground_truth_nsrts import _get_types_by_names, \
     _get_options_by_names
 from predicators.src import utils

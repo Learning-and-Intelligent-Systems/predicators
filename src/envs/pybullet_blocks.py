@@ -272,6 +272,10 @@ class PyBulletBlocksEnv(BlocksEnv):
                    shape=(4, ),
                    dtype=np.float32)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "pybullet_blocks"
+
     def simulate(self, state: State, action: Action) -> State:
         raise NotImplementedError("PyBulletBlocksEnv cannot simulate.")
 

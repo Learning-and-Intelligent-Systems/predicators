@@ -10,7 +10,8 @@ from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
 from predicators.src.approaches import ApproachFailure
 from predicators.src.settings import CFG
 from predicators.src.torch_models import MLPRegressor
-from predicators.src.envs import get_or_create_env, BlocksEnv
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.blocks import BlocksEnv
 
 
 def create_option_learner() -> _OptionLearnerBase:

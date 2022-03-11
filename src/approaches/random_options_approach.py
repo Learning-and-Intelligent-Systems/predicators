@@ -10,6 +10,10 @@ from predicators.src import utils
 class RandomOptionsApproach(BaseApproach):
     """Samples random options (and random parameters for those options)."""
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "random_options"
+
     @property
     def is_learning_based(self) -> bool:
         return False

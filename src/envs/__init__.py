@@ -1,77 +1,32 @@
-"""Default imports for envs folder."""
+"""Handle creation of environments."""
 
+import pkgutil
 import logging
+from typing import TYPE_CHECKING
 from predicators.src.envs.base_env import BaseEnv
-from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
-    CoverEnvHierarchicalTypes, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, CoverEnvRegrasp
-from predicators.src.envs.behavior import BehaviorEnv
-from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
-    ClutteredTablePlaceEnv
-from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.painting import PaintingEnv
-from predicators.src.envs.tools import ToolsEnv
-from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
-from predicators.src.envs.pybullet_blocks import PyBulletBlocksEnv
+from predicators.src import utils
 
-__all__ = [
-    "BaseEnv",
-    "CoverEnv",
-    "CoverEnvTypedOptions",
-    "CoverEnvHierarchicalTypes",
-    "CoverEnvRegrasp",
-    "CoverMultistepOptions",
-    "CoverMultistepOptionsFixedTasks",
-    "ClutteredTableEnv",
-    "BlocksEnv",
-    "PaintingEnv",
-    "ToolsEnv",
-    "PlayroomEnv",
-    "BehaviorEnv",
-    "RepeatedNextToEnv",
-    "PyBulletBlocksEnv",
-]
-
+__all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}
 
 
-def create_new_env(name: str, do_cache: bool = False) -> BaseEnv:
+if not TYPE_CHECKING:
+    # Load all modules so that utils.get_all_subclasses() works.
+    for loader, module_name, _ in pkgutil.walk_packages(__path__):
+        if "__init__" not in module_name:
+            loader.find_module(module_name).load_module(module_name)
+
+
+def create_new_env(name: str, do_cache: bool = True) -> BaseEnv:
     """Create a new instance of an environment from its name.
 
     If do_cache is True, then cache this env instance so that it can
     later be loaded using get_or_create_env().
     """
-    if name == "cover":
-        env: BaseEnv = CoverEnv()
-    elif name == "cover_typed_options":
-        env = CoverEnvTypedOptions()
-    elif name == "cover_hierarchical_types":
-        env = CoverEnvHierarchicalTypes()
-    elif name == "cover_regrasp":
-        env = CoverEnvRegrasp()
-    elif name == "cover_multistep_options":
-        env = CoverMultistepOptions()
-    elif name == "cover_multistep_options_fixed_tasks":
-        env = CoverMultistepOptionsFixedTasks()
-    elif name == "cluttered_table":
-        env = ClutteredTableEnv()
-    elif name == "cluttered_table_place":
-        env = ClutteredTablePlaceEnv()
-    elif name == "blocks":
-        env = BlocksEnv()
-    elif name == "painting":
-        env = PaintingEnv()
-    elif name == "tools":
-        env = ToolsEnv()
-    elif name == "playroom":
-        env = PlayroomEnv()
-    elif name == "behavior":
-        env = BehaviorEnv()  # pragma: no cover
-    elif name == "repeated_nextto":
-        env = RepeatedNextToEnv()
-    elif name == "pybullet_blocks":
-        env = PyBulletBlocksEnv()
+    for cls in utils.get_all_subclasses(BaseEnv):
+        if cls is not BaseEnv and cls.get_name() == name:
+            env = cls()
+            break
     else:
         raise NotImplementedError(f"Unknown env: {name}")
     if do_cache:
