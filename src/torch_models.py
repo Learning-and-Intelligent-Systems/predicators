@@ -35,7 +35,7 @@ class MLPRegressor(nn.Module):
 
         Both X and Y are multi-dimensional.
         """
-        assert X.ndim == 2
+        assert X.ndim== 2
         assert Y.ndim == 2
         return self._fit(X, Y)
 
