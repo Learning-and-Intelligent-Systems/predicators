@@ -66,22 +66,32 @@ class _OracleOptionModel(_OptionModelBase):
         # PyBullet environment otherwise. Note that in this case of using a
         # PyBullet environment, the second return value (num_actions) will be
         # an underestimate since we are not actually rolling out the option in
-        # the full simulator, but that's okay.
+        # the full simulator, but that's okay. Finally, in the case where we
+        # are learning options, the learned options will not appear in the
+        # env.options set. (However, we still want to use the environment
+        # options during data collection when we are learning options). In this
+        # case, we make a copy of the option itself, rather than reconstructing
+        # it from env.options.
         param_opt = option.parent
-        env_param_opt = self._name_to_parameterized_option[param_opt.name]
-        assert env_param_opt.types == param_opt.types
-        assert np.allclose(env_param_opt.params_space.low,
-                           param_opt.params_space.low)
-        assert np.allclose(env_param_opt.params_space.high,
-                           param_opt.params_space.high)
-        env_option = env_param_opt.ground(option.objects, option.params)
+        if param_opt.name not in self._name_to_parameterized_option:
+            assert "Learned" in param_opt.name
+            option_copy = param_opt.ground(option.objects,
+                                           option.params.copy())
+        else:
+            env_param_opt = self._name_to_parameterized_option[param_opt.name]
+            assert env_param_opt.types == param_opt.types
+            assert np.allclose(env_param_opt.params_space.low,
+                               param_opt.params_space.low)
+            assert np.allclose(env_param_opt.params_space.high,
+                               param_opt.params_space.high)
+            option_copy = env_param_opt.ground(option.objects, option.params)
         del option  # unused after this
-        assert env_option.initiable(state)
+        assert option_copy.initiable(state)
         traj = utils.run_policy_with_simulator(
-            env_option.policy,
+            option_copy.policy,
             self._simulator,
             state,
-            env_option.terminal,
+            option_copy.terminal,
             max_num_steps=CFG.max_num_steps_option_rollout)
         return traj.states[-1], len(traj.actions)
 
