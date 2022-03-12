@@ -1,14 +1,11 @@
 """The core algorithm for learning a collection of NSRT data structures."""
 
 from __future__ import annotations
-from typing import Set, List, Sequence, Iterator, Tuple, FrozenSet
+import logging
+from typing import Set, List, Iterator, Tuple, FrozenSet
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task, \
     STRIPSOperator, OptionSpec, GroundAtom, _GroundNSRT
-
-import logging
-from typing import Iterator, List, Set, Tuple
-
 from predicators.src import utils
 from predicators.src.nsrt_learning.option_learning import create_option_learner
 from predicators.src.nsrt_learning.sampler_learning import learn_samplers
@@ -19,8 +16,6 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.planning import task_plan_grounding
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, Predicate, Segment, Task
 
 
 def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
@@ -76,7 +71,8 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
         pnads = _learn_pnad_side_predicates(pnads, trajectories, train_tasks,
-                                            predicates, segmented_trajs)
+                                            predicates, segments,
+                                            segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -302,7 +298,8 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
 
     def _get_successor_with_correct_option(
         searchnode_state: Tuple[FrozenSet[GroundAtom], int]
-    ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int], float]]:
+    ) -> Iterator[Tuple[_GroundNSRT, Tuple[FrozenSet[GroundAtom], int],
+                        float]]:
         state = searchnode_state[0]
         idx_into_traj = searchnode_state[1]
 
@@ -310,11 +307,6 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
             assert ll_traj.actions[idx_into_traj].has_option()
             gt_option = ll_traj.actions[idx_into_traj].get_option()
             expected_next_hl_state = hl_traj[idx_into_traj + 1]
-
-            # if len(strips_ops[2].side_predicates) == 1 and \
-            #     idx_into_traj == 2 and \
-            #     str(hl_traj) == '[{NextToNothing(robby:robot)}, {NextTo(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {Grasped(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {NextTo(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot)}, {Grasped(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot), NextToNothing(robby:robot)}]':
-            #     import ipdb; ipdb.set_trace()
 
             for applicable_nsrt in utils.get_applicable_operators(
                     ground_nsrts, state):
@@ -334,21 +326,17 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
                         exp_state_matches = next_hl_state.issubset(
                             expected_next_hl_state)
 
-                        # if not exp_state_matches and len(applicable_nsrt.side_predicates) == 1 and len(strips_ops[2].side_predicates) == 1:
-                        #     import ipdb; ipdb.set_trace()
-
                         if exp_state_matches:
                             # The returned cost is uniform because we don't
                             # actually care about finding the shortest path;
                             # just one that matches!
-
-                            yield (applicable_nsrt, (frozenset(next_hl_state), idx_into_traj + 1),
-                                   1.0)
+                            yield (applicable_nsrt, (frozenset(next_hl_state),
+                                                     idx_into_traj + 1), 1.0)
 
     init_atoms_frozen = frozenset(init_atoms)
     init_searchnode_state = (init_atoms_frozen, 0)
-    state_seq, action_seq = utils.run_gbfs(init_searchnode_state, _check_goal,
-                                  _get_successor_with_correct_option,
-                                  lambda searchnode_state: heuristic(searchnode_state[0]))
+    state_seq, _ = utils.run_gbfs(
+        init_searchnode_state, _check_goal, _get_successor_with_correct_option,
+        lambda searchnode_state: heuristic(searchnode_state[0]))
 
     return _check_goal(state_seq[-1])
