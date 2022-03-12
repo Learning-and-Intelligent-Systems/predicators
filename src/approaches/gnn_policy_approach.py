@@ -96,7 +96,17 @@ class GNNPolicyApproach(BaseApproach):
             # A single shooting try goes up to the environment's horizon.
             while total_num_act < CFG.horizon:
                 if task.goal_holds(state):
-                    return utils.option_plan_to_policy(plan)
+                    # We found a plan that achieves the goal under the
+                    # option model, so return it.
+                    option_policy = utils.option_plan_to_policy(plan)
+
+                    def _policy(s: State) -> Action:
+                        try:
+                            return option_policy(s)
+                        except utils.OptionPlanExhausted:
+                            raise ApproachFailure("Option plan exhausted.")
+
+                    return _policy
                 atoms = utils.abstract(state, self._initial_predicates)
                 param_opt, objects, params_mean = self._predict(
                     state, atoms, task.goal)
