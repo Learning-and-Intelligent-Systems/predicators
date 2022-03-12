@@ -179,7 +179,7 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
         f"__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
-        assert os.path.exists(dataset_filepath)
+        assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
         with open(dataset_filepath, "rb") as f:
             dataset = pkl.load(f)
         logging.info("\n\nLOADED DATASET")
