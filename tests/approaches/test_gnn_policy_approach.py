@@ -189,3 +189,14 @@ def test_gnn_policy_approach_special_cases():
                                            max_num_steps=CFG.horizon)
     assert trivial_task.goal_holds(traj.states[-1])
     assert len(traj.actions) == 0
+    # Now test what happens if we solve the trivial task but roll out
+    # in a non-trivial task. We should get an ApproachFailure because
+    # the option plan should get exhausted.
+    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    with pytest.raises(ApproachFailure) as e:
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        test_task.init,
+                                        test_task.goal_holds,
+                                        max_num_steps=CFG.horizon)
+    assert "Option plan exhausted" in str(e)
