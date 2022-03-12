@@ -11,10 +11,10 @@ build
 dist
 pylint_recursive.py
 .coverage
-supercloud_logs
 results
 videos
+logs
 saved_approaches
 saved_datasets
-analysis/results
+scripts/results
 tmp_behavior_states

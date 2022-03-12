@@ -1,13 +1,14 @@
 """Test cases for the cover environment."""
 
-import pytest
 import numpy as np
+import pytest
 from gym.spaces import Box
-from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverMultistepOptions, CoverMultistepOptionsFixedTasks, \
-    CoverEnvRegrasp
-from predicators.src.structs import Action, Task
+
 from predicators.src import utils
+from predicators.src.envs.cover import CoverEnv, CoverEnvRegrasp, \
+    CoverEnvTypedOptions, CoverMultistepOptions, \
+    CoverMultistepOptionsFixedTasks
+from predicators.src.structs import Action, Task
 
 
 def test_cover():
@@ -215,7 +216,7 @@ def test_cover_regrasp():
     assert len(init_atoms) == 2
     # Clear should not be true after a place.
     state = task.init.copy()
-    block0, _, _, target0, _ = sorted(state)
+    block0, _, _, target0, _ = list(state)
     state.set(block0, "pose", state.get(target0, "pose"))
     assert not Clear([target0]).holds(state)
 

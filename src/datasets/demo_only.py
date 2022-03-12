@@ -1,13 +1,15 @@
 """Create offline datasets by collecting demonstrations."""
 
+import logging
 import os
 from typing import List
-from predicators.src.approaches import OracleApproach, ApproachTimeout, \
-    ApproachFailure
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Dataset, Task, LowLevelTrajectory
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, LowLevelTrajectory, Task
 
 
 def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
@@ -25,24 +27,34 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
         if idx >= CFG.max_initial_demos:
             break
         try:
-            policy = oracle_approach.solve(
-                task, timeout=CFG.offline_data_planning_timeout)
-        except (ApproachTimeout, ApproachFailure) as e:  # pragma: no cover
+            oracle_approach.solve(task,
+                                  timeout=CFG.offline_data_planning_timeout)
+            # Since we're running the oracle approach, we know that the policy
+            # is actually a plan under the hood, and we can retrieve it with
+            # get_last_plan(). We do this because we want to run the full plan.
+            plan = oracle_approach.get_last_plan()
+            # Stop run_policy() when OptionPlanExhausted() is hit.
+            traj = utils.run_policy(
+                utils.option_plan_to_policy(plan),
+                env,
+                "train",
+                idx,
+                termination_function=lambda s: False,
+                max_num_steps=CFG.horizon,
+                exceptions_to_break_on={utils.OptionPlanExhausted})
+            # Even though we're running the full plan, we should still check
+            # that the goal holds at the end.
+            assert task.goal_holds(traj.states[-1]), \
+                "Oracle failed on training task"
+        except (ApproachTimeout, ApproachFailure, AssertionError) as e:
             # This should be extremely rare, so we only allow the script
             # to continue on supercloud, when running batch experiments
-            # with analysis/submit.py.
-            print(f"WARNING: Approach failed to solve with error: {e}")
+            # with scripts/submit.py.
+            logging.warning("WARNING: Approach failed to solve with error: "
+                            f"{e}")
             if not os.getcwd().startswith("/home/gridsan"):
                 raise e
-            continue
-        traj = utils.run_policy(policy,
-                                env,
-                                "train",
-                                idx,
-                                task.goal_holds,
-                                max_num_steps=CFG.max_num_steps_check_policy)
-        assert task.goal_holds(traj.states[-1]), \
-            "Oracle failed on training task."
+            continue  # pragma: no cover
         # Add is_demo flag and task index information into the trajectory.
         traj = LowLevelTrajectory(traj.states,
                                   traj.actions,

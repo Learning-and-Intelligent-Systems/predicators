@@ -1,34 +1,36 @@
 """Hardcoded options for BehaviorEnv."""
 # pylint: disable=import-error
 
-from typing import Callable, List, Sequence, Tuple, Union, Optional
+import logging
+from typing import Callable, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
-from numpy.random._generator import Generator
 import scipy
-from predicators.src.structs import State, Array
+from numpy.random._generator import Generator
+
+from predicators.src.structs import Array, State
 from predicators.src.utils import get_aabb_volume, get_closest_point_on_aabb
 
 try:
     import pybullet as p
     from igibson import object_states
-    from igibson.envs.behavior_env import BehaviorEnv  # pylint: disable=unused-import
-    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS
+    from igibson.envs.behavior_env import \
+        BehaviorEnv  # pylint: disable=unused-import
+    from igibson.external.pybullet_tools.utils import CIRCULAR_LIMITS, \
+        get_aabb, get_aabb_extent
+    from igibson.object_states.on_floor import \
+        RoomFloor  # pylint: disable=unused-import
     from igibson.objects.articulated_object import URDFObject
-    from igibson.object_states.on_floor import RoomFloor  # pylint: disable=unused-import
-    from igibson.utils.behavior_robot_planning_utils import (
-        plan_base_motion_br,
-        plan_hand_motion_br,
-    )
+    from igibson.robots.behavior_robot import \
+        BRBody  # pylint: disable=unused-import
+    from igibson.robots.robot_base import \
+        BaseRobot  # pylint: disable=unused-import
     from igibson.utils import sampling_utils
-    from igibson.external.pybullet_tools.utils import (
-        get_aabb,
-        get_aabb_extent,
-    )
-    from igibson.robots.robot_base import BaseRobot  # pylint: disable=unused-import
-    from igibson.robots.behavior_robot import BRBody  # pylint: disable=unused-import
+    from igibson.utils.behavior_robot_planning_utils import \
+        plan_base_motion_br, plan_hand_motion_br
 
 except (ImportError, ModuleNotFoundError) as e:
-    print(e)
+    pass
 
 _ON_TOP_RAY_CASTING_SAMPLING_PARAMS = {
     "max_angle_with_z_axis": 0.17,
@@ -198,7 +200,8 @@ def create_navigate_policy(
             # 2.a take a corrective action
             if len(plan) <= 1:
                 done_bit = True
-                print("PRIMITIVE: navigation policy completed execution!")
+                logging.info("PRIMITIVE: navigation policy completed "
+                             "execution!")
                 return np.zeros(env.action_space.shape,
                                 dtype=np.float32), done_bit
             low_level_action = get_delta_low_level_base_action(
@@ -225,7 +228,7 @@ def create_navigate_policy(
             # to reach
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
-            print("PRIMITIVE: navigation policy completed execution!")
+            logging.info("PRIMITIVE: navigation policy completed execution!")
 
         else:
             low_level_action = get_delta_low_level_base_action(
@@ -284,8 +287,8 @@ def navigate_to_obj_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
-    print(f"PRIMITIVE: Attempting to navigate to {obj.name} with params" +
-          f"{pos_offset}")
+    logging.info(f"PRIMITIVE: Attempting to navigate to {obj.name} with "
+                 f"params {pos_offset}")
 
     # test agent positions around an obj
     # try to place the agent near the object, and rotate it to the object
@@ -306,12 +309,12 @@ def navigate_to_obj_pos(
     if not isinstance(
             obj,
             URDFObject):  # must be a URDFObject so we can get its position!
-        print("ERROR! Object to navigate to is not valid (not an instance of" +
-              "URDFObject).")
+        logging.error("ERROR! Object to navigate to is not valid (not an "
+                      "instance of URDFObject).")
         p.restoreState(state)
         p.removeState(state)
-        print(
-            f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} fail")
+        logging.error(f"PRIMITIVE: navigate to {obj.name} with params "
+                      f"{pos_offset} fail")
         return None
 
     obj_pos = obj.get_position()
@@ -336,11 +339,12 @@ def navigate_to_obj_pos(
         valid_position = (pos, orn)
 
     if valid_position is None:
-        print("WARNING: Position commanded is in collision or blocked!")
+        logging.warning("WARNING: Position commanded is in collision or "
+                        "blocked!")
         p.restoreState(state)
         p.removeState(state)
-        print(
-            f"PRIMITIVE: navigate to {obj.name} with params {pos_offset} fail")
+        logging.warning(f"PRIMITIVE: navigate to {obj.name} with params "
+                        f"{pos_offset} fail")
         return None
 
     p.restoreState(state)
@@ -364,16 +368,16 @@ def navigate_to_obj_pos(
     if plan is None:
         p.restoreState(state)
         p.removeState(state)
-        print(f"PRIMITIVE: navigate to {obj.name} with params" +
-              f"{pos_offset} failed;" + "birrt failed to sample a plan!")
+        logging.info(f"PRIMITIVE: navigate to {obj.name} with params "
+                     f"{pos_offset} failed; birrt failed to sample a plan!")
         return None
 
     p.restoreState(state)
     p.removeState(state)
 
     plan = [list(waypoint) for waypoint in plan]
-    print(f"PRIMITIVE: navigate to {obj.name} success! Plan found with " +
-          f"continuous params {pos_offset}.")
+    logging.info(f"PRIMITIVE: navigate to {obj.name} success! Plan found with "
+                 f"continuous params {pos_offset}.")
     return plan, original_orientation
 
 
@@ -565,7 +569,7 @@ def create_grasp_policy(
             # 2.a take a corrective action
             if len(plan) <= 1:
                 done_bit = True
-                print("PRIMITIVE: grasp policy completed execution!")
+                logging.info("PRIMITIVE: grasp policy completed execution!")
                 return np.zeros(env.action_space.shape,
                                 dtype=np.float32), done_bit
             low_level_action = (get_delta_low_level_hand_action(
@@ -596,7 +600,7 @@ def create_grasp_policy(
         if len(plan) == 1:  # In this case, we're at the final position
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
-            print("PRIMITIVE: grasp policy completed execution!")
+            logging.info("PRIMITIVE: grasp policy completed execution!")
 
         else:
             # Grasping Phase 3: getting the hand back to
@@ -610,7 +614,7 @@ def create_grasp_policy(
             )
             if len(reversed_plan) == 1:
                 done_bit = True
-                print("PRIMITIVE: grasp policy completed execution!")
+                logging.info("PRIMITIVE: grasp policy completed execution!")
 
         reversed_plan.pop(0)
 
@@ -742,14 +746,14 @@ def grasp_obj_at_pos(
     if rng is None:
         rng = np.random.default_rng(23)
 
-    print(f"PRIMITIVE: Attempting to grasp {obj.name} with params" +
-          f"{grasp_offset}")
+    logging.info(f"PRIMITIVE: Attempting to grasp {obj.name} with params "
+                 f"{grasp_offset}")
 
     obj_in_hand = env.robots[0].parts["right_hand"].object_in_hand
     # If we're holding something, fail and return None
     if obj_in_hand is not None:
-        print(f"PRIMITIVE: grasp {obj.name} fail, agent already has an" +
-              " object in hand!")
+        logging.info(f"PRIMITIVE: grasp {obj.name} fail, agent already has an "
+                     "object in hand!")
         return None
     reset_and_release_hand(env)  # first reset the hand's internal states
 
@@ -757,7 +761,7 @@ def grasp_obj_at_pos(
     # we'll need for assistive grasping, fail and return None
     if not (isinstance(obj, URDFObject) and hasattr(obj, "states")
             and object_states.AABB in obj.states):
-        print(f"PRIMITIVE: grasp {obj.name} fail, no object")
+        logging.info(f"PRIMITIVE: grasp {obj.name} fail, no object")
         return None
 
     lo, hi = obj.states[object_states.AABB].get_value()
@@ -767,14 +771,14 @@ def grasp_obj_at_pos(
     # fail and return None
     if not (volume < 0.3 * 0.3 * 0.3 and
             not obj.main_body_is_fixed):  # say we can only grasp small objects
-        print(f"PRIMITIVE: grasp {obj.name} fail, too big or fixed")
+        logging.info(f"PRIMITIVE: grasp {obj.name} fail, too big or fixed")
         return None
 
     # If the object is too far away, fail and return None
     if (np.linalg.norm(  # type: ignore
             np.array(obj.get_position()) -
             np.array(env.robots[0].get_position())) > 2):
-        print(f"PRIMITIVE: grasp {obj.name} fail, too far")
+        logging.info(f"PRIMITIVE: grasp {obj.name} fail, too far")
         return None
 
     # Grasping Phase 1: Compute the position and orientation of
@@ -864,8 +868,8 @@ def grasp_obj_at_pos(
 
     # If RRT planning fails, fail and return None
     if plan is None:
-        print(f"PRIMITIVE: grasp {obj.name} fail, failed" +
-              " to find plan to continuous params" + f" {grasp_offset}")
+        logging.info(f"PRIMITIVE: grasp {obj.name} fail, failed "
+                     f"to find plan to continuous params {grasp_offset}")
         return None
 
     # Grasping Phase 2: Move along the vector from the
@@ -902,8 +906,8 @@ def grasp_obj_at_pos(
         p.getEulerFromQuaternion(
             env.robots[0].parts["right_hand"].get_orientation()))
 
-    print(f"PRIMITIVE: grasp {obj.name} success! Plan found with " +
-          f"continuous params {grasp_offset}.")
+    logging.info(f"PRIMITIVE: grasp {obj.name} success! Plan found with "
+                 f"continuous params {grasp_offset}.")
     return plan, original_orientation
 
 
@@ -1117,7 +1121,7 @@ def create_place_policy(
             # 2.a take a corrective action
             if len(plan) <= 1:
                 done_bit = True
-                print("PRIMITIVE: place policy completed execution!")
+                logging.info("PRIMITIVE: place policy completed execution!")
                 return np.zeros(env.action_space.shape,
                                 dtype=np.float32), done_bit
             low_level_action = (get_delta_low_level_hand_action(
@@ -1148,7 +1152,7 @@ def create_place_policy(
         if len(plan) == 1:  # In this case, we're at the final position
             low_level_action = np.zeros(env.action_space.shape, dtype=float)
             done_bit = True
-            print("PRIMITIVE: place policy completed execution!")
+            logging.info("PRIMITIVE: place policy completed execution!")
 
         else:
             # Placing Phase 3: getting the hand back to
@@ -1162,7 +1166,7 @@ def create_place_policy(
             )
             if len(reversed_plan) == 1:
                 done_bit = True
-                print("PRIMITIVE: place policy completed execution!")
+                logging.info("PRIMITIVE: place policy completed execution!")
 
         reversed_plan.pop(0)
 
@@ -1232,20 +1236,20 @@ def place_ontop_obj_pos(
 
     obj_in_hand = env.scene.get_objects()[
         env.robots[0].parts["right_hand"].object_in_hand]
-    print(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop {obj.name}" +
-          f" with params {place_rel_pos}")
+    logging.info(f"PRIMITIVE: attempt to place {obj_in_hand.name} ontop "
+                 f"{obj.name} with params {place_rel_pos}")
 
     # if the object in the agent's hand is None or not equal to the object
     # passed in as an argument to this option, fail and return None
     if not (obj_in_hand is not None and obj_in_hand != obj):
-        print("Cannot place; either no object in hand or holding " +
-              "the object to be placed on top of!")
+        logging.info("Cannot place; either no object in hand or holding "
+                     "the object to be placed on top of!")
         return None
 
     # if the object is not a urdf object, fail and return None
     if not isinstance(obj, URDFObject):
-        print(f"PRIMITIVE: place {obj_in_hand.name} ontop" +
-              f"{obj.name} fail, too far")
+        logging.info(f"PRIMITIVE: place {obj_in_hand.name} ontop "
+                     f"{obj.name} fail, too far")
         return None
 
     state = p.saveState()
@@ -1264,13 +1268,13 @@ def place_ontop_obj_pos(
     plan = place_obj_plan(env, obj, state, place_rel_pos, rng=rng)
     # If RRT planning fails, fail and return None
     if plan is None:
-        print(f"PRIMITIVE: placeOnTop {obj.name} fail, failed" +
-              " to find plan to continuous params" + f" {place_rel_pos}")
+        logging.info(f"PRIMITIVE: placeOnTop {obj.name} fail, failed "
+                     f"to find plan to continuous params {place_rel_pos}")
         return None
 
     original_orientation = list(
         p.getEulerFromQuaternion(
             env.robots[0].parts["right_hand"].get_orientation()))
-    print(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with " +
-          f"continuous params {place_rel_pos}.")
+    logging.info(f"PRIMITIVE: placeOnTop {obj.name} success! Plan found with "
+                 f"continuous params {place_rel_pos}.")
     return plan, original_orientation

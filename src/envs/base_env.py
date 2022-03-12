@@ -1,12 +1,14 @@
 """Base class for an environment."""
 
 import abc
-from typing import List, Set, Optional
+from typing import List, Optional, Set
+
 import numpy as np
 from gym.spaces import Box
-from predicators.src.structs import State, Task, Predicate, \
-    ParameterizedOption, Type, Action, Image, DefaultState, DefaultTask
+
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, DefaultState, DefaultTask, Image, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BaseEnv(abc.ABC):
@@ -22,6 +24,13 @@ class BaseEnv(abc.ABC):
         # to be called in those subclasses first, to set the env seed.
         self._train_tasks: List[Task] = []
         self._test_tasks: List[Task] = []
+
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the unique name of this environment, used as the argument to
+        `--env`."""
+        raise NotImplementedError("Override me!")
 
     @abc.abstractmethod
     def simulate(self, state: State, action: Action) -> State:

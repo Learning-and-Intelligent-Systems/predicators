@@ -6,22 +6,25 @@ Mostly used for decomposing the expected_nodes score function in grammar
 search into skeleton length error and number of nodes expanded.
 """
 
-from typing import Tuple, FrozenSet, List, Callable
 import functools
 import os
+from typing import Callable, FrozenSet, List, Tuple
+
 import dill as pkl
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
-import matplotlib.pyplot as plt
+
+from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.datasets import create_dataset
 from predicators.src.envs import create_new_env
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src import utils
-from predicators.src.settings import CFG
-from predicators.src.planning import task_plan, task_plan_grounding
-from predicators.src.structs import Dataset, Task, Predicate
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
+from predicators.src.planning import task_plan, task_plan_grounding
+from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, Predicate, Task
 
 FORCE_REMAKE_RESULTS = False
 

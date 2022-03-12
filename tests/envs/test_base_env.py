@@ -1,8 +1,9 @@
 """Test cases for the base environment class."""
 
 import pytest
-from predicators.src.envs import BaseEnv, create_new_env, get_or_create_env
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv, create_new_env, get_or_create_env
 
 
 def test_env_creation():
@@ -22,6 +23,7 @@ def test_env_creation():
             "repeated_nextto_painting",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
+            "pybullet_blocks",
     ]:
         env = create_new_env(name, do_cache=True)
         assert isinstance(env, BaseEnv)

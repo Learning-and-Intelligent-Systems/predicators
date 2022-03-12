@@ -6,6 +6,9 @@ Example usage with learning NSRTs:
 Example usage with oracle NSRTs:
     python src/main.py --env cover --approach oracle --seed 0
 
+Example with verbose logging:
+    python src/main.py --env cover --approach oracle --seed 0 --debug
+
 To load a saved approach:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_approach
@@ -14,9 +17,9 @@ To load saved data:
     python src/main.py --env cover --approach nsrt_learning --seed 0 \
         --load_data
 
-To make videos:
+To make videos of test tasks:
     python src/main.py --env cover --approach oracle --seed 0 \
-        --make_videos --num_test_tasks 1
+        --make_test_videos --num_test_tasks 1
 
 To run interactive learning approach:
     python src/main.py --env cover --approach interactive_learning \
@@ -31,23 +34,24 @@ To run grammar search predicate invention (example):
         --seed 0 --excluded_predicates all
 """
 
-from collections import defaultdict
-from typing import List, Sequence, Optional, Tuple
+import logging
 import os
 import sys
-import subprocess
 import time
-import dill as pkl
-from predicators.src.settings import CFG
-from predicators.src.envs import create_new_env, BaseEnv
-from predicators.src.approaches import create_approach, ApproachTimeout, \
-    ApproachFailure, BaseApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.structs import Metrics, Task, Dataset, \
-    InteractionRequest, InteractionResult
-from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitor
+from collections import defaultdict
+from typing import List, Optional, Sequence, Tuple
 
+import dill as pkl
+
+from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach, create_approach
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import BaseEnv, create_new_env
+from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, InteractionRequest, \
+    InteractionResult, Metrics, Task
+from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -60,13 +64,20 @@ def main() -> None:
     args = utils.parse_args()
     utils.update_config(args)
     str_args = " ".join(sys.argv)
-    print(f"Running command: python {str_args}")
-    print("Full config:")
-    print(CFG)
-    print(
-        "Git commit hash:",
-        subprocess.check_output(["git", "rev-parse",
-                                 "HEAD"]).decode("ascii").strip())
+    # Log to both stdout and a logfile.
+    os.makedirs(CFG.log_dir, exist_ok=True)
+    logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
+    logging.basicConfig(
+        level=CFG.loglevel,
+        format="%(message)s",
+        handlers=[logging.FileHandler(logfile),
+                  logging.StreamHandler()])
+    logging.info(f"Logging to {logfile}.")
+    logging.info(f"Running command: python {str_args}")
+    logging.info("Full config:")
+    logging.info(CFG)
+    logging.info(f"Git commit hash: {utils.get_git_commit_hash()}")
+    # Create results directory.
     os.makedirs(CFG.results_dir, exist_ok=True)
     # Create classes. Note that seeding happens inside the env and approach.
     env = create_new_env(CFG.env, do_cache=True)
@@ -97,7 +108,7 @@ def main() -> None:
     # Run the full pipeline.
     _run_pipeline(env, approach, stripped_train_tasks, offline_dataset)
     script_time = time.time() - script_start
-    print(f"\n\nMain script terminated in {script_time:.5f} seconds")
+    logging.info(f"\n\nMain script terminated in {script_time:.5f} seconds")
 
 
 def _run_pipeline(env: BaseEnv,
@@ -126,21 +137,23 @@ def _run_pipeline(env: BaseEnv,
         teacher = Teacher(train_tasks)
         # The online learning loop.
         for i in range(CFG.num_online_learning_cycles):
-            print(f"\n\nONLINE LEARNING CYCLE {i}\n")
-            print("Getting interaction requests...")
+            logging.info(f"\n\nONLINE LEARNING CYCLE {i}\n")
+            logging.info("Getting interaction requests...")
             if total_num_transitions > CFG.online_learning_max_transitions:
-                print("Reached online_learning_max_transitions, terminating")
+                logging.info("Reached online_learning_max_transitions, "
+                             "terminating")
                 break
             interaction_requests = approach.get_interaction_requests()
             if not interaction_requests:
-                print("Did not receive any interaction requests, terminating")
+                logging.info("Did not receive any interaction requests, "
+                             "terminating")
                 break  # agent doesn't want to learn anything more; terminate
             interaction_results, query_cost = _generate_interaction_results(
-                env, teacher, interaction_requests)
+                env, teacher, interaction_requests, i)
             total_num_transitions += sum(
                 len(result.actions) for result in interaction_results)
             total_query_cost += query_cost
-            print(f"Query cost incurred this cycle: {query_cost}")
+            logging.info(f"Query cost incurred this cycle: {query_cost}")
             if CFG.load_approach:
                 approach.load(online_learning_cycle=i)
             else:
@@ -169,10 +182,10 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
         assert os.path.exists(dataset_filepath)
         with open(dataset_filepath, "rb") as f:
             dataset = pkl.load(f)
-        print("\n\nLOADED DATASET")
+        logging.info("\n\nLOADED DATASET")
     else:
         dataset = create_dataset(env, train_tasks)
-        print("\n\nCREATED DATASET")
+        logging.info("\n\nCREATED DATASET")
         os.makedirs(CFG.data_dir, exist_ok=True)
         with open(dataset_filepath, "wb") as f:
             pkl.dump(dataset, f)
@@ -180,15 +193,21 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
 
 
 def _generate_interaction_results(
-    env: BaseEnv, teacher: Teacher, requests: Sequence[InteractionRequest]
+        env: BaseEnv,
+        teacher: Teacher,
+        requests: Sequence[InteractionRequest],
+        cycle_num: Optional[int] = None
 ) -> Tuple[List[InteractionResult], float]:
     """Given a sequence of InteractionRequest objects, handle the requests and
     return a list of InteractionResult objects."""
-    print("Generating interaction results...")
+    logging.info("Generating interaction results...")
     results = []
     query_cost = 0.0
+    if CFG.make_interaction_videos:
+        video = []
     for request in requests:
-        monitor = TeacherInteractionMonitor(request, teacher)
+        monitor = TeacherInteractionMonitorWithVideo(env.render, request,
+                                                     teacher)
         traj = utils.run_policy(
             request.act_policy,
             env,
@@ -202,6 +221,12 @@ def _generate_interaction_results(
         result = InteractionResult(traj.states, traj.actions,
                                    request_responses)
         results.append(result)
+        if CFG.make_interaction_videos:
+            video.extend(monitor.get_video())
+    if CFG.make_interaction_videos:
+        video_prefix = utils.get_config_path_str()
+        outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+        utils.save_video(outfile, video)
     return results, query_cost
 
 
@@ -215,51 +240,50 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     video_prefix = utils.get_config_path_str()
     for test_task_idx, task in enumerate(test_tasks):
         start = time.time()
-        print(end="", flush=True)
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
-            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Approach "
-                  f"failed to solve with error: {e}")
+            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
+                         f"Approach failed to solve with error: {e}")
             if CFG.make_failure_videos and e.info.get("partial_refinements"):
                 video = utils.create_video_from_partial_refinements(
                     e.info["partial_refinements"], env, "test", test_task_idx,
-                    CFG.max_num_steps_check_policy)
+                    CFG.horizon)
                 outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
         num_found_policy += 1
         try:
-            if CFG.make_videos:
+            if CFG.make_test_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj = utils.run_policy(
-                policy,
-                env,
-                "test",
-                test_task_idx,
-                task.goal_holds,
-                max_num_steps=CFG.max_num_steps_check_policy,
-                monitor=monitor)
+            traj = utils.run_policy(policy,
+                                    env,
+                                    "test",
+                                    test_task_idx,
+                                    task.goal_holds,
+                                    max_num_steps=CFG.horizon,
+                                    monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
         except utils.EnvironmentFailure as e:
-            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Environment "
-                  f"failed with error: {e}")
+            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
+                         f"Environment failed with error: {e}")
             continue
         except (ApproachTimeout, ApproachFailure) as e:
-            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Approach "
-                  f"failed at policy execution time with error: {e}")
+            logging.info(
+                f"Task {test_task_idx+1} / {len(test_tasks)}: "
+                f"Approach failed at policy execution time with error: {e}")
             total_num_execution_failures += 1
             continue
         if solved:
-            print(f"Task {test_task_idx+1} / {len(test_tasks)}: SOLVED")
+            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: SOLVED")
             num_solved += 1
             total_suc_time += (time.time() - start)
         else:
-            print(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy failed "
-                  f"to reach goal")
-        if CFG.make_videos:
+            logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy "
+                         f"failed to reach goal")
+        if CFG.make_test_videos:
             assert monitor is not None
             video = monitor.get_video()
             outfile = f"{video_prefix}__task{test_task_idx+1}.mp4"
@@ -296,22 +320,20 @@ def _save_test_results(results: Metrics,
     num_solved = results["num_solved"]
     num_total = results["num_total"]
     avg_suc_time = results["avg_suc_time"]
-    print(f"Tasks solved: {num_solved} / {num_total}")
-    print(f"Average time for successes: {avg_suc_time:.5f} seconds")
+    logging.info(f"Tasks solved: {num_solved} / {num_total}")
+    logging.info(f"Average time for successes: {avg_suc_time:.5f} seconds")
     outfile = (f"{CFG.results_dir}/{utils.get_config_path_str()}__"
                f"{online_learning_cycle}.pkl")
     # Save CFG alongside results.
-    git_commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"
-                                               ]).decode("ascii").strip()
     outdata = {
         "config": CFG,
         "results": results.copy(),
-        "git_commit_hash": git_commit_hash
+        "git_commit_hash": utils.get_git_commit_hash()
     }
     with open(outfile, "wb") as f:
         pkl.dump(outdata, f)
-    print(f"Test results: {outdata['results']}")
-    print(f"Wrote out test results to {outfile}")
+    logging.info(f"Test results: {outdata['results']}")
+    logging.info(f"Wrote out test results to {outfile}")
 
 
 if __name__ == "__main__":  # pragma: no cover

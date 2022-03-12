@@ -4,15 +4,17 @@ This environment is created to test our planner's ability to handle
 failures reported by the environment.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
+from typing import Dict, List, Optional, Sequence, Set
+
 import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class ClutteredTableEnv(BaseEnv):
@@ -37,6 +39,10 @@ class ClutteredTableEnv(BaseEnv):
             params_space=Box(0, 1, (4, )))
         self._Dump = utils.SingletonParameterizedOption(
             "Dump", self._Dump_policy)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluttered_table"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -308,6 +314,10 @@ class ClutteredTablePlaceEnv(ClutteredTableEnv):
             self._Grasp_policy,
             types=[self._can_type],
             params_space=Box(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])))
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "cluttered_table_place"
 
     @property
     def options(self) -> Set[ParameterizedOption]:

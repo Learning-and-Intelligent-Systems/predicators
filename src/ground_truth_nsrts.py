@@ -1,15 +1,20 @@
 """Definitions of ground truth NSRTs for all environments."""
 
-from typing import List, Sequence, Set, cast
 import itertools
+from typing import List, Sequence, Set, cast
+
 import numpy as np
-from predicators.src.envs import get_or_create_env, BlocksEnv, PaintingEnv, \
-    PlayroomEnv, BehaviorEnv, RepeatedNextToPaintingEnv
-from predicators.src.structs import NSRT, Predicate, State, GroundAtom, \
-    ParameterizedOption, Variable, Type, LiftedAtom, Object, Array
+
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.behavior import BehaviorEnv
+from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
+    navigate_to_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.envs.painting import PaintingEnv
+from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.tools import ToolsEnv
 from predicators.src.settings import CFG
-from predicators.src.envs.behavior_options import navigate_to_param_sampler, \
-    grasp_obj_param_sampler, place_ontop_obj_pos_sampler
+from predicators.src.structs import NSRT, Array, GroundAtom, LiftedAtom, \
+    Object, ParameterizedOption, Predicate, State, Type, Variable
 from predicators.src.utils import null_sampler
 
 
@@ -24,7 +29,7 @@ def get_gt_nsrts(predicates: Set[Predicate],
         nsrts = _get_cluttered_table_gt_nsrts()
     elif CFG.env == "cluttered_table_place":
         nsrts = _get_cluttered_table_gt_nsrts(with_place=True)
-    elif CFG.env == "blocks":
+    elif CFG.env in ["blocks", "pybullet_blocks"]:
         nsrts = _get_blocks_gt_nsrts()
     elif CFG.env == "behavior":
         nsrts = _get_behavior_gt_nsrts()  # pragma: no cover
@@ -495,13 +500,13 @@ def _get_cluttered_table_gt_nsrts(with_place: bool = False) -> Set[NSRT]:
 
 def _get_blocks_gt_nsrts() -> Set[NSRT]:
     """Create ground truth NSRTs for BlocksEnv."""
-    block_type, robot_type = _get_types_by_names("blocks", ["block", "robot"])
+    block_type, robot_type = _get_types_by_names(CFG.env, ["block", "robot"])
 
     On, OnTable, GripperOpen, Holding, Clear = _get_predicates_by_names(
-        "blocks", ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
+        CFG.env, ["On", "OnTable", "GripperOpen", "Holding", "Clear"])
 
     Pick, Stack, PutOnTable = _get_options_by_names(
-        "blocks", ["Pick", "Stack", "PutOnTable"])
+        CFG.env, ["Pick", "Stack", "PutOnTable"])
 
     nsrts = set()
 
@@ -597,6 +602,7 @@ def _get_blocks_gt_nsrts() -> Set[NSRT]:
                            rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
         del state, goal, objs  # unused
+        # Note: normalized coordinates w.r.t. workspace.
         x = rng.uniform()
         y = rng.uniform()
         return np.array([x, y], dtype=np.float32)

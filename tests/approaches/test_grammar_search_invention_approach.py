@@ -1,26 +1,28 @@
 """Test cases for the grammar search invention approach."""
 
 from operator import gt
-import pytest
+
 import numpy as np
-from predicators.src.approaches.grammar_search_invention_approach import (
-    _PredicateGrammar, _DataBasedPredicateGrammar,
-    _SingleFeatureInequalitiesPredicateGrammar, _create_grammar,
-    _halving_constant_generator, _ForallClassifier, _UnaryFreeForallClassifier,
-    _SingleAttributeCompareClassifier, _NegationClassifier)
+import pytest
+
+from predicators.src import utils
+from predicators.src.approaches.grammar_search_invention_approach import \
+    _create_grammar, _DataBasedPredicateGrammar, _ForallClassifier, \
+    _halving_constant_generator, _NegationClassifier, _PredicateGrammar, \
+    _SingleAttributeCompareClassifier, \
+    _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
-from predicators.src.envs import CoverEnv
-from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action, Box, LowLevelTrajectory, Dataset
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
 from predicators.src.settings import CFG
-from predicators.src import utils
+from predicators.src.structs import Action, Box, Dataset, LowLevelTrajectory, \
+    Predicate, State, STRIPSOperator, Type
 
 
 def test_predicate_grammar():
     """Tests for _PredicateGrammar class."""
-    utils.reset_config({"env": "cover"})
+    utils.reset_config({"env": "cover", "segmenter": "atom_changes"})
     env = CoverEnv()
     train_task = env.get_train_tasks()[0]
     state = train_task.init
@@ -60,7 +62,7 @@ def test_predicate_grammar():
     # if a candidate predicate is unique.
     # Set a small upper bound so that this terminates quickly.
     utils.update_config({"grammar_search_predicate_cost_upper_bound": 2})
-    empty_data_grammar = _create_grammar([], env.predicates)
+    empty_data_grammar = _create_grammar(Dataset([]), env.predicates)
     assert len(empty_data_grammar.generate(max_num=10)) == 0
     # Reset to default just in case.
     utils.update_config({"grammar_search_predicate_cost_upper_bound": default})
@@ -74,6 +76,7 @@ def test_predicate_grammar():
 
 def test_count_positives_for_ops():
     """Tests for _count_positives_for_ops()."""
+    utils.reset_config({"segmenter": "atom_changes"})
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     on = Predicate("On", [cup_type, plate_type], lambda s, o: True)

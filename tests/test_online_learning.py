@@ -1,14 +1,15 @@
 """Test cases for online learning / interaction with the environment."""
 
 import pytest
+
+from predicators.src import utils
 from predicators.src.approaches import BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Action, InteractionRequest, \
-    InteractionResult, Predicate, GroundAtom, GroundAtomsHoldQuery
-from predicators.src.main import _run_pipeline
 from predicators.src.envs import create_new_env
-from predicators.src import utils
+from predicators.src.main import _run_pipeline
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, GroundAtom, GroundAtomsHoldQuery, \
+    InteractionRequest, InteractionResult, Predicate
 
 
 class _MockApproach(BaseApproach):
@@ -19,6 +20,10 @@ class _MockApproach(BaseApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._dummy_saved = []
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):
@@ -80,7 +85,9 @@ def test_interaction():
         "timeout": 1,
         "num_train_tasks": 2,
         "num_test_tasks": 1,
-        "num_online_learning_cycles": 1
+        "num_online_learning_cycles": 1,
+        "make_interaction_videos": True,
+        "max_num_steps_interaction_request": 3,
     })
     env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
@@ -88,7 +95,11 @@ def test_interaction():
                              env.action_space, train_tasks)
     dataset = create_dataset(env, train_tasks)
     _run_pipeline(env, approach, train_tasks, dataset)
-    utils.update_config({"approach": "nsrt_learning", "load_data": True})
+    utils.update_config({
+        "approach": "nsrt_learning",
+        "load_data": True,
+        "make_interaction_videos": False,
+    })
     # Invalid query type.
     with pytest.raises(AssertionError) as e:
         _run_pipeline(env, approach, train_tasks, dataset)

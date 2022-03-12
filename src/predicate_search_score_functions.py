@@ -1,22 +1,27 @@
 """Score functions used for searching over predicate and operator sets."""
 
 from __future__ import annotations
+
+import abc
+import logging
 import re
 import time
-import abc
 from dataclasses import dataclass, field
-from typing import Set, Callable, List, Sequence, FrozenSet, Tuple, Dict, \
-    Collection
+from typing import Callable, Collection, Dict, FrozenSet, List, Sequence, \
+    Set, Tuple
+
 import numpy as np
+
 from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 from predicators.src.planning import task_plan, task_plan_grounding
-from predicators.src.structs import Predicate, Object, GroundAtomTrajectory, \
-    STRIPSOperator, OptionSpec, Segment, GroundAtom, _GroundSTRIPSOperator, \
-    DummyOption, Task
 from predicators.src.settings import CFG
+from predicators.src.structs import GroundAtom, GroundAtomTrajectory, \
+    LowLevelTrajectory, Object, OptionSpec, Predicate, Segment, \
+    STRIPSOperator, Task, _GroundSTRIPSOperator
 
 
 def create_score_function(
@@ -122,36 +127,40 @@ class _OperatorLearningBasedScoreFunction(_PredicateSearchScoreFunction):
     def evaluate(self, candidate_predicates: FrozenSet[Predicate]) -> float:
         total_cost = sum(self._candidates[pred]
                          for pred in candidate_predicates)
-        print(
-            f"Evaluating predicates: {candidate_predicates}, with total cost "
-            f"{total_cost}")
+        logging.info(f"Evaluating predicates: {candidate_predicates}, with "
+                     f"total cost {total_cost}")
         start_time = time.time()
         pruned_atom_data = utils.prune_ground_atom_dataset(
             self._atom_dataset,
             candidate_predicates | self._initial_predicates)
-        segments = [
-            seg for traj in pruned_atom_data
-            for seg in segment_trajectory(traj)
+        segmented_trajs = [
+            segment_trajectory(traj) for traj in pruned_atom_data
         ]
+        # Each entry in pruned_atom_data is a tuple of (low-level trajectory,
+        # low-level ground atoms sequence). We remove the latter, because
+        # it's prone to causing bugs -- we should rarely care about the
+        # low-level ground atoms sequence after segmentation.
+        low_level_trajs = [ll_traj for ll_traj, _ in pruned_atom_data]
+        del pruned_atom_data
+        segments = [seg for traj in segmented_trajs for seg in traj]
         pnads = learn_strips_operators(segments, verbose=False)
         strips_ops = [pnad.op for pnad in pnads]
         option_specs = [pnad.option_spec for pnad in pnads]
         op_score = self.evaluate_with_operators(candidate_predicates,
-                                                pruned_atom_data, segments,
-                                                strips_ops, option_specs)
+                                                low_level_trajs,
+                                                segmented_trajs, strips_ops,
+                                                option_specs)
         pred_penalty = self._get_predicate_penalty(candidate_predicates)
         op_penalty = self._get_operator_penalty(strips_ops)
         total_score = op_score + pred_penalty + op_penalty
-        print(
-            f"\tTotal score: {total_score} computed in "
-            f"{time.time()-start_time:.3f} seconds",
-            flush=True)
+        logging.info(f"\tTotal score: {total_score} computed in "
+                     f"{time.time()-start_time:.3f} seconds")
         return total_score
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
         """Use learned operators to compute a score for the given set of
@@ -175,11 +184,12 @@ class _PredictionErrorScoreFunction(_OperatorLearningBasedScoreFunction):
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
-        del candidate_predicates, pruned_atom_data  # unused
+        del candidate_predicates, low_level_trajs  # unused
+        segments = [seg for traj in segmented_trajs for seg in traj]
         num_true_positives, num_false_positives, _, _ = \
             _count_positives_for_ops(strips_ops, option_specs, segments)
         return CFG.grammar_search_false_pos_weight * num_false_positives + \
@@ -193,11 +203,12 @@ class _BranchingFactorScoreFunction(_OperatorLearningBasedScoreFunction):
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
-        del candidate_predicates, pruned_atom_data, option_specs  # unused
+        del candidate_predicates, low_level_trajs, option_specs  # unused
+        segments = [seg for traj in segmented_trajs for seg in traj]
         total_branching_factor = _count_branching_factor(strips_ops, segments)
         return CFG.grammar_search_bf_weight * total_branching_factor
 
@@ -215,11 +226,11 @@ class _TaskPlanningScoreFunction(_OperatorLearningBasedScoreFunction):
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
-        del pruned_atom_data, segments  # unused
+        del low_level_trajs, segmented_trajs  # unused
         score = 0.0
         node_expansion_upper_bound = 1e7
 
@@ -261,47 +272,40 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
     """Score a predicate set by learning operators and planning in the training
     tasks.
 
-    The score corresponds to the expected number of nodes that would need to be
-    created or expanded before a low-level plan is found. This calculation
-    requires estimating the probability that each goal-reaching skeleton is
-    refinable. To estimate this, we assume a prior on how optimal the
-    demonstrations are, and say that if a skeleton is found by planning that
-    is a different length than the demos, then the likelihood of the
-    predicates/operators goes down as that difference gets larger.
-
-    We optionally also include into this likelihood the number of
-    "suspicious" multistep effects in the atoms sequence induced by the
-    skeleton. "Suspicious" means that a particular set of multistep
-    effects was never seen in the demonstrations.
+    The score corresponds to the expected number of nodes that would
+    need to be created or expanded before a low-level plan is found.
+    This calculation requires estimating the probability that each goal-
+    reaching skeleton is refinable. To estimate this, we assume a prior
+    on how optimal the demonstrations are, and say that if a skeleton is
+    found by planning that is a different length than the demos, then
+    the likelihood of the predicates/operators goes down as that
+    difference gets larger.
     """
 
     metric_name: str  # num_nodes_created or num_nodes_expanded
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
-        del segments  # unused
         assert self.metric_name in ("num_nodes_created", "num_nodes_expanded")
         score = 0.0
-        demo_multistep_effects = set()
-        if CFG.grammar_search_expected_nodes_include_suspicious_score:
-            # Go through the demos in advance and compute the multistep effects.
-            demo_multistep_effects = self._compute_demo_multistep_effects(
-                pruned_atom_data)
         seen_demos = 0
-        for traj, atoms_sequence in pruned_atom_data:
+        assert len(low_level_trajs) == len(segmented_trajs)
+        for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
             if seen_demos >= CFG.grammar_search_max_demos:
                 break
-            if not traj.is_demo:
+            if not ll_traj.is_demo:
                 continue
+            demo_atoms_sequence = utils.segment_trajectory_to_atoms_sequence(
+                seg_traj)
             seen_demos += 1
-            init_atoms = atoms_sequence[0]
-            goal = self._train_tasks[traj.train_task_idx].goal
+            init_atoms = demo_atoms_sequence[0]
+            goal = self._train_tasks[ll_traj.train_task_idx].goal
             # Ground everything once per demo.
-            objects = set(traj.states[0])
+            objects = set(ll_traj.states[0])
             ground_nsrts, reachable_atoms = task_plan_grounding(
                 init_atoms,
                 objects,
@@ -335,8 +339,7 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
                     assert goal.issubset(plan_atoms_sequence[-1])
                     # Estimate the probability that this skeleton is refinable.
                     refinement_prob = self._get_refinement_prob(
-                        atoms_sequence, plan_atoms_sequence,
-                        demo_multistep_effects)
+                        demo_atoms_sequence, plan_atoms_sequence)
                     # Get the number of nodes that have been created or
                     # expanded so far.
                     assert self.metric_name in metrics
@@ -369,11 +372,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
 
     @staticmethod
     def _get_refinement_prob(
-        demo_atoms_sequence: Sequence[Set[GroundAtom]],
-        plan_atoms_sequence: Sequence[Set[GroundAtom]],
-        demo_multistep_effects: Set[Tuple[FrozenSet[GroundAtom],
-                                          FrozenSet[GroundAtom]]]
-    ) -> float:
+            demo_atoms_sequence: Sequence[Set[GroundAtom]],
+            plan_atoms_sequence: Sequence[Set[GroundAtom]]) -> float:
         """Estimate the probability that plan_atoms_sequence is refinable using
         the demonstration demo_atoms_sequence."""
         # Make a soft assumption that the demonstrations are optimal,
@@ -382,49 +382,8 @@ class _ExpectedNodesScoreFunction(_OperatorLearningBasedScoreFunction):
         plan_len = len(plan_atoms_sequence)
         # The exponent is the difference in plan lengths.
         exponent = abs(demo_len - plan_len)
-        if CFG.grammar_search_expected_nodes_include_suspicious_score:
-            # Handle suspicious effect scoring via unification.
-            num_suspicious_eff = 0
-            for i in range(len(plan_atoms_sequence) - 1):
-                for j in range(i + 1, len(plan_atoms_sequence)):
-                    atoms_i = plan_atoms_sequence[i]
-                    atoms_j = plan_atoms_sequence[j]
-                    plan_add_eff = frozenset(atoms_j - atoms_i)
-                    plan_del_eff = frozenset(atoms_i - atoms_j)
-                    if not any(
-                            utils.unify_preconds_effects_options(
-                                frozenset(), frozenset(), plan_add_eff,
-                                demo_add_eff, plan_del_eff, demo_del_eff,
-                                DummyOption.parent, DummyOption.parent,
-                                tuple(), tuple())[0] for demo_add_eff,
-                            demo_del_eff in demo_multistep_effects):
-                        num_suspicious_eff += 1
-            p = CFG.grammar_search_expected_nodes_optimal_demo_prob
-            # Add the number of suspicious effects to the exponent.
-            exponent += num_suspicious_eff
         p = CFG.grammar_search_expected_nodes_optimal_demo_prob
         return p * (1 - p)**exponent
-
-    @staticmethod
-    def _compute_demo_multistep_effects(
-        pruned_atom_data: List[GroundAtomTrajectory]
-    ) -> Set[Tuple[FrozenSet[GroundAtom], FrozenSet[GroundAtom]]]:
-        # Returns a set of multistep (add, delete) effect sets.
-        seen_demos = 0
-        demo_multistep_effects = set()
-        for traj, atoms_sequence in pruned_atom_data:
-            if seen_demos >= CFG.grammar_search_max_demos:
-                break
-            if not traj.is_demo:
-                continue
-            seen_demos += 1
-            for i in range(len(atoms_sequence) - 1):
-                for j in range(i + 1, len(atoms_sequence)):
-                    atoms_i = atoms_sequence[i]
-                    atoms_j = atoms_sequence[j]
-                    demo_multistep_effects.add((frozenset(atoms_j - atoms_i),
-                                                frozenset(atoms_i - atoms_j)))
-        return demo_multistep_effects
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -440,8 +399,8 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
 
     def evaluate_with_operators(self,
                                 candidate_predicates: FrozenSet[Predicate],
-                                pruned_atom_data: List[GroundAtomTrajectory],
-                                segments: List[Segment],
+                                low_level_trajs: List[LowLevelTrajectory],
+                                segmented_trajs: List[List[Segment]],
                                 strips_ops: List[STRIPSOperator],
                                 option_specs: List[OptionSpec]) -> float:
         # Lower scores are better.
@@ -450,25 +409,30 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
         seen_nondemos = 0
         max_demos = CFG.grammar_search_max_demos
         max_nondemos = CFG.grammar_search_max_nondemos
+        assert len(low_level_trajs) == len(segmented_trajs)
         demo_atom_sets = {
             frozenset(a)
-            for traj, seq in pruned_atom_data if traj.is_demo for a in seq
+            for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs)
+            if ll_traj.is_demo
+            for a in utils.segment_trajectory_to_atoms_sequence(seg_traj)
         }
-        for traj, atoms_sequence in pruned_atom_data:
+        for ll_traj, seg_traj in zip(low_level_trajs, segmented_trajs):
             # Skip this trajectory if it's not a demo and we don't want demos.
-            if self.demos_only and not traj.is_demo:
+            if self.demos_only and not ll_traj.is_demo:
                 continue
             # Skip this trajectory if we've exceeded a budget.
-            if (traj.is_demo and seen_demos == max_demos) or (
-                    not traj.is_demo and seen_nondemos == max_nondemos):
+            if (ll_traj.is_demo and seen_demos == max_demos) or (
+                    not ll_traj.is_demo and seen_nondemos == max_nondemos):
                 continue
-            if traj.is_demo:
+            if ll_traj.is_demo:
                 seen_demos += 1
             else:
                 seen_nondemos += 1
+            atoms_sequence = utils.segment_trajectory_to_atoms_sequence(
+                seg_traj)
             init_atoms = atoms_sequence[0]
-            objects = set(traj.states[0])
-            goal = self._train_tasks[traj.train_task_idx].goal
+            objects = set(ll_traj.states[0])
+            goal = self._train_tasks[ll_traj.train_task_idx].goal
             ground_ops = {
                 op
                 for strips_op in strips_ops
@@ -480,7 +444,7 @@ class _HeuristicBasedScoreFunction(_OperatorLearningBasedScoreFunction):
                     option_specs, ground_ops, candidate_predicates)
                 scores[heuristic_name] += self._evaluate_atom_trajectory(
                     atoms_sequence, heuristic_fn, ground_ops, demo_atom_sets,
-                    traj.is_demo)
+                    ll_traj.is_demo)
         score = min(scores.values())
         return CFG.grammar_search_heuristic_based_weight * score
 

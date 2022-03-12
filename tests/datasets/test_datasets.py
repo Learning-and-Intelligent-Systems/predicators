@@ -1,12 +1,15 @@
 """Test cases for dataset generation."""
 
 import pytest
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv, ClutteredTableEnv
-from predicators.src.structs import Dataset
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachTimeout
+from predicators.src.datasets import create_dataset
+from predicators.src.envs.cluttered_table import ClutteredTableEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, GroundAtom, Task
 
 
 def test_demo_dataset():
@@ -52,6 +55,23 @@ def test_demo_dataset():
             assert action.has_option()
     with pytest.raises(AssertionError):
         _ = dataset.annotations
+    # Test what happens if the goal is unachievable.
+    utils.reset_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 0.1,
+        "option_learner": "no_learning",
+        "num_train_tasks": 7,
+    })
+    init = train_tasks[0].init
+    HandEmpty = [pred for pred in env.predicates
+                 if pred.name == "HandEmpty"][0]
+    Holding = [pred for pred in env.predicates if pred.name == "Holding"][0]
+    imposs_goal = {GroundAtom(HandEmpty, []), Holding([list(init)[0]])}
+    train_tasks[0] = Task(init, imposs_goal)
+    with pytest.raises(ApproachTimeout):
+        dataset = create_dataset(env, train_tasks)
     # Test max_initial_demos.
     utils.reset_config({
         "env": "cover",

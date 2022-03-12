@@ -1,14 +1,17 @@
 """Boring room vs playroom domain."""
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Sequence, Set, Tuple
+
 import numpy as np
 from gym.spaces import Box
-from matplotlib import pyplot as plt
 from matplotlib import patches
-from predicators.src.envs import BlocksEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, Image, Array, GroundAtom
+from matplotlib import pyplot as plt
+
 from predicators.src import utils
+from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class PlayroomEnv(BlocksEnv):
@@ -19,6 +22,7 @@ class PlayroomEnv(BlocksEnv):
     y_lb = 0.0
     x_ub = 140.0
     y_ub = 30.0
+    open_fingers = 0.8
     table_tol = 1.0
     table_x_lb = 10.0
     table_y_lb = 10.0
@@ -34,9 +38,11 @@ class PlayroomEnv(BlocksEnv):
     dial_tol = 0.5
     dial_button_tol = 0.4
     pick_tol = 0.4
+    on_tol = pick_tol
     assert pick_tol < block_size
-    num_blocks_train = [3]
-    num_blocks_test = [3]
+    pick_z = 1.5
+    num_blocks_train = CFG.playroom_num_blocks_train
+    num_blocks_test = CFG.playroom_num_blocks_test
 
     def __init__(self) -> None:
         super().__init__()
@@ -200,6 +206,10 @@ class PlayroomEnv(BlocksEnv):
         self._region7 = Object("region7", self._region_type)
         self._dial = Object("dial", self._dial_type)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "playroom"
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         x, y, z, _, fingers = action.arr
@@ -224,10 +234,10 @@ class PlayroomEnv(BlocksEnv):
             and (self.table_x_lb < x < self.table_x_ub) \
             and (self.table_y_lb < y < self.table_y_ub):
             if fingers < 0.5:
-                return self._transition_pick(state, x, y, z, fingers)
+                return self._transition_pick(state, x, y, z)
             if z < self.table_height + self.block_size:
-                return self._transition_putontable(state, x, y, z, fingers)
-            return self._transition_stack(state, x, y, z, fingers)
+                return self._transition_putontable(state, x, y, z)
+            return self._transition_stack(state, x, y, z)
         # Interact with some door
         if any(
                 self._NextToDoor_holds(state, (self._robot, door))

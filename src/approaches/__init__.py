@@ -1,37 +1,22 @@
-"""Default imports for approaches folder."""
+"""Handle creation of approaches."""
 
-from typing import Set, List
+import pkgutil
+from typing import TYPE_CHECKING, List, Set
+
 from gym.spaces import Box
-from predicators.src.approaches.base_approach import BaseApproach, \
-    ApproachTimeout, ApproachFailure
-from predicators.src.approaches.random_actions_approach import \
-    RandomActionsApproach
-from predicators.src.approaches.random_options_approach import \
-    RandomOptionsApproach
-from predicators.src.approaches.bilevel_planning_approach import \
-    BilevelPlanningApproach
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
-from predicators.src.approaches.interactive_learning_approach import \
-    InteractiveLearningApproach
-from predicators.src.approaches.grammar_search_invention_approach import \
-    GrammarSearchInventionApproach
-from predicators.src.structs import Predicate, ParameterizedOption, \
-    Type, Task
 
-__all__ = [
-    "BaseApproach",
-    "OracleApproach",
-    "RandomActionsApproach",
-    "RandomOptionsApproach",
-    "BilevelPlanningApproach",
-    "NSRTLearningApproach",
-    "InteractiveLearningApproach",
-    "GrammarSearchInventionApproach",
-    "ApproachTimeout",
-    "ApproachFailure",
-]
+from predicators.src import utils
+from predicators.src.approaches.base_approach import ApproachFailure, \
+    ApproachTimeout, BaseApproach
+from predicators.src.structs import ParameterizedOption, Predicate, Task, Type
+
+__all__ = ["BaseApproach", "ApproachTimeout", "ApproachFailure"]
+
+if not TYPE_CHECKING:
+    # Load all modules so that utils.get_all_subclasses() works.
+    for loader, module_name, _ in pkgutil.walk_packages(__path__):
+        if "__init__" not in module_name:
+            loader.find_module(module_name).load_module(module_name)
 
 
 def create_approach(name: str, initial_predicates: Set[Predicate],
@@ -39,23 +24,11 @@ def create_approach(name: str, initial_predicates: Set[Predicate],
                     types: Set[Type], action_space: Box,
                     train_tasks: List[Task]) -> BaseApproach:
     """Create an approach given its name."""
-    if name == "oracle":
-        return OracleApproach(initial_predicates, initial_options, types,
-                              action_space, train_tasks)
-    if name == "random_actions":
-        return RandomActionsApproach(initial_predicates, initial_options,
-                                     types, action_space, train_tasks)
-    if name == "random_options":
-        return RandomOptionsApproach(initial_predicates, initial_options,
-                                     types, action_space, train_tasks)
-    if name == "nsrt_learning":
-        return NSRTLearningApproach(initial_predicates, initial_options, types,
-                                    action_space, train_tasks)
-    if name == "interactive_learning":
-        return InteractiveLearningApproach(initial_predicates, initial_options,
-                                           types, action_space, train_tasks)
-    if name == "grammar_search_invention":
-        return GrammarSearchInventionApproach(initial_predicates,
-                                              initial_options, types,
-                                              action_space, train_tasks)
-    raise NotImplementedError(f"Unknown approach: {name}")
+    for cls in utils.get_all_subclasses(BaseApproach):
+        if cls is not BaseApproach and cls.get_name() == name:
+            approach = cls(initial_predicates, initial_options, types,
+                           action_space, train_tasks)
+            break
+    else:
+        raise NotImplementedError(f"Unknown approach: {name}")
+    return approach

@@ -2,7 +2,7 @@
 
 START_SEED=456
 NUM_SEEDS=5
-FILE="analysis/submit.py"
+FILE="scripts/submit.py"
 MAX_RATIO=1.0
 MIN_RATIO=0.8
 INCREMENT=-0.1

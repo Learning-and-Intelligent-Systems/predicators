@@ -1,15 +1,21 @@
 """Definitions of option learning strategies."""
 
 from __future__ import annotations
+
 import abc
-from typing import List, Sequence, Dict, Tuple, Set
+import logging
+from typing import Dict, List, Sequence, Set, Tuple
+
 import numpy as np
-from predicators.src.structs import STRIPSOperator, OptionSpec, Datastore, \
-    Segment, Array, ParameterizedOption, Object, Variable, Box, State, Action
+
 from predicators.src.approaches import ApproachFailure
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, Box, Datastore, Object, \
+    OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
+    Variable
 from predicators.src.torch_models import MLPRegressor
-from predicators.src.envs import get_or_create_env, BlocksEnv
 
 
 def create_option_learner() -> _OptionLearnerBase:
@@ -354,7 +360,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         assert len(strips_ops) == len(datastores)
 
         for op, datastore in zip(strips_ops, datastores):
-            print(f"\nLearning option for NSRT {op.name}")
+            logging.info(f"\nLearning option for NSRT {op.name}")
 
             X_regressor: List[Array] = []
             Y_regressor = []
@@ -412,8 +418,9 @@ class _NeuralOptionLearner(_OptionLearnerBase):
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
             regressor = MLPRegressor()
-            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, "
-                  f"Y shape: {Y_arr_regressor.shape}.")
+            logging.info("Fitting regressor with X shape: "
+                         f"{X_arr_regressor.shape}, Y shape: "
+                         f"{Y_arr_regressor.shape}.")
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this operator.
