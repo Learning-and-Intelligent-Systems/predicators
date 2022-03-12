@@ -113,16 +113,15 @@ def _learn_pnad_side_predicates(
             # ...consider changing each of its effects to a side predicate.
             for effect in pnad.op.add_effects:
                 if len(pnad.op.add_effects) > 1:
+                    # We don't want sidelining to result in a no-op
                     new_pnad = PartialNSRTAndDatastore(
                         pnad.op.effect_to_side_predicate(
                             effect, option_vars, "add"), pnad.datastore,
                         pnad.option_spec)
-                else:
-                    # We don't want sidelining to result in a no-op
-                    continue
-                sprime = list(s)
-                sprime[i] = new_pnad
-                yield (None, tuple(sprime), 1.0)
+                    sprime = list(s)
+                    sprime[i] = new_pnad
+                    yield (None, tuple(sprime), 1.0)
+
             # ...consider removing it.
             sprime = list(s)
             del sprime[i]

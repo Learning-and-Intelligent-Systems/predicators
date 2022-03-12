@@ -17,6 +17,7 @@ def _test_approach(env_name,
                    sampler_learner="neural",
                    option_learner="no_learning",
                    learn_side_predicates=False,
+                   sidelining_approach="naive",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    additional_settings=None):
@@ -38,6 +39,7 @@ def _test_approach(env_name,
         "offline_data_num_replays": 50,
         "excluded_predicates": excluded_predicates,
         "learn_side_predicates": learn_side_predicates,
+        "sidelining_approach": sidelining_approach,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
@@ -97,6 +99,24 @@ def test_nsrt_learning_approach():
                    try_solving=False,
                    sampler_learner="random",
                    learn_side_predicates=True)
+    _test_approach(env_name="repeated_nextto",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   learn_side_predicates=True,
+                   sidelining_approach="preserve_skeletons")
+
+
+def test_unknown_sidelining_approach():
+    """Test that arbitrary sidelining approach throws error."""
+    with pytest.raises(Exception) as e:
+        _test_approach(env_name="repeated_nextto",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       learn_side_predicates=True,
+                       sidelining_approach="not_a_real_sidelining_strat")
+    assert "not implemented" in str(e)
 
 
 def test_neural_option_learning():
