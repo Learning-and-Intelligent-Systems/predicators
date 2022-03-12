@@ -4,15 +4,17 @@ a predicate being in the effects of options.
 Here, the move option can turn on any number of NextTo predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
-import numpy as np
+from typing import Dict, List, Optional, Sequence, Set
+
 import matplotlib.pyplot as plt
+import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class RepeatedNextToEnv(BaseEnv):
@@ -50,6 +52,10 @@ class RepeatedNextToEnv(BaseEnv):
             types=[self._robot_type, self._dot_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)

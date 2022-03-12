@@ -1,19 +1,20 @@
 """Predicatorobot slack bot code."""
 
-import re
-import os
-import socket
-from urllib.request import urlopen
 import abc
-from typing import List, Optional, Type
+import os
+import re
+import socket
 import subprocess
+from typing import List, Optional, Type
+from urllib.request import urlopen
+
 import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 REPO_NAME = "Learning-and-Intelligent-Systems/predicators"
-ANALYSIS_CMD = "python analysis/analyze_results_directory.py"
-LAUNCH_CMD = "./analysis/run_supercloud_experiments.sh"
+ANALYSIS_CMD = "python scripts/analyze_results_directory.py"
+LAUNCH_CMD = "./scripts/run_supercloud_experiments.sh"
 MAX_CHARS_PER_MESSAGE = 3500  # actual limit is 4000, but we keep a buffer
 GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES = 3
 SUPERCLOUD_LOGIN_SERVER = "login-2"  # can also use login-3 or login-4
@@ -255,7 +256,7 @@ class SupercloudLaunchResponse(SupercloudResponse):
 
     def _get_commands(self) -> List[str]:
         return [("git stash && git checkout master && git pull && "
-                 "rm -f results/* supercloud_logs/* saved_approaches/* "
+                 "rm -f results/* logs/* saved_approaches/* "
                  f"saved_datasets/* && {LAUNCH_CMD}")]
 
     def _supercloud_get_message_chunks(self) -> List[str]:

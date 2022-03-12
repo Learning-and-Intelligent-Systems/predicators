@@ -2,19 +2,21 @@
 information to assist an agent during online learning."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Sequence, List, Optional
-from predicators.src.structs import State, Task, Query, Response, \
-    GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
-    DemonstrationResponse, LowLevelTrajectory, InteractionRequest, \
-    Action, PathToStateQuery, PathToStateResponse
-from predicators.src.settings import CFG, get_allowed_query_type_names
-from predicators.src.envs import get_or_create_env
-from predicators.src.approaches import OracleApproach, ApproachTimeout, \
-    ApproachFailure
-from predicators.src.ground_truth_nsrts import _get_types_by_names, \
-    _get_options_by_names
+from typing import List, Optional, Sequence
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.envs import get_or_create_env
+from predicators.src.ground_truth_nsrts import _get_options_by_names, \
+    _get_types_by_names
+from predicators.src.settings import CFG, get_allowed_query_type_names
+from predicators.src.structs import Action, DemonstrationQuery, \
+    DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
+    InteractionRequest, LowLevelTrajectory, PathToStateQuery, \
+    PathToStateResponse, Query, Response, State, Task
 
 
 class Teacher:
@@ -192,3 +194,27 @@ class TeacherInteractionMonitor(utils.Monitor):
     def get_query_cost(self) -> float:
         """Return the query cost."""
         return self._query_cost
+
+
+@dataclass
+class TeacherInteractionMonitorWithVideo(TeacherInteractionMonitor,
+                                         utils.VideoMonitor):
+    """A monitor that wraps a TeacherInteractionMonitor to optionally also
+    render every state and action encountered, if CFG.make_interaction_videos
+    is True.
+
+    The render_fn is generally env.render.
+    """
+
+    def observe(self, state: State, action: Optional[Action]) -> None:
+        query = self._request.query_policy(state)
+        if query is None:
+            response = None
+            caption = "None"
+        else:
+            response = self._teacher.answer_query(state, query)
+            self._query_cost += query.cost
+            caption = f"{response}, cost={query.cost}"
+        self._responses.append(response)
+        if CFG.make_interaction_videos:
+            self._video.extend(self._render_fn(action, caption))

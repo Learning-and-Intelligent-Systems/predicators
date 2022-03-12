@@ -1,10 +1,12 @@
 """Create LaTeX tables for papers."""
 
 from operator import gt, lt
+
 import numpy as np
 import pandas as pd
-from predicators.analysis.analyze_results_directory import create_dataframes, \
-    pd_create_equal_selector, combine_selectors, get_df_for_entry
+
+from predicators.scripts.analyze_results_directory import combine_selectors, \
+    create_dataframes, get_df_for_entry, pd_create_equal_selector
 
 pd.options.mode.chained_assignment = None  # default='warn'
 

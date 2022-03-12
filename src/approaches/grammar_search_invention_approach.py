@@ -2,23 +2,30 @@
 the candidates proposed from a grammar."""
 
 from __future__ import annotations
+
 import abc
-from dataclasses import dataclass
-from functools import cached_property
 import itertools
+import logging
+from dataclasses import dataclass, field
+from functools import cached_property
 from operator import le
-from typing import Set, Callable, List, Sequence, FrozenSet, Iterator, Tuple, \
-    Dict
+from typing import Callable, Dict, FrozenSet, Iterator, List, Sequence, Set, \
+    Tuple
+
 from gym.spaces import Box
+
 from predicators.src import utils
-from predicators.src.approaches import NSRTLearningApproach
-from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Dataset, Object, GroundAtomTrajectory, Task
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.src.predicate_search_score_functions import \
-    create_score_function, _PredicateSearchScoreFunction
+    _PredicateSearchScoreFunction, create_score_function
 from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, GroundAtom, \
+    GroundAtomTrajectory, Object, ParameterizedOption, Predicate, State, \
+    Task, Type
 
 ################################################################################
 #                          Programmatic classifiers                            #
@@ -307,7 +314,7 @@ _DEBUG_PREDICATE_PREFIXES = {
         "Forall[0:block].[((0:block).grasp<=[idx 0]",  # HandEmpty
     ],
     "blocks": [
-        "NOT-((0:robot).fingers<=[idx 0]0.5)",  # GripperOpen
+        "NOT-((0:robot).fingers<=[idx 0]",  # GripperOpen
         "Forall[0:block].[NOT-On(0,1)]",  # Clear
         "NOT-((0:block).pose_z<=[idx 0]",  # Holding
     ],
@@ -326,16 +333,20 @@ class _DebugGrammar(_PredicateGrammar):
 
     def generate(self, max_num: int) -> Dict[Predicate, float]:
         del max_num
-        expected_len = len(_DEBUG_PREDICATE_PREFIXES[CFG.env])
+        env_name = (CFG.env if not CFG.env.startswith("pybullet") else
+                    CFG.env[CFG.env.index("_") + 1:])
+        expected_len = len(_DEBUG_PREDICATE_PREFIXES[env_name])
         result = super().generate(expected_len)
         assert len(result) == expected_len
         return result
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
+        env_name = (CFG.env if not CFG.env.startswith("pybullet") else
+                    CFG.env[CFG.env.index("_") + 1:])
         for (predicate, cost) in self.base_grammar.enumerate():
             if any(
                     str(predicate).startswith(debug_str)
-                    for debug_str in _DEBUG_PREDICATE_PREFIXES[CFG.env]):
+                    for debug_str in _DEBUG_PREDICATE_PREFIXES[env_name]):
                 yield (predicate, cost)
 
 
@@ -465,18 +476,38 @@ class _SkipGrammar(_PredicateGrammar):
 class _PrunedGrammar(_DataBasedPredicateGrammar):
     """A grammar that prunes redundant predicates."""
     base_grammar: _PredicateGrammar
+    _state_sequences: List[List[State]] = field(init=False,
+                                                default_factory=list)
+
+    def __post_init__(self) -> None:
+        if CFG.segmenter == "option_changes":
+            # If the segmenter is based on changes in options, then
+            # because it doesn't depend on atoms, we can be very
+            # efficient during pruning by pre-computing the segments.
+            # Then, we only need to care about the initial and final
+            # states in each segment, which we store into
+            # self._state_sequence.
+            for traj in self.dataset.trajectories:
+                dummy_atoms_seq: List[Set[GroundAtom]] = [
+                    set() for _ in range(len(traj.states))
+                ]
+                seg_traj = segment_trajectory((traj, dummy_atoms_seq))
+                state_seq = utils.segment_trajectory_to_state_sequence(
+                    seg_traj)
+                self._state_sequences.append(state_seq)
 
     def enumerate(self) -> Iterator[Tuple[Predicate, float]]:
         # Predicates are identified based on their evaluation across
         # all states in the dataset.
-        seen = {}  # maps identifier to previous predicate
+        seen: Dict[FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]],
+                   Predicate] = {}  # keys are from _get_predicate_identifier()
         for (predicate, cost) in self.base_grammar.enumerate():
             if cost >= CFG.grammar_search_predicate_cost_upper_bound:
                 return
             pred_id = self._get_predicate_identifier(predicate)
             if pred_id in seen:
-                # Useful for debugging
-                # print("Pruning", predicate, "b/c equal to", seen[pred_id])
+                logging.debug(f"Pruning {predicate} b/c equal to "
+                              f"{seen[pred_id]}")
                 continue
             # Found a new predicate.
             seen[pred_id] = predicate
@@ -485,15 +516,25 @@ class _PrunedGrammar(_DataBasedPredicateGrammar):
     def _get_predicate_identifier(
         self, predicate: Predicate
     ) -> FrozenSet[Tuple[int, int, FrozenSet[Tuple[Object, ...]]]]:
-        """Returns frozensets of groundatoms for each data point."""
-        # Get atoms for this predicate alone on the dataset.
-        atom_dataset = utils.create_ground_atom_dataset(
-            self.dataset.trajectories, {predicate})
+        """Returns frozenset identifiers for each data point."""
         raw_identifiers = set()
-        for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
-            for t, atoms in enumerate(atom_traj):
-                atom_args = frozenset(tuple(a.objects) for a in atoms)
-                raw_identifiers.add((traj_idx, t, atom_args))
+        if CFG.segmenter == "option_changes":
+            # Make use of the pre-computed segment-level state sequences.
+            for traj_idx, state_seq in enumerate(self._state_sequences):
+                for t, state in enumerate(state_seq):
+                    atoms = utils.abstract(state, {predicate})
+                    atom_args = frozenset(tuple(a.objects) for a in atoms)
+                    raw_identifiers.add((traj_idx, t, atom_args))
+        else:
+            assert CFG.segmenter == "atom_changes"
+            # Get atoms for this predicate alone on the dataset, and then
+            # go through the entire dataset.
+            atom_dataset = utils.create_ground_atom_dataset(
+                self.dataset.trajectories, {predicate})
+            for traj_idx, (_, atom_traj) in enumerate(atom_dataset):
+                for t, atoms in enumerate(atom_traj):
+                    atom_args = frozenset(tuple(a.objects) for a in atoms)
+                    raw_identifiers.add((traj_idx, t, atom_args))
         return frozenset(raw_identifiers)
 
 
@@ -576,33 +617,37 @@ class GrammarSearchInventionApproach(NSRTLearningApproach):
         self._learned_predicates: Set[Predicate] = set()
         self._num_inventions = 0
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "grammar_search_invention"
+
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._learned_predicates
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Generate a candidate set of predicates.
-        print("Generating candidate predicates...")
+        logging.info("Generating candidate predicates...")
         grammar = _create_grammar(dataset, self._initial_predicates)
         candidates = grammar.generate(
             max_num=CFG.grammar_search_max_predicates)
-        print(f"Done: created {len(candidates)} candidates:")
+        logging.info(f"Done: created {len(candidates)} candidates:")
         for predicate, cost in candidates.items():
-            print(predicate, cost)
+            logging.info(f"{predicate} {cost}")
         # Apply the candidate predicates to the data.
-        print("Applying predicates to data...")
+        logging.info("Applying predicates to data...")
         atom_dataset = utils.create_ground_atom_dataset(
             dataset.trajectories,
             set(candidates) | self._initial_predicates)
-        print("Done.")
+        logging.info("Done.")
         # Create the score function that will be used to guide search.
         score_function = create_score_function(
             CFG.grammar_search_score_function, self._initial_predicates,
             atom_dataset, candidates, self._train_tasks)
         # Select a subset of the candidates to keep.
-        print("Selecting a subset...")
+        logging.info("Selecting a subset...")
         self._learned_predicates = _select_predicates_to_keep(
             candidates, score_function, self._initial_predicates, atom_dataset)
-        print("Done.")
+        logging.info("Done.")
         # Finally, learn NSRTs via superclass, using all the kept predicates.
         self._learn_nsrts(dataset.trajectories, online_learning_cycle=None)
 
@@ -642,16 +687,16 @@ def _select_predicates_to_keep(
             score_function.evaluate,
             enforced_depth=CFG.grammar_search_hill_climbing_depth,
             parallelize=CFG.grammar_search_parallelize_hill_climbing)
-        print("\nHill climbing summary:")
+        logging.info("\nHill climbing summary:")
         for i in range(1, len(path)):
             new_additions = path[i] - path[i - 1]
             assert len(new_additions) == 1
             new_addition = next(iter(new_additions))
             h = heuristics[i]
             prev_h = heuristics[i - 1]
-            print(f"\tOn step {i}, added {new_addition}, with heuristic "
-                  f"{h:.3f} (an improvement of {prev_h - h:.3f} over the "
-                  "previous step)")
+            logging.info(f"\tOn step {i}, added {new_addition}, with "
+                         f"heuristic {h:.3f} (an improvement of "
+                         f"{prev_h - h:.3f} over the previous step)")
     elif CFG.grammar_search_search_algorithm == "gbfs":
         path, _ = utils.run_gbfs(init,
                                  _check_goal,
@@ -665,7 +710,8 @@ def _select_predicates_to_keep(
     kept_predicates = path[-1]
 
     # Filter out predicates that don't appear in some operator preconditions.
-    print("\nFiltering out predicates that don't appear in preconditions...")
+    logging.info("\nFiltering out predicates that don't appear in "
+                 "preconditions...")
     pruned_atom_data = utils.prune_ground_atom_dataset(
         atom_dataset, kept_predicates | initial_predicates)
     segments = [
@@ -677,10 +723,10 @@ def _select_predicates_to_keep(
             preds_in_preconds.add(atom.predicate)
     kept_predicates &= preds_in_preconds
 
-    print(f"\nSelected {len(kept_predicates)} predicates out of "
-          f"{len(candidates)} candidates:")
+    logging.info(f"\nSelected {len(kept_predicates)} predicates out of "
+                 f"{len(candidates)} candidates:")
     for pred in kept_predicates:
-        print("\t", pred)
-    score_function.evaluate(kept_predicates)  # print out useful numbers
+        logging.info(f"\t{pred}")
+    score_function.evaluate(kept_predicates)  # log useful numbers
 
     return set(kept_predicates)

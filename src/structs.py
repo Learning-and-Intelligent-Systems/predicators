@@ -1,15 +1,18 @@
 """Structs used throughout the codebase."""
 
 from __future__ import annotations
+
 import abc
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
-from typing import Dict, Iterator, List, Sequence, Callable, Set, Collection, \
-    Tuple, Any, cast, DefaultDict, Optional, TypeVar
+from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
+    List, Optional, Sequence, Set, Tuple, TypeVar, cast
+
 import numpy as np
 from gym.spaces import Box
 from numpy.typing import NDArray
 from tabulate import tabulate
+
 from predicators.src.settings import CFG
 
 
@@ -1223,11 +1226,24 @@ class GroundAtomsHoldQuery(Query):
     def cost(self) -> float:
         return len(self.ground_atoms)
 
+    def __str__(self) -> str:
+        atoms = ", ".join([str(ga) for ga in self.ground_atoms])
+        return f"Do these hold? {atoms}"
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class GroundAtomsHoldResponse(Response):
     """A response to a GroundAtomsHoldQuery, providing boolean answers."""
     holds: Dict[GroundAtom, bool]
+
+    def __str__(self) -> str:
+        if not self.holds:
+            return "No queries"
+        responses = []
+        for ga, b in self.holds.items():
+            suffix = "holds" if b else "does not hold"
+            responses.append(f"{ga} {suffix}")
+        return ", ".join(responses)
 
 
 @dataclass(frozen=True, eq=False, repr=False)

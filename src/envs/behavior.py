@@ -5,25 +5,26 @@ import functools
 import itertools
 import os
 import shutil
-from typing import List, Set, Optional, Dict, Callable, Sequence, \
-    Union, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
+
 import numpy as np
 from numpy.random._generator import Generator
 
 try:
-    import pybullet as pyb
     import bddl
     import igibson
-    from igibson.simulator import Simulator  # pylint: disable=unused-import
-    from igibson.envs import behavior_env
-    from igibson.objects.articulated_object import (  # pylint: disable=unused-import
-        ArticulatedObject, )
-    from igibson.objects.articulated_object import URDFObject
-    from igibson.object_states.on_floor import RoomFloor
-    from igibson.robots.behavior_robot import BRBody
+    import pybullet as pyb
     from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
-        ObjectStateUnaryPredicate,ObjectStateBinaryPredicate
-    from igibson.utils.checkpoint_utils import save_checkpoint, load_checkpoint
+        ObjectStateBinaryPredicate, ObjectStateUnaryPredicate
+    from igibson.envs import behavior_env
+    from igibson.object_states.on_floor import RoomFloor
+    from igibson.objects.articulated_object import \
+        ArticulatedObject  # pylint: disable=unused-import
+    from igibson.objects.articulated_object import \
+        URDFObject  # pylint: disable=unused-import
+    from igibson.robots.behavior_robot import BRBody
+    from igibson.simulator import Simulator  # pylint: disable=unused-import
+    from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
     from igibson.utils.utils import modify_config_file
 
     _BEHAVIOR_IMPORTED = True
@@ -32,18 +33,17 @@ try:
         shutil.rmtree("tmp_behavior_states/")
     os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
-    print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
-from predicators.src.envs.behavior_options import navigate_to_obj_pos, \
-        grasp_obj_at_pos, place_ontop_obj_pos, create_navigate_policy, \
-            create_grasp_policy, create_place_policy, \
-                create_navigate_option_model, create_grasp_option_model, \
-                    create_place_option_model
+
 from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
+from predicators.src.envs.behavior_options import create_grasp_option_model, \
+    create_grasp_policy, create_navigate_option_model, \
+    create_navigate_policy, create_place_option_model, create_place_policy, \
+    grasp_obj_at_pos, navigate_to_obj_pos, place_ontop_obj_pos
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BehaviorEnv(BaseEnv):
@@ -117,6 +117,10 @@ class BehaviorEnv(BaseEnv):
                     rng=self._rng,
                 )
                 self._options.add(option)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "behavior"
 
     def simulate(self, state: State, action: Action) -> State:
         assert isinstance(state.simulator_state, str)
@@ -339,8 +343,9 @@ class BehaviorEnv(BaseEnv):
             env_creation_attempts += 1
 
         if env_creation_attempts > 9:
-            print("ERROR: Failed to sample iGibson BEHAVIOR environment that" +
-                  " meets bddl initial conditions!")
+            raise RuntimeError("ERROR: Failed to sample iGibson BEHAVIOR "
+                               "environment that meets bddl initial "
+                               "conditions!")
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:

@@ -2,15 +2,17 @@
 
 import numpy as np
 import pytest
-from predicators.src.approaches import InteractiveLearningApproach, \
-    ApproachTimeout, ApproachFailure
+
+from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset
-from predicators.src.main import _generate_interaction_results
 from predicators.src.teacher import Teacher
-from predicators.src import utils
 
 
 def test_interactive_learning_approach():
@@ -29,6 +31,7 @@ def test_interactive_learning_approach():
         "num_train_tasks": 5,
         "num_test_tasks": 5,
         "interactive_num_ensemble_members": 1,
+        "interactive_num_requests_per_cycle": 1,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -85,7 +88,7 @@ def test_interactive_learning_approach():
         "interactive_query_policy": "nonstrict_best_seen",
         "interactive_score_function": "trivial",
     })
-    approach._best_score = -np.inf  # pylint:disable=protected-access
+    approach._best_score = -np.inf  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     interaction_results, query_cost = _generate_interaction_results(
         env, teacher, interaction_requests)
@@ -143,7 +146,7 @@ def test_interactive_learning_approach():
         "not a real score function",
     })
     with pytest.raises(NotImplementedError) as e:
-        approach._score_atom_set(set(), train_tasks[0].init)  # pylint:disable=protected-access
+        approach._score_atom_set(set(), train_tasks[0].init)  # pylint: disable=protected-access
     assert "Unrecognized interactive_score_function" in str(e)
     # Test assertion that all predicates are seen in the data
     utils.update_config({

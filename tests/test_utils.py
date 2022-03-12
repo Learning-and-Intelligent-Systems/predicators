@@ -2,20 +2,80 @@
 
 import os
 import time
-from typing import Iterator, Tuple, Optional, Type as TypingType
-import pytest
+from typing import Iterator, Optional, Tuple
+from typing import Type as TypingType
+
 import numpy as np
+import pytest
 from gym.spaces import Box
-from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory, DefaultState
-from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
-    _get_predicates_by_names
-from predicators.src.envs import CoverEnv
-from predicators.src.settings import CFG
+
 from predicators.src import utils
-from predicators.src.utils import _TaskPlanningHeuristic, \
-    _PyperplanHeuristicWrapper, GoalCountHeuristic
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.ground_truth_nsrts import _get_predicates_by_names, \
+    get_gt_nsrts
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Action, DefaultState, DummyOption, \
+    GroundAtom, LowLevelTrajectory, ParameterizedOption, Predicate, Segment, \
+    State, STRIPSOperator, Type
+from predicators.src.utils import GoalCountHeuristic, \
+    _PyperplanHeuristicWrapper, _TaskPlanningHeuristic
+
+
+def test_segment_trajectory_to_state_and_atoms_sequence():
+    """Tests for segment_trajectory_to_state_sequence() and
+    segment_trajectory_to_atoms_sequence()."""
+    # Set up the segments.
+    cup_type = Type("cup_type", ["feat1"])
+    plate_type = Type("plate_type", ["feat1", "feat2"])
+    cup = cup_type("cup")
+    plate = plate_type("plate")
+    on = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    not_on = Predicate("NotOn", [cup_type, plate_type], lambda s, o: True)
+    state0 = State({cup: [0.5], plate: [1.0, 1.2]})
+    state1 = State({cup: [0.5], plate: [1.1, 1.2]})
+    state2 = State({cup: [0.8], plate: [1.5, 1.2]})
+    states = [state0, state1, state2]
+    action0 = Action([0.4])
+    action1 = Action([0.6])
+    actions = [action0, action1]
+    traj1 = LowLevelTrajectory(states, actions)
+    traj2 = LowLevelTrajectory(list(reversed(states)), actions)
+    init_atoms = {on([cup, plate])}
+    final_atoms = {not_on([cup, plate])}
+    segment1 = Segment(traj1, init_atoms, final_atoms)
+    segment2 = Segment(traj2, final_atoms, init_atoms)
+    # Test segment_trajectory_to_state_sequence().
+    state_seq = utils.segment_trajectory_to_state_sequence([segment1])
+    assert state_seq == [state0, state2]
+    state_seq = utils.segment_trajectory_to_state_sequence(
+        [segment1, segment2])
+    assert state_seq == [state0, state2, state0]
+    state_seq = utils.segment_trajectory_to_state_sequence(
+        [segment1, segment2, segment1, segment2])
+    assert state_seq == [state0, state2, state0, state2, state0]
+    with pytest.raises(AssertionError):
+        # Need at least one segment in the trajectory.
+        utils.segment_trajectory_to_state_sequence([])
+    with pytest.raises(AssertionError):
+        # Segments don't chain together correctly.
+        utils.segment_trajectory_to_state_sequence([segment1, segment1])
+    # Test segment_trajectory_to_atoms_sequence().
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence([segment1])
+    assert atoms_seq == [init_atoms, final_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+        [segment1, segment2])
+    assert atoms_seq == [init_atoms, final_atoms, init_atoms]
+    atoms_seq = utils.segment_trajectory_to_atoms_sequence(
+        [segment1, segment2, segment1, segment2])
+    assert atoms_seq == [
+        init_atoms, final_atoms, init_atoms, final_atoms, init_atoms
+    ]
+    with pytest.raises(AssertionError):
+        # Need at least one segment in the trajectory.
+        utils.segment_trajectory_to_atoms_sequence([])
+    with pytest.raises(AssertionError):
+        # Segments don't chain together correctly.
+        utils.segment_trajectory_to_atoms_sequence([segment1, segment1])
 
 
 def test_num_options_in_action_sequence():
@@ -216,6 +276,27 @@ def test_run_policy():
     assert len(traj3.states) == 2
     assert len(traj3.actions) == 1
 
+    # Test exceptions_to_break_on.
+    def _policy(_):
+        raise ValueError("mock error")
+
+    with pytest.raises(ValueError) as e:
+        utils.run_policy(_policy,
+                         env,
+                         "test",
+                         0,
+                         task.goal_holds,
+                         max_num_steps=5)
+    assert "mock error" in str(e)
+    traj4 = utils.run_policy(_policy,
+                             env,
+                             "test",
+                             0,
+                             task.goal_holds,
+                             max_num_steps=5,
+                             exceptions_to_break_on={ValueError})
+    assert len(traj4.states) == 1
+
 
 def test_run_policy_with_simulator():
     """Tests for run_policy_with_simulator()."""
@@ -276,6 +357,25 @@ def test_run_policy_with_simulator():
                                            monitor=monitor)
     assert len(traj.states) == 4
     assert len(traj.actions) == 3
+
+    # Test exceptions_to_break_on.
+    def _policy(_):
+        raise ValueError("mock error")
+
+    with pytest.raises(ValueError) as e:
+        utils.run_policy_with_simulator(_policy,
+                                        _simulator,
+                                        state,
+                                        _terminal,
+                                        max_num_steps=5)
+    assert "mock error" in str(e)
+    traj = utils.run_policy_with_simulator(_policy,
+                                           _simulator,
+                                           state,
+                                           _terminal,
+                                           max_num_steps=5,
+                                           exceptions_to_break_on={ValueError})
+    assert len(traj.states) == 1
 
 
 def test_option_plan_to_policy():

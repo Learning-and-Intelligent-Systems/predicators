@@ -1,17 +1,20 @@
 """Code for learning the samplers within NSRTs."""
 
+import logging
 from dataclasses import dataclass
-from typing import Set, Tuple, List, Sequence, Any
+from typing import Any, List, Sequence, Set, Tuple
+
 import numpy as np
-from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, Datastore, STRIPSOperator, OptionSpec, NSRTSampler, \
-    NSRT, EntToEntSub, GroundAtom, SamplerDatapoint
+
 from predicators.src import utils
-from predicators.src.torch_models import Classifier, MLPClassifier, \
-    NeuralGaussianRegressor
-from predicators.src.settings import CFG
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
+    GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
+    ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
+from predicators.src.torch_models import Classifier, MLPClassifier, \
+    NeuralGaussianRegressor
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
@@ -121,14 +124,14 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     transitions corresponding to the datastore that this sampler is
     being learned for.
     """
-    print(f"\nLearning neural sampler for NSRT {nsrt_name}")
+    logging.info(f"\nLearning neural sampler for NSRT {nsrt_name}")
 
     positive_data, negative_data = _create_sampler_data(
         datastores, variables, preconditions, add_effects, delete_effects,
         param_option, datastore_idx)
 
     # Fit classifier to data
-    print("Fitting classifier...")
+    logging.info("Fitting classifier...")
     X_classifier: List[List[Array]] = []
     for state, sub, option, goal in positive_data + negative_data:
         # input is state features and option parameters
@@ -156,7 +159,7 @@ def _learn_neural_sampler(datastores: List[Datastore], nsrt_name: str,
     classifier.fit(X_arr_classifier, y_arr_classifier)
 
     # Fit regressor to data
-    print("Fitting regressor...")
+    logging.info("Fitting regressor...")
     X_regressor: List[List[Array]] = []
     Y_regressor = []
     for state, sub, option, goal in positive_data:  # don't use negative data!
@@ -244,8 +247,8 @@ def _create_sampler_data(
                     continue
                 # Add this datapoint to the negative data.
                 negative_data.append((state, sub, option, goal))
-    print(f"Generated {len(positive_data)} positive and {len(negative_data)} "
-          f"negative examples")
+    logging.info(f"Generated {len(positive_data)} positive and "
+                 f"{len(negative_data)} negative examples")
     assert len(positive_data) == len(datastores[datastore_idx])
     return positive_data, negative_data
 

@@ -2,17 +2,19 @@
 
 import pytest
 from gym.spaces import Box
-from predicators.src.approaches import OracleApproach
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
+
 from predicators.src import utils
-from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
-    _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.option_model import _OracleOptionModel, \
+    create_option_model
+from predicators.src.planning import sesame_plan, task_plan, \
+    task_plan_grounding
 from predicators.src.settings import CFG
-from predicators.src.option_model import create_option_model, \
-    _OracleOptionModel
+from predicators.src.structs import NSRT, Action, ParameterizedOption, \
+    Predicate, State, STRIPSOperator, Task, Type, _GroundNSRT, _Option
 
 
 def test_sesame_plan():
@@ -107,12 +109,11 @@ def test_sesame_plan_failures():
     policy = approach.solve(trivial_task, timeout=500)
     with pytest.raises(ApproachFailure):
         policy(task.init)  # plan should get exhausted immediately
-    traj = utils.run_policy_with_simulator(
-        policy,
-        env.simulate,
-        trivial_task.init,
-        trivial_task.goal_holds,
-        max_num_steps=CFG.max_num_steps_check_policy)
+    traj = utils.run_policy_with_simulator(policy,
+                                           env.simulate,
+                                           trivial_task.init,
+                                           trivial_task.goal_holds,
+                                           max_num_steps=CFG.horizon)
     assert trivial_task.goal_holds(traj.states[-1])
     assert len(task.goal) == 1
     Covers = next(iter(task.goal)).predicate

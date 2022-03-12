@@ -6,16 +6,18 @@ for placing into the box. The box has a lid which may need to be opened;
 this lid is NOT modeled by any of the given predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional, Union, Any
-import numpy as np
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
+
 import matplotlib.pyplot as plt
-from matplotlib import patches
+import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+from matplotlib import patches
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class PaintingEnv(BaseEnv):
@@ -140,6 +142,10 @@ class PaintingEnv(BaseEnv):
         self._lid = Object("box_lid", self._lid_type)
         self._shelf = Object("receptacle_shelf", self._shelf_type)
         self._robot = Object("robby", self._robot_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "painting"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)

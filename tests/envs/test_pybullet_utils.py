@@ -1,37 +1,32 @@
 """Test cases for pybullet_utils."""
 
-from typing import Any, Dict
 import numpy as np
 import pybullet as p
 import pytest
+
+from predicators.src import utils
 from predicators.src.envs.pybullet_utils import get_kinematic_chain, \
     inverse_kinematics
-from predicators.src import utils
 from predicators.src.settings import CFG
 
-_PYBULLET_SCENE_IS_SETUP = False
-_PYBULLET_SCENE_ATTRIBUTES: Dict[str, Any] = {}
 
-
+@pytest.fixture(scope="module", name="scene_attributes")
 def _setup_pybullet_test_scene():
     """Creates a PyBullet scene with a fetch robot.
 
-    Initialized only once and cached globally for efficiency.
+    Initialized only once for efficiency.
     """
-    global _PYBULLET_SCENE_IS_SETUP  # pylint:disable=global-statement
-    if _PYBULLET_SCENE_IS_SETUP:
-        return _PYBULLET_SCENE_ATTRIBUTES
-    _PYBULLET_SCENE_IS_SETUP = True
+    scene = {}
 
     physics_client_id = p.connect(p.DIRECT)
-    _PYBULLET_SCENE_ATTRIBUTES["physics_client_id"] = physics_client_id
+    scene["physics_client_id"] = physics_client_id
 
     p.resetSimulation(physicsClientId=physics_client_id)
 
     fetch_id = p.loadURDF(utils.get_env_asset_path("urdf/robots/fetch.urdf"),
                           useFixedBase=True,
                           physicsClientId=physics_client_id)
-    _PYBULLET_SCENE_ATTRIBUTES["fetch_id"] = fetch_id
+    scene["fetch_id"] = fetch_id
 
     base_pose = [0.75, 0.7441, 0.0]
     base_orientation = [0., 0., 0., 1.]
@@ -47,23 +42,22 @@ def _setup_pybullet_test_scene():
             p.getNumJoints(fetch_id, physicsClientId=physics_client_id))
     ]
     ee_id = joint_names.index('gripper_axis')
-    _PYBULLET_SCENE_ATTRIBUTES["ee_id"] = ee_id
-    _PYBULLET_SCENE_ATTRIBUTES["ee_orientation"] = [1., 0., -1., 0.]
+    scene["ee_id"] = ee_id
+    scene["ee_orientation"] = [1., 0., -1., 0.]
 
-    _PYBULLET_SCENE_ATTRIBUTES["robot_home"] = [1.35, 0.75, 0.75]
+    scene["robot_home"] = [1.35, 0.75, 0.75]
 
     arm_joints = get_kinematic_chain(fetch_id,
                                      ee_id,
                                      physics_client_id=physics_client_id)
-    _PYBULLET_SCENE_ATTRIBUTES["initial_joint_states"] = p.getJointStates(
+    scene["initial_joint_states"] = p.getJointStates(
         fetch_id, arm_joints, physicsClientId=physics_client_id)
 
-    return _PYBULLET_SCENE_ATTRIBUTES
+    return scene
 
 
-def test_get_kinematic_chain():
+def test_get_kinematic_chain(scene_attributes):
     """Tests for get_kinematic_chain()."""
-    scene_attributes = _setup_pybullet_test_scene()
     arm_joints = get_kinematic_chain(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],
@@ -72,9 +66,8 @@ def test_get_kinematic_chain():
     assert len(arm_joints) == 7
 
 
-def test_inverse_kinematics():
+def test_inverse_kinematics(scene_attributes):
     """Tests for inverse_kinematics()."""
-    scene_attributes = _setup_pybullet_test_scene()
     arm_joints = get_kinematic_chain(
         scene_attributes["fetch_id"],
         scene_attributes["ee_id"],

@@ -5,15 +5,17 @@ then Execution.
 """
 
 import abc
-from typing import Callable, Set, List
+from typing import Callable, List, Set
+
 from gym.spaces import Box
-from predicators.src.approaches import BaseApproach, ApproachFailure
-from predicators.src.planning import sesame_plan
-from predicators.src.structs import State, Action, Task, NSRT, \
-    Predicate, ParameterizedOption, Type
-from predicators.src.option_model import create_option_model
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, BaseApproach
+from predicators.src.option_model import create_option_model
+from predicators.src.planning import sesame_plan
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Action, ParameterizedOption, \
+    Predicate, State, Task, Type, _Option
 
 
 class BilevelPlanningApproach(BaseApproach):
@@ -37,6 +39,11 @@ class BilevelPlanningApproach(BaseApproach):
         self._max_skeletons_optimized = max_skeletons_optimized
         self._option_model = create_option_model(CFG.option_model_name)
         self._num_calls = 0
+        self._last_plan: List[_Option] = []
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "bilevel_planning"
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         self._num_calls += 1
@@ -66,6 +73,7 @@ class BilevelPlanningApproach(BaseApproach):
         self._metrics["max_num_skeletons_optimized"] = max(
             metrics["num_skeletons_optimized"],
             self._metrics["max_num_skeletons_optimized"])
+        self._last_plan = plan
         option_policy = utils.option_plan_to_policy(plan)
 
         def _policy(s: State) -> Action:

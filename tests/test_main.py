@@ -1,20 +1,26 @@
 """Tests for main.py."""
 
-from typing import Callable
 import os
 import shutil
 import sys
+from typing import Callable
+
 import pytest
-from predicators.src.approaches import BaseApproach, ApproachFailure, \
-    create_approach
-from predicators.src.envs import CoverEnv
-from predicators.src.main import main, _run_testing
-from predicators.src.structs import State, Task, Action
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, BaseApproach, \
+    create_approach
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.main import _run_testing, main
+from predicators.src.structs import Action, State, Task
 
 
 class _DummyApproach(BaseApproach):
     """Dummy approach that raises ApproachFailure for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):
@@ -30,6 +36,10 @@ class _DummyApproach(BaseApproach):
 
 class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     def simulate(self, state, action):
         raise utils.EnvironmentFailure("", {"offending_objects": set()})
@@ -59,8 +69,8 @@ def test_main():
     results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
-        "--results_dir", results_dir
+        "--make_test_videos", "--num_test_tasks", "1", "--video_dir",
+        video_dir, "--results_dir", results_dir
     ]
     main()
     # Test making videos of failures.
@@ -120,7 +130,7 @@ def test_bilevel_planning_approach_failure():
         "env": "cover",
         "approach": "nsrt_learning",
         "timeout": 10,
-        "make_videos": False,
+        "make_test_videos": False,
         "num_test_tasks": 1,
     })
     env = CoverEnv()
@@ -139,7 +149,7 @@ def test_env_failure():
         "env": "cover",
         "approach": "random_actions",
         "timeout": 10,
-        "make_videos": False,
+        "make_test_videos": False,
         "cover_initial_holding_prob": 0.0,
         "num_test_tasks": 1,
     })

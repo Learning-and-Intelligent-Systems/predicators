@@ -4,22 +4,26 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
-from collections import defaultdict
+
 import heapq as hq
-from itertools import islice
+import logging
 import time
-from typing import List, Set, Optional, Tuple, Iterator, Sequence, Dict
+from collections import defaultdict
 from dataclasses import dataclass
+from itertools import islice
+from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple
+
 import numpy as np
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.structs import State, Task, NSRT, Predicate, \
-    GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    Metrics, STRIPSOperator, OptionSpec, Object
+
 from predicators.src import utils
-from predicators.src.utils import _TaskPlanningHeuristic, ExceptionWithInfo, \
-    EnvironmentFailure
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, DefaultState, DummyOption, \
+    GroundAtom, Metrics, Object, OptionSpec, Predicate, State, \
+    STRIPSOperator, Task, _GroundNSRT, _Option
+from predicators.src.utils import EnvironmentFailure, ExceptionWithInfo, \
+    _TaskPlanningHeuristic
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 
@@ -99,7 +103,7 @@ def sesame_plan(
                     timeout - (time.time() - start_time))
                 if suc:
                     # Success! It's a complete plan.
-                    print(
+                    logging.info(
                         f"Planning succeeded! Found plan of length "
                         f"{len(plan)} after "
                         f"{int(metrics['num_skeletons_optimized'])} "
@@ -220,8 +224,8 @@ def _skeleton_generator(
         # Good debug point #1: print out the skeleton here to see what
         # the high-level search is doing. You can accomplish this via:
         # for act in node.skeleton:
-        #     print(act.name, act.objects)
-        # print()
+        #     logging.info(f"{act.name} {act.objects}")
+        # logging.info("")
         if task.goal.issubset(node.atoms):
             # If this skeleton satisfies the goal, yield it.
             metrics["num_skeletons_optimized"] += 1
@@ -293,7 +297,8 @@ def _run_low_level_search(task: Task, option_model: _OptionModelBase,
         cur_idx += 1
         if option.initiable(state):
             try:
-                next_state = option_model.get_next_state(state, option)
+                next_state, _ = option_model.get_next_state_and_num_actions(
+                    state, option)
             except EnvironmentFailure as e:
                 can_continue_on = False
                 # Remember only the most recent failure.
@@ -426,7 +431,7 @@ class _MaxSkeletonsFailure(ApproachFailure):
 
 
 class _SkeletonSearchTimeout(ApproachTimeout):
-    """Raised when time out occurs in _run_low_level_search()."""
+    """Raised when timeout occurs in _run_low_level_search()."""
 
     def __init__(self) -> None:
         super().__init__("Planning timed out in skeleton search!")

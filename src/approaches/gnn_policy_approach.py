@@ -1,26 +1,31 @@
 """An approach that trains a GNN mapping states and goals to options."""
 
 import functools
+import time
 from collections import defaultdict
-from typing import Callable, Set, List, Optional, Tuple, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
 import dill as pkl
 import numpy as np
-from gym.spaces import Box
 import torch
 import torch.nn
 import torch.optim
+from gym.spaces import Box
 from torch.utils.data import DataLoader
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.gnn.gnn import setup_graph_net
-from predicators.src.gnn.gnn_dataset import GraphDictDataset, \
-    graph_batch_collate
-from predicators.src.gnn.gnn_utils import get_single_model_prediction, \
-    train_model, compute_normalizers, normalize_graph
-from predicators.src.approaches import BaseApproach, ApproachFailure
-from predicators.src.structs import State, Action, Task, _Option, Predicate, \
-    ParameterizedOption, Type, DummyOption, GroundAtom, Dataset
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach
+from predicators.src.gnn.gnn import setup_graph_net
+from predicators.src.gnn.gnn_utils import GraphDictDataset, \
+    compute_normalizers, get_single_model_prediction, graph_batch_collate, \
+    normalize_graph, train_model
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.option_model import create_option_model
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, Dataset, DummyOption, \
+    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    _Option
 
 
 class GNNPolicyApproach(BaseApproach):
@@ -33,6 +38,7 @@ class GNNPolicyApproach(BaseApproach):
                          action_space, train_tasks)
         self._sorted_options = sorted(self._initial_options,
                                       key=lambda o: o.name)
+        self._option_model = create_option_model(CFG.option_model_name)
         # Fields for the GNN.
         self._gnn: Any = None
         self._nullary_predicates: List[Predicate] = []
@@ -46,19 +52,31 @@ class GNNPolicyApproach(BaseApproach):
         # Seed torch.
         torch.manual_seed(self._seed)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "gnn_policy"
+
     @property
     def is_learning_based(self) -> bool:
         return True
 
     def _solve(self, task: Task, timeout: int) -> Callable[[State], Action]:
         assert self._gnn is not None, "Learning hasn't happened yet!"
+        if CFG.gnn_policy_solve_with_shooting:
+            return self._solve_with_shooting(task, timeout)
+        return self._solve_without_shooting(task)
+
+    def _solve_without_shooting(self, task: Task) -> Callable[[State], Action]:
         cur_option = DummyOption
 
         def _policy(state: State) -> Action:
             atoms = utils.abstract(state, self._initial_predicates)
             nonlocal cur_option
             if cur_option is DummyOption or cur_option.terminal(state):
-                cur_option = self._predict_option(state, atoms, task.goal)
+                # Just use the mean parameters to ground the option.
+                param_opt, objects, params_mean = self._predict(
+                    state, atoms, task.goal)
+                cur_option = param_opt.ground(objects, params_mean)
                 if not cur_option.initiable(state):
                     raise ApproachFailure("GNN policy chose a non-initiable "
                                           "option")
@@ -66,6 +84,45 @@ class GNNPolicyApproach(BaseApproach):
             return act
 
         return _policy
+
+    def _solve_with_shooting(self, task: Task,
+                             timeout: int) -> Callable[[State], Action]:
+        start_time = time.time()
+        # Keep trying until the timeout.
+        while time.time() - start_time < timeout:
+            total_num_act = 0
+            state = task.init
+            plan: List[_Option] = []
+            # A single shooting try goes up to the environment's horizon.
+            while total_num_act < CFG.horizon:
+                if task.goal_holds(state):
+                    return utils.option_plan_to_policy(plan)
+                atoms = utils.abstract(state, self._initial_predicates)
+                param_opt, objects, params_mean = self._predict(
+                    state, atoms, task.goal)
+                low = param_opt.params_space.low
+                high = param_opt.params_space.high
+                # Sample an initiable option.
+                for _ in range(CFG.gnn_policy_shooting_num_samples):
+                    params = np.array(self._rng.normal(
+                        params_mean, CFG.gnn_policy_shooting_variance),
+                                      dtype=np.float32)
+                    params = np.clip(params, low, high)
+                    opt = param_opt.ground(objects, params)
+                    if opt.initiable(state):
+                        break
+                else:
+                    break  # out of the while loop for this shooting try
+                plan.append(opt)
+                # Use the option model to determine the next state.
+                try:
+                    state, num_act = \
+                        self._option_model.get_next_state_and_num_actions(
+                            state, opt)
+                except utils.EnvironmentFailure:
+                    break
+                total_num_act += num_act
+        raise ApproachTimeout("Shooting timed out!")
 
     def learn_from_offline_dataset(self, dataset: Dataset) -> None:
         # Organize data into (state, atoms, goal, option) tuples.
@@ -94,12 +151,11 @@ class GNNPolicyApproach(BaseApproach):
         example_inputs, example_targets = self._graphify_data(
             [(data[0][0], data[0][1], data[0][2])], [data[0][3]])
         self._data_exemplar = (example_inputs[0], example_targets[0])
-        example_dataset = GraphDictDataset(  # type: ignore
-            example_inputs, example_targets)
-        self._gnn = setup_graph_net(  # type: ignore
+        example_dataset = GraphDictDataset(example_inputs, example_targets)
+        self._gnn = setup_graph_net(
             example_dataset,
-            use_gpu=False,
-            num_steps=CFG.gnn_policy_num_message_passing)
+            num_steps=CFG.gnn_policy_num_message_passing,
+            layer_size=CFG.gnn_policy_layer_size)
         # Set up all the graphs, now using *all* the data.
         inputs, targets = self._graphify_data([(d[0], d[1], d[2])
                                                for d in data],
@@ -114,10 +170,8 @@ class GNNPolicyApproach(BaseApproach):
         train_targets = targets[num_validation:]
         val_inputs = inputs[:num_validation]
         val_targets = targets[:num_validation]
-        train_dataset = GraphDictDataset(  # type: ignore
-            train_inputs, train_targets)
-        val_dataset = GraphDictDataset(  # type: ignore
-            val_inputs, val_targets)
+        train_dataset = GraphDictDataset(train_inputs, train_targets)
+        val_dataset = GraphDictDataset(val_inputs, val_targets)
         ## Set up Adam optimizer and dataloaders.
         optimizer = torch.optim.Adam(self._gnn.parameters(),
                                      lr=CFG.gnn_policy_learning_rate)
@@ -133,15 +187,18 @@ class GNNPolicyApproach(BaseApproach):
                                     collate_fn=graph_batch_collate)
         dataloaders = {"train": train_dataloader, "val": val_dataloader}
         ## Set up the optimization criteria.
-        if self._max_option_objects > 0:
-            node_criterion = torch.nn.BCEWithLogitsLoss()
-        else:
-            node_criterion = None
+        bce_loss = torch.nn.BCEWithLogitsLoss()
         crossent_loss = torch.nn.CrossEntropyLoss()
         mse_loss = torch.nn.MSELoss()
 
+        def _criterion(output: torch.Tensor,
+                       target: torch.Tensor) -> torch.Tensor:
+            if self._max_option_objects == 0:
+                return torch.tensor(0.0)
+            return bce_loss(output, target)
+
         def _global_criterion(output: torch.Tensor,
-                              target: torch.Tensor) -> float:
+                              target: torch.Tensor) -> torch.Tensor:
             # Combine losses from the one-hot option selection and
             # the continuous parameters.
             onehot_output, params_output = torch.split(  # type: ignore
@@ -155,19 +212,17 @@ class GNNPolicyApproach(BaseApproach):
             if self._max_option_params > 0:
                 params_loss = mse_loss(params_output, params_target)
             else:
-                params_loss = 0.0
+                params_loss = torch.tensor(0.0)
             return onehot_loss + params_loss
 
         ## Launch training code.
-        best_model_dict = train_model(  # type: ignore
+        best_model_dict = train_model(
             self._gnn,
             dataloaders,
-            criterion=node_criterion,
             optimizer=optimizer,
-            use_gpu=False,
-            num_epochs=CFG.gnn_policy_num_epochs,
-            target_nodes_only=True,
+            criterion=_criterion,
             global_criterion=_global_criterion,
+            num_epochs=CFG.gnn_policy_num_epochs,
             do_validation=CFG.gnn_policy_use_validation_set)
         self._gnn.load_state_dict(best_model_dict)
         info = {
@@ -191,12 +246,11 @@ class GNNPolicyApproach(BaseApproach):
             info = pkl.load(f)
         # Initialize fields from loaded dictionary.
         input_example, target_example = info["exemplar"]
-        dataset = GraphDictDataset(  # type: ignore
-            [input_example], [target_example])
-        self._gnn = setup_graph_net(  # type: ignore
+        dataset = GraphDictDataset([input_example], [target_example])
+        self._gnn = setup_graph_net(
             dataset,
-            use_gpu=False,
-            num_steps=CFG.gnn_policy_num_message_passing)
+            num_steps=CFG.gnn_policy_num_message_passing,
+            layer_size=CFG.gnn_policy_layer_size)
         self._gnn.load_state_dict(info["state_dict"])
         self._nullary_predicates = info["nullary_predicates"]
         self._max_option_objects = info["max_option_objects"]
@@ -206,8 +260,12 @@ class GNNPolicyApproach(BaseApproach):
         self._input_normalizers = info["input_normalizers"]
         self._target_normalizers = info["target_normalizers"]
 
-    def _predict_option(self, state: State, atoms: Set[GroundAtom],
-                        goal: Set[GroundAtom]) -> _Option:
+    def _predict(
+        self, state: State, atoms: Set[GroundAtom], goal: Set[GroundAtom]
+    ) -> Tuple[ParameterizedOption, List[Object], Array]:
+        """Uses the GNN, which must already have been trained, to predict a
+        parameterized option from self._sorted_options, discrete object
+        arguments, and continuous arguments."""
         # Get output graph.
         in_graph, object_to_node = self._graphify_single_input(
             state, atoms, goal)
@@ -216,15 +274,12 @@ class GNNPolicyApproach(BaseApproach):
         for obj, node in object_to_node.items():
             type_to_node[obj.type.name].add(node)
         if CFG.gnn_policy_do_normalization:
-            in_graph = normalize_graph(  # type: ignore
-                in_graph, self._input_normalizers)
-        out_graph = get_single_model_prediction(  # type: ignore
-            self._gnn, in_graph)
+            in_graph = normalize_graph(in_graph, self._input_normalizers)
+        out_graph = get_single_model_prediction(self._gnn, in_graph)
         if CFG.gnn_policy_do_normalization:
-            out_graph = normalize_graph(  # type: ignore
-                out_graph,
-                self._target_normalizers,
-                invert=True)
+            out_graph = normalize_graph(out_graph,
+                                        self._target_normalizers,
+                                        invert=True)
         # Extract parameterized option and continuous parameters.
         onehot_output, params = np.split(  # type: ignore
             out_graph["globals"], [len(self._sorted_options)])
@@ -245,7 +300,7 @@ class GNNPolicyApproach(BaseApproach):
                 # If all scores are -inf, we failed to select an object.
                 raise ApproachFailure("GNN policy could not select an object")
             objects.append(node_to_object[np.argmax(scores)])
-        return param_opt.ground(objects, params)
+        return param_opt, objects, params
 
     def _setup_fields(
         self, data: List[Tuple[State, Set[GroundAtom], Set[GroundAtom],
@@ -363,16 +418,14 @@ class GNNPolicyApproach(BaseApproach):
         if CFG.gnn_policy_do_normalization:
             # Update normalization constants. Note that we do this for both
             # the input graph and the target graph.
-            self._input_normalizers = compute_normalizers(  # type: ignore
-                graph_inputs)
-            self._target_normalizers = compute_normalizers(  # type: ignore
-                graph_targets)
+            self._input_normalizers = compute_normalizers(graph_inputs)
+            self._target_normalizers = compute_normalizers(graph_targets)
             graph_inputs = [
-                normalize_graph(g, self._input_normalizers)  # type: ignore
+                normalize_graph(g, self._input_normalizers)
                 for g in graph_inputs
             ]
             graph_targets = [
-                normalize_graph(g, self._target_normalizers)  # type: ignore
+                normalize_graph(g, self._target_normalizers)
                 for g in graph_targets
             ]
 
@@ -380,7 +433,7 @@ class GNNPolicyApproach(BaseApproach):
 
     def _graphify_single_input(self, state: State, atoms: Set[GroundAtom],
                                goal: Set[GroundAtom]) -> Tuple[Dict, Dict]:
-        all_objects = sorted(state)
+        all_objects = list(state)
         node_to_object = dict(enumerate(all_objects))
         object_to_node = {v: k for k, v in node_to_object.items()}
         num_objects = len(all_objects)

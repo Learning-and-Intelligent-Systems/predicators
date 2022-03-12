@@ -5,23 +5,30 @@ from typing import Set, List, Sequence, Iterator, Tuple, FrozenSet
 from predicators.src.structs import NSRT, Predicate, LowLevelTrajectory, \
     Segment, PartialNSRTAndDatastore, GroundAtomTrajectory, Task, \
     STRIPSOperator, OptionSpec, GroundAtom, _GroundNSRT
+
+import logging
+from typing import Iterator, List, Set, Tuple
+
 from predicators.src import utils
-from predicators.src.settings import CFG
-from predicators.src.nsrt_learning.strips_learning import learn_strips_operators
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.option_learning import create_option_learner
+from predicators.src.nsrt_learning.sampler_learning import learn_samplers
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.planning import task_plan_grounding
-import functools
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, LowLevelTrajectory, \
+    PartialNSRTAndDatastore, Predicate, Segment, Task
 
-def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
+
+def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                           train_tasks: List[Task], predicates: Set[Predicate],
                           sampler_learner: str) -> Set[NSRT]:
     """Learn NSRTs from the given dataset of low-level transitions, using the
     given set of predicates."""
-    print(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
+    logging.info(f"\nLearning NSRTs on {len(trajectories)} trajectories...")
 
     # STEP 1: Apply predicates to data, producing a dataset of abstract states.
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -68,9 +75,8 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     if CFG.learn_side_predicates:
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
-        pnads = _learn_pnad_side_predicates(pnads, ground_atom_dataset,
-                                            train_tasks, predicates, segments,
-                                            segmented_trajs)
+        pnads = _learn_pnad_side_predicates(pnads, trajectories, train_tasks,
+                                            predicates, segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -78,12 +84,12 @@ def learn_nsrts_from_data(trajectories: Sequence[LowLevelTrajectory],
     # STEP 6: Learn samplers (sampler_learning.py) and update PNADs.
     _learn_pnad_samplers(pnads, sampler_learner)  # in-place update
 
-    # STEP 7: Print and return the NSRTs.
+    # STEP 7: Log and return the NSRTs.
     nsrts = [pnad.make_nsrt() for pnad in pnads]
-    print("\nLearned NSRTs:")
+    logging.info("\nLearned NSRTs:")
     for nsrt in nsrts:
-        print(nsrt)
-    print()
+        logging.info(nsrt)
+    logging.info("")
     return set(nsrts)
 
 
@@ -212,7 +218,7 @@ def _recompute_datastores_from_segments(
 
 
 def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
-    print("\nDoing option learning...")
+    logging.info("\nDoing option learning...")
     option_learner = create_option_learner()
     strips_ops = []
     datastores = []
@@ -232,14 +238,14 @@ def _learn_pnad_options(pnads: List[PartialNSRTAndDatastore]) -> None:
         for (segment, _) in datastore:
             # Modifies segment in-place.
             option_learner.update_segment_from_option_spec(segment, spec)
-    print("\nLearned operators with option specs:")
+    logging.info("\nLearned operators with option specs:")
     for pnad in pnads:
-        print(pnad)
+        logging.info(pnad)
 
 
 def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
                          sampler_learner: str) -> None:
-    print("\nDoing sampler learning...")
+    logging.info("\nDoing sampler learning...")
     strips_ops = []
     datastores = []
     option_specs = []
@@ -336,10 +342,6 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
                             # actually care about finding the shortest path;
                             # just one that matches!
 
-                            # if len(strips_ops[2].side_predicates) == 1 and \
-                            #     str(hl_traj) == '[{NextToNothing(robby:robot)}, {NextTo(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {Grasped(robby:robot, dot1:dot), NextTo(robby:robot, dot3:dot)}, {NextTo(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot)}, {Grasped(robby:robot, dot0:dot), Grasped(robby:robot, dot1:dot), NextToNothing(robby:robot)}]':
-                            #     import ipdb; ipdb.set_trace()
-
                             yield (applicable_nsrt, (frozenset(next_hl_state), idx_into_traj + 1),
                                    1.0)
 
@@ -348,8 +350,5 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
     state_seq, action_seq = utils.run_gbfs(init_searchnode_state, _check_goal,
                                   _get_successor_with_correct_option,
                                   lambda searchnode_state: heuristic(searchnode_state[0]))
-
-    # if not _check_goal(state_seq[-1]) and len(strips_ops[2].side_predicates) == 1:
-    #     import ipdb; ipdb.set_trace()
 
     return _check_goal(state_seq[-1])
