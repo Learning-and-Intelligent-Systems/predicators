@@ -72,9 +72,9 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     if CFG.learn_side_predicates:
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
-        pnads = _learn_pnad_side_predicates(pnads, trajectories, train_tasks,
-                                            predicates, segments,
-                                            segmented_trajs)
+        pnads = _learn_pnad_side_predicates(pnads, trajectories,
+                                            ground_atom_dataset, train_tasks,
+                                            predicates, segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
     _learn_pnad_options(pnads)  # in-place update
@@ -93,9 +93,9 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
 
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
+        ll_trajs: List[LowLevelTrajectory],
         ground_atom_dataset: List[GroundAtomTrajectory],
         train_tasks: List[Task], predicates: Set[Predicate],
-        segments: List[Segment],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
@@ -136,9 +136,9 @@ def _learn_pnad_side_predicates(
             # Score function for search. Lower is better.
             strips_ops = [pnad.op for pnad in s]
             option_specs = [pnad.option_spec for pnad in s]
-            score = score_func.evaluate_with_operators(frozenset(),
-                                                       ground_atom_dataset,
-                                                       segments, strips_ops,
+            score = score_func.evaluate_with_operators(frozenset(), ll_trajs,
+                                                       segmented_trajs,
+                                                       strips_ops,
                                                        option_specs)
             return score
 
