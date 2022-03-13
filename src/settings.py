@@ -145,7 +145,9 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
-    learn_side_predicates = False
+    # "no_learning" or "prediction_error_hill_climbing" or
+    # "preserve_skeletons_hillclimbing"
+    side_predicate_learner = "no_learning"
 
     # torch model parameters
     normalization_scale_clip = 1
