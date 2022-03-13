@@ -285,7 +285,7 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
                                    strips_ops: List[STRIPSOperator],
                                    option_specs: List[OptionSpec]) -> bool:
     """Function to check whether a given set of operators and predicates
-    preserves a sigle training trajectory."""
+    preserves a single training trajectory."""
     init_atoms = utils.abstract(ll_traj.states[0], init_preds)
     objects = set(ll_traj.states[0])
     ground_nsrts, _ = task_plan_grounding(init_atoms, objects, strips_ops,
