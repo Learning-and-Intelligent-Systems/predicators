@@ -167,9 +167,8 @@ def _learn_pnad_side_predicates(
 
     else:
         raise ValueError(
-            f"side_predicate_learner {CFG.side_predicate_learner} not "
-            +"implemented"
-        )
+            f"side_predicate_learner {CFG.side_predicate_learner} not " +
+            "implemented")
 
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
