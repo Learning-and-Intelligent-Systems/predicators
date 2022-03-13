@@ -15,8 +15,8 @@ from predicators.src.planning import task_plan_grounding
 from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
-from predicators.src.structs import NSRT, GroundAtom, GroundAtomTrajectory, \
-    LowLevelTrajectory, OptionSpec, PartialNSRTAndDatastore, Predicate, \
+from predicators.src.structs import NSRT, GroundAtom, LowLevelTrajectory, \
+    OptionSpec, PartialNSRTAndDatastore, Predicate, \
     Segment, STRIPSOperator, Task, _GroundNSRT
 
 
@@ -68,18 +68,18 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
     #         options, and so the option_spec fields are just the specs of a
     #         DummyOption. We need a default dummy because future steps require
     #         the option_spec field to be populated, even if just with a dummy.
-    pnads = learn_strips_operators(segments,
-                                   verbose=(CFG.option_learner != "no_learning"
-                                            or CFG.learn_side_predicates))
+    pnads = learn_strips_operators(
+        segments,
+        verbose=(CFG.option_learner != "no_learning"
+                 or CFG.side_predicate_learner != "no_learning"))
 
     # STEP 4: Learn side predicates for the operators and update PNADs. These
     #         are predicates whose truth value becomes unknown (for *any*
     #         grounding not explicitly in effects) upon operator application.
-    if CFG.learn_side_predicates:
+    if CFG.side_predicate_learner != "no_learning":
         assert CFG.option_learner == "no_learning", \
             "Can't learn options and side predicates together."
-        pnads = _learn_pnad_side_predicates(pnads, trajectories,
-                                            ground_atom_dataset, train_tasks,
+        pnads = _learn_pnad_side_predicates(pnads, trajectories, train_tasks,
                                             predicates, segmented_trajs)
 
     # STEP 5: Learn options (option_learning.py) and update PNADs.
@@ -99,9 +99,8 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
 
 def _learn_pnad_side_predicates(
         pnads: List[PartialNSRTAndDatastore],
-        ll_trajs: List[LowLevelTrajectory],
-        ground_atom_dataset: List[GroundAtomTrajectory],
-        train_tasks: List[Task], predicates: Set[Predicate],
+        trajectories: List[LowLevelTrajectory], train_tasks: List[Task],
+        predicates: Set[Predicate],
         segmented_trajs: List[List[Segment]]) -> List[PartialNSRTAndDatastore]:
 
     def _check_goal(s: Tuple[PartialNSRTAndDatastore, ...]) -> bool:
@@ -133,7 +132,7 @@ def _learn_pnad_side_predicates(
             del sprime[i]
             yield (None, tuple(sprime), 1.0)
 
-    if CFG.sidelining_approach == "naive":
+    if CFG.side_predicate_learner == "prediction_error_hillclimbing":
         score_func = _PredictionErrorScoreFunction(predicates, [], {},
                                                    train_tasks)
 
@@ -141,24 +140,25 @@ def _learn_pnad_side_predicates(
             # Score function for search. Lower is better.
             strips_ops = [pnad.op for pnad in s]
             option_specs = [pnad.option_spec for pnad in s]
-            score = score_func.evaluate_with_operators(frozenset(), ll_trajs,
+            score = score_func.evaluate_with_operators(frozenset(),
+                                                       trajectories,
                                                        segmented_trajs,
                                                        strips_ops,
                                                        option_specs)
             return score
 
-    elif CFG.sidelining_approach == "preserve_skeletons":
+    elif CFG.side_predicate_learner == "preserve_skeletons":
 
         def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
             # Score function for search. Lower is better.
             strips_ops = [pnad.op for pnad in s]
             option_specs = [pnad.option_spec for pnad in s]
             preserves_harmlessness = check_harmlessness(
-                predicates, train_tasks, ground_atom_dataset, strips_ops,
-                option_specs)
+                predicates, train_tasks, trajectories, segmented_trajs,
+                strips_ops, option_specs)
             # NOTE: Arbitrary large number bigger than total number of
-            # operators
-            score = 10000
+            # operators.
+            score = 10 * len(pnads)
             if preserves_harmlessness:
                 score = 2 * len(strips_ops)
                 for op in strips_ops:
@@ -167,7 +167,9 @@ def _learn_pnad_side_predicates(
 
     else:
         raise ValueError(
-            f"sidelining_approach {CFG.sidelining_approach} not implemented")
+            f"side_predicate_learner {CFG.side_predicate_learner} not "
+            +"implemented"
+        )
 
     # Run the search, starting from original PNADs.
     path, _, _ = utils.run_hill_climbing(tuple(pnads), _check_goal,
@@ -264,41 +266,52 @@ def _learn_pnad_samplers(pnads: List[PartialNSRTAndDatastore],
         pnad.sampler = sampler
 
 
-def check_harmlessness(init_preds: Set[Predicate], train_tasks: List[Task],
-                       pruned_atom_data: List[GroundAtomTrajectory],
+def check_harmlessness(predicates: Set[Predicate], train_tasks: List[Task],
+                       trajectories: List[LowLevelTrajectory],
+                       segmented_trajs: List[List[Segment]],
                        strips_ops: List[STRIPSOperator],
                        option_specs: List[OptionSpec]) -> bool:
     """Function to check whether a given set of operators and predicates
     preserves harmlessness over demonstrations on some number of training
-    tasks."""
+    tasks.
 
-    for ll_traj, hl_traj in pruned_atom_data:
+    Preserving harmlessness roughly means that the set of operators and
+    predicates supports the agent's ability to plan to achieve all of
+    training tasks in the same way as was demonstrated (i.e, the
+    predicates and operators don't render any demonstrated trajectory
+    impossible).
+    """
+
+    assert len(trajectories) == len(segmented_trajs)
+    for ll_traj, seg_traj in zip(trajectories, segmented_trajs):
         if not ll_traj.is_demo:
             continue
+        atoms_seq = utils.segment_trajectory_to_atoms_sequence(seg_traj)
         traj_goal = train_tasks[ll_traj.train_task_idx].goal
-        plan_preserved = check_single_plan_preservation(
-            ll_traj, hl_traj, traj_goal, init_preds, strips_ops, option_specs)
-        if not plan_preserved:
+        demo_preserved = check_single_demo_preservation(
+            ll_traj, atoms_seq, traj_goal, predicates, strips_ops,
+            option_specs)
+        if not demo_preserved:
             return False
 
     return True
 
 
-def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
-                                   hl_traj: List[Set[GroundAtom]],
+def check_single_demo_preservation(ll_traj: LowLevelTrajectory,
+                                   atoms_seq: List[Set[GroundAtom]],
                                    traj_goal: Set[GroundAtom],
-                                   init_preds: Set[Predicate],
+                                   predicates: Set[Predicate],
                                    strips_ops: List[STRIPSOperator],
                                    option_specs: List[OptionSpec]) -> bool:
     """Function to check whether a given set of operators and predicates
     preserves a single training trajectory."""
-    init_atoms = utils.abstract(ll_traj.states[0], init_preds)
+    init_atoms = utils.abstract(ll_traj.states[0], predicates)
     objects = set(ll_traj.states[0])
     ground_nsrts, _ = task_plan_grounding(init_atoms, objects, strips_ops,
                                           option_specs)
     heuristic = utils.create_task_planning_heuristic(
         CFG.sesame_task_planning_heuristic, init_atoms, traj_goal,
-        ground_nsrts, init_preds, objects)
+        ground_nsrts, predicates, objects)
 
     def _check_goal(state: Tuple[FrozenSet[GroundAtom], int]) -> bool:
         return traj_goal.issubset(state[0])
@@ -310,38 +323,39 @@ def check_single_plan_preservation(ll_traj: LowLevelTrajectory,
         state = searchnode_state[0]
         idx_into_traj = searchnode_state[1]
 
-        if idx_into_traj <= len(ll_traj.actions) - 1:
-            assert ll_traj.actions[idx_into_traj].has_option()
-            gt_option = ll_traj.actions[idx_into_traj].get_option()
-            expected_next_hl_state = hl_traj[idx_into_traj + 1]
+        if idx_into_traj > len(ll_traj.actions) - 1:
+            return
 
-            for applicable_nsrt in utils.get_applicable_operators(
-                    ground_nsrts, state):
-                # NOTE: we check that the ParameterizedOptions are equal before
-                # attempting to ground because otherwise, we might
-                # get a parameter mismatch and trigger an AssertionError
-                # during grounding.
+        assert ll_traj.actions[idx_into_traj].has_option()
+        gt_option = ll_traj.actions[idx_into_traj].get_option()
+        expected_next_hl_state = atoms_seq[idx_into_traj + 1]
 
-                if applicable_nsrt.option == gt_option.parent:
-                    if applicable_nsrt.option_objs == gt_option.objects:
-                        next_hl_state = utils.apply_operator(
-                            applicable_nsrt, set(state))
-                        # Here, we check whether all atoms that differ
-                        # between next_hl_state and state are part of
-                        # the operator's side predicates. If so, this nsrt
-                        # can be applied from this state!
-                        exp_state_matches = next_hl_state.issubset(
-                            expected_next_hl_state)
-
-                        if exp_state_matches:
-                            # The returned cost is uniform because we don't
-                            # actually care about finding the shortest path;
-                            # just one that matches!
-                            yield (applicable_nsrt, (frozenset(next_hl_state),
-                                                     idx_into_traj + 1), 1.0)
+        for applicable_nsrt in utils.get_applicable_operators(
+                ground_nsrts, state):
+            # NOTE: we check that the ParameterizedOptions are equal before
+            # attempting to ground because otherwise, we might
+            # get a parameter mismatch and trigger an AssertionError
+            # during grounding.
+            if applicable_nsrt.option != gt_option.parent:
+                continue
+            if applicable_nsrt.option_objs != gt_option.objects:
+                continue
+            next_hl_state = utils.apply_operator(applicable_nsrt, set(state))
+            exp_state_matches = next_hl_state.issubset(expected_next_hl_state)
+            if exp_state_matches:
+                # The returned cost is uniform because we don't
+                # actually care about finding the shortest path;
+                # just one that matches!
+                yield (applicable_nsrt, (frozenset(next_hl_state),
+                                         idx_into_traj + 1), 1.0)
 
     init_atoms_frozen = frozenset(init_atoms)
     init_searchnode_state = (init_atoms_frozen, 0)
+    # NOTE: each state in the below gbfs is a tuple of
+    # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
+    # we need to check whether the atoms that are true at this particular
+    # index into the trajectory is what we would expect given the demo
+    # trajectory.
     state_seq, _ = utils.run_gbfs(
         init_searchnode_state, _check_goal, _get_successor_with_correct_option,
         lambda searchnode_state: heuristic(searchnode_state[0]))
