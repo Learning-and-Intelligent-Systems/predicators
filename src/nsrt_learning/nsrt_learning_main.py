@@ -16,8 +16,8 @@ from predicators.src.predicate_search_score_functions import \
     _PredictionErrorScoreFunction
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, GroundAtom, LowLevelTrajectory, \
-    OptionSpec, PartialNSRTAndDatastore, Predicate, \
-    Segment, STRIPSOperator, Task, _GroundNSRT
+    OptionSpec, PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, \
+    Task, _GroundNSRT
 
 
 def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
