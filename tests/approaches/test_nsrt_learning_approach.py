@@ -101,7 +101,7 @@ def test_nsrt_learning_approach():
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
-                   side_predicate_learner="preserve_skeletons")
+                   side_predicate_learner="preserve_skeletons_hillclimbing")
 
 
 def test_unknown_side_predicate_learner():

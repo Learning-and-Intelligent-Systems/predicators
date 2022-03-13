@@ -147,7 +147,7 @@ def _learn_pnad_side_predicates(
                                                        option_specs)
             return score
 
-    elif CFG.side_predicate_learner == "preserve_skeletons":
+    elif CFG.side_predicate_learner == "preserve_skeletons_hillclimbing":
 
         def _evaluate(s: Tuple[PartialNSRTAndDatastore, ...]) -> float:
             # Score function for search. Lower is better.
@@ -156,8 +156,8 @@ def _learn_pnad_side_predicates(
             preserves_harmlessness = check_harmlessness(
                 predicates, train_tasks, trajectories, segmented_trajs,
                 strips_ops, option_specs)
-            # NOTE: Arbitrary large number bigger than total number of
-            # operators.
+            # NOTE: Arbitrary large number bigger than the total number of
+            # operators at the start of the search.
             score = 10 * len(pnads)
             if preserves_harmlessness:
                 score = 2 * len(strips_ops)
@@ -276,7 +276,7 @@ def check_harmlessness(predicates: Set[Predicate], train_tasks: List[Task],
 
     Preserving harmlessness roughly means that the set of operators and
     predicates supports the agent's ability to plan to achieve all of
-    training tasks in the same way as was demonstrated (i.e, the
+    the training tasks in the same way as was demonstrated (i.e, the
     predicates and operators don't render any demonstrated trajectory
     impossible).
     """
@@ -325,7 +325,6 @@ def check_single_demo_preservation(ll_traj: LowLevelTrajectory,
         if idx_into_traj > len(ll_traj.actions) - 1:
             return
 
-        assert ll_traj.actions[idx_into_traj].has_option()
         gt_option = ll_traj.actions[idx_into_traj].get_option()
         expected_next_hl_state = atoms_seq[idx_into_traj + 1]
 
@@ -350,7 +349,7 @@ def check_single_demo_preservation(ll_traj: LowLevelTrajectory,
 
     init_atoms_frozen = frozenset(init_atoms)
     init_searchnode_state = (init_atoms_frozen, 0)
-    # NOTE: each state in the below gbfs is a tuple of
+    # NOTE: each state in the below GBFS is a tuple of
     # (current_atoms, idx_into_traj). The idx_into_traj is necessary because
     # we need to check whether the atoms that are true at this particular
     # index into the trajectory is what we would expect given the demo
