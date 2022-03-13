@@ -96,12 +96,12 @@ def test_nsrt_learning_approach():
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
-                   side_predicate_learner="prediction_error_hillclimbing")
+                   side_predicate_learner="prediction_error_hill_climbing")
     _test_approach(env_name="repeated_nextto",
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
-                   side_predicate_learner="preserve_skeletons_hillclimbing")
+                   side_predicate_learner="preserve_skeletons_hill_climbing")
 
 
 def test_unknown_side_predicate_learner():
