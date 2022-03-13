@@ -176,13 +176,19 @@ class PreserveSkeletonsHillClimbingSidePredicateLearner(
 
     def _evaluate(self, state: Tuple[PartialNSRTAndDatastore, ...]) -> float:
         preserves_harmlessness = self._check_harmlessness(state)
-        # NOTE: Arbitrary large number bigger than the total number of
-        # operators at the start of the search.
-        score = 10 * len(self._initial_pnads)
         if preserves_harmlessness:
+            # If harmlessness is preserved, the score is the number of
+            # operators in the state, minus the number of side predicates.
+            # This means we prefer fewer operators and more side predicates.
             score = 2 * len(state)
             for pnad in state:
                 score -= len(pnad.op.side_predicates)
+        else:
+            # If harmlessness is not preserved, the score is an arbitrary
+            # constant bigger than the total number of operators at the
+            # start of the search. This is guaranteed to be worse (higher)
+            # than any score that occurs if harmlessness is preserved.
+            score = 10 * len(self._initial_pnads)
         return score
 
     def _check_harmlessness(
