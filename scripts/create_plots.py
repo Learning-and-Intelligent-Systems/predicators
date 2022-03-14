@@ -140,6 +140,8 @@ PLOT_GROUPS = {
 # If True, add (0, 0) to every plot
 ADD_ZERO_POINT = False
 
+Y_LIM = (-5, 110)
+
 #################### Should not need to change below here #####################
 
 
@@ -179,6 +181,7 @@ def _main() -> None:
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
+                ax.set_ylim(Y_LIM)
                 plt.legend()
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"

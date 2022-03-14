@@ -64,15 +64,10 @@ def main() -> None:
     args = utils.parse_args()
     utils.update_config(args)
     str_args = " ".join(sys.argv)
-    # Log to both stdout and a logfile.
-    os.makedirs(CFG.log_dir, exist_ok=True)
-    logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
-    logging.basicConfig(
-        level=CFG.loglevel,
-        format="%(message)s",
-        handlers=[logging.FileHandler(logfile),
-                  logging.StreamHandler()])
-    logging.info(f"Logging to {logfile}.")
+    # Log to stderr.
+    logging.basicConfig(level=CFG.loglevel,
+                        format="%(message)s",
+                        handlers=[logging.StreamHandler()])
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
@@ -123,16 +118,18 @@ def _run_pipeline(env: BaseEnv,
         total_num_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
         total_query_cost = 0.0
-        learning_start = time.time()
         if CFG.load_approach:
             approach.load(online_learning_cycle=None)
+            learning_time = 0.0  # ignore loading time
         else:
+            learning_start = time.time()
             approach.learn_from_offline_dataset(offline_dataset)
+            learning_time = time.time() - learning_start
         # Run evaluation once before online learning starts.
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
-        results["cumulative_query_cost"] = total_query_cost
-        results["learning_time"] = time.time() - learning_start
+        results["query_cost"] = total_query_cost
+        results["learning_time"] = learning_time
         _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
@@ -156,17 +153,21 @@ def _run_pipeline(env: BaseEnv,
             logging.info(f"Query cost incurred this cycle: {query_cost}")
             if CFG.load_approach:
                 approach.load(online_learning_cycle=i)
+                learning_time += 0.0  # ignore loading time
             else:
+                learning_start = time.time()
                 approach.learn_from_interaction_results(interaction_results)
+                learning_time += time.time() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
-            results["cumulative_query_cost"] = total_query_cost
-            results["learning_time"] = time.time() - learning_start
+            results["query_cost"] = total_query_cost
+            results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
+        results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
 
@@ -208,7 +209,7 @@ def _generate_interaction_results(
     for request in requests:
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
-        traj = utils.run_policy(
+        traj, _ = utils.run_policy(
             request.act_policy,
             env,
             "train",
@@ -239,7 +240,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_failures = 0
     video_prefix = utils.get_config_path_str()
     for test_task_idx, task in enumerate(test_tasks):
-        start = time.time()
+        solve_start = time.time()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
@@ -252,20 +253,23 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
+        solve_time = time.time() - solve_start
         num_found_policy += 1
         try:
             if CFG.make_test_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj = utils.run_policy(policy,
-                                    env,
-                                    "test",
-                                    test_task_idx,
-                                    task.goal_holds,
-                                    max_num_steps=CFG.horizon,
-                                    monitor=monitor)
+            traj, execution_metrics = utils.run_policy(
+                policy,
+                env,
+                "test",
+                test_task_idx,
+                task.goal_holds,
+                max_num_steps=CFG.horizon,
+                monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
+            solve_time += execution_metrics["policy_call_time"]
         except utils.EnvironmentFailure as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Environment failed with error: {e}")
@@ -279,7 +283,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         if solved:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: SOLVED")
             num_solved += 1
-            total_suc_time += (time.time() - start)
+            total_suc_time += solve_time
         else:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy "
                          f"failed to reach goal")

@@ -2,7 +2,7 @@
 
 START_SEED=456
 NUM_SEEDS=10
-FILE="scripts/submit.py"
+FILE="scripts/supercloud/submit_supercloud_job.py"
 NUM_TRAIN_TASKS="200"
 ALL_ENVS=(
     "cover"

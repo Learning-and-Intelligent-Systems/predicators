@@ -6,7 +6,7 @@ START_THRESH=0
 INCREMENT=0.1
 END_THRESH=0.6
 CYCLES=100
-FILE="scripts/submit.py"
+FILE="scripts/supercloud/submit_supercloud_job.py"
 
 # to find an appropriate threshold
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do

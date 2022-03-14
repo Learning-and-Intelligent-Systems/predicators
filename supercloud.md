@@ -59,7 +59,7 @@ Before running any experiments, it is good practice to make sure that you have a
 
 To run our default suite of experiments (will take many hours to complete, we recommend letting it run overnight):
 ```
-./scripts/run_supercloud_experiments.sh
+./scripts/supercloud/run_nightly_experiments.sh
 ```
 
 Upon running that script, you should see many printouts, such as:
