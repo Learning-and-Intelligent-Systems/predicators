@@ -73,7 +73,7 @@ def main() -> None:
                             logging.FileHandler(logfile, mode='w'),
                             logging.StreamHandler()
                         ])
-    logging.info(f"Logging to {logfile}.")
+    logging.info(f"Logging to {logfile}")
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
