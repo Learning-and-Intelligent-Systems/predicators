@@ -133,7 +133,7 @@ def _run_pipeline(env: BaseEnv,
         # Run evaluation once before online learning starts.
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
-        results["cumulative_query_cost"] = total_query_cost
+        results["query_cost"] = total_query_cost
         results["learning_time"] = learning_time
         _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
@@ -166,13 +166,13 @@ def _run_pipeline(env: BaseEnv,
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
-            results["cumulative_query_cost"] = total_query_cost
+            results["query_cost"] = total_query_cost
             results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
-        results["cumulative_query_cost"] = 0.0
+        results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
 
