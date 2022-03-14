@@ -2,7 +2,7 @@
 
 START_SEED=456
 NUM_SEEDS=10
-FILE="scripts/submit.py"
+FILE="scripts/supercloud/submit_supercloud_job.py"
 
 for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     # cover

@@ -48,8 +48,7 @@ def create_demo_data(env: BaseEnv, train_tasks: List[Task]) -> Dataset:
                 "Oracle failed on training task"
         except (ApproachTimeout, ApproachFailure, AssertionError) as e:
             # This should be extremely rare, so we only allow the script
-            # to continue on supercloud, when running batch experiments
-            # with scripts/submit.py.
+            # to continue on supercloud, when running batch experiments.
             logging.warning("WARNING: Approach failed to solve with error: "
                             f"{e}")
             if not os.getcwd().startswith("/home/gridsan"):
