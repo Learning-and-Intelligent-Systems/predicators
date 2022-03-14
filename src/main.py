@@ -209,7 +209,7 @@ def _generate_interaction_results(
     for request in requests:
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
-        traj = utils.run_policy(
+        traj, _ = utils.run_policy(
             request.act_policy,
             env,
             "train",
@@ -240,7 +240,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     total_num_execution_failures = 0
     video_prefix = utils.get_config_path_str()
     for test_task_idx, task in enumerate(test_tasks):
-        start = time.time()
+        solve_start = time.time()
         try:
             policy = approach.solve(task, timeout=CFG.timeout)
         except (ApproachTimeout, ApproachFailure) as e:
@@ -253,20 +253,23 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 outfile = f"{video_prefix}__task{test_task_idx+1}_failure.mp4"
                 utils.save_video(outfile, video)
             continue
+        solve_time = time.time() - solve_start
         num_found_policy += 1
         try:
             if CFG.make_test_videos:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj = utils.run_policy(policy,
-                                    env,
-                                    "test",
-                                    test_task_idx,
-                                    task.goal_holds,
-                                    max_num_steps=CFG.horizon,
-                                    monitor=monitor)
+            traj, execution_metrics = utils.run_policy(
+                policy,
+                env,
+                "test",
+                test_task_idx,
+                task.goal_holds,
+                max_num_steps=CFG.horizon,
+                monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
+            solve_time += execution_metrics["policy_call_time"]
         except utils.EnvironmentFailure as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Environment failed with error: {e}")
@@ -280,7 +283,7 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
         if solved:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: SOLVED")
             num_solved += 1
-            total_suc_time += (time.time() - start)
+            total_suc_time += solve_time
         else:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: Policy "
                          f"failed to reach goal")
