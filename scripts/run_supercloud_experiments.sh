@@ -31,9 +31,9 @@ for SEED in $(seq $START_SEED $((NUM_SEEDS+START_SEED-1))); do
     python $FILE --experiment_id tools_invent_allexclude --env tools --approach grammar_search_invention --excluded_predicates all --seed $SEED --num_train_tasks 200
 
     # repeated_nextto
-    # requires extra flag: "--side_predicate_learner prediction_error_hillclimbing"
+    # requires extra flag: "--side_predicate_learner prediction_error_hill_climbing"
     python $FILE --experiment_id repeated_nextto_oracle --env repeated_nextto --approach oracle --seed $SEED --num_train_tasks 0
-    python $FILE --experiment_id repeated_nextto_nsrt_learning --env repeated_nextto --approach nsrt_learning --side_predicate_learner prediction_error_hillclimbing --seed $SEED --num_train_tasks 50
+    python $FILE --experiment_id repeated_nextto_nsrt_learning --env repeated_nextto --approach nsrt_learning --side_predicate_learner prediction_error_hill_climbing --seed $SEED --num_train_tasks 50
 
     # playroom
     python $FILE --experiment_id playroom_oracle --env playroom --approach oracle --seed $SEED --num_train_tasks 0
