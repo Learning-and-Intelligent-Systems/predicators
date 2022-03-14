@@ -64,7 +64,7 @@ def main() -> None:
     args = utils.parse_args()
     utils.update_config(args)
     str_args = " ".join(sys.argv)
-    # Log to stdout.
+    # Log to stderr.
     logging.basicConfig(level=CFG.loglevel,
                         format="%(message)s",
                         handlers=[logging.StreamHandler()])
