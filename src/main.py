@@ -123,16 +123,18 @@ def _run_pipeline(env: BaseEnv,
         total_num_transitions = sum(
             len(traj.actions) for traj in offline_dataset.trajectories)
         total_query_cost = 0.0
-        learning_start = time.time()
         if CFG.load_approach:
             approach.load(online_learning_cycle=None)
+            learning_time = 0.0  # ignore loading time
         else:
+            learning_start = time.time()
             approach.learn_from_offline_dataset(offline_dataset)
+            learning_time = time.time() - learning_start
         # Run evaluation once before online learning starts.
         results = _run_testing(env, approach)
         results["num_transitions"] = total_num_transitions
-        results["cumulative_query_cost"] = total_query_cost
-        results["learning_time"] = time.time() - learning_start
+        results["query_cost"] = total_query_cost
+        results["learning_time"] = learning_time
         _save_test_results(results, online_learning_cycle=None)
         teacher = Teacher(train_tasks)
         # The online learning loop.
@@ -156,17 +158,21 @@ def _run_pipeline(env: BaseEnv,
             logging.info(f"Query cost incurred this cycle: {query_cost}")
             if CFG.load_approach:
                 approach.load(online_learning_cycle=i)
+                learning_time += 0.0  # ignore loading time
             else:
+                learning_start = time.time()
                 approach.learn_from_interaction_results(interaction_results)
+                learning_time += time.time() - learning_start
             # Evaluate approach after every online learning cycle.
             results = _run_testing(env, approach)
             results["num_transitions"] = total_num_transitions
-            results["cumulative_query_cost"] = total_query_cost
-            results["learning_time"] = time.time() - learning_start
+            results["query_cost"] = total_query_cost
+            results["learning_time"] = learning_time
             _save_test_results(results, online_learning_cycle=i)
     else:
         results = _run_testing(env, approach)
         results["num_transitions"] = 0
+        results["query_cost"] = 0.0
         results["learning_time"] = 0.0
         _save_test_results(results, online_learning_cycle=None)
 
