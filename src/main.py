@@ -339,6 +339,6 @@ def _save_test_results(results: Metrics,
 if __name__ == "__main__":  # pragma: no cover
     try:
         main()
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         logging.exception("Main script crashed with error:")
         sys.exit(1)
