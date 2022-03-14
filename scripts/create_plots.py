@@ -79,7 +79,7 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "CoverEnv (Excluding Covers,Holding)": [
+    "CoverEnv Excluding Covers,Holding": [
         ("Section Kid", "o", lambda df: df["EXPERIMENT_ID"].apply(
             lambda v: "excludeall_section_kid" in v)),
         ("Entropy 0.1", ".", lambda df: df["EXPERIMENT_ID"].apply(
