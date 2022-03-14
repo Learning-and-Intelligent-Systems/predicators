@@ -344,8 +344,8 @@ class SupercloudAnalysisResponse(SupercloudResponse):
     def _supercloud_get_filename(self) -> Optional[str]:
         if not self._generated_csv:
             return None
-        self._scp_filename("results_analysis.csv")
-        return "results_analysis.csv"
+        self._scp_filename("results_summary.csv")
+        return "results_summary.csv"
 
 
 def _get_response_object(query: str, inquirer: str) -> Response:

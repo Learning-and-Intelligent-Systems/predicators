@@ -157,8 +157,8 @@ def _main() -> None:
     pd.set_option("expand_frame_repr", False)
     print("\n\nAGGREGATED DATA OVER SEEDS:")
     print(means)
-    means.to_csv("results_analysis.csv")
-    print("\n\nWrote out table to results_analysis.csv")
+    means.to_csv("results_summary.csv")
+    print("\n\nWrote out table to results_summary.csv")
 
 
 if __name__ == "__main__":
