@@ -64,15 +64,10 @@ def main() -> None:
     args = utils.parse_args()
     utils.update_config(args)
     str_args = " ".join(sys.argv)
-    # Log to both stdout and a logfile.
-    os.makedirs(CFG.log_dir, exist_ok=True)
-    logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
-    logging.basicConfig(
-        level=CFG.loglevel,
-        format="%(message)s",
-        handlers=[logging.FileHandler(logfile),
-                  logging.StreamHandler()])
-    logging.info(f"Logging to {logfile}.")
+    # Log to stdout.
+    logging.basicConfig(level=CFG.loglevel,
+                        format="%(message)s",
+                        handlers=[logging.StreamHandler()])
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
     logging.info(CFG)
