@@ -85,10 +85,32 @@ PLOT_GROUPS = {
         ("Tools", "s",
          lambda df: df["EXPERIMENT_ID"].apply(lambda v: "tools_main_" in v)),
     ],
+    "GNN Shooting LfD": [
+        ("PickPlace1D", "o", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "cover_gnn_shooting_" in v)),
+        ("Blocks", ".", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "blocks_gnn_shooting_" in v)),
+        ("Painting", "*", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "painting_gnn_shooting_" in v)),
+        ("Tools", "s", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "tools_gnn_shooting_" in v)),
+    ],
+    "GNN Model-Free LfD": [
+        ("PickPlace1D", "o", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "cover_gnn_modelfree_" in v)),
+        ("Blocks", ".", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "blocks_gnn_modelfree_" in v)),
+        ("Painting", "*", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "painting_gnn_modelfree_" in v)),
+        ("Tools", "s", lambda df: df["EXPERIMENT_ID"].apply(
+            lambda v: "tools_gnn_modelfree_" in v)),
+    ],
 }
 
 # If True, add (0, 0) to every plot
 ADD_ZERO_POINT = True
+
+Y_LIM = (-5, 110)
 
 #################### Should not need to change below here #####################
 
@@ -129,6 +151,7 @@ def _main() -> None:
                 ax.set_title(plot_title)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
+                ax.set_ylim(Y_LIM)
                 plt.legend()
                 plt.tight_layout()
                 filename = f"{plot_title}_{x_key}_{y_key}.png"
