@@ -1,14 +1,16 @@
 """Test cases for structs."""
 
-import pytest
 import numpy as np
+import pytest
 from gym.spaces import Box
-from predicators.src.structs import Type, Object, Variable, State, Predicate, \
-    _Atom, LiftedAtom, GroundAtom, Task, ParameterizedOption, _Option, \
-    STRIPSOperator, NSRT, _GroundNSRT, Action, Segment, LowLevelTrajectory, \
-    PartialNSRTAndDatastore, _GroundSTRIPSOperator, InteractionRequest, \
-    InteractionResult, DefaultState, Query, DemonstrationQuery
+
 from predicators.src import utils
+from predicators.src.structs import NSRT, Action, DefaultState, \
+    DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
+    LiftedAtom, LowLevelTrajectory, Object, ParameterizedOption, \
+    PartialNSRTAndDatastore, Predicate, Query, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():

@@ -34,23 +34,24 @@ To run grammar search predicate invention (example):
         --seed 0 --excluded_predicates all
 """
 
-from collections import defaultdict
-from typing import List, Sequence, Optional, Tuple
 import logging
 import os
 import sys
 import time
-import dill as pkl
-from predicators.src.settings import CFG
-from predicators.src.envs import create_new_env, BaseEnv
-from predicators.src.approaches import create_approach, ApproachTimeout, \
-    ApproachFailure, BaseApproach
-from predicators.src.datasets import create_dataset
-from predicators.src.structs import Metrics, Task, Dataset, \
-    InteractionRequest, InteractionResult
-from predicators.src import utils
-from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
+from collections import defaultdict
+from typing import List, Optional, Sequence, Tuple
 
+import dill as pkl
+
+from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach, create_approach
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import BaseEnv, create_new_env
+from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, InteractionRequest, \
+    InteractionResult, Metrics, Task
+from predicators.src.teacher import Teacher, TeacherInteractionMonitorWithVideo
 
 assert os.environ.get("PYTHONHASHSEED") == "0", \
         "Please add `export PYTHONHASHSEED=0` to your bash profile!"
@@ -178,7 +179,7 @@ def _generate_or_load_offline_dataset(env: BaseEnv,
         f"__{CFG.seed}.data")
     dataset_filepath = os.path.join(CFG.data_dir, dataset_filename)
     if CFG.load_data:
-        assert os.path.exists(dataset_filepath)
+        assert os.path.exists(dataset_filepath), f"Missing: {dataset_filepath}"
         with open(dataset_filepath, "rb") as f:
             dataset = pkl.load(f)
         logging.info("\n\nLOADED DATASET")
@@ -202,6 +203,8 @@ def _generate_interaction_results(
     logging.info("Generating interaction results...")
     results = []
     query_cost = 0.0
+    if CFG.make_interaction_videos:
+        video = []
     for request in requests:
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
@@ -219,10 +222,11 @@ def _generate_interaction_results(
                                    request_responses)
         results.append(result)
         if CFG.make_interaction_videos:
-            video = monitor.get_video()
-            video_prefix = utils.get_config_path_str()
-            outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
-            utils.save_video(outfile, video)
+            video.extend(monitor.get_video())
+    if CFG.make_interaction_videos:
+        video_prefix = utils.get_config_path_str()
+        outfile = f"{video_prefix}__cycle{cycle_num}.mp4"
+        utils.save_video(outfile, video)
     return results, query_cost
 
 

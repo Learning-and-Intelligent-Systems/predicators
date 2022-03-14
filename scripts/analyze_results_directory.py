@@ -1,10 +1,12 @@
 """Script to analyze the results of experiments in the results/ directory."""
 
-from typing import Tuple, Sequence, Callable, Dict
 import glob
+from typing import Callable, Dict, Sequence, Tuple
+
 import dill as pkl
 import numpy as np
 import pandas as pd
+
 from predicators.src.settings import CFG
 
 GROUPS = [

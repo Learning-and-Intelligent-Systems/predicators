@@ -1,28 +1,31 @@
 """An approach that trains a GNN mapping states and goals to options."""
 
-import time
 import functools
+import time
 from collections import defaultdict
-from typing import Callable, Set, List, Optional, Tuple, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
 import dill as pkl
 import numpy as np
-from gym.spaces import Box
 import torch
 import torch.nn
 import torch.optim
+from gym.spaces import Box
 from torch.utils.data import DataLoader
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.gnn.gnn import setup_graph_net
-from predicators.src.gnn.gnn_utils import get_single_model_prediction, \
-    train_model, compute_normalizers, normalize_graph, GraphDictDataset, \
-    graph_batch_collate
-from predicators.src.approaches import BaseApproach, ApproachFailure, \
-    ApproachTimeout
-from predicators.src.structs import State, Action, Task, _Option, Predicate, \
-    ParameterizedOption, Type, DummyOption, GroundAtom, Dataset, Object, Array
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    BaseApproach
+from predicators.src.gnn.gnn import setup_graph_net
+from predicators.src.gnn.gnn_utils import GraphDictDataset, \
+    compute_normalizers, get_single_model_prediction, graph_batch_collate, \
+    normalize_graph, train_model
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.option_model import create_option_model
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, Dataset, DummyOption, \
+    GroundAtom, Object, ParameterizedOption, Predicate, State, Task, Type, \
+    _Option
 
 
 class GNNPolicyApproach(BaseApproach):
@@ -48,6 +51,10 @@ class GNNPolicyApproach(BaseApproach):
         self._data_exemplar: Tuple[Dict, Dict] = ({}, {})
         # Seed torch.
         torch.manual_seed(self._seed)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "gnn_policy"
 
     @property
     def is_learning_based(self) -> bool:
@@ -89,7 +96,17 @@ class GNNPolicyApproach(BaseApproach):
             # A single shooting try goes up to the environment's horizon.
             while total_num_act < CFG.horizon:
                 if task.goal_holds(state):
-                    return utils.option_plan_to_policy(plan)
+                    # We found a plan that achieves the goal under the
+                    # option model, so return it.
+                    option_policy = utils.option_plan_to_policy(plan)
+
+                    def _policy(s: State) -> Action:
+                        try:
+                            return option_policy(s)
+                        except utils.OptionPlanExhausted:
+                            raise ApproachFailure("Option plan exhausted.")
+
+                    return _policy
                 atoms = utils.abstract(state, self._initial_predicates)
                 param_opt, objects, params_mean = self._predict(
                     state, atoms, task.goal)

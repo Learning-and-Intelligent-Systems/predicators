@@ -7,7 +7,8 @@ Anything that varies between runs should be a command-line arg
 import os
 from collections import defaultdict
 from types import SimpleNamespace
-from typing import Dict, Any, Set
+from typing import Any, Dict, Set
+
 import numpy as np
 
 
@@ -144,7 +145,9 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
-    learn_side_predicates = False
+    # "no_learning" or "prediction_error_hill_climbing" or
+    # "preserve_skeletons_hill_climbing"
+    side_predicate_learner = "no_learning"
 
     # torch model parameters
     normalization_scale_clip = 1
@@ -174,6 +177,7 @@ class GlobalSettings:
     interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+    interactive_num_requests_per_cycle = 10
     predicate_mlp_classifier_max_itr = 1000
 
     # grammar search invention parameters

@@ -1,17 +1,18 @@
 """Test cases for the GNN policy approach."""
 
-import pytest
 import numpy as np
+import pytest
 from gym.spaces import Box
-from predicators.src.structs import Type, ParameterizedOption, State, Action, \
-    Task, Predicate, Dataset, LowLevelTrajectory, GroundAtom
-from predicators.src.envs import create_new_env
-from predicators.src.approaches import create_approach, ApproachFailure, \
-    ApproachTimeout
-from predicators.src.datasets import create_dataset
-from predicators.src.settings import CFG
-from predicators.src.option_model import _OptionModelBase
+
 from predicators.src import utils
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    create_approach
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_new_env
+from predicators.src.option_model import _OptionModelBase
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Dataset, GroundAtom, \
+    LowLevelTrajectory, ParameterizedOption, Predicate, State, Task, Type
 
 
 class _MockOptionModel1(_OptionModelBase):
@@ -188,3 +189,14 @@ def test_gnn_policy_approach_special_cases():
                                            max_num_steps=CFG.horizon)
     assert trivial_task.goal_holds(traj.states[-1])
     assert len(traj.actions) == 0
+    # Now test what happens if we solve the trivial task but roll out
+    # in a non-trivial task. We should get an ApproachFailure because
+    # the option plan should get exhausted.
+    policy = approach.solve(trivial_task, timeout=CFG.timeout)
+    with pytest.raises(ApproachFailure) as e:
+        utils.run_policy_with_simulator(policy,
+                                        _simulator,
+                                        test_task.init,
+                                        test_task.goal_holds,
+                                        max_num_steps=CFG.horizon)
+    assert "Option plan exhausted" in str(e)

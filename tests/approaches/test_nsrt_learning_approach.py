@@ -1,11 +1,12 @@
 """Test cases for the NSRT learning approach."""
 
 import pytest
-from predicators.src.envs import create_new_env
+
+from predicators.src import utils
 from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_new_env
 from predicators.src.settings import CFG
-from predicators.src import utils
 
 
 def _test_approach(env_name,
@@ -15,7 +16,7 @@ def _test_approach(env_name,
                    check_solution=False,
                    sampler_learner="neural",
                    option_learner="no_learning",
-                   learn_side_predicates=False,
+                   side_predicate_learner="no_learning",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    additional_settings=None):
@@ -36,7 +37,7 @@ def _test_approach(env_name,
         "sesame_allow_noops": False,
         "offline_data_num_replays": 50,
         "excluded_predicates": excluded_predicates,
-        "learn_side_predicates": learn_side_predicates,
+        "side_predicate_learner": side_predicate_learner,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
@@ -95,7 +96,23 @@ def test_nsrt_learning_approach():
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
-                   learn_side_predicates=True)
+                   side_predicate_learner="prediction_error_hill_climbing")
+    _test_approach(env_name="repeated_nextto",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   side_predicate_learner="preserve_skeletons_hill_climbing")
+
+
+def test_unknown_side_predicate_learner():
+    """Test that arbitrary sidelining approach throws an error."""
+    with pytest.raises(ValueError) as e:
+        _test_approach(env_name="repeated_nextto",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       side_predicate_learner="not_a_real_sidelining_strat")
+    assert "not implemented" in str(e)
 
 
 def test_neural_option_learning():

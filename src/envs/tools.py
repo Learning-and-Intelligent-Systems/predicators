@@ -11,14 +11,16 @@ predicate. Hammer sizes work the same way as screwdriver sizes. Wrench
 sizes don't matter.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
+from typing import Dict, List, Optional, Sequence, Set
+
 import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class ToolsEnv(BaseEnv):
@@ -176,6 +178,10 @@ class ToolsEnv(BaseEnv):
             ])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "tools"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)

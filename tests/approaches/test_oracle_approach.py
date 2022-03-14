@@ -1,17 +1,25 @@
 """Test cases for the oracle approach class."""
 
 from typing import Set
+
 import numpy as np
 import pytest
-from predicators.src.approaches import OracleApproach
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.envs import CoverEnv, CoverEnvTypedOptions, \
-    CoverEnvHierarchicalTypes, ClutteredTableEnv, ClutteredTablePlaceEnv, \
-    BlocksEnv, PaintingEnv, ToolsEnv, PlayroomEnv, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, RepeatedNextToEnv, CoverEnvRegrasp
-from predicators.src.structs import Action, NSRT, Variable
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.approaches.oracle_approach import OracleApproach
+from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
+    ClutteredTablePlaceEnv
+from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
+    CoverEnvRegrasp, CoverEnvTypedOptions, CoverMultistepOptions, \
+    CoverMultistepOptionsFixedTasks
+from predicators.src.envs.painting import PaintingEnv
+from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.src.envs.tools import ToolsEnv
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Action, Variable
 from predicators.tests.conftest import longrun
 
 

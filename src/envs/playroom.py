@@ -1,15 +1,17 @@
 """Boring room vs playroom domain."""
 
-from typing import List, Set, Sequence, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Sequence, Set, Tuple
+
 import numpy as np
 from gym.spaces import Box
-from matplotlib import pyplot as plt
 from matplotlib import patches
-from predicators.src.envs import BlocksEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, Image, Array, GroundAtom
+from matplotlib import pyplot as plt
+
 from predicators.src import utils
+from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class PlayroomEnv(BlocksEnv):
@@ -203,6 +205,10 @@ class PlayroomEnv(BlocksEnv):
         self._region6 = Object("region6", self._region_type)
         self._region7 = Object("region7", self._region_type)
         self._dial = Object("dial", self._dial_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "playroom"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)

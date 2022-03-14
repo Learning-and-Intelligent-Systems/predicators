@@ -1,14 +1,15 @@
 """Test cases for online learning / interaction with the environment."""
 
 import pytest
+
+from predicators.src import utils
 from predicators.src.approaches import BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Action, InteractionRequest, \
-    InteractionResult, Predicate, GroundAtom, GroundAtomsHoldQuery
-from predicators.src.main import _run_pipeline
 from predicators.src.envs import create_new_env
-from predicators.src import utils
+from predicators.src.main import _run_pipeline
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, GroundAtom, GroundAtomsHoldQuery, \
+    InteractionRequest, InteractionResult, Predicate
 
 
 class _MockApproach(BaseApproach):
@@ -19,6 +20,10 @@ class _MockApproach(BaseApproach):
         super().__init__(initial_predicates, initial_options, types,
                          action_space, train_tasks)
         self._dummy_saved = []
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):

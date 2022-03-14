@@ -1,9 +1,10 @@
 """Methods for segmenting low-level trajectories into segments."""
 
-from typing import List, Callable
-from predicators.src.structs import LowLevelTrajectory, Segment, State, \
-    Action, GroundAtomTrajectory
+from typing import Callable, List
+
 from predicators.src.settings import CFG
+from predicators.src.structs import Action, GroundAtomTrajectory, \
+    LowLevelTrajectory, Segment, State
 
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:

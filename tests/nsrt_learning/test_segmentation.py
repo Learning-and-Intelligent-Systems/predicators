@@ -1,12 +1,13 @@
 """Tests for low-level trajectory segmentation."""
 
-from gym.spaces import Box
 import numpy as np
 import pytest
-from predicators.src.nsrt_learning.segmentation import segment_trajectory
-from predicators.src.structs import Type, Predicate, State, Action, \
-    LowLevelTrajectory, ParameterizedOption
+from gym.spaces import Box
+
 from predicators.src import utils
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.structs import Action, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, State, Type
 
 
 def test_segment_trajectory():

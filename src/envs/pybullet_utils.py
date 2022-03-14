@@ -1,8 +1,10 @@
 """Generic utilities for Pybullet."""
 
 from typing import List, Sequence
+
 import numpy as np
 import pybullet as p
+
 from predicators.src.settings import CFG
 
 

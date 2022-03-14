@@ -3,11 +3,13 @@ that hold in the respective states."""
 
 from collections import defaultdict
 from typing import List, Set, Tuple
+
 import numpy as np
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Dataset, Predicate, GroundAtom
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import Dataset, GroundAtom, Predicate
 
 
 def create_ground_atom_data(env: BaseEnv, base_dataset: Dataset,

@@ -1,18 +1,20 @@
 """Code for learning the samplers within NSRTs."""
 
-from dataclasses import dataclass
-from typing import Set, Tuple, List, Sequence, Any
 import logging
+from dataclasses import dataclass
+from typing import Any, List, Sequence, Set, Tuple
+
 import numpy as np
-from predicators.src.structs import ParameterizedOption, LiftedAtom, Variable, \
-    Object, Array, State, Datastore, STRIPSOperator, OptionSpec, NSRTSampler, \
-    NSRT, EntToEntSub, GroundAtom, SamplerDatapoint
+
 from predicators.src import utils
-from predicators.src.torch_models import Classifier, MLPClassifier, \
-    NeuralGaussianRegressor
-from predicators.src.settings import CFG
 from predicators.src.envs import get_or_create_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.settings import CFG
+from predicators.src.structs import NSRT, Array, Datastore, EntToEntSub, \
+    GroundAtom, LiftedAtom, NSRTSampler, Object, OptionSpec, \
+    ParameterizedOption, SamplerDatapoint, State, STRIPSOperator, Variable
+from predicators.src.torch_models import Classifier, MLPClassifier, \
+    NeuralGaussianRegressor
 
 
 def learn_samplers(strips_ops: List[STRIPSOperator],
