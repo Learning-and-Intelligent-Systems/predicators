@@ -337,4 +337,8 @@ def _save_test_results(results: Metrics,
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    try:
+        main()
+    except Exception:
+        logging.exception("Main script crashed with error:")
+        sys.exit(1)
