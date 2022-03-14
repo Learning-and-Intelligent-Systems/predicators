@@ -10,6 +10,7 @@ import itertools
 import logging
 import os
 import subprocess
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Collection, Dict, FrozenSet, \
@@ -31,7 +32,7 @@ from predicators.src.settings import CFG, GlobalSettings
 from predicators.src.structs import NSRT, Action, Array, DummyOption, \
     EntToEntSub, GroundAtom, GroundAtomTrajectory, \
     GroundNSRTOrSTRIPSOperator, Image, LiftedAtom, LiftedOrGroundAtom, \
-    LowLevelTrajectory, NSRTOrSTRIPSOperator, Object, OptionSpec, \
+    LowLevelTrajectory, Metrics, NSRTOrSTRIPSOperator, Object, OptionSpec, \
     ParameterizedOption, Predicate, Segment, State, STRIPSOperator, Task, \
     Type, VarToObjSub, Video, _GroundNSRT, _GroundSTRIPSOperator, _Option, \
     _TypedEntity
@@ -443,15 +444,16 @@ class Monitor(abc.ABC):
         raise NotImplementedError("Override me!")
 
 
-def run_policy(policy: Callable[[State], Action],
-               env: BaseEnv,
-               train_or_test: str,
-               task_idx: int,
-               termination_function: Callable[[State], bool],
-               max_num_steps: int,
-               exceptions_to_break_on: Optional[Set[
-                   TypingType[Exception]]] = None,
-               monitor: Optional[Monitor] = None) -> LowLevelTrajectory:
+def run_policy(
+        policy: Callable[[State], Action],
+        env: BaseEnv,
+        train_or_test: str,
+        task_idx: int,
+        termination_function: Callable[[State], bool],
+        max_num_steps: int,
+        exceptions_to_break_on: Optional[Set[TypingType[Exception]]] = None,
+        monitor: Optional[Monitor] = None
+) -> Tuple[LowLevelTrajectory, Metrics]:
     """Execute a policy starting from the initial state of a train or test task
     in the environment. The task's goal is not used.
 
@@ -465,10 +467,14 @@ def run_policy(policy: Callable[[State], Action],
     state = env.reset(train_or_test, task_idx)
     states = [state]
     actions: List[Action] = []
+    metrics: Metrics = defaultdict(float)
+    metrics["policy_call_time"] = 0.0
     if not termination_function(state):
         for _ in range(max_num_steps):
             try:
+                start_time = time.time()
                 act = policy(state)
+                metrics["policy_call_time"] += time.time() - start_time
             except Exception as e:
                 if exceptions_to_break_on is not None and \
                    type(e) in exceptions_to_break_on:
@@ -484,7 +490,7 @@ def run_policy(policy: Callable[[State], Action],
     if monitor is not None:
         monitor.observe(state, None)
     traj = LowLevelTrajectory(states, actions)
-    return traj
+    return traj, metrics
 
 
 def run_policy_with_simulator(
@@ -500,10 +506,10 @@ def run_policy_with_simulator(
     *** This function should not be used with any core code, because we want
     to avoid the assumption of a simulator when possible. ***
 
-    This is similar to run_policy, with two major differences:
+    This is similar to run_policy, with three major differences:
     (1) The initial state `init_state` can be any state, not just the initial
     state of a train or test task. (2) A simulator (function that takes state
-    as input) is assumed.
+    as input) is assumed. (3) Metrics are not returned.
 
     Note that the environment internal state is NOT updated.
 
