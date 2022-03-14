@@ -70,7 +70,7 @@ def main() -> None:
     logging.basicConfig(
         level=CFG.loglevel,
         format="%(message)s",
-        handlers=[logging.FileHandler(logfile),
+        handlers=[logging.FileHandler(logfile, mode='w'),
                   logging.StreamHandler()])
     logging.info(f"Logging to {logfile}.")
     logging.info(f"Running command: python {str_args}")
