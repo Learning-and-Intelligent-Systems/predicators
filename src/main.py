@@ -67,11 +67,12 @@ def main() -> None:
     # Log to both stdout and a logfile.
     os.makedirs(CFG.log_dir, exist_ok=True)
     logfile = os.path.join(CFG.log_dir, f"{utils.get_config_path_str()}.log")
-    logging.basicConfig(
-        level=CFG.loglevel,
-        format="%(message)s",
-        handlers=[logging.FileHandler(logfile, mode='w'),
-                  logging.StreamHandler()])
+    logging.basicConfig(level=CFG.loglevel,
+                        format="%(message)s",
+                        handlers=[
+                            logging.FileHandler(logfile, mode='w'),
+                            logging.StreamHandler()
+                        ])
     logging.info(f"Logging to {logfile}.")
     logging.info(f"Running command: python {str_args}")
     logging.info("Full config:")
