@@ -240,21 +240,23 @@ def test_run_policy():
     env = CoverEnv()
     policy = lambda _: Action(env.action_space.sample())
     task = env.get_task("test", 0)
-    traj = utils.run_policy(policy,
-                            env,
-                            "test",
-                            0,
-                            task.goal_holds,
-                            max_num_steps=5)
+    traj, metrics = utils.run_policy(policy,
+                                     env,
+                                     "test",
+                                     0,
+                                     task.goal_holds,
+                                     max_num_steps=5)
     assert not task.goal_holds(traj.states[-1])
     assert len(traj.states) == 6
     assert len(traj.actions) == 5
-    traj2 = utils.run_policy(policy,
-                             env,
-                             "test",
-                             0,
-                             lambda s: True,
-                             max_num_steps=5)
+    assert "policy_call_time" in metrics
+    assert metrics["policy_call_time"] > 0.0
+    traj2, _ = utils.run_policy(policy,
+                                env,
+                                "test",
+                                0,
+                                lambda s: True,
+                                max_num_steps=5)
     assert not task.goal_holds(traj2.states[-1])
     assert len(traj2.states) == 1
     assert len(traj2.actions) == 0
@@ -266,12 +268,12 @@ def test_run_policy():
         executed = True
         return terminate
 
-    traj3 = utils.run_policy(policy,
-                             env,
-                             "test",
-                             0,
-                             _onestep_terminal,
-                             max_num_steps=5)
+    traj3, _ = utils.run_policy(policy,
+                                env,
+                                "test",
+                                0,
+                                _onestep_terminal,
+                                max_num_steps=5)
     assert not task.goal_holds(traj3.states[-1])
     assert len(traj3.states) == 2
     assert len(traj3.actions) == 1
@@ -288,14 +290,27 @@ def test_run_policy():
                          task.goal_holds,
                          max_num_steps=5)
     assert "mock error" in str(e)
-    traj4 = utils.run_policy(_policy,
-                             env,
-                             "test",
-                             0,
-                             task.goal_holds,
-                             max_num_steps=5,
-                             exceptions_to_break_on={ValueError})
+    traj4, _ = utils.run_policy(_policy,
+                                env,
+                                "test",
+                                0,
+                                task.goal_holds,
+                                max_num_steps=5,
+                                exceptions_to_break_on={ValueError})
     assert len(traj4.states) == 1
+
+    # Test policy call time.
+    def _policy(_):
+        time.sleep(0.1)
+        return Action(env.action_space.sample())
+
+    traj, metrics = utils.run_policy(_policy,
+                                     env,
+                                     "test",
+                                     0,
+                                     task.goal_holds,
+                                     max_num_steps=3)
+    assert metrics["policy_call_time"] >= 3 * 0.1
 
 
 def test_run_policy_with_simulator():
@@ -1754,13 +1769,13 @@ def test_VideoMonitor():
     monitor = utils.VideoMonitor(env.render)
     policy = lambda _: Action(env.action_space.sample())
     task = env.get_task("test", 0)
-    traj = utils.run_policy(policy,
-                            env,
-                            "test",
-                            0,
-                            task.goal_holds,
-                            max_num_steps=2,
-                            monitor=monitor)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "test",
+                               0,
+                               task.goal_holds,
+                               max_num_steps=2,
+                               monitor=monitor)
     assert not task.goal_holds(traj.states[-1])
     assert len(traj.states) == 3
     assert len(traj.actions) == 2
@@ -1774,13 +1789,13 @@ def test_SimulateVideoMonitor():
     task = env.get_task("test", 0)
     monitor = utils.SimulateVideoMonitor(task, env.render_state)
     policy = lambda _: Action(env.action_space.sample())
-    traj = utils.run_policy(policy,
-                            env,
-                            "test",
-                            0,
-                            task.goal_holds,
-                            max_num_steps=2,
-                            monitor=monitor)
+    traj, _ = utils.run_policy(policy,
+                               env,
+                               "test",
+                               0,
+                               task.goal_holds,
+                               max_num_steps=2,
+                               monitor=monitor)
     assert not task.goal_holds(traj.states[-1])
     assert len(traj.states) == 3
     assert len(traj.actions) == 2

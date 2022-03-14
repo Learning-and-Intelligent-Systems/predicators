@@ -209,7 +209,7 @@ def _generate_interaction_results(
     for request in requests:
         monitor = TeacherInteractionMonitorWithVideo(env.render, request,
                                                      teacher)
-        traj = utils.run_policy(
+        traj, _ = utils.run_policy(
             request.act_policy,
             env,
             "train",
@@ -260,14 +260,16 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
                 monitor = utils.VideoMonitor(env.render)
             else:
                 monitor = None
-            traj = utils.run_policy(policy,
-                                    env,
-                                    "test",
-                                    test_task_idx,
-                                    task.goal_holds,
-                                    max_num_steps=CFG.horizon,
-                                    monitor=monitor)
+            traj, execution_metrics = utils.run_policy(
+                policy,
+                env,
+                "test",
+                test_task_idx,
+                task.goal_holds,
+                max_num_steps=CFG.horizon,
+                monitor=monitor)
             solved = task.goal_holds(traj.states[-1])
+            solve_time += execution_metrics["policy_call_time"]
         except utils.EnvironmentFailure as e:
             logging.info(f"Task {test_task_idx+1} / {len(test_tasks)}: "
                          f"Environment failed with error: {e}")
