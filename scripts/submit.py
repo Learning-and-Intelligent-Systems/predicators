@@ -31,7 +31,7 @@ def _run() -> None:
         raise Exception("Are you logged into supercloud?")
     os.remove(temp_run_file)
     job_id = output.split()[-1]
-    logfile = logfile_pattern % job_id
+    logfile = logfile_pattern.replace("%j", str(job_id))
     print(f"Started job, see log with:\ntail -n 10000 -F {logfile}")
 
 
