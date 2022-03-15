@@ -13,13 +13,14 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
 
-from predicators.src import envs, utils
+from predicators.src import utils
+from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
     ParameterizedOption, Predicate, State, Task, Type
 
 
-class PaintingEnv(envs.BaseEnv):
+class PaintingEnv(BaseEnv):
     """Painting domain."""
     # Parameters that aren't important enough to need to clog up settings.py
     table_lb = -10.1
@@ -147,6 +148,8 @@ class PaintingEnv(envs.BaseEnv):
         self._lid = Object("box_lid", self._lid_type)
         self._shelf = Object("receptacle_shelf", self._shelf_type)
         self._robot = Object("robby", self._robot_type)
+        # Boolean to check whether this is repeated_nextto_painting
+        self._is_repeated_nextto_painting = False
 
     @classmethod
     def get_name(cls) -> str:
@@ -509,9 +512,7 @@ class PaintingEnv(envs.BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                if isinstance(
-                        self, envs.repeated_nextto_painting.\
-                        RepeatedNextToPaintingEnv):
+                if self._is_repeated_nextto_painting:
                     state.set(target_obj, "pose_y",
                               state.get(self._robot, "pose_y"))
                     state.set(target_obj, "pose_z",
