@@ -79,27 +79,27 @@ Y_KEY_AND_LABEL = [
 # The keys of the outer dict are plot titles.
 # The keys of the inner dict are (legend label, marker, df selector).
 PLOT_GROUPS = {
-    "CoverEnv Excluding Covers,Holding mindata=10": [
+    "CoverEnv Excluding Covers,Holding": [
         ("Section Kid", "o", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_mindata_section_kid" in v)),
+            lambda v: "excludeall_section_kid" in v)),
         ("Entropy 0.1", ".", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_mindata_entropy_0.1" in v)),
+            lambda v: "excludeall_entropy_0.1" in v)),
         ("Entropy 0.2", ".", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_mindata_entropy_0.2" in v)),
+            lambda v: "excludeall_entropy_0.2" in v)),
         # ("Entropy 0.3", ".", lambda df: df["EXPERIMENT_ID"].apply(
-        #     lambda v: "excludeall_mindata_entropy_0.3" in v)),
+        #     lambda v: "excludeall_entropy_0.3" in v)),
         ("BALD 0.01", "*", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_mindata_BALD_0.01" in v)),
+            lambda v: "excludeall_BALD_0.01" in v)),
         ("BALD 0.02", "*", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_mindata_BALD_0.02" in v)),
+            lambda v: "excludeall_BALD_0.02" in v)),
         # ("BALD 0.03", "*", lambda df: df["EXPERIMENT_ID"].apply(
-        #     lambda v: "excludeall_mindata_BALD_0.03" in v)),
+        #     lambda v: "excludeall_BALD_0.03" in v)),
         # ("BALD 0.04", "*", lambda df: df["EXPERIMENT_ID"].apply(
-        #     lambda v: "excludeall_mindata_BALD_0.04" in v)),
+        #     lambda v: "excludeall_BALD_0.04" in v)),
         # ("BALD 0.05", "*", lambda df: df["EXPERIMENT_ID"].apply(
-        #     lambda v: "excludeall_mindata_BALD_0.05" in v)),
+        #     lambda v: "excludeall_BALD_0.05" in v)),
         ("Silent Kid", "s", lambda df: df["EXPERIMENT_ID"].apply(
-            lambda v: "excludeall_mindata_silent_kid" in v)),
+            lambda v: "excludeall_silent_kid" in v)),
     ],
     # "BALD experiments": [
     #     ("Section Kid", "o",
