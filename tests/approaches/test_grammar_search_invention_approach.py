@@ -1,21 +1,24 @@
 """Test cases for the grammar search invention approach."""
 
 from operator import gt
-import pytest
+
 import numpy as np
+import pytest
+
+from predicators.src import utils
 from predicators.src.approaches.grammar_search_invention_approach import (
-    _PredicateGrammar, _DataBasedPredicateGrammar,
-    _SingleFeatureInequalitiesPredicateGrammar, _create_grammar,
-    _halving_constant_generator, _ForallClassifier, _UnaryFreeForallClassifier,
-    _SingleAttributeCompareClassifier, _NegationClassifier)
+    _create_grammar, _DataBasedPredicateGrammar, _ForallClassifier,
+    _halving_constant_generator, _NegationClassifier, _PredicateGrammar,
+    _SingleAttributeCompareClassifier,
+    _SingleFeatureInequalitiesPredicateGrammar, _UnaryFreeForallClassifier)
+from predicators.src.envs import CoverEnv
+from predicators.src.nsrt_learning.strips_learning import segment_trajectory
 from predicators.src.predicate_search_score_functions import \
     _count_positives_for_ops
-from predicators.src.envs import CoverEnv
-from predicators.src.structs import Type, Predicate, STRIPSOperator, State, \
-    Action, ParameterizedOption, Box, LowLevelTrajectory, Dataset
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory
 from predicators.src.settings import CFG
-from predicators.src import utils
+from predicators.src.structs import (Action, Box, Dataset, LowLevelTrajectory,
+                                     ParameterizedOption, Predicate, State,
+                                     STRIPSOperator, Type)
 
 
 def test_predicate_grammar():

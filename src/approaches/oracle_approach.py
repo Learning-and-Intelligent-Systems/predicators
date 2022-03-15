@@ -7,9 +7,10 @@ generated at all.
 """
 
 from typing import Set
-from predicators.src.structs import NSRT
+
 from predicators.src.approaches import TAMPApproach
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
+from predicators.src.structs import NSRT
 
 
 class OracleApproach(TAMPApproach):

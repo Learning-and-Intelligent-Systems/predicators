@@ -4,22 +4,26 @@ Mainly, "SeSamE": SEarch-and-SAMple planning, then Execution.
 """
 
 from __future__ import annotations
-from collections import defaultdict
+
 import heapq as hq
-from itertools import islice
 import time
-from typing import List, Set, Optional, Tuple, Iterator, Sequence, Dict
+from collections import defaultdict
 from dataclasses import dataclass
+from itertools import islice
+from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple
+
 import numpy as np
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.structs import State, Task, NSRT, Predicate, \
-    GroundAtom, _GroundNSRT, DummyOption, DefaultState, _Option, \
-    Metrics, STRIPSOperator, OptionSpec, Object
+
 from predicators.src import utils
-from predicators.src.utils import _TaskPlanningHeuristic, ExceptionWithInfo, \
-    EnvironmentFailure
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.option_model import _OptionModelBase
 from predicators.src.settings import CFG
+from predicators.src.structs import (NSRT, DefaultState, DummyOption,
+                                     GroundAtom, Metrics, Object, OptionSpec,
+                                     Predicate, State, STRIPSOperator, Task,
+                                     _GroundNSRT, _Option)
+from predicators.src.utils import (EnvironmentFailure, ExceptionWithInfo,
+                                   _TaskPlanningHeuristic)
 
 _NOT_CAUSES_FAILURE = "NotCausesFailure"
 

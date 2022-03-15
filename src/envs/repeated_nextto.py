@@ -4,15 +4,18 @@ a predicate being in the effects of options.
 Here, the move option can turn on any number of NextTo predicates.
 """
 
-from typing import List, Set, Sequence, Dict, Optional
-import numpy as np
+from typing import Dict, List, Optional, Sequence, Set
+
 import matplotlib.pyplot as plt
+import numpy as np
 from gym.spaces import Box
-from predicators.src.envs import BaseEnv
-from predicators.src.structs import Type, Predicate, State, Task, \
-    ParameterizedOption, Object, Action, GroundAtom, Image, Array
-from predicators.src.settings import CFG
+
 from predicators.src import utils
+from predicators.src.envs import BaseEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import (Action, Array, GroundAtom, Image, Object,
+                                     ParameterizedOption, Predicate, State,
+                                     Task, Type)
 
 
 class RepeatedNextToEnv(BaseEnv):

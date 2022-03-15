@@ -2,15 +2,19 @@
 information to assist an agent during online learning."""
 
 from __future__ import annotations
+
 from typing import Sequence
-from predicators.src.structs import State, Task, Query, Response, \
-    GroundAtomsHoldQuery, GroundAtomsHoldResponse, DemonstrationQuery, \
-    DemonstrationResponse, LowLevelTrajectory
-from predicators.src.settings import CFG, get_allowed_query_type_names
-from predicators.src.envs import create_env
-from predicators.src.approaches import OracleApproach, ApproachTimeout, \
-    ApproachFailure
+
 from predicators.src import utils
+from predicators.src.approaches import (ApproachFailure, ApproachTimeout,
+                                        OracleApproach)
+from predicators.src.envs import create_env
+from predicators.src.settings import CFG, get_allowed_query_type_names
+from predicators.src.structs import (DemonstrationQuery, DemonstrationResponse,
+                                     GroundAtomsHoldQuery,
+                                     GroundAtomsHoldResponse,
+                                     LowLevelTrajectory, Query, Response,
+                                     State, Task)
 
 
 class Teacher:

@@ -1,12 +1,13 @@
 """Test cases for teacher."""
 
+from predicators.src import utils
 from predicators.src.envs import create_env
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
-from predicators.src import utils
+from predicators.src.structs import (DemonstrationQuery, DemonstrationResponse,
+                                     GroundAtom, GroundAtomsHoldQuery,
+                                     GroundAtomsHoldResponse,
+                                     LowLevelTrajectory, Task)
 from predicators.src.teacher import Teacher
-from predicators.src.structs import Task, GroundAtom, DemonstrationQuery, \
-    DemonstrationResponse, GroundAtomsHoldQuery, GroundAtomsHoldResponse, \
-    LowLevelTrajectory
 
 
 def test_GroundAtomsHold():

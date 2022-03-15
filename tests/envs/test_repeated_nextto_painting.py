@@ -1,9 +1,10 @@
 """Test cases for the repeated_nextto_painting environment."""
 
-import pytest
 import numpy as np
-from predicators.src.envs import RepeatedNextToPaintingEnv
+import pytest
+
 from predicators.src import utils
+from predicators.src.envs import RepeatedNextToPaintingEnv
 
 
 def test_repeated_nextto_painting():

@@ -1,19 +1,20 @@
 """Default imports for envs folder."""
 
 from predicators.src.envs.base_env import BaseEnv
-from predicators.src.envs.cover import CoverEnv, CoverEnvTypedOptions, \
-    CoverEnvHierarchicalTypes, CoverMultistepOptions, \
-    CoverMultistepOptionsFixedTasks, CoverEnvRegrasp
 from predicators.src.envs.behavior import BehaviorEnv
-from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
-    ClutteredTablePlaceEnv
 from predicators.src.envs.blocks import BlocksEnv
+from predicators.src.envs.cluttered_table import (ClutteredTableEnv,
+                                                  ClutteredTablePlaceEnv)
+from predicators.src.envs.cover import (CoverEnv, CoverEnvHierarchicalTypes,
+                                        CoverEnvRegrasp, CoverEnvTypedOptions,
+                                        CoverMultistepOptions,
+                                        CoverMultistepOptionsFixedTasks)
 from predicators.src.envs.painting import PaintingEnv
-from predicators.src.envs.tools import ToolsEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 from predicators.src.envs.repeated_nextto_painting import \
     RepeatedNextToPaintingEnv
+from predicators.src.envs.tools import ToolsEnv
 
 __all__ = [
     "BaseEnv",

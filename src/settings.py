@@ -7,7 +7,8 @@ Anything that varies between runs should be a command-line arg
 import os
 from collections import defaultdict
 from types import SimpleNamespace
-from typing import Dict, Any, Set
+from typing import Any, Dict, Set
+
 import numpy as np
 
 

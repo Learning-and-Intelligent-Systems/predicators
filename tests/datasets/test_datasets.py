@@ -1,12 +1,13 @@
 """Test cases for dataset generation."""
 
 import pytest
-from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv, ClutteredTableEnv
-from predicators.src.structs import Dataset
+
 from predicators.src import utils
+from predicators.src.datasets import create_dataset
+from predicators.src.envs import ClutteredTableEnv, CoverEnv
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.settings import CFG
+from predicators.src.structs import Dataset
 
 
 def test_demo_dataset():

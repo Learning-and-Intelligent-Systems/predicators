@@ -2,16 +2,19 @@
 
 import pytest
 from gym.spaces import Box
-from predicators.src.approaches import OracleApproach
-from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.approaches import ApproachFailure, ApproachTimeout
-from predicators.src.envs import CoverEnv
-from predicators.src.planning import sesame_plan, task_plan, task_plan_grounding
+
 from predicators.src import utils
-from predicators.src.structs import Task, NSRT, ParameterizedOption, _Option, \
-    _GroundNSRT, STRIPSOperator, Predicate, State, Type, Action
-from predicators.src.settings import CFG
+from predicators.src.approaches import (ApproachFailure, ApproachTimeout,
+                                        OracleApproach)
+from predicators.src.envs import CoverEnv
+from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.option_model import create_option_model
+from predicators.src.planning import (sesame_plan, task_plan,
+                                      task_plan_grounding)
+from predicators.src.settings import CFG
+from predicators.src.structs import (NSRT, Action, ParameterizedOption,
+                                     Predicate, State, STRIPSOperator, Task,
+                                     Type, _GroundNSRT, _Option)
 
 
 def test_sesame_plan():

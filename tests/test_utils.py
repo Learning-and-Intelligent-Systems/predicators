@@ -3,19 +3,21 @@
 import os
 import time
 from typing import Iterator, Tuple
-import pytest
+
 import numpy as np
+import pytest
 from gym.spaces import Box
-from predicators.src.structs import State, Type, ParameterizedOption, \
-    Predicate, NSRT, Action, GroundAtom, DummyOption, STRIPSOperator, \
-    LowLevelTrajectory
-from predicators.src.ground_truth_nsrts import get_gt_nsrts, \
-    _get_predicates_by_names
-from predicators.src.envs import CoverEnv
-from predicators.src.settings import CFG
+
 from predicators.src import utils
-from predicators.src.utils import _TaskPlanningHeuristic, \
-    _PyperplanHeuristicWrapper
+from predicators.src.envs import CoverEnv
+from predicators.src.ground_truth_nsrts import (_get_predicates_by_names,
+                                                get_gt_nsrts)
+from predicators.src.settings import CFG
+from predicators.src.structs import (NSRT, Action, DummyOption, GroundAtom,
+                                     LowLevelTrajectory, ParameterizedOption,
+                                     Predicate, State, STRIPSOperator, Type)
+from predicators.src.utils import (_PyperplanHeuristicWrapper,
+                                   _TaskPlanningHeuristic)
 
 
 def test_num_options_in_action_sequence():

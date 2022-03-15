@@ -1,12 +1,13 @@
 """Predicatorobot slack bot code."""
 
-import re
-import os
-import socket
-from urllib.request import urlopen
 import abc
-from typing import List, Optional, Type
+import os
+import re
+import socket
 import subprocess
+from typing import List, Optional, Type
+from urllib.request import urlopen
+
 import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler

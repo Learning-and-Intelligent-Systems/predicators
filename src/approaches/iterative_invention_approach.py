@@ -1,19 +1,22 @@
 """An approach that iteratively invents predicates."""
 
 from collections import defaultdict
-from typing import Set, List, Optional, Dict, Sequence, Any
+from typing import Any, Dict, List, Optional, Sequence, Set
+
 import numpy as np
 from gym.spaces import Box
+
 from predicators.src import utils
 from predicators.src.approaches import NSRTLearningApproach
-from predicators.src.structs import Predicate, ParameterizedOption, \
-    Type, Dataset, Array, STRIPSOperator, Datastore, Segment, \
-    LiftedAtom, GroundAtom, OptionSpec, Task
-from predicators.src.torch_models import LearnedPredicateClassifier, \
-    MLPClassifier
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
+from predicators.src.nsrt_learning.strips_learning import (
+    learn_strips_operators, segment_trajectory)
 from predicators.src.settings import CFG
+from predicators.src.structs import (Array, Dataset, Datastore, GroundAtom,
+                                     LiftedAtom, OptionSpec,
+                                     ParameterizedOption, Predicate, Segment,
+                                     STRIPSOperator, Task, Type)
+from predicators.src.torch_models import (LearnedPredicateClassifier,
+                                          MLPClassifier)
 
 
 class IterativeInventionApproach(NSRTLearningApproach):

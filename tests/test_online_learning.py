@@ -1,14 +1,16 @@
 """Test cases for online learning / interaction with the environment."""
 
 import pytest
+
+from predicators.src import utils
 from predicators.src.approaches import BaseApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.structs import Action, InteractionRequest, \
-    InteractionResult, Predicate, GroundAtom, GroundAtomsHoldQuery
-from predicators.src.main import _run_pipeline
 from predicators.src.envs import create_env
-from predicators.src import utils
+from predicators.src.main import _run_pipeline
 from predicators.src.settings import CFG
+from predicators.src.structs import (Action, GroundAtom, GroundAtomsHoldQuery,
+                                     InteractionRequest, InteractionResult,
+                                     Predicate)
 
 
 class _MockApproach(BaseApproach):

@@ -1,11 +1,12 @@
 """Test cases for the NSRT learning approach."""
 
 import pytest
-from predicators.src.envs import create_env
+
+from predicators.src import utils
 from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
+from predicators.src.envs import create_env
 from predicators.src.settings import CFG
-from predicators.src import utils
 
 
 def _test_approach(env_name,

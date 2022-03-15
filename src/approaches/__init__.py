@@ -1,25 +1,28 @@
 """Default imports for approaches folder."""
 
-from typing import Set, Callable, List
+from typing import Callable, List, Set
+
 from gym.spaces import Box
-from predicators.src.approaches.base_approach import BaseApproach, \
-    ApproachTimeout, ApproachFailure
+
+from predicators.src.approaches.base_approach import (ApproachFailure,
+                                                      ApproachTimeout,
+                                                      BaseApproach)
+from predicators.src.approaches.grammar_search_invention_approach import \
+    GrammarSearchInventionApproach
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
+from predicators.src.approaches.iterative_invention_approach import \
+    IterativeInventionApproach
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.approaches.random_actions_approach import \
     RandomActionsApproach
 from predicators.src.approaches.random_options_approach import \
     RandomOptionsApproach
 from predicators.src.approaches.tamp_approach import TAMPApproach
-from predicators.src.approaches.oracle_approach import OracleApproach
-from predicators.src.approaches.nsrt_learning_approach import \
-    NSRTLearningApproach
-from predicators.src.approaches.interactive_learning_approach import \
-    InteractiveLearningApproach
-from predicators.src.approaches.iterative_invention_approach import \
-    IterativeInventionApproach
-from predicators.src.approaches.grammar_search_invention_approach import \
-    GrammarSearchInventionApproach
-from predicators.src.structs import State, Predicate, ParameterizedOption, \
-    Type, Task, Action
+from predicators.src.structs import (Action, ParameterizedOption, Predicate,
+                                     State, Task, Type)
 
 __all__ = [
     "BaseApproach",

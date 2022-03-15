@@ -1,9 +1,10 @@
 """Test cases for the tools environment."""
 
-import pytest
 import numpy as np
-from predicators.src.envs import ToolsEnv
+import pytest
+
 from predicators.src import utils
+from predicators.src.envs import ToolsEnv
 from predicators.src.structs import Action
 
 

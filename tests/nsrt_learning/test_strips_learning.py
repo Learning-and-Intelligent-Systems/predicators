@@ -1,12 +1,14 @@
 """Tests for STRIPS operator learning."""
 
-from gym.spaces import Box
 import numpy as np
-from predicators.src.nsrt_learning.strips_learning import segment_trajectory, \
-    learn_strips_operators
-from predicators.src.structs import Type, Predicate, State, Action, \
-    ParameterizedOption, LowLevelTrajectory
+from gym.spaces import Box
+
 from predicators.src import utils
+from predicators.src.nsrt_learning.strips_learning import (
+    learn_strips_operators, segment_trajectory)
+from predicators.src.structs import (Action, LowLevelTrajectory,
+                                     ParameterizedOption, Predicate, State,
+                                     Type)
 
 
 def test_segment_trajectory():

@@ -6,14 +6,17 @@ navigate between objects in order to pick or place them. Also, the move
 option can turn on any number of NextTo predicates.
 """
 
-from typing import Set, Sequence, Dict, List, Optional
-import numpy as np
+from typing import Dict, List, Optional, Sequence, Set
+
 import matplotlib.pyplot as plt
+import numpy as np
 from gym.spaces import Box
-from predicators.src.envs.painting import PaintingEnv
-from predicators.src.structs import Predicate, State, \
-    ParameterizedOption, Object, Action, Array, Image, Task
+
 from predicators.src import utils
+from predicators.src.envs.painting import PaintingEnv
+from predicators.src.structs import (Action, Array, Image, Object,
+                                     ParameterizedOption, Predicate, State,
+                                     Task)
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):

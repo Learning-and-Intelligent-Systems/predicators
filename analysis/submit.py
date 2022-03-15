@@ -1,8 +1,9 @@
 """Script for submitting jobs on supercloud."""
 
-import sys
-import subprocess
 import os
+import subprocess
+import sys
+
 import numpy as np
 
 RUN_INDEX = np.random.randint(int(1e15))

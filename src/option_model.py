@@ -1,13 +1,15 @@
 """Definitions of option models."""
 
 from __future__ import annotations
+
 import abc
 from typing import cast
+
 from predicators.src import utils
-from predicators.src.structs import State, _Option
-from predicators.src.settings import CFG
 from predicators.src.envs import create_env, get_cached_env_instance
 from predicators.src.envs.behavior import BehaviorEnv
+from predicators.src.settings import CFG
+from predicators.src.structs import State, _Option
 
 
 def create_option_model(name: str) -> _OptionModelBase:

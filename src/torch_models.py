@@ -2,18 +2,18 @@
 
 import abc
 import os
-from dataclasses import dataclass
 import tempfile
-from typing import Sequence, List, Tuple, Optional
-from scipy.stats import truncnorm
-import torch
-from torch import nn
-from torch import optim
-from torch import Tensor
-import torch.nn.functional as F
+from dataclasses import dataclass
+from typing import List, Optional, Sequence, Tuple
+
 import numpy as np
-from predicators.src.structs import Array, Object, State
+import torch
+import torch.nn.functional as F
+from scipy.stats import truncnorm
+from torch import Tensor, nn, optim
+
 from predicators.src.settings import CFG
+from predicators.src.structs import Array, Object, State
 
 torch.use_deterministic_algorithms(mode=True)  # type: ignore
 

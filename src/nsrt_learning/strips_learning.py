@@ -1,11 +1,14 @@
 """Code for learning the STRIPS operators within NSRTs."""
 
-from typing import Set, List, Sequence, cast
-from predicators.src.structs import STRIPSOperator, LiftedAtom, Variable, \
-    Predicate, VarToObjSub, LowLevelTrajectory, Segment, State, Action, \
-    PartialNSRTAndDatastore, GroundAtomTrajectory, DummyOption
+from typing import List, Sequence, Set, cast
+
 from predicators.src import utils
 from predicators.src.settings import CFG
+from predicators.src.structs import (Action, DummyOption, GroundAtomTrajectory,
+                                     LiftedAtom, LowLevelTrajectory,
+                                     PartialNSRTAndDatastore, Predicate,
+                                     Segment, State, STRIPSOperator, Variable,
+                                     VarToObjSub)
 
 
 def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:

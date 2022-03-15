@@ -1,10 +1,12 @@
 """Tests for models."""
 
 import time
+
 import numpy as np
-from predicators.src.torch_models import (NeuralGaussianRegressor,
-                                          MLPClassifier, MLPRegressor)
+
 from predicators.src import utils
+from predicators.src.torch_models import (MLPClassifier, MLPRegressor,
+                                          NeuralGaussianRegressor)
 
 
 def test_basic_mlp_regressor():
