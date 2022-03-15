@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import abc
+import logging
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 
 from predicators.src.approaches import ApproachFailure
-from predicators.src.envs import BlocksEnv, create_env
+from predicators.src.envs import get_or_create_env
+from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, Array, Box, Datastore, Object,
-                                     OptionSpec, ParameterizedOption, Segment,
-                                     State, STRIPSOperator, Variable)
+from predicators.src.structs import Action, Array, Box, Datastore, Object, \
+    OptionSpec, ParameterizedOption, Segment, State, STRIPSOperator, \
+    Variable
 from predicators.src.torch_models import MLPRegressor
 
 
@@ -109,7 +111,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
 
     def learn_option_specs(self, strips_ops: List[STRIPSOperator],
                            datastores: List[Datastore]) -> List[OptionSpec]:
-        env = create_env(CFG.env)
+        env = get_or_create_env(CFG.env)
         option_specs: List[OptionSpec] = []
         if CFG.env == "cover":
             assert len(strips_ops) == 3
@@ -198,7 +200,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 ]
                 assert len(picked_blocks) == 1
                 block = picked_blocks[0]
-                params = np.zeros(3, dtype=np.float32)
+                params = np.zeros(0, dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
             elif param_opt.name == "PutOnTable":
@@ -219,8 +221,7 @@ class _OracleOptionLearner(_OptionLearnerBase):
                 ]
                 assert len(dropped_blocks) == 1
                 block = dropped_blocks[0]
-                params = np.array([0, 0, BlocksEnv.block_size],
-                                  dtype=np.float32)
+                params = np.zeros(0, dtype=np.float32)
                 option = param_opt.ground([robby, block], params)
                 segment.set_option(option)
 
@@ -250,7 +251,7 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
 
     The hope is that by sampling different continuous parameters, the option
     will be able to navigate to different states in the effect set, giving the
-    diversity of transition samples that we need to do TAMP.
+    diversity of transition samples that we need to do bilevel planning.
 
     Also note that the parameters correspond to a state *change*, rather than
     an absolute state. This distinction is useful for learning; relative changes
@@ -284,9 +285,9 @@ class _LearnedNeuralParameterizedOption(ParameterizedOption):
         super().__init__(name,
                          types,
                          params_space,
-                         _policy=self._regressor_based_policy,
-                         _initiable=self._precondition_based_initiable,
-                         _terminal=self._effect_based_terminal)
+                         policy=self._regressor_based_policy,
+                         initiable=self._precondition_based_initiable,
+                         terminal=self._effect_based_terminal)
 
     def _precondition_based_initiable(self, state: State, memory: Dict,
                                       objects: Sequence[Object],
@@ -359,7 +360,7 @@ class _NeuralOptionLearner(_OptionLearnerBase):
         assert len(strips_ops) == len(datastores)
 
         for op, datastore in zip(strips_ops, datastores):
-            print(f"\nLearning option for NSRT {op.name}")
+            logging.info(f"\nLearning option for NSRT {op.name}")
 
             X_regressor: List[Array] = []
             Y_regressor = []
@@ -417,8 +418,9 @@ class _NeuralOptionLearner(_OptionLearnerBase):
             X_arr_regressor = np.array(X_regressor, dtype=np.float32)
             Y_arr_regressor = np.array(Y_regressor, dtype=np.float32)
             regressor = MLPRegressor()
-            print(f"Fitting regressor with X shape: {X_arr_regressor.shape}, "
-                  f"Y shape: {Y_arr_regressor.shape}.")
+            logging.info("Fitting regressor with X shape: "
+                         f"{X_arr_regressor.shape}, Y shape: "
+                         f"{Y_arr_regressor.shape}.")
             regressor.fit(X_arr_regressor, Y_arr_regressor)
 
             # Construct the ParameterizedOption for this operator.

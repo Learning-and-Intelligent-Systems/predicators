@@ -1,5 +1,6 @@
 """An approach that learns predicates from a teacher."""
 
+import logging
 from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 import dill as pkl
@@ -7,18 +8,18 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.approaches import (ApproachFailure, ApproachTimeout,
-                                        NSRTLearningApproach,
-                                        RandomOptionsApproach)
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.nsrt_learning_approach import \
+    NSRTLearningApproach
+from predicators.src.approaches.random_options_approach import \
+    RandomOptionsApproach
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, Dataset, GroundAtom,
-                                     GroundAtomsHoldQuery,
-                                     GroundAtomsHoldResponse,
-                                     InteractionRequest, InteractionResult,
-                                     LowLevelTrajectory, ParameterizedOption,
-                                     Predicate, Query, State, Task, Type)
-from predicators.src.torch_models import (LearnedPredicateClassifier,
-                                          MLPClassifierEnsemble)
+from predicators.src.structs import Action, Dataset, GroundAtom, \
+    GroundAtomsHoldQuery, GroundAtomsHoldResponse, InteractionRequest, \
+    InteractionResult, LowLevelTrajectory, ParameterizedOption, Predicate, \
+    Query, State, Task, Type
+from predicators.src.torch_models import LearnedPredicateClassifier, \
+    MLPClassifierEnsemble
 
 
 class InteractiveLearningApproach(NSRTLearningApproach):
@@ -37,8 +38,22 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         self._online_learning_cycle = 0
         self._pred_to_ensemble: Dict[str, MLPClassifierEnsemble] = {}
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "interactive_learning"
+
     def _get_current_predicates(self) -> Set[Predicate]:
         return self._initial_predicates | self._predicates_to_learn
+
+    def load(self, online_learning_cycle: Optional[int]) -> None:
+        super().load(online_learning_cycle)
+        save_path = utils.get_approach_save_path_str()
+        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
+            save_dict = pkl.load(f)
+        self._dataset = save_dict["dataset"]
+        self._predicates_to_learn = save_dict["predicates_to_learn"]
+        self._pred_to_ensemble = save_dict["pred_to_ensemble"]
+        self._best_score = save_dict["best_score"]
 
     ######################## Semi-supervised learning #########################
 
@@ -59,19 +74,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         # Learn predicates and NSRTs.
         self._relearn_predicates_and_nsrts(online_learning_cycle=None)
 
-    def load(self, online_learning_cycle: Optional[int]) -> None:
-        super().load(online_learning_cycle)
-        save_path = utils.get_approach_save_path_str()
-        with open(f"{save_path}_{online_learning_cycle}.DATA", "rb") as f:
-            save_dict = pkl.load(f)
-        self._dataset = save_dict["dataset"]
-        self._predicates_to_learn = save_dict["predicates_to_learn"]
-        self._best_score = save_dict["best_score"]
-
     def _relearn_predicates_and_nsrts(
             self, online_learning_cycle: Optional[int]) -> None:
         """Learns predicates and NSRTs in a semi-supervised fashion."""
-        print("\nRelearning predicates and NSRTs...")
+        logging.info("\nRelearning predicates and NSRTs...")
         # Learn predicates
         for pred in self._predicates_to_learn:
             input_examples = []
@@ -92,9 +98,9 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             num_positives = sum(y == 1 for y in output_examples)
             num_negatives = sum(y == 0 for y in output_examples)
             assert num_positives + num_negatives == len(output_examples)
-            print(f"Generated {num_positives} positive and "
-                  f"{num_negatives} negative examples for "
-                  f"predicate {pred}")
+            logging.info(f"Generated {num_positives} positive and "
+                         f"{num_negatives} negative examples for "
+                         f"predicate {pred}")
 
             # Train MLP
             X = np.array(input_examples)
@@ -123,24 +129,26 @@ class InteractiveLearningApproach(NSRTLearningApproach):
                 {
                     "dataset": self._dataset,
                     "predicates_to_learn": self._predicates_to_learn,
+                    "pred_to_ensemble": self._pred_to_ensemble,
                     "best_score": self._best_score,
                 }, f)
 
     ########################### Active learning ###############################
 
     def get_interaction_requests(self) -> List[InteractionRequest]:
-        # We will create a single interaction request.
-        # Determine the train task that we will be using.
-        train_task_idx = self._select_interaction_train_task_idx()
-        # Determine the action policy and termination function.
-        act_policy, termination_function = \
-            self._create_interaction_action_strategy(train_task_idx)
-        # Determine the query policy.
-        query_policy = self._create_interaction_query_policy(train_task_idx)
-        return [
-            InteractionRequest(train_task_idx, act_policy, query_policy,
-                               termination_function)
-        ]
+        requests = []
+        for train_task_idx in self._select_interaction_train_task_idxs():
+            # Determine the action policy and termination function.
+            act_policy, termination_function = \
+                self._create_interaction_action_strategy(train_task_idx)
+            # Determine the query policy.
+            query_policy = self._create_interaction_query_policy(
+                train_task_idx)
+            request = InteractionRequest(train_task_idx, act_policy,
+                                         query_policy, termination_function)
+            requests.append(request)
+        assert len(requests) == CFG.interactive_num_requests_per_cycle
+        return requests
 
     def _score_atom_set(self, atom_set: Set[GroundAtom],
                         state: State) -> float:
@@ -160,13 +168,12 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         raise NotImplementedError("Unrecognized interactive_score_function:"
                                   f" {CFG.interactive_score_function}.")
 
-    def _select_interaction_train_task_idx(self) -> int:
-        # At the moment, we only have one way to select a train task idx:
-        # choose one uniformly at random. In the future, we may want to
-        # try other strategies. But one nice thing about random selection
-        # is that we're not making a hard commitment to the agent having
-        # control over which train task it gets to use.
-        return self._rng.choice(len(self._train_tasks))
+    def _select_interaction_train_task_idxs(self) -> List[int]:
+        # At the moment, we select train task indices uniformly at
+        # random, with replacement. In the future, we may want to
+        # try other strategies.
+        return self._rng.choice(len(self._train_tasks),
+                                size=CFG.interactive_num_requests_per_cycle)
 
     def _create_interaction_action_strategy(
         self, train_task_idx: int
@@ -205,7 +212,7 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         ground_atom_universe = utils.all_possible_ground_atoms(init, preds)
         # If there are no possible goals, fall back to random immediately.
         if not ground_atom_universe:
-            print("No possible goals, falling back to random")
+            logging.info("No possible goals, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         possible_goals = utils.sample_subsets(
             ground_atom_universe,
@@ -213,13 +220,18 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             min_set_size=1,
             max_set_size=CFG.interactive_max_num_atoms_babbled,
             rng=self._rng)
+        # Exclude goals that hold in the initial state to prevent trivial
+        # interaction requests.
+        possible_goal_lst = [
+            g for g in possible_goals if not all(a.holds(init) for a in g)
+        ]
         # Sort the possible goals based on how interesting they are.
         # Note: we're using _score_atom_set_frequency here instead of
         # _score_atom_set because _score_atom_set in general could depend
         # on the current state. While babbling goals, we don't have any
         # current state because we don't know what the state will be if and
         # when we get to the goal.
-        goal_list = sorted(possible_goals,
+        goal_list = sorted(possible_goal_lst,
                            key=self._score_atom_set_frequency,
                            reverse=True)  # largest to smallest
         task_list = [Task(init, goal) for goal in goal_list]
@@ -228,15 +240,15 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         except ApproachFailure:
             # Fall back to a random exploration strategy if no solvable task
             # can be found.
-            print("No solvable task found, falling back to random")
+            logging.info("No solvable task found, falling back to random")
             return self._create_random_interaction_strategy(train_task_idx)
         assert task.init is init
 
-        def _termination_function(s: State) -> bool:
-            # Stop the episode if we reach the goal that we babbled.
-            return all(goal_atom.holds(s) for goal_atom in task.goal)
+        logging.info(f"GLIB found a plan to task with goal {task.goal}.")
 
-        return act_policy, _termination_function
+        # Stop the episode if we reach the goal that we babbled.
+        termination_function = task.goal_holds
+        return act_policy, termination_function
 
     def _create_random_interaction_strategy(
         self, train_task_idx: int
@@ -249,13 +261,10 @@ class InteractiveLearningApproach(NSRTLearningApproach):
         task = self._train_tasks[train_task_idx]
         act_policy = random_options_approach.solve(task, CFG.timeout)
 
-        def _termination_function(s: State) -> bool:
-            # Termination is left to the environment, as in
-            # CFG.max_num_steps_interaction_request.
-            del s  # not used
-            return False
-
-        return act_policy, _termination_function
+        # Termination is left to the environment, as in
+        # CFG.max_num_steps_interaction_request.
+        termination_function = lambda _: False
+        return act_policy, termination_function
 
     def _create_best_seen_query_policy(
             self, strict: bool) -> Callable[[State], Optional[Query]]:
@@ -295,15 +304,14 @@ class InteractiveLearningApproach(NSRTLearningApproach):
 
     def learn_from_interaction_results(
             self, results: Sequence[InteractionResult]) -> None:
-        assert len(results) == 1
-        result = results[0]
-        for state, response in zip(result.states, result.responses):
-            assert isinstance(response, GroundAtomsHoldResponse)
-            state_annotation: List[Set[GroundAtom]] = [set(), set()]
-            for query_atom, atom_holds in response.holds.items():
-                state_annotation[atom_holds].add(query_atom)
-            traj = LowLevelTrajectory([state], [])
-            self._dataset.append(traj, [state_annotation])
+        for result in results:
+            for state, response in zip(result.states, result.responses):
+                assert isinstance(response, GroundAtomsHoldResponse)
+                state_annotation: List[Set[GroundAtom]] = [set(), set()]
+                for query_atom, atom_holds in response.holds.items():
+                    state_annotation[atom_holds].add(query_atom)
+                traj = LowLevelTrajectory([state], [])
+                self._dataset.append(traj, [state_annotation])
         self._relearn_predicates_and_nsrts(
             online_learning_cycle=self._online_learning_cycle)
         self._online_learning_cycle += 1
@@ -313,11 +321,11 @@ class InteractiveLearningApproach(NSRTLearningApproach):
             task_list: List[Task]) -> Tuple[Task, Callable[[State], Action]]:
         for task in task_list:
             try:
-                print("Solving for policy...")
+                logging.info("Solving for policy...")
                 policy = self.solve(task, timeout=CFG.timeout)
                 return task, policy
             except (ApproachTimeout, ApproachFailure) as e:
-                print(f"Approach failed to solve with error: {e}")
+                logging.info(f"Approach failed to solve with error: {e}")
                 continue
         raise ApproachFailure("Failed to sample a task that approach "
                               "can solve.")

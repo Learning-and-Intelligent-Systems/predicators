@@ -8,10 +8,9 @@ import numpy as np
 from gym.spaces import Box
 
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, Dataset, InteractionRequest,
-                                     InteractionResult, Metrics,
-                                     ParameterizedOption, Predicate, State,
-                                     Task, Type)
+from predicators.src.structs import Action, Dataset, InteractionRequest, \
+    InteractionResult, Metrics, ParameterizedOption, Predicate, State, Task, \
+    Type
 from predicators.src.utils import ExceptionWithInfo
 
 
@@ -30,6 +29,13 @@ class BaseApproach(abc.ABC):
         self._train_tasks = train_tasks
         self._metrics: Metrics = defaultdict(float)
         self.seed(CFG.seed)
+
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls) -> str:
+        """Get the unique name of this approach, used as the argument to
+        `--approach`."""
+        raise NotImplementedError("Override me!")
 
     @property
     @abc.abstractmethod

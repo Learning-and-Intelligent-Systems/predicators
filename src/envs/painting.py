@@ -13,11 +13,11 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
 
-from predicators.src import envs, utils
+from predicators.src import utils
+from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, Array, GroundAtom, Image, Object,
-                                     ParameterizedOption, Predicate, State,
-                                     Task, Type)
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class PaintingEnv(envs.BaseEnv):
@@ -93,71 +93,65 @@ class PaintingEnv(envs.BaseEnv):
         self._IsClean = Predicate("IsClean", [self._obj_type],
                                   self._IsClean_holds)
         # Options
-        self._Pick = ParameterizedOption(
+        self._Pick = utils.SingletonParameterizedOption(
             # variables: [robot, object to pick]
-            # params: [delta x, delta y, delta z, grasp]
+            # params: [grasp]
             "Pick",
+            self._Pick_policy,
             types=[self._robot_type, self._obj_type],
-            params_space=Box(
-                np.array([-1.0, -1.0, -1.0, -0.01], dtype=np.float32),
-                np.array([1.0, 1.0, 1.0, 1.01], dtype=np.float32)),
-            _policy=self._Pick_policy,
-            _initiable=self._handempty_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Wash = ParameterizedOption(
+            params_space=Box(np.array([-0.01], dtype=np.float32),
+                             np.array([1.01], dtype=np.float32)),
+            initiable=self._handempty_initiable)
+        self._Wash = utils.SingletonParameterizedOption(
             # variables: [robot]
-            # params: [water level]
+            # params: []
             "Wash",
+            self._Wash_policy,
             types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1, )),
-            _policy=self._Wash_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Dry = ParameterizedOption(
+            initiable=self._holding_initiable)
+        self._Dry = utils.SingletonParameterizedOption(
             # variables: [robot]
-            # params: [heat level]
+            # params: []
             "Dry",
+            self._Dry_policy,
             types=[self._robot_type],
-            params_space=Box(-0.01, 1.01, (1, )),
-            _policy=self._Dry_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Paint = ParameterizedOption(
+            initiable=self._holding_initiable)
+        self._Paint = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [new color]
             "Paint",
+            self._Paint_policy,
             types=[self._robot_type],
             params_space=Box(-0.01, 1.01, (1, )),
-            _policy=self._Paint_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Place = ParameterizedOption(
+            initiable=self._holding_initiable)
+        self._Place = utils.SingletonParameterizedOption(
             # variables: [robot]
             # params: [absolute x, absolute y, absolute z]
             "Place",
+            self._Place_policy,
             types=[self._robot_type],
             params_space=Box(
                 np.array([self.obj_x - 1e-2, self.env_lb, self.obj_z - 1e-2],
                          dtype=np.float32),
                 np.array([self.obj_x + 1e-2, self.env_ub, self.obj_z + 1e-2],
                          dtype=np.float32)),
-            _policy=self._Place_policy,
-            _initiable=self._holding_initiable,
-            _terminal=utils.onestep_terminal)
-        self._OpenLid = ParameterizedOption(
+            initiable=self._holding_initiable)
+        self._OpenLid = utils.SingletonParameterizedOption(
             # variables: [robot, lid]
             # params: []
             "OpenLid",
+            self._OpenLid_policy,
             types=[self._robot_type, self._lid_type],
-            params_space=Box(-0.01, 1.01, (0, )),  # no parameters
-            _policy=self._OpenLid_policy,
-            _initiable=self._handempty_initiable,
-            _terminal=utils.onestep_terminal)
-        # Objects
+            initiable=self._handempty_initiable)
+        # Static objects (always exist no matter the settings).
         self._box = Object("receptacle_box", self._box_type)
         self._lid = Object("box_lid", self._lid_type)
         self._shelf = Object("receptacle_shelf", self._shelf_type)
         self._robot = Object("robby", self._robot_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "painting"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -295,12 +289,12 @@ class PaintingEnv(envs.BaseEnv):
         next_state.set(held_obj, "held", 0.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
                                num_objs_lst=CFG.painting_num_objs_train,
                                rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._test_rng)
@@ -352,7 +346,11 @@ class PaintingEnv(envs.BaseEnv):
                           dtype=np.float32)
         return Box(lowers, uppers)
 
-    def _render_matplotlib(self, state: State) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         objs = [o for o in state if o.is_instance(self._obj_type)]
         denom = (self.env_ub - self.env_lb)
@@ -433,17 +431,12 @@ class PaintingEnv(envs.BaseEnv):
             ax.add_patch(rect)
         ax.set_xlim(-0.1, 1.1)
         ax.set_ylim(0.6, 1.0)
-        plt.suptitle(
-            "blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-            "yellow border = side grasp, orange border = top grasp",
-            fontsize=12)
-        return fig
-
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
-        fig = self._render_matplotlib(state)
+        title = ("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
+                 "yellow border = side grasp, orange border = top grasp")
+        if caption is not None:
+            title += f";\n{caption}"
+        plt.suptitle(title, fontsize=12, wrap=True)
+        plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
         return [img]
@@ -544,37 +537,28 @@ class PaintingEnv(envs.BaseEnv):
         obj_x = state.get(obj, "pose_x")
         obj_y = state.get(obj, "pose_y")
         obj_z = state.get(obj, "pose_z")
-        dx, dy, dz, grasp = params
-        arr = np.array(
-            [obj_x + dx, obj_y + dy, obj_z + dz, grasp, 1.0, 0.0, 0.0, 0.0],
-            dtype=np.float32)
-        # The addition of dx, dy, and dz could cause the action to go
-        # out of bounds, so we clip it back into the bounds for safety.
+        grasp, = params
+        arr = np.array([obj_x, obj_y, obj_z, grasp, 1.0, 0.0, 0.0, 0.0],
+                       dtype=np.float32)
+        # The grasp could cause the action to go out of bounds, so we clip
+        # it back into the bounds for safety.
         arr = np.clip(arr, self.action_space.low, self.action_space.high)
         return Action(arr)
 
     def _Wash_policy(self, state: State, memory: Dict,
                      objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        water_level, = params
-        water_level = min(max(water_level, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, water_level, 0.0,
-            0.0
-        ],
-                       dtype=np.float32)
+        del state, memory, objects, params  # unused
+        arr = np.array(
+            [self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 1.0, 0.0, 0.0],
+            dtype=np.float32)
         return Action(arr)
 
     def _Dry_policy(self, state: State, memory: Dict,
                     objects: Sequence[Object], params: Array) -> Action:
-        del state, memory, objects  # unused
-        heat_level, = params
-        heat_level = min(max(heat_level, 0.0), 1.0)
-        arr = np.array([
-            self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, heat_level,
-            0.0
-        ],
-                       dtype=np.float32)
+        del state, memory, objects, params  # unused
+        arr = np.array(
+            [self.obj_x, self.table_lb, self.obj_z, 0.0, 0.0, 0.0, 1.0, 0.0],
+            dtype=np.float32)
         return Action(arr)
 
     def _Paint_policy(self, state: State, memory: Dict,
@@ -600,23 +584,13 @@ class PaintingEnv(envs.BaseEnv):
     def _holding_initiable(self, state: State, memory: Dict,
                            objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding an object.
-        del objects, params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del objects, params, memory  # unused
         return self._get_held_object(state) is not None
 
     def _handempty_initiable(self, state: State, memory: Dict,
                              objects: Sequence[Object], params: Array) -> bool:
         # An initiation function for an option that requires holding nothing.
-        del objects, params  # unused
-        if "start_state" in memory:
-            assert state.allclose(memory["start_state"])
-        # Always update the memory dict, due to the "is" check in
-        # onestep_terminal.
-        memory["start_state"] = state
+        del objects, params, memory  # unused
         return self._get_held_object(state) is None
 
     def _OpenLid_policy(self, state: State, memory: Dict,

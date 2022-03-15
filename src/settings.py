@@ -17,14 +17,15 @@ class GlobalSettings:
     # global parameters
     num_train_tasks = 50
     num_test_tasks = 50
+    # Perform online learning for this many cycles or until this many
+    # transitions have been collected, whichever happens first.
     num_online_learning_cycles = 10
+    online_learning_max_transitions = float("inf")
     # Maximum number of training tasks to give a demonstration for, if the
     # offline_data_method is demo-based.
     max_initial_demos = float("inf")
     # Maximum number of steps to roll out an option policy.
     max_num_steps_option_rollout = 1000
-    # Maximum number of steps to run a policy when checking if it solves a task.
-    max_num_steps_check_policy = 100
     # Maximum number of steps to run an InteractionRequest policy.
     max_num_steps_interaction_request = 100
     # Whether to pretty print predicates and NSRTs when NSRTs are loaded.
@@ -39,7 +40,7 @@ class GlobalSettings:
     cover_target_widths = [0.05, 0.03]
     cover_initial_holding_prob = 0.75
 
-    # cover_multistep_options parameters
+    # cover_multistep_options env parameters
     cover_multistep_action_limits = [-np.inf, np.inf]
     cover_multistep_use_learned_equivalents = True
     cover_multistep_degenerate_oracle_samplers = False
@@ -47,6 +48,16 @@ class GlobalSettings:
     cover_multistep_max_hr_placements = 100  # max placements of hand regions
     cover_multistep_thr_percent = 0.5  # target hand region percent of width
     cover_multistep_bhr_percent = 0.5  # block hand region percent of width
+    cover_multistep_bimodal_goal = False
+    cover_multistep_goal_conditioned_sampling = False  # assumes one goal
+
+    # blocks env parameters
+    blocks_num_blocks_train = [3, 4]
+    blocks_num_blocks_test = [5, 6]
+
+    # playroom env parameters
+    playroom_num_blocks_train = [3]
+    playroom_num_blocks_test = [3]
 
     # cluttered table env parameters
     cluttered_table_num_cans_train = 5
@@ -83,14 +94,36 @@ class GlobalSettings:
     behavior_scene_name = "Pomaria_1_int"
     behavior_randomize_init_state = False
 
-    # parameters for approaches
+    # general pybullet parameters
+    pybullet_use_gui = False  # must be True to make videos
+    pybullet_draw_debug = False  # useful for annotating in the GUI
+    pybullet_camera_width = 335  # for high quality, use 1674
+    pybullet_camera_height = 180  # for high quality, use 900
+    pybullet_sim_steps_per_action = 20
+    pybullet_max_ik_iters = 100
+    pybullet_ik_tol = 1e-3
+
+    # parameters for random options approach
     random_options_max_tries = 100
+
+    # parameters for GNN policy approach
+    gnn_policy_solve_with_shooting = True
+    gnn_policy_shooting_variance = 0.1
+    gnn_policy_shooting_num_samples = 100
+    gnn_policy_num_message_passing = 3
+    gnn_policy_layer_size = 16
+    gnn_policy_learning_rate = 1e-3
+    gnn_policy_num_epochs = 25000
+    gnn_policy_batch_size = 128
+    gnn_policy_do_normalization = False  # performs worse in Cover when True
+    gnn_policy_use_validation_set = True
 
     # SeSamE parameters
     sesame_task_planning_heuristic = "lmcut"
     sesame_allow_noops = True  # recommended to keep this False if using replays
 
     # evaluation parameters
+    log_dir = "logs"
     results_dir = "results"
     approach_dir = "saved_approaches"
     data_dir = "saved_datasets"
@@ -100,7 +133,7 @@ class GlobalSettings:
 
     # dataset parameters
     # For learning-based approaches, the data collection timeout for planning.
-    offline_data_planning_timeout = 3
+    offline_data_planning_timeout = 10
     # If "default", defaults to CFG.task_planning_heuristic.
     offline_data_task_planning_heuristic = "default"
     # If -1, defaults to CFG.sesame_max_skeletons_optimized.
@@ -112,7 +145,9 @@ class GlobalSettings:
 
     # NSRT learning parameters
     min_data_for_nsrt = 0
-    learn_side_predicates = False
+    # "no_learning" or "prediction_error_hill_climbing" or
+    # "preserve_skeletons_hill_climbing"
+    side_predicate_learner = "no_learning"
 
     # torch model parameters
     normalization_scale_clip = 1
@@ -124,12 +159,8 @@ class GlobalSettings:
     mlp_classifier_hid_sizes = [32, 32]
     mlp_classifier_balance_data = True
     neural_gaus_regressor_hid_sizes = [32, 32]
-    neural_gaus_regressor_max_itr = 10000
-    neural_gaus_regressor_sample_clip = 1
+    neural_gaus_regressor_max_itr = 1000
     mlp_classifier_n_iter_no_change = 5000
-
-    # option learning parameters
-    option_learner = "no_learning"  # "no_learning" or "oracle" or "neural"
 
     # sampler learning parameters
     sampler_learner = "neural"  # "neural" or "random" or "oracle"
@@ -137,10 +168,6 @@ class GlobalSettings:
     sampler_mlp_classifier_max_itr = 10000
     sampler_learning_use_goals = False
     sampler_disable_classifier = False
-
-    # iterative invention parameters
-    iterative_invention_accept_score = 1 - 1e-3
-    predicate_mlp_classifier_max_itr = 1000
 
     # interactive learning parameters
     interactive_num_ensemble_members = 10
@@ -150,6 +177,8 @@ class GlobalSettings:
     interactive_score_threshold = 0.5
     interactive_num_babbles = 10  # for action strategy glib
     interactive_max_num_atoms_babbled = 1  # for action strategy glib
+    interactive_num_requests_per_cycle = 10
+    predicate_mlp_classifier_max_itr = 1000
 
     # grammar search invention parameters
     grammar_search_grammar_includes_givens = True
@@ -178,7 +207,6 @@ class GlobalSettings:
     grammar_search_expected_nodes_upper_bound = 1e5
     grammar_search_expected_nodes_optimal_demo_prob = 1 - 1e-5
     grammar_search_expected_nodes_backtracking_cost = 1e3
-    grammar_search_expected_nodes_include_suspicious_score = False
     grammar_search_expected_nodes_allow_noops = True
     grammar_search_classifier_pretty_str_names = ["?x", "?y", "?z"]
 
@@ -186,7 +214,18 @@ class GlobalSettings:
     def get_arg_specific_settings(args: Dict[str, Any]) -> Dict[str, Any]:
         """A workaround for global settings that are derived from the
         experiment-specific args."""
+
         return dict(
+            # Horizon for each environment. When checking if a policy solves a
+            # task, we run the policy for at most this many steps.
+            horizon=defaultdict(
+                lambda: 100,
+                {
+                    # For BEHAVIOR and PyBullet environments, actions are
+                    # lower level, so tasks take more actions to complete.
+                    "behavior": 1000,
+                    "pybullet_blocks": 1000,
+                })[args.get("env", "")],
             # In SeSamE, when to propagate failures back up to the high level
             # search. Choices are: {"after_exhaust", "immediately", "never"}.
             sesame_propagate_failures=defaultdict(
@@ -224,7 +263,9 @@ class GlobalSettings:
                 lambda: "oracle",
                 {
                     # For the BEHAVIOR environment, use a special option model.
-                    "behavior": "behavior_oracle",
+                    "behavior": "oracle_behavior",
+                    # For PyBullet environments, use non-PyBullet analogs.
+                    "pybullet_blocks": "oracle_blocks",
                 })[args.get("env", "")],
 
             # In SeSamE, the maximum number of skeletons optimized before
@@ -254,6 +295,14 @@ class GlobalSettings:
                     # For the tools environment, keep it much lower.
                     "tools": 1,
                 })[args.get("env", "")],
+
+            # Segmentation parameters.
+            segmenter=defaultdict(
+                lambda: "atom_changes",
+                {
+                    # When options are given, use them to segment instead.
+                    "no_learning": "option_changes",
+                })[args.get("option_learner", "no_learning")],
         )
 
 
@@ -261,11 +310,16 @@ def get_allowed_query_type_names() -> Set[str]:
     """Get the set of names of query types that the teacher is allowed to
     answer, computed based on the configuration CFG."""
     if CFG.option_learner == "neural":
-        return {"DemonstrationQuery"}
+        return {"PathToStateQuery"}
     if CFG.approach == "interactive_learning":
         return {"GroundAtomsHoldQuery"}
     if CFG.approach == "unittest":
-        return {"GroundAtomsHoldQuery", "DemonstrationQuery"}
+        return {
+            "GroundAtomsHoldQuery",
+            "DemonstrationQuery",
+            "PathToStateQuery",
+            "_MockQuery",
+        }
     return set()
 
 

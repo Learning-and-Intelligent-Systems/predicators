@@ -4,10 +4,11 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import (ApproachFailure, ApproachTimeout,
-                                        InteractiveLearningApproach)
+from predicators.src.approaches import ApproachFailure, ApproachTimeout
+from predicators.src.approaches.interactive_learning_approach import \
+    InteractiveLearningApproach
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import CoverEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _generate_interaction_results
 from predicators.src.settings import CFG
 from predicators.src.structs import Dataset
@@ -30,6 +31,7 @@ def test_interactive_learning_approach():
         "num_train_tasks": 5,
         "num_test_tasks": 5,
         "interactive_num_ensemble_members": 1,
+        "interactive_num_requests_per_cycle": 1,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -50,7 +52,7 @@ def test_interactive_learning_approach():
     approach.load(online_learning_cycle=None)
     interaction_requests = approach.get_interaction_requests()
     interaction_results, _ = _generate_interaction_results(
-        env.simulate, teacher, train_tasks, interaction_requests)
+        env, teacher, interaction_requests)
     approach.learn_from_interaction_results(interaction_results)
     approach.load(online_learning_cycle=0)
     with pytest.raises(FileNotFoundError):
@@ -67,16 +69,14 @@ def test_interactive_learning_approach():
         "interactive_action_strategy": "random",
     })
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib falls back to random if no solvable task can be found.
     utils.update_config({
         "interactive_action_strategy": "glib",
         "timeout": 0.0,
     })
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test that glib also falls back when there are no non-static predicates.
     approach2 = InteractiveLearningApproach(initial_predicates, env.options,
                                             env.types, env.action_space,
@@ -88,10 +88,10 @@ def test_interactive_learning_approach():
         "interactive_query_policy": "nonstrict_best_seen",
         "interactive_score_function": "trivial",
     })
-    approach._best_score = -np.inf  # pylint:disable=protected-access
+    approach._best_score = -np.inf  # pylint: disable=protected-access
     interaction_requests = approach.get_interaction_requests()
     interaction_results, query_cost = _generate_interaction_results(
-        env.simulate, teacher, train_tasks, interaction_requests)
+        env, teacher, interaction_requests)
     assert len(interaction_results) == 1
     interaction_result = interaction_results[0]
     predicates_to_learn = {
@@ -110,15 +110,13 @@ def test_interactive_learning_approach():
         "interactive_score_threshold": 0.5,
     })
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Test with BALD score function and score threshold.
     utils.update_config({
         "interactive_score_function": "BALD",
     })
     interaction_requests = approach.get_interaction_requests()
-    _generate_interaction_results(env.simulate, teacher, train_tasks,
-                                  interaction_requests)
+    _generate_interaction_results(env, teacher, interaction_requests)
     # Cover unrecognized interactive_action_strategy.
     utils.update_config({
         "interactive_action_strategy": "not a real action strategy",
@@ -148,7 +146,7 @@ def test_interactive_learning_approach():
         "not a real score function",
     })
     with pytest.raises(NotImplementedError) as e:
-        approach._score_atom_set(set(), train_tasks[0].init)  # pylint:disable=protected-access
+        approach._score_atom_set(set(), train_tasks[0].init)  # pylint: disable=protected-access
     assert "Unrecognized interactive_score_function" in str(e)
     # Test assertion that all predicates are seen in the data
     utils.update_config({

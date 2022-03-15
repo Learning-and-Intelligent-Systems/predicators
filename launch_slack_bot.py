@@ -13,7 +13,8 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 REPO_NAME = "Learning-and-Intelligent-Systems/predicators"
-ANALYSIS_CMD = "python analysis/analyze_results_directory.py"
+ANALYSIS_CMD = "python scripts/analyze_results_directory.py"
+LAUNCH_CMD = "./scripts/supercloud/run_nightly_experiments.sh"
 MAX_CHARS_PER_MESSAGE = 3500  # actual limit is 4000, but we keep a buffer
 GITHUB_SEARCH_RESPONSE_MAX_FILE_MATCHES = 3
 SUPERCLOUD_LOGIN_SERVER = "login-2"  # can also use login-3 or login-4
@@ -23,6 +24,7 @@ SUPERCLOUD_USER_TO_DIR_AND_CONDA_ENV = {
     "ronuchit": ("/home/gridsan/ronuchit/predicators/", "predicators"),
     "tslvr": ("/home/gridsan/tslvr/predicators/", "predicators"),
     "njk": ("/home/gridsan/njk/GitHub/research/predicators/", "predicators"),
+    "wshen": ("/home/gridsan/wshen/predicators/", "predicators"),
 }
 
 # Load all environment variables. We do this early on to make sure they exist.
@@ -93,6 +95,7 @@ class DefaultResponse(Response):
                "- `analyze <supercloud username>` or "
                "`analysis <supercloud username>` to run analysis script\n"
                "- `progress <supercloud username>` to get current progress\n"
+               "- `launch <supercloud username>` to launch experiments\n"
                "- `cs <any string to search on our github repo>`, e.g., "
                "`cs def flush_cache`\n"
                "- `tom`\n")
@@ -200,7 +203,9 @@ class SupercloudResponse(Response):
                 # predicators repository, so that the imports in our
                 # repository work as expected (from predicators...).
                 f"&& export PYTHONPATH=$PYTHONPATH:{dir_name_up} "
-                # 5) Run the actual command, appending both stdout
+                # 5) Similarly, update the PYTHONHASHSEED.
+                "&& export PYTHONHASHSEED=0 "
+                # 6) Run the actual command, appending both stdout
                 # and stderr onto the end of output.txt.
                 f"&& {command}' >> output.txt 2>&1")
         cmd_str = " && ".join(commands)
@@ -243,6 +248,30 @@ class SupercloudResponse(Response):
     @abc.abstractmethod
     def _supercloud_get_filename(self) -> Optional[str]:
         raise NotImplementedError("Override me!")
+
+
+class SupercloudLaunchResponse(SupercloudResponse):
+    """A response that wipes saved data on supercloud and launches
+    experiments."""
+
+    def _get_commands(self) -> List[str]:
+        return [("git stash && git checkout master && git pull && "
+                 "rm -f results/* logs/* saved_approaches/* "
+                 f"saved_datasets/* && {LAUNCH_CMD}")]
+
+    def _supercloud_get_message_chunks(self) -> List[str]:
+        num_launched = 0
+        with open("output.txt", "r", encoding="utf-8") as f:
+            for line in f.readlines():
+                if line.startswith("Started job, see log with"):
+                    num_launched += 1
+        return [
+            f"<@{self._inquirer}>: Launched {num_launched} experiments on "
+            f"{self._user}'s supercloud."
+        ]
+
+    def _supercloud_get_filename(self) -> Optional[str]:
+        return None
 
 
 class SupercloudProgressResponse(SupercloudResponse):
@@ -303,7 +332,7 @@ class SupercloudAnalysisResponse(SupercloudResponse):
                 f"is working as expected."
             ]
         self._generated_csv = True
-        message = output.split("AGGREGATED DATA OVER SEEDS:")[1].split(
+        message = output[output.index("Git commit hashes"):].split(
             "Wrote out")[0].strip("\n")
         chunks = self._chunk_message(
             message,
@@ -315,8 +344,8 @@ class SupercloudAnalysisResponse(SupercloudResponse):
     def _supercloud_get_filename(self) -> Optional[str]:
         if not self._generated_csv:
             return None
-        self._scp_filename("supercloud_analysis.csv")
-        return "supercloud_analysis.csv"
+        self._scp_filename("results_summary.csv")
+        return "results_summary.csv"
 
 
 def _get_response_object(query: str, inquirer: str) -> Response:
@@ -324,10 +353,12 @@ def _get_response_object(query: str, inquirer: str) -> Response:
 
     Return an instantiation of that class.
     """
-    match = re.match(r"(analysis|analyze|progress) (\w+)", query)
+    match = re.match(r"(analysis|analyze|progress|launch) (\w+)", query)
     if match is not None:
         if match.groups()[0] in ("analysis", "analyze"):
             cls: Type[SupercloudResponse] = SupercloudAnalysisResponse
+        elif match.groups()[0] == "launch":
+            cls = SupercloudLaunchResponse
         else:
             assert match.groups()[0] == "progress"
             cls = SupercloudProgressResponse

@@ -13,9 +13,8 @@ from gym.spaces import Box
 from predicators.src import utils
 from predicators.src.envs import BaseEnv
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, Array, GroundAtom, Image, Object,
-                                     ParameterizedOption, Predicate, State,
-                                     Task, Type)
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class RepeatedNextToEnv(BaseEnv):
@@ -42,25 +41,21 @@ class RepeatedNextToEnv(BaseEnv):
                                   [self._robot_type, self._dot_type],
                                   self._Grasped_holds)
         # Options
-        self._Move = ParameterizedOption(
+        self._Move = utils.SingletonParameterizedOption(
             "Move",
+            self._Move_policy,
             types=[self._robot_type, self._dot_type],
-            params_space=Box(-1, 1, (1, )),
-            _policy=self._Move_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        self._Grasp = ParameterizedOption(
+            params_space=Box(-1, 1, (1, )))
+        self._Grasp = utils.SingletonParameterizedOption(
             "Grasp",
-            types=[self._robot_type, self._dot_type],
-            params_space=Box(0, 1, (0, )),
-            _policy=self._Grasp_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        # Objects
-        self._dots = []
-        for i in range(CFG.repeated_nextto_num_dots):
-            self._dots.append(Object(f"dot{i}", self._dot_type))
+            policy=self._Grasp_policy,
+            types=[self._robot_type, self._dot_type])
+        # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto"
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -74,9 +69,9 @@ class RepeatedNextToEnv(BaseEnv):
             # Handle grasp action.
             robot_x = state.get(self._robot, "x")
             desired_x = norm_dot_x * (self.env_ub - self.env_lb) + self.env_lb
+            dots = state.get_objects(self._dot_type)
             dot_to_grasp = min(
-                self._dots,
-                key=lambda dot: abs(state.get(dot, "x") - desired_x))
+                dots, key=lambda dot: abs(state.get(dot, "x") - desired_x))
             dot_to_grasp_x = state.get(dot_to_grasp, "x")
             if abs(dot_to_grasp_x - desired_x) > 1e-4:
                 # There is no dot near the desired_x action argument.
@@ -87,10 +82,10 @@ class RepeatedNextToEnv(BaseEnv):
             next_state.set(dot_to_grasp, "grasped", 1.0)
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     @property
@@ -117,13 +112,14 @@ class RepeatedNextToEnv(BaseEnv):
         # dim is grasp). Normalization is [self.env_lb, self.env_ub] -> [0, 1].
         return Box(0, 1, (3, ))
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         fig, ax = plt.subplots(1, 1)
         robot_x = state.get(self._robot, "x")
-        for dot in self._dots:
+        for dot in state.get_objects(self._dot_type):
             dot_x = state.get(dot, "x")
             if state.get(dot, "grasped") > self.grasped_thresh:
                 color = "green"
@@ -135,24 +131,31 @@ class RepeatedNextToEnv(BaseEnv):
         plt.scatter(x=robot_x, y=0.2)
         ax.set_xlim(self.env_lb - 1, self.env_ub + 1)
         ax.set_ylim(-0.1, 0.25)
-        plt.suptitle("red = not next to, orange = next to, green = grasped,"
-                     "blue = robot")
+        title = ("red = not next to, orange = next to, green = grasped, "
+                 "blue = robot")
+        if caption is not None:
+            title += f";\n{caption}"
+        plt.suptitle(title, wrap=True)
+        plt.tight_layout()
         img = utils.fig2data(fig)
         plt.close()
         return [img]
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
         tasks = []
-        goal1 = {GroundAtom(self._Grasped, [self._robot, self._dots[0]])}
-        goal2 = {GroundAtom(self._Grasped, [self._robot, self._dots[1]])}
+        dots = []
+        for i in range(CFG.repeated_nextto_num_dots):
+            dots.append(Object(f"dot{i}", self._dot_type))
+        goal1 = {GroundAtom(self._Grasped, [self._robot, dots[0]])}
+        goal2 = {GroundAtom(self._Grasped, [self._robot, dots[1]])}
         goal3 = {
-            GroundAtom(self._Grasped, [self._robot, self._dots[0]]),
-            GroundAtom(self._Grasped, [self._robot, self._dots[1]])
+            GroundAtom(self._Grasped, [self._robot, dots[0]]),
+            GroundAtom(self._Grasped, [self._robot, dots[1]])
         }
         goals = [goal1, goal2, goal3]
         for i in range(num):
             data: Dict[Object, Array] = {}
-            for dot in self._dots:
+            for dot in dots:
                 dot_x = rng.uniform(self.env_lb, self.env_ub)
                 data[dot] = np.array([dot_x, 0.0])
             robot_x = rng.uniform(self.env_lb, self.env_ub)

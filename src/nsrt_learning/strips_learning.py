@@ -1,82 +1,13 @@
 """Code for learning the STRIPS operators within NSRTs."""
 
+import logging
 from typing import List, Sequence, Set, cast
 
 from predicators.src import utils
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, DummyOption, GroundAtomTrajectory,
-                                     LiftedAtom, LowLevelTrajectory,
-                                     PartialNSRTAndDatastore, Predicate,
-                                     Segment, State, STRIPSOperator, Variable,
-                                     VarToObjSub)
-
-
-def segment_trajectory(trajectory: GroundAtomTrajectory) -> List[Segment]:
-    """Segment a ground atom trajectory according to abstract state changes.
-
-    If options are available, also use them to segment.
-    """
-    segments = []
-    traj, all_atoms = trajectory
-    assert len(traj.states) == len(all_atoms)
-    current_segment_states: List[State] = []
-    current_segment_actions: List[Action] = []
-    for t in range(len(traj.actions)):
-        current_segment_states.append(traj.states[t])
-        current_segment_actions.append(traj.actions[t])
-        switch = all_atoms[t] != all_atoms[t + 1]
-        # Segment based on option specs if we are assuming that options are
-        # known. If we do not do this, it can lead to a bug where an option
-        # has object arguments that do not appear in the strips operator
-        # parameters. Note also that we are segmenting based on option specs,
-        # rather than option changes. This distinction is subtle but important.
-        # For example, in Cover, there is just one parameterized option, which
-        # is PickPlace() with no object arguments. If we segmented based on
-        # option changes, then segmentation would break up trajectories into
-        # picks and places. Then, when operator learning, it would appear
-        # that no predicates are necessary to distinguish between picking
-        # and placing, since the option changes and segmentation have already
-        # made the distinction. But we want operator learning to use predicates
-        # like Holding, Handempty, etc., because when doing symbolic planning,
-        # we only have predicates, and not the continuous parameters that would
-        # be used to distinguish between a PickPlace that is a pick vs a place.
-        if not switch and traj.actions[t].has_option():
-            # Check for a change in option specs.
-            if t < len(traj.actions) - 1:
-                option_t = traj.actions[t].get_option()
-                option_t1 = traj.actions[t + 1].get_option()
-                option_t_spec = (option_t.parent, option_t.objects)
-                option_t1_spec = (option_t1.parent, option_t1.objects)
-                if option_t_spec != option_t1_spec:
-                    switch = True
-            # Special case: if the final option terminates in the final state,
-            # we can safely segment without using any continuous info. Note that
-            # excluding the final option from the data is highly problematic
-            # when using demo+replay with the default 1 option per replay
-            # because the replay data which causes no change in the symbolic
-            # state would get excluded.
-            elif traj.actions[t].get_option().terminal(traj.states[t + 1]):
-                switch = True
-        if switch:
-            # Include the final state as the end of this segment.
-            current_segment_states.append(traj.states[t + 1])
-            current_segment_traj = LowLevelTrajectory(current_segment_states,
-                                                      current_segment_actions)
-            if traj.actions[t].has_option():
-                segment = Segment(current_segment_traj, all_atoms[t],
-                                  all_atoms[t + 1],
-                                  traj.actions[t].get_option())
-            else:
-                # If we're in option learning mode, include the default option
-                # here; replaced later during option learning.
-                segment = Segment(current_segment_traj, all_atoms[t],
-                                  all_atoms[t + 1])
-            segments.append(segment)
-            current_segment_states = []
-            current_segment_actions = []
-    # Don't include the last current segment because it didn't result in
-    # an abstract state change. (E.g., the option may not be terminating.)
-    return segments
+from predicators.src.structs import DummyOption, LiftedAtom, \
+    PartialNSRTAndDatastore, Predicate, Segment, STRIPSOperator, Variable, \
+    VarToObjSub
 
 
 def learn_strips_operators(
@@ -182,7 +113,8 @@ def learn_strips_operators(
 
     # Print and return the PNADs.
     if verbose:
-        print("\nLearned operators (before side predicate & option learning):")
+        logging.info("Learned operators (before side predicate & option "
+                     "learning):")
         for pnad in pnads:
-            print(pnad)
+            logging.info(pnad)
     return pnads

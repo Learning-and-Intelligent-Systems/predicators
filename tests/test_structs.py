@@ -5,15 +5,12 @@ import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.structs import (NSRT, Action, DefaultState,
-                                     DemonstrationQuery, GroundAtom,
-                                     InteractionRequest, InteractionResult,
-                                     LiftedAtom, LowLevelTrajectory, Object,
-                                     ParameterizedOption,
-                                     PartialNSRTAndDatastore, Predicate, Query,
-                                     Segment, State, STRIPSOperator, Task,
-                                     Type, Variable, _Atom, _GroundNSRT,
-                                     _GroundSTRIPSOperator, _Option)
+from predicators.src.structs import NSRT, Action, DefaultState, \
+    DemonstrationQuery, GroundAtom, InteractionRequest, InteractionResult, \
+    LiftedAtom, LowLevelTrajectory, Object, ParameterizedOption, \
+    PartialNSRTAndDatastore, Predicate, Query, Segment, State, \
+    STRIPSOperator, Task, Type, Variable, _Atom, _GroundNSRT, \
+    _GroundSTRIPSOperator, _Option
 
 
 def test_object_type():
@@ -74,6 +71,7 @@ def test_variable():
         Variable("var", my_type)  # name must start with ?
 
 
+@pytest.fixture(scope="module", name="state")
 def test_state():
     """Tests for State class."""
     type1 = Type("type1", ["feat1", "feat2"])
@@ -263,12 +261,12 @@ def test_predicate_and_atom():
         zero_arity_pred([])  # ambiguous whether lifted or ground
 
 
-def test_task():
+def test_task(state):
     """Tests for Task class."""
-    state = test_state()
     cup_type = Type("cup_type", ["feat1"])
     plate_type = Type("plate_type", ["feat1"])
     pred = Predicate("On", [cup_type, plate_type], lambda s, o: True)
+    pred2 = Predicate("On", [cup_type, plate_type], lambda s, o: False)
     cup = cup_type("cup")
     cup_var = cup_type("?cup")
     plate = plate_type("plate")
@@ -280,42 +278,44 @@ def test_task():
     task = Task(state, goal)
     assert task.init.allclose(state)
     assert task.goal == goal
+    assert task.goal_holds(task.init)
+    goal2 = {pred2([cup, plate])}
+    task2 = Task(state, goal2)
+    assert task2.init.allclose(state)
+    assert task2.goal == goal2
+    assert not task2.goal_holds(task.init)
 
 
-def test_option():
+def test_option(state):
     """Tests for ParameterizedOption, Option classes."""
     type1 = Type("type1", ["feat1", "feat2"])
     type2 = Type("type2", ["feat3", "feat4", "feat5"])
     obj7 = type1("obj7")
     obj1 = type2("obj1")
-    state = test_state()
     params_space = Box(-10, 10, (2, ))
 
-    def _policy(s, m, o, p):
+    def policy(s, m, o, p):
         del s, m, o  # unused
         return Action(p * 2)
 
-    def _initiable(s, m, o, p):
+    def initiable(s, m, o, p):
         del o  # unused
         m["test_key"] = "test_string"
         obj = list(s)[0]
         return p[0] < s[obj][0]
 
-    def _terminal(s, m, o, p):
+    def terminal(s, m, o, p):
         del m, o  # unused
         obj = list(s)[0]
         return p[1] > s[obj][2]
 
     parameterized_option = ParameterizedOption("Pick", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
             "ParameterizedOption(name='Pick', types=[])")
     params = [-15, 5]
     with pytest.raises(AssertionError):
         parameterized_option.ground([], params)  # params not in params_space
-    assert not hasattr(parameterized_option, "policy")
-    assert not hasattr(parameterized_option, "initiable")
-    assert not hasattr(parameterized_option, "terminal")
     params = [-5, 5]
     option = parameterized_option.ground([], params)
     assert isinstance(option, _Option)
@@ -345,11 +345,11 @@ def test_option():
     assert not option.terminal(state)
     assert option.params[0] == 5 and option.params[1] == -5
     parameterized_option = ParameterizedOption("Pick", [type1], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     assert (repr(parameterized_option) == str(parameterized_option) ==
             "ParameterizedOption(name='Pick', types=[Type(name='type1')])")
     parameterized_option2 = ParameterizedOption("Pick2", [type1], params_space,
-                                                _policy, _initiable, _terminal)
+                                                policy, initiable, terminal)
     assert parameterized_option2 > parameterized_option
     assert parameterized_option < parameterized_option2
     with pytest.raises(AssertionError):
@@ -361,9 +361,8 @@ def test_option():
     assert repr(option) == str(option) == (
         "_Option(name='Pick', objects=[obj7:type1], "
         "params=array([ 5., -5.], dtype=float32))")
-    parameterized_option = ParameterizedOption("Pick", [type1], params_space,
-                                               _policy, utils.always_initiable,
-                                               utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Pick", policy, types=[type1], params_space=params_space)
     option = parameterized_option.ground([obj7], params)
     with pytest.raises(AssertionError):
         assert not option.terminal(state)  # must call initiable() first
@@ -383,7 +382,7 @@ def test_option_memory_incorrect():
     def _make_option():
         value = 0.0
 
-        def _policy(s, m, o, p):
+        def policy(s, m, o, p):
             del s, o  # unused
             del m  # the correct way of doing memory is unused here
             nonlocal value
@@ -391,7 +390,7 @@ def test_option_memory_incorrect():
             return Action(p)
 
         return ParameterizedOption(
-            "Dummy", [], Box(0, 1, (1, )), _policy, lambda s, m, o, p: True,
+            "Dummy", [], Box(0, 1, (1, )), policy, lambda s, m, o, p: True,
             lambda s, m, o, p: value > 1.0)  # terminate when value > 1.0
 
     param_opt = _make_option()
@@ -415,19 +414,19 @@ def test_option_memory_correct():
 
     def _make_option():
 
-        def _initiable(s, m, o, p):
+        def initiable(s, m, o, p):
             del s, o, p  # unused
             m["value"] = 0.0  # initialize value
             return True
 
-        def _policy(s, m, o, p):
+        def policy(s, m, o, p):
             del s, o  # unused
             assert "value" in m, "Call initiable() first!"
             m["value"] += p[0]  # add the param to value
             return Action(p)
 
         return ParameterizedOption(
-            "Dummy", [], Box(0, 1, (1, )), _policy, _initiable,
+            "Dummy", [], Box(0, 1, (1, )), policy, initiable,
             lambda s, m, o, p: m["value"] > 1.0)  # terminate when value > 1.0
 
     param_opt = _make_option()
@@ -454,7 +453,7 @@ def test_option_memory_correct():
     assert opt2.terminal(state)
 
 
-def test_operators_and_nsrts():
+def test_operators_and_nsrts(state):
     """Tests for STRIPSOperator, _GroundSTRIPSOperator, NSRT and
     _GroundNSRT."""
     cup_type = Type("cup_type", ["feat1"])
@@ -587,7 +586,6 @@ def test_operators_and_nsrts():
     ground_nsrt4 = nsrt4.ground([cup, plate])
     assert ground_nsrt4 < ground_nsrt2
     assert ground_nsrt2 > ground_nsrt4
-    state = test_state()
     ground_nsrt.sample_option(state, set(), np.random.default_rng(123))
     filtered_nsrt = nsrt.filter_predicates({on})
     assert len(filtered_nsrt.parameters) == 2
@@ -622,9 +620,8 @@ def test_operators_and_nsrts():
     Option Objects: []"""
 
 
-def test_datasets():
+def test_datasets(state):
     """Tests for ActionDatasets and OptionDatasets."""
-    state = test_state()
     action = np.zeros(3, dtype=np.float32)
     transition = [state, action, state]
     dataset = [transition]
@@ -648,23 +645,25 @@ def test_action():
 
     params_space = Box(0, 1, (1, ))
 
-    def _policy(_1, _2, _3, p):
+    def policy(_1, _2, _3, p):
         return Action(p)
 
-    def _initiable(_1, _2, _3, p):
+    def initiable(_1, _2, _3, p):
         return p > 0.25
 
-    def _terminal(s, _1, _2, _3):
+    def terminal(s, _1, _2, _3):
         return s[cup][0] > 9.9
 
     parameterized_option = ParameterizedOption("Move", [], params_space,
-                                               _policy, _initiable, _terminal)
+                                               policy, initiable, terminal)
     params = [0.5]
     option = parameterized_option.ground([], params)
-    traj = utils.option_to_trajectory(state,
-                                      _simulator,
-                                      option,
-                                      max_num_steps=5)
+    assert option.initiable(state)
+    traj = utils.run_policy_with_simulator(option.policy,
+                                           _simulator,
+                                           state,
+                                           option.terminal,
+                                           max_num_steps=5)
     assert len(traj.actions) == len(traj.states) - 1 == 5
     for act in traj.actions:
         assert act.has_option()

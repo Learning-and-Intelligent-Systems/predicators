@@ -4,16 +4,21 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachFailure
+from predicators.src.approaches import ApproachFailure, ApproachTimeout, \
+    create_approach
+from predicators.src.datasets import create_dataset
 from predicators.src.datasets.demo_replay import create_demo_replay_data
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
-from predicators.src.nsrt_learning.option_learning import (
-    _LearnedNeuralParameterizedOption, create_option_learner)
-from predicators.src.nsrt_learning.strips_learning import (
-    learn_strips_operators, segment_trajectory)
+from predicators.src.nsrt_learning.option_learning import \
+    _LearnedNeuralParameterizedOption, create_option_learner
+from predicators.src.nsrt_learning.segmentation import segment_trajectory
+from predicators.src.nsrt_learning.strips_learning import \
+    learn_strips_operators
+from predicators.src.settings import CFG
 from predicators.src.structs import STRIPSOperator
 from predicators.src.torch_models import MLPRegressor
+from predicators.tests.conftest import longrun
 
 
 def test_known_options_option_learner():
@@ -22,9 +27,9 @@ def test_known_options_option_learner():
         "env": "cover",
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
-        "option_learner": "no_learning"
+        "option_learner": "no_learning",
     })
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -61,9 +66,9 @@ def test_oracle_option_learner_cover():
         "env": "cover",
         "approach": "nsrt_learning",
         "num_train_tasks": 3,
-        "option_learner": "oracle"
+        "option_learner": "oracle",
     })
-    env = create_env("cover")
+    env = create_new_env("cover")
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -103,9 +108,11 @@ def test_oracle_option_learner_blocks():
         "approach": "nsrt_learning",
         "seed": 123,
         "num_train_tasks": 3,
-        "option_learner": "oracle"
+        "option_learner": "oracle",
+        "blocks_num_blocks_train": [3],
+        "blocks_num_blocks_test": [4],
     })
-    env = create_env("blocks")
+    env = create_new_env("blocks")
     train_tasks = env.get_train_tasks()
     dataset = create_demo_replay_data(env, train_tasks)
     ground_atom_dataset = utils.create_ground_atom_dataset(
@@ -151,8 +158,10 @@ def test_learned_neural_parameterized_option():
         "env": "cover_multistep_options",
         "option_learner": "neural",
         "mlp_regressor_max_itr": 10,
+        "cover_multistep_thr_percent": 0.99,
+        "cover_multistep_bhr_percent": 0.99,
     })
-    env = create_env("cover_multistep_options")
+    env = create_new_env("cover_multistep_options")
     nsrts = get_gt_nsrts(env.predicates, env.options)
     assert len(nsrts) == 2
     pick_nsrt = min(nsrts, key=lambda o: o.name)
@@ -183,7 +192,7 @@ def test_learned_neural_parameterized_option():
     task = env.get_test_tasks()[0]
 
     state = task.init.copy()
-    block0, _, block1, _, robot, _, _, _, _ = sorted(state)
+    block0, _, block1, _, robot, _, _, _, _ = list(state)
     assert block0.name == "block0"
     assert robot.name == "robby"
     option = param_option.ground([block0, robot],
@@ -224,3 +233,40 @@ def test_create_option_learner():
     })
     with pytest.raises(NotImplementedError):
         create_option_learner()
+
+
+@longrun
+def test_option_learning_approach_multistep_cover():
+    """A long test to identify any regressions in option learning."""
+    utils.reset_config({
+        "env": "cover_multistep_options",
+        "approach": "nsrt_learning",
+        "option_learner": "neural",
+        "sampler_learner": "oracle",
+        "num_train_tasks": 10,
+        "num_test_tasks": 10,
+    })
+    env = create_new_env("cover_multistep_options")
+    train_tasks = env.get_train_tasks()
+    approach = create_approach("nsrt_learning", env.predicates, env.options,
+                               env.types, env.action_space, train_tasks)
+    dataset = create_dataset(env, train_tasks)
+    assert approach.is_learning_based
+    approach.learn_from_offline_dataset(dataset)
+    num_test_successes = 0
+    for task in env.get_test_tasks():
+        try:
+            policy = approach.solve(task, timeout=CFG.timeout)
+            traj = utils.run_policy_with_simulator(policy,
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=CFG.horizon)
+            if task.goal_holds(traj.states[-1]):
+                num_test_successes += 1
+        except (ApproachFailure, ApproachTimeout):
+            continue
+    # This number is expected to be relatively low because the number of train
+    # tasks is pretty limiting. But if it goes lower than this, that could
+    # be a performance regression that we should investigate.
+    assert num_test_successes >= 3

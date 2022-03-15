@@ -8,15 +8,19 @@ from typing import Callable
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import (ApproachFailure, BaseApproach,
-                                        create_approach)
-from predicators.src.envs import CoverEnv
+from predicators.src.approaches import ApproachFailure, BaseApproach, \
+    create_approach
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.main import _run_testing, main
 from predicators.src.structs import Action, State, Task
 
 
 class _DummyApproach(BaseApproach):
     """Dummy approach that raises ApproachFailure for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):
@@ -33,6 +37,10 @@ class _DummyApproach(BaseApproach):
 class _DummyCoverEnv(CoverEnv):
     """Dummy cover environment that raises EnvironmentFailure for testing."""
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
+
     def simulate(self, state, action):
         raise utils.EnvironmentFailure("", {"offending_objects": set()})
 
@@ -41,13 +49,13 @@ def test_main():
     """Tests for main.py."""
     sys.argv = [
         "dummy", "--env", "my_env", "--approach", "my_approach", "--seed",
-        "123", "--num_test_tasks", "5"
+        "123", "--num_test_tasks", "3"
     ]
     with pytest.raises(NotImplementedError):
         main()  # invalid env
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "my_approach", "--seed",
-        "123", "--num_test_tasks", "5"
+        "123", "--num_test_tasks", "3"
     ]
     with pytest.raises(NotImplementedError):
         main()  # invalid approach
@@ -61,8 +69,8 @@ def test_main():
     results_dir = os.path.join(os.path.dirname(__file__), "_fake_results")
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "oracle", "--seed", "123",
-        "--make_videos", "--num_test_tasks", "1", "--video_dir", video_dir,
-        "--results_dir", results_dir
+        "--make_test_videos", "--num_test_tasks", "1", "--video_dir",
+        video_dir, "--results_dir", results_dir
     ]
     main()
     # Test making videos of failures.
@@ -79,7 +87,7 @@ def test_main():
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
         "123", "--sampler_learner", "random", "--cover_initial_holding_prob",
-        "0.0"
+        "0.0", "--num_train_tasks", "3", "--num_test_tasks", "3"
     ]
     main()
     # Try loading approaches.
@@ -91,7 +99,8 @@ def test_main():
     # Try remaking data (this is the default).
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "nsrt_learning", "--seed",
-        "123", "--cover_initial_holding_prob", "0.0"
+        "123", "--cover_initial_holding_prob", "0.0", "--num_train_tasks", "3",
+        "--num_test_tasks", "3"
     ]
     main()
     # Try loading the data.
@@ -102,22 +111,27 @@ def test_main():
     main()
     # Try running interactive approach with no online learning, to make sure
     # it doesn't crash. This is also an important test of the full pipeline
-    # in the case where a goal predicate is excluded.
+    # in the case where a goal predicate is excluded. No online learning occurs
+    # because max number of transitions is set.
     sys.argv = [
         "dummy", "--env", "cover", "--approach", "interactive_learning",
-        "--seed", "123", "--num_online_learning_cycles", "0",
-        "--excluded_predicates", "Covers"
+        "--seed", "123", "--num_online_learning_cycles", "1",
+        "--online_learning_max_transitions", "3", "--excluded_predicates",
+        "Covers", "--interactive_num_ensemble_members", "1",
+        "--num_train_tasks", "3", "--num_test_tasks", "3",
+        "--predicate_mlp_classifier_max_itr", "100"
     ]
     main()
 
 
-def test_tamp_approach_failure():
+def test_bilevel_planning_approach_failure():
     """Test coverage for ApproachFailure in run_testing()."""
     utils.reset_config({
         "env": "cover",
         "approach": "nsrt_learning",
         "timeout": 10,
-        "make_videos": False,
+        "make_test_videos": False,
+        "num_test_tasks": 1,
     })
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -135,8 +149,9 @@ def test_env_failure():
         "env": "cover",
         "approach": "random_actions",
         "timeout": 10,
-        "make_videos": False,
+        "make_test_videos": False,
         "cover_initial_holding_prob": 0.0,
+        "num_test_tasks": 1,
     })
     env = _DummyCoverEnv()
     train_tasks = env.get_train_tasks()

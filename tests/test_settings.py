@@ -6,10 +6,12 @@ from predicators.src.settings import get_allowed_query_type_names
 
 def test_get_allowed_query_type_names():
     """Test the get_allowed_query_type_names method."""
+    utils.reset_config()
+    assert get_allowed_query_type_names() == set()
     utils.reset_config({
         "option_learner": "neural",
     })
-    assert get_allowed_query_type_names() == {"DemonstrationQuery"}
+    assert get_allowed_query_type_names() == {"PathToStateQuery"}
     utils.reset_config({
         "option_learner": "no_learning",
         "approach": "interactive_learning"
@@ -20,5 +22,6 @@ def test_get_allowed_query_type_names():
         "approach": "unittest"
     })
     assert get_allowed_query_type_names() == {
-        "GroundAtomsHoldQuery", "DemonstrationQuery"
+        "GroundAtomsHoldQuery", "DemonstrationQuery", "PathToStateQuery",
+        "_MockQuery"
     }

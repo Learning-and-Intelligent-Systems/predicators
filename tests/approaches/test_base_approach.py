@@ -8,13 +8,17 @@ from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.approaches import BaseApproach, create_approach
-from predicators.src.envs import CoverEnv
-from predicators.src.structs import (Action, ParameterizedOption, Predicate,
-                                     State, Task, Type)
+from predicators.src.envs.cover import CoverEnv
+from predicators.src.structs import Action, ParameterizedOption, Predicate, \
+    State, Task, Type
 
 
 class _DummyApproach(BaseApproach):
     """Dummy approach for testing."""
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "dummy"
 
     @property
     def is_learning_based(self):
@@ -50,7 +54,7 @@ def test_base_approach():
     action_space = Box(0, 0.5, (1, ))
     params_space = Box(0, 1, (1, ))
 
-    def _policy(_1, _2, _3, p):
+    def policy(_1, _2, _3, p):
         return Action(np.clip(p, a_min=None, a_max=0.45))
 
     predicates = {pred1, pred2}
@@ -58,9 +62,9 @@ def test_base_approach():
     options = {
         ParameterizedOption("Move", [],
                             params_space,
-                            _policy,
-                            _initiable=None,
-                            _terminal=None)
+                            policy,
+                            initiable=None,
+                            terminal=None)
     }
     goal = {pred1([cup, plate1])}
     task = Task(state, goal)
@@ -82,8 +86,12 @@ def test_create_approach():
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
     for name in [
-            "random_actions", "random_options", "oracle", "nsrt_learning",
-            "interactive_learning", "iterative_invention"
+            "random_actions",
+            "random_options",
+            "gnn_policy",
+            "oracle",
+            "nsrt_learning",
+            "interactive_learning",
     ]:
         utils.reset_config({
             "env": "cover",

@@ -3,7 +3,7 @@
 import numpy as np
 
 from predicators.src import utils
-from predicators.src.envs import RepeatedNextToEnv
+from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
 from predicators.src.structs import Action
 
 
@@ -42,7 +42,7 @@ def test_repeated_nextto():
             robot = robot_type("robby")
             state.set(robot, "x", state.get(dot0, "x"))
             state.set(dot1, "grasped", 1.0)
-            env.render(state, task)
+            env.render_state(state, task, caption="caption")
 
 
 def test_repeated_nextto_simulate():

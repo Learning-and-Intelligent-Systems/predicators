@@ -5,12 +5,11 @@ import pytest
 from gym.spaces import Box
 
 from predicators.src import utils
-from predicators.src.envs import ClutteredTablePlaceEnv
-from predicators.src.nsrt_learning.sampler_learning import (
-    _create_sampler_data, _LearnedSampler, learn_samplers)
-from predicators.src.structs import (Action, LiftedAtom, LowLevelTrajectory,
-                                     ParameterizedOption, Predicate, Segment,
-                                     State, Type)
+from predicators.src.envs.cluttered_table import ClutteredTablePlaceEnv
+from predicators.src.nsrt_learning.sampler_learning import \
+    _create_sampler_data, _LearnedSampler, learn_samplers
+from predicators.src.structs import Action, LiftedAtom, LowLevelTrajectory, \
+    ParameterizedOption, Predicate, Segment, State, Type
 from predicators.src.torch_models import MLPClassifier, NeuralGaussianRegressor
 
 
@@ -147,10 +146,10 @@ def test_learned_sampler_with_goal():
     regressor.fit(X, Y)
 
     variables = [goal_obj]
-    parameterized_option = ParameterizedOption(
-        "Dummy", [], Box(0, 1,
-                         (1, )), lambda s, m, o, p: Action(np.array([0.0])),
-        utils.always_initiable, utils.onestep_terminal)
+    parameterized_option = utils.SingletonParameterizedOption(
+        "Dummy",
+        lambda s, m, o, p: Action(np.array([0.0])),
+        params_space=Box(0, 1, (1, )))
 
     ls = _LearnedSampler(classifier, regressor, variables,
                          parameterized_option).sampler

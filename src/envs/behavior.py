@@ -14,13 +14,14 @@ try:
     import bddl
     import igibson
     import pybullet as pyb
-    from igibson.activity.bddl_backend import (SUPPORTED_PREDICATES,
-                                               ObjectStateBinaryPredicate,
-                                               ObjectStateUnaryPredicate)
+    from igibson.activity.bddl_backend import SUPPORTED_PREDICATES, \
+        ObjectStateBinaryPredicate, ObjectStateUnaryPredicate
     from igibson.envs import behavior_env
     from igibson.object_states.on_floor import RoomFloor
-    from igibson.objects.articulated_object import (  # pylint: disable=unused-import
-        ArticulatedObject, URDFObject)
+    from igibson.objects.articulated_object import \
+        ArticulatedObject  # pylint: disable=unused-import
+    from igibson.objects.articulated_object import \
+        URDFObject  # pylint: disable=unused-import
     from igibson.robots.behavior_robot import BRBody
     from igibson.simulator import Simulator  # pylint: disable=unused-import
     from igibson.utils.checkpoint_utils import load_checkpoint, save_checkpoint
@@ -32,20 +33,17 @@ try:
         shutil.rmtree("tmp_behavior_states/")
     os.makedirs("tmp_behavior_states/")
 except (ImportError, ModuleNotFoundError) as e:
-    print(e)
     _BEHAVIOR_IMPORTED = False
 from gym.spaces import Box
 
 from predicators.src.envs import BaseEnv
-from predicators.src.envs.behavior_options import (
-    create_grasp_option_model, create_grasp_policy,
-    create_navigate_option_model, create_navigate_policy,
-    create_place_option_model, create_place_policy, grasp_obj_at_pos,
-    navigate_to_obj_pos, place_ontop_obj_pos)
+from predicators.src.envs.behavior_options import create_grasp_option_model, \
+    create_grasp_policy, create_navigate_option_model, \
+    create_navigate_policy, create_place_option_model, create_place_policy, \
+    grasp_obj_at_pos, navigate_to_obj_pos, place_ontop_obj_pos
 from predicators.src.settings import CFG
-from predicators.src.structs import (Action, Array, GroundAtom, Image, Object,
-                                     ParameterizedOption, Predicate, State,
-                                     Task, Type)
+from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
+    ParameterizedOption, Predicate, State, Task, Type
 
 
 class BehaviorEnv(BaseEnv):
@@ -120,6 +118,10 @@ class BehaviorEnv(BaseEnv):
                 )
                 self._options.add(option)
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "behavior"
+
     def simulate(self, state: State, action: Action) -> State:
         assert isinstance(state.simulator_state, str)
         self.task_num = int(state.simulator_state.split("-")[0])
@@ -158,10 +160,10 @@ class BehaviorEnv(BaseEnv):
         next_state = self.current_ig_state_to_state()
         return next_state
 
-    def get_train_tasks(self) -> List[Task]:
+    def _generate_train_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_train_tasks, rng=self._train_rng)
 
-    def get_test_tasks(self) -> List[Task]:
+    def _generate_test_tasks(self) -> List[Task]:
         return self._get_tasks(num=CFG.num_test_tasks, rng=self._test_rng)
 
     def _get_tasks(self, num: int, rng: np.random.Generator) -> List[Task]:
@@ -302,10 +304,11 @@ class BehaviorEnv(BaseEnv):
         assert np.all(self.igibson_behavior_env.action_space.high == 1)
         return self.igibson_behavior_env.action_space
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         raise Exception("Cannot make videos for behavior env, change "
                         "behavior_mode in settings.py instead")
 
@@ -340,8 +343,9 @@ class BehaviorEnv(BaseEnv):
             env_creation_attempts += 1
 
         if env_creation_attempts > 9:
-            print("ERROR: Failed to sample iGibson BEHAVIOR environment that" +
-                  " meets bddl initial conditions!")
+            raise RuntimeError("ERROR: Failed to sample iGibson BEHAVIOR "
+                               "environment that meets bddl initial "
+                               "conditions!")
 
     @functools.lru_cache(maxsize=None)
     def _ig_object_to_object(self, ig_obj: "ArticulatedObject") -> Object:
@@ -568,8 +572,8 @@ def make_behavior_option(
     """Makes an option for a BEHAVIOR env using custom implemented
     controller_fn."""
 
-    def _policy(state: State, memory: Dict, _objects: Sequence[Object],
-                _params: Array) -> Action:
+    def policy(state: State, memory: Dict, _objects: Sequence[Object],
+               _params: Array) -> Action:
         assert "has_terminated" in memory
         # must call initiable() first, and it must return True
         assert memory.get("policy_controller") is not None
@@ -578,8 +582,8 @@ def make_behavior_option(
             state, env.igibson_behavior_env)
         return Action(action_arr)
 
-    def _initiable(state: State, memory: Dict, objects: Sequence[Object],
-                   params: Array) -> bool:
+    def initiable(state: State, memory: Dict, objects: Sequence[Object],
+                  params: Array) -> bool:
         igo = [object_to_ig_object(o) for o in objects]
         assert len(igo) == 1
 
@@ -614,8 +618,8 @@ def make_behavior_option(
             memory["has_terminated"] = False
         return planner_result is not None
 
-    def _terminal(_state: State, memory: Dict, _objects: Sequence[Object],
-                  _params: Array) -> bool:
+    def terminal(_state: State, memory: Dict, _objects: Sequence[Object],
+                 _params: Array) -> bool:
         assert "has_terminated" in memory
         return memory["has_terminated"]
 
@@ -623,7 +627,7 @@ def make_behavior_option(
         name,
         types=types,
         params_space=params_space,
-        _policy=_policy,
-        _initiable=_initiable,
-        _terminal=_terminal,
+        policy=policy,
+        initiable=initiable,
+        terminal=terminal,
     )

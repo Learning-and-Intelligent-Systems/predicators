@@ -5,7 +5,7 @@ import pytest
 from predicators.src import utils
 from predicators.src.approaches import create_approach
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import create_env
+from predicators.src.envs import create_new_env
 from predicators.src.settings import CFG
 
 
@@ -16,7 +16,7 @@ def _test_approach(env_name,
                    check_solution=False,
                    sampler_learner="neural",
                    option_learner="no_learning",
-                   learn_side_predicates=False,
+                   side_predicate_learner="no_learning",
                    num_train_tasks=1,
                    offline_data_method="demo+replay",
                    additional_settings=None):
@@ -37,13 +37,13 @@ def _test_approach(env_name,
         "sesame_allow_noops": False,
         "offline_data_num_replays": 50,
         "excluded_predicates": excluded_predicates,
-        "learn_side_predicates": learn_side_predicates,
+        "side_predicate_learner": side_predicate_learner,
         "option_learner": option_learner,
         "sampler_learner": sampler_learner,
         "cover_initial_holding_prob": 0.0,
         **additional_settings,
     })
-    env = create_env(env_name)
+    env = create_new_env(env_name)
     assert env.goal_predicates.issubset(env.predicates)
     if CFG.excluded_predicates:
         excludeds = set(CFG.excluded_predicates.split(","))
@@ -64,7 +64,12 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(policy, task, env.simulate)
+            traj = utils.run_policy_with_simulator(policy,
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=CFG.horizon)
+            assert task.goal_holds(traj.states[-1])
     # We won't check the policy here because we don't want unit tests to
     # have to train very good models, since that would be slow.
     # Now test loading NSRTs & predicates.
@@ -74,7 +79,12 @@ def _test_approach(env_name,
     if try_solving:
         policy = approach2.solve(task, timeout=CFG.timeout)
         if check_solution:
-            assert utils.policy_solves_task(policy, task, env.simulate)
+            traj = utils.run_policy_with_simulator(policy,
+                                                   env.simulate,
+                                                   task.init,
+                                                   task.goal_holds,
+                                                   max_num_steps=CFG.horizon)
+            assert task.goal_holds(traj.states[-1])
 
 
 def test_nsrt_learning_approach():
@@ -86,7 +96,23 @@ def test_nsrt_learning_approach():
                    approach_name="nsrt_learning",
                    try_solving=False,
                    sampler_learner="random",
-                   learn_side_predicates=True)
+                   side_predicate_learner="prediction_error_hill_climbing")
+    _test_approach(env_name="repeated_nextto",
+                   approach_name="nsrt_learning",
+                   try_solving=False,
+                   sampler_learner="random",
+                   side_predicate_learner="preserve_skeletons_hill_climbing")
+
+
+def test_unknown_side_predicate_learner():
+    """Test that arbitrary sidelining approach throws an error."""
+    with pytest.raises(ValueError) as e:
+        _test_approach(env_name="repeated_nextto",
+                       approach_name="nsrt_learning",
+                       try_solving=False,
+                       sampler_learner="random",
+                       side_predicate_learner="not_a_real_sidelining_strat")
+    assert "not implemented" in str(e)
 
 
 def test_neural_option_learning():
@@ -96,7 +122,11 @@ def test_neural_option_learning():
                    try_solving=False,
                    sampler_learner="random",
                    option_learner="neural",
-                   check_solution=False)
+                   check_solution=False,
+                   additional_settings={
+                       "cover_multistep_thr_percent": 0.99,
+                       "cover_multistep_bhr_percent": 0.99,
+                   })
 
 
 def test_oracle_samplers():
@@ -129,20 +159,6 @@ def test_oracle_samplers():
                        check_solution=True,
                        num_train_tasks=3)
     assert "no match for ground truth NSRT" in str(e)
-
-
-def test_iterative_invention_approach():
-    """Tests for IterativeInventionApproach class."""
-    _test_approach(env_name="cover",
-                   approach_name="iterative_invention",
-                   excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
-    _test_approach(env_name="blocks",
-                   approach_name="iterative_invention",
-                   excluded_predicates="Holding",
-                   try_solving=False,
-                   sampler_learner="random")
 
 
 def test_grammar_search_invention_approach():

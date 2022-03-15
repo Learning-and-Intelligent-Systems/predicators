@@ -3,7 +3,7 @@
 import numpy as np
 
 from predicators.src import utils
-from predicators.src.envs import BlocksEnv
+from predicators.src.envs.blocks import BlocksEnv
 
 
 def test_blocks():
@@ -45,9 +45,9 @@ def test_blocks():
             Pick = [o for o in env.options if o.name == "Pick"][0]
             block = sorted([o for o in state if o.type.name == "block" and \
                             clear(o, state)])[0]
-            act = Pick.ground([robot, block], np.zeros(3)).policy(state)
+            act = Pick.ground([robot, block], np.zeros(0)).policy(state)
             state = env.simulate(state, act)
-            env.render(state, task)
+            env.render_state(state, task, caption="caption")
 
 
 def test_blocks_failure_cases():
@@ -74,18 +74,17 @@ def test_blocks_failure_cases():
     assert OnTable([block2]) not in atoms
     assert On([block2, block1]) in atoms
     # No block at this pose, pick fails
-    act = Pick.ground([robot, block0],
-                      np.array([0, -1, 0], dtype=np.float32)).policy(state)
-    next_state = env.simulate(state, act)
-    assert state.allclose(next_state)
+    act = Pick.ground([robot, block0], np.zeros(0)).policy(state)
+    fake_state = state.copy()
+    fake_state.set(block0, "pose_y", state.get(block0, "pose_y") - 1)
+    next_state = env.simulate(fake_state, act)
+    assert fake_state.allclose(next_state)
     # Object not clear, pick fails
-    act = Pick.ground([robot, block1],
-                      np.array([0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block1], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot putontable or stack without picking first
-    act = Stack.ground([robot, block1],
-                       np.array([0, 0, 0], dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block1], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     act = PutOnTable.ground([robot], np.array([0.5, 0.5],
@@ -93,32 +92,24 @@ def test_blocks_failure_cases():
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Perform valid pick
-    act = Pick.ground([robot, block0],
-                      np.array([0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block0], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Cannot pick twice in a row
-    act = Pick.ground([robot, block2],
-                      np.array([0, 0, 0], dtype=np.float32)).policy(state)
+    act = Pick.ground([robot, block2], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto non-clear block
-    act = Stack.ground([robot, block1],
-                       np.array([0, 0, BlocksEnv.block_size],
-                                dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block1], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot stack onto no block
-    act = Stack.ground([robot, block1],
-                       np.array([0, -1, BlocksEnv.block_size],
-                                dtype=np.float32)).policy(state)
-    next_state = env.simulate(state, act)
-    assert state.allclose(next_state)
+    act = Stack.ground([robot, block1], np.zeros(0)).policy(state)
+    next_state = env.simulate(fake_state, act)
+    assert fake_state.allclose(next_state)
     # Cannot stack onto yourself
-    act = Stack.ground([robot, block0],
-                       np.array([0, 0, BlocksEnv.block_size],
-                                dtype=np.float32)).policy(state)
+    act = Stack.ground([robot, block0], np.zeros(0)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)

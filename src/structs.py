@@ -5,8 +5,8 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
-from typing import (Any, Callable, Collection, DefaultDict, Dict, Iterator,
-                    List, Optional, Sequence, Set, Tuple, TypeVar, cast)
+from typing import Any, Callable, Collection, DefaultDict, Dict, Iterator, \
+    List, Optional, Sequence, Set, Tuple, TypeVar, cast
 
 import numpy as np
 from gym.spaces import Box
@@ -130,6 +130,10 @@ class State:
         """Set the value of an object feature by name."""
         idx = obj.type.feature_names.index(feature_name)
         self.data[obj][idx] = feature_val
+
+    def get_objects(self, object_type: Type) -> List[Object]:
+        """Return objects of the given type in the order of __iter__()."""
+        return [o for o in self if o.type == object_type]
 
     def vec(self, objects: Sequence[Object]) -> Array:
         """Concatenated vector of features for each of the objects in the given
@@ -393,6 +397,13 @@ class Task:
         for atom in self.goal:
             assert isinstance(atom, GroundAtom)
 
+    def goal_holds(self, state: State) -> bool:
+        """Return whether the goal of this task holds in the given state."""
+        return all(goal_atom.holds(state) for goal_atom in self.goal)
+
+
+DefaultTask = Task(DefaultState, set())
+
 
 @dataclass(frozen=True, eq=False)
 class ParameterizedOption:
@@ -410,20 +421,20 @@ class ParameterizedOption:
     # A policy maps a state, memory dict, objects, and parameters to an action.
     # The objects' types will match those in self.types. The parameters
     # will be contained in params_space.
-    _policy: Callable[[State, Dict, Sequence[Object], Array],
-                      Action] = field(repr=False)
+    policy: Callable[[State, Dict, Sequence[Object], Array],
+                     Action] = field(repr=False)
     # An initiation classifier maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option can start
     # now. The objects' types will match those in self.types. The
     # parameters will be contained in params_space.
-    _initiable: Callable[[State, Dict, Sequence[Object], Array],
-                         bool] = field(repr=False)
+    initiable: Callable[[State, Dict, Sequence[Object], Array],
+                        bool] = field(repr=False)
     # A termination condition maps a state, memory dict, objects, and
     # parameters to a bool, which is True iff the option should
     # terminate now. The objects' types will match those in
     # self.types. The parameters will be contained in params_space.
-    _terminal: Callable[[State, Dict, Sequence[Object], Array],
-                        bool] = field(repr=False)
+    terminal: Callable[[State, Dict, Sequence[Object], Array],
+                       bool] = field(repr=False)
 
     @cached_property
     def _hash(self) -> int:
@@ -454,9 +465,9 @@ class ParameterizedOption:
         memory: Dict = {}  # each option has its own memory dict
         return _Option(
             self.name,
-            lambda s: self._policy(s, memory, objects, params),
-            initiable=lambda s: self._initiable(s, memory, objects, params),
-            terminal=lambda s: self._terminal(s, memory, objects, params),
+            lambda s: self.policy(s, memory, objects, params),
+            initiable=lambda s: self.initiable(s, memory, objects, params),
+            terminal=lambda s: self.terminal(s, memory, objects, params),
             parent=self,
             objects=objects,
             params=params,
@@ -1215,11 +1226,24 @@ class GroundAtomsHoldQuery(Query):
     def cost(self) -> float:
         return len(self.ground_atoms)
 
+    def __str__(self) -> str:
+        atoms = ", ".join([str(ga) for ga in self.ground_atoms])
+        return f"Do these hold? {atoms}"
+
 
 @dataclass(frozen=True, eq=False, repr=False)
 class GroundAtomsHoldResponse(Response):
     """A response to a GroundAtomsHoldQuery, providing boolean answers."""
     holds: Dict[GroundAtom, bool]
+
+    def __str__(self) -> str:
+        if not self.holds:
+            return "No queries"
+        responses = []
+        for ga, b in self.holds.items():
+            suffix = "holds" if b else "does not hold"
+            responses.append(f"{ga} {suffix}")
+        return ", ".join(responses)
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -1239,12 +1263,30 @@ class DemonstrationResponse(Response):
     teacher_traj: Optional[LowLevelTrajectory]
 
 
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateQuery(Query):
+    """A query requesting a trajectory that reaches a specific state."""
+    goal_state: State
+
+    @property
+    def cost(self) -> float:
+        return 1
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class PathToStateResponse(Response):
+    """A response to a PathToStateQuery; provides a LowLevelTrajectory if one
+    can be found by the teacher, otherwise returns None."""
+    teacher_traj: Optional[LowLevelTrajectory]
+
+
 # Convenience higher-order types useful throughout the code
 OptionSpec = Tuple[ParameterizedOption, List[Variable]]
 GroundAtomTrajectory = Tuple[LowLevelTrajectory, List[Set[GroundAtom]]]
 Image = NDArray[np.uint8]
 Video = List[Image]
 Array = NDArray[np.float32]
+Pose3D = Tuple[float, float, float]
 ObjToVarSub = Dict[Object, Variable]
 ObjToObjSub = Dict[Object, Object]
 VarToObjSub = Dict[Variable, Object]

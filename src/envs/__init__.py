@@ -1,89 +1,50 @@
-"""Default imports for envs folder."""
+"""Handle creation of environments."""
 
+import logging
+import pkgutil
+from typing import TYPE_CHECKING
+
+from predicators.src import utils
 from predicators.src.envs.base_env import BaseEnv
-from predicators.src.envs.behavior import BehaviorEnv
-from predicators.src.envs.blocks import BlocksEnv
-from predicators.src.envs.cluttered_table import (ClutteredTableEnv,
-                                                  ClutteredTablePlaceEnv)
-from predicators.src.envs.cover import (CoverEnv, CoverEnvHierarchicalTypes,
-                                        CoverEnvRegrasp, CoverEnvTypedOptions,
-                                        CoverMultistepOptions,
-                                        CoverMultistepOptionsFixedTasks)
-from predicators.src.envs.painting import PaintingEnv
-from predicators.src.envs.playroom import PlayroomEnv
-from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
-from predicators.src.envs.repeated_nextto_painting import \
-    RepeatedNextToPaintingEnv
-from predicators.src.envs.tools import ToolsEnv
 
-__all__ = [
-    "BaseEnv",
-    "CoverEnv",
-    "CoverEnvTypedOptions",
-    "CoverEnvHierarchicalTypes",
-    "CoverEnvRegrasp",
-    "CoverMultistepOptions",
-    "CoverMultistepOptionsFixedTasks",
-    "ClutteredTableEnv",
-    "BlocksEnv",
-    "PaintingEnv",
-    "ToolsEnv",
-    "PlayroomEnv",
-    "BehaviorEnv",
-    "RepeatedNextToEnv",
-    "RepeatedNextToPaintingEnv",
-]
-
+__all__ = ["BaseEnv"]
 _MOST_RECENT_ENV_INSTANCE = {}
 
+if not TYPE_CHECKING:
+    # Load all modules so that utils.get_all_subclasses() works.
+    for loader, module_name, _ in pkgutil.walk_packages(__path__):
+        if "__init__" not in module_name:
+            loader.find_module(module_name).load_module(module_name)
 
-def _create_new_env_instance(name: str) -> BaseEnv:
+
+def create_new_env(name: str, do_cache: bool = True) -> BaseEnv:
     """Create a new instance of an environment from its name.
 
-    Note that this env instance will not be cached.
+    If do_cache is True, then cache this env instance so that it can
+    later be loaded using get_or_create_env().
     """
-    if name == "cover":
-        return CoverEnv()
-    if name == "cover_typed_options":
-        return CoverEnvTypedOptions()
-    if name == "cover_hierarchical_types":
-        return CoverEnvHierarchicalTypes()
-    if name == "cover_regrasp":
-        return CoverEnvRegrasp()
-    if name == "cover_multistep_options":
-        return CoverMultistepOptions()
-    if name == "cover_multistep_options_fixed_tasks":
-        return CoverMultistepOptionsFixedTasks()
-    if name == "cluttered_table":
-        return ClutteredTableEnv()
-    if name == "cluttered_table_place":
-        return ClutteredTablePlaceEnv()
-    if name == "blocks":
-        return BlocksEnv()
-    if name == "painting":
-        return PaintingEnv()
-    if name == "tools":
-        return ToolsEnv()
-    if name == "playroom":
-        return PlayroomEnv()
-    if name == "behavior":
-        return BehaviorEnv()  # pragma: no cover
-    if name == "repeated_nextto":
-        return RepeatedNextToEnv()
-    if name == "repeated_nextto_painting":
-        return RepeatedNextToPaintingEnv()
-    raise NotImplementedError(f"Unknown env: {name}")
-
-
-def create_env(name: str) -> BaseEnv:
-    """Create an environment instance given its name and cache it."""
-    env = _create_new_env_instance(name)
-    _MOST_RECENT_ENV_INSTANCE[name] = env
+    for cls in utils.get_all_subclasses(BaseEnv):
+        if cls is not BaseEnv and cls.get_name() == name:
+            env = cls()
+            break
+    else:
+        raise NotImplementedError(f"Unknown env: {name}")
+    if do_cache:
+        _MOST_RECENT_ENV_INSTANCE[name] = env
     return env
 
 
-def get_cached_env_instance(name: str) -> BaseEnv:
-    """Get the most recent cached env instance (env must have been previously
-    created with create_env() to exist in the cache)."""
-    assert name in _MOST_RECENT_ENV_INSTANCE
+def get_or_create_env(name: str) -> BaseEnv:
+    """Get the most recent cached env instance. If one does not exist in the
+    cache, create it using create_new_env().
+
+    If you use this function, you should NOT be doing anything that
+    relies on the environment's internal state (i.e., you should not
+    call reset() or step()).
+    """
+    if name not in _MOST_RECENT_ENV_INSTANCE:
+        logging.warning(
+            "WARNING: you called get_or_create_env, but I couldn't "
+            f"find {name} in the cache. Making a new instance.")
+        create_new_env(name, do_cache=True)
     return _MOST_RECENT_ENV_INSTANCE[name]

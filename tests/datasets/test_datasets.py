@@ -3,11 +3,13 @@
 import pytest
 
 from predicators.src import utils
+from predicators.src.approaches import ApproachTimeout
 from predicators.src.datasets import create_dataset
-from predicators.src.envs import ClutteredTableEnv, CoverEnv
+from predicators.src.envs.cluttered_table import ClutteredTableEnv
+from predicators.src.envs.cover import CoverEnv
 from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.settings import CFG
-from predicators.src.structs import Dataset
+from predicators.src.structs import Dataset, GroundAtom, Task
 
 
 def test_demo_dataset():
@@ -53,6 +55,23 @@ def test_demo_dataset():
             assert action.has_option()
     with pytest.raises(AssertionError):
         _ = dataset.annotations
+    # Test what happens if the goal is unachievable.
+    utils.reset_config({
+        "env": "cover",
+        "approach": "random_actions",
+        "offline_data_method": "demo",
+        "offline_data_planning_timeout": 0.1,
+        "option_learner": "no_learning",
+        "num_train_tasks": 7,
+    })
+    init = train_tasks[0].init
+    HandEmpty = [pred for pred in env.predicates
+                 if pred.name == "HandEmpty"][0]
+    Holding = [pred for pred in env.predicates if pred.name == "Holding"][0]
+    imposs_goal = {GroundAtom(HandEmpty, []), Holding([list(init)[0]])}
+    train_tasks[0] = Task(init, imposs_goal)
+    with pytest.raises(ApproachTimeout):
+        dataset = create_dataset(env, train_tasks)
     # Test max_initial_demos.
     utils.reset_config({
         "env": "cover",
@@ -140,27 +159,6 @@ def test_demo_replay_dataset():
     env = ClutteredTableEnv()
     train_tasks = env.get_train_tasks()
     dataset = create_dataset(env, train_tasks)
-    assert len(dataset.trajectories[-1].states) == 2
-    assert len(dataset.trajectories[-1].actions) == 1
-
-
-def test_demo_nonoptimal_replay_dataset():
-    """Test demo+nonoptimalreplay dataset creation with Covers env."""
-    # Note that the planning timeout is intentionally set low enough that we
-    # cover some failures to plan from the replays, but not so low that
-    # planning always fails. Also the number of replays is set high enough
-    # that we consistently cover the failure case.
-    utils.reset_config({
-        "env": "cover",
-        "offline_data_method": "demo+nonoptimalreplay",
-        "offline_data_planning_timeout": 1.0,
-        "offline_data_num_replays": 5,
-        "num_train_tasks": 5,
-    })
-    env = CoverEnv()
-    train_tasks = env.get_train_tasks()
-    dataset = create_dataset(env, train_tasks)
-    assert len(dataset.trajectories) == 5 + 5
     assert len(dataset.trajectories[-1].states) == 2
     assert len(dataset.trajectories[-1].actions) == 1
 
