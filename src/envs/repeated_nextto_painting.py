@@ -127,7 +127,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                     nextto_objs.append(obj)
         # Added this to display what objects we are nextto
         # during video rendering, as a caption
-        super().render_state(state, task, caption="NextTo: " + \
+        return super().render_state(state, task, caption="NextTo: " + \
             str(nextto_objs))
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:

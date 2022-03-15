@@ -510,7 +510,7 @@ class PaintingEnv(envs.BaseEnv):
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
                 if isinstance(
-                        self, envs.repeated_nextto_painting.
+                        self, envs.repeated_nextto_painting.\
                         RepeatedNextToPaintingEnv):
                     state.set(target_obj, "pose_y",
                               state.get(self._robot, "pose_y"))
