@@ -8,15 +8,13 @@ option can turn on any number of NextTo predicates.
 
 from typing import Dict, List, Optional, Sequence, Set
 
-import matplotlib.pyplot as plt
 import numpy as np
 from gym.spaces import Box
 
 from predicators.src import utils
 from predicators.src.envs.painting import PaintingEnv
-from predicators.src.structs import (Action, Array, Image, Object,
-                                     ParameterizedOption, Predicate, State,
-                                     Task)
+from predicators.src.structs import Action, Array, Image, Object, \
+    ParameterizedOption, Predicate, State, Task
 
 
 class RepeatedNextToPaintingEnv(PaintingEnv):
@@ -36,27 +34,21 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         self._NextToNothing = Predicate("NextToNothing", [self._robot_type],
                                         self._NextToNothing_holds)
         # Additional Options
-        self._MoveToObj = ParameterizedOption(
+        self._MoveToObj = utils.SingletonParameterizedOption(
             "MoveToObj",
+            self._Move_policy,
             types=[self._robot_type, self._obj_type],
-            params_space=Box(self.env_lb, self.env_ub, (1, )),
-            _policy=self._Move_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        self._MoveToBox = ParameterizedOption(
+            params_space=Box(self.env_lb, self.env_ub, (1, )))
+        self._MoveToBox = utils.SingletonParameterizedOption(
             "MoveToBox",
+            self._Move_policy,
             types=[self._robot_type, self._box_type],
-            params_space=Box(self.env_lb, self.env_ub, (1, )),
-            _policy=self._Move_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
-        self._MoveToShelf = ParameterizedOption(
+            params_space=Box(self.env_lb, self.env_ub, (1, )))
+        self._MoveToShelf = utils.SingletonParameterizedOption(
             "MoveToShelf",
+            self._Move_policy,
             types=[self._robot_type, self._shelf_type],
-            params_space=Box(self.env_lb, self.env_ub, (1, )),
-            _policy=self._Move_policy,
-            _initiable=utils.always_initiable,
-            _terminal=utils.onestep_terminal)
+            params_space=Box(self.env_lb, self.env_ub, (1, )))
 
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
@@ -116,11 +108,11 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             self._MoveToObj, self._MoveToBox, self._MoveToShelf
         }
 
-    def render(self,
-               state: State,
-               task: Task,
-               action: Optional[Action] = None) -> List[Image]:
-        fig = self._render_matplotlib(state)
+    def render_state(self,
+                     state: State,
+                     task: Task,
+                     action: Optional[Action] = None,
+                     caption: Optional[str] = None) -> List[Image]:
         # List of NextTo objects to render
         # Added this to display what objects we are nextto
         # during video rendering
@@ -134,14 +126,9 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                         state.get(obj, "pose_y")) < self.nextto_thresh:
                     nextto_objs.append(obj)
         # Added this to display what objects we are nextto
-        # during video rendering
-        plt.suptitle("blue = wet+clean, green = dry+dirty, cyan = dry+clean;\n"
-                     "yellow border = side grasp, orange border = top grasp\n"
-                     "NextTo: " + str(nextto_objs),
-                     fontsize=12)
-        img = utils.fig2data(fig)
-        plt.close()
-        return [img]
+        # during video rendering, as a caption
+        super().render_state(state, task, caption="NextTo: " + \
+            str(nextto_objs))
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         obj, = objects

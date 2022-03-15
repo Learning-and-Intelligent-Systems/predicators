@@ -13,8 +13,7 @@ import numpy as np
 from gym.spaces import Box
 from matplotlib import patches
 
-from predicators.src import utils
-from predicators.src.envs import BaseEnv
+from predicators.src import envs, utils
 from predicators.src.settings import CFG
 from predicators.src.structs import Action, Array, GroundAtom, Image, Object, \
     ParameterizedOption, Predicate, State, Task, Type
@@ -510,7 +509,9 @@ class PaintingEnv(envs.BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                if isinstance(self, envs.RepeatedNextToPaintingEnv):
+                if isinstance(
+                        self, envs.repeated_nextto_painting.
+                        RepeatedNextToPaintingEnv):
                     state.set(target_obj, "pose_y",
                               state.get(self._robot, "pose_y"))
                     state.set(target_obj, "pose_z",

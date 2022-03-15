@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.envs import RepeatedNextToPaintingEnv
+from predicators.src.envs.repeated_nextto_painting import \
+    RepeatedNextToPaintingEnv
 
 
 def test_repeated_nextto_painting():

@@ -16,6 +16,8 @@ from predicators.src.envs.cover import CoverEnv, CoverEnvHierarchicalTypes, \
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
 from predicators.src.envs.repeated_nextto import RepeatedNextToEnv
+from predicators.src.envs.repeated_nextto_painting import \
+    RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.settings import CFG
@@ -613,10 +615,10 @@ def test_oracle_approach_repeated_nextto_painting():
     assert not approach.is_learning_based
     for train_task in train_tasks:
         policy = approach.solve(train_task, timeout=100)
-        assert utils.policy_solves_task(policy, train_task, env.simulate)
+        assert policy_solves_task(policy, train_task, env.simulate)
     for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=100)
-        assert utils.policy_solves_task(policy, test_task, env.simulate)
+        assert policy_solves_task(policy, test_task, env.simulate)
 
 
 def test_oracle_approach_tools():

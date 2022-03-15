@@ -11,6 +11,8 @@ from predicators.src.envs.behavior_options import grasp_obj_param_sampler, \
     navigate_to_param_sampler, place_ontop_obj_pos_sampler
 from predicators.src.envs.painting import PaintingEnv
 from predicators.src.envs.playroom import PlayroomEnv
+from predicators.src.envs.repeated_nextto_painting import \
+    RepeatedNextToPaintingEnv
 from predicators.src.envs.tools import ToolsEnv
 from predicators.src.settings import CFG
 from predicators.src.structs import NSRT, Array, GroundAtom, LiftedAtom, \
@@ -618,20 +620,24 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
     obj_type, box_type, lid_type, shelf_type, robot_type = \
         _get_types_by_names(CFG.env, ["obj", "box", "lid", "shelf", "robot"])
 
-    (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable,
-     HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean) = \
-         _get_predicates_by_names(
-             CFG.env, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
-                          "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
-                          "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
+    (InBox, InShelf, IsBoxColor, IsShelfColor, GripperOpen, OnTable, \
+        HoldingTop, HoldingSide, Holding, IsWet, IsDry, IsDirty, IsClean) = \
+        _get_predicates_by_names(
+            CFG.env, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
+                        "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
+                        "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
 
     if CFG.env in ("painting"):
         Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
             CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
     elif CFG.env in ("repeated_nextto_painting"):
+        (NextTo, NextToBox, NextToShelf, NextToNothing) = \
+         _get_predicates_by_names(
+             "repeated_nextto_painting",
+             ["NextTo", "NextToBox", "NextToShelf", "NextToNothing"])
         Pick, Wash, Dry, Paint, Place, OpenLid, MoveToObj, MoveToBox,\
             MoveToShelf = _get_options_by_names(
-            CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid", 
+            CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid",
             "MoveToObj", "MoveToBox", "MoveToShelf"])
 
     nsrts = set()
@@ -653,7 +659,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(OnTable, [obj]),
             LiftedAtom(NextTo, [robot, obj])
         }
-    
+
     add_effects = {LiftedAtom(Holding, [obj]), LiftedAtom(HoldingTop, [obj])}
     if CFG.env in ("painting"):
         delete_effects = {LiftedAtom(GripperOpen, [robot])}
@@ -672,8 +678,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([1.0], dtype=np.float32)
 
     pickfromtop_nsrt = NSRT("PickFromTop", parameters, preconditions,
-                            add_effects, delete_effects, side_predicates, option,
-                            option_vars, pickfromtop_sampler)
+                            add_effects, delete_effects, side_predicates,
+                            option, option_vars, pickfromtop_sampler)
     nsrts.add(pickfromtop_nsrt)
 
     # PickFromSide
@@ -703,7 +709,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(OnTable, [obj])
         }
         side_predicates = {NextToNothing}
-    
 
     def pickfromside_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
@@ -712,8 +717,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([0.0], dtype=np.float32)
 
     pickfromside_nsrt = NSRT("PickFromSide", parameters, preconditions,
-                             add_effects, delete_effects, side_predicates, option,
-                             option_vars, pickfromside_sampler)
+                             add_effects, delete_effects, side_predicates,
+                             option, option_vars, pickfromside_sampler)
     nsrts.add(pickfromside_nsrt)
 
     # Wash
@@ -775,8 +780,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([box_color], dtype=np.float32)
 
     painttobox_nsrt = NSRT("PaintToBox", parameters, preconditions,
-                           add_effects, delete_effects, side_predicates, option,
-                           option_vars, painttobox_sampler)
+                           add_effects, delete_effects, side_predicates,
+                           option, option_vars, painttobox_sampler)
     nsrts.add(painttobox_nsrt)
 
     # PaintToShelf
@@ -806,8 +811,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         return np.array([shelf_color], dtype=np.float32)
 
     painttoshelf_nsrt = NSRT("PaintToShelf", parameters, preconditions,
-                             add_effects, delete_effects, side_predicates, option,
-                             option_vars, painttoshelf_sampler)
+                             add_effects, delete_effects, side_predicates,
+                             option, option_vars, painttoshelf_sampler)
     nsrts.add(painttoshelf_nsrt)
 
     # PlaceInBox
@@ -828,7 +833,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             LiftedAtom(HoldingTop, [obj]),
             LiftedAtom(NextToBox, [robot, box])
         }
-    
+
     add_effects = {
         LiftedAtom(InBox, [obj, box]),
         LiftedAtom(GripperOpen, [robot])
@@ -857,7 +862,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             z = state.get(objs[0], "pose_z")
         elif CFG.env in ("repeated_nextto_painting"):
             y = rng.uniform(RepeatedNextToPaintingEnv.box_lb,
-                        RepeatedNextToPaintingEnv.box_ub)
+                            RepeatedNextToPaintingEnv.box_ub)
             z = RepeatedNextToPaintingEnv.obj_z
         return np.array([x, y, z], dtype=np.float32)
 
@@ -903,7 +908,6 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         }
         side_predicates = {NextTo, NextToNothing}
 
-
     def placeinshelf_sampler(state: State, goal: Set[GroundAtom],
                              rng: np.random.Generator,
                              objs: Sequence[Object]) -> Array:
@@ -914,12 +918,12 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             z = state.get(objs[0], "pose_z")
         elif CFG.env in ("repeated_nextto_painting"):
             y = rng.uniform(RepeatedNextToPaintingEnv.shelf_lb,
-                        RepeatedNextToPaintingEnv.shelf_ub)
+                            RepeatedNextToPaintingEnv.shelf_ub)
             z = RepeatedNextToPaintingEnv.obj_z
         return np.array([x, y, z], dtype=np.float32)
 
     placeinshelf_nsrt = NSRT("PlaceInShelf", parameters, preconditions,
-                             add_effects, delete_effects, side_predicates, 
+                             add_effects, delete_effects, side_predicates,
                              option, option_vars, placeinshelf_sampler)
     nsrts.add(placeinshelf_nsrt)
 
@@ -985,7 +989,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                 z = state.get(objs[0], "pose_z")
             elif CFG.env in ("repeated_nextto_painting"):
                 y = rng.uniform(RepeatedNextToPaintingEnv.table_lb,
-                            RepeatedNextToPaintingEnv.table_ub)
+                                RepeatedNextToPaintingEnv.table_ub)
                 z = RepeatedNextToPaintingEnv.obj_z
             return np.array([x, y, z], dtype=np.float32)
 
@@ -996,9 +1000,10 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         nsrts.add(placeontable_nsrt)
 
     if CFG.env in ("repeated_nextto_painting"):
+
         def moveto_sampler(state: State, goal: Set[GroundAtom],
-                        _rng: np.random.Generator,
-                        objs: Sequence[Object]) -> Array:
+                           _rng: np.random.Generator,
+                           objs: Sequence[Object]) -> Array:
             del goal  # unused
             y = state.get(objs[1], "pose_y")  # + rng.uniform() * 0.4
             return np.array([y], dtype=np.float32)
@@ -1016,9 +1021,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         # include NextToNothing as a delete effect.
         side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
 
-        movetoobj_nsrt = NSRT("MoveToObj", parameters, preconditions, add_effects,
-                            delete_effects, side_predicates, option, option_vars,
-                            moveto_sampler)
+        movetoobj_nsrt = NSRT("MoveToObj", parameters, preconditions,
+                              add_effects, delete_effects, side_predicates,
+                              option, option_vars, moveto_sampler)
         nsrts.add(movetoobj_nsrt)
 
         # MoveToBox
@@ -1033,9 +1038,9 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         # Moving could have us end up NextTo other objects. It could also
         # include NextToNothing as a delete effect.
         side_predicates = {NextTo, NextToBox, NextToShelf, NextToNothing}
-        movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions, add_effects,
-                            delete_effects, side_predicates, option, option_vars,
-                            moveto_sampler)
+        movetobox_nsrt = NSRT("MoveToBox", parameters, preconditions,
+                              add_effects, delete_effects, side_predicates,
+                              option, option_vars, moveto_sampler)
         nsrts.add(movetobox_nsrt)
 
         # MoveToShelf
