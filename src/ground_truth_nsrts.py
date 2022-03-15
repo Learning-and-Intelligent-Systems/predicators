@@ -626,19 +626,16 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
             CFG.env, ["InBox", "InShelf", "IsBoxColor", "IsShelfColor",
                         "GripperOpen", "OnTable", "HoldingTop", "HoldingSide",
                         "Holding", "IsWet", "IsDry", "IsDirty", "IsClean"])
-
-    if CFG.env in ("painting"):
-        Pick, Wash, Dry, Paint, Place, OpenLid = _get_options_by_names(
-            CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid"])
-    elif CFG.env in ("repeated_nextto_painting"):
+    if CFG.env in ("repeated_nextto_painting"):
         (NextTo, NextToBox, NextToShelf, NextToNothing) = \
          _get_predicates_by_names(
              "repeated_nextto_painting",
              ["NextTo", "NextToBox", "NextToShelf", "NextToNothing"])
-        Pick, Wash, Dry, Paint, Place, OpenLid, MoveToObj, MoveToBox,\
-            MoveToShelf = _get_options_by_names(
-            CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid",
-            "MoveToObj", "MoveToBox", "MoveToShelf"])
+
+    Pick, Wash, Dry, Paint, Place, OpenLid, MoveToObj, MoveToBox,\
+        MoveToShelf = _get_options_by_names(
+        CFG.env, ["Pick", "Wash", "Dry", "Paint", "Place", "OpenLid",
+        "MoveToObj", "MoveToBox", "MoveToShelf"])
 
     nsrts = set()
 

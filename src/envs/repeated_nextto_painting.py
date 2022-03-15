@@ -50,6 +50,10 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
             types=[self._robot_type, self._shelf_type],
             params_space=Box(self.env_lb, self.env_ub, (1, )))
 
+    @classmethod
+    def get_name(cls) -> str:
+        return "repeated_nextto_painting"
+
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         arr = action.arr
