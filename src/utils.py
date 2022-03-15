@@ -1735,6 +1735,7 @@ def null_sampler(state: State, goal: Set[GroundAtom], rng: np.random.Generator,
     return np.array([], dtype=np.float32)  # no continuous parameters
 
 
+@functools.lru_cache(maxsize=None)
 def get_git_commit_hash() -> str:
     """Return the hash of the current git commit."""
     out = subprocess.check_output(["git", "rev-parse", "HEAD"])
