@@ -52,7 +52,7 @@ COLUMN_NAMES_AND_KEYS = [
     # ("AVG_PLAN_LEN", "avg_plan_length"),
     # ("AVG_EXECUTION_FAILURES", "avg_execution_failures"),
     ("NUM_TRANSITIONS", "num_transitions"),
-    ("CUM_QUERY_COST", "cumulative_query_cost"),
+    ("QUERY_COST", "query_cost"),
 ]
 
 DERIVED_KEYS = [("perc_solved",
@@ -70,7 +70,7 @@ X_KEY_AND_LABEL = [
 # Same as above, but for the y axis.
 Y_KEY_AND_LABEL = [
     ("PERC_SOLVED", "% Evaluation Tasks Solved"),
-    ("CUM_QUERY_COST", "Cumulative Query Cost"),
+    ("QUERY_COST", "Cumulative Query Cost"),
     # ("AVG_NODES_CREATED", "Averaged nodes created"),
 ]
 
