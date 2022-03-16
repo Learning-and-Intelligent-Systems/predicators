@@ -51,6 +51,7 @@ DERIVED_KEYS = [("perc_solved",
                  lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
 
 TOP_ROW_LABEL = "\\bf{Environment}"
+FONT_SIZE = ""  # scriptsize
 
 # The keys of the dict are (df key, df value), and the dict values are
 # labels for the legend. The df key/value are used to select a subset from
@@ -167,7 +168,7 @@ def _main() -> None:
 \t""" + TOP_ROW_LABEL + """ &
 """ + \
     "\t" + \
-    "\n\t".join(" & ".join("{ " + inner_label + "}"
+    "\n\t".join(" & ".join(f"\\{FONT_SIZE} " + inner_label + "}"
                 for (inner_label, _, _) in INNER_HEADER_GROUPS) + (
     "&" if i != num_outer_headers-1 else "\\\\")
                 for i in range(num_outer_headers)) + \
