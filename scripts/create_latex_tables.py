@@ -57,7 +57,7 @@ TOP_ROW_LABEL = "\\bf{Environment}"
 # the overall pandas dataframe.
 ROW_GROUPS = [
     ("PickPlace1D", pd_create_equal_selector("ENV", "cover")),
-    ("Blocks", pd_create_equal_selector("ENV", "blocks")),
+    ("Blocks", pd_create_equal_selector("ENV", "pybullet_blocks")),
     ("Painting", pd_create_equal_selector("ENV", "painting")),
     ("Tools", pd_create_equal_selector("ENV", "tools")),
 ]
@@ -67,22 +67,13 @@ OUTER_HEADER_GROUPS = [
     ("Ours", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_main_200" in v)),
     ("Manual", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventnoexclude_200" in v)),
-    ("Down Learn",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefscore_200" in v)),
     ("Down Eval",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_downrefeval_200" in v)),
     ("No Invent", lambda df: df["EXPERIMENT_ID"].apply(
         lambda v: "_noinventallexclude_200" in v)),
-    ("Bisimulation",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_prederror_200" in v)),
-    ("Branching",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
-    ("Boltzmann",
-     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
-    ("Random", pd_create_equal_selector("APPROACH", "random_options")),
 ]
 
-DOUBLE_LINES_AFTER = ["Ours", "Manual", "No Invent"]
+DOUBLE_LINES_AFTER = ["Ours", "Manual", "Down Eval"]
 
 # For bolding, how many stds to use.
 BOLD_NUM_STDS = 2
@@ -100,7 +91,7 @@ RED_MIN_SIZE = 10
 # whether higher or lower is better.
 INNER_HEADER_GROUPS = [
     ("Succ", "PERC_SOLVED", "higher"),
-    # ("Node", "AVG_NODES_CREATED", "lower"),
+    ("Node", "AVG_NODES_CREATED", "lower"),
     ("Time", "AVG_TEST_TIME", "lower"),
 ]
 
@@ -162,7 +153,7 @@ def _main() -> None:
                     num_inner_headers * i] = outer_line
 
     preamble = """\t\\begin{tabular}{| l | """ + \
-    "".join("p{0.49cm} " + inner_lines[i] + " "
+    "".join("p{0.6cm} " + inner_lines[i] + " "
             for i in range(num_inner_headers * num_outer_headers)) + \
     """}
 \t\\hline
@@ -176,7 +167,7 @@ def _main() -> None:
 \t""" + TOP_ROW_LABEL + """ &
 """ + \
     "\t" + \
-    "\n\t".join(" & ".join("{\\scriptsize " + inner_label + "}"
+    "\n\t".join(" & ".join("{ " + inner_label + "}"
                 for (inner_label, _, _) in INNER_HEADER_GROUPS) + (
     "&" if i != num_outer_headers-1 else "\\\\")
                 for i in range(num_outer_headers)) + \

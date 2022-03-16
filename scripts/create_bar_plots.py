@@ -5,10 +5,9 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
-plt.style.use('ggplot')
 
-from predicators.scripts.analyze_results_directory import create_dataframes, \
-    get_df_for_entry, pd_create_equal_selector, combine_selectors
+from predicators.scripts.analyze_results_directory import combine_selectors, \
+    create_dataframes, get_df_for_entry, pd_create_equal_selector
 
 plt.style.use('ggplot')
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -59,10 +58,7 @@ COLUMN_NAMES_AND_KEYS = [
 DERIVED_KEYS = [("perc_solved",
                  lambda r: 100 * r["num_solved"] / r["num_test_tasks"])]
 
-KEY_AND_LABEL = [
-    ("PERC_SOLVED", "% Evaluation Tasks Solved"),
-    # ("AVG_NODES_CREATED", "Averaged nodes created"),
-]
+KEYS = ["PERC_SOLVED"]
 
 # The keys of the dict are (df key, df value), and the dict values are
 # labels for the legend. The df key/value are used to select a subset from
@@ -83,8 +79,11 @@ BAR_GROUPS = [
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_branchfac_200" in v)),
     ("Boltzmann",
      lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_energy_200" in v)),
-    ("GNN Shooting", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_shooting_200" in v)),
-    ("GNN Model-Free", lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_modelfree_200" in v)),
+    ("GNN Shooting",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_shooting_200" in v)),
+    ("GNN Model-Free",
+     lambda df: df["EXPERIMENT_ID"].apply(lambda v: "_gnn_modelfree_200" in v)
+     ),
     ("Random", pd_create_equal_selector("APPROACH", "random_options")),
 ]
 
@@ -97,13 +96,12 @@ def _main() -> None:
     os.makedirs(outdir, exist_ok=True)
     matplotlib.rcParams.update({'font.size': FONT_SIZE})
 
-    grouped_means, grouped_stds, grouped_sizes = create_dataframes(
-        COLUMN_NAMES_AND_KEYS, GROUPS, DERIVED_KEYS)
+    grouped_means, grouped_stds, _ = create_dataframes(COLUMN_NAMES_AND_KEYS,
+                                                       GROUPS, DERIVED_KEYS)
     means = grouped_means.reset_index()
     stds = grouped_stds.reset_index()
-    sizes = grouped_sizes.reset_index().rename(columns={0: "SIZE"})
 
-    for key, label in KEY_AND_LABEL:
+    for key in KEYS:
         for plot_title, plot_selector in PLOT_GROUPS:
             _, ax = plt.subplots()
             plot_labels = []
@@ -121,6 +119,7 @@ def _main() -> None:
                 plot_stds.append(std[0])
             ax.barh(plot_labels, plot_means, xerr=plot_stds)
             ax.set_xlim(X_LIM)
+            ax.tick_params(axis='y', colors='black')
             ax.set_title(plot_title)
             plt.gca().invert_yaxis()
             plt.tight_layout()
