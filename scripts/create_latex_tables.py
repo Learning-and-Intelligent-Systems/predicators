@@ -153,7 +153,7 @@ def _main() -> None:
                     num_inner_headers * i] = outer_line
 
     preamble = """\t\\begin{tabular}{| l | """ + \
-    "".join("p{0.6cm} " + inner_lines[i] + " "
+    "".join("p{0.75cm} " + inner_lines[i] + " "
             for i in range(num_inner_headers * num_outer_headers)) + \
     """}
 \t\\hline
