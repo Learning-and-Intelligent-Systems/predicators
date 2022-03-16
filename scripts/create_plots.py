@@ -158,7 +158,7 @@ def _main() -> None:
                 filename = filename.replace(" ", "_").lower()
                 outfile = os.path.join(outdir, filename)
                 plt.savefig(outfile, dpi=DPI)
-                print(f"Wrote out to {outfile}.")
+                print(f"Wrote out to {outfile}")
 
 
 if __name__ == "__main__":
