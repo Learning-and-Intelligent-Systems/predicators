@@ -39,14 +39,14 @@ def test_repeated_nextto_painting():
                               for item in state}
         if i < 3:
             # Test rendering
-            env.render(state, task)
+            env.render_state(state, task)
 
 
 def test_repeated_nextto_painting_failure_cases():
     """Tests for the cases where simulate() is a no-op or
     EnvironmentFailure."""
     utils.reset_config({
-        "env": "painting",
+        "env": "repeated_nextto_painting",
         "approach": "nsrt_learning",
         "painting_initial_holding_prob": 1.0,
         "painting_lid_open_prob": 0.0,
@@ -112,21 +112,21 @@ def test_repeated_nextto_painting_failure_cases():
     assert Holding([obj0]) not in utils.abstract(state, env.predicates)
     # Perform invalid pick with grasp = 1 (top grasp) too far away
     # (state should remain the same)
-    act = Pick.ground([robot, obj1], np.array([0, 0, 0, 1],
+    act = Pick.ground([robot, obj1], np.array([1],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # No object at this pose, pick fails
-    act = Pick.ground([robot, obj0], np.array([0, -1, 0, 0],
+    act = Pick.ground([robot, obj1], np.array([0],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot wash without holding
-    act = Wash.ground([robot], np.array([1], dtype=np.float32)).policy(state)
+    act = Wash.ground([robot], np.array([], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot dry without holding
-    act = Dry.ground([robot], np.array([1], dtype=np.float32)).policy(state)
+    act = Dry.ground([robot], np.array([], dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot paint without holding
@@ -144,7 +144,7 @@ def test_repeated_nextto_painting_failure_cases():
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Cannot pick with grasp = 0.5
-    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0.5],
+    act = Pick.ground([robot, obj0], np.array([0.5],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
@@ -157,16 +157,16 @@ def test_repeated_nextto_painting_failure_cases():
     # Change the state
     state = next_state
     # Perform valid pick with grasp = 1 (top grasp)
-    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 1],
+    act = Pick.ground([robot, obj0], np.array([1],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
     # Change the state
     state = next_state
     # Render with holding
-    env.render(state, task)
+    env.render_state(state, task)
     # Cannot pick twice in a row
-    act = Pick.ground([robot, obj1], np.array([0, 0, 0, 0],
+    act = Pick.ground([robot, obj1], np.array([0],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
@@ -196,7 +196,7 @@ def test_repeated_nextto_painting_failure_cases():
     assert state.allclose(next_state)
     # Render with a forced color of an object
     state.set(obj0, "color", 0.6)
-    env.render(state, task)
+    env.render_state(state, task)
     # Cannot place in box because lid is closed
     assert state[lid].item() == 0.0
     act = Place.ground([robot],
@@ -256,7 +256,7 @@ def test_repeated_nextto_painting_failure_cases():
     # Change the state
     state = next_state
     # Perform valid pick with grasp = 0 (side grasp)
-    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0],
+    act = Pick.ground([robot, obj0], np.array([0],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert not state.allclose(next_state)
@@ -300,7 +300,7 @@ def test_repeated_nextto_painting_failure_cases():
     # Change the state
     state = next_state
     # Picking from shelf should fail
-    act = Pick.ground([robot, obj0], np.array([0, 0, 0, 0],
+    act = Pick.ground([robot, obj0], np.array([0],
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)

@@ -148,8 +148,6 @@ class PaintingEnv(BaseEnv):
         self._lid = Object("box_lid", self._lid_type)
         self._shelf = Object("receptacle_shelf", self._shelf_type)
         self._robot = Object("robby", self._robot_type)
-        # Boolean to check whether this is repeated_nextto_painting
-        self._is_repeated_nextto_painting = False
 
     @classmethod
     def get_name(cls) -> str:
@@ -512,7 +510,7 @@ class PaintingEnv(BaseEnv):
                 state.set(self._robot, "fingers", 0.0)
                 state.set(target_obj, "grasp", grasp)
                 state.set(target_obj, "held", 1.0)
-                if self._is_repeated_nextto_painting:
+                if CFG.env == "repeated_nextto_painting":
                     state.set(target_obj, "pose_y",
                               state.get(self._robot, "pose_y"))
                     state.set(target_obj, "pose_z",
