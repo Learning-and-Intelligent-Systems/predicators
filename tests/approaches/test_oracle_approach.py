@@ -616,17 +616,17 @@ def test_oracle_approach_repeated_nextto_painting():
     assert not approach.is_learning_based
     for train_task in train_tasks:
         try:
-            policy = approach.solve(train_task, timeout=10)
+            policy = approach.solve(train_task, timeout=100)
             assert policy_solves_task(policy, train_task, env.simulate)
-        except ApproachTimeout:
-            pass
+        except ApproachTimeout:  # pragma: no cover
+            pass  # pragma: no cover
 
     for test_task in env.get_test_tasks():
         try:
-            policy = approach.solve(test_task, timeout=10)
+            policy = approach.solve(test_task, timeout=100)
             assert policy_solves_task(policy, test_task, env.simulate)
-        except ApproachTimeout:
-            pass
+        except ApproachTimeout:  # pragma: no cover
+            pass  # pragma: no cover
 
 
 def test_oracle_approach_tools():
