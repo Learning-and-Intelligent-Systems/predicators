@@ -500,7 +500,6 @@ def test_strip_predicate():
 def test_strip_task():
     """Test for strip_task()."""
     env = CoverEnv()
-    env.seed(123)
     Covers, Holding = _get_predicates_by_names("cover", ["Covers", "Holding"])
     task = env.get_train_tasks()[0]
     block0, _, _, target0, _ = sorted(task.init)
@@ -1702,7 +1701,6 @@ def test_create_pddl():
     # All predicates and options
     env = CoverEnv()
     nsrts = get_gt_nsrts(env.predicates, env.options)
-    env.seed(123)
     train_task = env.get_train_tasks()[0]
     state = train_task.init
     objects = list(state)

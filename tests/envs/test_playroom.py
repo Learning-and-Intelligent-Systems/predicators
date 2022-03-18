@@ -12,7 +12,6 @@ def test_playroom():
     """Tests for PlayroomEnv class properties."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -39,7 +38,6 @@ def test_playroom_failure_cases():
     """Tests for the cases where simulate() is a no-op."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
-    env.seed(123)
     On = [o for o in env.predicates if o.name == "On"][0]
     OnTable = [o for o in env.predicates if o.name == "OnTable"][0]
     block_type = [t for t in env.types if t.name == "block"][0]
@@ -139,7 +137,6 @@ def test_playroom_simulate_blocks():
     blocks."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
-    env.seed(123)
     block_type = [t for t in env.types if t.name == "block"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block1 = block_type("block1")
@@ -192,7 +189,6 @@ def test_playroom_simulate_doors_and_dial():
     doors and the dial."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
-    env.seed(123)
     door_type = [t for t in env.types if t.name == "door"][0]
     robot_type = [t for t in env.types if t.name == "robot"][0]
     dial_type = [t for t in env.types if t.name == "dial"][0]
@@ -306,7 +302,6 @@ def test_playroom_options():
     """Tests for predicate option policies."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
-    env.seed(123)
     robot_type = [t for t in env.types if t.name == "robot"][0]
     block_type = [t for t in env.types if t.name == "block"][0]
     door_type = [t for t in env.types if t.name == "door"][0]
@@ -408,7 +403,6 @@ def test_playroom_action_sequence_video():
     """Test to sanity check rendering."""
     utils.reset_config({"env": "playroom"})
     env = PlayroomEnv()
-    env.seed(123)
     # Run through a specific plan of low-level actions.
     task = env.get_train_tasks()[0]
     action_arrs = [
