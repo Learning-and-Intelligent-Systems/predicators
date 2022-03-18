@@ -28,7 +28,7 @@ class BaseApproach(abc.ABC):
         self._action_space = action_space
         self._train_tasks = train_tasks
         self._metrics: Metrics = defaultdict(float)
-        self.seed(CFG.seed)
+        self._set_seed(CFG.seed)
 
     @classmethod
     @abc.abstractmethod
@@ -67,7 +67,7 @@ class BaseApproach(abc.ABC):
 
         return _policy
 
-    def seed(self, seed: int) -> None:
+    def _set_seed(self, seed: int) -> None:
         """Reset seed and rng."""
         self._seed = seed
         self._rng = np.random.default_rng(self._seed)
