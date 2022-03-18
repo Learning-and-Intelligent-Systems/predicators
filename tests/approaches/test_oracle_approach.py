@@ -603,25 +603,55 @@ def test_oracle_approach_repeated_nextto_painting():
     """Tests for OracleApproach class with RepeatedNextToPaintingEnv."""
     utils.reset_config({
         "env": "repeated_nextto_painting",
-        "num_train_tasks": 1,
         "num_test_tasks": 1,
+        "painting_num_objs_test": [1],
+        # NOTE: We found hff to make planning for this problem significantly
+        # faster, and thus use it here so that the tests run quickly!
         "sesame_task_planning_heuristic": "hff"
     })
-    # NOTE: We found hff to make planning for this problem significantly
-    # faster, and thus use it here so that the tests run quickly!
     env = RepeatedNextToPaintingEnv()
-    env.seed(3210)  # This random seed necessary to get full coverage.
+    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    for train_task in train_tasks:
-        policy = approach.solve(train_task, timeout=25)
-        assert policy_solves_task(policy, train_task, env.simulate)
-
+    approach.seed(123)
     for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=25)
         assert policy_solves_task(policy, test_task, env.simulate)
+
+
+def test_repeated_nextto_painting_get_gt_nsrts():
+    """Tests for the ground truth NSRTs in RepeatedNextToPaintingEnv."""
+    # The OracleApproach test doesn't cover the PlaceOnTable or PlaceInShelf
+    # samplers, so we test those here.
+    utils.reset_config({
+        "env": "repeated_nextto_painting",
+        "num_test_tasks": 1,
+    })
+    env = RepeatedNextToPaintingEnv()
+    init = env.get_train_tasks()[0].init
+    obj0 = [obj for obj in list(init) if obj.name == "obj0"][0]
+    shelf = [obj for obj in list(init) if obj.name == "receptacle_shelf"][0]
+    robby = [obj for obj in list(init) if obj.name == "robby"][0]
+    rng = np.random.default_rng(123)
+    # Test PlaceOnTable
+    nsrts = get_gt_nsrts(env.predicates, env.options)
+    ptables = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceOnTable")]
+    assert len(ptables) == 2
+    ptable = ptables[0]
+    opt = ptable.ground([obj0, robby]).sample_option(init, set(), rng)
+    assert opt.objects == [robby]
+    assert RepeatedNextToPaintingEnv.table_lb < opt.params[1] < \
+        RepeatedNextToPaintingEnv.table_ub
+    # Test PlaceInShelf
+    pshelves = [nsrt for nsrt in nsrts if nsrt.name.startswith("PlaceInShelf")]
+    assert len(pshelves) == 1
+    pshelf = pshelves[0]
+    opt = pshelf.ground([obj0, shelf, robby]).sample_option(init, set(), rng)
+    assert opt.objects == [robby]
+    assert RepeatedNextToPaintingEnv.shelf_lb < opt.params[1] < \
+        RepeatedNextToPaintingEnv.shelf_ub
 
 
 def test_oracle_approach_tools():
