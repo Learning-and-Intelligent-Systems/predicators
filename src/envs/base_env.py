@@ -17,7 +17,7 @@ class BaseEnv(abc.ABC):
     def __init__(self) -> None:
         self._current_state = DefaultState  # set in reset
         self._current_task = DefaultTask  # set in reset
-        self.seed(CFG.seed)
+        self._set_seed(CFG.seed)
         # These are generated lazily when get_train_tasks or get_test_tasks is
         # called. This is necessary because environment attributes are often
         # initialized in __init__ in subclasses, and super().__init__ needs
@@ -133,7 +133,7 @@ class BaseEnv(abc.ABC):
                              f"{train_or_test}.")
         return tasks[task_idx]
 
-    def seed(self, seed: int) -> None:
+    def _set_seed(self, seed: int) -> None:
         """Reset seed and rngs."""
         self._seed = seed
         # The train/test rng should be used when generating

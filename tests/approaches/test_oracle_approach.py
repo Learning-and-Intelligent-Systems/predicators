@@ -47,7 +47,6 @@ def test_cover_get_gt_nsrts():
     pick_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
     assert pick_nsrt.name == "Pick"
     assert place_nsrt.name == "Place"
-    env.seed(123)
     train_task = env.get_train_tasks()[0]
     state = train_task.init
     block0, _, _, target0, _ = list(state)
@@ -134,13 +133,11 @@ def test_oracle_approach_cover():
         "num_test_tasks": 2
     })
     env = CoverEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -163,13 +160,11 @@ def test_oracle_approach_cover_typed_options():
         "num_test_tasks": 2
     })
     env = CoverEnvTypedOptions()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -192,13 +187,11 @@ def test_oracle_approach_cover_hierarchical_types():
         "num_test_tasks": 2
     })
     env = CoverEnvHierarchicalTypes()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -221,13 +214,11 @@ def test_oracle_approach_cover_regrasp():
         "num_test_tasks": 2,
     })
     env = CoverEnvRegrasp()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -254,13 +245,11 @@ def test_oracle_approach_cover_multistep_options():
         "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -284,13 +273,11 @@ def test_oracle_approach_cover_multistep_options():
         "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -308,13 +295,11 @@ def test_oracle_approach_cover_multistep_options():
         "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -342,11 +327,9 @@ def test_oracle_approach_cover_multistep_options():
         "sesame_max_samples_per_step": 1
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -369,12 +352,10 @@ def test_longrun_oracle_approach_cover_multistep_options():
         "num_test_tasks": 5,
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -394,13 +375,11 @@ def test_oracle_approach_cover_multistep_options_fixed_tasks():
         "cover_multistep_bhr_percent": 0.99,
     })
     env = CoverMultistepOptionsFixedTasks()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     random_action = Action(env.action_space.sample())
-    approach.seed(123)
     for task in train_tasks:
         policy = approach.solve(task, timeout=500)
         assert policy_solves_task(policy, task, env.simulate)
@@ -445,7 +424,6 @@ def test_cluttered_table_get_gt_nsrts(place_version=False):
         grasp_nsrt, place_nsrt = sorted(nsrts, key=lambda o: o.name)
         assert grasp_nsrt.name == "Grasp"
         assert place_nsrt.name == "Place"
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     for (i, task) in enumerate(train_tasks):
         if i < len(train_tasks) / 2:
@@ -531,12 +509,10 @@ def test_oracle_approach_cluttered_table(place_version=False):
             "num_test_tasks": 2,
         })
         env = ClutteredTablePlaceEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     train_task = train_tasks[0]
     policy = approach.solve(train_task, timeout=500)
     assert policy_solves_task(policy, train_task, env.simulate)
@@ -558,12 +534,10 @@ def test_oracle_approach_blocks():
         "num_test_tasks": 2
     })
     env = BlocksEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     # Test a couple of train tasks so that we get at least one which
     # requires resampling placement poses on the table.
     for train_task in train_tasks[:10]:
@@ -582,12 +556,10 @@ def test_oracle_approach_painting():
         "num_test_tasks": 2
     })
     env = PaintingEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     for train_task in train_tasks[:2]:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
@@ -606,12 +578,10 @@ def test_oracle_approach_tools():
         "num_test_tasks": 2
     })
     env = ToolsEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     for train_task in train_tasks[:2]:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
@@ -628,12 +598,10 @@ def test_oracle_approach_playroom():
         "num_test_tasks": 2
     })
     env = PlayroomEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     for train_task in train_tasks[:2]:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
@@ -644,7 +612,6 @@ def test_oracle_approach_playroom():
     nsrts = get_gt_nsrts(env.predicates, env.options)
     movedialtodoor = [nsrt for nsrt in nsrts \
                       if nsrt.name == "MoveDialToDoor"][0]
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     train_task = train_tasks[0]
     state = train_task.init
@@ -701,12 +668,10 @@ def test_oracle_approach_repeated_nextto():
         "num_test_tasks": 2
     })
     env = RepeatedNextToEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     for train_task in train_tasks[:3]:
         policy = approach.solve(train_task, timeout=500)
         assert policy_solves_task(policy, train_task, env.simulate)
