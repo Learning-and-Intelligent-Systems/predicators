@@ -20,7 +20,6 @@ from predicators.src.ground_truth_nsrts import _get_predicates_by_names
 from predicators.src.main import _run_testing
 from predicators.src.predicate_search_score_functions import \
     create_score_function
-from predicators.src.settings import CFG
 from predicators.src.structs import Dataset, Object, Predicate, State, Task
 
 DEFAULT_ENV_NAMES = [
