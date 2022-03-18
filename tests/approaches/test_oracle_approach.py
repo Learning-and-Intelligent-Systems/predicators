@@ -603,7 +603,7 @@ def test_oracle_approach_repeated_nextto_painting():
     """Tests for OracleApproach class with RepeatedNextToPaintingEnv."""
     utils.reset_config({
         "env": "repeated_nextto_painting",
-        "num_train_tasks": 2,
+        "num_train_tasks": 1,
         "num_test_tasks": 1,
         "sesame_task_planning_heuristic": "hff"
     })
