@@ -18,7 +18,6 @@ def test_random_actions_approach():
     approach = RandomActionsApproach(env.predicates, env.options, env.types,
                                      env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     policy = approach.solve(task, 500)
     actions = []
     for _ in range(10):
