@@ -620,7 +620,7 @@ def test_oracle_approach_repeated_nextto_painting():
 
     for test_task in env.get_test_tasks():
         try:
-            policy = approach.solve(test_task, timeout=15)
+            policy = approach.solve(test_task, timeout=25)
             assert policy_solves_task(policy, test_task, env.simulate)
         except ApproachTimeout:
             pass
