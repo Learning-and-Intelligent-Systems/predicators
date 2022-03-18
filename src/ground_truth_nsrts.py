@@ -985,7 +985,8 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                 y = state.get(objs[0], "pose_y")
                 z = state.get(objs[0], "pose_z")
             elif CFG.env == "repeated_nextto_painting":
-                # Release the object at a random position on the table.
+                # Release the object at a randomly-chosen position on the table
+                # such that it is NextTo the robot.
                 robot_y = state.get(objs[1], "pose_y")
                 y_sample_lb = max([
                     RepeatedNextToPaintingEnv.table_lb,
