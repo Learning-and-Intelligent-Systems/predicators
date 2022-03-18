@@ -298,7 +298,8 @@ def _run_testing(env: BaseEnv, approach: BaseApproach) -> Metrics:
     metrics["avg_suc_time"] = (total_suc_time /
                                num_solved if num_solved > 0 else float("inf"))
     metrics["min_skeletons_optimized"] = approach.metrics[
-        "min_num_skeletons_optimized"]
+        "min_num_skeletons_optimized"] if approach.metrics[
+            "min_num_skeletons_optimized"] < float("inf") else 0
     metrics["max_skeletons_optimized"] = approach.metrics[
         "max_num_skeletons_optimized"]
     metrics["avg_execution_failures"] = (
