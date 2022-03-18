@@ -86,10 +86,8 @@ class BilevelPlanningApproach(BaseApproach):
 
     def reset_metrics(self) -> None:
         super().reset_metrics()
-        # Initialize min to self._max_skeletons_optimized (max gets initialized
-        # to 0 by default)
-        self._metrics[
-            "min_num_skeletons_optimized"] = self._max_skeletons_optimized
+        # Initialize min to inf (max gets initialized to 0 by default).
+        self._metrics["min_num_skeletons_optimized"] = float("inf")
 
     @abc.abstractmethod
     def _get_current_nsrts(self) -> Set[NSRT]:
