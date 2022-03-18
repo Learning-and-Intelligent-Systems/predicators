@@ -582,12 +582,10 @@ def test_oracle_approach_repeated_nextto_painting():
         "sesame_task_planning_heuristic": "hff"
     })
     env = RepeatedNextToPaintingEnv()
-    env.seed(123)
     train_tasks = env.get_train_tasks()
     approach = OracleApproach(env.predicates, env.options, env.types,
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
-    approach.seed(123)
     for test_task in env.get_test_tasks():
         policy = approach.solve(test_task, timeout=25)
         assert policy_solves_task(policy, test_task, env.simulate)

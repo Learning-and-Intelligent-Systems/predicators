@@ -13,7 +13,6 @@ def test_repeated_nextto_painting():
         "env": "repeated_nextto_painting",
     })
     env = RepeatedNextToPaintingEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -51,7 +50,6 @@ def test_repeated_nextto_painting_failure_cases():
         "painting_lid_open_prob": 0.0,
     })
     env = RepeatedNextToPaintingEnv()
-    env.seed(123)
     Pick = [o for o in env.options if o.name == "Pick"][0]
     Place = [o for o in env.options if o.name == "Place"][0]
     Holding = [o for o in env.predicates if o.name == "Holding"][0]
