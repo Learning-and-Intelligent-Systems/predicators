@@ -74,6 +74,7 @@ class GlobalSettings:
     painting_lid_open_prob = 0.3
     painting_num_objs_train = [2, 3]
     painting_num_objs_test = [3, 4]
+    painting_max_objs_in_goal = float("inf")
 
     # tools env parameters
     tools_num_items_train = [2]
