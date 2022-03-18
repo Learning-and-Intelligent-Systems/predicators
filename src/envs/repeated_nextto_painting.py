@@ -57,9 +57,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     def simulate(self, state: State, action: Action) -> State:
         assert self.action_space.contains(action.arr)
         arr = action.arr
-        # NOTE: added move_affinity
         move_affinity = sum(abs(val) for val in arr[2:])
-        if move_affinity <= 0.0001:
+        if move_affinity <= 1e-4:
             return self._transition_move(state, action)
         return super().simulate(state, action)
 
@@ -68,14 +67,16 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         x, y, z, _ = action.arr[:4]
         next_state = super()._transition_pick_or_openlid(state, action)
         target_obj = self._get_object_at_xyz(state, x, y, z)
-        # if PaintingEnv pick was successful check if the object was next to
-        if target_obj is not None and state.get(
-                target_obj, "held") == 0.0 and next_state.get(
-                    target_obj, "held") == 1.0:
-            # Added cannot pick if obj is too far
-            if abs(state.get(self._robot, "pose_y") \
-                - state.get(target_obj, "pose_y")) \
-                >= self.nextto_thresh:
+        # In this environment, we disallow picking an object if the robot
+        # is not currently next to it. To implement this, whenever the
+        # parent class's pick is successful, we check the NextTo constraint,
+        # and just return the current state if it fails.
+        if target_obj is not None and\
+            state.get(target_obj, "held") < 0.5\
+            < next_state.get(target_obj, "held"):
+            abs_state_diff = abs(state.get(self._robot, "pose_y") \
+                - state.get(target_obj, "pose_y"))
+            if abs_state_diff >= self.nextto_thresh:
                 return state
         return next_state
 
@@ -83,7 +84,10 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         # Action args are target pose for held obj
         y = action.arr[1]
         next_state = super()._transition_place(state, action)
-        #  Added restriction on place if not close enough to location
+        # In this environment, we disallow placing an object if the robot
+        # is not currently next to it. To implement this, whenever the
+        # parent class's place is successful, we check the NextTo constraint,
+        # and just return the current state if it fails.
         if abs(state.get(self._robot, "pose_y") - y) >= self.nextto_thresh:
             return state
         return next_state
@@ -118,7 +122,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
         # List of NextTo objects to render
-        # Added this to display what objects we are nextto
+        # Added this to display what objects we are NextTo
         # during video rendering
         nextto_objs = []
         for obj in state:
@@ -160,10 +164,7 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
     def _NextToNothing_holds(self, state: State,
                              objects: Sequence[Object]) -> bool:
         robot, = objects
-        for typed_obj in state:
-            if typed_obj is not self._get_held_object(state):
-                if typed_obj.type in \
-                    [self._obj_type, self._box_type, self._shelf_type] and \
-                    self._NextTo_holds(state, [robot, typed_obj]):
-                    return False
-        return True
+        held_obj = self._get_held_object(state)
+        types_to_check = {self._obj_type, self._box_type, self._shelf_type}
+        return not any(self._NextTo_holds(state, [robot, obj]) for obj in state
+                       if obj is not held_obj and obj.type in types_to_check)

@@ -52,8 +52,6 @@ class RepeatedNextToEnv(BaseEnv):
             types=[self._robot_type, self._dot_type])
         # Static objects (always exist no matter the settings).
         self._robot = Object("robby", self._robot_type)
-        # Override this boolean to be true
-        self._is_repeated_nextto_painting = False
 
     @classmethod
     def get_name(cls) -> str:

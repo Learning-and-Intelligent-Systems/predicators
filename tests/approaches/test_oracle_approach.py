@@ -606,7 +606,7 @@ def test_oracle_approach_repeated_nextto_painting():
         "env": "repeated_nextto_painting",
         "num_train_tasks": 3,
         "num_test_tasks": 3,
-        "sesame_task_planning_heuristic": "hff"
+        "sesame_task_planning_heuristic": "lmcut"
     })
     env = RepeatedNextToPaintingEnv()
     env.seed(3210)  # This random seed necessary to get full coverage.
@@ -615,18 +615,15 @@ def test_oracle_approach_repeated_nextto_painting():
                               env.action_space, train_tasks)
     assert not approach.is_learning_based
     for train_task in train_tasks:
-        try:
-            policy = approach.solve(train_task, timeout=100)
-            assert policy_solves_task(policy, train_task, env.simulate)
-        except ApproachTimeout:  # pragma: no cover
-            pass  # pragma: no cover
+        policy = approach.solve(train_task, timeout=15)
+        assert policy_solves_task(policy, train_task, env.simulate)
 
     for test_task in env.get_test_tasks():
         try:
-            policy = approach.solve(test_task, timeout=100)
+            policy = approach.solve(test_task, timeout=15)
             assert policy_solves_task(policy, test_task, env.simulate)
-        except ApproachTimeout:  # pragma: no cover
-            pass  # pragma: no cover
+        except ApproachTimeout:
+            pass
 
 
 def test_oracle_approach_tools():

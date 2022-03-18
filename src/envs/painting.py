@@ -334,8 +334,9 @@ class PaintingEnv(BaseEnv):
         # [x, y, z, grasp, pickplace, water level, heat level, color]
         # Note that pickplace is 1 for pick, -1 for place, and 0 otherwise,
         # while grasp, water level, heat level, and color are in [0, 1].
-        # Changed lower bound for z to 0.0 for RepeatedNextToPainting
-        # This is needed to check affinity of the move action
+        # We set the lower bound for z to 0.0, rather than self.obj_z - 1e-2,
+        # because in RepeatedNextToPainting, we use this dimension to check
+        # affinity of the move action
         lowers = np.array(
             [self.obj_x - 1e-2, self.env_lb, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0],
             dtype=np.float32)
