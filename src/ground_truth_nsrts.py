@@ -977,14 +977,15 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
         def placeontable_sampler(state: State, goal: Set[GroundAtom],
                                  rng: np.random.Generator,
                                  objs: Sequence[Object]) -> Array:
-            # Always release the object where it is, to avoid the possibility
-            # of collisions with other objects.
             del goal  # unused
             x = state.get(objs[0], "pose_x")
             if CFG.env == "painting":
+                # Always release the object where it is, to avoid the
+                # possibility of collisions with other objects.
                 y = state.get(objs[0], "pose_y")
                 z = state.get(objs[0], "pose_z")
             elif CFG.env == "repeated_nextto_painting":
+                # Release the object at a random position on the table.
                 y = rng.uniform(RepeatedNextToPaintingEnv.table_lb,
                                 RepeatedNextToPaintingEnv.table_ub)
                 z = RepeatedNextToPaintingEnv.obj_z

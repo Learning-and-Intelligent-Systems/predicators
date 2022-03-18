@@ -71,9 +71,9 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         # is not currently next to it. To implement this, whenever the
         # parent class's pick is successful, we check the NextTo constraint,
         # and just return the current state if it fails.
-        if target_obj is not None and\
-            state.get(target_obj, "held") < 0.5\
-            < next_state.get(target_obj, "held"):
+        if target_obj is not None and \
+           state.get(target_obj, "held") < 0.5 \
+           < next_state.get(target_obj, "held"):
             abs_state_diff = abs(state.get(self._robot, "pose_y") \
                 - state.get(target_obj, "pose_y"))
             if abs_state_diff >= self.nextto_thresh:
@@ -85,9 +85,9 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
         y = action.arr[1]
         next_state = super()._transition_place(state, action)
         # In this environment, we disallow placing an object if the robot
-        # is not currently next to it. To implement this, whenever the
-        # parent class's place is successful, we check the NextTo constraint,
-        # and just return the current state if it fails.
+        # is not currently next to the target place pose. To implement this,
+        # whenever the parent class's place is successful, we check the
+        # NextTo constraint, and just return the current state if it fails.
         if abs(state.get(self._robot, "pose_y") - y) >= self.nextto_thresh:
             return state
         return next_state
