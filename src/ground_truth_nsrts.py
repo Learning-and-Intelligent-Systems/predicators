@@ -986,8 +986,16 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                 z = state.get(objs[0], "pose_z")
             elif CFG.env == "repeated_nextto_painting":
                 # Release the object at a random position on the table.
-                y = rng.uniform(RepeatedNextToPaintingEnv.table_lb,
-                                RepeatedNextToPaintingEnv.table_ub)
+                robot_y = state.get(objs[1], "pose_y")
+                y_sample_lb = max([
+                    RepeatedNextToPaintingEnv.table_lb,
+                    robot_y - RepeatedNextToPaintingEnv.nextto_thresh
+                ])
+                y_sample_ub = min([
+                    RepeatedNextToPaintingEnv.table_ub,
+                    robot_y + RepeatedNextToPaintingEnv.nextto_thresh
+                ])
+                y = rng.uniform(y_sample_lb, y_sample_ub)
                 z = RepeatedNextToPaintingEnv.obj_z
             return np.array([x, y, z], dtype=np.float32)
 
