@@ -14,7 +14,6 @@ def test_painting():
         "env": "painting",
     })
     env = PaintingEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -71,7 +70,6 @@ def test_painting_failure_cases():
         "painting_lid_open_prob": 0.0,
     })
     env = PaintingEnv()
-    env.seed(123)
     Pick = [o for o in env.options if o.name == "Pick"][0]
     Wash = [o for o in env.options if o.name == "Wash"][0]
     Dry = [o for o in env.options if o.name == "Dry"][0]
@@ -245,14 +243,12 @@ def test_painting_failure_cases():
     # Make sure painting_initial_holding_prob = 0.0 works too.
     utils.update_config({"painting_initial_holding_prob": 0.0})
     env = PaintingEnv()
-    env.seed(123)
     task = env.get_train_tasks()[0]
     state = task.init
     assert not utils.abstract(state, {Holding})
     # Make sure painting_lid_open_prob = 1.0 works too.
     utils.update_config({"painting_lid_open_prob": 1.0})
     env = PaintingEnv()
-    env.seed(123)
     task = env.get_train_tasks()[0]
     state = task.init
     assert state[lid].item() == 1.0

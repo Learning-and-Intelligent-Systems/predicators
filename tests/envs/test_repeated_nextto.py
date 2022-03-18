@@ -11,7 +11,6 @@ def test_repeated_nextto():
     """Tests for RepeatedNextTo class."""
     utils.reset_config({"env": "repeated_nextto"})
     env = RepeatedNextToEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -52,7 +51,6 @@ def test_repeated_nextto_simulate():
         "approach": "nsrt_learning",
     })
     env = RepeatedNextToEnv()
-    env.seed(123)
     Move = [o for o in env.options if o.name == "Move"][0]
     Grasp = [o for o in env.options if o.name == "Grasp"][0]
     Grasped = [o for o in env.predicates if o.name == "Grasped"][0]

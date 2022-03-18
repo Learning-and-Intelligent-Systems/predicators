@@ -15,7 +15,6 @@ def test_cover():
     """Tests for CoverEnv class."""
     utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -97,7 +96,6 @@ def test_cover():
     # Test cover_initial_holding_prob.
     utils.update_config({"cover_initial_holding_prob": 1.0})
     env = CoverEnv()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -116,7 +114,6 @@ def test_cover_typed_options():
     """Tests for CoverEnvTypedOptions class."""
     utils.reset_config({"env": "cover", "cover_initial_holding_prob": 0.0})
     env = CoverEnvTypedOptions()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -194,7 +191,6 @@ def test_cover_regrasp():
     """Tests for CoverEnvRegrasp class."""
     utils.reset_config({"env": "cover_regrasp"})
     env = CoverEnvRegrasp()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -230,7 +226,6 @@ def test_cover_multistep_options():
         "test_env_seed_offset": 0,
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     for task in env.get_train_tasks():
         for obj in task.init:
             assert len(obj.type.feature_names) == len(task.init[obj])
@@ -597,7 +592,6 @@ def test_cover_multistep_options():
         "cover_target_widths": [0.25, 0.25]
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     with pytest.raises(RuntimeError):
         env.get_test_tasks()
 
@@ -612,7 +606,6 @@ def test_cover_multistep_options():
         "cover_multistep_bhr_percent": 0.001
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     with pytest.raises(RuntimeError):
         env.get_test_tasks()
 
@@ -626,7 +619,6 @@ def test_cover_multistep_options():
         "test_env_seed_offset": 0
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     task = env.get_test_tasks()[0]
     action_arrs = [
         np.array([0.88, 0., 0.], dtype=np.float32),
@@ -669,7 +661,6 @@ def test_cover_multistep_options():
         "cover_num_targets": 1
     })
     env = CoverMultistepOptions()
-    env.seed(123)
     task = env.get_test_tasks()[0]
     state = task.init
     goal = task.goal
@@ -701,7 +692,6 @@ def test_cover_multistep_options_fixed_tasks():
         "num_test_tasks": 10
     })
     env = CoverMultistepOptionsFixedTasks()
-    env.seed(123)
     # This env is mostly the same as CoverMultistepOptions(), so we just test
     # that the tasks are indeed fixed.
     state = None

@@ -44,7 +44,6 @@ def test_random_options_approach():
     approach = RandomOptionsApproach({Solved}, {parameterized_option},
                                      {cup_type}, params_space, [task])
     assert not approach.is_learning_based
-    approach.seed(123)
     policy = approach.solve(task, 500)
     solved = False
     act_var = None
@@ -71,7 +70,6 @@ def test_random_options_approach():
     task = Task(state, {Solved([cup])})
     approach = RandomOptionsApproach({Solved}, {parameterized_option2},
                                      {cup_type}, params_space, task)
-    approach.seed(123)
     policy = approach.solve(task, 500)
     act = policy(state)
     assert not act.has_option()  # should have fallen back to random action
@@ -83,7 +81,6 @@ def test_random_options_approach():
     task = Task(state, {Solved([cup])})
     approach = RandomOptionsApproach({Solved}, {parameterized_option3},
                                      {cup_type}, params_space, task)
-    approach.seed(123)
     policy = approach.solve(task, 500)
     act = policy(DefaultState)
     assert not act.has_option()  # should have fallen back to random action
@@ -94,7 +91,6 @@ def test_random_options_approach():
     task = Task(state, {Solved([cup])})
     approach = RandomOptionsApproach({Solved}, {parameterized_option4},
                                      {cup_type}, params_space, [task])
-    approach.seed(123)
     policy = approach.solve(task, 500)
     act_var = None
     actions = []
