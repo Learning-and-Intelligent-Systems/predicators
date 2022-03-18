@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from predicators.src import utils
-from predicators.src.approaches import ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.blocks import BlocksEnv
 from predicators.src.envs.cluttered_table import ClutteredTableEnv, \
