@@ -290,14 +290,23 @@ class PaintingEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
+        if CFG.env == "repeated_nextto_painting":
+            return self._get_tasks(
+                num_tasks=CFG.num_train_tasks,
+                num_objs_lst=CFG.rnt_painting_num_objs_train,
+                rng=self._train_rng)
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=CFG.painting_num_objs_train,
+                               num_objs_lst=CFG.rnt_painting_num_objs_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=CFG.painting_num_objs_test,
-                               rng=self._test_rng)
+        if CFG.env == "repeated_nextto_painting":
+            return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                                   num_objs_lst=CFG.rnt_painting_num_objs_test,
+                                   rng=self._train_rng)
+        return self._get_tasks(num_tasks=CFG.num_train_tasks,
+                               num_objs_lst=CFG.rnt_painting_num_objs_test,
+                               rng=self._train_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -494,17 +503,20 @@ class PaintingEnv(BaseEnv):
                     grasp, held
                 ],
                                      dtype=np.float32)
+                max_objs_in_goal = CFG.painting_max_objs_in_goal
+                if CFG.env == "repeated_nextto_painting":
+                    max_objs_in_goal = CFG.rnt_painting_max_objs_in_goal
                 if j == num_objs - 1:
                     # Last object must go in the box
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
-                elif j < CFG.painting_max_objs_in_goal - 1:
+                elif j < max_objs_in_goal - 1:
                     # The last object is destined for the box, so the remaining
                     # (max_objs_in_goal - 1) objects must go in the shelf
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
-            assert len(goal) <= 2 * CFG.painting_max_objs_in_goal
+            assert len(goal) <= 2 * max_objs_in_goal
             state = State(data)
             # Sometimes start out holding an object, possibly with the wrong
             # grip, so that we'll have to put it on the table and regrasp
