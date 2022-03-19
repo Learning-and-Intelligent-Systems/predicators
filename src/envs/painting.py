@@ -494,14 +494,17 @@ class PaintingEnv(BaseEnv):
                     grasp, held
                 ],
                                      dtype=np.float32)
-                # Last object should go in box
                 if j == num_objs - 1:
+                    # Last object must go in the box
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
                     goal.add(GroundAtom(self._IsBoxColor, [obj, self._box]))
-                else:
+                elif j < CFG.painting_max_objs_in_goal - 1:
+                    # The last object is destined for the box, so the remaining
+                    # (max_objs_in_goal - 1) objects must go in the shelf
                     goal.add(GroundAtom(self._InShelf, [obj, self._shelf]))
                     goal.add(GroundAtom(self._IsShelfColor,
                                         [obj, self._shelf]))
+            assert len(goal) <= 2 * CFG.painting_max_objs_in_goal
             state = State(data)
             # Sometimes start out holding an object, possibly with the wrong
             # grip, so that we'll have to put it on the table and regrasp
