@@ -7,6 +7,7 @@ from predicators.src import utils
 from predicators.src.approaches import ApproachFailure, ApproachTimeout
 from predicators.src.approaches.oracle_approach import OracleApproach
 from predicators.src.envs.cover import CoverEnv
+from predicators.src.envs.painting import PaintingEnv
 from predicators.src.ground_truth_nsrts import get_gt_nsrts
 from predicators.src.option_model import _OracleOptionModel, \
     create_option_model
@@ -94,8 +95,8 @@ def test_task_plan():
 
 
 def test_sesame_plan_failures():
-    """Tests for failures in the planner using the OracleApproach on
-    CoverEnv."""
+    """Tests for failures in the planner using the OracleApproach on CoverEnv
+    and PaintingEnv."""
     utils.reset_config({"env": "cover"})
     env = CoverEnv()
     train_tasks = env.get_train_tasks()
@@ -165,6 +166,15 @@ def test_sesame_plan_failures():
             CFG.sesame_task_planning_heuristic,
             CFG.sesame_max_skeletons_optimized,
             check_dr_reachable=False)
+    utils.reset_config({"env": "painting", "painting_num_objs_train": [10]})
+    env = PaintingEnv()
+    train_tasks = env.get_train_tasks()
+    task = train_tasks[0]
+    option_model = create_option_model(CFG.option_model_name)
+    approach = OracleApproach(env.predicates, env.options, env.types,
+                              env.action_space, train_tasks)
+    with pytest.raises(ApproachTimeout):
+        approach.solve(task, timeout=0.1)
 
 
 def test_sesame_plan_uninitiable_option():
