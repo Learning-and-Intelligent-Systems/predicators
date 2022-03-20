@@ -402,8 +402,10 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
         # Sort the data into the PNADs.
         self._recompute_datastores_from_segments(pnads)
         # Update the preconditions based on the sorted data.
+        # Also: remove any side predicates that are no longer needed.
         # TODO: this is copy and pasted fom strips_learning.py. Refactor.
         for pnad in pnads:
+            new_side_predicates = set()
             for i, (segment, var_to_obj) in enumerate(pnad.datastore):
                 objects = set(var_to_obj.values())
                 obj_to_var = {o: v for v, o in var_to_obj.items()}
@@ -421,11 +423,22 @@ class BackchainingSidePredicateLearner(SidePredicateLearner):
                     preconditions = lifted_atoms
                 else:
                     preconditions &= lifted_atoms
+                assert len(set(var_to_obj.values())) == len(var_to_obj)
+                # Update the side predicates.
+                pnad_ground_add_effects = {a.ground(var_to_obj)
+                                           for a in pnad.op.add_effects}
+                pnad_ground_delete_effects = {a.ground(var_to_obj)
+                                              for a in pnad.op.delete_effects}
+                for atom in segment.add_effects - pnad_ground_add_effects:
+                    new_side_predicates.add(atom.predicate)
+                for atom in segment.delete_effects - pnad_ground_delete_effects:
+                    new_side_predicates.add(atom.predicate)
+            assert new_side_predicates.issubset(pnad.op.side_predicates)
             pnad.op = STRIPSOperator(
                 pnad.op.name,
                 pnad.op.parameters,
                 preconditions,
                 pnad.op.add_effects,
                 pnad.op.delete_effects,
-                pnad.op.side_predicates)
+                new_side_predicates)
         return pnads
