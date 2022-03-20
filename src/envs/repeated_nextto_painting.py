@@ -122,8 +122,6 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                      action: Optional[Action] = None,
                      caption: Optional[str] = None) -> List[Image]:
         # List of NextTo objects to render
-        # Added this to display what objects we are NextTo
-        # during video rendering
         nextto_objs = []
         for obj in state:
             if obj.is_instance(self._obj_type) or \
@@ -133,8 +131,8 @@ class RepeatedNextToPaintingEnv(PaintingEnv):
                         state.get(self._robot, "pose_y") -
                         state.get(obj, "pose_y")) < self.nextto_thresh:
                     nextto_objs.append(obj)
-        # Added this to display what objects we are nextto
-        # during video rendering, as a caption
+        # Call the parent's renderer, but include information about what
+        # objects we are NextTo as a caption
         return super().render_state(state, task, caption="NextTo: " + \
             str(nextto_objs))
 

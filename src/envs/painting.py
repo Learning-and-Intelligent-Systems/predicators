@@ -290,23 +290,20 @@ class PaintingEnv(BaseEnv):
         return next_state
 
     def _generate_train_tasks(self) -> List[Task]:
-        if CFG.env == "repeated_nextto_painting":
-            return self._get_tasks(
-                num_tasks=CFG.num_train_tasks,
-                num_objs_lst=CFG.rnt_painting_num_objs_train,
-                rng=self._train_rng)
+        num_objs_lst = (CFG.rnt_painting_num_objs_train
+                        if CFG.env == "repeated_nextto_painting"
+                        else CFG.painting_num_objs_train)
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=CFG.painting_num_objs_train,
+                               num_objs_lst=num_objs_lst,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
-        if CFG.env == "repeated_nextto_painting":
-            return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                                   num_objs_lst=CFG.rnt_painting_num_objs_test,
-                                   rng=self._train_rng)
+        num_objs_lst = (CFG.rnt_painting_num_objs_test
+                        if CFG.env == "repeated_nextto_painting"
+                        else CFG.painting_num_objs_test)
         return self._get_tasks(num_tasks=CFG.num_test_tasks,
-                               num_objs_lst=CFG.painting_num_objs_test,
-                               rng=self._train_rng)
+                               num_objs_lst=num_objs_lst,
+                               rng=self._test_rng)
 
     @property
     def predicates(self) -> Set[Predicate]:
@@ -503,9 +500,9 @@ class PaintingEnv(BaseEnv):
                     grasp, held
                 ],
                                      dtype=np.float32)
-                max_objs_in_goal = CFG.painting_max_objs_in_goal
-                if CFG.env == "repeated_nextto_painting":
-                    max_objs_in_goal = CFG.rnt_painting_max_objs_in_goal
+                max_objs_in_goal = (CFG.rnt_painting_max_objs_in_goal
+                                    if CFG.env == "repeated_nextto_painting"
+                                    else CFG.painting_max_objs_in_goal)
                 if j == num_objs - 1:
                     # Last object must go in the box
                     goal.add(GroundAtom(self._InBox, [obj, self._box]))
