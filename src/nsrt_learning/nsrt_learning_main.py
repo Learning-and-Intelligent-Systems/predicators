@@ -11,7 +11,8 @@ from predicators.src.nsrt_learning.sampler_learning import learn_samplers
 from predicators.src.nsrt_learning.segmentation import segment_trajectory
 from predicators.src.nsrt_learning.side_predicate_learning import \
     PredictionErrorHillClimbingSidePredicateLearner, \
-    PreserveSkeletonsHillClimbingSidePredicateLearner, SidePredicateLearner
+    PreserveSkeletonsHillClimbingSidePredicateLearner, SidePredicateLearner, \
+    BackchainingSidePredicateLearner
 from predicators.src.nsrt_learning.strips_learning import \
     learn_strips_operators
 from predicators.src.settings import CFG
@@ -88,6 +89,9 @@ def learn_nsrts_from_data(trajectories: List[LowLevelTrajectory],
                 PreserveSkeletonsHillClimbingSidePredicateLearner(
                     pnads, trajectories, train_tasks, predicates,
                     segmented_trajs)
+        elif CFG.side_predicate_learner == "backchaining":
+            side_pred_learner = BackchainingSidePredicateLearner(
+                pnads, trajectories, train_tasks, predicates, segmented_trajs)
         else:
             raise ValueError(
                 f"side_predicate_learner {CFG.side_predicate_learner} not " +
