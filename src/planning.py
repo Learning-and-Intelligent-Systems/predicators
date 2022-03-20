@@ -246,6 +246,8 @@ def _skeleton_generator(
                 priority = (len(child_node.skeleton) +
                             heuristic(child_node.atoms))
                 hq.heappush(queue, (priority, rng_prio.uniform(), child_node))
+                if time.time() - start_time >= timeout:
+                    break
     if not queue:
         raise _MaxSkeletonsFailure("Planning ran out of skeletons!")
     assert time.time() - start_time >= timeout
