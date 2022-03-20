@@ -76,6 +76,11 @@ class GlobalSettings:
     painting_num_objs_test = [3, 4]
     painting_max_objs_in_goal = float("inf")
 
+    # repeated_nextto_painting (rnt_painting) env parameters
+    rnt_painting_num_objs_train = [8, 9, 10]
+    rnt_painting_num_objs_test = [11, 12, 13]
+    rnt_painting_max_objs_in_goal = 2
+
     # tools env parameters
     tools_num_items_train = [2]
     tools_num_items_test = [2, 3]

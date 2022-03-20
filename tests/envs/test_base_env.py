@@ -20,6 +20,7 @@ def test_env_creation():
             "painting",
             "tools",
             "repeated_nextto",
+            "repeated_nextto_painting",
             "cover_multistep_options",
             "cover_multistep_options_fixed_tasks",
             "pybullet_blocks",
