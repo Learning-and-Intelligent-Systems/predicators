@@ -1012,7 +1012,7 @@ def _get_painting_gt_nsrts() -> Set[NSRT]:
                            _rng: np.random.Generator,
                            objs: Sequence[Object]) -> Array:
             del goal  # unused
-            y = state.get(objs[1], "pose_y")  # + rng.uniform() * 0.4
+            y = state.get(objs[1], "pose_y")
             return np.array([y], dtype=np.float32)
 
         # MoveToObj
