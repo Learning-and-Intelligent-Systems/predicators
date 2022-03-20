@@ -62,15 +62,15 @@ def test_repeated_nextto_painting_failure_cases():
     state = task.init
     x = state.get(obj0, "pose_x")
     y = state.get(obj0, "pose_y")
-    z = state.get(obj0, "pose_z") - 1.0
+    z = state.get(obj0, "pose_z")
     # Perform invalid place because we are not NextTo the target
     # (state should remain the same)
-    act = Place.ground([robot], np.array([x, y + 1, z],
+    act = Place.ground([robot], np.array([x, y-3.0, z],
                                          dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
     # Advance to a state where we are not holding anything
-    act = Place.ground([robot], np.array([x, y, z],
+    act = Place.ground([robot], np.array([x, y-1.0, z],
                                          dtype=np.float32)).policy(state)
     handempty_state = env.simulate(state, act)
     assert not state.allclose(handempty_state)
@@ -82,8 +82,3 @@ def test_repeated_nextto_painting_failure_cases():
                                               dtype=np.float32)).policy(state)
     next_state = env.simulate(state, act)
     assert state.allclose(next_state)
-    # Perform a valid pick
-    act = Pick.ground([robot, obj0], np.array([1],
-                                              dtype=np.float32)).policy(state)
-    picked_state = env.simulate(state, act)
-    assert not state.allclose(picked_state)

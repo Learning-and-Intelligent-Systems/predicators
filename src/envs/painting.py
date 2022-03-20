@@ -296,16 +296,16 @@ class PaintingEnv(BaseEnv):
                 num_objs_lst=CFG.rnt_painting_num_objs_train,
                 rng=self._train_rng)
         return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=CFG.rnt_painting_num_objs_train,
+                               num_objs_lst=CFG.painting_num_objs_train,
                                rng=self._train_rng)
 
     def _generate_test_tasks(self) -> List[Task]:
         if CFG.env == "repeated_nextto_painting":
-            return self._get_tasks(num_tasks=CFG.num_train_tasks,
+            return self._get_tasks(num_tasks=CFG.num_test_tasks,
                                    num_objs_lst=CFG.rnt_painting_num_objs_test,
                                    rng=self._train_rng)
-        return self._get_tasks(num_tasks=CFG.num_train_tasks,
-                               num_objs_lst=CFG.rnt_painting_num_objs_test,
+        return self._get_tasks(num_tasks=CFG.num_test_tasks,
+                               num_objs_lst=CFG.painting_num_objs_test,
                                rng=self._train_rng)
 
     @property
